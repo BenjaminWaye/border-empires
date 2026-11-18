@@ -22,7 +22,7 @@ const manpower = (amount: number): string => `${formatCount(amount)} manpower`;
 
 export const buildFiercestFighting = (hotspots: CombatInput["frontlineHotspots"]): DailyStoryEvent | undefined => {
   const top = hotspots[0];
-  if (!top || top.flips24h <= 0) return undefined;
+  if (!top || top.flips24h <= 0 || top.contestedByNames.length === 0) return undefined;
   // A hotspot can have a single contestant (the other side got filtered out
   // upstream, e.g. an eliminated player) -- "between Alice" reads broken.
   const front =
@@ -48,7 +48,7 @@ export const buildBloodiestBattle = (battle: CombatInput["biggestBattle24h"]): D
   // the outcome is the half of the story the old copy left out.
   const target = battle.defenderName ?? "unclaimed land";
   const outcome = battle.attackerWon ? "and broke through" : "and was thrown back";
-  const lead = `${battle.attackerName} threw ${manpower(battle.manpowerLoss)} into a single assault on ${target}`;
+  const lead = `${battle.attackerName} lost ${manpower(battle.manpowerLoss)} in a single assault on ${target}`;
   return story({
     type: "BLOODIEST_BATTLE",
     headline: "Bloodiest Battle",
@@ -64,20 +64,23 @@ export const buildBloodiestBattle = (battle: CombatInput["biggestBattle24h"]): D
 // attacking (barbarian-origin attacks already excluded sim-side, see
 // FiercestAttacker24h's doc comment). Paired with the tiles that player
 // gained in the same window (territoryMomentum), so the reader learns
-// whether the spending paid off.
+// whether the spending paid off. Net, not gross: tilesGained24h also counts
+// neutral claims and tiles retaken after being lost, so "took 312 tiles"
+// could describe an empire that shrank by 88 that day. An attacker absent
+// from territoryMomentum had no ownership changes at all, i.e. net 0.
 export const buildFiercestAttacker = (
   attacker: CombatInput["fiercestAttacker24h"],
   territoryMomentum: CombatInput["territoryMomentum"]
 ): DailyStoryEvent | undefined => {
   if (!attacker || attacker.manpowerSpent <= 0) return undefined;
-  const gained = territoryMomentum.find((entry) => entry.playerId === attacker.attackerId)?.tilesGained24h;
-  const lead = `${attacker.attackerName} spent ${manpower(attacker.manpowerSpent)} on attacks today`;
+  const net = territoryMomentum.find((entry) => entry.playerId === attacker.attackerId)?.net24h ?? 0;
+  const lead = `${attacker.attackerName} spent ${manpower(attacker.manpowerSpent)} on attacks today — more than anyone —`;
   const text =
-    gained === undefined
-      ? `${lead}, more than anyone.`
-      : gained === 0
-        ? `${lead} — more than anyone — but gained no ground.`
-        : `${lead} — more than anyone — and took ${pluralize(gained, "tile")}.`;
+    net > 0
+      ? `${lead} and came out ${pluralize(net, "tile")} ahead.`
+      : net < 0
+        ? `${lead} yet still ended the day ${pluralize(-net, "tile")} down.`
+        : `${lead} but gained no ground.`;
   return story({
     type: "FIERCEST_ATTACKER",
     headline: "Fiercest Attacker",
@@ -97,21 +100,28 @@ const HELD_ABSOLUTE_TILE_LIMIT = 10;
 // target lost almost as much ground as the day's heaviest defeat -- caught
 // on staging, 2026-11-16 (Sigrid: 18,730 manpower spent against, 405 tiles
 // lost). Now it only says "held the line" when the defence actually held,
-// and otherwise reports the siege for what it was.
+// and otherwise reports the siege for what it was. The day's heaviest loser
+// never "held", whatever its size: a 5,000-tile realm losing 450 tiles is
+// under 10% but still the worst losses of the day. Tiles lost are counted
+// from every cause, so the copy says the defender LOST them rather than
+// that these attackers took them.
 export const buildToughestTarget = (
   target: CombatInput["toughestTarget24h"],
   territoryMomentum: CombatInput["territoryMomentum"],
-  powerScore: CombatInput["powerScore"]
+  powerScore: CombatInput["powerScore"],
+  heaviestLoserId: string | undefined
 ): DailyStoryEvent | undefined => {
   if (!target || target.manpowerSpentAgainst <= 0) return undefined;
   const tilesLost = territoryMomentum.find((entry) => entry.playerId === target.defenderId)?.tilesLost24h ?? 0;
   const share = territoryLossShare(target.defenderId, tilesLost, powerScore);
-  const held = tilesLost === 0 || (share === undefined ? tilesLost <= HELD_ABSOLUTE_TILE_LIMIT : share < MEANINGFUL_LOSS_SHARE);
+  const isHeaviestLoser = tilesLost > 0 && target.defenderId === heaviestLoserId;
+  const smallLoss = share === undefined ? tilesLost <= HELD_ABSOLUTE_TILE_LIMIT : share < MEANINGFUL_LOSS_SHARE;
+  const held = tilesLost === 0 || (smallLoss && !isHeaviestLoser);
   const spent = manpower(target.manpowerSpentAgainst);
   const name = target.defenderName;
   const text = held
-    ? `Rivals hurled ${spent} at ${name} today and took ${tilesLost === 0 ? "not a single tile" : `only ${pluralize(tilesLost, "tile")}`}.`
-    : `${name} was the most attacked empire today — rivals hurled ${spent} at them and carved off ${pluralize(tilesLost, "tile")}${lossShareClause(share)}.`;
+    ? `Rivals hurled ${spent} at ${name} today, yet ${name} lost ${tilesLost === 0 ? "not a single tile" : `only ${pluralize(tilesLost, "tile")}`}.`
+    : `${name} was the most attacked empire today — rivals hurled ${spent} at them, and ${name} lost ${pluralize(tilesLost, "tile")}${lossShareClause(share)}.`;
   return story({
     type: "TOUGHEST_TARGET",
     headline: held ? "Held the Line" : "Under Siege",

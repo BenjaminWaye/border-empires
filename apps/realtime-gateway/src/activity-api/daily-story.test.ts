@@ -71,7 +71,7 @@ describe("buildDailyStory", () => {
       {
         type: "BLOODIEST_BATTLE",
         headline: "Bloodiest Battle",
-        text: "Milo Ash threw 40 manpower into a single assault on Barbarians at (128, 44) — and broke through.",
+        text: "Milo Ash lost 40 manpower in a single assault on Barbarians at (128, 44) — and broke through.",
         significance: 13, // normalizeSignificance(40, SIGNIFICANCE_SCALE.singleBattleManpower=300)
         players: ["Milo Ash", "Barbarians"],
         x: 128,
@@ -88,7 +88,7 @@ describe("buildDailyStory", () => {
       },
       nameFor
     );
-    expect(events[0]!.text).toBe("Milo Ash threw 10 manpower into a single assault on unclaimed land at (5, 5) — and broke through.");
+    expect(events[0]!.text).toBe("Milo Ash lost 10 manpower in a single assault on unclaimed land at (5, 5) — and broke through.");
     expect(events[0]!.players).toEqual(["Milo Ash"]);
   });
 
@@ -101,8 +101,8 @@ describe("buildDailyStory", () => {
       {
         type: "FIERCEST_ATTACKER",
         headline: "Fiercest Attacker",
-        text: "Milo Ash spent 400 manpower on attacks today, more than anyone.",
-        significance: 8, // normalizeSignificance(400, SIGNIFICANCE_SCALE.aggregateManpower=5000)
+        text: "Milo Ash spent 400 manpower on attacks today — more than anyone — but gained no ground.",
+        significance: 4, // normalizeSignificance(400, SIGNIFICANCE_SCALE.aggregateManpower=10000)
         players: ["Milo Ash"]
       }
     ]);
@@ -125,8 +125,8 @@ describe("buildDailyStory", () => {
       {
         type: "TOUGHEST_TARGET",
         headline: "Held the Line",
-        text: "Rivals hurled 3,400 manpower at Wayepoint today and took not a single tile.",
-        significance: 68, // normalizeSignificance(3400, aggregateManpower=5000)
+        text: "Rivals hurled 3,400 manpower at Wayepoint today, yet Wayepoint lost not a single tile.",
+        significance: 34, // normalizeSignificance(3400, aggregateManpower=10000)
         players: ["Wayepoint"]
       }
     ]);
@@ -141,7 +141,7 @@ describe("buildDailyStory", () => {
       },
       nameFor
     );
-    expect(events[0]!.text).toBe("Rivals hurled 100 manpower at Milo Ash today and took only 3 tiles.");
+    expect(events[0]!.text).toBe("Rivals hurled 100 manpower at Milo Ash today, yet Milo Ash lost only 3 tiles.");
   });
 
   it("attributes zero tiles lost to a defender absent from territoryMomentum entirely", () => {
@@ -149,7 +149,7 @@ describe("buildDailyStory", () => {
       { ...emptyInput, toughestTarget24h: { defenderId: "unknown-player", defenderName: "Ghost", manpowerSpentAgainst: 50 } },
       nameFor
     );
-    expect(events[0]!.text).toBe("Rivals hurled 50 manpower at Ghost today and took not a single tile.");
+    expect(events[0]!.text).toBe("Rivals hurled 50 manpower at Ghost today, yet Ghost lost not a single tile.");
   });
 
   it("returns nothing for toughest target when manpower spent against them is zero", () => {
@@ -301,7 +301,7 @@ describe("buildDailyStory", () => {
       nameFor
     );
     const byType = new Map(events.map((e) => [e.type, e.text]));
-        expect(byType.get("OPEN_WAR")).toBe("Milo Ash and Barbarians are locked in open war — 1 tile changed hands today. Milo Ash is bleeding worst: 1 tile lost, more than any empire.");
+    expect(byType.get("OPEN_WAR")).toBe("Milo Ash and Barbarians are locked in open war — 1 tile changed hands today. Milo Ash is bleeding worst: 1 tile lost, more than any empire.");
     expect(byType.get("FIERCEST_FIGHTING")).toBe("Sigrid's front changed hands once at (434, 154) today.");
     expect(byType.get("FASTEST_EXPANSION")).toBe("Racer grew faster than any empire today — a net 1 tile gained.");
     expect(byType.get("STRONGEST_EMPIRE")).toBe("Champion still holds the strongest empire in the realm — 1 tile, score 7.9.");

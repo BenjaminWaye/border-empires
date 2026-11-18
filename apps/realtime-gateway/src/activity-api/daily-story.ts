@@ -76,18 +76,27 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
 // dedupeByPlayerSet can't catch it because the war names a new player. Fold
 // the loss into the war headline instead, so it reads as one escalating
 // story with a clear loser.
+//
+// tilesLost is the loser's total from every front, so the fold only happens
+// when this war is big enough to account for at least half of it --
+// otherwise a 3-tile skirmish with Freja would be blamed for 470 tiles lost
+// to Bjorn, and inherit the defeat's ranking.
+const WAR_SHARE_OF_LOSS_TO_MERGE = 0.5;
 const mergeDefeatIntoWar = (
   war: DailyStoryEvent | undefined,
   defeat: DailyStoryEvent | undefined,
   swing: DailyStoryInput["biggestSwing24h"],
+  wars: DailyStoryInput["wars"],
   powerScore: DailyStoryInput["powerScore"]
-): DailyStoryEvent[] => {
-  if (!war || !defeat || !swing || !war.participantIds.includes(swing.playerId)) {
-    return [war, defeat].filter((event): event is DailyStoryEvent => event !== undefined);
+): { events: DailyStoryEvent[]; folded: boolean } => {
+  const topWarTiles = Math.max(0, ...wars.map((entry) => entry.tilesContested24h));
+  const warExplainsLoss = !!swing && topWarTiles >= swing.tilesLost * WAR_SHARE_OF_LOSS_TO_MERGE;
+  if (!war || !defeat || !swing || !warExplainsLoss || !war.participantIds.includes(swing.playerId)) {
+    return { events: [war, defeat].filter((event): event is DailyStoryEvent => event !== undefined), folded: false };
   }
   const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, powerScore));
   const text = `${war.text} ${swing.playerName} is bleeding worst: ${pluralize(swing.tilesLost, "tile")} lost${share}, more than any empire.`;
-  return [story({ ...war, text, significance: Math.max(war.significance, defeat.significance) }, war.participantIds)];
+  return { events: [story({ ...war, text, significance: Math.max(war.significance, defeat.significance) }, war.participantIds)], folded: true };
 };
 
 const buildAllianceFormed = (
@@ -186,17 +195,27 @@ const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[
 
 /** Builds the day's narrated highlights, ranked most-significant first. */
 export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResolver): DailyStoryEvent[] => {
+  const heaviestLoserId = input.biggestSwing24h && input.biggestSwing24h.tilesLost > 0 ? input.biggestSwing24h.playerId : undefined;
+  const toughestTarget = buildToughestTarget(input.toughestTarget24h, input.territoryMomentum, input.powerScore, heaviestLoserId);
+  const warAndDefeat = mergeDefeatIntoWar(
+    buildOpenWar(input.wars),
+    buildBiggestDefeat(input.biggestSwing24h, input.powerScore),
+    input.biggestSwing24h,
+    input.wars,
+    input.powerScore
+  );
+  // Once the war line reports the heaviest loser's losses, an "Under Siege"
+  // story about that same player would tell them twice (and, being a subset
+  // of the war's players, dedupe can only drop it if it ranks lower). Without
+  // a fold, Heaviest Defeat and Under Siege are both single-player stories
+  // and dedupeByPlayerSet keeps just the higher-ranked one.
+  const siegeRepeatsDefeat = warAndDefeat.folded && toughestTarget?.headline === "Under Siege" && toughestTarget.participantIds[0] === heaviestLoserId;
   const events = [
-    ...mergeDefeatIntoWar(
-      buildOpenWar(input.wars),
-      buildBiggestDefeat(input.biggestSwing24h, input.powerScore),
-      input.biggestSwing24h,
-      input.powerScore
-    ),
+    ...warAndDefeat.events,
     buildFiercestFighting(input.frontlineHotspots),
     buildBloodiestBattle(input.biggestBattle24h),
     buildFiercestAttacker(input.fiercestAttacker24h, input.territoryMomentum),
-    buildToughestTarget(input.toughestTarget24h, input.territoryMomentum, input.powerScore),
+    siegeRepeatsDefeat ? undefined : toughestTarget,
     buildAllianceFormed(input.alliances, nameFor),
     buildAllianceBroken(input.allianceBreaks, nameFor),
     buildFastestExpansion(input.territoryMomentum),
