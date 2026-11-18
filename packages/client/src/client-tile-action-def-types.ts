@@ -90,6 +90,7 @@ export type TileActionDef = {
     | "hijack_aether_tower"
     | "forced_ancillarification"
     | "ship_salvage_to_court"
+    | "activate_waystation"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"

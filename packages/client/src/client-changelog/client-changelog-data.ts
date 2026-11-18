@@ -492,6 +492,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Occupied plots and enemy land no longer appear as empty building space."
     ]
   },
+  {
+    createdAt: 1795013008269,
+    introducedIn: "2026.11.18",
+    title: "Survey Rigs with rewards to collect",
+    why: "Waystations should look like a prize on the map and let you choose when to collect it.",
+    changes: [
+      "Waystations now look like portable Survey Rigs, with a brass tripod, cyan lens, canvas shelter and supply case in both map renderers.",
+      "A hovering prompt stays above each visible, uncollected rig. Claim its tile, then press Activate to collect one random reward.",
+      "The rig and prompt disappear after collection. The reward pool is unchanged."
+    ]
+  },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

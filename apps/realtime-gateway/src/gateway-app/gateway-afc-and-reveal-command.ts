@@ -29,8 +29,8 @@ export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage,
     await dispatch("REDEPLOY_AFC_MODULE", { x: message.x, y: message.y, techId: message.techId }, true);
     return true;
   }
-  if (message.type === "SHIP_SALVAGE_TO_COURT") {
-    await dispatch("SHIP_SALVAGE_TO_COURT", { x: message.x, y: message.y }, true);
+  if (message.type === "SHIP_SALVAGE_TO_COURT" || message.type === "ACTIVATE_WAYSTATION") {
+    await dispatch(message.type, { x: message.x, y: message.y }, true);
     return true;
   }
   if (message.type !== "BUILD_AFC") return false;

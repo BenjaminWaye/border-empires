@@ -654,8 +654,10 @@ strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3). These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
 
-Frontier waystations are temporary camps. Once a House claims one, the
-camp is struck. A camp that guarded fertile ground or a deposit leaves that
+Frontier waystations are temporary survey camps: portable brass instruments
+on iron tripods, packed equipment cases and canvas shelters. Once a House
+claims the ground, its survey rig waits to be activated and its supplies
+collected; then the camp is struck. A camp that guarded fertile ground or a deposit leaves that
 site for the House to work and defend.
 
 A House's war industry shows on its soldiers. Once a House runs a Titanium
