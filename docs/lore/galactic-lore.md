@@ -649,6 +649,14 @@ from the factory's supporting town and remade into an immediate manpower
 reserve. They cease to count among that town's civilian population. The
 population sacrifice and recovery interval belong in the economy reference.
 
+A **Farm Plot** is a town's own people clearing and working kitchen beds on
+the plain ground around the town. It is labour, not imported machinery or
+stock, so no Manifest buys it: local seed on unprepared ground yields little,
+and fertile land stays the efficient source of food. Hyperfeed Seedstock, the
+imported adaptive crop stock calibrated for this world's soil, turns a plot
+into a **Hydrogarden Plot**, glass beds as productive as a hydroponic garden
+on fertile ground. The name "Farm Plot" is a working name (§14).
+
 Food supports people and local development. Titanium and Umbrite are
 strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3). These meanings do not prescribe stockpiles, resource-slot costs or
@@ -823,6 +831,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
 | Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
+| Subsistence plots and fertile land | §11 says fertile land supports food; Farm Plots let a town grow food on plain ground beside it. Proposed reading: no contradiction, since fertile tiles remain the efficient source and a plot is a costly fallback. Confirm, and settle the structure's final name ("Farm Plot" is a working name). |
 | Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Proposed Umbrite forest appearance

@@ -1,6 +1,7 @@
 # Farm Plot: food without exploring
 
-Status: proposal (core numbers decided 2026-11-18; name and fiction open; nothing built)
+Status: implemented 2026-11-18 (name still a working name, see §5 and the
+world bible §14; AI support is a follow-up, see §7)
 
 ## 1. Problem
 
@@ -211,3 +212,29 @@ remain the efficient source, and plots are a costly fallback.
 - Moving any structure out of the Manifest.
 - Changing commission prices or coin income.
 - The town "invest manpower" action, which is a separate option.
+
+## 7. As implemented
+
+Rules as shipped are in [game mechanics §5](game-mechanics.md#5-structures)
+and the [economy reference](product/resource-and-manpower-economy.md#resource-slots).
+Choices made while building it:
+
+- **Two structure types.** `FARM_PLOT` and its upgrade `HYDROGARDEN_PLOT`
+  ("Hydrogarden Plot"), on the existing economic in-place upgrade path (the
+  one High-Yield converters use). A distinct upgraded type keeps the
+  Hydrogarden's own FARM-tile rules, art and AI logic untouched.
+  `farmPlotUpgradeForChoice` mirrors `fortTierForChoice` and is shared by the
+  sim and the build menu; a Hydrogarden Plot is never a fresh build.
+- **Supply while upgrading.** The plot keeps its 1 FOOD while the upgrade
+  builds, so the upgrade never starves the town for its build time.
+  Cancelling the upgrade refunds it and leaves the Farm Plot standing.
+- **No `tile.resource` change and no new tile fields**: supply is read from
+  `economicStructure.type`, so snapshots round-trip unchanged.
+- **Auto-improve** does not build plots: it improves resource tiles, and a
+  plot never stands on one.
+- **Renderers.** Both are town-district models (`support-model-farm.ts`); the
+  2D icons are exported from them by `scripts/generate-town-district-icons.mjs`.
+- **Follow-up: AI.** No planner rule builds or upgrades plots yet. An AI with a
+  town and no FOOD slot could use one; see `docs/agents/topics/ai-planner.md`
+  before adding it.
+
