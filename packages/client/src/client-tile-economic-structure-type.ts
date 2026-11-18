@@ -31,6 +31,7 @@ export type ClientTileEconomicStructure = {
     | "HIGH_YIELD_AETHER_CONDENSER"
     | "TRADE_NEXUS"
     | "ANCILLARY_DEPOT"
+    | "VIVARIUM"
     | "HARBOR_EXCHANGE"
     | "NEURAL_WORKS"
     | "MINISTRY_HALL"

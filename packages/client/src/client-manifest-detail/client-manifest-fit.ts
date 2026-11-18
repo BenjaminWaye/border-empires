@@ -54,6 +54,7 @@ const BUILDABLE_UNLOCKS: Readonly<Record<string, BuildableStructureType>> = {
   unlockHarborExchange: "HARBOR_EXCHANGE",
   unlockMinistryHall: "MINISTRY_HALL",
   unlockAncillaryDepot: "ANCILLARY_DEPOT",
+  unlockVivarium: "VIVARIUM",
   unlockSkyDock: "SKY_DOCK",
   unlockResonanceGrid: "RESONANCE_GRID",
   unlockNeuralWorks: "NEURAL_WORKS",

@@ -40,6 +40,7 @@ const STRUCTURE_UNLOCK_KEYS: Record<string, EconomicStructureType | StructureInf
   unlockHarborExchange: "HARBOR_EXCHANGE",
   unlockMinistryHall: "MINISTRY_HALL",
   unlockAncillaryDepot: "ANCILLARY_DEPOT",
+  unlockVivarium: "VIVARIUM",
   unlockSkyDock: "SKY_DOCK",
   unlockResonanceGrid: "RESONANCE_GRID",
   unlockAstralDock: "ASTRAL_DOCK",

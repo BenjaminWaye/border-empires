@@ -1,5 +1,4 @@
-import { MANPOWER_REFILL_WINDOW_MS, terrainAdjustedTownManpower, type PopulationTier } from "@border-empires/shared";
-import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
+import { MANPOWER_REFILL_WINDOW_MS, biotaAdjustedTownManpower, biotaShareMet, terrainAdjustedTownManpower, type PopulationTier } from "@border-empires/shared";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 
 const escapeHtml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -7,7 +6,8 @@ const pips = (received: number, needed: number): string => "●".repeat(received
 
 /**
  * Town menu line for a City, Great City or Metropolis: how much biota it gets
- * and, when it is short, the tier it is working as and the manpower lost.
+ * and, when it is short, the share of its need met and the manpower lost
+ * (manpower and Coin scale with that share; biota-town-output.ts).
  */
 export function townBiotaLineHtml(
   tileKey: string,
@@ -17,10 +17,11 @@ export function townBiotaLineHtml(
 ): string | undefined {
   const status = biotaTowns?.find(entry => entry.tileKey === tileKey);
   if (!status || status.needed <= 0) return undefined;
-  const head = `Biota ${pips(status.received, status.needed)} ${status.received} of ${status.needed}`;
-  if (status.received >= status.needed) return `${escapeHtml(head)} · full manpower`;
+  const local = status.local ? ` (${status.local} from Vivaria)` : "";
+  const head = `Biota ${pips(status.received, status.needed)} ${status.received} of ${status.needed}${local}`;
+  if (status.received >= status.needed) return `${escapeHtml(head)} · full manpower and Coin`;
   const full = terrainAdjustedTownManpower(tier, terrain.terrainProfile, terrain.coastal);
-  const reduced = terrainAdjustedTownManpower(status.manpowerTier, terrain.terrainProfile, terrain.coastal);
+  const reduced = biotaAdjustedTownManpower(tier, terrain.terrainProfile, terrain.coastal, status);
   const perRefill = Math.round((full.regenPerMinute - reduced.regenPerMinute) * MANPOWER_REFILL_WINDOW_MS / 60_000);
-  return escapeHtml(`Unruly · ${head} · working as a ${displayTownPopulationTierLabel(status.manpowerTier)} · −${Math.round(full.cap - reduced.cap).toLocaleString()} manpower cap, −${perRefill} per refill`);
+  return escapeHtml(`Unruly · ${head} · ${Math.round(biotaShareMet(status) * 100)}% of need met · −${Math.round(full.cap - reduced.cap).toLocaleString()} manpower cap, −${perRefill} per refill, less Coin`);
 }

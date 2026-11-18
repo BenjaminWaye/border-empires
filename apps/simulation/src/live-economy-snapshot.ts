@@ -1,5 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
-import { networkSupplyStatus } from "./resource-networks/resource-network-status.js";
+import { biotaDemandTowns, networkSupplyStatus } from "./resource-networks/resource-network-status.js";
 import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { applyIntegrityIncomeLine } from "./coin-income-adjustments/coin-income-adjustments.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
@@ -76,7 +76,7 @@ export const buildLivePlayerEconomySnapshot = (
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
   const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
-  const bonusSupply = networkSupplyStatus(sites, (settledDomainTilesByPlayerId.get(playerId) ?? []).map(tile => tile.town?.populationTier));
+  const bonusSupply = networkSupplyStatus(sites, biotaDemandTowns(playerId, settledDomainTilesByPlayerId.get(playerId) ?? [], domainTilesByKey, dormantEconomicStructureKeys));
   if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();

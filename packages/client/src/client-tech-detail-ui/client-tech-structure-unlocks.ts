@@ -90,6 +90,9 @@ export const relatedStructureTypesForTech = (tech: Pick<TechInfo, "effects">): S
       case "unlockAncillaryDepot":
         out.add("ANCILLARY_DEPOT");
         break;
+      case "unlockVivarium":
+        out.add("VIVARIUM");
+        break;
       case "unlockSkyDock":
         out.add("SKY_DOCK");
         break;

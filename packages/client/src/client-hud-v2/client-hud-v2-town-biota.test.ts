@@ -17,7 +17,7 @@ const city = {
     hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
   }
 } as unknown as Tile;
-const left = (biota?: { received: number; needed: number; manpowerTier: "TOWN" | "CITY" }, biotaSteps: BiotaStep[] = []) =>
+const left = (biota?: { received: number; needed: number; manpowerTier: "TOWN" | "CITY"; local?: number }, biotaSteps: BiotaStep[] = []) =>
   townScreenRegions({
     town: city, focus: city, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined,
     ...(biota ? { biota: { tileKey: "4,4", ...biota } } : {}), biotaSteps
@@ -33,11 +33,21 @@ describe("HUD v2 town screen luxury biota", () => {
     document.body.innerHTML = "";
   });
 
+  it("says how many of a town's biota slots its own Vivaria cover, and offers a Vivarium when short", () => {
+    const html = left({ received: 1, needed: 1, manpowerTier: "CITY", local: 1 });
+    expect(html).toContain("● 1 of 1 (1 from Vivaria) · Full manpower");
+    const short = left(unruly, [{ kind: "vivarium", researched: true }]);
+    expect(short).toContain('data-v2-info-structure="VIVARIUM"');
+    expect(short).toContain("Or build a");
+    expect(short).toContain("+1 slot each");
+    expect(left(unruly, [{ kind: "vivarium", researched: false }])).toContain("Or research Census Office for a");
+  });
+
   it("shows an unruly town's biota shortfall and the manpower it actually gives", () => {
     const html = left(unruly);
     expect(html).toContain("Unruly · luxury biota");
     expect(html).toContain("○ 0 of 1");
-    expect(html).toContain("Unruly · working as a Town");
+    expect(html).toContain("Unruly · 0% of a City's biota need met");
     expect(html).toContain(cap("TOWN"));
     expect(cap("TOWN")).not.toBe(cap("CITY"));
   });

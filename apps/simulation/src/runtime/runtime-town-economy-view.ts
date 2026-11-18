@@ -12,16 +12,38 @@
 // town, economic structure), which covers every field the view counts. It does
 // not cover dormancy (a FOOD-slot shortfall writes no tile), and the view
 // ignores dormancy anyway: it counts what is built, not what is powered.
+import type { BiotaTownSupply } from "@border-empires/shared";
 import type { ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { buildTownEconomyView, type TownEconomyEntry } from "../ai/build/town-economy-view.js";
 import { cachedTownNetworkForPlayer, type RuntimeTownNetworkContext } from "./runtime-town-network.js";
 
-const viewByNetwork = new WeakMap<ReadonlyMap<string, ConnectedTownNetworkEntry>, readonly TownEconomyEntry[]>();
+// The biota allocation can change without a network rebuild (a resource trade
+// moves biota sites), so the memo also checks the allocation it was built from.
+type MemoView = { view: readonly TownEconomyEntry[]; biota: ReadonlyMap<string, BiotaTownSupply> | undefined };
+const viewByNetwork = new WeakMap<ReadonlyMap<string, ConnectedTownNetworkEntry>, MemoView>();
 // Last view per player, for callers that must not trigger a rebuild. Bounded
 // by the player roster; entries for removed players are dropped on read.
 const lastViewByPlayer = new Map<string, readonly TownEconomyEntry[]>();
 
-export type TownEconomyViewOptions = { rebuildOnMiss?: boolean };
+export type TownEconomyViewOptions = {
+  rebuildOnMiss?: boolean;
+  /** The player's current biota allocation (cachedManpowerStructureBonusForPlayer), for Vivarium scoring. */
+  biotaTownSupply?: () => ReadonlyMap<string, BiotaTownSupply> | undefined;
+};
+
+// Each manpower-cache rebuild makes a new allocation Map, so compare contents, not identity. O(large towns).
+const sameBiotaAllocation = (
+  a: ReadonlyMap<string, BiotaTownSupply> | undefined,
+  b: ReadonlyMap<string, BiotaTownSupply> | undefined
+): boolean => {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const [key, supply] of a) {
+    const other = b.get(key);
+    if (!other || other.received !== supply.received || other.needed !== supply.needed) return false;
+  }
+  return true;
+};
 
 export const townEconomyViewForPlayer = (
   ctx: RuntimeTownNetworkContext,
@@ -37,11 +59,14 @@ export const townEconomyViewForPlayer = (
   if (!cachedNetwork && options.rebuildOnMiss === false) return lastViewByPlayer.get(playerId);
   // maxConnectedTownNames 0 matches the other economy readers of this cache.
   const network = cachedNetwork ?? cachedTownNetworkForPlayer(ctx, player, ctx.settledTilesForPlayer(playerId), 0);
-  let view = viewByNetwork.get(network);
-  if (!view) {
-    view = buildTownEconomyView(playerId, ctx.summaryForPlayer(playerId).ownedTownTierByTile.keys(), ctx.tiles, network);
-    viewByNetwork.set(network, view);
+  // Callers without a biota source (the metrics tick) take whatever view is memoised.
+  const biota = options.biotaTownSupply?.();
+  let memo = viewByNetwork.get(network);
+  if (!memo || (options.biotaTownSupply && !sameBiotaAllocation(memo.biota, biota))) {
+    memo = { view: buildTownEconomyView(playerId, ctx.summaryForPlayer(playerId).ownedTownTierByTile.keys(), ctx.tiles, network, biota), biota };
+    viewByNetwork.set(network, memo);
   }
+  const view = memo.view;
   lastViewByPlayer.set(playerId, view);
   return view;
 };
