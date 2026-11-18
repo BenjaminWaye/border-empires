@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTapConfirmButton, tapConfirmButtonPosition } from "./client-tap-confirm-button.js";
 
 const size = { width: 200, height: 64, viewportWidth: 375, viewportHeight: 812 };
@@ -24,6 +24,20 @@ describe("tapConfirmButtonPosition", () => {
 
 describe("createTapConfirmButton", () => {
   const button = (): HTMLButtonElement => document.querySelector(".tap-confirm-btn") as HTMLButtonElement;
+  beforeEach(() => document.querySelectorAll(".tap-confirm-btn").forEach((el) => el.remove()));
+
+  // Owner constraint: mobile is crowded, so the prompt is transient. Nothing
+  // exists until a tile is selected, it never takes layout space (fixed), and
+  // it is gone again after confirm or deselect.
+  it("adds no permanent HUD footprint: absent until offered, fixed-position, hidden after deselect", () => {
+    const prompt = createTapConfirmButton(document);
+    expect(document.querySelector(".tap-confirm-btn")).toBeNull();
+    prompt.notePoint(100, 400);
+    prompt.offer({ label: "Expand To" }, vi.fn());
+    expect(button().className).toBe("tap-confirm-btn");
+    prompt.notePoint(300, 500); // the next tap (anywhere) deselects first
+    expect(button().style.display).toBe("none");
+  });
 
   it("shows the action and cost, and one tap confirms", () => {
     const prompt = createTapConfirmButton(document);
