@@ -382,15 +382,17 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-waiting", !onScreen);
     if (!onScreen) lensMenu.open = false;
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
-    if (!onScreen || !deps.state.me) return;
-    openRequestedTechDetail(deps);
     const nowMs = Date.now();
-    renderFast(deps.state, deps.ownerColor, nowMs);
-    if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
-    syncHouseChargesBubble(deps.state, nowMs, screen.id !== null || Boolean(deps.state.activePlayerProfileId), () => {
+    // Before the off-screen return, so the bubble also goes away on sign-out, the lobby and other waits.
+    const bubbleHidden = !onScreen || !deps.state.me || screen.id !== null || Boolean(deps.state.activePlayerProfileId);
+    syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
       deps.setActivePanel("charges");
       deps.renderHud();
     });
+    if (!onScreen || !deps.state.me) return;
+    openRequestedTechDetail(deps);
+    renderFast(deps.state, deps.ownerColor, nowMs);
+    if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
     // The login briefing and release notes open as the Chronicle on the matching tab.
     const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {

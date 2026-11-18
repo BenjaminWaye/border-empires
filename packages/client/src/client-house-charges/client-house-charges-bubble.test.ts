@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
-import { houseChargesUnhandled, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
+import { houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
 
 const charge = (id: string): HouseChargeView => ({
   id,
@@ -22,8 +22,10 @@ const root = () => document.getElementById("house-charges-bubble");
 // a dismissable "your House has handed you sealed charges" note, staying until the charges are handled.
 describe("sealed charges bubble", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     window.localStorage.clear();
     document.body.innerHTML = "";
+    resetHouseChargesBubbleForTests();
   });
 
   it("shows three illustrated cards and the House's note while the choice is open", () => {
@@ -67,5 +69,29 @@ describe("sealed charges bubble", () => {
     // Still unhandled: it comes back once the screen closes.
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, () => {});
     expect(root()).not.toBeNull();
+  });
+
+  // Review of #2871: with storage blocked the flags only lived in storage, so x never closed the note and the
+  // bubble came back on the next frame after the cards opened the panel.
+  it("still closes the note and stays handled when storage is blocked", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const state = { houseCharges: deal, activePanel: null };
+    syncHouseChargesBubble(state, 2_000, false, () => {});
+    root()!.querySelector<HTMLButtonElement>("[data-hcb-action='dismiss-speech']")!.click();
+    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    root()!.querySelector<HTMLButtonElement>(".hcb-orb")!.click();
+    syncHouseChargesBubble(state, 3_000, false, () => {});
+    expect(root()).toBeNull();
+  });
+
+  it("reads storage once per deal, not on every frame", () => {
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    for (let t = 2_000; t < 4_000; t += 250) syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, t, false, () => {});
+    expect(getItem.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });

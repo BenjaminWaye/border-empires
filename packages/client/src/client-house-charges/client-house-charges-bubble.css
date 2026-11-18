@@ -1,15 +1,23 @@
-/* Bobbing sealed-charges bubble (client-house-charges-bubble.ts): left edge, below the guide's "?" launcher.
+/* Bobbing sealed-charges bubble (client-house-charges-bubble.ts): beside the desktop tracker, or on the phone's left edge.
    Only layout and motion live here: the cards are the charge card's `.is-mini` variant
    (client-house-charge-cards.css) and the note is the shared `.sp-callout` (client-callout/client-callout.css). */
+/* Desktop: beside the tracker column (.hud-v2-tracker, fixed at left 16px, 280px wide, z 38), never under it. */
 .hcb-root {
   position: fixed;
-  left: 14px;
-  top: calc(var(--v2c-safe-top, 0px) + 290px);
+  left: 312px;
+  top: 160px;
   z-index: 22;
   display: flex;
   align-items: center;
   gap: 8px;
   pointer-events: none;
+  /* The whole bubble bobs, so the note's pointer stays on the cards. */
+  animation: hcb-bob 2.4s ease-in-out infinite;
+}
+/* Phone: the tracker folds to one line at the top, so the left edge below the guide's launcher is free. */
+body.hud-v2-compact .hcb-root {
+  left: calc(var(--v2c-safe-left, 0px) + 14px);
+  top: calc(var(--v2c-top, 60px) + 230px);
 }
 .hcb-orb,
 .hcb-speech { pointer-events: auto; }
@@ -25,7 +33,7 @@
   display: grid;
   place-items: center;
   touch-action: manipulation;
-  animation: hcb-bob 2.4s ease-in-out infinite, hcb-glow 2.4s ease-in-out infinite;
+  animation: hcb-glow 2.4s ease-in-out infinite;
 }
 .hcb-orb:focus-visible { outline: 2px solid var(--sp-parchment-100, #f2e8d3); outline-offset: 3px; }
 /* Three cards fanned from a point below the hand. */
@@ -71,5 +79,6 @@
   50% { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(217, 173, 82, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .hcb-root,
   .hcb-orb { animation: none; }
 }

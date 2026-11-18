@@ -28,18 +28,43 @@ const writeDeal = (key: string, dealtAt: number): void => {
   try {
     window.localStorage.setItem(key, String(dealtAt));
   } catch {
-    // Storage blocked: the bubble may come back on reload, which is harmless.
+    // Storage blocked: the in-memory flags still hold for this session; the bubble may come back after a reload.
   }
+};
+
+/**
+ * Both flags for the current deal, read from storage once per deal and kept in memory, so the 250 ms HUD
+ * frame never touches storage and the flags still work for the session when storage is blocked.
+ */
+type DealFlags = { dealtAt: number; handled: boolean; speechDismissed: boolean };
+let flags: DealFlags | undefined;
+
+const flagsFor = (dealtAt: number): DealFlags => {
+  if (flags?.dealtAt !== dealtAt) {
+    flags = { dealtAt, handled: readDeal(HANDLED_KEY) === String(dealtAt), speechDismissed: readDeal(SPEECH_KEY) === String(dealtAt) };
+  }
+  return flags;
+};
+
+/** Test-only: forgets the in-memory flags and the rendered bubble. */
+export const resetHouseChargesBubbleForTests = (): void => {
+  flags = undefined;
+  lastHtml = "";
 };
 
 /** True while the House still has a keep choice to make that it has not looked at. */
 export const houseChargesUnhandled = (payload: HouseChargesPayload | null | undefined, nowMs: number): payload is HouseChargesPayload =>
-  Boolean(payload) &&
-  nowMs < payload!.choiceClosesAt &&
-  payload!.charges.length > HOUSE_CHARGES_KEPT &&
-  readDeal(HANDLED_KEY) !== String(payload!.dealtAt);
+  payload !== null && payload !== undefined && nowMs < payload.choiceClosesAt && payload.charges.length > HOUSE_CHARGES_KEPT && !flagsFor(payload.dealtAt).handled;
 
-export const markHouseChargesHandled = (dealtAt: number): void => writeDeal(HANDLED_KEY, dealtAt);
+export const markHouseChargesHandled = (dealtAt: number): void => {
+  flagsFor(dealtAt).handled = true;
+  writeDeal(HANDLED_KEY, dealtAt);
+};
+
+const dismissSpeech = (dealtAt: number): void => {
+  flagsFor(dealtAt).speechDismissed = true;
+  writeDeal(SPEECH_KEY, dealtAt);
+};
 
 /** A face-down charge card: the trading card's own back (client-house-charge-cards.ts). */
 const MINI_CARD = houseChargeCardBackHtml({ mini: true });
@@ -64,10 +89,27 @@ export type HouseChargesBubbleState = {
 };
 
 let lastHtml = "";
+/** What the root's single click listener acts on; refreshed every frame. */
+let current: { state: HouseChargesBubbleState; payload: HouseChargesPayload; nowMs: number; overUi: boolean; openCharges: () => void } | undefined;
+
+const onBubbleClick = (ev: MouseEvent): void => {
+  const action = (ev.target as Element | null)?.closest("[data-hcb-action]")?.getAttribute("data-hcb-action");
+  if (!current) return;
+  const { state, payload, nowMs, overUi, openCharges } = current;
+  if (action === "dismiss-speech") {
+    dismissSpeech(payload.dealtAt);
+    syncHouseChargesBubble(state, nowMs, overUi, openCharges);
+  } else if (action === "open") {
+    markHouseChargesHandled(payload.dealtAt);
+    document.getElementById(ROOT_ID)?.remove();
+    lastHtml = "";
+    openCharges();
+  }
+};
 
 /**
- * Called from the HUD's frame. `overUi` (a screen or profile is open) hides the bubble without handling the
- * deal. Opening the Charges panel by any route handles it.
+ * Called from the HUD's frame. `overUi` (a screen or profile is open, or the game is not on screen) hides the
+ * bubble without handling the deal. Opening the Charges panel by any route handles it.
  */
 export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: number, overUi: boolean, openCharges: () => void): void => {
   if (typeof document === "undefined") return;
@@ -77,28 +119,19 @@ export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: nu
   if (!houseChargesUnhandled(payload, nowMs) || overUi || state.activePanel !== null) {
     root?.remove();
     lastHtml = "";
+    current = undefined;
     return;
   }
+  current = { state, payload, nowMs, overUi, openCharges };
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
     root.className = "hcb-root";
+    root.addEventListener("click", onBubbleClick);
     document.body.appendChild(root);
     lastHtml = "";
   }
-  root.onclick = (ev) => {
-    const action = (ev.target as Element | null)?.closest("[data-hcb-action]")?.getAttribute("data-hcb-action");
-    if (action === "dismiss-speech") {
-      writeDeal(SPEECH_KEY, payload.dealtAt);
-      syncHouseChargesBubble(state, Date.now(), overUi, openCharges);
-    } else if (action === "open") {
-      markHouseChargesHandled(payload.dealtAt);
-      root?.remove();
-      lastHtml = "";
-      openCharges();
-    }
-  };
-  const html = houseChargesBubbleHtml(payload, readDeal(SPEECH_KEY) !== String(payload.dealtAt));
+  const html = houseChargesBubbleHtml(payload, !flagsFor(payload.dealtAt).speechDismissed);
   if (html !== lastHtml) {
     root.innerHTML = html;
     lastHtml = html;
