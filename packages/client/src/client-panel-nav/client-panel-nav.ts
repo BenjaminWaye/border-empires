@@ -2,6 +2,7 @@ import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
 
+import { PANEL_HINTS } from "../client-hud-v2/client-hud-v2-hints.js";
 import { isPhoneViewport } from "./client-phone-viewport.js";
 
 export { isPhoneViewport };
@@ -81,6 +82,13 @@ export const renderSidePanel = (
   deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // centres Settings from its first frame
   deps.sidePanelEl.style.display = state.activePanel ? "grid" : "none";
   if (state.activePanel) deps.panelTitleEl.textContent = panelTitle(state.activePanel);
+  // One-line explanation under the title (client-hud-v2-hints.ts): visible text, since phones have no hover.
+  const hintEl = deps.panelTitleEl.parentElement?.querySelector<HTMLElement>("#panel-hint");
+  if (hintEl) {
+    const hint = state.activePanel ? PANEL_HINTS[state.activePanel] ?? "" : "";
+    hintEl.textContent = hint;
+    hintEl.hidden = hint === "";
+  }
 };
 
 export const bindTechTreeDragScroll = (

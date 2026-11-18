@@ -13,6 +13,7 @@ import { relatedStructureTypesForTech } from "../client-tech-detail-ui/client-te
 import type { TechInfo } from "../client-types.js";
 import { manifestGoldCost, NATURAL_WONDER_LABELS } from "@border-empires/shared";
 import { revealWhere, structureBuildWhere } from "./client-hud-v2-manifest-where.js";
+import { coinShortText } from "./client-hud-v2-next-step.js";
 
 export type ManifestNodeState = "owned" | "available" | "locked";
 
@@ -192,6 +193,8 @@ export type ManifestInput = {
   afcTier: number;
   /** The Manifest sent to the server and not yet confirmed, if any. */
   pendingId?: string;
+  /** Net coin per minute; when set, an unaffordable Manifest says when coin covers it (in coin per day). */
+  netPerMinute?: number;
 };
 
 /** The current price: every Manifest costs the same at any moment. */
@@ -272,6 +275,13 @@ export const manifestTreeHtml = (input: ManifestInput): string => {
   return `<div class="v2m-tree" style="width:${layout.width}px;height:${layout.height}px">${tierHeads}${lanes}${segs}${nodes}</div>`;
 };
 
+/** "Need 30 more · +24.0/day · ready in 1h 15m" under a Manifest the player can't pay for yet: the next step instead of a greyed button. */
+const manifestCoinShortHtml = (input: ManifestInput, cost: number): string => {
+  if (input.netPerMinute === undefined) return "";
+  const text = coinShortText(input.gold, cost, input.netPerMinute);
+  return text ? `<span class="v2m-req v2m-coin-short">${esc(text)}</span>` : "";
+};
+
 export const manifestDetailHtml = (input: ManifestInput): string => {
   const tech = input.techs.find((t) => t.id === input.selectedId) ?? input.techs.find((t) => manifestNodeState(t, input.owned, input.choices) === "available");
   if (!tech) return "";
@@ -308,7 +318,7 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
         ? `<button type="button" class="v2s-btn v2s-btn-primary" data-v2-manifest-commission="${esc(tech.id)}"${affordable ? "" : " disabled"} title="${affordable ? "" : `Need ${cost.toLocaleString("en-US")} Coin`}">Commission · ${cost.toLocaleString("en-US")} Coin</button>`
         : `<button type="button" class="v2s-btn" disabled>Locked</button>`;
   return `<div class="v2m-detail-name"><span class="v2m-detail-title">${esc(tech.name)}</span><span class="v2m-detail-meta">${meta}</span></div>
-    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div>${where}<span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span>${state === "available" && discountNote ? `<span class="v2m-req v2m-next-cost">Price ${cost.toLocaleString("en-US")} Coin (${esc(discountNote)})</span>` : ""}${state === "available" ? `<span class="v2m-req v2m-next-cost">Next after this: ${manifestCostAfterCommission(input.owned, tech.requirements.goldDiscountFraction ?? 0).toLocaleString("en-US")} Coin</span>` : ""}</div>
+    <div class="v2m-detail-mid"><div class="v2m-chips">${chips}</div>${where}<span class="v2m-req${missing || tech.lockedReason ? " v2m-req-missing" : ""}">${req}</span>${state === "available" && discountNote ? `<span class="v2m-req v2m-next-cost">Price ${cost.toLocaleString("en-US")} Coin (${esc(discountNote)})</span>` : ""}${state === "available" ? manifestCoinShortHtml(input, cost) : ""}${state === "available" ? `<span class="v2m-req v2m-next-cost">Next after this: ${manifestCostAfterCommission(input.owned, tech.requirements.goldDiscountFraction ?? 0).toLocaleString("en-US")} Coin</span>` : ""}</div>
     ${button}`;
 };
 

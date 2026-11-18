@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
 import type { FeedEntry } from "../client-types.js";
-import { announceHouseChargeChoice, announceHouseChargeLosses } from "./client-house-charges-alerts.js";
+import { pushFeedEntry } from "../client-alerts/client-alerts.js";
+import { announceHouseChargeChoice, announceHouseChargeLosses, retryHouseChargeChoice } from "./client-house-charges-alerts.js";
 import { houseChargesPanelHtml } from "./client-house-charges-panel.js";
 
 const road: HouseChargeView = {
@@ -56,6 +57,10 @@ describe("House Charge keep-choice reminder", () => {
     expect(announceHouseChargeChoice(state as never, three, 1_500)).toBe(true);
     expect(state.feed[0]).toMatchObject({ title: "House charges arrived", severity: "warn" });
     expect(state.feed[0]!.text).toContain("Keep 2 of 3");
+    // Playtest 2026-11-18: "Tap your crest → Manage charges" pointed at a button players couldn't find.
+    expect(state.feed[0]).toMatchObject({ openPanel: "charges", actionLabel: "Manage charges" });
+    expect(state.feed[0]!.text).not.toContain("crest");
+    expect((state as { captureAlert?: { openPanel?: string; actionLabel?: string } }).captureAlert).toMatchObject({ openPanel: "charges", actionLabel: "Manage charges" });
     expect(announceHouseChargeChoice(state as never, three, 1_600)).toBe(false);
     delete (state as { captureAlert?: unknown }).captureAlert;
     expect(announceHouseChargeChoice(state as never, { ...three, dealtAt: 5_000, choiceClosesAt: 9_000 }, 6_000)).toBe(true);
@@ -68,6 +73,28 @@ describe("House Charge keep-choice reminder", () => {
     expect(announceHouseChargeChoice(state as never, three, 1_700)).toBe(false);
     state.captureAlert.until = 1_000;
     expect(announceHouseChargeChoice(state as never, three, 1_800)).toBe(true);
+  });
+
+  // Owner 2026-11-18: "I never got a manage charges alert". Charges are pushed once at landing, while other
+  // alert cards are up; the sim does not push again unless the charges change, so the client must retry.
+  it("shows once the other alert card clears, with no further HOUSE_CHARGES push", () => {
+    const deal = { ...three, dealtAt: 70_000, choiceClosesAt: 90_000 };
+    const state = { ...feedState(), houseCharges: deal, captureAlert: { title: "Captured", detail: "", until: 72_000, tone: "success" as const } };
+    expect(announceHouseChargeChoice(state as never, deal, 71_000)).toBe(false); // the push, under another card
+    expect(retryHouseChargeChoice(state as never, 71_500)).toBe(false); // card still up
+    expect(retryHouseChargeChoice(state as never, 73_000)).toBe(true); // card cleared: shown without a push
+    expect(state.feed[0]).toMatchObject({ title: "House charges arrived", openPanel: "charges" });
+    expect(retryHouseChargeChoice(state as never, 74_000)).toBe(false); // once only
+    expect(retryHouseChargeChoice({ ...feedState(), houseCharges: { ...deal, dealtAt: 80_000 } } as never, 95_000)).toBe(false); // window closed
+  });
+
+  // Review of #2845: the alert is marked shown once, so a rejection pushed a moment later must not replace it unseen.
+  it("is not replaced by a later warning while it is showing", () => {
+    const deal = { ...three, dealtAt: 60_000, choiceClosesAt: 90_000 };
+    const state: { captureAlert?: { title: string } } & ReturnType<typeof feedState> = feedState();
+    expect(announceHouseChargeChoice(state as never, deal, 61_000)).toBe(true);
+    pushFeedEntry(state as never, { title: "Expand rejected", text: "Out of reach", type: "error", severity: "error", at: 61_200 });
+    expect(state.captureAlert).toMatchObject({ title: "House charges arrived", actionLabel: "Manage charges", openPanel: "charges" });
   });
 
   it("stays quiet once the choice has closed or there is nothing to choose", () => {
