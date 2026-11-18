@@ -372,7 +372,7 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
           </footer>` : `<footer class="se-actions">
             <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
               ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
-              <span class="se-btn-cog" aria-hidden="true"></span>
+              <span class="se-btn-cog sp-cog" aria-hidden="true"></span>
               <span class="se-btn-label">${escapeHtml(nextContestButtonLabel(state))}</span>
             </button>
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
