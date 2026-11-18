@@ -452,7 +452,7 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(true);
+    expect(lines.find((line) => line.kind === "statgrid")?.html).toContain("no coin · garrison grain or fish in reach");
     expect(lines.find((line) => line.kind === "statgrid")?.html).toContain("Growth paused — town is unfed");
     expect(nextGrowthLabel).not.toHaveBeenCalledWith(expect.objectContaining({ isFed: true }), expect.anything());
   });

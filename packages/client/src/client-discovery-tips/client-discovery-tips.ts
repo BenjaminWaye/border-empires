@@ -211,13 +211,14 @@ export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: s
   if (mute) muteDiscoveryTips(authEmail);
 };
 
+const WAYSTATION_TIP_IDS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["WAYSTATION"]);
+
 /**
  * Removes every queued tip in `ids` and marks it seen, as if the player had
  * dismissed it. For tips whose subject another surface already teaches: the
  * tutorial guide's steps cover the first town, food, muster flag and first
  * contact, so their toasts would only repeat the guide card.
  */
-const WAYSTATION_TIP_IDS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["WAYSTATION"]);
 
 export const retireQueuedDiscoveryTips = (queue: DiscoveryTipId[], ids: ReadonlySet<DiscoveryTipId>, authEmail?: string | null): void => {
   for (let i = queue.length - 1; i >= 0; i -= 1) {

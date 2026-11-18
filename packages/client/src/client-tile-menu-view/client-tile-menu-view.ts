@@ -177,16 +177,9 @@ export const menuOverviewForTile = (
       pushLine("Neutral town. Claim and garrison this tile to start its economy.");
     } else if (!isSettled) {
       pushLine("Garrison this tile to activate the town's economy and start coin income.");
-    } else if (tile.town.populationTier === "SETTLEMENT") {
-      // No prose income line — the unified `Production: X/m` row below shows the same value.
-    } else if (
-      hasOwnerEconomyData &&
-      !tile.town.isFed &&
-      (tile.town.goldPerMinute ?? 0) <= 0.001 &&
-      (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
-    ) {
-      pushLine("Town is unfed. Add more FOOD upkeep coverage or garrison nearby fish or grain.");
     }
+    // No prose income or Unfed line: the stat grid's Coin card says "Unfed · no coin · garrison grain or fish in
+    // reach", and a separate "Add more FOOD upkeep coverage" line contradicted it at full coverage.
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus coin production.");
     }

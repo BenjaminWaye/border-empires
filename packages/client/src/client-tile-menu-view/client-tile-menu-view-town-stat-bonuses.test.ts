@@ -82,4 +82,38 @@ describe("menuOverviewForTile — town stat bonuses", () => {
     expect(lines.find((line) => line.kind === "statgrid")?.html).not.toContain("Sabotaged");
     expect(sabotaged.find((line) => line.kind === "statgrid")?.html).toContain("<strong>Sabotaged</strong> · no coin");
   });
+
+  // Review of #2846: a "Support 3/4" line hid the sabotage reason, so the card blamed the plots for 0 coin.
+  it("names sabotage even when a partial Support line is shown", () => {
+    const lines = townTile(
+      { goldPerMinute: 0, supportCurrent: 3, supportMax: 4, connectedTownCount: 0, connectedTownBonus: 0, tradeNexusTownNames: [] },
+      {}
+    );
+    expect(lines.find((line) => line.kind === "statgrid")?.html).not.toContain("Sabotaged");
+    const sabotaged = menuOverviewForTile(
+      {
+        x: 30, y: 30, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+        sabotage: { ownerId: "rival", endsAt: Date.now() + 60_000, outputMultiplier: 0 },
+        town: {
+          name: "Bryn", type: "MARKET", baseGoldPerMinute: 2, supportCurrent: 3, supportMax: 4, goldPerMinute: 0.01, cap: 0,
+          isFed: true, population: 20_000, maxPopulation: 50_000, populationTier: "TOWN",
+          connectedTownCount: 0, connectedTownBonus: 0,
+          hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
+        }
+      } as Tile,
+      deps as never
+    );
+    const grid = sabotaged.find((line) => line.kind === "statgrid")?.html ?? "";
+    expect(grid).toContain("Support 3/4");
+    expect(grid).toContain("<strong>Sabotaged</strong> · no coin");
+  });
+
+  // Review of #2846: the tile menu said Unfed in prose too, advising "Add more FOOD upkeep coverage" at full coverage.
+  it("says Unfed once, in the Coin card, without the food-coverage prose", () => {
+    const lines = townTile({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }, { upkeepLastTick: { foodCoverage: 1 } });
+    const html = lines.map((line) => line.html).join("\n");
+    expect(html).not.toContain("Town is unfed");
+    expect(html).not.toContain("FOOD upkeep coverage");
+    expect(html.match(/no coin · garrison grain or fish in reach/g)).toHaveLength(1);
+  });
 });

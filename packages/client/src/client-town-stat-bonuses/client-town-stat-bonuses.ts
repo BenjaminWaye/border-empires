@@ -106,7 +106,9 @@ export const townStatGridModifiersWithZeroCoinReason = (
 ): ReturnType<typeof townStatGridModifiers> => {
   const modifiers = townStatGridModifiers(town, terrainProfile, coastal);
   const why = goldPerDay < 0.0001 ? townZeroCoinReason(tile) : undefined;
-  if (!why || modifiers.goldBonuses.some((bonus) => bonus.label === why || bonus.label.startsWith("Support "))) return modifiers;
+  // A "Support x/y" line already explains ungarrisoned plots, but not sabotage: only the plots note defers to it.
+  const plotsNote = why?.endsWith("plots garrisoned") ?? false;
+  if (!why || modifiers.goldBonuses.some((bonus) => bonus.label === why || (plotsNote && bonus.label.startsWith("Support ")))) return modifiers;
   return { ...modifiers, goldBonuses: [{ label: why, effect: "no coin", tone: "negative" }, ...modifiers.goldBonuses] };
 };
 

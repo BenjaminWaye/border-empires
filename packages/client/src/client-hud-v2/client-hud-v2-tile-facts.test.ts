@@ -128,7 +128,10 @@ describe("a town earning no coin says why", () => {
 
   it("names ungarrisoned plots, unfed and sabotage", () => {
     expect(coin({ town: town({ supportCurrent: 0 }) })).toEqual({ label: "Coin", value: "0.0/day · 0/4 plots garrisoned", tone: "warn" });
-    expect(coin({ town: town({ isFed: false }) })).toEqual({ label: "Coin", value: "0.0/day · Unfed", tone: "warn" });
+    // Unfed is said once, on the Food row (review of #2846: "Coin 0.0/day · Unfed" then "Food Unfed").
+    expect(coin({ town: town({ isFed: false }) })).toEqual({ label: "Coin", value: "0.0/day", tone: "warn" });
+    const unfedFacts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", town: town({ isFed: false }) }), noView, "me");
+    expect(unfedFacts.filter((f) => f.value.includes("Unfed"))).toEqual([{ label: "Food", value: "Unfed", tone: "warn" }]);
     expect(coin({ town: town({ goldPerMinute: 0.01 }), sabotage: { endsAt: Date.now() + 60_000, ownerId: "rival", outputMultiplier: 0 } })?.value).toBe("0.0/day · Sabotaged");
   });
 

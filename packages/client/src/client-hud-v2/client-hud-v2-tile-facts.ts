@@ -145,7 +145,9 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
     const goldPerMinute = tileCoinPerMinute(tile);
     // A town earning nothing says why (unfed, no plots garrisoned, sabotaged) instead of a bare 0.0/day.
     const why = goldPerMinute < 0.0001 ? townZeroCoinReason(tile, nowMs) : undefined;
-    facts.push(why ? { label: "Coin", value: `${coinPerDay(goldPerMinute)} · ${why}`, tone: "warn" } : { label: "Coin", value: coinPerDay(goldPerMinute) });
+    // Unfed is the Food row's own fact, right below; repeating it on the Coin row read "Unfed" twice.
+    const coinWhy = why === "Unfed" ? "" : why ? ` · ${why}` : "";
+    facts.push(why ? { label: "Coin", value: `${coinPerDay(goldPerMinute)}${coinWhy}`, tone: "warn" } : { label: "Coin", value: coinPerDay(goldPerMinute) });
   }
   if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
