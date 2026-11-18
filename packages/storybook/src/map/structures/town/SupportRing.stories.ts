@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createTownOverlay, type TownTier } from "@client/client-map-3d-town-overlay.js";
-import { createTownSupportTileOverlay } from "@client/client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
+import { createTownSupportPreview, supportPreviewOffsets } from "../../../fixtures/town-support-preview.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 
 type Args = {
@@ -9,17 +9,10 @@ type Args = {
   cameraDistance: number;
   orthoHalfHeight: number;
   biome: "none" | "grass";
-  settled: boolean;
+  highlighted: boolean;
 };
 
-const RING: ReadonlyArray<readonly [number, number]> = [
-  [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]
-];
-
-// Each supporting tile extends the settlement outward in every direction as a
-// single quiet glowing hatch (an illuminated service well in the ground) with
-// the ionic battery waiting inside. Together the town and its eight support
-// tiles form one coherent circular district.
+// The preview follows the shipped tier-dependent support radius.
 const build = (tier: TownTier, args: Args): HTMLElement => {
   const stage = createStage({
     cameraDistance: args.cameraDistance,
@@ -33,12 +26,7 @@ const build = (tier: TownTier, args: Args): HTMLElement => {
   town.addInstance(0, 0, 0, tier);
   town.commit();
 
-  const support = createTownSupportTileOverlay(stage.scene, 8);
-  support.clear();
-  for (const [dx, dz] of RING) {
-    support.addInstance(dx, dz, 0, dx, dz, args.settled);
-  }
-  support.commit();
+  const support = createTownSupportPreview(stage.scene, supportPreviewOffsets(tier), args.highlighted);
 
   const cleanups: Array<() => void> = [town.dispose, support.dispose];
   if (args.biome === "grass") {
@@ -56,7 +44,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "A full eight-tile support ring wrapped around each tier of town. The Town sits on its own tile at the centre while the eight surrounding supporting tiles each read as: a single recessed hatch sunk into the ground — like an illuminated service well in a garage floor — with a flat glowing ionic battery cell seated inside, ready to attach to a future building. The slim glowing crosses are evenly spaced around the town, reading as a quiet ring of prepared building sockets without bulky platforms."
+          "Town-selection build plots: ivory corner brackets leave the ground open, with a small brass diamond at each centre. One hovered plot turns amber. Settlements have no support plots, Towns and Cities have eight, and Great Cities and Metropolises have twenty-four."
       }
     }
   },
@@ -69,9 +57,9 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 0.5 } },
     orthoHalfHeight: { control: { type: "range", min: 2, max: 6, step: 0.1 } },
     biome: { control: { type: "select", labels: { none: "None", grass: "Grass tile" } } },
-    settled: { control: "boolean" }
+    highlighted: { control: "boolean" }
   },
-  args: { tier: "TOWN", camera: "orthographic", cameraDistance: 12, orthoHalfHeight: 3.2, biome: "grass", settled: true },
+  args: { tier: "TOWN", camera: "orthographic", cameraDistance: 12, orthoHalfHeight: 3.2, biome: "grass", highlighted: false },
   render: (args) => build(args.tier, args)
 };
 
@@ -81,7 +69,7 @@ type Story = StoryObj<Args>;
 
 export const SettlementRing: Story = { args: { tier: "SETTLEMENT" } };
 export const TownRing: Story = { args: { tier: "TOWN" } };
-export const TownRingUnsettled: Story = { args: { tier: "TOWN", settled: false } };
+export const TownRingUnhighlighted: Story = { args: { tier: "TOWN", highlighted: true } };
 export const CityRing: Story = { args: { tier: "CITY" } };
 export const GreatCityRing: Story = { args: { tier: "GREAT_CITY" } };
 export const MetropolisRing: Story = { args: { tier: "METROPOLIS", orthoHalfHeight: 3.6 } };
