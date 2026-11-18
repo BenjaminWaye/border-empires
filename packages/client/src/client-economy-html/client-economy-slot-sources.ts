@@ -27,6 +27,7 @@ const structureName = (id: string): string => STRUCTURE_DISPLAY_NAMES[id as keyo
 export const slotSourceLabel = (row: ResourceSlotSourceRow, names?: SlotSourceNames): string => {
   switch (row.kind) {
     case "TILE": return `${TILE_NAMES[row.id] ?? prettyId(row.id)} ${row.count === 1 ? "site" : "sites"}`;
+    case "STRUCTURE":
     case "STRUCTURE_BOOST":
     case "CONVERTER": return structureName(row.id);
     case "TECH": return TECH_NAMES[row.id] ?? prettyId(row.id);

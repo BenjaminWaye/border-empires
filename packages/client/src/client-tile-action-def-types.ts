@@ -18,6 +18,8 @@ export type TileActionDef = {
     | "build_observatory"
     | "build_hydrogarden"
     | "build_hydroworks"
+    | "build_farm_plot"
+    | "build_hydrogarden_plot"
     | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
