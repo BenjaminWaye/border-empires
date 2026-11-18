@@ -56,6 +56,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   HIGH_YIELD_AETHER_CONDENSER: "advanced-synthetication",
   TRADE_NEXUS: "ledger-keeping",
   ANCILLARY_DEPOT: "organized-supply",
+  VIVARIUM: "census-records",
   HARBOR_EXCHANGE: "trade",
   MINISTRY_HALL: "civil-service",
   RESONANCE_GRID: "radar",
@@ -194,6 +195,7 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Military-support structures
   TRADE_NEXUS: econSpec("TRADE_NEXUS"),
   ANCILLARY_DEPOT: econSpec("ANCILLARY_DEPOT"),
+  VIVARIUM: econSpec("VIVARIUM"),
   HARBOR_EXCHANGE: econSpec("HARBOR_EXCHANGE"),
   NEURAL_WORKS: econSpec("NEURAL_WORKS"),
   MINISTRY_HALL: econSpec("MINISTRY_HALL"),

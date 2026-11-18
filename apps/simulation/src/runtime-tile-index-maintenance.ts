@@ -172,6 +172,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   ancillaryFactoryTilesByOwner: Map<string, Set<string>>;
   incubationEngineTilesByOwner: Map<string, Set<string>>;
   censusHallTilesByOwner: Map<string, Set<string>>;
+  vivariumTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -195,6 +196,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ANCILLARY_FACTORY", index: input.ancillaryFactoryTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "INCUBATION_ENGINE", index: input.incubationEngineTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "VIVARIUM", index: input.vivariumTilesByOwner });
 };
 
 export const rebuildPlannerCandidateIndexesForPlayer = (input: {

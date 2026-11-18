@@ -98,6 +98,10 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     glyph: "⛨",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
+  VIVARIUM: {
+    glyph: "❀",
+    placement: "Build on an open garrisoned support tile for a town you own. Only a City, Great City or Metropolis needs biota. No per-town limit."
+  },
   WEAPONS_WORKSHOP: {
     glyph: "†",
     placement: "Build on an open garrisoned support tile for a town you own. No per-town limit."

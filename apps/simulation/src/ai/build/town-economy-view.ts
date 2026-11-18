@@ -21,7 +21,7 @@ import {
   terrainAdjustedTownManpower,
   townTerrainModifiers
 } from "@border-empires/shared";
-import type { EconomicStructureType } from "@border-empires/shared";
+import type { BiotaTownSupply, EconomicStructureType } from "@border-empires/shared";
 import type { ConnectedTownNetworkEntry } from "../../economy-network/economy-network.js";
 import { supportTileBelongsToTown } from "../../economy-network/economy-network-support-ring.js";
 
@@ -50,11 +50,18 @@ export type TownEconomyEntry = {
   depotTownsInReach: number;
   /** Amplifier types (Clearing House, Trade Nexus, Neural Works, Reserve Lattice) under construction at this town. */
   amplifiersUnderConstruction: EconomicStructureType[];
+  /**
+   * Luxury biota slots this town still lacks for its full manpower, after its
+   * active Vivaria, its biota-site share and any Vivarium already going up
+   * (0 when it needs none). See frontier-resource-effects.ts.
+   */
+  biotaShortSlots: number;
 };
 
 const AMPLIFIER_TYPES: ReadonlySet<string> = new Set(["CLEARING_HOUSE", "TRADE_NEXUS", "NEURAL_WORKS", "RESERVE_LATTICE"]);
 
 type RingTally = {
+  vivariaUnderConstruction: number;
   manufactories: number;
   ancillaryDepots: number;
   ownTypes: Set<string>;
@@ -72,12 +79,13 @@ const tallyTownRing = (
   townTile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
 ): RingTally => {
-  const tally: RingTally = { manufactories: 0, ancillaryDepots: 0, ownTypes: new Set(), amplifiersUnderConstruction: [] };
+  const tally: RingTally = { vivariaUnderConstruction: 0, manufactories: 0, ancillaryDepots: 0, ownTypes: new Set(), amplifiersUnderConstruction: [] };
   const add = (structure: DomainTileState["economicStructure"]): void => {
     if (!structure || structure.ownerId !== playerId) return;
     if (structure.status !== "active" && structure.status !== "under_construction") return;
     if (structure.type === "MANUFACTORY") tally.manufactories += 1;
     if (structure.type === "ANCILLARY_DEPOT") tally.ancillaryDepots += 1;
+    if (structure.type === "VIVARIUM" && structure.status === "under_construction") tally.vivariaUnderConstruction += 1;
     tally.ownTypes.add(structure.type);
     if (structure.status === "under_construction" && AMPLIFIER_TYPES.has(structure.type)) tally.amplifiersUnderConstruction.push(structure.type);
   };
@@ -91,11 +99,16 @@ const tallyTownRing = (
   return tally;
 };
 
+const biotaShortSlots = (supply: BiotaTownSupply | undefined, vivariaUnderConstruction: number): number =>
+  supply ? Math.max(0, supply.needed - supply.received - vivariaUnderConstruction) : 0;
+
 export const buildTownEconomyView = (
   playerId: string,
   townKeys: Iterable<string>,
   tiles: ReadonlyMap<string, DomainTileState>,
-  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>
+  townNetwork: ReadonlyMap<string, ConnectedTownNetworkEntry>,
+  /** The player's biota allocation (ManpowerStructureBonus.biotaTownSupply); absent means no town is short. */
+  biotaTownSupply?: ReadonlyMap<string, BiotaTownSupply>
 ): TownEconomyEntry[] => {
   // Rank and cap first (cheap per-town arithmetic), then ring-scan only the
   // kept towns, so the scan cost is bounded by the cap, not the empire.
@@ -134,7 +147,8 @@ export const buildTownEconomyView = (
       reserveLatticeInReach: ring.ownTypes.has("RESERVE_LATTICE") || (network?.connectedReserveLatticeKeys?.length ?? 0) > 0,
       ancillaryFactoriesInReach: (ring.ownTypes.has("ANCILLARY_FACTORY") ? 1 : 0) + (network?.connectedAncillaryFactoryKeys?.length ?? 0),
       depotTownsInReach: (ring.ancillaryDepots > 0 ? 1 : 0) + (network?.connectedAncillaryDepotKeys?.length ?? 0),
-      amplifiersUnderConstruction: ring.amplifiersUnderConstruction
+      amplifiersUnderConstruction: ring.amplifiersUnderConstruction,
+      biotaShortSlots: biotaShortSlots(biotaTownSupply?.get(townKey), ring.vivariaUnderConstruction)
     };
   });
 };

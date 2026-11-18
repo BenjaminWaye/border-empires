@@ -119,7 +119,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   TRADE_NEXUS: "Economy", MINISTRY_HALL: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   INCUBATION_ENGINE: "Manpower", CENSUS_HALL: "Manpower",
-  ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower",
+  ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower", VIVARIUM: "Manpower",
   ANCILLARY_FACTORY: "Manpower",
   RESERVE_LATTICE: "Manpower",
   CENSUS_DIRECTORATE_PART_1: "Manpower", CENSUS_DIRECTORATE_PART_2: "Manpower", CENSUS_DIRECTORATE_PART_3: "Manpower", CENSUS_DIRECTORATE: "Manpower",
@@ -205,6 +205,7 @@ export const structureInfoForKey = (
     if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
     if (key === "HARBOR_EXCHANGE") return [];
     if (key === "MINISTRY_HALL") return [];
+    if (key === "VIVARIUM") return ["Each copy covers one of its town's luxury biota slots", "Copies beyond the slots the town needs do nothing"];
     if (key === "ANCILLARY_DEPOT") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
     if (key === "SKY_DOCK") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];

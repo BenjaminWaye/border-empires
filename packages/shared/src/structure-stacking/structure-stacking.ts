@@ -17,6 +17,8 @@ import type { BuildableStructureType } from "../structure-costs/structure-costs.
 export const STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES: ReadonlySet<BuildableStructureType> = new Set<BuildableStructureType>([
   "MANUFACTORY",
   "ANCILLARY_DEPOT",
+  // Vivarium: each copy covers one luxury biota slot for its town.
+  "VIVARIUM",
   "TITANIUM_WEAPONS_FACTORY",
   "UMBRITE_WEAPONS_FACTORY",
   // Farm Plots (and their Hydrogarden Plot upgrade): one per open support tile.

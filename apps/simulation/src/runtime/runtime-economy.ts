@@ -31,6 +31,8 @@ export {
 
 export interface RuntimeEconomyCacheContext {
   networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
+  /** The player's luxury biota allocation (cachedManpowerStructureBonusForPlayer); short towns earn less coin. */
+  biotaTownSupplyForPlayer?: (id: string) => ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply> | undefined;
   now: () => number;
   tiles: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -112,7 +114,7 @@ function cachedBaseEconomySnapshot(
       townNetwork,
       ctx.foodDormantTownKeysForPlayer(player.id),
       ctx.dormantEconomicStructureKeysForPlayer(player.id),
-      ctx.now(), ctx.networkSitesForPlayer?.(player.id)
+      ctx.now(), ctx.networkSitesForPlayer?.(player.id), ctx.biotaTownSupplyForPlayer?.(player.id)
     );
     ctx.economySnapshotCacheByPlayer.set(player.id, snapshot);
     ctx.economySnapshotDirtyPlayerIds.delete(player.id);

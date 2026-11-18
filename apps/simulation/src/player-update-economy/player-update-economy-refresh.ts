@@ -23,7 +23,9 @@ export const refreshTownEconomyFields = (
   connectedClearingHouseKeys?: readonly string[],
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
   // The town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey); undefined leaves the field as it is.
-  foodSlotDemand?: number
+  foodSlotDemand?: number,
+  // Share of the town's biota need met (biota-town-output.ts); 1 = full tier coin.
+  biotaShare = 1
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
@@ -40,7 +42,8 @@ export const refreshTownEconomyFields = (
     firstThreeTownKeys,
     connectedClearingHouseKeys,
     dormantEconomicStructureKeys,
-    supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total
+    supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total,
+    biotaShare
   );
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);

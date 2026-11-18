@@ -36,6 +36,7 @@ export type TileActionDef = {
     | "build_fuel_plant"
     | "build_trade_nexus"
     | "build_ancillary_depot"
+    | "build_vivarium"
     | "build_harbor_exchange"
     | "build_lockworks_port"
     | "build_neural_works"

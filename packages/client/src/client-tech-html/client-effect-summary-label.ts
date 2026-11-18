@@ -28,6 +28,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockHarborExchange" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockMinistryHall" && value === true) return "Unlocks ministry halls";
   if (key === "unlockAncillaryDepot" && value === true) return "Unlocks Ancillary Depot";
+  if (key === "unlockVivarium" && value === true) return "Unlocks Vivarium";
   if (key === "unlockSkyDock" && value === true) return "Unlocks Sky Docks";
   if (key === "unlockResonanceGrid" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";

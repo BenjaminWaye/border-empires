@@ -19,6 +19,7 @@ const entry = (overrides: Partial<TownEconomyEntry>): TownEconomyEntry => ({
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
   amplifiersUnderConstruction: [],
+  biotaShortSlots: 0,
   ...overrides
 });
 

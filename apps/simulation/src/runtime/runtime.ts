@@ -71,9 +71,6 @@ import {
 } from "@border-empires/game-domain";
 import {
   BREAKTHROUGH_ENABLED,
-  EMPIRE_INTEGRITY_ENABLED,
-  empireIntegrity,
-  integrityGrowthMult,
   isAutoSettleAllowed, garrisonBlockedByReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -268,6 +265,7 @@ import {
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
   type RuntimeTownNetworkContext
 } from "./runtime-town-network.js";
+import { frontierSupplyAccessors } from "./runtime-frontier-supply-accessors.js";
 import { townEconomyViewForPlayer } from "./runtime-town-economy-view.js";
 import { resolveMusterSource as resolveMusterSourceImpl } from "../runtime-muster-source.js";
 import {
@@ -379,7 +377,7 @@ import {
   supportedDockKeysForTile as supportedDockKeysForTileImpl,
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "../runtime-structure-support/runtime-structure-support.js";
-import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
+import { integrityGrowthMultSource, tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
 import { tickOrphanedLockSweep as tickOrphanedLockSweepImpl } from "../runtime-maintenance-ticks.js";
 import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
@@ -557,7 +555,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => runtime.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
       resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
-      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(runtime.townNetworkContext(), playerId),
+      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(runtime.townNetworkContext(), playerId, { biotaTownSupply: () => { const p = runtime.state.players.get(playerId); return p ? runtime.cachedManpowerStructureBonusForPlayer(p).biotaTownSupply : undefined; } }),
       playerManpowerCap: (player) => runtime.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player),
       tacticalViewForPlayer: (playerId, focusKeys) => runtime.tacticalViewForPlayer(playerId, focusKeys)
@@ -1055,13 +1053,8 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       invalidateEconomyCachesForPlayer: (playerId) => this.economyCaches.invalidateEconomySnapshot(playerId),
-      integrityGrowthMultForPlayer: EMPIRE_INTEGRITY_ENABLED
-        ? (playerId) => {
-            const summary = this.summaryForPlayer(playerId);
-            const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
-          }
-        : undefined,
+      integrityGrowthMultForPlayer: integrityGrowthMultSource((playerId) => this.cachedDefensibilityMetrics(playerId, this.summaryForPlayer(playerId))),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
       dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId)
     });
@@ -1578,7 +1571,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       players: this.state.players,
-      networkSitesForPlayer: id => this.resourceSupply?.network(id),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       economySnapshotCacheByPlayer: this.economyCaches.economySnapshotCacheByPlayer,
       economySnapshotDirtyPlayerIds: this.economyCaches.economySnapshotDirtyPlayerIds,
       economySnapshotLastRebuiltAtMsByPlayer: this.economyCaches.economySnapshotLastRebuiltAtMsByPlayer,
@@ -1927,7 +1920,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       foodDormantEconomicStructureKeysForPlayer: (playerId) => foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
-      townEconomyViewForPlayer: (playerId, options) => townEconomyViewForPlayer(this.townNetworkContext(), playerId, options),
+      townEconomyViewForPlayer: (playerId, options) => townEconomyViewForPlayer(this.townNetworkContext(), playerId, options?.rebuildOnMiss === false ? options : { ...options, biotaTownSupply: () => { const p = this.state.players.get(playerId); return p ? this.cachedManpowerStructureBonusForPlayer(p).biotaTownSupply : undefined; } }),
       playerSummaries: this.playerSummaries,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };
@@ -2316,7 +2309,7 @@ export class SimulationRuntime {
   private townNetworkContext(): RuntimeTownNetworkContext {
     return {
       tiles: this.state.tiles,
-      networkSitesForPlayer: id => this.resourceSupply?.network(id),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
       townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
       tileYieldContextCacheByPlayer: this.economyCaches.tileYieldContextCacheByPlayer,
