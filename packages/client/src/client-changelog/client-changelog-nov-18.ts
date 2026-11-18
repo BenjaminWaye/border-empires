@@ -21,6 +21,7 @@ import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-l
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
 import { STALE_WAYSTATION_CARD_ENTRY } from "./client-changelog-stale-waystation-card.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
+import { SCOUT_RECALL_ENTRY } from "./client-changelog-scout-recall.js";
 import { TOWN_PLOT_PICK_ENTRY } from "./client-changelog-town-plot-pick.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
@@ -46,4 +47,5 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
   { ...STALE_WAYSTATION_CARD_ENTRY, createdAt: 1795038774065, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
+  { ...SCOUT_RECALL_ENTRY, createdAt: 1795028076014, },
 ];

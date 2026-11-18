@@ -51,6 +51,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleChooseHouseChargesCommand: (command: CommandEnvelope) => void;
   handleActivateWaystationCommand: (command: CommandEnvelope) => void;
   handleExploreCommand: (command: CommandEnvelope) => void;
+  handleRecallScoutCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
@@ -129,6 +130,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CHOOSE_HOUSE_CHARGES") return handlers.handleChooseHouseChargesCommand(command);
   if (command.type === "ACTIVATE_WAYSTATION") return handlers.handleActivateWaystationCommand(command);
   if (command.type === "EXPLORE") return handlers.handleExploreCommand(command);
+  if (command.type === "RECALL_SCOUT") return handlers.handleRecallScoutCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
@@ -211,6 +213,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CHOOSE_HOUSE_CHARGES" ||
   command.type === "ACTIVATE_WAYSTATION" ||
   command.type === "EXPLORE" ||
+  command.type === "RECALL_SCOUT" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||

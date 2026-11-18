@@ -7,6 +7,7 @@ import {
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
   planScoutDroneFlight,
+  recallScoutDroneFlight,
   scoutDroneBlockAt,
   scoutDroneStepIndexAt,
   turnScoutDroneFlightBack,
@@ -65,6 +66,8 @@ export type ScoutDroneGauge = { activeFlights: number; alertCooldownEntries: num
 
 export type ScoutDroneRuntime = {
   readonly handleExplore: (command: CommandEnvelope) => void;
+  /** RECALL_SCOUT: turn the drone back over the outbound tile it is over now. */
+  readonly handleRecall: (command: CommandEnvelope) => void;
   readonly tick: (nowMs: number) => void;
   /**
    * Push the player their drone in the air (live subscribe / reconnect). Nothing is
@@ -74,6 +77,14 @@ export type ScoutDroneRuntime = {
   readonly flightFor: (playerId: string) => ScoutDroneFlight | undefined;
   readonly gauge: () => ScoutDroneGauge;
 };
+
+/** The runtime's EXPLORE and RECALL_SCOUT dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
+export const scoutDroneCommandDispatchHandlers = (
+  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall">
+): { handleExploreCommand: (command: CommandEnvelope) => void; handleRecallScoutCommand: (command: CommandEnvelope) => void } => ({
+  handleExploreCommand: (command) => drones().handleExplore(command),
+  handleRecallScoutCommand: (command) => drones().handleRecall(command)
+});
 
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
 const keyOf = (x: number, y: number): string => `${x},${y}`;
@@ -260,6 +271,23 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       flights.set(actor.id, active);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+      deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    },
+    handleRecall: (command) => {
+      const active = flights.get(command.playerId);
+      if (!active) return reject(command, "SCOUT_DRONE_DOCKED", "your scout drone is not out");
+      const now = deps.now();
+      // Catch up first: outbound tiles passed since the last tick still count toward the
+      // report, and a border on the path may already have turned it back (or it landed).
+      advance(active, now);
+      // Already called home (it may still be finishing its last outbound leg), or past its turn.
+      if (!flights.has(command.playerId) || active.flight.endReason === "RECALLED" || active.lastStepIndex >= active.flight.turnIndex) {
+        return reject(command, "SCOUT_DRONE_RETURNING", "your scout drone is already flying home");
+      }
+      // Turn over the tile it is flying toward: it finishes this leg, then heads home
+      // (turning over the last tile reached would snap it backwards mid-leg).
+      active.flight = recallScoutDroneFlight(active.flight, active.lastStepIndex + 1, now);
+      send(command.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
     tick: (nowMs) => {
