@@ -201,4 +201,3 @@ export function enrichTileWithTownContext(
     : networkTown;
   return { ...tile, town: refreshedTown };
 }
-export { frontierSupplyAccessors } from "./runtime-frontier-supply-accessors.js";

@@ -101,11 +101,11 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const signed = (n: number): string => `${n >= 0 ? "+" : ""}${n}%`;
   const modifiers = townStatModifiersForProfile(terrainProfile, coastal).map((m) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}</span></span></div>`
-  ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false }) : []).map((b) =>
+  ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false, biota: input.biota }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
   // A large town short of biota gives part of its tier's manpower: show what it gives, and why.
-  const biota = townBiota(input.biota, input.biotaSteps);
+  const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
   const manpower = biotaAdjustedTownManpower(town.populationTier, terrainProfile, coastal, input.biota);
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);

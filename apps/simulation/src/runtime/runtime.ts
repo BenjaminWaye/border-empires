@@ -71,9 +71,6 @@ import {
 } from "@border-empires/game-domain";
 import {
   BREAKTHROUGH_ENABLED,
-  EMPIRE_INTEGRITY_ENABLED,
-  empireIntegrity,
-  integrityGrowthMult,
   isAutoSettleAllowed, garrisonBlockedByReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -266,8 +263,9 @@ import {
   censusHallConnectedIncubationEngineBonusCountForPlayer as censusHallConnectedIncubationEngineBonusCountForPlayerImpl,
   tileYieldEconomyContextForPlayer as tileYieldEconomyContextForPlayerImpl,
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
-  type RuntimeTownNetworkContext, frontierSupplyAccessors
+  type RuntimeTownNetworkContext
 } from "./runtime-town-network.js";
+import { frontierSupplyAccessors } from "./runtime-frontier-supply-accessors.js";
 import { townEconomyViewForPlayer } from "./runtime-town-economy-view.js";
 import { resolveMusterSource as resolveMusterSourceImpl } from "../runtime-muster-source.js";
 import {
@@ -379,7 +377,7 @@ import {
   supportedDockKeysForTile as supportedDockKeysForTileImpl,
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "../runtime-structure-support/runtime-structure-support.js";
-import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
+import { integrityGrowthMultSource, tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
 import { tickOrphanedLockSweep as tickOrphanedLockSweepImpl } from "../runtime-maintenance-ticks.js";
 import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
@@ -1055,13 +1053,8 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       invalidateEconomyCachesForPlayer: (playerId) => this.economyCaches.invalidateEconomySnapshot(playerId),
-      integrityGrowthMultForPlayer: EMPIRE_INTEGRITY_ENABLED
-        ? (playerId) => {
-            const summary = this.summaryForPlayer(playerId);
-            const metrics = this.cachedDefensibilityMetrics(playerId, summary);
-            return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es));
-          }
-        : undefined,
+      integrityGrowthMultForPlayer: integrityGrowthMultSource((playerId) => this.cachedDefensibilityMetrics(playerId, this.summaryForPlayer(playerId))),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
       dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId)
     });

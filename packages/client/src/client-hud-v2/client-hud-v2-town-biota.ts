@@ -4,7 +4,8 @@
 // (ManpowerBreakdown.biotaTowns, biota-town-output.ts). The screen shows how
 // many slots it gets; the manpower card uses the blended figures.
 
-import { BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, STRUCTURE_DISPLAY_NAMES, VIVARIUM_BIOTA_SLOTS, biotaShareMet } from "@border-empires/shared";
+import { BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, STRUCTURE_DISPLAY_NAMES, VIVARIUM_BIOTA_SLOTS, biotaShareMet, type PopulationTier } from "@border-empires/shared";
+import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 
@@ -48,15 +49,16 @@ const stepHtml = (step: BiotaStep): string => {
   }
 };
 
-export const townBiota = (status: BiotaTownStatus | undefined, steps: readonly BiotaStep[] = []): TownBiota => {
+export const townBiota = (tier: PopulationTier, status: BiotaTownStatus | undefined, steps: readonly BiotaStep[] = []): TownBiota => {
   if (!status || status.needed <= 0) return { rowHtml: "" };
   const short = status.received < status.needed;
   const local = status.local ? ` (${status.local} from Vivaria)` : "";
   const head = `${pips(status.received, status.needed)} ${status.received} of ${status.needed}${local}`;
   const percent = Math.round(biotaShareMet(status) * 100);
-  const detail = short ? `${head} · manpower and Coin ${percent}% of the way from a Town's` : `${head} · Full manpower and Coin`;
+  const tierLabel = displayTownPopulationTierLabel(tier);
+  const detail = short ? `${head} · manpower and Coin ${percent}% of the way from a Town's to a ${tierLabel}'s` : `${head} · Full manpower and Coin`;
   const stepLines = short ? steps.map((step) => `<span class="v2t-built-mods">${stepHtml(step)}</span>`).join("") : "";
   const rowHtml = `<div class="v2t-built"><span><span class="v2t-built-name">${short ? "Unruly · luxury biota" : "Luxury biota"}</span><span class="v2t-built-mods"><span class="v2t-mod-${short ? "negative" : "positive"}">${esc(detail)}</span></span>${stepLines}</span></div>`;
   if (!short) return { rowHtml };
-  return { unrulyNote: `Unruly · ${percent}% of biota need met`, rowHtml };
+  return { unrulyNote: `Unruly · ${percent}% of a ${tierLabel}'s biota need met`, rowHtml };
 };

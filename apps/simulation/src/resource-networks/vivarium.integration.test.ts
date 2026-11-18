@@ -11,11 +11,11 @@ const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const BIOTA_TECH = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
 
-type Fixture = { tier: "CITY" | "GREAT_CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number; farms?: number };
-function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary, farms = 24 }: Fixture): SimulationRuntime {
+type Fixture = { tier: "CITY" | "GREAT_CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number; farms?: number; population?: number };
+function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary, farms = 24, population = 50000 }: Fixture): SimulationRuntime {
   const tiles: DomainTileState[] = [];
   for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x, y));
-  tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name: "Heartland", type: "MARKET", populationTier: tier, population: 50000, maxPopulation: 100000 };
+  tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name: "Heartland", type: "MARKET", populationTier: tier, population, maxPopulation: 100000, supportCurrent: 8, supportMax: 8 };
   for (const [x, y] of ([[9, 9], [10, 9], [11, 9]] as const).slice(0, vivaria)) {
     tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId: "p", type: "VIVARIUM", status: "active" };
   }
@@ -119,5 +119,37 @@ describe("Vivarium AI inputs through the planner-worker export", () => {
     expect(short.exportPlannerPlayerViews(["p"])[0]?.townEconomy?.find(town => town.townKey === "10,10")?.biotaShortSlots).toBe(3);
     const covered = fixture({ tier: "GREAT_CITY", vivaria: 1, biotaSite: true });
     expect(covered.exportPlannerPlayerViews(["p"])[0]?.townEconomy?.find(town => town.townKey === "10,10")?.biotaShortSlots).toBe(0);
+  });
+});
+
+// Review of #2865: town Coin is stamped on the town tile, and a Vivarium completing on a
+// support tile never re-sent the town tile, so the map kept showing the old Coin.
+describe("town Coin on the map follows the biota share", () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const townCoin = (events: ReturnType<typeof collectEvents>): number | undefined => {
+    for (const event of [...events].reverse()) {
+      if (event.eventType !== "TILE_DELTA_BATCH") continue;
+      const delta = event.tileDeltas.find(entry => entry.x === 10 && entry.y === 10);
+      const town = delta?.townJson ? JSON.parse(delta.townJson) as { goldPerMinute?: number } : undefined;
+      if (town?.goldPerMinute !== undefined) return town.goldPerMinute;
+    }
+    return undefined;
+  };
+  it("re-pushes the town tile on the next population tick after its share changes", async () => {
+    let now = boundary;
+    vi.useFakeTimers();
+    // At its population cap, so the growth tick has no other reason to re-send the town tile.
+    const runtime = fixture({ tier: "GREAT_CITY", vivaria: 0, biotaSite: false, manpower: 500, now: () => now, population: 100000 });
+    const seen = collectEvents(runtime);
+    runtime.tickPopulationGrowth(now);
+    const before = townCoin(seen);
+    expect(before).toBeGreaterThan(0);
+    runtime.submitCommand({ commandId: "build-vivarium", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: now, type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 11, y: 10, structureType: "VIVARIUM" }) });
+    await Promise.resolve();
+    now += structureBuildDurationMs("VIVARIUM");
+    await vi.advanceTimersByTimeAsync(structureBuildDurationMs("VIVARIUM"));
+    seen.length = 0;
+    runtime.tickPopulationGrowth(now);
+    expect(townCoin(seen)).toBeGreaterThan(before!);
   });
 });

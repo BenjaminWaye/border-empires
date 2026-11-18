@@ -47,7 +47,7 @@ describe("HUD v2 town screen luxury biota", () => {
     const html = left(unruly);
     expect(html).toContain("Unruly · luxury biota");
     expect(html).toContain("○ 0 of 1");
-    expect(html).toContain("Unruly · 0% of biota need met");
+    expect(html).toContain("Unruly · 0% of a City's biota need met");
     expect(html).toContain(cap("TOWN"));
     expect(cap("TOWN")).not.toBe(cap("CITY"));
   });
