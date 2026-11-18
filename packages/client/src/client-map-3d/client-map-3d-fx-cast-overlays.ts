@@ -26,6 +26,7 @@ import { townGrowthDustSeed } from "../client-town-tier-upgrade-fx/client-town-t
 import { expireTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
 import type { SalvageDeliveryFxLayer } from "../client-salvage-delivery-fx/client-map-3d-salvage-delivery-fx.js";
+import { salvageDeliveryFinished } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { liveMusterCaptureLabels } from "../client-muster-capture/client-muster-capture.js";
@@ -302,6 +303,8 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncSalvageDeliveryFxQueue = (): void => {
     while (state.salvageDeliveryFxQueue.length > 0) {
       const delivery = state.salvageDeliveryFxQueue.shift()!;
+      // Queued while 2D was showing (or the tab was hidden) and already over: don't build a ship just to drop it.
+      if (salvageDeliveryFinished(delivery.startedAt, Date.now())) continue;
       const { sceneX, sceneZ } = fxXZ(delivery.x, delivery.y);
       const surfaceY = aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD;
       const marcherSurfaceY = delivery.marchers.map((m) =>

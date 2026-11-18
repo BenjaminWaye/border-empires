@@ -4,9 +4,11 @@ import {
   SALVAGE_RAMP_HINGE_DY,
   SALVAGE_SHIP_ORBIT_HEIGHT,
   salvageMarcherAt,
+  activeSalvageDelivery,
   salvageNavLight,
   salvageShipAt,
-  type SalvageDeliveryFxEntry
+  type SalvageDeliveryFxEntry,
+  type SalvageDeliveryFxState
 } from "./client-salvage-delivery-fx.js";
 
 // 2D canvas counterpart of the true-3D Imperial delivery
@@ -17,8 +19,10 @@ import {
 // Ancillaries march down and off across the House's land, fading as they go.
 // The Ancillaries are drawn as the game's own 2D soldier figure (the same
 // owner-coloured body-and-head the capture-hold garrison uses,
-// client-map-2d-capture-hold-overlay.ts). Drawn in the per-tile overlay pass
-// on the Works' tile.
+// client-map-2d-capture-hold-overlay.ts). Drawn once per frame after the
+// whole tile pass (drawSalvageDeliveries2D, from drawRouteOverlays2D), so the
+// ship high above the Works and the column marching across neighbouring tiles
+// are neither culled with the Works' tile nor painted over by later tiles.
 
 /** Screen pixels per tile of height (the 2D map leans height up the screen). */
 const HEIGHT_SCALE = 0.85;
@@ -215,7 +219,25 @@ const drawMarchers = (ctx: CanvasRenderingContext2D, entry: SalvageDeliveryFxEnt
   ctx.restore();
 };
 
-/** Draws the delivery playing on this Works' tile, if any. */
+/** Draws every delivery in flight, after the tile pass, and drops finished ones. */
+export const drawSalvageDeliveries2D = (
+  ctx: CanvasRenderingContext2D,
+  state: Pick<SalvageDeliveryFxState, "salvageDeliveryFxByKey">,
+  tileCenterOnScreen: (wx: number, wy: number) => { sx: number; sy: number },
+  size: number,
+  nowEpochMs: number
+): void => {
+  for (const [key, entry] of state.salvageDeliveryFxByKey) {
+    if (!activeSalvageDelivery(state, key, nowEpochMs)) {
+      if (nowEpochMs - entry.startedAt >= 0) state.salvageDeliveryFxByKey.delete(key);
+      continue;
+    }
+    const { sx, sy } = tileCenterOnScreen(entry.x, entry.y);
+    drawSalvageDelivery2D(ctx, entry, sx - size / 2, sy - size / 2, size, nowEpochMs);
+  }
+};
+
+/** Draws one delivery on the Works' tile, whose top-left is (px, py). */
 export const drawSalvageDelivery2D = (
   ctx: CanvasRenderingContext2D,
   entry: SalvageDeliveryFxEntry | undefined,

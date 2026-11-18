@@ -3,7 +3,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { firstSkinnedMesh, type PopupMarineTemplate } from "../client-map-3d-popup-marine/popup-marine-asset.js";
 import { createMarineMaterial } from "../client-map-3d-popup-marine/popup-marine-material.js";
 import { MARINE_MODEL_SCALE } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
-import { SALVAGE_RAMP_FOOT_DY, salvageMarcherAt, type SalvageMarcherTarget } from "./client-salvage-delivery-fx.js";
+import { SALVAGE_PACE, SALVAGE_RAMP_FOOT_DY, salvageMarcherAt, type SalvageMarcherTarget } from "./client-salvage-delivery-fx.js";
 
 // The Ancillaries the Court delivers, in true 3D: the game's own soldier --
 // the skinned battle marine (popup-marine-asset.ts) the battle and muster-march
@@ -74,7 +74,8 @@ export const createSalvageAncillaryColumn = (
       ancillary.material.opacity = m.alpha;
       if (ancillary.walk) {
         const duration = ancillary.walk.getClip().duration;
-        ancillary.walk.time = duration > 0 ? (ageMs * 0.001 + i * PHASE_STEP) % duration : 0;
+        // The column walks at the paced timeline's speed, so the stride slows with it (no foot slide).
+        ancillary.walk.time = duration > 0 ? ((ageMs * 0.001) / SALVAGE_PACE + i * PHASE_STEP) % duration : 0;
       }
       ancillary.mixer.update(0);
     });

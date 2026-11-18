@@ -136,7 +136,11 @@ export const createSalvageDeliveryFxLayer = (
         template = loaded;
         for (const e of entries) attachColumn(e);
       })
-      .catch((err: unknown) => console.error("salvage delivery: marine model failed to load; the Ancillaries will not render", err));
+      .catch((err: unknown) => {
+        // Let the next delivery try again rather than leaving every later one without its column.
+        requested = false;
+        console.error("salvage delivery: marine model failed to load; this delivery's Ancillaries will not render", err);
+      });
   };
 
   const attachColumn = (e: Entry): void => {

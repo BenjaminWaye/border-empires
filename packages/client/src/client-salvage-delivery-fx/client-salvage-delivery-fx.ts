@@ -267,15 +267,26 @@ export const salvageMarcherTargets = (
 
 const FX_QUEUE_CAP = 8;
 
-/** Starts a delivery at `key`; prunes finished entries and bounds the 3D queue (drained only while the true-3D renderer runs). */
-export const recordSalvageDelivery = (state: SalvageDeliveryFxState, key: string, entry: SalvageDeliveryFxEntry): void => {
+/**
+ * Starts a delivery at `key`; prunes finished entries and bounds the 3D queue
+ * (drained only while the true-3D renderer runs). A Works already mid-delivery
+ * keeps the ship it has -- a second load shipped while it is still on the map
+ * neither restarts it (2D) nor lands a second ship on top of it (3D). Returns
+ * whether a delivery was started.
+ */
+export const recordSalvageDelivery = (state: SalvageDeliveryFxState, key: string, entry: SalvageDeliveryFxEntry): boolean => {
+  if (activeSalvageDelivery(state, key, entry.startedAt)) return false;
   for (const [otherKey, other] of state.salvageDeliveryFxByKey) {
     if (entry.startedAt - other.startedAt >= SALVAGE_DELIVERY_TOTAL_MS) state.salvageDeliveryFxByKey.delete(otherKey);
   }
   state.salvageDeliveryFxByKey.set(key, entry);
   state.salvageDeliveryFxQueue.push(entry);
   if (state.salvageDeliveryFxQueue.length > FX_QUEUE_CAP) state.salvageDeliveryFxQueue.shift();
+  return true;
 };
+
+/** Whether a delivery that started at `startedAt` (Date.now() ms) has already played out. */
+export const salvageDeliveryFinished = (startedAt: number, nowEpochMs: number): boolean => nowEpochMs - startedAt >= SALVAGE_DELIVERY_TOTAL_MS;
 
 /** The delivery playing at `key` right now, if any. */
 export const activeSalvageDelivery = (state: Pick<SalvageDeliveryFxState, "salvageDeliveryFxByKey">, key: string, nowEpochMs: number): SalvageDeliveryFxEntry | undefined => {
