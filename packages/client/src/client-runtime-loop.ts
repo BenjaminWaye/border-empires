@@ -207,7 +207,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
-    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
+    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud, { canvas: deps.canvas, worldToScreen: deps.worldToScreen }); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
       paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);

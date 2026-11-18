@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { handleSetHintStateMessage, hintStateInitFields, type StoredHintState } from "./handle-set-hint-state-message.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 
-const run = async (guideStatus: unknown, guideSteps: unknown) => {
+const run = async (guideStatus: unknown, guideSteps: unknown, guideSeasonId?: unknown) => {
   const setHintState = vi.fn(async (_playerId: string, patch: StoredHintState) => patch);
   const sendJson = vi.fn();
   await handleSetHintStateMessage({
@@ -13,6 +13,7 @@ const run = async (guideStatus: unknown, guideSteps: unknown) => {
     musterUnlockedSeasonId: undefined,
     guideStatus,
     guideSteps,
+    guideSeasonId,
     profileStore: { setHintState },
     invalidateProfileCache: vi.fn(),
     sendJson
@@ -34,6 +35,15 @@ describe("tutorial guide hint state", () => {
     expect(sendJson).toHaveBeenCalledWith(expect.objectContaining({ type: "HINT_STATE_SET", guideStatus: "active" }));
   });
 
+  it("persists the guide's season and echoes it, so the client can restart the guide in a new season", async () => {
+    const { setHintState, sendJson } = await run("active", [], "season-2");
+    expect(setHintState).toHaveBeenCalledWith("p1", { guideStatus: "active", guideSteps: [], guideSeasonId: "season-2" });
+    expect(sendJson).toHaveBeenCalledWith(expect.objectContaining({ type: "HINT_STATE_SET", guideSeasonId: "season-2" }));
+    expect(hintStateInitFields(undefined).guideSeasonId).toBe("");
+    const { setHintState: dropped } = await run(undefined, undefined, "s".repeat(129));
+    expect(dropped).toHaveBeenCalledWith("p1", {});
+  });
+
   it("drops an unknown status and an oversized or malformed step list", async () => {
     const tooMany = Array.from({ length: 65 }, (_, i) => `s${i}`);
     for (const [status, steps] of [["started", tooMany], [7, ["x".repeat(49)]], [undefined, [1, 2]]] as const) {
@@ -44,7 +54,7 @@ describe("tutorial guide hint state", () => {
 
   it("keeps guide progress across unrelated profile writes in the in-memory store", async () => {
     const store = new InMemoryGatewayPlayerProfileStore();
-    await store.setHintState("p1", { guideStatus: "active", guideSteps: ["look-pan"] });
+    await store.setHintState("p1", { guideStatus: "active", guideSteps: ["look-pan"], guideSeasonId: "season-1" });
     // Enrollment happens at INIT, before first profile setup: setup must not wipe it.
     await store.setProfile("p1", "Nauticus", "#123456");
     await store.setTileColor("p1", "#654321");
@@ -52,6 +62,6 @@ describe("tutorial guide hint state", () => {
     await store.setHintState("p1", { hintsMuted: true });
     await store.setEmailNotificationPrefs("p1", { attackAlert: false });
     await store.setActivitySeen("p1", 1, "season-1");
-    await expect(store.get("p1")).resolves.toEqual(expect.objectContaining({ guideStatus: "active", guideSteps: ["look-pan"], hintsMuted: true }));
+    await expect(store.get("p1")).resolves.toEqual(expect.objectContaining({ guideStatus: "active", guideSteps: ["look-pan"], guideSeasonId: "season-1", hintsMuted: true }));
   });
 });

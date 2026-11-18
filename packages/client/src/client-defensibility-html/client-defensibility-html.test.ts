@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
@@ -112,5 +113,18 @@ describe("renderDefensibilityPanelHtml", () => {
     const html = renderDefensibilityPanelHtml({ ...args, showWeakDefensibility: true });
     expect(html).toContain('data-weak-def-focus="5,5"');
     expect(html).toContain("4 open sides: north, east, south and west (unexplored land)");
+  });
+
+  // Playtest 2026-11-18: the hero card read "half blank": a body-size score with an empty right half.
+  it("leads with the score and fills the hero with its income effect", () => {
+    const tiles = new Map<string, Tile>([["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }]]);
+    const args = { tiles, me: "me", defensibilityPct: 100, settledT: 1, settledE: 4, showWeakDefensibility: false, keyFor, wrapX: (x: number) => x, wrapY: (y: number) => y, terrainAt: () => "LAND" as const };
+    const host = document.createElement("div");
+    host.innerHTML = renderDefensibilityPanelHtml({ ...args, empireIntegrityEnabled: true });
+    const head = host.querySelector(".defense-hero-head")!;
+    expect(head.querySelector(".defense-score")?.textContent).toBe("100%");
+    expect(head.querySelector(".defense-rating")?.textContent).toMatch(/^\+\d+% income$/);
+    host.innerHTML = renderDefensibilityPanelHtml({ ...args, empireIntegrityEnabled: false });
+    expect(host.querySelector(".defense-hero-head .defense-rating")).toBeNull();
   });
 });

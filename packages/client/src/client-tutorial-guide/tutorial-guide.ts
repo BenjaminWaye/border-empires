@@ -1,4 +1,4 @@
-// The new-account tutorial guide's controller. Runs every frame (from
+// The tutorial guide's controller. Runs every frame (from
 // client-onboarding-ui-overlays.ts's frame tick) for an account enrolled in
 // the guide (tutorial-guide-storage.ts): evaluates the steps against the
 // current state, persists newly completed steps, keeps the corner card and
@@ -9,8 +9,9 @@
 // highlight the guide shows is in both renderers by construction.
 //
 // For an enrolled account the guide replaces the New empire checklist bubble
-// (its four goals are the guide's "A foothold" chapter). Accounts that are
-// not enrolled -- every account older than the guide -- keep the checklist.
+// (its four goals are the guide's "A foothold" chapter). Every player is
+// enrolled at the start of each season (tutorial-guide-storage.ts); only a
+// session with no known season and an existing account keeps the checklist.
 
 import { buildGuideInput, type GuideInputState } from "./tutorial-guide-input.js";
 import { evaluateGuide, GUIDE_STEPS, guideBeaconSite, needsTownForBuild, guideRecommendsAfcUpgrade, guideRecommendsManifest, RECOMMENDED_FIRST_AFC_UPGRADE_ID, RECOMMENDED_FIRST_MANIFEST_ID, type GuideView } from "./tutorial-guide-steps.js";
@@ -28,6 +29,7 @@ import { setGuideManufactoryTargets } from "./tutorial-guide-manufactory-recomme
 import { syncGuideAfcPick } from "./tutorial-guide-afc-pick.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
 import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
+import { syncGuideCardPlacement, type GuideTileProjector } from "./tutorial-guide-placement.js";
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { setOnboardingRelayBeaconSite } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
@@ -76,7 +78,7 @@ const handlers: GuideCardHandlers = {
     setOnboardingRelayBeaconSite(undefined);
     removeTutorialGuideUi();
     const doneIds = new Set(readGuideProgress(lastAuthEmail).steps);
-    renderGuideCompleteCard(GUIDE_STEPS.filter((s) => doneIds.has(s.id)).length, GUIDE_STEPS.length);
+    renderGuideCompleteCard(GUIDE_STEPS.length, GUIDE_STEPS.filter((s) => !doneIds.has(s.id)).length);
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);
@@ -114,7 +116,7 @@ export const isTutorialGuideRunning = (authEmail: string | null | undefined): bo
 /**
  * True for any account that was enrolled in the guide, running or not. Such an
  * account never falls back to the New empire checklist bubble: after Finish or
- * Hide guide the corner stays empty instead of showing a different UI.
+ * Skip guide the corner stays empty instead of showing a different UI.
  */
 export const isEnrolledInTutorialGuide = (authEmail: string | null | undefined): boolean => readGuideProgress(authEmail).status !== "";
 
@@ -186,6 +188,12 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
   setGuideManufactoryTargets(manufactoryStep && !view.waiting ? view.highlightTiles : undefined);
   syncGuideAfcPick(!view.waiting && guideRecommendsAfcUpgrade(view.step.id) ? RECOMMENDED_FIRST_AFC_UPGRADE_ID : undefined);
   return [...view.highlightTiles];
+};
+
+/** Every frame, after renderTutorialGuide: moves the card off the step's ringed tiles and off notifications (tutorial-guide-placement.ts). */
+export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefined, nowMs: number): void => {
+  if (!lastView) return;
+  syncGuideCardPlacement(lastView.highlightTiles, project, nowMs);
 };
 
 /** Settings "Restart guide": reopen the card on the first unfinished step. */

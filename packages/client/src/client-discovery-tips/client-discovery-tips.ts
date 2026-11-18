@@ -110,7 +110,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   WAYSTATION: {
     id: "WAYSTATION",
     title: "Waystation Discovered!",
-    body: "Expand onto a Waystation to activate it, permanently: it grants ONE of four possible rewards, chosen at random -- a map reveal near a nearby town, a population burst to your nearest town, a Manifest unlocked outright, or an extra resource slot for your empire. Unlike a watchtower's pulse, the reward is permanent and fires once."
+    body: "Claim a Waystation tile, then press Activate on its hovering prompt to collect one random reward: a map reveal, population, a Manifest, a resource site, Coin, or manpower. The survey rig disappears once collected."
   },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };
@@ -143,7 +143,9 @@ export const discoveryTipIdForNewlySeenTile = (
   }
   if (tile.town) return "TOWN";
   if (tile.dockId) return "DOCK";
-  if (tile.waystation) return "WAYSTATION";
+  // An already-activated Waystation has nothing left to teach ("expand onto it to activate it"); its
+  // Activated card is the popup that matters, and a Discovered tip after it read out of order.
+  if (tile.waystation && !tile.waystation.activated) return "WAYSTATION";
   if (tile.ownerId?.startsWith("barbarian")) return "BARBARIAN";
   return discoveryTipIdForTileResource(tile.resource);
 };
@@ -188,6 +190,14 @@ export const enqueueDiscoveryTipForNewlySeenTile = (
 };
 
 /**
+ * A Waystation's Activated card supersedes its Discovered tip: a tip still waiting in the queue (held back behind
+ * an open screen or a fullscreen card) would otherwise pop up after the activation it explains.
+ */
+export const retireWaystationDiscoveryTip = (queue: DiscoveryTipId[] | undefined, authEmail?: string | null): void => {
+  if (queue) retireQueuedDiscoveryTips(queue, WAYSTATION_TIP_IDS, authEmail);
+};
+
+/**
  * Marks the active tip (front of queue) as dismissed (30-day/season TTL) and
  * pops it. When `mute` is true (the "Don't show tooltips" checkbox), also
  * suppresses every discovery tip for the same window.
@@ -201,12 +211,15 @@ export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: s
   if (mute) muteDiscoveryTips(authEmail);
 };
 
+const WAYSTATION_TIP_IDS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["WAYSTATION"]);
+
 /**
  * Removes every queued tip in `ids` and marks it seen, as if the player had
  * dismissed it. For tips whose subject another surface already teaches: the
  * tutorial guide's steps cover the first town, food, muster flag and first
  * contact, so their toasts would only repeat the guide card.
  */
+
 export const retireQueuedDiscoveryTips = (queue: DiscoveryTipId[], ids: ReadonlySet<DiscoveryTipId>, authEmail?: string | null): void => {
   for (let i = queue.length - 1; i >= 0; i -= 1) {
     const id = queue[i]!;

@@ -151,6 +151,21 @@ describe("House Charges in the profile", () => {
     expect(html).toContain("You can still change which 2 you keep.");
   });
 
+  // Playtest 2026-11-18: Manage charges sat at the bottom of a long profile, below the season stats.
+  it("puts Manage charges above the season stats", () => {
+    const html = profile({ houseCharges: { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges: [charge({ held: true }), desert] } });
+    expect(html.indexOf("data-v2-open-charges")).toBeGreaterThan(-1);
+    expect(html.indexOf("data-v2-open-charges")).toBeLessThan(html.indexOf("This Sector Contest"));
+  });
+
+  // UX review: "You can still change which 0 you keep" when no keep was recorded yet.
+  it("never says 'which 0' while the choice is open with nothing kept", () => {
+    const html = profile({ houseCharges: { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges: [desert, { ...desert, id: "x" }, { ...desert, id: "y" }].map((c) => ({ ...c, kept: false })) } });
+    expect(html).not.toContain("which 0");
+    expect(html).toContain("You can still change which 2 you keep.");
+    expect(html).toContain("None kept yet");
+  });
+
   it("explains the wait on your own profile before charges are dealt", () => {
     expect(profile({ houseCharges: null })).toContain("arrive once your AFC has landed");
   });

@@ -98,3 +98,15 @@ describe("showWaystationActivationOverlayWhenClear", () => {
     expect(popup()).not.toBeNull();
   });
 });
+
+// Playtest 2026-11-18: a Discovered tip still queued (held behind an open screen) showed after the Activated card.
+describe("Waystation Activated card and the queued Discovered tip", () => {
+  it("drops a queued Waystation Discovered tip when the Activated card is shown", () => {
+    vi.stubGlobal("localStorage", window.localStorage);
+    const state = { ...returningPlayerState(), activityDashboard: { open: false, loading: false }, discoveryTipQueue: ["TOWN", "WAYSTATION"], authEmail: "" } as unknown as WaystationPopupGateState;
+    showWaystationActivationOverlayWhenClear(info, state);
+    expect(popup()).not.toBeNull();
+    expect(state.discoveryTipQueue).toEqual(["TOWN"]);
+    vi.unstubAllGlobals();
+  });
+});

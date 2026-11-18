@@ -13,7 +13,7 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
     foodSlotsTarget: 4,
     highlightTiles: [{ x: 5, y: 5 }]
   },
-  footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } },
+  footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
   afcUpgradeReady: false,
@@ -119,11 +119,11 @@ describe("tutorial guide steps", () => {
     const pastFind = new Set(ids("look"));
     const found = { ...baseInput().checklist, townFound: true };
 
-    const garrison = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    const garrison = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(garrison).toEqual(expect.objectContaining({ title: "Tap the marked town and Garrison it", highlightTiles: [{ x: 3, y: 0 }] }));
     expect(garrison.kind === "step" && garrison.why).toMatch(/frontier/);
 
-    const expand = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    const expand = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(expand).toEqual(expect.objectContaining({ title: "Tap the marked town and Expand To it", highlightTiles: [{ x: 9, y: 9 }] }));
 
     const beacon = evaluateGuide(baseInput({ checklist: { ...found, step: "EXPAND_RELAY_BEACON", highlightTiles: [{ x: 1, y: 1 }], relayBeaconSite: { x: 1, y: 1 } } }), pastFind);
@@ -136,7 +136,7 @@ describe("tutorial guide steps", () => {
 
     // Right after Expand To, the town is our pending frontier: don't ask for a Garrison that is already queued.
     const pending = evaluateGuide(
-      baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [{ x: 3, y: 0 }], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }),
+      baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [{ x: 3, y: 0 }], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }),
       pastFind
     );
     expect(pending).toEqual(expect.objectContaining({ title: "Your claim on the marked town is underway", highlightTiles: [{ x: 3, y: 0 }] }));
@@ -145,7 +145,7 @@ describe("tutorial guide steps", () => {
   it("treats food like towns: Garrison own frontier food, Expand To food in vision, else a beacon, and shows the grain and fish icons", () => {
     const pastTown = new Set([...ids("look"), "foothold-take-town"]);
     const checklist = { ...footholdDone, step: "EXPAND_FOOD" as const, foodExpanded: false, foodSlotsClaimed: 1, highlightTiles: [{ x: 1, y: 1 }] };
-    const food = (garrison: Array<{ x: number; y: number }>, expand: Array<{ x: number; y: number }>) => ({ town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison, expand } });
+    const food = (garrison: Array<{ x: number; y: number }>, expand: Array<{ x: number; y: number }>) => ({ town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison, expand } });
 
     const garrison = evaluateGuide(baseInput({ checklist, footholdTargets: food([{ x: 2, y: 2 }], [{ x: 8, y: 8 }]) }), pastTown);
     expect(garrison).toEqual(expect.objectContaining({ title: "Tap a marked food tile and Garrison it (1/4 slots)", highlightTiles: [{ x: 2, y: 2 }], lookFor: ["FOOD", "FISH"] }));
@@ -297,7 +297,7 @@ describe("tutorial guide steps", () => {
 
     it("works the player through finding a food slot before the Manufactory when none is free", () => {
       const afcDone = new Set([...beforeAfc, "afc-upgrade"]);
-      const food = { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 7, y: 7 }] };
+      const food = { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 7, y: 7 }] };
       const noSlot = evaluateGuide(
         baseInput({ ...withManifest, foodSlotFree: false, manufactoryUnlocked: true, footholdTargets: { town: food, food } }),
         afcDone
@@ -335,7 +335,7 @@ describe("tutorial guide steps", () => {
   it("asks for a town the player can take before a Relay Beacon while they own none, then the beacon", () => {
     const pastFoothold = new Set([...ids("look"), ...ids("foothold")]);
     const site = { x: 12, y: 3 };
-    const townInSight = { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 4, y: 1 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } };
+    const townInSight = { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 4, y: 1 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } };
     // The town step was skipped: no town held yet.
     const noTown = { ...footholdDone, step: "EXPAND_TOWN" as const, townExpanded: false };
     const input = baseInput({ checklist: noTown, beaconSite: () => site, footholdTargets: townInSight });

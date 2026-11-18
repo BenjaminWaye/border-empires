@@ -1,0 +1,46 @@
+/* Select first, then confirm: the big confirm prompt that floats right above
+   the tapped tile (client-tap-confirm-button.ts). No transition on purpose:
+   the second tap must land the instant the prompt appears. */
+.tap-confirm-btn {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 180px;
+  max-width: calc(100vw - 16px);
+  min-height: 64px;
+  padding: 10px 22px;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: #2f9e44;
+  color: #ffffff;
+  font-family: inherit;
+  box-shadow: 0 0 0 4px rgba(47, 158, 68, 0.35), 0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: none;
+}
+
+.tap-confirm-btn:disabled {
+  background: #5c6470;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+
+.tap-confirm-label {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.tap-confirm-cost {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.95;
+  white-space: nowrap;
+}

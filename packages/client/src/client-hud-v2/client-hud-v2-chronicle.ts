@@ -2,6 +2,7 @@
 // personal activity timeline. Every event that happened somewhere has a Show
 // button that flies the camera there; rivals filter one timeline.
 
+import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
@@ -151,7 +152,7 @@ const filtersHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput):
 
 /** Title, close and (when given) the Yours / World / Updates tabs. */
 export const chronicleHeadHtml = (tabs = ""): string =>
-  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle"><span class="v2-key-hint">Esc </span>✕</button></div>${tabs}`;
+  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><span class="v2s-hint">${SCREEN_HINTS.chronicle ?? ""}</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle"><span class="v2-key-hint">Esc </span>✕</button></div>${tabs}`;
 
 export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const head = chronicleHeadHtml(tabs);

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { screen, type HudV2Deps } from "./client-hud-v2-context.js";
-import { chronicleBadgeCount, chronicleTabClick, renderChronicle, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
+import { chronicleBadgeCount, chronicleTabClick, renderChronicle, resetChronicleBadgeSeenForTests, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { chronicleTabForDashboardView, worldTabHtml } from "./client-hud-v2-chronicle-tabs.js";
 
 const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
@@ -15,6 +15,8 @@ describe("merged Chronicle", () => {
     screen.chronicleUpdatesBaseline = undefined;
     screen.chronicleOpenUpdate = undefined;
     document.body.innerHTML = "";
+    window.localStorage.clear();
+    resetChronicleBadgeSeenForTests();
   });
 
   it("maps the old dashboard's views onto Chronicle tabs", () => {
@@ -77,5 +79,19 @@ describe("merged Chronicle", () => {
     expect(html).toContain("Vasker");
     expect(html).toContain("Border war");
     expect(worldTabHtml({ pulse: undefined, loading: true, error: undefined })).toContain("Loading");
+  });
+
+  // Playtest 2026-11-18: the button's badge stayed at 117 after reading Yours (unseen release notes only cleared on Updates).
+  it("clears the button badge when the Chronicle is read on Yours, and keeps the Updates tab's own count", () => {
+    const state = createInitialState();
+    state.changelog.seenAt = 1;
+    expect(chronicleBadgeCount(state)).toBeGreaterThan(0);
+    document.body.innerHTML = `<aside id="v2c-drawer"></aside>`;
+    screen.chronicleTab = "yours";
+    renderChronicle(depsFor(state));
+    expect(chronicleBadgeCount(state)).toBe(0);
+    expect(document.querySelector('[data-v2-chronicle-tab="updates"] .v2c-tab-badge')).not.toBeNull();
+    resetChronicleBadgeSeenForTests();
+    expect(chronicleBadgeCount(state)).toBe(0);
   });
 });
