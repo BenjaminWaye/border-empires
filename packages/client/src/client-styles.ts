@@ -58,3 +58,4 @@ import "./client-house-charges/client-house-charges-style.css";
 import "./client-house-charges/client-house-charge-cards.css";
 import "./client-defensibility-weak-tiles/client-defensibility-weak-tiles.css";
 import "./client-tap-confirm-button/client-tap-confirm-button-style.css";
+import "./client-login-lore-quotes/client-login-lore-quotes-style.css";
