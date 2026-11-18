@@ -84,15 +84,14 @@ describe("occupation survey presentation", () => {
   });
 
   // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", a screen that no longer exists.
-  // The clue is not in the Chronicle either: the resource's Manifest card is where it shows again
-  // (client-manifest-fit.ts, "A town you garrisoned turned up signs of ...").
-  it("points to the Manifest card that keeps the clue", () => {
+  // Then it pointed at the Manifest card, which no one would look at. Chronicle → Yours now lists open
+  // survey clues (client-hud-v2-chronicle-surveys.ts), so the popup points there.
+  it("points to the Chronicle, which keeps the clue", () => {
     occupationSurveyController.record(entry());
     sync(true);
     const hint = document.querySelector(".occupation-survey-hint")?.textContent ?? "";
-    expect(hint).toContain("Manifest's card keeps this clue");
+    expect(hint).toContain("Your Chronicle keeps this clue");
     expect(hint).not.toContain("Activity");
-    expect(hint).not.toContain("Chronicle");
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
   });
 

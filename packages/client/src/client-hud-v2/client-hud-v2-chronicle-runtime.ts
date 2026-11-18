@@ -10,6 +10,8 @@ import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
+import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
+import { occupationSurveyController } from "../client-occupation-survey.js";
 
 // The newest release note the Chronicle has been opened past. Opening the Chronicle answers the button's badge:
 // it read 117 after the player had read Yours, because unseen release notes only cleared on the Updates tab
@@ -60,7 +62,8 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
       nowMs: Date.now(),
       awaySince: screen.chronicleAwaySince,
-      respawn: state.respawnNotice
+      respawn: state.respawnNotice,
+      surveys: occupationSurveyController.currentReports(state.techIds ?? [])
     }, tabs));
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
     return;
@@ -82,6 +85,7 @@ export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
 
 /** Tab and release-note clicks inside the Chronicle; true when handled. */
 export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => {
+  if (chronicleSurveyClick(deps, target)) return true;
   const update = target.closest<HTMLElement>("[data-v2-update]")?.dataset.v2Update;
   if (update) {
     const baseline = screen.chronicleUpdatesBaseline ?? deps.state.changelog.seenAt;
