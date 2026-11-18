@@ -14,6 +14,7 @@ import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js
 import { LOADING_QUOTE_EVERYWHERE_ENTRY } from "./client-changelog-loading-quote-everywhere.js";
 import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
+import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
@@ -29,5 +30,9 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...LOGIN_LORE_QUOTES_ENTRY, createdAt: 1795004512423, },
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
+<<<<<<< HEAD
   { ...LOADING_QUOTE_EVERYWHERE_ENTRY, createdAt: 1795035395774, },
+=======
+  { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
+>>>>>>> origin/develop
 ];
