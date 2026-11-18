@@ -126,7 +126,7 @@ import {
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { handleGenericBuildAction } from "./client-generic-build-action.js";
-import { handleAfcTileAction } from "./client-afc-tile-action.js";
+import { afcArmTapMenuOptions, handleAfcTileAction, ownAfcFootprintTapTarget } from "./client-afc-tile-action.js";
 import {
   areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
@@ -1084,7 +1084,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab }): void => {
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab; afcArmSocket?: number }): void => {
     if (tile.muster?.ownerId === state.me) {
       musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
@@ -1462,9 +1462,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    const to = clicked;
+    const to = ownAfcFootprintTapTarget(state.tiles, state.me, wx, wy) ?? clicked; // an own AFC's support tile opens the AFC
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
-    state.selected = { x: wx, y: wy };
+    state.selected = { x: to.x, y: to.y };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
@@ -1501,8 +1501,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     tapConfirm.arm(wx, wy);
-    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(wx, wy)) ?? to)))), reTap); // live: an attack's cost lands with its preview
-    openSingleTileActionMenu(to, clientX, clientY);
+    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to)))), reTap); // live: an attack's cost lands with its preview
+    openSingleTileActionMenu(to, clientX, clientY, to === clicked ? undefined : afcArmTapMenuOptions(to, wx, wy)); // an arm tap spotlights that arm's module
     requestAttackPreviewForHover();
     renderHud();
   };
