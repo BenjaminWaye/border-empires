@@ -1,4 +1,5 @@
 import type { Tile } from "./client-types.js";
+export { ownAfcFootprintTapTarget } from "./client-afc-footprint-tap/client-afc-footprint-tap.js";
 
 type AfcClientCommand =
   | { type: "REDEPLOY_AFC_MODULE"; x: number; y: number; techId: string }

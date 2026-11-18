@@ -126,7 +126,7 @@ import {
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { handleGenericBuildAction } from "./client-generic-build-action.js";
-import { handleAfcTileAction } from "./client-afc-tile-action.js";
+import { handleAfcTileAction, ownAfcFootprintTapTarget } from "./client-afc-tile-action.js";
 import {
   areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
@@ -1462,9 +1462,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    const to = clicked;
+    const to = ownAfcFootprintTapTarget(state.tiles, state.me, wx, wy) ?? clicked; // an own AFC's support tile opens the AFC
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
-    state.selected = { x: wx, y: wy };
+    state.selected = { x: to.x, y: to.y };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
@@ -1500,8 +1500,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    tapConfirm.arm(wx, wy);
-    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(wx, wy)) ?? to)))), reTap); // live: an attack's cost lands with its preview
+    tapConfirm.arm(to.x, to.y);
+    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to)))), reTap); // live: an attack's cost lands with its preview
     openSingleTileActionMenu(to, clientX, clientY);
     requestAttackPreviewForHover();
     renderHud();
