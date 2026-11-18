@@ -39,7 +39,7 @@ describe("buildDailyStory outcomes", () => {
     const siege = events.find((e) => e.type === "TOUGHEST_TARGET");
     expect(siege?.headline).toBe("Under Siege");
     expect(siege?.text).toBe(
-      "Sigrid was the most attacked empire today — rivals hurled 18,730 manpower at them, and Sigrid lost 405 tiles, 40% of their realm."
+      "Sigrid was the most attacked empire today — rivals hurled 18,730 manpower at them, and Sigrid lost 405 tiles, leaving their realm 39% smaller."
     );
     expect(siege?.text).not.toContain("just");
   });
@@ -108,7 +108,7 @@ describe("buildDailyStory outcomes", () => {
     );
     expect(events.map((e) => e.type)).toEqual(["OPEN_WAR"]);
     expect(events[0]!.text).toBe(
-      "Alden and Freja are locked in open war — 476 tiles changed hands today. Alden is bleeding worst: 475 tiles lost, 48% of their realm, more than any empire."
+      "Alden and Freja are locked in open war — 476 tiles changed hands today. Alden is bleeding worst: 475 tiles lost, more than any empire, leaving their realm 48% smaller."
     );
     expect(events[0]!.participantIds).toEqual(["alden", "freja"]);
   });
@@ -207,7 +207,23 @@ describe("buildDailyStory outcomes", () => {
       nameFor
     );
     expect(events[0]!.text).toBe(
-      "Sigrid was the most attacked empire today — rivals hurled 18,730 manpower at them, and Sigrid lost 405 tiles, 12% of their realm."
+      "Sigrid was the most attacked empire today — rivals hurled 18,730 manpower at them, and Sigrid lost 405 tiles, leaving their realm 12% smaller."
     );
+  });
+
+  // Reviewer-found: tilesLost counts frontier claimed and lost again inside
+  // the window, which was never part of the starting realm. An empire that
+  // claimed 200 tiles and lost them all ended where it started.
+  it("does not count tiles gained and lost within the day as a shrinking realm", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        toughestTarget24h: { defenderId: "p1", defenderName: "Churn", manpowerSpentAgainst: 9000 },
+        territoryMomentum: [{ playerId: "p1", playerName: "Churn", tilesGained24h: 200, tilesLost24h: 200, net24h: 0, tilesOwned: 100 }]
+      },
+      nameFor
+    );
+    expect(events[0]!.headline).toBe("Held the Line");
+    expect(events[0]!.text).not.toContain("%");
   });
 });

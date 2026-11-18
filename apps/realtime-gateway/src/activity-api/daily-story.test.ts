@@ -32,7 +32,7 @@ describe("buildDailyStory", () => {
       {
         type: "BIGGEST_DEFEAT",
         headline: "Heaviest Defeat",
-        text: "Milo Ash lost 61 tiles today — more ground than any other empire.",
+        text: "Milo Ash lost 61 tiles today — more than any other empire.",
         significance: 41, // normalizeSignificance(61, SIGNIFICANCE_SCALE.tileCount=150)
         players: ["Milo Ash"]
       }

@@ -16,7 +16,7 @@ import type {
 
 import { buildBloodiestBattle, buildFiercestAttacker, buildFiercestFighting, buildToughestTarget } from "./daily-story-combat.js";
 import { FIXED_SIGNIFICANCE, normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
-import { formatCount, lossShareClause, pluralize, story, territoryLossShare } from "./daily-story-text.js";
+import { formatCount, lossShareClause, pluralize, story, territoryShrinkShare } from "./daily-story-text.js";
 import { buildEconomyBoom, buildManpowerSurge } from "./player-growth.js";
 
 type DailyStoryInput = Pick<
@@ -46,11 +46,11 @@ const buildBiggestDefeat = (
   territoryMomentum: DailyStoryInput["territoryMomentum"]
 ): DailyStoryEvent | undefined => {
   if (!swing || swing.tilesLost <= 0) return undefined;
-  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, territoryMomentum));
+  const share = lossShareClause(territoryShrinkShare(swing.playerId, territoryMomentum));
   return story({
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
-    text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today${share} — more ground than any other empire.`,
+    text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — more than any other empire${share}.`,
     significance: normalizeSignificance(swing.tilesLost, SIGNIFICANCE_SCALE.tileCount),
     players: [swing.playerName]
   }, [swing.playerId]);
@@ -94,8 +94,8 @@ const mergeDefeatIntoWar = (
   if (!war || !defeat || !swing || !warExplainsLoss || !war.participantIds.includes(swing.playerId)) {
     return { events: [war, defeat].filter((event): event is DailyStoryEvent => event !== undefined), folded: false };
   }
-  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, territoryMomentum));
-  const text = `${war.text} ${swing.playerName} is bleeding worst: ${pluralize(swing.tilesLost, "tile")} lost${share}, more than any empire.`;
+  const share = lossShareClause(territoryShrinkShare(swing.playerId, territoryMomentum));
+  const text = `${war.text} ${swing.playerName} is bleeding worst: ${pluralize(swing.tilesLost, "tile")} lost, more than any empire${share}.`;
   return { events: [story({ ...war, text, significance: Math.max(war.significance, defeat.significance) }, war.participantIds)], folded: true };
 };
 

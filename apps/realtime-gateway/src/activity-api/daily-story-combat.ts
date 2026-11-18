@@ -10,7 +10,7 @@
 import type { ActivityApiResponse, DailyStoryEvent } from "@border-empires/game-domain";
 
 import { normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
-import { formatCount, lossShareClause, MEANINGFUL_LOSS_SHARE, pluralize, story, territoryLossShare, timesPhrase } from "./daily-story-text.js";
+import { formatCount, lossShareClause, MEANINGFUL_LOSS_SHARE, pluralize, story, territoryShrinkShare, timesPhrase } from "./daily-story-text.js";
 
 type CombatInput = Pick<
   ActivityApiResponse,
@@ -90,9 +90,9 @@ export const buildFiercestAttacker = (
   }, [attacker.attackerId]);
 };
 
-// A defence "held" when it gave up nothing, or only a sliver of the realm.
-// Without a known realm size (not on the leaderboard), a small absolute count
-// stands in for "a sliver".
+// A defence "held" when the realm ended the day no smaller, or only a sliver
+// smaller. Without a known realm size (an older sim that doesn't send
+// tilesOwned), a small absolute count of tiles lost stands in for "a sliver".
 const HELD_ABSOLUTE_TILE_LIMIT = 10;
 
 // Who got attacked hardest, and what it cost them. The old copy always
@@ -112,9 +112,10 @@ export const buildToughestTarget = (
 ): DailyStoryEvent | undefined => {
   if (!target || target.manpowerSpentAgainst <= 0) return undefined;
   const tilesLost = territoryMomentum.find((entry) => entry.playerId === target.defenderId)?.tilesLost24h ?? 0;
-  const share = territoryLossShare(target.defenderId, tilesLost, territoryMomentum);
+  const share = territoryShrinkShare(target.defenderId, territoryMomentum);
   const isHeaviestLoser = tilesLost > 0 && target.defenderId === heaviestLoserId;
-  const smallLoss = share === undefined ? tilesLost <= HELD_ABSOLUTE_TILE_LIMIT : share < MEANINGFUL_LOSS_SHARE;
+  const sizeKnown = territoryMomentum.some((entry) => entry.playerId === target.defenderId && entry.tilesOwned !== undefined);
+  const smallLoss = sizeKnown ? (share ?? 0) < MEANINGFUL_LOSS_SHARE : tilesLost <= HELD_ABSOLUTE_TILE_LIMIT;
   const held = tilesLost === 0 || (smallLoss && !isHeaviestLoser);
   const spent = manpower(target.manpowerSpentAgainst);
   const name = target.defenderName;

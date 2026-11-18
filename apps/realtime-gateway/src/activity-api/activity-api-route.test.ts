@@ -182,4 +182,27 @@ describe("GET /api/activity", () => {
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ ok: false, error: "rpc unavailable" });
   });
+
+  // tilesOwned rides as a non-enumerable property from the sim snapshot
+  // through buildActivityApiResponse into the daily story. If any step copied
+  // the entry and dropped it, the "% smaller" clause would silently vanish.
+  it("carries the realm size through to the daily story's share without publishing it", async () => {
+    const app = Fastify();
+    registerActivityApiRoute(app, {
+      getActivityDashboardSnapshot: async () => ({
+        ...dashboard,
+        territoryMomentum: [{ playerId: "p7", tilesGained24h: 0, tilesLost24h: 50, net24h: -50, tilesOwned: 150 }],
+        biggestSwing24h: { playerId: "p7", tilesLost: 50, windowStart: 0, windowEnd: 1_000_000 },
+        wars: []
+      }),
+      getSocialSnapshot: () => socialSnapshot,
+      getPowerScore: async () => powerScore,
+      growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
+      now: () => 1_000_000
+    });
+    const body = (await app.inject({ method: "GET", url: "/api/activity" })).json();
+    const defeat = body.dailyStory.find((e: { type: string }) => e.type === "BIGGEST_DEFEAT");
+    expect(defeat.text).toBe("p7 lost 50 tiles today — more than any other empire, leaving their realm 25% smaller.");
+    expect(body.territoryMomentum[0]).not.toHaveProperty("tilesOwned");
+  });
 });

@@ -15,28 +15,32 @@ export const timesPhrase = (count: number): string =>
   count === 1 ? "once" : count === 2 ? "twice" : `${formatCount(count)} times`;
 
 /**
- * Share of the territory a player held at the start of the window that they
- * lost, or undefined when their current size is unknown (an older sim that
- * doesn't send tilesOwned yet). Uses every owned tile (frontier and settled),
- * the same tiles tilesLost counts -- the leaderboard's settled-only `tiles`
- * would overstate the share. Start size = owned now + tiles lost; tiles
- * gained back in the same window make this a slight under-estimate, never an
- * over-one.
+ * How much smaller a player's realm is than at the start of the window, as a
+ * fraction of what they held then -- or undefined when their size is unknown
+ * (an older sim that doesn't send tilesOwned yet) or they did not shrink.
+ *
+ * NET, not gross tilesLost24h: tilesLost counts every distinct tile that left
+ * the player in the window, including frontier claimed and lost again inside
+ * it, which were never part of the starting realm. An empire that claims 200
+ * neutral tiles and loses them all ends where it started, and must not read
+ * as "67% of their realm". Start size = owned now - net24h; tilesOwned counts
+ * frontier and settled alike, the same tiles net24h counts (the leaderboard's
+ * settled-only `tiles` would overstate the share).
  */
-export const territoryLossShare = (
+export const territoryShrinkShare = (
   playerId: string,
-  tilesLost: number,
-  territoryMomentum: readonly Pick<TerritoryMomentumEntry, "playerId" | "tilesOwned">[]
+  territoryMomentum: readonly Pick<TerritoryMomentumEntry, "playerId" | "net24h" | "tilesOwned">[]
 ): number | undefined => {
-  const owned = territoryMomentum.find((entry) => entry.playerId === playerId)?.tilesOwned;
-  if (owned === undefined || tilesLost <= 0) return undefined;
-  return tilesLost / (owned + tilesLost);
+  const entry = territoryMomentum.find((candidate) => candidate.playerId === playerId);
+  if (!entry || entry.tilesOwned === undefined || entry.net24h >= 0) return undefined;
+  const startOwned = entry.tilesOwned - entry.net24h;
+  return startOwned > 0 ? -entry.net24h / startOwned : undefined;
 };
 
-/** " — 38% of their realm" style clause, only when the share is big enough to be news. */
+/** ", leaving their realm 12% smaller" clause, only when the shrink is big enough to be news. */
 export const MEANINGFUL_LOSS_SHARE = 0.1;
 export const lossShareClause = (share: number | undefined): string =>
-  share !== undefined && share >= MEANINGFUL_LOSS_SHARE ? `, ${Math.round(share * 100)}% of their realm` : "";
+  share !== undefined && share >= MEANINGFUL_LOSS_SHARE ? `, leaving their realm ${Math.round(share * 100)}% smaller` : "";
 
 type DailyStoryEventPayload = Omit<DailyStoryEvent, "participantIds" | "dashboardText">;
 
