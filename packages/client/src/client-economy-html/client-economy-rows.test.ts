@@ -8,7 +8,7 @@ const slot = (supply: number, demand: number, sources: EconomyRowsInput["slots"]
 const input = (over: Partial<EconomyRowsInput> = {}): EconomyRowsInput => ({
   focus: "ALL",
   gold: 13.4,
-  coin: { netPerMinute: 58 / 1440, sources: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3 }], sinks: [{ label: "Umbrite Works", amountPerMinute: 2 / 1440, count: 1, resourceKey: "UMBRITE" }] },
+  coin: { earned: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3, kind: "source" }], upkeep: [{ label: "Umbrite Works", amountPerMinute: 2 / 1440, count: 1, resourceKey: "UMBRITE" }], grossPerMinute: 40 / 1440, upkeepPerMinute: 0, netPerMinute: 40 / 1440, integrityPerMinute: 0 },
   slots: {
     FOOD: slot(10, 9, [{ label: "Farm", amountPerMinute: 4, count: 4 }], [{ label: "Town support", amountPerMinute: 9, count: 3 }]),
     TITANIUM: slot(2, 0),
@@ -46,6 +46,14 @@ describe("Economy rows (new HUD)", () => {
   it("still shows an unresearched resource that has slots or users", () => {
     const host = render(input({ slots: { ...input().slots, CRYSTAL: slot(1, 0) } }));
     expect(host.querySelector("[data-v2e-row='CRYSTAL']")).not.toBeNull();
+  });
+
+  // 2026-11-14 playtest: Titanium said "No tiles yet" for three sessions with no hint where to find any.
+  it("tells you how to get a strategic resource with no tiles, with a way to the Resources lens", () => {
+    const titanium = render(input()).querySelector<HTMLElement>("[data-v2e-row='TITANIUM']")!;
+    expect(titanium.textContent).toContain("Garrison a titanium deposit");
+    expect(titanium.querySelector('[data-economy-lens="TITANIUM"]')?.textContent).toBe("Find on map");
+    expect(render(input({ slots: { ...input().slots, FOOD: slot(0, 0) } })).querySelector("[data-v2e-row='FOOD']")?.textContent).toContain("No tiles yet");
   });
 
   it("gives used / supply, where supply comes from and what uses it", () => {

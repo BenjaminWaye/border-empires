@@ -125,7 +125,10 @@ const persistCommandStatus = async (
   }
 };
 
-const shouldPersistEvent = (event: SimulationEvent): boolean => event.eventType !== "PLAYER_MESSAGE";
+// Agreement transitions carry durable state that event recovery applies between checkpoints.
+const shouldPersistEvent = (event: SimulationEvent): boolean =>
+  event.eventType !== "PLAYER_MESSAGE" || event.messageType === "RESOURCE_SUPPLY_CHANGED" ||
+  event.messageType === "RESOURCE_SUPPLY_COIN_REFUNDED";
 
 export const createSimulationPersistenceQueue = (
   dependencies: SimulationPersistenceQueueDependencies

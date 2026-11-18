@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, spendableCoin, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
@@ -166,7 +166,7 @@ export const notifyInsufficientGoldForFrontierAction = (
   action: "claim" | "attack"
 ): void => {
   const label = action === "claim" ? "Frontier claim" : "Attack";
-  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} coin. You have ${formatGoldAmount(state.gold)}.`;
+  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} coin. You have ${spendableCoin(state.gold)}.`;
   showCaptureAlert(state, "Insufficient coin", detail, "error");
 };
 

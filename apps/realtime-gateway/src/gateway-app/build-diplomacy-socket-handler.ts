@@ -7,17 +7,20 @@ import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/p
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import { netValueToAi, type ClientMessage } from "@border-empires/shared";
+import { activeSupplyAgreementCount, netValueToAi, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerTradeHoldingsResult } from "../sim-client/sim-client-trade-holdings.js";
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { createDiplomacyMemoryWriter, type DiplomacyMemoryPersistence } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
-import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createHumanTradeState } from "../ai-diplomacy-stance/human-trade-state.js";
 import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -29,9 +32,15 @@ import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
+import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
+import type { SendGameplayEmailAlert } from "../gameplay-email-alert/gameplay-email-alert.js";
+
+/** Every 10 minutes the memory's size and eviction/prune totals are logged (state-and-persistence-discipline.md). */
+const AI_MEMORY_STATS_INTERVAL_MS = 10 * 60_000;
 
 export type DiplomacySocketHandlerDeps = {
   socialState: SocialState;
+  aiDiplomacyMemory: DiplomacyMemoryPersistence;
   seededAiPlayerIds: ReadonlySet<string>;
   /** Live sim snapshot for a player, subscribing if needed (playerSubscriptions.ensureSubscribed). */
   ensureSubscribed: (playerId: string) => Promise<PlayerSubscriptionSnapshot>;
@@ -42,10 +51,11 @@ export type DiplomacySocketHandlerDeps = {
   syncTruceToSimulation: TruceSocketMessageDeps["syncTruceToSimulation"];
   syncAllianceToSimulation: AllianceSocketMessageDeps["syncAllianceToSimulation"];
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
-  sendGameplayEmailAlert: AllianceSocketMessageDeps["sendGameplayEmailAlert"] & TruceSocketMessageDeps["sendGameplayEmailAlert"];
+  sendGameplayEmailAlert: SendGameplayEmailAlert;
   sendAllianceRequestAlert: AllianceSocketMessageDeps["sendAllianceRequestAlert"];
   sendAllianceBreakAlert: AllianceSocketMessageDeps["sendAllianceBreakAlert"];
   sendTruceRequestAlert: TruceSocketMessageDeps["sendTruceRequestAlert"];
+  sendTruceEndingAlert: TruceEndingEmailNotifierDeps["sendTruceEndingAlert"];
   onDiplomacyInteraction: (playerId: string, targetPlayerId: string | undefined, kind: "truce" | "alliance") => void;
   gatewayMetrics: { incrementGuestDiplomacyBlockedTotal: () => void };
   /** Already wrapped in the gateway's submit timeout. */
@@ -53,7 +63,11 @@ export type DiplomacySocketHandlerDeps = {
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
   /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
-  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
+  simulationReads: {
+    getCurrentSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId" | "status">>;
+    /** A player's coin, spare supply and supply agreement count for the deal screen (no full subscribe). */
+    getPlayerTradeHoldings: (playerId: string) => Promise<PlayerTradeHoldingsResult | undefined>;
+  };
 };
 
 export type DiplomacySocketHandler = {
@@ -68,9 +82,14 @@ export type DiplomacySocketHandler = {
    * Recurring alliance upkeep (call every minute): finalizes break notices
    * whose 24h ran out, has AIs leave alliances they no longer lead
    * (self-throttled to every 5 minutes), and tells both sides of any truce
-   * offer that expired or was dropped since the last run.
+   * offer that expired or was dropped since the last run, and emails both
+   * sides of any truce entering its last hour (truce-ending-email.ts).
    */
   runAllianceMaintenance: () => void;
+  /** A new season: AIs forget every player (the store has cleared its rows). */
+  resetAiDiplomacyMemory: () => void;
+  /** Writes pending AI memory changes now (shutdown). */
+  flushAiDiplomacyMemory: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
   observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & AttackPairEvent) => void;
 };
@@ -88,7 +107,27 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     recordGatewayEvent: deps.recordGatewayEvent
   });
   const isAi = (playerId: string): boolean => deps.seededAiPlayerIds.has(playerId);
-  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi });
+  const truceEndingEmails = createTruceEndingEmailNotifier({
+    activeTruces: () => socialState.activeTruces(),
+    nameOf: (playerId) => socialState.playerNameOf(playerId),
+    isAiPlayer: isAi,
+    sendTruceEndingAlert: deps.sendTruceEndingAlert,
+    sendGameplayEmailAlert: deps.sendGameplayEmailAlert,
+    onBootSkipped: (count) => deps.recordGatewayEvent("info", "gateway_truce_ending_email_boot_skipped", { count })
+  });
+  const memoryWriter = createDiplomacyMemoryWriter({
+    write: deps.aiDiplomacyMemory.write,
+    onError: (error, pairs) => deps.recordGatewayEvent("error", "gateway_ai_diplomacy_memory_write_failed", { pairs, error: String(error) })
+  });
+  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi, initial: deps.aiDiplomacyMemory.initial, sink: memoryWriter.sink });
+  let memoryStatsAt = 0;
+  const maintainMemory = (): void => {
+    memory.prune();
+    const now = Date.now();
+    if (now - memoryStatsAt < AI_MEMORY_STATS_INTERVAL_MS) return;
+    memoryStatsAt = now;
+    deps.recordGatewayEvent("info", "gateway_ai_diplomacy_memory_stats", { ...memory.stats(), pendingWrites: memoryWriter.pendingCount() });
+  };
   const acceptance = createDiplomacyOfferAcceptance({
     socialState,
     settlement,
@@ -134,7 +173,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
   // check's sizes come from the season leaderboard (cached, bounded wait).
-  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.fetchSeasonSummary());
+  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.simulationReads.getCurrentSeasonSummary());
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const sizes = await seasonLeaderboard();
@@ -201,11 +240,18 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     fetchSnapshot: requesterSnapshot, hasLiveSocket: deps.hasLiveSocket, responder,
     fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
     nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext,
-    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
+    seasonEnded: async () => (await deps.simulationReads.getCurrentSeasonSummary()).status === "ended" });
 
+  // Live snapshots only (an AI's is memoized): an offline human's is unknown and never fetched, so a
+  // refused request can't make the gateway pay for a full simulation snapshot. The simulation still enforces the limit.
+  const supplyAgreementCount = async (id: string): Promise<number | undefined> => {
+    const player = (deps.cachedSnapshotForPlayer(id) ?? (isAi(id) ? await fetchAiSnapshot(id) : undefined))?.player;
+    return player ? activeSupplyAgreementCount(player.resourceTradeAgreements, id, Date.now()) : undefined;
+  };
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
-    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?tradeHoldingsOf(player):undefined;},
+    supplyAgreementCount,
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const aiFoodTrades = createProactiveAiResourceTrade({ aiPlayerIds: deps.seededAiPlayerIds, hasLiveSocket: deps.hasLiveSocket,
     fetchAiSnapshot: requesterSnapshot, playerState: async id => (await deps.ensureSubscribed(id)).player,
@@ -215,18 +261,22 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       return at !== undefined && Date.now() - at < withinMs;
     },
     recordEvent: deps.recordGatewayEvent, now: () => Date.now(),
-    seasonEnded: async () => (await deps.fetchSeasonSummary()).status === "ended" });
+    seasonEnded: async () => (await deps.simulationReads.getCurrentSeasonSummary()).status === "ended" });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();
+  const humanTradeState = createHumanTradeState((id) => deps.simulationReads.getPlayerTradeHoldings(id));
   const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
     answerDiplomacyStanceQuery(
       {
         resolvePlayerByName: socialState.resolvePlayerByName,
+        truceLockoutUntil: socialState.truceLockoutUntil,
         resolvePlayerById: socialState.resolvePlayerById,
         isAutoRespondingAi,
         fetchAiSnapshot,
         requesterSnapshot,
-        diplomacyContext
+        diplomacyContext,
+        supplyAgreementCount,
+        humanTradeState
       },
       requesterId,
       targetPlayerName,
@@ -328,9 +378,13 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     runAllianceMaintenance: () => {
       void finalizeExpiredAllianceBreaks();
       void reviewAiAlliances();
+      maintainMemory();
       const staleOffers = socialState.takeStaleOfferSync();
       if (staleOffers) deps.fanoutPlayerPayloads(staleOffers.payloadsByPlayerId);
+      truceEndingEmails.tick(Date.now());
     },
+    resetAiDiplomacyMemory: () => { memoryWriter.discard(); memory.reset(); },
+    flushAiDiplomacyMemory: memoryWriter.flush,
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const attack = attackPairFromSimulationEvent(event);

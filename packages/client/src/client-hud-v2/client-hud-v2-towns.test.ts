@@ -11,6 +11,7 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   name,
   tierLabel: "Town",
   goldPerMinute,
+  coinPending: false,
   population: 4200,
   maxPopulation: 8000,
   growthPerMinute: 1.25,
@@ -56,6 +57,11 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain("v2l-unfed");
     expect(html).toContain("Unfed");
     expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
+  });
+
+  it("says when a fed town is short of garrisoned plots, which is why it earns little or nothing", () => {
+    const html = townsBodyHtml([{ ...row(1, "Voltspire", 0), plotsNote: "0/4 plots garrisoned" }], { key: "gold", descending: true });
+    expect(html).toContain("Town · 0/4 plots garrisoned");
   });
 
   it("shows an empty state and the town count", () => {

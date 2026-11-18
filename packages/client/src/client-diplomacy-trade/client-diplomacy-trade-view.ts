@@ -1,4 +1,4 @@
-import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -11,6 +11,8 @@ import {
   extensionPricing,
   requiredForOffer,
   netValueToAi,
+  aiCoinHours,
+  recurringCoinTermHours,
   type AiDiplomacyPricing,
   type AiGiftView,
   type DiplomacyGoods,
@@ -18,14 +20,21 @@ import {
   type DiplomacyTerms
 } from "@border-empires/shared";
 
+import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
+import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 /** The gateway's DIPLOMACY_STANCE reply (apps/realtime-gateway diplomacy-stance-query.ts). */
-export type DiplomacyStanceReply =
+export type DiplomacyStanceReply = {
+  truceLockout?: { until: number; reason: string };
+  /** The target is at its supply agreement limit (known only for live or AI targets). */
+  supplyAgreementsFull?: true;
+} & (
   | { found: false; targetPlayerName: string }
-  | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false }
+  /** holdings: the human's coin and spare supply, absent when they're offline or the gateway predates it. */
+  | { found: true; targetPlayerName: string; targetPlayerId: string; ai: false; holdings?: DiplomacyGoods }
   | {
       found: true;
       targetPlayerName: string;
@@ -42,7 +51,8 @@ export type DiplomacyStanceReply =
       gift?: AiGiftView;
       /** Absent from a gateway older than temperaments. */
       temperament?: { label: string; traits: string };
-    };
+    }
+);
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
 
@@ -77,6 +87,34 @@ export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: nu
   const { tilesTakenFromAi, tilesTakenByAi } = reply.war;
   if (tilesTakenFromAi === undefined || tilesTakenByAi === undefined) return undefined;
   return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
+};
+
+/** This empire's head-to-head row in your Chronicle (PersonalActivityRival): distinct tiles over the last 24 hours. */
+export type ChronicleWarCounts = { tilesTaken: number; tilesLost: number };
+
+const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
+
+const escapeText = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
+
+/**
+ * The war tally block. With a Chronicle row for this empire, the tile counts
+ * are the Chronicle's own (the same territory flip log, last 24 hours), so the
+ * two screens cannot disagree, and the AI's fading weighting is a separate,
+ * labelled line. Without one it shows the AI's weighting, labelled as such.
+ * "" when not at war with an AI.
+ */
+export const warTallyHtml = (reply: DiplomacyStanceReply | undefined, targetName: string, chronicle: ChronicleWarCounts | undefined): string => {
+  const tally = warTally(reply);
+  if (!tally) return "";
+  const name = escapeText(targetName);
+  const rows = (youTook: number, theyTook: number): string =>
+    `<ul><li><span>${youTook}</span> ${tilesWord(youTook)} you took from ${name}</li><li><span>${theyTook}</span> ${tilesWord(theyTook)} ${name} took from you</li></ul>`;
+  if (!chronicle) {
+    return `<span class="diplomacy-trade-war-head">War tally · as ${name} weighs it, recent captures count most</span>${rows(tally.youTook, tally.theyTook)}`;
+  }
+  return `<span class="diplomacy-trade-war-head">War tally · last 24 hours, as in your Chronicle</span>${rows(chronicle.tilesTaken, chronicle.tilesLost)}
+    <p class="diplomacy-trade-war-weight">${name} weighs recent captures most: ${tally.youTook} taken by you, ${tally.theyTook} by them.</p>`;
 };
 
 /** "gift": coin for goodwill alone (client-diplomacy-gift-view.ts). "trade": an independent resource supply trade.
@@ -117,27 +155,58 @@ export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, sel
 
 export const formatOfferCooldown = (remainingMs: number): string => `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
 
+export const activeTruceLockoutReason = (reply: DiplomacyStanceReply | undefined, nowMs = Date.now()): string | undefined => {
+  const lockout = reply?.truceLockout;
+  return lockout && serverClock.toLocal(lockout.until) > nowMs ? lockout.reason : undefined;
+};
+
+/**
+ * Why you can't pay `give` from `own` right now, or undefined. Shared by the
+ * deal screen's verdict and the offer dock's Accept (paying an offer's ask).
+ */
+export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): string | undefined => {
+  if (give.gold > own.gold) return `You only have ${spendableCoin(own.gold)} coin.`;
+  const missing = TRADABLE_SUPPLY_RESOURCES.find(resource => (give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
+  return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
+};
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
   selection: TradeSelection;
   own: DiplomacyGoods;
   cooldownRemainingMs: number;
+  nowMs?: number;
+  /** Your active supply agreements; at the limit, a deal with resource supply can't be sent. */
+  ownSupplyAgreements?: number;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
   const kind = selection.kind;
   if (kind === "gift") return giftVerdict(input);
   const sendLabel =
     kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
+  const lockoutReason = kind === "truce" ? activeTruceLockoutReason(reply, input.nowMs) : undefined;
+  if (lockoutReason) return { tone: "bad", text: lockoutReason, canSend: false, sendLabel };
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
-  if (selection.terms.give.gold > own.gold) {
-    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel };
-  }
-  const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
-  if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
+  // Before the shortfall: finding more goods won't help while you're at the agreement limit.
+  const limitReason = hasSupply && input.ownSupplyAgreements !== undefined ? ownSupplyLimitReason(input.ownSupplyAgreements) : undefined;
+  if (limitReason) return { tone: "bad", text: limitReason, canSend: false, sendLabel };
+  const shortfall = ownGoodsShortfall(selection.terms.give, own);
+  if (shortfall) return { tone: "bad", text: shortfall, canSend: false, sendLabel };
+  // Advisory only: the flag is from when the screen opened, and one of theirs may end before you send.
+  if (hasSupply && reply?.supplyAgreementsFull) {
+    return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
+  }
+  if (hasRecurringCoin(selection.terms)) {
+    // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
+    if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
+      return { tone: "bad", text: "AI Houses accept Coin per hour only from you, and only for a truce.", canSend: false, sendLabel };
+    if (recurringCoinTermHours(kind, selection.durationHours, selection.terms) === null)
+      return { tone: "neutral", text: "Add a resource slot to pledge Coin per hour outside a truce.", canSend: false, sendLabel };
+  }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
     if (!hasSupply) return {tone:"neutral",text:"Add a resource supply slot to make an independent trade offer.",canSend:false,sendLabel};
@@ -149,7 +218,7 @@ export const tradeVerdict = (input: {
         : answer.reason === "aiCannotPay" ? "doesn't have that much spare to give." : "won't take these resource terms.";
       return {tone:"bad",text:`${targetName} would decline: ${why}`,canSend:true,sendLabel};
     }
-    return {tone:"neutral",text:`Supply continues until either House cancels. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
+    return {tone:"neutral",text:`Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance and is binding: only war between you ends it early. ${targetName} will decide on the offer.`,canSend:true,sendLabel};
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };
@@ -158,7 +227,9 @@ export const tradeVerdict = (input: {
 
   const pricing = pricingFor(reply.pricing, selection);
   const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
-  const tribute = allianceTributeNote(reply, selection);
+  // An AI counts Coin per hour only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
+  const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
+  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per hour only up to your spare income (${spare}/h).` : "");
   if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
@@ -171,7 +242,7 @@ export const tradeVerdict = (input: {
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms);
+  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms));
   return {
     tone: "bad",
     text: (affordable

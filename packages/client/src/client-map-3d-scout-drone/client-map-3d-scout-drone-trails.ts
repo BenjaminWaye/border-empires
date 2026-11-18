@@ -1,7 +1,7 @@
 import { AdditiveBlending, Color, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3, type Camera, type Scene } from "three";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
 
-// Short light trails behind the scout drone's two wingtip nav lights: a ring buffer of recent
+// Short light trails behind the scout drone's two front-arm nav lights: a ring buffer of recent
 // positions per light, drawn as camera-facing glow quads that shrink and fade with age. One
 // instanced draw call for both trails; the buffers are allocated once. Samples are stored
 // relative to the map (scene position minus the camera's scene offset) so panning the camera

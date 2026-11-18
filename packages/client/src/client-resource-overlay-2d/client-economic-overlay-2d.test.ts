@@ -17,4 +17,15 @@ describe("resource construction overlay ownership",()=>{
     drawEconomicStructureOverlay2D(d,{...tile,economicStructure:{ownerId:"p",type:"AETHER_CONDENSER",status:"active"}},0,0,32,true);
     expect(d.drawCenteredOverlay).toHaveBeenCalledOnce();
   });
+  it("draws a depleted Reclamation Works, which the resource pass skips once its field is gone",()=>{
+    const depleted={complete:true,naturalWidth:128} as HTMLImageElement;
+    const d=deps();d.builtResourceOverlayForTile=()=>depleted;
+    drawEconomicStructureOverlay2D(d,{x:3,y:3,terrain:"LAND",economicStructure:{ownerId:"p",type:"RECLAMATION_WORKS",status:"active",salvageLoadsShipped:3}},0,0,32,false);
+    expect(d.drawCenteredOverlay).toHaveBeenCalledWith(depleted,0,0,32,1.02);
+  });
+  it("leaves other installations with built art on a plain tile to the resource pass, as before",()=>{
+    const d=deps();
+    drawEconomicStructureOverlay2D(d,{x:3,y:3,terrain:"LAND",economicStructure:{ownerId:"p",type:"HYDROWORKS",status:"active"}},0,0,32,false);
+    expect(d.drawCenteredOverlay).not.toHaveBeenCalled();
+  });
 });

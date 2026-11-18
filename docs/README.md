@@ -102,6 +102,9 @@ dead-code and duplication cleanup and the remaining items in priority order.
 [`playtest-improvements-plan.md`](playtest-improvements-plan.md) tracks the
 Waypoint playtest follow-up: recovery, bulk garrison, muster controls, selection,
 manpower-panel clarity, and area-based Activity summaries.
+[`proposals/diplomacy-depth.md`](proposals/diplomacy-depth.md) lists options for
+deeper diplomacy from the November 2026 persona playtest (truce pricing, Envoy
+Accreditation, re-signing, reparations, AI voices, notes and presence).
 
 The [Garrison Many implementation record](archive/design-history-2026/garrison-many-implementation.md)
 preserves the completed bulk-selection work; current behavior lives in the

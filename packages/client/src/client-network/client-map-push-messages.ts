@@ -1,5 +1,7 @@
 import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { applyIslandNamesMessage } from "../client-map-name-labels/client-island-names-state.js";
+import { applyHouseChargesMessage } from "../client-house-charges/client-house-charges-state.js";
+import { announceHouseChargeChoice, announceHouseChargeLosses } from "../client-house-charges/client-house-charges-alerts.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -20,6 +22,15 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   // Island names and their held / contested / fading state (client-map-name-labels/); drawn on the next frame.
   if (msg.type === "ISLAND_NAMES") {
     applyIslandNamesMessage(state, msg);
+    return true;
+  }
+  // This House's charges (client-house-charges/); the Charges panel reads it on the next HUD render.
+  if (msg.type === "HOUSE_CHARGES") {
+    if (applyHouseChargesMessage(state, msg)) {
+      // A loss warning takes the alert card first; the choice reminder waits for a later push.
+      if (announceHouseChargeLosses(state, state.houseCharges) === 0) announceHouseChargeChoice(state, state.houseCharges, Date.now());
+      renderHud();
+    }
     return true;
   }
   return false;

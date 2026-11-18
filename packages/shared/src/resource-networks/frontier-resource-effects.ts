@@ -44,8 +44,11 @@ export const allocateBiotaSlots = (towns: Iterable<BiotaTown>, slots: number): M
 export const SALVAGE_LOADS_PER_SITE = 3;
 export const SALVAGE_ARMS_BONUS_PER_SITE = 0.01;
 export const SALVAGE_ARMS_BONUS_MAX = 0.1;
-/** Share of the manpower cap an Imperial delivery for one salvage load brings (never above the cap). */
-export const SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE = 0.25;
+/**
+ * Manpower an Imperial delivery for one salvage load brings, never above the
+ * cap. A flat amount: scaling with the cap paid larger empires more per load.
+ */
+export const SALVAGE_TRIBUTE_MANPOWER = 1000;
 /** Court Strength the Court regains per load shipped (a Writ gives 3). */
 export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 
@@ -53,13 +56,24 @@ export const SALVAGE_TRIBUTE_COURT_STRENGTH = 1;
 export const salvageLoadsRemaining = (works: { readonly salvageLoadsShipped?: number | undefined }): number =>
   Math.max(0, SALVAGE_LOADS_PER_SITE - Math.max(0, Math.floor(works.salvageLoadsShipped ?? 0)));
 
+/**
+ * A Reclamation Works whose field has shipped its last load: the deposit is
+ * gone, the Works stays as a depleted yard. It gives no arms bonus, holds no
+ * loads and counts as no salvage site; the owner may dismantle it.
+ */
+export const isDepletedReclamationWorks = (tile: {
+  readonly resource?: string | undefined; readonly economicStructure?: { readonly type?: string } | null | undefined;
+}): boolean => tile.economicStructure?.type === "RECLAMATION_WORKS" && tile.resource !== "PRECURSOR_SALVAGE";
+
+export const DEPLETED_RECLAMATION_WORKS_NAME = "Depleted Reclamation Works";
+
 /** Attack and defense multiplier from developed salvage sites that still hold loads. */
 export const salvageArmsMultiplier = (sites: number): number =>
   1 + Math.min(SALVAGE_ARMS_BONUS_MAX, Math.max(0, Math.floor(sites)) * SALVAGE_ARMS_BONUS_PER_SITE);
 
 /** Manpower an Imperial delivery for one load adds, never above the cap. */
 export const salvageTributeManpower = (manpower: number, cap: number): number =>
-  Math.max(0, Math.min(cap - manpower, cap * SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE));
+  Math.max(0, Math.min(cap - manpower, SALVAGE_TRIBUTE_MANPOWER));
 
 /** Plain-language value of capturing one more site of `resource` (UI). */
 export const frontierSiteCaptureValue = (resource: NetworkResource, held: number): string => {

@@ -64,6 +64,7 @@ export type ScoutReportFindings = {
   waystations: number;
   watchtowers: number;
   resourceTiles: number;
+  resourcesSighted?: Array<{ resource: string; count: number }>;
   planetaryDefenseTiles: number;
   /** Other empires whose land the drone saw. */
   empiresSighted: string[];

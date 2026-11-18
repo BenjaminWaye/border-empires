@@ -121,6 +121,15 @@ describe("matchCombatToFlips known captures", () => {
     expect(matches.combat.filter((loss) => loss.attackerWon)).toHaveLength(1);
   });
 
+  it("does not read a town that left with no captor as proof a repelled attack won", () => {
+    // Kara's attack on the town failed; the player later abandoned it. The
+    // no-captor TOWN_LOST note must not turn Kara's failed attack into a capture.
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * MINUTE }, [], [
+      testCombat({ attackerId: "kara", defenderId: "me", attackerWon: true, at: 0 })
+    ], [{ id: "town-left:1", kind: "TOWN_LOST", playerId: "me", occurredAt: MINUTE, x: 10, y: 10, townTier: "TOWN", townSurvived: true, populationBefore: 2, populationAfter: 2, capturedStructureTypes: [] }]);
+    expect(timeline.rivals.find((rival) => rival.playerId === "kara")).toMatchObject({ attacksRepelled: 1 });
+  });
+
   it("counts a coastal town's town and dock notes as one capture", () => {
     const notes = [
       { id: "town-lost:1", kind: "TOWN_LOST" as const, playerId: "me", occurredAt: 2 * MINUTE, x: 10, y: 10, counterpartyPlayerId: "kara", townTier: "CITY" as const, townSurvived: true, populationBefore: 2, populationAfter: 1, capturedStructureTypes: [] },

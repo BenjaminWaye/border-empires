@@ -1,5 +1,6 @@
 import { createInitialTownTierUpgradeFxState } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
+import { createInitialMusterCaptureLabelState } from "../client-muster-capture/client-muster-capture.js";
 
 /**
  * One-shot 3D map effect queues (each drained by its layer's sync in
@@ -15,5 +16,7 @@ export const createInitialMapFxQueueState = () => ({
   unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   ...createInitialAfcDeliveryState(),
   // Town tier-upgrade growth; see client-town-tier-upgrade-fx/.
-  ...createInitialTownTierUpgradeFxState()
+  ...createInitialTownTierUpgradeFxState(),
+  // "+N / −N manpower" over a captured muster flag, drawn by both renderers; see client-muster-capture/.
+  ...createInitialMusterCaptureLabelState()
 });

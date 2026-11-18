@@ -26,6 +26,7 @@ import {
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
+import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
@@ -173,6 +174,7 @@ import { retortTargetResourceForAction } from "./client-retort-target-resource.j
 import { attackWireMessage } from "./client-attack-commit/client-attack-commit.js";
 import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 import { dispatchPactGatedAction } from "./client-pact-attack-gate/client-pact-attack-gate.js";
+import { FRONTIER_CLAIM_BLOCKED_TITLE, frontierClaimBlockedMessage, reportBulkFrontierClaim } from "./client-frontier-claim-blocked/client-frontier-claim-blocked.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -311,8 +313,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         eligible: state.mapRevealEligible
       });
     }
-    ws.send(JSON.stringify(payload));
-    return true;
+    return pacedSocketSend(ws, payload, () => ws.readyState === ws.OPEN && state.authSessionReady && state.connection === "initialized");
   };
 
   const requestTileDetailIfNeeded = (tile: Tile | undefined, options: TileDetailRequestOptions = {}): void => {
@@ -365,7 +366,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     candidates: string[],
     enqueue: (x: number, y: number) => boolean
   ): { queued: number; skipped: number; queuedKeys: string[] } =>
-    buildFrontierQueueFromModule(state, candidates, { keyFor, parseKey, wrapX, wrapY, enqueue });
+    buildFrontierQueueFromModule(state, candidates, { keyFor, parseKey, wrapX, wrapY, enqueue, hasOrigin: (x, y) => Boolean(pickOriginForTarget(x, y, false)) });
 
   const queueDragSelection = (): { queued: number; skipped: number } =>
     buildFrontierQueue([...state.dragPreviewKeys], (x, y) => enqueueTarget(x, y));
@@ -1130,13 +1131,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin."); else pushFeed(
-          out.queued > 0
-            ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
-            : "No frontier claims queued. Targets must touch your territory and you need enough coin.",
-          "combat",
-          out.queued > 0 ? "info" : "warn"
-        );
+        reportBulkFrontierClaim(state, out, neutralTargets, { pushFeed, showCaptureAlert });
       } else if (selected) {
         const k = keyFor(selected.x, selected.y);
         if (!selected.ownerId) {
@@ -1161,7 +1156,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             if (out.queued > 0) {
               processActionQueue();
             } else {
-              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough coin.");
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, FRONTIER_CLAIM_BLOCKED_TITLE, frontierClaimBlockedMessage(state, [k]));
             }
           } else {
             // Not adjacent yet, but still inside reach (that's the only way

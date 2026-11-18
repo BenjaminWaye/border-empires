@@ -1,23 +1,29 @@
 // The 2D canvas view of the player's scout drone (docs/explore-scout-plan.md), the flat
 // counterpart of client-map-3d-scout-drone/. Same pieces, drawn cheaply: an instrument ring for
 // the vision footprint (faint fill, crisp rim, dashed inner ring, tick marks) with a radar sweep
-// turning inside it, the dashed route still ahead, a soft shadow, and a top-down drone -- a
-// tapered steel fuselage with a glass nose, four ducted fans shown as motion-blurred discs with
-// bronze rims, red/green nav lights and a cyan heading wedge. It uses the same pose as the 3D
-// drone (client-map-3d-scout-drone-pose.ts), so it also lifts off and settles back at the AFC.
+// turning inside it, the dashed route still ahead, a soft shadow, and the top-down Sentinel
+// (client-map-render-2d-scout-drone-craft.ts). It uses the same pose as the 3D drone
+// (client-map-3d-scout-drone-pose.ts), so it also lifts off and settles back at the AFC, and the
+// same running-lights rule: nav lights over home land, dark past the border.
 // Called from client-runtime-loop.ts only while the true-3D renderer is off. No per-frame
 // allocation; on Reduce Motion the sweep and rotor streaks hold still.
+import { scoutStrobeOn } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-lights.js";
 import { SCOUT_DRONE_VISION_RADIUS, type ScoutDroneFlight } from "@border-empires/shared";
 import { createScoutDronePose, scoutDronePoseAt } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-pose.js";
+import {
+  createScoutRunningLights,
+  resetScoutRunningLights,
+  scoutSensorLevel,
+  updateScoutRunningLights,
+  type ScoutHomeSource
+} from "../client-map-3d-scout-drone/client-map-3d-scout-drone-running-lights.js";
+import { drawScoutCraft2D } from "./client-map-render-2d-scout-drone-craft.js";
 
 const CYAN = "#4fd8ff";
-const STEEL = "#262c34";
-const STEEL_LIGHT = "#5b6673";
-const BRONZE = "#b48a4c";
-const ROTORS: ReadonlyArray<readonly [number, number]> = [[0.33, 0.33], [0.33, -0.33], [-0.33, 0.33], [-0.33, -0.33]];
 const SWEEP_SLICES = 7;
 
 const pose = createScoutDronePose();
+const runningLights = createScoutRunningLights();
 const dash = [0, 0];
 let reducedMotionQuery: MediaQueryList | null | undefined;
 const prefersReducedMotion = (): boolean => {
@@ -111,103 +117,21 @@ const drawRoute = (
   ctx.stroke();
 };
 
-const drawCraft = (ctx: CanvasRenderingContext2D, s: number, rotorPhase: number, pulse: number): void => {
-  // Heading wedge ahead of the nose.
-  ctx.globalAlpha = 0.28;
-  ctx.fillStyle = CYAN;
-  ctx.beginPath();
-  ctx.moveTo(s * 0.55, 0);
-  ctx.lineTo(s * 0.95, -s * 0.16);
-  ctx.lineTo(s * 0.95, s * 0.16);
-  ctx.closePath();
-  ctx.fill();
-  // Struts.
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = BRONZE;
-  ctx.lineWidth = Math.max(1, s * 0.05);
-  ctx.beginPath();
-  for (const [ax, ay] of ROTORS) {
-    ctx.moveTo(ax * s * 0.3, ay * s * 0.3);
-    ctx.lineTo(ax * s * 0.8, ay * s * 0.8);
-  }
-  ctx.stroke();
-  // Ducted fans: a blurred disc, a faint blade streak, a bronze rim.
-  for (let k = 0; k < ROTORS.length; k += 1) {
-    const [ax, ay] = ROTORS[k]!;
-    const rx = ax * s;
-    const ry = ay * s;
-    const r = s * 0.17;
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = "#c8dbe6";
-    ctx.beginPath();
-    ctx.arc(rx, ry, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = "#eef7ff";
-    ctx.lineWidth = Math.max(1, s * 0.025);
-    const a = (k % 2 === 0 ? 1 : -1) * rotorPhase + k;
-    ctx.beginPath();
-    ctx.arc(rx, ry, r * 0.65, a, a + 0.9);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = BRONZE;
-    ctx.lineWidth = Math.max(1.2, s * 0.045);
-    ctx.beginPath();
-    ctx.arc(rx, ry, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  // Fuselage: a tapered teardrop, nose along +X, with a highlight and a bronze spine.
-  ctx.fillStyle = STEEL;
-  ctx.strokeStyle = "rgba(0,0,0,0.75)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(s * 0.46, 0);
-  ctx.bezierCurveTo(s * 0.42, s * 0.17, s * 0.1, s * 0.2, -s * 0.18, s * 0.14);
-  ctx.quadraticCurveTo(-s * 0.46, s * 0.07, -s * 0.48, 0);
-  ctx.quadraticCurveTo(-s * 0.46, -s * 0.07, -s * 0.18, -s * 0.14);
-  ctx.bezierCurveTo(s * 0.1, -s * 0.2, s * 0.42, -s * 0.17, s * 0.46, 0);
-  ctx.fill();
-  ctx.stroke();
-  ctx.strokeStyle = STEEL_LIGHT;
-  ctx.beginPath();
-  ctx.moveTo(s * 0.3, -s * 0.06);
-  ctx.quadraticCurveTo(0, -s * 0.1, -s * 0.3, -s * 0.05);
-  ctx.stroke();
-  ctx.strokeStyle = BRONZE;
-  ctx.lineWidth = Math.max(1, s * 0.03);
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.4, 0);
-  ctx.lineTo(s * 0.05, 0);
-  ctx.stroke();
-  // Glass nose dome and sensor bay, nav lights.
-  ctx.fillStyle = CYAN;
-  ctx.shadowColor = CYAN;
-  ctx.shadowBlur = 5 + 4 * pulse;
-  ctx.beginPath();
-  ctx.arc(s * 0.36, 0, s * 0.055, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#ff3b26";
-  ctx.shadowColor = "#ff3b26";
-  ctx.beginPath();
-  ctx.arc(s * 0.4, -s * 0.43, s * 0.035, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#3dff8a";
-  ctx.shadowColor = "#3dff8a";
-  ctx.beginPath();
-  ctx.arc(s * 0.4, s * 0.43, s * 0.035, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-};
-
 export const drawScoutDrone2D = (
   ctx: CanvasRenderingContext2D,
   flight: ScoutDroneFlight | undefined,
   nowMs: number,
   world: { width: number; height: number },
   tileCenterOnScreen: (wx: number, wy: number) => { sx: number; sy: number },
-  size: number
+  size: number,
+  /** The client's tile ownership, for running dark past the border; absent keeps the lights on. */
+  homeSource?: ScoutHomeSource
 ): void => {
-  if (!flight || !scoutDronePoseAt(flight, nowMs, world.width, world.height, pose)) return;
+  if (!flight || !scoutDronePoseAt(flight, nowMs, world.width, world.height, pose)) {
+    resetScoutRunningLights(runningLights);
+    return;
+  }
+  const lights = updateScoutRunningLights(runningLights, pose.x, pose.y, world, nowMs, homeSource);
   const still = prefersReducedMotion();
   const center = tileCenterOnScreen(pose.x, pose.y);
   const cx = center.sx;
@@ -226,6 +150,7 @@ export const drawScoutDrone2D = (
   ctx.fill();
   ctx.translate(cx, cy);
   ctx.rotate(pose.dirX !== 0 || pose.dirY !== 0 ? Math.atan2(pose.dirY, pose.dirX) : 0);
-  drawCraft(ctx, s, still ? 0 : nowMs * 0.03, pulse);
+  const rec = !pose.returning && (still || nowMs % 1_000 < 500) ? lights : 0;
+  drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights), rec, !still && scoutStrobeOn(nowMs));
   ctx.restore();
 };

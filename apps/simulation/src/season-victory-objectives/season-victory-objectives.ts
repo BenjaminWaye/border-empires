@@ -133,9 +133,9 @@ export const buildEconomicHegemonyObjective = (
   const leaderPlayerId = leader?.id;
   const leaderName = leader?.name ?? "No leader";
   const leaderValue = leader?.incomePerMinute ?? 0;
-  const progressLabel = `${(leaderValue * 1440).toFixed(1)} coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+  const progressLabel = `${(leaderValue * 1440).toFixed(1)} gross coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
   const leadMult = leaderPlayerId ? economicHegemonyLeadMultFor(domainIdsFor(leaderPlayerId), SEASON_VICTORY_ECONOMY_LEAD_MULT) : SEASON_VICTORY_ECONOMY_LEAD_MULT;
-  const thresholdLabel = `Need at least 1000 coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
+  const thresholdLabel = `Need at least 1000 gross coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
   const conditionMet = Boolean(
     leaderPlayerId &&
       runnerUp &&
@@ -179,10 +179,10 @@ export const buildEconomicHegemonyObjective = (
 };
 
 // Formats a live self-progress label for Economic Hegemony from a player's own
-// incomePerMinute — same "N.N coin/day" format as buildEconomicHegemonyObjective's
+// incomePerMinute — same "N.N gross coin/day" format as buildEconomicHegemonyObjective's
 // progressLabel, so the two always agree.
 export const economicHegemonySelfProgressLabel = (incomePerMinute: number): string =>
-  `${(incomePerMinute * 1440).toFixed(1)} coin/day`;
+  `${(incomePerMinute * 1440).toFixed(1)} gross coin/day`;
 
 // The cached summary is recomputed about every 5 minutes, and not at all once a winner is
 // crowned. Clients restart their countdown from each broadcast, so send the true remaining

@@ -1,31 +1,43 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { PHONE_LAYOUT_FIXES_ENTRY } from "./client-changelog-phone-layout-fixes.js";
 import { GUIDE_PLAYTEST_FIXES_ENTRY } from "./client-changelog-guide-playtest-fixes.js";
+import { RETURN_LOSSES_FIRST_ENTRY } from "./client-changelog-return-losses-first.js";
 import { GUIDE_MANIFEST_PRICE_ENTRY } from "./client-changelog-guide-manifest-price.js";
+import { PLAIN_LOSS_REPORTS_ENTRY } from "./client-changelog-plain-loss-reports.js";
 import { TOWN_RING_GARRISON_ENTRY } from "./client-changelog-town-ring-garrison.js";
+import { TOWN_LEFT_CHRONICLE_ENTRY } from "./client-changelog-town-left-chronicle.js";
 import { COPY_POINTERS_ENTRY } from "./client-changelog-copy-pointers.js";
+import { CHRONICLE_DIPLOMACY_ROWS_ENTRY } from "./client-changelog-chronicle-diplomacy-rows.js";
 import { TOWNS_TABLE_HEADERS_ENTRY } from "./client-changelog-towns-table-headers.js";
 import { SETUP_SCREEN_ENTRY } from "./client-changelog-setup-screen.js";
 import { THREE_D_RELOAD_STREAK_ENTRY } from "./client-changelog-3d-reload-streak.js";
+import { SUPPLY_ENDED_CHRONICLE_ENTRY } from "./client-changelog-supply-ended-chronicle.js";
 import { OVERLAY_TAPS_ENTRY } from "./client-changelog-overlay-taps.js";
 import { TOWNS_LIST_COIN_ENTRY } from "./client-changelog-towns-list-coin.js";
 import { ABANDON_CONFIRM_ENTRY } from "./client-changelog-abandon-confirm.js";
 import { TOWN_PLACE_NEEDS_PLOT_ENTRY } from "./client-changelog-town-place-needs-plot.js";
 import { AFC_RELIC_BUILD_ENTRY } from "./client-changelog-afc-relic-build.js";
+import { SHORT_PHONE_LAYOUT_ENTRY } from "./client-changelog-short-phone-layout.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_116: ClientChangelogEntry[] = [
   { ...PHONE_LAYOUT_FIXES_ENTRY, createdAt: 1794563191075, },
   { ...GUIDE_PLAYTEST_FIXES_ENTRY, createdAt: 1794561799617, },
+  { ...RETURN_LOSSES_FIRST_ENTRY, createdAt: 1794695349785, },
   { ...GUIDE_MANIFEST_PRICE_ENTRY, createdAt: 1794580736251, },
   { ...TOWN_RING_GARRISON_ENTRY, createdAt: 1794590298990, },
+  { ...PLAIN_LOSS_REPORTS_ENTRY, createdAt: 1794695985103, },
   { ...COPY_POINTERS_ENTRY, createdAt: 1794635778800, },
+  { ...TOWN_LEFT_CHRONICLE_ENTRY, createdAt: 1794696277821, },
   { ...TOWNS_TABLE_HEADERS_ENTRY, createdAt: 1794635875376, },
+  { ...CHRONICLE_DIPLOMACY_ROWS_ENTRY, createdAt: 1794696575032, },
   { ...SETUP_SCREEN_ENTRY, createdAt: 1794635712070, },
   { ...THREE_D_RELOAD_STREAK_ENTRY, createdAt: 1794635625342, },
   { ...OVERLAY_TAPS_ENTRY, createdAt: 1794635528675, },
+  { ...SUPPLY_ENDED_CHRONICLE_ENTRY, createdAt: 1794697109148, },
   { ...TOWNS_LIST_COIN_ENTRY, createdAt: 1794635260068, },
   { ...ABANDON_CONFIRM_ENTRY, createdAt: 1794635358149, },
   { ...TOWN_PLACE_NEEDS_PLOT_ENTRY, createdAt: 1794635077747, },
   { ...AFC_RELIC_BUILD_ENTRY, createdAt: 1794343264230, },
+  { ...SHORT_PHONE_LAYOUT_ENTRY, createdAt: 1794696058725, },
 ];

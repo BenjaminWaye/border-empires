@@ -28,7 +28,7 @@ export function afcSpecializationProgress(state: AfcProgressionState, techs: Ite
 
 export const AFC_SPECIALIZATION_BALANCE = {
   momentumMaxStacks: 5, momentumIdleMs: 5 * 60_000,
-  truceIncomeShareMax: 0.5, alliedLevyMaxAllies: 3,
+  truceIncomeShareMax: 0.1, alliedLevyMaxAllies: 3,
   hijackTakeoverMs: 10 * 60_000, hijackCooldownMs: 24 * 60 * 60_000,
   scarcityResourceOrder: ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"],
   forcedTruceDurationMs: 12 * 60 * 60_000, forcedTruceCooldownMs: 48 * 60 * 60_000

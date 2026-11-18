@@ -98,4 +98,30 @@ describe("3d observatory range border geometry", () => {
       [0, 19]
     ]);
   });
+
+  it("fills only the tiles includeTile accepts (reach highlight clipped to visible land)", () => {
+    const geometry = createObservatoryRangeFillGeometry(observatoryRangeFillVertexCount(2));
+    const accepted: Array<[number, number]> = [];
+    const written = writeObservatoryRangeFillGeometry(geometry, {
+      selectedX: 0,
+      selectedY: 5,
+      camX: 0,
+      camY: 5,
+      radius: 2,
+      worldWidth: 20,
+      worldHeight: 20,
+      wrapX: (x) => wrap(x, 20),
+      wrapY: (y) => wrap(y, 20),
+      cornerYAt: () => 0,
+      riseAboveSurface: 0,
+      includeTile: (x, y) => {
+        const keep = x === 19 && y === 5;
+        if (keep) accepted.push([x, y]);
+        return keep || (x === 0 && y === 5);
+      }
+    });
+    expect(written).toBe(12);
+    expect(geometry.drawRange.count).toBe(12);
+    expect(accepted).toEqual([[19, 5]]);
+  });
 });

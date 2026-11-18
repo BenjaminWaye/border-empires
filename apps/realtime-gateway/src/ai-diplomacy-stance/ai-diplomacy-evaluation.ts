@@ -56,12 +56,27 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
   return tileLookupFor([...(leaderboard?.overall ?? []), ...(leaderboard?.selfOverall ? [leaderboard.selfOverall] : [])], aiPlayerId);
 };
 
+const requesterSpareField = (spare: number | undefined): { requesterSpareCoinPerHour?: number } =>
+  spare === undefined ? {} : { requesterSpareCoinPerHour: spare };
+
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
   gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
-const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
+/**
+ * The requester's earned Coin per hour not already pledged to anyone: pledges
+ * share income proportionally, so the AI counts a new one only up to this.
+ */
+export const spareCoinPerHour = (snapshot: AiDiplomacySnapshot | undefined): number | undefined => {
+  const player = snapshot?.player;
+  if (!player || player.incomePerMinute === undefined) return undefined;
+  const pledged = (player.resourceTradeAgreements ?? []).reduce((sum, row) =>
+    sum + (row.proposerId === snapshot.playerId ? row.proposerCoinPerHour ?? 0 : row.targetId === snapshot.playerId ? row.targetCoinPerHour ?? 0 : 0), 0);
+  return Math.max(0, Math.floor(player.incomePerMinute * 60 - pledged));
+};
+
+export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
   if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
     const minutes = Math.max(1, Math.ceil(outlook.refillInMs / 60_000));
     return `${aiName} expects to win its land back when its armies reload in ${minutes} min.`;
@@ -79,6 +94,12 @@ const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fa
   }
   if (opinion.war.aiWinning) return `${aiName} feels they're winning this war.`;
   if (opinion.war.atWar) return `${aiName} is at war with you.`;
+  // Past the at-war window the strength stance alone read "looking for peace:
+  // their armies are spent" for an AI that had just taken the viewer's land
+  // (playtest 2026-11-13: 11 tiles and a Dock overnight). Say what it did
+  // first; the fading tally is the one the war tally shows.
+  const took = opinion.war.tilesTakenByAi;
+  if (took >= 1) return `${aiName} took ${took} of your tiles recently. ${fallback}`;
   return fallback;
 };
 
@@ -161,7 +182,7 @@ export const evaluateAiDiplomacy = (input: {
   return {
     stance,
     opinion,
-    pricing: priced.pricing,
+    pricing: { ...priced.pricing, ...requesterSpareField(spareCoinPerHour(input.requesterSnapshot)) },
     reason: warReason(input.aiName, opinion, outlook, stance.reason),
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),

@@ -173,6 +173,8 @@ export type SocialRejectOptions = {
   announcementByPlayerId?: Partial<Record<string, string>>;
   /** Defaults to true; false when the decline wasn't the target's real answer (e.g. an AI that couldn't be evaluated). */
   startCooldown?: boolean;
+  /** Defaults to true; false when it isn't a "no" (a counter-offer, a failed payment), so the Chronicle logs no decline. */
+  recordDecline?: boolean;
 };
 
 export type SocialOfferOptions = {
@@ -186,6 +188,7 @@ export type SocialPendingOffer =
   | { kind: "alliance"; request: SocialAllianceRequest };
 
 export type SocialState = {
+  truceLockoutUntil: (playerId: string) => number;
   resourceTradeOffers: ResourceTradeOfferStore;
   resetAfcCampaign: () => void;
   forceTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
@@ -230,6 +233,8 @@ export type SocialState = {
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
   /** When the running truce between the pair ends, or undefined when there is none. */
   activeTruceEndsAt: (playerAId: string, playerBId: string) => number | undefined;
+  /** Copies of every running truce (sweeps first); drives the truce-ending email. */
+  activeTruces: () => SocialActiveTruce[];
   /** Withdraws pending truce offers between two players who just fought; undefined when there were none. */
   withdrawTruceOffersOnCombat: (playerAId: string, playerBId: string) => SocialSyncResult | undefined;
   /**
@@ -291,3 +296,11 @@ export const declinedOfferAnnouncements = (
   given: Partial<Record<string, string>> | undefined
 ): Partial<Record<string, string>> =>
   given ?? { [request.fromPlayerId]: `${declinerName} declined your ${request.durationHours ? `${request.durationHours}h truce` : "alliance"} offer.` };
+
+/** Both Houses hear about a new alliance; before, a human's accept told the proposer nothing (playtest 2026-11-16). */
+export const acceptedAllianceAnnouncements = (
+  proposer: { id: string; name: string },
+  accepter: { id: string; name: string },
+  given: Partial<Record<string, string>> | undefined
+): Partial<Record<string, string>> =>
+  given ?? { [proposer.id]: `${accepter.name} accepted your alliance offer.`, [accepter.id]: `You accepted ${proposer.name}'s alliance offer.` };

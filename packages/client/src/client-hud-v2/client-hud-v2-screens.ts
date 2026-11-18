@@ -22,19 +22,29 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
+import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
+import { manifestClick } from "./client-hud-v2-manifest-click.js";
+import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
+import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
-import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
+import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
 /** Which body is in the frame now, so the diplomacy deal (hosting foreign DOM) is never rewritten under itself. */
 let bodyMode = "";
+/** Where the Diplomacy list was scrolled when a deal opened, restored on the way back (playtest: it jumped to the top after every deal). */
+let diplomacyListScrollTop = 0;
 
 const nameOf = (deps: HudV2Deps, id: string): string => deps.state.playerNames.get(id) ?? "";
 
@@ -51,6 +61,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
     screen.chronicleUpdatesBaseline = undefined;
     screen.chronicleOpenUpdate = undefined;
+    screen.chronicleAwaySince = deps.state.activitySeen.lastActivitySeenAt;
     loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
@@ -163,12 +174,13 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   const target = screen.diplomacyTargetId;
   writeHtml("v2s-head-right", "");
   if (!target) {
+    const fromDeal = bodyMode.startsWith("deal:");
     bodyMode = "list";
     writeHtml("v2s-body", diplomacyListHtml({
       me: state.me,
       resourceOffers: state.resourceTradeOffers,
       resourceAgreements: state.resourceTradeAgreements,
-      metPlayerIds: state.metPlayerIds,
+      metPlayerIds: refreshMetPlayerIds(state),
       allies: state.allies,
       activeTruces: state.activeTruces,
       incomingAlliance: state.incomingAllianceRequests,
@@ -176,17 +188,27 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       outgoingAlliance: state.outgoingAllianceRequests,
       outgoingTruce: state.outgoingTruceRequests,
       leaderboard: state.leaderboard.overall,
+      warPlayerIds: warOpponentIds(state, Date.now()),
       nameOf: (id) => nameOf(deps, id),
       colorOf: (id) => deps.ownerColor(id),
       nowMs: Date.now()
     }));
+    const list = fromDeal ? document.querySelector<HTMLElement>("[data-v2-scroll='diplomacy']") : null;
+    if (list) list.scrollTop = diplomacyListScrollTop;
     return;
   }
   if (bodyMode !== `deal:${target}`) {
     writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire", dealFacts(deps, target)));
     bodyMode = `deal:${target}`;
+    forgetWritten("v2d-pact");
     hostTradeView(deps, target);
   }
+  writeHtml("v2d-pact", dealPactHtml({ targetId: target, allies: state.allies, activeTruces: state.activeTruces, activeAllianceBreaks: state.activeAllianceBreaks, nowMs: Date.now() }));
+};
+
+const rememberDiplomacyListScroll = (): void => {
+  const list = document.querySelector<HTMLElement>("[data-v2-scroll='diplomacy']");
+  if (list) diplomacyListScrollTop = list.scrollTop;
 };
 
 /** The relation and both tile counts, for the deal's top line (the trade view shows goods, not standing). */
@@ -194,7 +216,7 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const { state } = deps;
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
-  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
+  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()) });
   const theirs = tilesOf(target), mine = tilesOf(state.me);
   return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
 };
@@ -240,7 +262,8 @@ const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation
   if (id === state.me) return { kind: "self" };
   if (state.allies.includes(id)) return { kind: "ally" };
   const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
-  return truce ? { kind: "truce", endsAt: truce.endsAt } : { kind: "none" };
+  if (truce) return { kind: "truce", endsAt: truce.endsAt };
+  return warOpponentIds(state, Date.now()).has(id) ? { kind: "war" } : { kind: "none" };
 };
 
 const renderProfile = (deps: HudV2Deps): void => {
@@ -261,17 +284,19 @@ const renderProfile = (deps: HudV2Deps): void => {
     relation: profileRelation(state, id),
     entry: state.leaderboard.overall.find((e) => e.id === id),
     career: state.careerStatsByPlayerId.get(id),
+    chargeCards: state.houseChargeCardsByPlayerId.get(id),
     holdings: state.galaxyHoldingsByPlayerId.get(id),
     pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
     truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] } } : {})
+    ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
   }));
 };
 
 /** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
-const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility"]);
+const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility", "charges"]);
 
 /** Renders the open screen; called on the HUD's timer and after clicks. */
 export const renderScreen = (deps: HudV2Deps): void => {
@@ -311,40 +336,32 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     closeScreen(deps);
     return true;
   }
+  if (target.closest("[data-v2-open-charges]")) {
+    if (deps.state.activePanel !== "charges") deps.setActivePanel("charges");
+    deps.renderHud();
+    return true;
+  }
   const diplomacyWith = target.closest<HTMLElement>("[data-v2-profile-diplomacy]")?.dataset.v2ProfileDiplomacy;
   if (diplomacyWith) {
     openScreen(deps, "diplomacy", { diplomacyTarget: diplomacyWith });
     return true;
   }
-  const lane = target.closest<HTMLElement>("[data-v2-manifest-lane]");
-  if (lane) {
-    const id = lane.dataset.v2ManifestLane ?? "";
-    if (screen.manifestClosedLanes.has(id)) screen.manifestClosedLanes.delete(id);
-    else screen.manifestClosedLanes.add(id);
-    renderScreen(deps);
-    return true;
-  }
-  const pick = target.closest<HTMLElement>("[data-v2-manifest-select]");
-  if (pick) {
-    screen.manifestSelectedId = pick.dataset.v2ManifestSelect ?? "";
-    renderScreen(deps);
-    return true;
-  }
-  // Building and ability chips open the same info card the old tech panel did (it draws above screens).
-  const info = target.closest<HTMLElement>("[data-v2-info-structure], [data-v2-info-ability]");
-  if (info) {
-    deps.state.structureInfoKey = info.dataset.v2InfoStructure ?? "";
-    deps.state.crystalAbilityInfoKey = info.dataset.v2InfoAbility ?? "";
+  const showOnMap = target.closest<HTMLElement>("[data-v2-profile-show-map]")?.dataset.v2ProfileShowMap;
+  if (showOnMap) {
+    const { state } = deps;
+    const tile = nearestSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: showOnMap, from: { x: state.camX, y: state.camY }, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT });
+    if (tile) {
+      closeScreen(deps, { toMap: true });
+      focusCamera(deps, tile.x, tile.y);
+    } else forgetSeenEmpireTile(); // stale "seen" label: rescan so the re-render shows "Not discovered yet"
     deps.renderHud();
     return true;
   }
-  const commission = target.closest<HTMLButtonElement>("[data-v2-manifest-commission]");
-  if (commission && !commission.disabled) {
-    deps.actionFlow.chooseTech(commission.dataset.v2ManifestCommission);
-    return true;
-  }
+  if (manifestClick(deps, target, () => renderScreen(deps), () => closeScreen(deps, { toMap: true }))) return true;
+  if (dealPactClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
   const open = target.closest<HTMLElement>("[data-v2-dip-open]");
   if (open) {
+    rememberDiplomacyListScroll();
     screen.diplomacyTargetId = open.dataset.v2DipOpen;
     renderScreen(deps);
     return true;
@@ -370,9 +387,11 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       state: deps.state
     });
     if (!input) return true;
+    rememberDiplomacyListScroll();
     screen.diplomacyTargetId = input.targetPlayerId;
     writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : ""));
     bodyMode = `deal:${input.targetPlayerId}`;
+    forgetWritten("v2d-pact");
     hostTradeView(deps, input.targetPlayerId, input);
     renderScreen(deps);
     return true;
@@ -426,6 +445,20 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
     renderTownScreen(deps);
     return true;
   }
+  // Biota next steps (client-hud-v2-town-biota.ts): a site's coordinates go to it on the map; the charter opens in the Manifest.
+  const goto = target.closest<HTMLElement>("[data-v2-town-goto]")?.dataset.v2TownGoto?.split(",").map(Number);
+  if (goto?.length === 2 && goto.every(Number.isFinite)) {
+    closeScreen(deps, { toMap: true });
+    focusCamera(deps, goto[0]!, goto[1]!);
+    deps.renderHud();
+    return true;
+  }
+  const tech = target.closest<HTMLElement>("[data-view-tech]")?.dataset.viewTech;
+  if (tech) {
+    openTechDetailFromTileMenu(deps.state, tech);
+    deps.renderHud();
+    return true;
+  }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");
   if (work) {
     if (!work.disabled && work.dataset.v2WorkAction && work.dataset.targetKey) runTownWork(deps, work.dataset.v2WorkAction, work.dataset.targetKey);
@@ -434,10 +467,6 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
     runTileActionOn(deps, action.dataset.hudV2Action as TileActionDef["id"], action.dataset.targetKey, action.dataset.originKey);
-    return true;
-  }
-  if (target.closest("[data-hud-v2-tab]")) {
-    expandDockedMenu("actions");
     return true;
   }
   return false;

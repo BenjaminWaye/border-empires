@@ -1,6 +1,8 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { SCOUT_DRONE_VISION_RADIUS, type ScoutReportFindings } from "@border-empires/shared";
 
+import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
+
 // What a scout drone saw on its way out (docs/explore-scout-plan.md §4):
 // towns, docks, unclaimed waystations, dormant watchtowers, resource tiles,
 // Planetary Defense tiles and other empires. Each tile counts once per
@@ -24,6 +26,7 @@ export const createScoutFindings = (
   const seen = new Set<string>();
   const result: ScoutReportFindings = { towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
   const empires = new Set<string>();
+  const resourceCounts = new Map<string, number>();
   const r = SCOUT_DRONE_VISION_RADIUS;
   return {
     observe: (x, y, viewer) => {
@@ -45,12 +48,20 @@ export const createScoutFindings = (
           if (tile.dockId) result.docks += 1;
           if (tile.waystation) result.waystations += 1;
           if (tile.watchtower && !tile.watchtower.activated) result.watchtowers += 1;
-          if (tile.resource) result.resourceTiles += 1;
+          const resource = revealedResourceValueForPlayer(tile.resource, viewer);
+          if (resource) {
+            result.resourceTiles += 1;
+            resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
+          }
         }
       }
     },
     seenTileCount: () => seen.size,
-    counts: () => ({ ...result, empiresSighted: [...result.empiresSighted] })
+    counts: () => ({
+      ...result,
+      empiresSighted: [...result.empiresSighted],
+      resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count }))
+    })
   };
 };
 

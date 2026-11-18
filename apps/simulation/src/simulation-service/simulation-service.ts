@@ -1,5 +1,6 @@
 import { createFullVisibilitySource } from "./full-visibility-source.js";
-import { recoveredSeasonFallback } from "./recovered-season-fallback.js";
+import { resolveRecoveredSeason } from "./recovered-season-fallback.js";
+import { logDebugSubscribePlayer, withExploredTiles } from "./subscribe-player-reply.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
@@ -23,7 +24,8 @@ import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWir
 import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
-import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { handleGetAiDecisionDiagnostics, type ProtoGetAiDecisionDiagnosticsRequest, type ProtoGetAiDecisionDiagnosticsResponse } from "../ai/ai-decision-diagnostics-rpc-handler.js";
 import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -62,6 +64,7 @@ import { createVisibilityAuditHandler } from "./visibility-audit-log.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot/recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
+import { handleGetPlayerTradeHoldings, type ProtoPlayerTradeHoldingsRequest, type ProtoPlayerTradeHoldingsResponse } from "../player-trade-holdings/player-trade-holdings.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
@@ -142,13 +145,6 @@ export type SimulationHealthSnapshot = {
   };
 };
 
-type ProtoGetAiDecisionDiagnosticsRequest = {
-  player_id?: string;
-};
-type ProtoGetAiDecisionDiagnosticsResponse = {
-  ok: boolean;
-  diagnostics_json?: string;
-};
 type ProtoStartNextSeasonRequest = { force?: boolean; defense_campaign_target_season_id?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
@@ -541,10 +537,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     Boolean(legacySnapshotBootstrap) ||
     effectiveStartupRecovery.recoveredCommandCount > 0 ||
     effectiveStartupRecovery.recoveredEventCount > 0;
-  let currentSeasonState =
-    effectiveStartupRecovery.initialState.season ??
-    bootstrappedSeasonState ??
-    recoveredSeasonFallback({ rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now() });
+  let currentSeasonState = resolveRecoveredSeason(effectiveStartupRecovery.initialState.season ?? bootstrappedSeasonState, {
+    rulesetId, mapStyle, seedProfile: options.seedProfile, now: Date.now()
+  });
   // Seasons persisted before mapStyle existed have no field — they were always
   // generated as "continents" (the historical hardcoded default), so that must
   // be the fallback here, never the live env's mapStyle. Otherwise a container
@@ -566,7 +561,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     backgroundBatchSize: runtimeBackgroundBatchSize,
-    initialState: effectiveStartupRecovery.initialState,
+    initialState: { ...effectiveStartupRecovery.initialState, season: currentSeasonState },
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
     seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, currentSeasonState.seasonId),
     ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
@@ -1892,22 +1887,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         async (snapshotPayload) => {
           try {
             const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
-              snapshotPayload.player ? stringifySnapshot(snapshotPayload.player) : undefined,
+              snapshotPayload.player ? stringifySnapshot(withExploredTiles(snapshotPayload.player, runtime.exploredTilesFor(snapshotPayload.playerId))) : undefined,
               snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
               snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
             ]);
 
-            if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
-              log.info(
-                JSON.stringify({
-                  type: "debug_subscribe_player",
-                  playerId: call.request.player_id,
-                  runtimeTiles: snapshotPayload.tiles.length,
-                  snapshotTiles: snapshotPayload.tiles.length,
-                  snapshotLength: JSON.stringify(snapshotPayload).length
-                })
-              );
-            }
+            logDebugSubscribePlayer(log, call.request.player_id, snapshotPayload);
             callback(null, {
               ok: true,
               player_id: snapshotPayload.playerId,
@@ -2103,21 +2088,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     GetPersonalActivityTimeline(call: { request: ProtoPersonalActivityTimelineRequest }, callback: (error: Error | null, response: ProtoPersonalActivityTimelineResponse) => void) { handleGetPersonalActivityTimeline(runtime, call, callback); },
     GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },
     GetPlayerCombatSummary(call: { request: ProtoPlayerCombatSummaryRequest }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void) { handleGetPlayerCombatSummary(runtime, call, callback); },
-    GetAiDecisionDiagnostics(
-      call: { request: ProtoGetAiDecisionDiagnosticsRequest },
-      callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
-    ) {
-      try {
-        const playerId = call.request.player_id || undefined;
-        const diagnostics = getAiDecisionDiagnostics(playerId);
-        callback(null, { ok: true, diagnostics_json: JSON.stringify(diagnostics) });
-      } catch (error) {
-        callback(error instanceof Error ? error : new Error("failed to load diagnostics"), {
-          ok: false,
-          diagnostics_json: ""
-        });
-      }
-    },
+    GetPlayerTradeHoldings(call: { request: ProtoPlayerTradeHoldingsRequest }, callback: (error: Error | null, response: ProtoPlayerTradeHoldingsResponse) => void) { handleGetPlayerTradeHoldings(runtime, call, callback); },
+    GetAiDecisionDiagnostics(call: { request: ProtoGetAiDecisionDiagnosticsRequest }, callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void) { handleGetAiDecisionDiagnostics(call, callback); },
     StartNextSeason(
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
@@ -2264,7 +2236,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
-        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
+        runtime.tickSideTickers(Date.now()); // island names + House Charges, throttled inside -- side-tickers/runtime-side-tickers.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

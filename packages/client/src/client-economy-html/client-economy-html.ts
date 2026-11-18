@@ -1,5 +1,6 @@
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
+import { economyCommitmentsHtml, type EconomyCommitments } from "./client-economy-commitments.js";
 import {
-  townFoodSlotDemandForTier,
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   isSlotSourceConverter,
@@ -11,11 +12,10 @@ import {
 import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
 import { slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
-import type { StructureInfoKey } from "../client-map-display.js";
 
-type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
 // Resource slots: FOOD/TITANIUM/CRYSTAL/
@@ -44,6 +44,7 @@ export type EconomyPanelArgs = {
   };
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
+  commitments?: EconomyCommitments;
   economyBreakdown: EconomyBreakdown | undefined;
   prettyToken: (value: string) => string;
   resourceIconHtml: (resource: string) => string;
@@ -102,7 +103,7 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemandForTier(tile.town.populationTier));
+    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemand(tile.town));
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
@@ -137,115 +138,24 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));
     }
   }
-  return [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  const rows = [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  return reconcileOccupants(rows, args.resourceSlots.demand[resource]);
 };
 
-const economySourceLabelForTile = (
-  tile: Tile,
-  resource: EconomyResource,
-  prettyToken: EconomyPanelArgs["prettyToken"],
-  resourceLabel: EconomyPanelArgs["resourceLabel"],
-  economicStructureName: EconomyPanelArgs["economicStructureName"]
-): string => {
-  if (resource === "GOLD") {
-    if (tile.town) return "Towns";
-    if (tile.dockId) return "Docks";
-    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
-    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Garrisoned land";
-  }
-  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
-  if (tile.town && resource === "FOOD") return "Town support";
-  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
-};
+/** Label of the (negative) line for slots the server waived (e.g. Founding Concession, Treasury State). */
+export const SLOT_WAIVER_LABEL = "Waived by upgrades";
 
-const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
-  if (amountPerMinute <= 0.0001) return;
-  const current = map.get(label);
-  if (current) {
-    current.amountPerMinute += amountPerMinute;
-    current.count += 1;
-    return;
-  }
-  map.set(label, { label, amountPerMinute, count: 1 });
-};
-
-const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
-  const bucket = map.get(label);
-  if (bucket) bucket.note = note;
-};
-
-const upkeepBreakdownForResource = (
-  args: EconomyPanelArgs,
-  resource: EconomyResource
-): { contributors?: EconomyBucket[] } | undefined => {
-  if (resource === "GOLD") return args.upkeepLastTick.gold;
-  if (resource === "FOOD") return args.upkeepLastTick.food;
-  if (resource === "TITANIUM") return args.upkeepLastTick.titanium;
-  if (resource === "CRYSTAL") return args.upkeepLastTick.crystal;
-  if (resource === "UMBRITE") return args.upkeepLastTick.umbrite;
-  return undefined;
-};
-
-// The server labels a structure-driven bucket (e.g. a converter's EXCHANGE-mode
-// gold) with the raw persisted structure type (e.g. "AETHER_CONDENSER")
-// rather than its display name, since that's the source-of-truth identifier.
-// Only remap labels that are actually known structure types — other bucket
-// labels ("Towns", "Docks", "Live empire income", etc.) aren't structure
-// types and must pass through unchanged.
-const withDisplayNames = (buckets: EconomyBucket[]): EconomyBucket[] =>
-  buckets.map((bucket) =>
-    bucket.label in STRUCTURE_DISPLAY_NAMES
-      ? { ...bucket, label: STRUCTURE_DISPLAY_NAMES[bucket.label as EconomicStructureType | StructureInfoKey]! }
-      : bucket
-  );
-
-// The currency key stays "GOLD" internally; players see it as "Coin".
-const economyResourceName = (args: EconomyPanelArgs, resource: string): string =>
-  resource === "GOLD" ? "Coin" : args.prettyToken(resource);
-
-const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResource): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
-  const sharedBreakdown = args.economyBreakdown?.[resource];
-  if (sharedBreakdown) {
-    return { sources: withDisplayNames(sharedBreakdown.sources), sinks: withDisplayNames(sharedBreakdown.sinks) };
-  }
-  const sources = new Map<string, EconomyBucket>();
-  const sinks = new Map<string, EconomyBucket>();
-  for (const tile of args.tiles) {
-    if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
-    if (tile.fogged) continue;
-    // Tiles only carry a gold rate; strategic production is slot-based and
-    // falls through to the empire-wide gross bucket below.
-    const amountPerMinute = resource === "GOLD" ? tile.yieldRate?.goldPerMinute ?? 0 : 0;
-    accumulateEconomyBucket(
-      sources,
-      economySourceLabelForTile(tile, resource, args.prettyToken, args.resourceLabel, args.economicStructureName),
-      amountPerMinute
-    );
-  }
-  for (const contributor of upkeepBreakdownForResource(args, resource)?.contributors ?? []) {
-    accumulateEconomyBucket(sinks, contributor.label, contributor.amountPerMinute);
-    if (contributor.note) setEconomyBucketNote(sinks, contributor.label, contributor.note);
-  }
-  const sourceBuckets = [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-  if (sourceBuckets.length === 0) {
-    const gross =
-      resource === "GOLD"
-        ? args.incomePerMinute
-        : args.strategicProductionPerMinute[resource];
-    if (gross > 0.0001) {
-      sourceBuckets.push({
-        label: resource === "GOLD" ? "Live empire income" : `${economyResourceName(args, resource)} production`,
-        amountPerMinute: gross,
-        count: 1,
-        note: "Detailed source rows are still catching up on this session."
-      });
-    }
-  }
-  return {
-    sources: sourceBuckets,
-    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
-  };
+// The rows above are counted from the tiles at each structure's base slot
+// cost; the server's demand total also applies upgrade waivers this client
+// can't see per tile. Show the difference as its own line so the "Used by"
+// lines always add up to the demand in the row's headline (playtest: lines
+// summed to 8 while the total said 6).
+const reconcileOccupants = (rows: EconomyBucket[], demand: number): EconomyBucket[] => {
+  if (!Number.isFinite(demand)) return rows;
+  const gap = demand - rows.reduce((total, row) => total + row.amountPerMinute, 0);
+  if (gap === 0) return rows;
+  return [...rows, { label: gap < 0 ? SLOT_WAIVER_LABEL : "Other", amountPerMinute: gap, count: 1 }];
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string =>
-  economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinDetail: economyDetailForResource });
+  economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinIncome: empireCoinIncome }) + economyCommitmentsHtml(args);

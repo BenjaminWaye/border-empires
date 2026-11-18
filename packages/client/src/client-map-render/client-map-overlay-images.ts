@@ -116,4 +116,6 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   PALISADE: createDirectionalOverlaySet("palisade-ring-overlay"),
   RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };
+/** A Reclamation Works whose salvage field shipped its last load (network-icon-svg.ts). */
+export const depletedReclamationWorksOverlayImage = loadOverlayImage("reclamation-works-depleted-overlay.svg");
 export const structureOverlayImages = { ...legacyStructureOverlayImages, ...districtOverlayImages(loadOverlayImage) };

@@ -290,6 +290,8 @@ export type PlayerRespawnNotice = {
   wasOnline?: boolean;
   previousHomeTileKey?: string;
   spawnTileKey?: string;
+  fellToPlayerId?: string;
+  withdrawn?: boolean;
 };
 
 export type ActiveAetherBridgeView = {
@@ -406,6 +408,8 @@ export type FeedEntry = {
   unread?: boolean;
   /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
   feedOnly?: boolean;
+  /** Mirror onto the alert card even when info/success: a background result the player has no other way to see. */
+  alert?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };

@@ -29,6 +29,23 @@ describe("map lens button", () => {
     expect(open.firstElementChild?.hasAttribute("data-hud-v2-lens-toggle")).toBe(true);
   });
 
+  // 2026-11-14 playtest: nobody found photo mode three taps deep in Settings > Gameplay.
+  it("offers Photo mode from the open lens list and the phone map overview", () => {
+    expect(host(overlaysHtml(false, true)).querySelector("[data-hud-v2-photo]")?.textContent).toBe("Photo mode");
+    expect(host(overlaysHtml(false, false, true)).querySelector(".v2c-map-head [data-hud-v2-photo]")).not.toBeNull();
+    expect(host(overlaysHtml(false, false)).querySelector("[data-hud-v2-photo]")).toBeNull();
+  });
+
+  // 2026-11-14 playtest: the Resources lens painted tiles in colours nobody could name.
+  it("shows a key while the Resources lens is on, on the map and in the phone overview", () => {
+    const key = host(overlaysHtml("resources", false)).querySelector(".hud-v2-lens-legend");
+    expect(key?.textContent).toContain("Titanium");
+    expect(key?.textContent).toContain("Grain");
+    expect(key?.textContent).toContain("Tiles in sight only");
+    expect(host(overlaysHtml("resources", false, true)).querySelector(".v2c-map-lenses .hud-v2-lens-legend")).not.toBeNull();
+    expect(host(overlaysHtml("diplomacy", false)).querySelector(".hud-v2-lens-legend")).toBeNull();
+  });
+
   it("shows the active lens on the button", () => {
     const on = host(overlaysHtml(true, false));
     expect(on.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/lens-diplomacy.svg");
@@ -91,7 +108,7 @@ describe("tile owner stance tag", () => {
 
   it("tags allies, truces with time left, and everyone else (barbarians too) as hostile", () => {
     expect(ownerStanceTagHtml("a", state, 0)).toContain(">Ally<");
-    expect(ownerStanceTagHtml("t", state, 0)).toContain(">Truce 6h<");
+    expect(ownerStanceTagHtml("t", state, 0)).toContain(">Truce 5h 30m<");
     expect(ownerStanceTagHtml("x", state, 0)).toContain("hud-v2-stance-hostile");
     expect(ownerStanceTagHtml("barbarian-1", state, 0)).toContain(">Hostile<");
   });

@@ -307,6 +307,24 @@ const buildDemandContributors = (
   return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, relayBeaconKeys);
 };
 
+/**
+ * Each settled town's own FOOD slot demand ("x,y" -> slots) after every §23.2
+ * waiver and the Ministry Hall reduction: the per-town contributor the demand
+ * totals and dormancy above are built from, so the town screen's FOOD UPKEEP
+ * card shows exactly what the town draws.
+ */
+export const townFoodSlotDemandByTileKey = (
+  ownedTiles: Iterable<WaivableTile>,
+  playerId: string,
+  waivers: SlotWaivers = emptySlotWaivers()
+): Map<string, number> => {
+  const demand = new Map<string, number>();
+  for (const contributor of buildDemandContributors(ownedTiles, playerId, waivers)) {
+    if (contributor.resource === "FOOD" && contributor.key.endsWith(":town")) demand.set(contributor.key.slice(0, -":town".length), contributor.count);
+  }
+  return demand;
+};
+
 export const resourceSlotDemandForPlayer = (
   ownedTiles: Iterable<WaivableTile>,
   playerId: string,

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
-import { cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
+import { AWAY_LOSSES_HEADING, cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
 import { diplomacyEmpires, empireStance } from "./client-hud-v2-diplomacy.js";
 import { manifestLayout, manifestNodeState, nextManifestCost } from "./client-hud-v2-manifest.js";
 import { closestPath, leaderShare, selfShare } from "./client-hud-v2-ranks.js";
@@ -102,6 +102,22 @@ describe("chronicle", () => {
     expect(chronicleGroups(cards, "me", "kara", now).flatMap((g) => g.cards.map((c) => c.id))).toEqual(["b"]);
     expect(dayHeading(now - 3 * 86_400_000, now)).toMatch(/^[A-Z]{3} \d+$/);
   });
+
+  it("puts losses since the player last looked first, without repeating them below", () => {
+    const raid: PersonalActivityCard = { kind: "TERRITORY_FLIP_GROUP", id: "r", occurredAt: now - 2 * 3_600_000, direction: "LOST", counterpartyPlayerId: "kara", tileCount: 11, x: 4, y: 4 };
+    const groups = chronicleGroups([...cards, raid], "me", "", now, now - 5 * 3_600_000);
+    expect(groups.map((g) => g.heading)).toEqual([AWAY_LOSSES_HEADING, "TODAY", "YESTERDAY"]);
+    expect(groups[0]?.cards.map((c) => c.id)).toEqual(["r"]);
+    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["c", "a"]);
+    // Losses the player had already read stay in their day.
+    expect(chronicleGroups([...cards, raid], "me", "", now, now - 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
+
+  // Review of #2771: your own failed attacks are "loss"-toned but nothing was taken from you.
+  it("leaves your own failed attacks out of the losses since you last looked", () => {
+    const failed: PersonalActivityCard = { kind: "COMBAT", id: "f", occurredAt: now - 2 * 3_600_000, attackerId: "me", defenderId: "hugo", attackerWon: false, manpowerLoss: 5, x: 5, y: 5, pillagedGold: 0, defenderGoldLoss: 0, targetWasSettled: false };
+    expect(chronicleGroups([...cards, failed], "me", "", now, now - 5 * 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
 });
 
 describe("diplomacy list", () => {
@@ -120,8 +136,8 @@ describe("diplomacy list", () => {
     };
     expect(diplomacyEmpires(input).map((e) => e.id)).toEqual(["c", "b", "d", "a"]);
     expect(empireStance("c", input)).toEqual({ kind: "truce", label: "Truce 9h" });
-    // Regression: the last hour read "Truce <1h" with no minutes.
-    expect(empireStance("c", { ...input, nowMs: 9 * 3_600_000 - 42 * 60_000 })).toEqual({ kind: "truce", label: "Truce 42m" });
+    // Regression: the last hour read "Truce <1h" with no minutes. The last two hours now also flag the truce as ending.
+    expect(empireStance("c", { ...input, nowMs: 9 * 3_600_000 - 42 * 60_000 })).toEqual({ kind: "truce", label: "Truce ends 42m", ending: true });
   });
 });
 
@@ -229,6 +245,16 @@ describe("town screen", () => {
     expect(regions.bar).toContain("Cancel March (town)");
     expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
     expect(regions.bar).toContain("Raise flag on town");
+  });
+
+  // Regression: with a support tile selected, the town tile's "Remove Fort" read as the selected
+  // tile's, so a fortless support tile looked like it already had a fort.
+  it("marks every town-tile action \"(town)\" while a support tile is selected", () => {
+    const input = { townView: view({ actions: [act("remove_structure", { label: "Remove Fort" })] }), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined };
+    const bar = townScreenRegions({ ...input, town, focus: support }).bar;
+    expect(bar).toContain("Remove Fort (town)");
+    expect(bar).toContain('data-hud-v2-action="remove_structure" data-target-key="5,5"');
+    expect(townScreenRegions({ ...input, town, focus: town }).bar).not.toContain("(town)");
   });
 
   it("shows the real terrain and coastal modifiers instead of the Market label", () => {

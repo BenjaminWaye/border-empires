@@ -93,4 +93,24 @@ describe("renderDefensibilityPanelHtml", () => {
     });
     expect(html).toContain("New empires keep at least 90% until 50 garrisoned tiles.");
   });
+
+  it("lists each weak tile with its reason and a go-to button while the highlight is on", () => {
+    const tiles = new Map<string, Tile>([[keyFor(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }]]);
+    const args = {
+      tiles,
+      me: "me",
+      defensibilityPct: 50,
+      settledT: 1,
+      settledE: 4,
+      empireIntegrityEnabled: false,
+      keyFor,
+      wrapX: (x: number) => x,
+      wrapY: (y: number) => y,
+      terrainAt: () => "LAND" as const
+    };
+    expect(renderDefensibilityPanelHtml({ ...args, showWeakDefensibility: false })).not.toContain("data-weak-def-focus");
+    const html = renderDefensibilityPanelHtml({ ...args, showWeakDefensibility: true });
+    expect(html).toContain('data-weak-def-focus="5,5"');
+    expect(html).toContain("4 open sides: north, east, south and west (unexplored land)");
+  });
 });

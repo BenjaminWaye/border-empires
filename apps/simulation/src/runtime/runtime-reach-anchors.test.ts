@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { gatherReachAnchors, newlyActivatedReachAnchors, newlyDeactivatedReachAnchors } from "./runtime-reach-anchors.js";
+import { gatherReachAnchors, isRelayBeaconBuildCompletion, newlyActivatedReachAnchors, newlyDeactivatedReachAnchors } from "./runtime-reach-anchors.js";
 import { createEmptyPlayerRuntimeSummary } from "../player-runtime-summary.js";
 
 // Regression coverage for the AFC-as-reach-anchor fix (Phase 6, docs/
@@ -169,5 +169,24 @@ describe("siege batteries hold no reach", () => {
     const active = siegeTile({ siegeBattery: { ownerId: "player-1", status: "active" } });
     const captured: DomainTileState = { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" };
     expect(newlyDeactivatedReachAnchors(active, captured, 2000)).toEqual([]);
+  });
+});
+
+describe("isRelayBeaconBuildCompletion", () => {
+  const beaconTile = (status: "under_construction" | "active" | "inactive", ownershipState: "SETTLED" | "FRONTIER" = "SETTLED"): DomainTileState => ({
+    x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState,
+    economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status }
+  } as DomainTileState);
+  const bare: DomainTileState = { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
+
+  it("is true for an instant build and for construction finishing", () => {
+    expect(isRelayBeaconBuildCompletion(bare, beaconTile("active"))).toBe(true);
+    expect(isRelayBeaconBuildCompletion(beaconTile("under_construction"), beaconTile("active"))).toBe(true);
+  });
+
+  it("is false for a re-enable, a re-settle, or a beacon that is not active", () => {
+    expect(isRelayBeaconBuildCompletion(beaconTile("inactive"), beaconTile("active"))).toBe(false);
+    expect(isRelayBeaconBuildCompletion(beaconTile("active", "FRONTIER"), beaconTile("active"))).toBe(false);
+    expect(isRelayBeaconBuildCompletion(bare, beaconTile("under_construction"))).toBe(false);
   });
 });

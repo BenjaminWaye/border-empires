@@ -2,6 +2,7 @@ import { manpowerPerBatch, manpowerRegenWeightForSettlementIndex, terrainAdjuste
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -14,6 +15,7 @@ export type TownCaptureInfo = {
   coastal: boolean;
   population: number;
   maxPopulation: number;
+  /** The viewer's own House. The card only ever shows the viewer's own capture, so it addresses them as "you", never by this name. */
   empireName: string;
   /** Count of the player's other already-settled towns, used to estimate manpower regen weight. */
   ownedTownCount: number;
@@ -30,7 +32,43 @@ const tierLabel = (tier: TownPopulationTier): string =>
     : tier === "TOWN" ? "Town"
     : "City";
 
+/** A deal being drafted (client-diplomacy-trade.ts). The capture card waits for it to close. */
+const DEAL_OPEN_SELECTOR = ".diplomacy-trade-overlay";
+const DEAL_CHECK_MS = 1_000;
+
+// One card waits at most; a newer capture replaces it (multi-town batches already show one card).
+let waiting: { info: TownCaptureInfo; timer: ReturnType<typeof setInterval> } | undefined;
+
+/**
+ * Shows the capture card, or holds it while a deal is open: the card used to pop up over the
+ * deal screen mid-draft, and the draft was lost (2026-11-14 playtest). It appears once the deal closes.
+ */
 export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
+  if (!document.querySelector(DEAL_OPEN_SELECTOR)) {
+    presentTownCaptureOverlay(info);
+    return;
+  }
+  // Keep the occupation survey popup off the deal too, as the card itself would (it ends with the card).
+  occupationSurveyController.beginCapture();
+  if (waiting) {
+    waiting.info = info;
+    return;
+  }
+  const timer = setInterval(() => {
+    if (!waiting || document.querySelector(DEAL_OPEN_SELECTOR)) return;
+    const next = waiting.info;
+    clearInterval(waiting.timer);
+    waiting = undefined;
+    presentTownCaptureOverlay(next);
+  }, DEAL_CHECK_MS);
+  waiting = { info, timer };
+};
+
+// Behind any other full-screen card (waystation, survey) rather than over it: one card at a time.
+const presentTownCaptureOverlay = (info: TownCaptureInfo): void =>
+  enqueueFullscreenCard({ key: "town-capture", show: (close) => mountTownCaptureOverlay(info, close) });
+
+const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTMLElement => {
   const existing = document.getElementById("town-capture-overlay");
   if (existing) existing.remove();
 
@@ -53,8 +91,10 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
   const dismiss = (): void => {
     window.removeEventListener("keydown", onKeyDown, true);
     if (!overlay.isConnected) return;
-    occupationSurveyController.endCapture(info.surveyReports ?? []);
+    // The card listed these clues; closing it reads them, so their survey popups must not follow.
+    occupationSurveyController.endCapture(info.destroyed ? [] : info.surveyReports ?? []);
     overlay.remove();
+    close();
   };
   window.addEventListener("keydown", onKeyDown, true);
 
@@ -64,6 +104,7 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
     info.onJumpToTown();
     dismiss();
   });
+  return overlay;
 };
 
 const overlayHtml = (info: TownCaptureInfo): string => {
@@ -132,7 +173,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
     <div id="town-capture-modal">
       <div id="town-capture-hero">${artSvg}
         <div id="town-capture-hero-fade"></div>
-        <div id="town-capture-eyebrow">${info.destroyed ? "Settlement Destroyed" : "Town Captured"}</div>
+        <div id="town-capture-eyebrow">${info.destroyed ? "Settlement Razed by You" : "Town Captured"}</div>
         <div id="town-capture-name">${escapeHtml(townName)}</div>
         <div id="town-capture-meta">${escapeHtml(tier)} &middot; (${info.x}, ${info.y})</div>
       </div>
@@ -140,8 +181,8 @@ const overlayHtml = (info: TownCaptureInfo): string => {
       <div id="town-capture-body">
         <div id="town-capture-owner">${
           info.destroyed
-            ? `Destroyed by <strong>${escapeHtml(info.empireName)}</strong>'s attack`
-            : `Now belongs to <strong>${escapeHtml(info.empireName)}</strong>`
+            ? "You captured this tile. Your attack leveled the settlement."
+            : "You captured this town."
         }</div>
         ${statsHtml}
         ${surveyHtml}

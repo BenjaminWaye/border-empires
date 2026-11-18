@@ -1,6 +1,6 @@
 import { recordSeasonTileLoss } from "./deadliest-tiles/season-tile-player-losses.js";
 import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
-import { targetHasActiveFortFor } from "./runtime-combat-target-fort/runtime-combat-target-fort.js";
+import { targetFortPerimeterVariantFor, targetHasActiveFortFor } from "./runtime-combat-target-fort/runtime-combat-target-fort.js";
 import { breakthroughTileCount, flagMomentumAttackMult, pickBreakthroughTargets } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
@@ -277,6 +277,7 @@ const resolveAttackCombat = (
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
         fortVariant: targetHasActiveFort ? defendingFortVariant(previousTarget.fort) : undefined,
+        fortPerimeterVariant: targetFortPerimeterVariantFor(ctx, previousTarget, defenderOwnerId),
         breachShockUntil: previousTarget.breachShockUntil,
         captureHoldUntil: previousTarget.captureHoldUntil
       }

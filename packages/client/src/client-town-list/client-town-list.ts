@@ -1,11 +1,13 @@
 // Sortable list of the viewer's towns for the Towns panel, so a player can
 // spot the towns producing the least/most coin or holding the most people
 // without clicking through every town tile.
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
+import { ownTownCoinPending } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
+import { townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
-import { deriveTileYieldRate } from "../yield-derivation/yield-derivation.js";
 
 export type TownListSortKey = "gold" | "population" | "growth" | "slots";
 export type TownListSort = { key: TownListSortKey; descending: boolean };
@@ -16,11 +18,18 @@ export type TownListRow = {
   name: string;
   tierLabel: string;
   goldPerMinute: number;
+  /**
+   * The town's coin figure hasn't arrived yet (the growth tick re-sends a town record without it), so the
+   * row shows "…" like the town screen instead of a made-up 0.0, and the Towns screen asks for its detail.
+   */
+  coinPending: boolean;
   population: number;
   /** The next tier's population, matching the town screen's growth bar (not the hard cap). */
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
+  /** "0/4 plots garrisoned" while a fed town earns less for ungarrisoned plots (client-town-plot-income.ts). */
+  plotsNote?: string;
   /** Support-ring tiles open for a new building; undefined for Settlements, which have no ring yet. */
   openSlots: number | undefined;
 };
@@ -46,14 +55,17 @@ export const nextTownListSort = (sort: TownListSort, key: TownListSortKey): Town
 // summaries), so anything absent reads as 0 rather than NaN.
 const finiteOrZero = (value: number | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-// The town screen's figure (town.goldPerMinute) with sabotage, dock income and the settlement fallback applied,
-// derived fresh: a cached yieldRate can be the 0 a tile-detail reply sent before the town was garrisoned or fed,
-// and it is only cleared by a tile update, not by the town summary that carries the new income. That left
-// every town at 0.0 here while its own screen showed +21/day (playtest day 1). Docks keep the server's rate:
-// only it knows their link bonuses.
-// A partial town summary without goldPerMinute derives nothing; keep the last known rate then instead of 0.
-const townCoinPerMinute = (tile: Tile): number =>
-  finiteOrZero(tile.dockId && tile.yieldRate ? tile.yieldRate.goldPerMinute : deriveTileYieldRate(tile)?.goldPerMinute ?? tile.yieldRate?.goldPerMinute);
+// A fed, settled town missing goldPerMinute: what the town screen's Coin cell shows "…" for, narrowed to the
+// towns ownTownDetailRecoveryNeeded will actually fetch, so a "…" here always resolves. Settlements, unsettled and
+// unfed towns keep their known figure, and a dock town reads the server's yieldRate instead.
+export const townCoinPending = (tile: Tile, town: NonNullable<Tile["town"]>): boolean =>
+  tile.ownershipState === "SETTLED" &&
+  !(tile.dockId && tile.yieldRate) &&
+  town.isFed === true && Boolean(town.populationTier) && town.populationTier !== "SETTLEMENT" && ownTownCoinPending(town);
+
+/** Coin/day cell text: "…" while the town's coin figure is still loading. */
+export const formatTownCoinPerDay = (row: Pick<TownListRow, "goldPerMinute" | "coinPending">): string =>
+  row.coinPending ? "…" : (row.goldPerMinute * 1440).toFixed(1);
 
 /** Shared by both HUDs' town lists, so the order carries over between them. */
 export const toggleTownListSort = (key: TownListSortKey): void => {
@@ -66,17 +78,20 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
   for (const tile of towns) {
     const town = tile.town;
     if (!town || tile.ownerId !== me || tile.fogged) continue;
+    const plotsNote = townPlotIncomeNote(town);
     rows.push({
       x: tile.x,
       y: tile.y,
       name: town.name ?? tile.townName ?? `Town ${tile.x}, ${tile.y}`,
       tierLabel: displayTownPopulationTierLabel(town.populationTier),
-      goldPerMinute: townCoinPerMinute(tile),
+      goldPerMinute: tileCoinPerMinute(tile),
+      coinPending: townCoinPending(tile, town),
       population: finiteOrZero(town.population),
       maxPopulation: finiteOrZero(townPopulationTarget(town)),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
+      ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
   }
@@ -125,7 +140,7 @@ export const townListCardHtml = (tiles: ReadonlyMap<string, Tile>, me: string, s
           .map(
             (row) => `<button class="town-list-row${row.isFed ? "" : " is-unfed"}" type="button" data-town-list-jump="${row.x},${row.y}">
             <span class="town-list-name">${escapeHtml(row.name)}<small>${row.tierLabel}${row.isFed ? "" : " · Unfed"}</small></span>
-            <strong>${(row.goldPerMinute * 1440).toFixed(1)}</strong>
+            <strong>${formatTownCoinPerDay(row)}</strong>
             <strong>${formatCount(row.population)}<small>/ ${formatCount(row.maxPopulation)}</small></strong>
             <strong>${formatGrowth(row.growthPerMinute)}<small>/min</small></strong>
             <strong title="Open build slots">${formatOpenSlots(row.openSlots)}</strong>

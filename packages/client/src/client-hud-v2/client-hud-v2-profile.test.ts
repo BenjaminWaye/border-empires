@@ -44,6 +44,17 @@ describe("player profile screen", () => {
     }
   });
 
+  it("offers Show on map only for an empire you have seen", () => {
+    const seen = render({ ...base, mapFocus: "seen" }).querySelector<HTMLButtonElement>("[data-v2-profile-show-map]");
+    expect(seen?.textContent).toBe("Show on map");
+    expect(seen?.dataset.v2ProfileShowMap).toBe("p2");
+    const unseen = render({ ...base, mapFocus: "unseen" });
+    expect(unseen.querySelector("[data-v2-profile-show-map]")).toBeNull();
+    const disabled = Array.from(unseen.querySelectorAll<HTMLButtonElement>(".v2p-action")).find((b) => b.disabled);
+    expect(disabled?.textContent).toBe("Not discovered yet");
+    expect(render({ ...base, relation: { kind: "self" } }).textContent).not.toContain("Show on map");
+  });
+
   it("opens for a picked player and closes once dismissed", () => {
     expect(profileScreenStep("p2", null)).toBe("open");
     expect(profileScreenStep("p2", "ranks")).toBe("open");
@@ -71,6 +82,7 @@ describe("player profile screen", () => {
     const text = render(base).textContent ?? "";
     expect(text).toContain("1,264 (−12)");
     expect(text).toContain("1,290");
+    expect(text).toContain("Vs. starting 1,200+64");
     const unrated = render({ ...base, career: { seasonsPlayed: 3, bestRank: 1, peakScore: 820, peakTiles: 140, rating: null, lastRatingDelta: null, peakRating: null } });
     expect(unrated.querySelector(".v2p-rows")?.textContent).toContain("Rating—");
   });

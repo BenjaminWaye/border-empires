@@ -1,6 +1,6 @@
 import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { districtOverlayProjection } from "./town-district/town-district-projection.js";
-import { afcEnvoyIncomeInSnapshot } from "./afc-specializations/afc-coalition.js";
+import { coinIncomeAdjustmentsInSnapshot } from "./coin-income-adjustments/coin-income-adjustments.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
@@ -287,7 +287,7 @@ function visiblePlayersProjection(
         points: player.points,
         manpower: player.manpower,
         ...(economy ? {
-          afcEnvoyIncomePerMinute: afcEnvoyIncomeInSnapshot(economy),
+          ...coinIncomeAdjustmentsInSnapshot(economy),
           manpowerCap: input.playerManpowerCap(player),
           manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
           nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),

@@ -2,10 +2,17 @@ import type { PersonalActivityTimeline } from "@border-empires/game-domain";
 
 export type ProtoPersonalActivityTimelineAck = { ok: boolean; timeline_json?: string; timelineJson?: string };
 
-type GetPersonalActivityTimelineRpc = (
+export type GetPersonalActivityTimelineRpc = (
   request: { player_id: string; from_ms: number; to_ms: number },
+  options: { deadline: number },
   callback: (error: Error | null, response: ProtoPersonalActivityTimelineAck) => void
 ) => void;
+
+// A gRPC deadline, so a call the gateway has stopped waiting for (its own 10s
+// bound in handle-activity-timeline-messages.ts) is cancelled on the channel
+// and the simulation instead of piling up behind a stalled sim worker as each
+// Chronicle retry adds another.
+export const PERSONAL_ACTIVITY_RPC_DEADLINE_MS = 10_000;
 
 // Extracted out of sim-client.ts (which is over the 500-line file budget and
 // may not grow further -- see AGENTS.md's file-and-type-discipline rule),
@@ -17,14 +24,15 @@ export const getPersonalActivityTimelineRpcCall = (
   rpc: GetPersonalActivityTimelineRpc | undefined,
   playerId: string,
   from: number,
-  to: number
+  to: number,
+  now: () => number = Date.now
 ): Promise<PersonalActivityTimeline> =>
   new Promise((resolve, reject) => {
     if (!rpc) {
       reject(new Error("simulation client GetPersonalActivityTimeline RPC is unavailable"));
       return;
     }
-    rpc({ player_id: playerId, from_ms: from, to_ms: to }, (error, response) => {
+    rpc({ player_id: playerId, from_ms: from, to_ms: to }, { deadline: now() + PERSONAL_ACTIVITY_RPC_DEADLINE_MS }, (error, response) => {
       if (error) {
         reject(error);
         return;

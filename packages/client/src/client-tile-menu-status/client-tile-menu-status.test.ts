@@ -101,7 +101,7 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     // can't do there and how to extend reach instead of a countdown.
     const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
     expect(status?.text).toBe("Beyond your reach");
-    expect(status?.helpText).toBe("Can't garrison or build buildings on tiles outside your reach. Extend your reach using Relay Beacons.");
+    expect(status?.helpText).toBe("Your reach is the land within 3 tiles of your towns (more with Dominion) and 5 tiles of your Relay Beacons. Outside it you can claim tiles but not garrison or build on them, and they are lost if their supply route is cut. Build a Relay Beacon nearby to extend it.");
   });
 
   it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {
@@ -159,6 +159,12 @@ describe("tileMenuHeaderStatusForTile capture hold", () => {
     const status = tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs + 42_000 }), nowMs);
     expect(status?.text).toBe("Holding captured ground 00:42");
     expect(status?.tone).toBe("neutral");
+  });
+
+  it("explains the reach requirement before suggesting a garrison", () => {
+    const held = makeFrontierTile({ captureHoldUntil: 43_000 });
+    expect(tileMenuHeaderStatusForTile(held, 1_000, () => false)?.helpText).toContain("Extend your reach");
+    expect(tileMenuHeaderStatusForTile(held, 1_000, () => true)?.helpText).toContain("Garrison it to keep it defended.");
   });
 
   it("drops the line once the hold has ended or the tile is garrisoned", () => {

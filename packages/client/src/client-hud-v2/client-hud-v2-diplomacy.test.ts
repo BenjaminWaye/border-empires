@@ -65,3 +65,49 @@ describe("phone Diplomacy list: empires you haven't met", () => {
     expect(html.match(/data-v2-dip-open="ai-1"/g)).toHaveLength(1);
   });
 });
+
+// Playtest 2026-11-13 (pt-diplomat): once a Sent list appeared, the met and
+// unmet sections each scrolled on their own and were squeezed into overlapping
+// slivers, and the list jumped back to the top after every deal.
+describe("phone Diplomacy list: layout", () => {
+  it("is one scroll container that keeps its place across repaints", () => {
+    const truce: TruceRequest = { id: "t1", fromPlayerId: "me", toPlayerId: "ai-2", createdAt: 0, expiresAt: 3_600_000, durationHours: 24 };
+    const html = diplomacyListHtml(input({ outgoingTruce: [truce], metPlayerIds: new Set(["p-3"]) }));
+    expect(html.startsWith('<div class="v2d-list" data-v2-scroll="diplomacy">')).toBe(true);
+    expect(html.match(/data-v2-scroll=/g)).toHaveLength(1);
+  });
+
+  it("links to the Alliances panel", () => {
+    expect(diplomacyListHtml(input())).toContain('data-v2-dip-alliances=""');
+  });
+
+  it("keeps the empty note out of the narrow grid", () => {
+    expect(diplomacyListHtml(input())).not.toMatch(/<div class="v2d-grid"><div class="v2s-empty">/);
+  });
+});
+
+// Playtest run 2: truces ran out with no warning, and Extend was two screens away.
+describe("phone Diplomacy list: truces ending", () => {
+  const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: names[id] ?? id, startedAt: 0, endsAt, createdByPlayerId: "me" });
+
+  it("pins a truce in its last two hours with the time left and an Extend button that opens the deal", () => {
+    const html = diplomacyListHtml(input({ activeTruces: [truce("ai-1", 90 * 60_000), truce("p-3", 9 * 3_600_000)] }));
+    expect(html).toContain("Truces ending · 1");
+    expect(html).toMatch(/v2d-ending[\s\S]*Tove[\s\S]*Truce ends 1h 30m[\s\S]*data-v2-dip-open="ai-1">Extend</);
+    expect(html).not.toMatch(/Nordmark<\/b><span>Truce ends/);
+    expect(html).toContain("v2d-emp-truce v2d-emp-ending");
+    expect(html).toContain("Truce 9h");
+  });
+
+  it("offers no Extend once the truce is at its total-length cap", () => {
+    const capped = { ...truce("ai-1", 47 * 3_600_000), startedAt: 0 };
+    const html = diplomacyListHtml(input({ activeTruces: [capped], nowMs: 46 * 3_600_000 }));
+    expect(html).toContain("Truces ending · 1");
+    expect(html).not.toContain(">Extend<");
+    expect(html).toContain('data-v2-dip-open="ai-1">Open<');
+  });
+
+  it("shows no section when no truce is ending", () => {
+    expect(diplomacyListHtml(input({ activeTruces: [truce("ai-1", 3 * 3_600_000)] }))).not.toContain("Truces ending");
+  });
+});

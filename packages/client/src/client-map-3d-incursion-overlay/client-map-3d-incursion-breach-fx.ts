@@ -16,6 +16,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { IncursionEdges } from "../client-reach-incursion/client-reach-incursion.js";
 import type { BreachPoint, IncursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout.js";
 import type { IncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
 
 /** Band quads (one per tile near a breached boundary) and veil quads (one per breached side). */
 const MAX_BAND_QUADS = 4096;
@@ -33,11 +34,8 @@ const wrapWorld = (v: number, size: number): number => ((v % size) + size) % siz
 const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2 };
 
 const NOISE_GLSL = /* glsl */ `
-  float bHash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-  }
+  ${LATTICE_HASH_GLSL}
+  float bHash(vec2 p) { return latticeHash2(p); }
   float bNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);

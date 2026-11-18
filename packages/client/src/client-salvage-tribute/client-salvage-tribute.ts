@@ -1,4 +1,4 @@
-import { SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE, salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
+import { SALVAGE_TRIBUTE_MANPOWER, salvageLoadsRemaining, salvageTributeManpower } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -24,7 +24,10 @@ export function salvageTributeStatus(state: SalvageTributeState, tile: Tile | un
   return { loads, delivered, reason };
 }
 
-export const SALVAGE_LAST_LOAD_NOTE = "This is the last load: the field and its Works will be gone, and so will its +1% attack and defense.";
+export const SALVAGE_LAST_LOAD_NOTE = "This is the last load: the field will be depleted, and its Works will no longer give +1% attack and defense.";
+/** The tile overview's note on a depleted Reclamation Works; only its owner is told how to clear it. */
+export const depletedReclamationWorksLine = (mine: boolean): string =>
+  `Depleted: this salvage field has shipped all its loads and gives no attack or defense bonus.${mine ? " Dismantle the Works to free the tile." : ""}`;
 
 /** "Ship salvage to the Court" on your own working Reclamation Works. DOM action shared by the canvas and true-3D maps. */
 export function salvageTributeActions(state: SalvageTributeState, tile: Tile): TileActionDef[] {
@@ -34,7 +37,7 @@ export function salvageTributeActions(state: SalvageTributeState, tile: Tile): T
   const lastLoad = loads === 1 ? ` ${SALVAGE_LAST_LOAD_NOTE}` : "";
   return [{
     id: "ship_salvage_to_court", label: "Ship salvage to the Court",
-    detail: `The Court sends an Imperial delivery of ancillaries worth ${Math.round(SALVAGE_TRIBUTE_MANPOWER_CAP_SHARE * 100)}% of your manpower cap, never above it.${lastLoad}`,
+    detail: `The Court sends an Imperial delivery of ${SALVAGE_TRIBUTE_MANPOWER} manpower in ancillaries, never above your manpower cap.${lastLoad}`,
     cost: `1 of ${loads} loads → +${delivered} manpower`,
     // Ready to ship: the gold primary button (HUD bar) / highlighted row (tile menu).
     ...(reason ? { disabled: true, disabledReason: reason } : { disabled: false, recommended: true })

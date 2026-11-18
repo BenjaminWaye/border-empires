@@ -7,7 +7,7 @@
 // - a good on their side, when the deal already gives the AI more than it
 //   needs, asks for as much of it as that surplus pays for.
 // Suggest deal does the same for resource trades, which it used to skip.
-import { netValueToAi, requiredForOffer, resourceSupplyCoinValue, type DiplomacyGoods, type DiplomacyTerms } from "@border-empires/shared";
+import { hasRecurringCoin, netValueToAi, requiredForOffer, resourceSupplyCoinValue, type DiplomacyGoods, type DiplomacyTerms } from "@border-empires/shared";
 
 import { TRADE_GOODS, theirHoldings, tradeAmount, withTradeAmount, type TradeGoodKey, type TradeGoodSpec } from "./client-diplomacy-trade-goods.js";
 import { pricingFor, suggestedDeal, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
@@ -19,17 +19,17 @@ import { pricingFor, suggestedDeal, type DiplomacyStanceReply, type TradeSelecti
  * it refuses at any price.
  */
 export const aiRequiredValue = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection): number | undefined => {
-  if (!reply?.found || !reply.ai || !reply.pricing || selection.kind === "gift") return undefined;
+  if (!reply?.found || !reply.ai || !reply.pricing || selection.kind === "gift" || hasRecurringCoin(selection.terms)) return undefined;
   if (selection.kind === "trade") return 0;
   return requiredForOffer(pricingFor(reply.pricing, selection), selection.kind, selection.durationHours) ?? undefined;
 };
 
 /** One unit of a good in coin, as the AI values it (a supply slot at its daily value). */
 export const tradeUnitValue = (spec: TradeGoodSpec): number =>
-  spec.good === "gold" ? 1 : resourceSupplyCoinValue({ [spec.good]: 1 }, 24);
+  spec.good === "gold" ? 1 : spec.good === "coinPerHour" ? 0 : resourceSupplyCoinValue({ [spec.good]: 1 }, 24);
 
 const held = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
-  Math.max(0, Math.floor(spec.good === "gold" ? holdings.gold : (holdings.resources?.[spec.good] ?? 0)));
+  Math.max(0, Math.floor(spec.good === "gold" ? holdings.gold : spec.good === "coinPerHour" ? 0 : holdings.resources?.[spec.good] ?? 0));
 
 /**
  * The amount of `key` that settles the deal, or undefined when pressing it
@@ -47,7 +47,7 @@ export const balancingAmount = (
 ): number | undefined => {
   const required = aiRequiredValue(reply, selection);
   const spec = TRADE_GOODS.find((candidate) => candidate.key === key);
-  if (required === undefined || !spec) return undefined;
+  if (required === undefined || !spec || spec.good === "coinPerHour") return undefined;
   const surplus = netValueToAi(selection.terms) - required;
   const unit = tradeUnitValue(spec);
   const current = tradeAmount(selection.terms, spec);

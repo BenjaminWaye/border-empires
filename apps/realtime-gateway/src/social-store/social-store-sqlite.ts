@@ -1,6 +1,7 @@
 import { SqliteResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
 import { applyDiplomacyHistorySchema, loadDiplomacyHistory, saveDiplomacyHistory } from "./social-store-diplomacy-history.js";
+import { applyAiDiplomacyMemorySchema, loadAiDiplomacyMemory, writeAiDiplomacyMemory } from "./social-store-ai-diplomacy-memory.js";
 import { clearSeasonSocialTables, pruneExpiredSocialRows } from "./social-store-sqlite-maintenance.js";
 import type { DiplomacyHistoryEntry } from "../social-state/social-diplomacy-history.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
@@ -147,6 +148,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     }
     applyForcedTruceSchema(this.db);
     applyDiplomacyHistorySchema(this.db);
+    applyAiDiplomacyMemorySchema(this.db);
   }
 
   loadSnapshot(): SocialStoreSnapshot {
@@ -200,6 +202,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     return {
       forcedTruceCooldowns: loadForcedTruceCooldowns(this.db, this.now()),
       diplomacyHistory: loadDiplomacyHistory(this.db),
+      aiDiplomacyMemory: loadAiDiplomacyMemory(this.db),
       players: playerRows.map((row) => ({
         id: row.player_id,
         name: row.name,
@@ -474,6 +477,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void {
     saveDiplomacyHistory(this.db, playerId, entry);
   }
+
+  writeAiDiplomacyMemory(...args: Parameters<GatewaySocialStore["writeAiDiplomacyMemory"]>): void { writeAiDiplomacyMemory(this.db, ...args); }
 
   pruneExpired(now: number): void {
     pruneExpiredSocialRows(this.db, now);

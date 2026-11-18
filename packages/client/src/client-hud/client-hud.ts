@@ -2,6 +2,7 @@ import { renderAfcRecovery } from "../client-afc-recovery/client-afc-recovery.js
 import { bindRequestActionButtons } from "./client-hud-request-actions.js";
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
 import { updateManifestDetail } from "../client-manifest-detail/client-manifest-detail-dom.js";
+import { syncInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay-dom.js";
 import type { Auth } from "firebase/auth";
 import { bindAccountSettingsControls } from "./client-account-settings-controls.js";
 import { type ChosenTrickleResource } from "@border-empires/shared";
@@ -10,7 +11,8 @@ import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-
 import { fetchActivePlayerProfileData, wirePlayerNameLinks } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
-import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
+import { bindWeakDefensibilityToggle } from "./client-hud-weak-defensibility-toggle.js";
+import { renderHouseChargesPanel } from "../client-house-charges/client-house-charges-panel.js";
 import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
@@ -342,12 +344,10 @@ export const renderClientHud = (deps: HudDeps): void => {
     fallbackCard("Manifest details"),
     () => deps.renderTechDetailCard()
   ));
-  dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
-    ? deps.renderStructureInfoOverlay()
-    : state.crystalAbilityInfoKey
-      ? renderCrystalAbilityInfoOverlay(state.crystalAbilityInfoKey, { formatCooldownShort })
-      : "";
-  dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
+  syncInfoOverlay(dom.structureInfoOverlayEl, state, {
+    structure: deps.renderStructureInfoOverlay,
+    crystal: (key) => renderCrystalAbilityInfoOverlay(key, { formatCooldownShort })
+  });
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   fetchActivePlayerProfileData(state, wsUrl, () => renderClientHud(deps));
@@ -448,34 +448,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   );
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
-  dom.missionsEl.innerHTML = "";
+  renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now });
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
-  const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
-  weakDefButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (!isOwnedSettledLandTile(tile, state.me)) return false;
-        return exposedSidesForTile(tile, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor,
-          wrapX,
-          wrapY,
-          terrainAt
-        }).length >= 2;
-      }).length;
-      pushFeed(
-        state.showWeakDefensibility
-          ? `Showing weak tiles (${weakTileCount} highlighted).`
-          : "Weak tiles hidden.",
-        "info",
-        "info"
-      );
-      requestViewRefresh();
-      renderClientHud(deps);
-    };
-  });
+  bindWeakDefensibilityToggle(dom.hud, state, { keyFor, wrapX, wrapY, terrainAt, pushFeed, requestViewRefresh, rerender: () => renderClientHud(deps) });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
     hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
@@ -570,7 +545,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
-  bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps));
+  bindHudEconomyPanelControls(dom.hud, state, { wrapX, wrapY, rerender: () => renderClientHud(deps), requestViewRefresh: () => requestViewRefresh(2, true), noDepositFound: resource => pushFeed(`No known ${resource.toLowerCase()} deposits. Explore more of the map to find one.`, "info", "info") });
   renderHudTownsPanel(state, {
     root: dom.hud, panelEl: dom.panelTownsEl, rerender: () => renderClientHud(deps),
     requestViewRefresh, wrapX, wrapY, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")

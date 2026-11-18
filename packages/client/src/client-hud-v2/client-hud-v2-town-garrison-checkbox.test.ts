@@ -1,5 +1,6 @@
 import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { markAutoSettleAsked, resetAutoSettleAskStateForTests } from "../client-auto-settle-prompt/client-auto-settle-ask.js";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townScreenRegions } from "./client-hud-v2-town.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
@@ -17,6 +18,12 @@ const bar = (autoSettle: ReturnType<typeof prefs> | undefined, focusActions: Til
   }).bar;
 
 describe("town screen Garrison auto checkbox", () => {
+  beforeEach(() => {
+    globalThis.localStorage?.clear();
+    resetAutoSettleAskStateForTests();
+    markAutoSettleAsked("towns");
+  });
+
   it("shows it checked or unchecked from live prefs, not the view snapshot", () => {
     const stale = { ...garrison, autoSettleOption: { category: "towns", checked: false, label: "x" } } as TileActionDef;
     expect(bar(prefs(true), [stale])).toMatch(/data-tile-auto-settle="towns" checked/);
@@ -26,6 +33,14 @@ describe("town screen Garrison auto checkbox", () => {
 
   it("shows it for the town's own Garrison too", () => {
     expect(bar(prefs(true), [], [garrison])).toContain('data-tile-auto-settle="towns"');
+  });
+
+  it("asks Yes/No instead while towns are off and the player has never been asked", () => {
+    resetAutoSettleAskStateForTests();
+    globalThis.localStorage?.clear();
+    const html = bar(prefs(false), [garrison]);
+    expect(html).toContain('data-tile-auto-settle-ask="towns"');
+    expect(html).not.toContain('data-tile-auto-settle="towns"');
   });
 
   it("omits it when prefs are not loaded or there is no Garrison", () => {

@@ -1,5 +1,6 @@
+import { tileCoinPerMinute } from "./client-coin-income/client-coin-income.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
-import { RESOURCE_NETWORKS, isNetworkResource, networkResourceForBuilding } from "@border-empires/shared";
+import { OUTPOST_REACH_RADIUS, REFINERY_REACH_LAND_TILES, RESOURCE_NETWORKS, isNetworkResource, networkResourceForBuilding } from "@border-empires/shared";
 import { converterInfoEffects } from "./client-structure-info-catalog/converter-info.js";
 import { structureDisplayName, type StructureDisplayKey } from "@border-empires/shared";
 import { STRUCTURE_PRESENTATION } from "./client-structure-info-catalog/structure-presentation.js";
@@ -187,13 +188,13 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with Manifests"];
     if (key === "PALISADE") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "RELAY_BEACON") return ["Receives the House AI’s gravitational command signal", "Maintains local settlement control coverage and frontier vision", "Supplied frontier can advance beyond reach"];
+    if (key === "RELAY_BEACON") return ["Receives the House AI’s gravitational command signal", `Extends your reach ${OUTPOST_REACH_RADIUS} tiles around it, so you can garrison and build there`, "Widens frontier vision", "Supplied frontier can advance beyond reach"];
     if (key === "SIEGE_BATTERY") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
     if (key === "HYDROGARDEN") return ["Grain resource tiles only — no effect on fish tiles"];
     if (key === "HYDROWORKS") return [];
-    if (key === "TITANIUM_REFINERY" || key === "UMBRITE_REFINERY" || key === "CRYSTAL_REFINERY") return ["Processes one linked deposit field of its resource"];
+    if (key === "TITANIUM_REFINERY" || key === "UMBRITE_REFINERY" || key === "CRYSTAL_REFINERY") return [`Processes one deposit field of its resource, linked to the town by your land within ${REFINERY_REACH_LAND_TILES} land tiles`];
     if (key === "TITANIUM_SMELTER" || key === "UMBRITE_DISTILLERY" || key === "CRYSTAL_CUTTER") return ["Boosts this town's refineries of its resource"];
     if (key === "MANUFACTORY") return ["Developed precursor salvage improves output backing campaign credit", "Stacks additively across every active Manufactory in the town"];
     if (key === "INCUBATION_ENGINE") return [];
@@ -279,6 +280,6 @@ export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "
 // Tiles only produce gold directly; strategic resources are slot-based
 // (structure-slots.ts), not a per-tile daily yield.
 export const tileProductionHtml = (tile: Tile): string => {
-  const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+  const gpd = tileCoinPerMinute(tile) * 1440;
   return tile.town || gpd > 0 ? `${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day` : "";
 };

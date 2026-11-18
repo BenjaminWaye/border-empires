@@ -1,3 +1,4 @@
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import { AdditiveBlending, BufferGeometry, DoubleSide, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedMesh, Matrix4, MeshBasicMaterial, RingGeometry, Scene } from "three";
 
 // True-3D counterpart to drawOnboardingChecklistHighlights (the 2D canvas
@@ -76,9 +77,9 @@ export const createOnboardingChecklistHighlightOverlay = (scene: Scene): Onboard
     return markerMesh;
   };
   // The ring stays the group's first child; halo draws beneath it, arrowheads on top.
-  const mesh = createMarkerMesh(geometry, material, 1);
-  const haloMesh = createMarkerMesh(haloGeometry, haloMaterial, 0);
-  const chevronMesh = createMarkerMesh(chevronGeometry, chevronMaterial, 2);
+  const mesh = createMarkerMesh(geometry, material, RENDER_ORDER.guideMarkerRing);
+  const haloMesh = createMarkerMesh(haloGeometry, haloMaterial, RENDER_ORDER.guideMarkerHalo);
+  const chevronMesh = createMarkerMesh(chevronGeometry, chevronMaterial, RENDER_ORDER.guideMarkerChevron);
   const meshes = [mesh, haloMesh, chevronMesh];
   group.add(...meshes);
 

@@ -1,6 +1,6 @@
 # House Charges: secret objectives held to game end
 
-Status: active proposal
+Status: active proposal (Phases 1 and 2 built: dealing, the Charges panel and keep choice, map highlights, loss warnings, the season-end reveal, charge cards, the galaxy reward, AI pursuit and cross-water Charters; see the [gameplay reference](game-mechanics.md#house-charges). Phase 3 decided against for now: no Renown, no public titles, no Writ variant; see Decisions)
 Owner: game design (repository owner) decides scope and reward weights before implementation
 Last verified: 2026-11-13
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))
@@ -144,10 +144,10 @@ Charges pay out only after the season, so rewards are things that outlast it.
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
-   that hold a Planet or Outpost (see the [Galactic layer](game-mechanics.md#galactic-layer),
-   Domain Weight → Senate vote weight). Domain Weight is only computed for
-   territory holders, so other players instead receive a **larger Stipend**
-   of Influence and Production. +1 is a third of an Outpost, so about ten
+   that hold a Planet or Outpost (see the [galactic layer](game-mechanics.md#galactic-layer)).
+   Domain Weight is only computed for territory holders, so other players
+   instead receive a **larger Stipend** (Stipends now pay Influence only,
+   at most 10). +1 is a third of an Outpost, so about ten
    seasons of charges match one Planet. If that accumulates too fast, count
    only recent seasons.
 4. **Renown** (later phase): a final-score bonus that can move leaderboard
@@ -162,9 +162,8 @@ end), gameplay advantages in the next season (snowballing, and House
 equipment does not carry between worlds in the lore), or penalties for
 failure.
 
-**Dependency:** the Stipend payout is being checked separately because it
-may not currently credit balances. The galaxy reward builds on a working
-Stipend.
+**Dependency:** Stipends are now paid into the galaxy balance once per
+account and season (fixed separately), which the galaxy reward builds on.
 
 ### Card design
 
@@ -178,7 +177,7 @@ game's card design.
 
 | Part | Content | Example |
 |---|---|---|
-| **Name bar** | The charge's target, plus its **Renown value** shown as pips on the right (where other games put a cost) | "Road of Vell and Harrowmere" ●●● |
+| **Name bar** | The charge's target, plus its difficulty shown as pips on the right (where other games put a cost); stored as `renown`, but labelled difficulty in the client because Renown is not scored | "Road of Vell and Harrowmere" ●●● |
 | **Art box** | Art drawn from the real final map: the road traced between its two towns, the charted island outline, the desert's shape, or the relic family's ziggurat | The 22-tile road across the Vell lowlands |
 | **Type line** | "House Charge — {type}", with the **Sector set symbol** on the right, coloured by rarity | "House Charge — Charter of Passage" |
 | **Text box** | One line saying what was achieved, then italic **flavour text** from lore templates | "Connected Vell and Harrowmere and held the road to the end of the contest." *"The merchant families of House Alden paid for every milestone."* |
@@ -325,17 +324,24 @@ These are design expectations, not measurements.
 - Charges introduce hidden information into a game that currently shows all
   standings. This is a deliberate change of principle.
 
+## Decisions (owner, 2026-11-14)
+
+- **No Renown in the final score.** Cards and the galaxy reward (Domain
+  Weight or a larger Stipend) are the reward; ranks and ratings are unchanged.
+- **No public titles** (live Longest Road, Royal Cartographer).
+- **No Writ variant for now.** Interesting, but it depends on the open canon
+  question about Writs (world bible §14) and belongs with a Court/revolt
+  feature rather than House Charges.
+- **Card art** is stored as a small per-card shape bitmap at crowning
+  (`house-charge-art.ts`), since the archive keeps no final map.
+- **Desert and tundra** charges use the proposed 75% garrison threshold.
+
 ## Open questions
 
-1. Impossible charges: void, or replaced with a new one?
-2. Garrison threshold for desert and tundra regions (75% proposed).
-3. Card art pipeline: the proposal draws cards in the client from archived
-   map data. Confirm the season archive keeps enough of the final map
-   (routes, outlines, biome regions) to do that, or store a small per-card
-   shape at crowning.
-4. Whether public titles carry an in-season perk.
-5. Renown weights, after measuring past seasons' score spread.
-6. Whether charges should be shown to allies automatically or only by choice.
+1. Impossible charges: void, or replaced with a new one? (Today a charge
+   whose target can no longer be completed simply cannot be held.)
+2. Whether charges should be shown to allies automatically or only by choice
+   (today: never shown to anyone before the crowning).
 
 ## Phasing
 
@@ -371,5 +377,5 @@ These are design expectations, not measurements.
 - Renderer regression tests for 2D and true-3D overlays.
 - On delivery, update [`game-mechanics.md`](game-mechanics.md), the
   [world bible](lore/galactic-lore.md) (charges, charts of biome regions,
-  Renown source), the [Galactic layer](game-mechanics.md#galactic-layer)
-  reward tables, and add a client changelog entry.
+  Renown source), the [galactic layer](game-mechanics.md#galactic-layer)
+  reward rules, and add a client changelog entry.

@@ -83,6 +83,8 @@ export const rejectIfCommandRateLimited = (args: {
   limiter: CommandRateLimiter;
   playerId: string;
   commandType: string;
+  /** The client's rejected message, echoed back so it can re-send exactly that command (it was never applied). */
+  rejectedMessage?: unknown;
   nowMs: number;
   socket: import("ws").WebSocket;
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
@@ -95,6 +97,12 @@ export const rejectIfCommandRateLimited = (args: {
     commandType: args.commandType,
     retryAfterMs: decision.retryAfterMs ?? 0
   });
-  args.sendJson(args.socket, { type: "ERROR", code: "COMMAND_RATE_LIMITED", message: "command rate limit", retryAfterMs: decision.retryAfterMs ?? 0 });
+  args.sendJson(args.socket, {
+    type: "ERROR",
+    code: "COMMAND_RATE_LIMITED",
+    message: "command rate limit",
+    retryAfterMs: decision.retryAfterMs ?? 0,
+    ...(args.rejectedMessage !== undefined ? { rejected: args.rejectedMessage } : {})
+  });
   return true;
 };

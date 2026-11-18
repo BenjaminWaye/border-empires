@@ -247,8 +247,12 @@ a development slot. It buys three things:
 - Towns (radius 3), docks (radius 1) and Relay Beacons (radius 5) are *reach
   anchors*. When one activates, every neutral land tile in its radius becomes
   your FRONTIER **instantly and free** (`autoClaimFrontier` in
-  `runtime-reach-border-apply.ts`). The ground inside your reach is therefore
-  already yours as FRONTIER. There is nothing left there to Expand To.
+  `runtime-reach-border-apply.ts`). A Relay Beacon goes further: every time
+  one finishes building it claims every neutral land tile in its whole radius that your
+  border holds, including ground that was already in your reach but still
+  neutral (`claimNeutralAlreadyInReach`). Land a rival's live reach holds is
+  never taken this way. The ground inside your reach is therefore normally
+  already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
   1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
@@ -457,7 +461,8 @@ to expansion and war.
 - **Slot dormancy.** Building past your land's slot supply does nothing.
 - **Exposure-based defense.** Wide, stringy borders are weak, and FRONTIER
   tiles have zero defense.
-- **Encirclement.** Losing a key tile can cut off nearby frontier.
+- **Encirclement.** Losing a key tile can cut off nearby frontier; when an
+  enemy capture made the cut, the cut-off frontier becomes theirs.
 - **Leader pile-on.** The 24h hold and live standings let everyone see and
   target the leader.
 - **Barbarians.** 80 seeded camps wake up when you border them and can
@@ -493,7 +498,11 @@ to expansion and war.
    as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
-   and forts multiply defense (×1.35 / 2.5 / 4 / 8).
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A fort's perimeter
+   lends its owner's garrisoned tiles around it a share of that bonus
+   (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for Titanium and 1/5 for Thunder Bastion;
+   `fort-perimeter.ts`), and plain frontier tiles inside a perimeter
+   auto-garrison at the normal cost.
 5. **Resolve:** the winner takes the tile, including any town, dock or
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,

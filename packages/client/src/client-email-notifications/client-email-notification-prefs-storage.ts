@@ -16,7 +16,9 @@ export type EmailNotificationCategory =
   | "aetherPurgeAlert"
   | "aetherHijackAlert"
   | "seasonStart"
-  | "manpowerFull";
+  | "manpowerFull"
+  | "truceEnding"
+  | "empireFell";
 
 export type EmailNotificationPrefs = Record<EmailNotificationCategory, boolean>;
 
@@ -28,7 +30,9 @@ const ALL_ON: EmailNotificationPrefs = {
   aetherPurgeAlert: true,
   aetherHijackAlert: true,
   seasonStart: true,
-  manpowerFull: true
+  manpowerFull: true,
+  truceEnding: true,
+  empireFell: true
 };
 
 let currentPrefs: EmailNotificationPrefs = { ...ALL_ON };

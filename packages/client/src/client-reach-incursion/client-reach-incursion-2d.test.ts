@@ -14,6 +14,10 @@ const fakeCtx = () => {
     save: () => undefined,
     restore: () => undefined,
     fillRect: () => undefined,
+    beginPath: () => undefined,
+    moveTo: () => undefined,
+    lineTo: () => undefined,
+    stroke: () => undefined,
     drawImage: (image: unknown, ...bounds: number[]) => void stamps.push({ alpha: ctx.globalAlpha, image, bounds })
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, stamps };
@@ -63,4 +67,23 @@ describe("drawReachTileTreatments2D my tiles inside a rival's reach", () => {
 
 it("hatches one AI's territory inside another AI's reach", () => {
   expect(draw({ x: 3, y: 3, terrain: "LAND", ownerId: "elin", reachOwnerId: "other-ai" })).toHaveLength(1);
+});
+
+// Review of #2779: the rival reach line was drawn before the incursion hatch,
+// which then covered it on my own tile inside a rival's reach.
+it("strokes the rival reach line after the incursion hatch", () => {
+  vi.stubGlobal("document", { createElement: fakeCanvas });
+  const calls: string[] = [];
+  const ctx = {
+    globalAlpha: 1, fillStyle: "", strokeStyle: "", lineWidth: 1, lineCap: "butt",
+    save: () => undefined, restore: () => undefined, fillRect: () => undefined,
+    beginPath: () => undefined, moveTo: () => undefined, lineTo: () => undefined,
+    stroke: () => void calls.push("stroke"),
+    drawImage: () => void calls.push("hatch")
+  } as unknown as CanvasRenderingContext2D;
+  const tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", reachOwnerId: "rival" } as Tile;
+  drawReachTileTreatments2D(ctx, tile, 3, 3, 0, 0, 32, new Set(), {
+    tiles: new Map([[keyFor(3, 3), tile]]), keyFor, wrapX: (x) => x, wrapY: (y) => y, me: "me", ownerColor: () => "#ff0000"
+  });
+  expect(calls).toEqual(["hatch", "stroke"]);
 });

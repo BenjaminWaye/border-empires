@@ -133,6 +133,13 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     }
     active.revealAt = to;
     if (to) deps.visibilityCoverage().addTemporaryReveal(active.playerId, to.x, to.y, SCOUT_DRONE_VISION_RADIUS, deps.visionTransitionCallbacks());
+    // The fanout only drains vision edges on a TILE_DELTA_BATCH. Without one
+    // here the revealed tiles waited for an unrelated batch, and the next
+    // move's leave edges cancelled the unsent enter edges, so land under the
+    // drone flickered in late or never and was gone again moments later
+    // (playtest). An empty batch flushes them, like alliance sync does. One id
+    // per flight: the gateway dedupes and looks up commands by id.
+    deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `scout-drone-vision:${active.commandId}`, playerId: active.playerId, tileDeltas: [] });
   };
 
   const alertRival = (active: ActiveFlight, nowMs: number): void => {

@@ -21,14 +21,19 @@ export const activityCardTone = (card: PersonalActivityCard, playerId: string): 
       return card.outcome === "FELL" ? "loss" : "hold";
     case "TOWN_CAPTURED":
     case "DOCK_CAPTURED":
+    case "MUSTER_CAPTURED":
       return "gain";
     case "TOWN_LOST":
     case "DOCK_LOST":
+    case "MUSTER_LOST":
       return "loss";
+    case "SUPPLY_ENDED":
+      // Losing an import you did not end yourself is a loss; the rest is bookkeeping.
+      return card.byPlayerId !== playerId && Object.values(card.youGot).some((amount) => (amount ?? 0) > 0) ? "loss" : "neutral";
     case "DIPLOMACY":
       // Being betrayed is a loss; a truce or alliance starting is ground held.
       if (card.event === "TRUCE_BROKEN") return card.byPlayerId === playerId ? "neutral" : "loss";
-      return card.event === "TRUCE_STARTED" || card.event === "ALLIANCE_FORMED" ? "hold" : "neutral";
+      return card.event === "TRUCE_STARTED" || card.event === "TRUCE_EXTENDED" || card.event === "ALLIANCE_FORMED" ? "hold" : "neutral";
     default:
       return "neutral";
   }

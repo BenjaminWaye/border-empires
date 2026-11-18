@@ -10,31 +10,48 @@
 .salvage-toast {
   position: absolute;
   transform: translate(-50%, -100%);
-  min-height: 32px;
-  padding: 5px 11px;
+  min-height: 20px;
+  padding: 2px 7px;
   border: 1px solid var(--sp-brass-300, #d9ad52);
-  border-radius: 5px;
+  border-radius: 10px;
   color: var(--sp-brass-100, #f4dfa6);
-  background: #241812f0;
-  box-shadow: 0 3px 8px #0008;
-  font: 700 12px var(--sp-font-body, Georgia, serif);
+  background: #241812e6;
+  box-shadow: 0 2px 5px #0007;
+  font: 700 11px/1.2 var(--sp-font-body, Georgia, serif);
   white-space: nowrap;
   pointer-events: auto;
   touch-action: manipulation;
   cursor: pointer;
 }
+/* Keep a finger-sized tap target around the small visual. */
+.salvage-toast::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
 .salvage-toast::after {
   content: "";
   position: absolute;
-  left: calc(50% - 4px);
-  bottom: -5px;
-  width: 8px;
-  height: 8px;
+  left: calc(50% - 3px);
+  bottom: -4px;
+  width: 6px;
+  height: 6px;
   border-right: 1px solid var(--sp-brass-300, #d9ad52);
   border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
   background: #241812;
   transform: rotate(45deg);
 }
+/* Zoomed out: just a count pip so a deposit never blankets the map. */
+.salvage-toast.is-pip {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.salvage-toast.is-pip::after { display: none; }
 .salvage-toast:hover { background: #3c2919; }
 .salvage-toast.is-ready {
   border-color: #d9b25c;

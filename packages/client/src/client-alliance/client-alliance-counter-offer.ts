@@ -51,13 +51,18 @@ export const counterOfferScreenInput = (
   };
 };
 
+/** Opens the trade screen to counter this offer; false once the offer is gone. Also used by the offer dock. */
+export const openCounterOfferScreen = (kind: DiplomacyOfferKind, requestId: string, deps: CounterOfferDeps): boolean => {
+  const input = counterOfferScreenInput(kind, requestId, deps);
+  if (!input) return false;
+  openDiplomacyTradeScreen(input, diplomacyTradeDepsFor(deps.state, deps.sendGameMessage));
+  return true;
+};
+
 export const bindCounterOfferButtons = (root: ParentNode, deps: CounterOfferDeps): void => {
   root.querySelectorAll<HTMLButtonElement>(".counter-offer").forEach((btn) => {
     btn.onclick = () => {
-      const kind = btn.dataset.counterKind === "alliance" ? "alliance" : "truce";
-      const input = counterOfferScreenInput(kind, btn.dataset.counterRequestId ?? "", deps);
-      if (!input) return;
-      openDiplomacyTradeScreen(input, diplomacyTradeDepsFor(deps.state, deps.sendGameMessage));
+      openCounterOfferScreen(btn.dataset.counterKind === "alliance" ? "alliance" : "truce", btn.dataset.counterRequestId ?? "", deps);
     };
   });
 };

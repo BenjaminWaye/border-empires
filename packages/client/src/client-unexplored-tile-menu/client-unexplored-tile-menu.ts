@@ -56,7 +56,11 @@ export const openUnexploredTileActionMenu = (
     statusText: "Unexplored — terrain unknown",
     statusTone: "neutral",
     tabs: ["actions", "overview"],
-    overviewLines: [{ html: "This tile has not been explored yet." }],
+    // Details repeats why Explore is greyed, so the reason is there even where the bar shows none.
+    overviewLines: [
+      { html: "This tile has not been explored yet." },
+      ...actions.flatMap((a) => (a.id === "explore_scout" && a.disabled && a.disabledReason ? [{ html: `${a.disabledReason}.` }] : []))
+    ],
     actions,
     buildings: [],
     crystal: []

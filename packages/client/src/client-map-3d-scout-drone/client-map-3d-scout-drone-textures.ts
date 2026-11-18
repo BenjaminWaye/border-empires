@@ -31,38 +31,42 @@ export const makeGlowTexture = (): CanvasTexture | null =>
     ctx.fillRect(0, 0, size, size);
   });
 
-/** A rotor seen at speed: a translucent disc with faint blade streaks and a darker hub. */
+/** A small, sharp point of light: a hard bright core with a short, tight halo. For the strobe. */
+export const makePointGlowTexture = (): CanvasTexture | null =>
+  canvasTexture(64, (ctx, size) => {
+    const half = size / 2;
+    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.08, "rgba(255,255,255,1)");
+    grad.addColorStop(0.2, "rgba(255,255,255,0.35)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.06)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+  });
+
+/**
+ * A prop seen at speed: a soft radial gradient, clear over the hub (never a hot core), fullest mid-blade and translucent toward the
+ * tips, with a faint tip-path ring where the blade tips trace their circle.
+ */
 export const makeRotorBlurTexture = (): CanvasTexture | null =>
   canvasTexture(128, (ctx, size) => {
     const half = size / 2;
-    const grad = ctx.createRadialGradient(half, half, size * 0.06, half, half, half);
-    grad.addColorStop(0, "rgba(255,255,255,0.05)");
-    grad.addColorStop(0.55, "rgba(255,255,255,0.32)");
-    grad.addColorStop(0.92, "rgba(255,255,255,0.42)");
+    const grad = ctx.createRadialGradient(half, half, size * 0.05, half, half, half);
+    grad.addColorStop(0, "rgba(255,255,255,0)");
+    grad.addColorStop(0.2, "rgba(255,255,255,0.2)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.22)");
+    grad.addColorStop(0.85, "rgba(255,255,255,0.1)");
     grad.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(half, half, half, 0, Math.PI * 2);
     ctx.fill();
-    // Three soft streaks where the blades are most often seen.
-    ctx.globalCompositeOperation = "lighter";
-    for (let b = 0; b < 3; b += 1) {
-      const angle = (b * Math.PI * 2) / 3;
-      ctx.save();
-      ctx.translate(half, half);
-      ctx.rotate(angle);
-      const streak = ctx.createLinearGradient(0, 0, half, 0);
-      streak.addColorStop(0, "rgba(255,255,255,0)");
-      streak.addColorStop(0.7, "rgba(255,255,255,0.18)");
-      streak.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = streak;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, half, -0.32, 0.32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = size * 0.012;
+    ctx.beginPath();
+    ctx.arc(half, half, half * 0.95, 0, Math.PI * 2);
+    ctx.stroke();
   });
 
 /**
@@ -135,14 +139,43 @@ export const makeVisionRingTexture = (): CanvasTexture | null =>
     }
   });
 
-/** A soft dark blob for the ground shadow. */
-export const makeShadowTexture = (): CanvasTexture | null =>
-  canvasTexture(64, (ctx, size) => {
+/** Half the width of the drone's shadow silhouette texture, in drone-local units (rotors included). */
+export const SCOUT_SHADOW_HALF_EXTENT = 0.34;
+
+/**
+ * The drone's contact shadow seen from straight above: the sphere, the four short arms, the oval
+ * pods and the faint discs of the large rotors, blurred by `blur` (a fraction of the texture).
+ * Drawn in drone-local units; the layout is symmetric fore-and-aft and side to side, so the ground
+ * plane only has to turn with the yaw.
+ */
+export const makeSilhouetteShadowTexture = (blur: number): CanvasTexture | null =>
+  canvasTexture(128, (ctx, size) => {
     const half = size / 2;
-    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-    grad.addColorStop(0, "rgba(255,255,255,1)");
-    grad.addColorStop(0.5, "rgba(255,255,255,0.55)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
+    const px = half / SCOUT_SHADOW_HALF_EXTENT;
+    ctx.filter = `blur(${Math.max(0.5, blur * size)}px)`;
+    ctx.translate(half, half);
+    const pods = [0.96, -0.96, 2.18, -2.18].map((a) => [Math.sin(a) * 0.215 * px, Math.cos(a) * 0.215 * px, a] as const);
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    for (const [x, y] of pods) {
+      ctx.beginPath();
+      ctx.arc(x, y, 0.1125 * px, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,1)";
+    ctx.lineWidth = 0.014 * px;
+    ctx.beginPath();
+    for (const [x, y] of pods) {
+      ctx.moveTo(0, 0);
+      ctx.lineTo(x * 0.7, y * 0.7);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,1)";
+    for (const [x, y, a] of pods) {
+      ctx.beginPath();
+      ctx.ellipse(x, y, 0.026 * px, 0.075 * px, -a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.085 * px, 0, Math.PI * 2);
+    ctx.fill();
   });

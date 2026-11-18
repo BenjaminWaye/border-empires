@@ -1,15 +1,16 @@
+import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
 import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.js";
-import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
+import { manpowerPerBatch, isNetworkResource, isDepletedReclamationWorks } from "@border-empires/shared";
+import { depletedReclamationWorksLine } from "../client-salvage-tribute/client-salvage-tribute.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
-import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
+import { fortCaptureMenuLines } from "./client-tile-menu-fort-capture-lines.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
-  isFortDefending,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
-  townFoodSlotDemandForTier,
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
@@ -198,20 +199,17 @@ export const menuOverviewForTile = (
       // FOOD slot demand is what actually gates a town's isFed state (see
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
-      // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
-      // base demand — a nearby Ministry Hall can reduce it further, but
-      // that isn't visible client-side, so a fed Ministry-Hall town may
-      // show a demand slightly higher than what it's actually clearing.
-      const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      // (fed) or 0 (unfed), never a partial count. The simulation stamps it
+      // after upgrade waivers and the Ministry Hall reduction.
+      const foodDemand = townFoodSlotDemand(tile.town);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
-      // Matches tileProductionHtml's own gold math exactly (same
-      // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
-      // never disagrees with any other gold/day figure shown elsewhere.
-      const goldPerDay = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+      // tileCoinPerMinute is every surface's per-tile coin source, so this
+      // card never disagrees with the Towns list or the town screen.
+      const goldPerDay = tileCoinPerMinute(tile) * 1440;
       const nextTierPopulation = nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population)?.requiredPopulation;
       lines.push({
         kind: "statgrid",
@@ -322,17 +320,7 @@ export const menuOverviewForTile = (
   for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), ownMaxShots: ownObservatoryMaxShots(deps.state), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
-    pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
-  }
   for (const line of captureAftermathMenuLines(tile)) pushLine(line);
-  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
-    // Same helper the client's own attack gate uses (findClosestMuster in
-    // client-muster-attack-gate.ts), so the number shown here always matches
-    // the muster the client will actually demand.
-    const required = attackFloorForPlayer(deps.state, tile);
-    pushLine(`Capturing requires ${required} mustered manpower.`);
-  }
   if (tile.fort?.status === "active") {
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);
@@ -345,6 +333,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "removing") {
       pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
     }
+    if (isDepletedReclamationWorks(tile)) pushLine(depletedReclamationWorksLine(tile.ownerId === deps.state.me));
     if (isConverterStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
         // No status/lock line here — see converter-mode-flip plan: the
@@ -395,6 +384,8 @@ export const menuOverviewForTile = (
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);
   for (const historyLine of deps.tileHistoryLines(tile)) pushLine(historyLine);
+  // Last, so its "Defense" heading never adopts lines from unrelated sections.
+  lines.push(...fortCaptureMenuLines(deps.state, tile));
   return lines;
 };
 
