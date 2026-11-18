@@ -1,7 +1,9 @@
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 import { band, housing, ribs } from "./support-model-detail.js";
+import { buildFarm } from "./support-model-farm.js";
 
 export const buildUtility = (t: TownBuilders, kind: string): boolean => {
+  if (buildFarm(t, kind)) return true;
   switch (kind) {
     case "HYDROWORKS":
       // Open settling basin and a sealed turbine pump.

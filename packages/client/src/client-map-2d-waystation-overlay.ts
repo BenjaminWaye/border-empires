@@ -1,140 +1,57 @@
 import type { Tile } from "./client-types.js";
 
-/**
- * 2D (non-3D-renderer) waystation overlay — the sibling of
- * drawWatchtower2D (client-map-2d-watchtower-overlay.ts), kept in its own
- * file for the same reason (see that file's doc comment). Mirrors the 3D
- * rig (client-map-3d-waystation-overlay.ts) in silhouette: a riveted anchor
- * plate and banded plinth carrying a tapered mast up to a caged lens
- * housing, a slanted-roof shelter with a door/window seam and stovepipe
- * vent, and strapped supply crates at the base. Bright/pulsing while
- * dormant (inviting capture), dim once activated. Unlike drawWatchtower2D
- * there is no pulse ring on the activated state: activation is permanent,
- * with no countdown to visualize.
- */
+/** Canvas counterpart of the Survey Rig: tripod, brass lens, supply case and canvas shelter. */
 export const drawWaystation2D = (
   ctx: CanvasRenderingContext2D,
   tile: Pick<Tile, "x" | "y" | "waystation">,
-  px: number,
-  py: number,
-  size: number,
-  nowMs: number
+  px: number, py: number, size: number, nowMs: number
 ): void => {
-  const waystation = tile.waystation;
-  if (!waystation) return;
-  const cx = px + size / 2;
-  const phase = ((tile.x * 73_193) ^ (tile.y * 51_487)) % 1000 / 1000;
-  const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 300 + phase * Math.PI * 2);
-  const vaneAngle = nowMs * 0.00035 + phase * Math.PI * 2;
-
-  // Shadow footprint.
-  ctx.fillStyle = "rgba(20, 14, 6, 0.3)";
+  if (!tile.waystation) return;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.scale(size, size);
+  // Lean-to and rolled canvas behind the instrument.
+  ctx.fillStyle = "#ad9062";
   ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.9, size * 0.26, size * 0.07, 0, 0, Math.PI * 2);
+  ctx.moveTo(0.57, 0.75); ctx.lineTo(0.73, 0.37); ctx.lineTo(0.9, 0.75); ctx.closePath();
   ctx.fill();
-
-  // Shelter, offset from the mast so both read clearly.
-  const shx = cx - size * 0.22;
-  const shTop = py + size * 0.62;
-  ctx.fillStyle = "#3a352f";
-  ctx.fillRect(shx - size * 0.1, shTop, size * 0.2, size * 0.16);
-  // Slanted dark-iron roof.
-  ctx.fillStyle = "#232019";
+  ctx.fillStyle = "#695338";
   ctx.beginPath();
-  ctx.moveTo(shx - size * 0.13, shTop);
-  ctx.lineTo(shx + size * 0.13, shTop);
-  ctx.lineTo(shx + size * 0.09, shTop - size * 0.07);
-  ctx.lineTo(shx - size * 0.06, shTop - size * 0.07);
-  ctx.closePath();
+  ctx.moveTo(0.73, 0.44); ctx.lineTo(0.75, 0.75); ctx.lineTo(0.87, 0.75); ctx.closePath();
   ctx.fill();
-  // Stovepipe vent.
-  ctx.strokeStyle = "#5a5148";
-  ctx.lineWidth = Math.max(1, size * 0.025);
-  ctx.beginPath();
-  ctx.moveTo(shx + size * 0.05, shTop - size * 0.07);
-  ctx.lineTo(shx + size * 0.05, shTop - size * 0.13);
-  ctx.stroke();
-  // Door/window seam.
-  ctx.fillStyle = "#161310";
-  ctx.fillRect(shx - size * 0.03, shTop + size * 0.04, size * 0.06, size * 0.11);
-  ctx.fillStyle = "rgba(90, 130, 140, 0.55)";
-  ctx.fillRect(shx + size * 0.05, shTop + size * 0.03, size * 0.045, size * 0.035);
-
-  // Riveted anchor plate + banded plinth at the mast's foot.
-  ctx.fillStyle = "#2c2e34";
-  ctx.fillRect(cx - size * 0.1, py + size * 0.83, size * 0.2, size * 0.045);
-  ctx.fillStyle = "#5a5148";
-  ctx.beginPath();
-  ctx.arc(cx - size * 0.08, py + size * 0.855, size * 0.012, 0, Math.PI * 2);
-  ctx.arc(cx + size * 0.08, py + size * 0.855, size * 0.012, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#5a4527";
-  ctx.fillRect(cx - size * 0.06, py + size * 0.74, size * 0.12, size * 0.1);
-  ctx.strokeStyle = "#9c7a42";
-  ctx.lineWidth = Math.max(1, size * 0.02);
-  ctx.beginPath();
-  ctx.moveTo(cx - size * 0.06, py + size * 0.75);
-  ctx.lineTo(cx + size * 0.06, py + size * 0.75);
-  ctx.stroke();
-
-  // Tapered brass mast with two ring bands.
-  ctx.strokeStyle = "#9c7a42";
-  ctx.lineWidth = Math.max(1.4, size * 0.05);
-  ctx.beginPath();
-  ctx.moveTo(cx, py + size * 0.74);
-  ctx.lineTo(cx, py + size * 0.24);
-  ctx.stroke();
-  ctx.strokeStyle = "#c98d3f";
-  ctx.lineWidth = Math.max(1, size * 0.025);
-  for (const bandY of [py + size * 0.58, py + size * 0.4]) {
-    ctx.beginPath();
-    ctx.moveTo(cx - size * 0.045, bandY);
-    ctx.lineTo(cx + size * 0.045, bandY);
-    ctx.stroke();
+  ctx.fillStyle = "#b9a079";
+  ctx.fillRect(0.68, 0.68, 0.2, 0.08);
+  // Splayed legs, thick enough to survive ordinary map zoom.
+  ctx.strokeStyle = "#30343b";
+  ctx.lineWidth = 0.055;
+  for (const [x, y] of [[0.2, 0.85], [0.53, 0.87], [0.55, 0.69]] as const) {
+    ctx.beginPath(); ctx.moveTo(0.38, 0.4); ctx.lineTo(x, y); ctx.stroke();
   }
-
-  // Caged lens housing near the top — bright/pulsing while dormant
-  // (inviting capture), dim and steady once activated.
-  ctx.strokeStyle = "#a5864d";
-  ctx.lineWidth = Math.max(1, size * 0.022);
-  ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.22, size * 0.11, size * 0.045, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  const lensColor = waystation.activated ? "rgba(120, 160, 165, 0.7)" : `rgba(90, 220, 235, ${0.85 + pulsePhase * 0.15})`;
-  ctx.fillStyle = lensColor;
-  ctx.beginPath();
-  ctx.arc(cx, py + size * 0.22, size * (waystation.activated ? 0.07 : 0.09 + pulsePhase * 0.012), 0, Math.PI * 2);
-  ctx.fill();
-  if (!waystation.activated) {
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = `rgba(120, 230, 240, ${0.16 + pulsePhase * 0.1})`;
-    ctx.beginPath();
-    ctx.arc(cx, py + size * 0.22, size * 0.18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+  ctx.strokeStyle = "#af8545";
+  ctx.lineWidth = 0.075;
+  for (const [x, y] of [[0.25, 0.73], [0.49, 0.75], [0.5, 0.61]] as const) {
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.005, y + 0.04); ctx.stroke();
   }
-
-  // Slowly rotating weathercock vane on the shelter roof — frozen in place
-  // once the bonus is activated, mirroring the 3D overlay's vane technique.
-  ctx.strokeStyle = "#a5864d";
-  ctx.lineWidth = Math.max(1, size * 0.018);
-  const vx = Math.cos(waystation.activated ? phase * Math.PI * 2 : vaneAngle) * size * 0.06;
-  const vaneCenterX = shx + size * 0.05;
-  const vaneCenterY = shTop - size * 0.16;
-  ctx.beginPath();
-  ctx.moveTo(vaneCenterX - vx, vaneCenterY);
-  ctx.lineTo(vaneCenterX + vx, vaneCenterY);
+  // Equipment case with two brass straps.
+  ctx.fillStyle = "#30343b";
+  ctx.fillRect(0.57, 0.77, 0.28, 0.16);
+  ctx.fillStyle = "#af8545";
+  ctx.fillRect(0.62, 0.77, 0.025, 0.16);
+  ctx.fillRect(0.77, 0.77, 0.025, 0.16);
+  // Brass surveying head, dark lens barrel, bright cyan glass.
+  ctx.fillStyle = "#af8545";
+  ctx.fillRect(0.26, 0.23, 0.23, 0.2);
+  ctx.fillStyle = "#30343b";
+  ctx.beginPath(); ctx.arc(0.4, 0.32, 0.125, 0, Math.PI * 2); ctx.fill();
+  const pulse = 0.5 + 0.5 * Math.sin(nowMs * 0.0016);
+  ctx.strokeStyle = "#bf9b58";
+  ctx.lineWidth = 0.025;
   ctx.stroke();
-
-  // Strapped supply crates around the mast footprint.
-  ctx.fillStyle = "#8a6b3c";
-  ctx.fillRect(cx - size * 0.24, py + size * 0.79, size * 0.11, size * 0.11);
-  ctx.fillRect(cx + size * 0.13, py + size * 0.81, size * 0.1, size * 0.1);
-  ctx.fillRect(cx - size * 0.02, py + size * 0.85, size * 0.09, size * 0.09);
-  ctx.strokeStyle = "#6b5a3f";
-  ctx.lineWidth = Math.max(1, size * 0.015);
-  ctx.strokeRect(cx - size * 0.24, py + size * 0.79, size * 0.11, size * 0.11);
-  ctx.strokeRect(cx + size * 0.13, py + size * 0.81, size * 0.1, size * 0.1);
-  ctx.strokeRect(cx - size * 0.02, py + size * 0.85, size * 0.09, size * 0.09);
+  ctx.fillStyle = tile.waystation.activated ? "#789fa5" : `rgba(90,220,235,${0.85 + pulse * 0.15})`;
+  ctx.beginPath(); ctx.arc(0.4, 0.32, 0.087, 0, Math.PI * 2); ctx.fill();
+  if (!tile.waystation.activated) {
+    ctx.fillStyle = `rgba(90,220,235,${0.1 + pulse * 0.08})`;
+    ctx.beginPath(); ctx.arc(0.4, 0.32, 0.17, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 };

@@ -155,6 +155,19 @@ demand is across its consumers. Gold does not use this system.
 
 - Hydrogarden adds 2 FOOD slots to its FARM tile. Hydroworks adds 2 FOOD slots
   to Hydrogardens in range.
+- **Farm Plot** ([plan](../farm-plot-plan.md)): 150 manpower, no tech, no slot
+  or coin upkeep. Built on an owned, garrisoned support-ring tile of an owned
+  town (never a resource tile, never around the AFC); stacks one per open plot.
+  An active plot supplies 1 FOOD slot, the same as a FARM tile, without
+  changing `tile.resource`. With Hyperfeed Seedstock (`agriculture`) a plot
+  upgrades in place to a **Hydrogarden Plot** for the full 80 manpower: 3 FOOD
+  slots (a FARM tile with a Hydrogarden), plus Hydroworks' +2 in range. The
+  plot keeps its 1 FOOD while the upgrade builds; cancelling the upgrade leaves
+  the Farm Plot. Slot sources report both as `STRUCTURE` rows. Constants:
+  `FARM_PLOT_FOOD_SLOT_SUPPLY` (`structure-slots.ts`); supply:
+  `apps/simulation/src/farm-plot/`. The per-resource auto-improve switch does
+  not build plots (it improves resource tiles only). AI players do not build
+  plots yet.
 - Strategic deposits (Titanium, Umbrite, Gems) take no on-tile building; the
   Mine, Umbrite Rig and Ore Refinery were removed (recovery drops their saved
   records; the bare deposit keeps its base slot). Instead a **town refinery**

@@ -1,5 +1,5 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
-import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
+import { OUT_OF_REACH_LABEL, frontierBuildBlockedByReach, RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { supportPlacementBlockedReason } from "./client-town-tile-support-gate.js";
 import { structureCommandActions } from "../client-structure-command-actions.js";
@@ -56,7 +56,7 @@ import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { buildDurationMsForState, buildManpowerCostForState, buildTimeLabel, relayBeaconBuildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
-import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
 import { afcModuleActionsForTile, buildAfcActionForTile } from "../client-afc-actions.js";
@@ -146,6 +146,11 @@ export const chainedBuildAvailabilityFromModule = (
 ): [boolean, string, string] => {
   const goldCost = goldCostOverride ?? deps.structureGoldCost(structureType);
   const manpowerCost = buildManpowerCostForState(state, structureType);
+  // Same OUT_OF_REACH rule the sim applies (shared frontierBuildBlockedByReach): disabled with the reason, not lit to fail.
+  if (tile.ownershipState === "FRONTIER" && tile.ownerId === state.me) {
+    const inOwnReach = resolveMyReachCached(state).has(deps.keyFor(tile.x, tile.y)); // cached: runs once per build button
+    if (frontierBuildBlockedByReach(tile, structureType, { inOwnReach, inAnyReach: inOwnReach || Boolean(tile.reachOwnerId) })) return [false, OUT_OF_REACH_LABEL, settledCostText];
+  }
   // The siege ladder never needs SETTLED (see runtime-structure-command-
   // handlers.ts's OUTPOST-kind skip) -- it builds straight onto FRONTIER
   // ground, so it never pays the settle-then-build combined cost below,
@@ -423,14 +428,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportBlockedReason = supportPlacementBlockedReason(state, tile, townBuildSource, hasBlockingStructure);
-    // Fixed-border reach: EXPAND itself is no longer reach-gated, but SETTLE
-    // and outpost-family builds (siege batteries/relay beacon, which skip the
-    // SETTLED requirement server-side) still are -- see runtime-structure-
-    // command-handlers.ts. On a FRONTIER tile outside reach, show these
-    // actions disabled with the reason instead of hiding them.
-    const frontierOutOfReach = tile.ownershipState === "FRONTIER" && !authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
-    const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
-      frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
       const cooldown = ownTowerShotReadyInMs(state, tile, Date.now());
       out.push({
@@ -1047,12 +1044,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         label: "Build Relay Beacon",
         detail: (deps.buildDetailTextForAction("build_relay_beacon", tile) ?? "") + frontierBuildDetailSuffix(tile),
         ...tileActionAvailability(
-          ...withReachGate(chainedBuildAvailability(
+          ...chainedBuildAvailability(
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
             `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state), relayBeaconFreeFoodSlotCountFor(state.domainIds, RELAY_BEACON_FREE_FOOD_SLOT_COUNT))}`
-          ))
+          )
         )
       });
     }

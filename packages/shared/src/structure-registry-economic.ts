@@ -24,6 +24,8 @@ const economicPlacement: StructureSpec["placement"] = [
 
 export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   HYDROGARDEN: "agriculture",
+  // Farm Plot has no tech gate (docs/farm-plot-plan.md); its upgrade needs Hyperfeed Seedstock, like a Hydrogarden.
+  HYDROGARDEN_PLOT: "agriculture",
   HYDROWORKS: "irrigation",
   // Refineries take over the deposit techs (Mine/Umbrite Rig were removed);
   // the boosters take over Ore Refinery's tech.
@@ -67,6 +69,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
 
 function upgradePrereq(type: EconomicStructureType): readonly string[] | undefined {
   switch (type) {
+    case "HYDROGARDEN_PLOT": return ["FARM_PLOT"];
     case "HIGH_YIELD_UMBRITE_WORKS": return ["UMBRITE_WORKS"];
     case "HIGH_YIELD_TITANIUM_WORKS": return ["TITANIUM_WORKS"];
     case "HIGH_YIELD_AETHER_CONDENSER": return ["AETHER_CONDENSER"];
@@ -145,6 +148,8 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Resource-tile structures
   HYDROGARDEN: econSpec("HYDROGARDEN"),
   HYDROWORKS: econSpec("HYDROWORKS"),
+  FARM_PLOT: econSpec("FARM_PLOT"),
+  HYDROGARDEN_PLOT: econSpec("HYDROGARDEN_PLOT"),
   CULTIVATION_ESTATE: econSpec("CULTIVATION_ESTATE"),
   RECLAMATION_WORKS: econSpec("RECLAMATION_WORKS"),
 

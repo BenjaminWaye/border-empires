@@ -2,7 +2,7 @@
 // fulfilled charge becomes a collectible trading card. Data comes from the
 // public GET /hq/house-charges/cards/by-player/:playerId route; the art is the
 // real shape the House held (shared house-charge-art.ts), drawn as an SVG grid.
-import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
+import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, houseStyledName, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { HOUSE_CHARGE_KIND_LABEL } from "./client-house-charges-labels.js";
 
@@ -50,6 +50,10 @@ export const houseChargeCardRule = (card: Pick<HouseChargeCardView, "kind" | "pl
     case "DESERT":
     case "TUNDRA":
       return `Garrisoned ${first} and held it to the end of the contest.`;
+    case "CORRECTION":
+      return `Pressed a grievance against ${houseStyledName(first)}, took an AFC it founded and held it to the end of the contest.`;
+    case "METROPOLIS":
+      return `Raised three towns on ${first} to Metropolises and held them to the end of the contest.`;
     case "RELIC":
       return `Kept ${card.relicType && card.relicType in RELIC_DEFINITIONS ? `the ${RELIC_DEFINITIONS[card.relicType as NaturalWonderType].name}` : "a Concordance installation"} in service to the end of the contest.`;
   }
@@ -61,7 +65,9 @@ const FLAVOUR: Readonly<Record<HouseChargeKind, readonly string[]>> = {
   SURVEY: ["The cartographers allowed a day. The House needed less.", "A name in the charts outlasts the hand that wrote it.", "Every acre garrisoned, every coastline charted."],
   DESERT: ["Salvage crews said the sand ate their tracks by noon. The garrisons stayed anyway.", "Nothing grows here but resolve.", "The waste was named on the charts long before anyone held it."],
   TUNDRA: ["The frost took the banners. The garrisons kept the ground.", "A hardship posting, held to the last day.", "Ice remembers who stood on it."],
-  RELIC: ["The machinery was ready long before anyone came to wake it.", "The Wardens noticed. The House held anyway.", "Old aether, new masters."]
+  RELIC: ["The machinery was ready long before anyone came to wake it.", "The Wardens noticed. The House held anyway.", "Old aether, new masters."],
+  CORRECTION: ["The heralds read the grievance aloud. Then they read who answered it.", "Their machines still bear their crest. They work for us now.", "A wrong answered is a debt paid."],
+  METROPOLIS: ["Three cadet lines. Three seats. One House.", "The elders asked for cities. The House built a province.", "A Metropolis is not taken. It is kept."]
 };
 
 const flavourFor = (card: Pick<HouseChargeCardView, "kind" | "id" | "seasonId">): string => {

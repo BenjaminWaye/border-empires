@@ -121,3 +121,23 @@ export const resolveSiegeBuildTier = (
   if (next) return { ok: true, tier: next };
   return { ok: false, reason: current === "DREAD_TOWER" ? "siege battery already at maximum tier" : "research the next tier first" };
 };
+
+// The Farm Plot -> Hydrogarden Plot in-place upgrade (docs/farm-plot-plan.md
+// §2.2). Mirrors fortTierForChoice: the research gate first, then the tile's
+// standing structure. Shared by the sim's build handler and the client's
+// build menu so the button and the server can never disagree. The upgrade is
+// charged the Hydrogarden Plot's full price (structure-costs.ts), like a fort
+// upgrade, and only ever replaces a Farm Plot: it is never a fresh build.
+
+/** Hyperfeed Seedstock, the Hydrogarden's own commission (TECH_REQUIREMENTS_BY_STRUCTURE.HYDROGARDEN_PLOT). */
+export const FARM_PLOT_UPGRADE_TECH_ID = "agriculture";
+
+export const farmPlotUpgradeForChoice = (
+  current: string | undefined,
+  has: (id: string) => boolean
+): TierChoice<"HYDROGARDEN_PLOT"> => {
+  if (!has(FARM_PLOT_UPGRADE_TECH_ID)) return { ok: false, reason: "commission Hyperfeed Seedstock first" };
+  if (current === "HYDROGARDEN_PLOT") return { ok: false, reason: "tile already has a Hydrogarden Plot" };
+  if (current !== "FARM_PLOT") return { ok: false, reason: "a Hydrogarden Plot upgrades a Farm Plot" };
+  return { ok: true, tier: "HYDROGARDEN_PLOT" };
+};

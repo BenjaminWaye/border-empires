@@ -39,7 +39,7 @@ import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-st
 import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/client-restored-camera-fog.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
-import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, markWaystationActivationsSeenFromEventLog, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -142,6 +142,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // whichever account last saved on this browser -- swap in this account's own.
   const accountSwitchedInPlace = prepareCameraForIncomingPlayer(state, incomingPlayerId, isFirstInitThisSession);
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
+  // Logging in (not an in-place reconnect) backfills history quietly: no waystation/survey cards, the Chronicle has them.
+  const loginBackfill = isFirstInitThisSession || seasonRolledOverInSession || accountSwitchedInPlace;
   resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
   state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
@@ -171,7 +173,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail);
+  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail, state.bridgeDebugSeasonId);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
@@ -223,7 +225,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   });
   state.techRootId = player.techRootId as string | undefined;
   state.techIds = (player.techIds as string[]) ?? [];
-  occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
+  occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`, !loginBackfill);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
   state.pendingTechUnlockAt = 0;
@@ -394,7 +396,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   requestViewRefresh(1, true);
   state.techChoices = (msg.techChoices as string[]) ?? [];
-  state.techCatalog = (msg.techCatalog as any[]) ?? []; notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
+  state.techCatalog = (msg.techCatalog as any[]) ?? []; if (loginBackfill) markWaystationActivationsSeenFromEventLog(state.eventLog, state);
+  else notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
   logIncomingTechPayload("INIT", {
     techIds: player.techIds,
     techChoices: msg.techChoices,

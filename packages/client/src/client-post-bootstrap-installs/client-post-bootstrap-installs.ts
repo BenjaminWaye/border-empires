@@ -17,6 +17,7 @@ import { installDiplomacyOfferDock } from "../client-diplomacy-offer-dock/client
 import { openCounterOfferScreen } from "../client-alliance/client-alliance-counter-offer.js";
 import { installMarchInteraction } from "../client-march-interaction/client-march-interaction.js";
 import { installSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
+import { installWaystationActivation } from "../client-waystation-site/client-waystation-site.js";
 import { installRefineryPickers } from "../client-refineries/refinery-picker-flow.js";
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { createIdentityOwnerColor } from "../client-owner-colors/client-identity-owner-color.js";
@@ -40,6 +41,7 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, s
     openCounter: (kind, requestId) => { openCounterOfferScreen(kind, requestId, { state, sendGameMessage, playerNameForOwner: (id) => (id ? state.playerNames.get(id) : undefined) }); } });
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });
+  installWaystationActivation(state, sendGameMessage);
   installSalvageTributeSheet(state, sendGameMessage); // lets the map's salvage toasts open the ship-salvage popup
   // Refinery field / town pickers, opened from the tile menu and the map's "needs a field" toasts.
   installRefineryPickers({ state, sendGameMessage, buildRefinery: (payload, label) =>

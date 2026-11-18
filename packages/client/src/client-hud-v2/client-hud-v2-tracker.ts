@@ -4,6 +4,8 @@
 
 import { musterFillText, musterStatusText, type ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { DevelopmentSlotOccupant } from "../client-development-panel/client-development-html.js";
+import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
+import { nextStepsHtml, type NextStep } from "./client-hud-v2-next-step.js";
 
 export type TrackerNeed = { kind: "afc" | "flag"; title: string; sub: string; x?: number; y?: number };
 
@@ -30,6 +32,8 @@ export type TrackerInput = {
   waypoints: Array<{ x: number; y: number; paused: boolean }>;
   /** battle: an attack (opens the battle screen); otherwise a frontier expansion still landing. */
   capture?: { x: number; y: number; resolvesAt: number; battle: boolean } | undefined;
+  /** What to do while the slots sit idle (client-hud-v2-next-step.ts); empty while anything builds. */
+  nextSteps?: readonly NextStep[];
   nowMs: number;
 };
 
@@ -82,7 +86,7 @@ export const buildSlotsHtml = (slots: TrackerInput["buildSlots"], open: boolean,
   const busy = Math.min(limit, Math.max(0, slots.busy));
   const free = limit - busy;
   const pips = Array.from({ length: limit }, (_, i) => `<span class="hud-v2-slot-pip${i < busy ? " hud-v2-slot-busy" : ""}"></span>`).join("");
-  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}${pulse ? " hud-v2-slots-pulse" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
+  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}${pulse ? " hud-v2-slots-pulse" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use" title="${DEV_SLOTS_HINT}"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
 };
 
 const SLOT_PULSE_MS = 2_000;
@@ -139,7 +143,8 @@ export const waypointsHtml = (waypoints: TrackerInput["waypoints"]): string => {
     `<button type="button" class="hud-v2-tracker-row"${focusAttrs(w.x, w.y)}><span class="hud-v2-tracker-title">→ (${w.x}, ${w.y})</span><span class="hud-v2-tracker-sub">${w.paused ? "Paused · needs manpower" : "Spends manpower per tile"}</span></button>`);
 };
 
-export const trackerHtml = (input: TrackerInput): string => {
+/** `slotsHint`: the phone's unfolded tracker (opened by a tap) explains Dev slots; the always-visible desktop tracker keeps it to the hover title. */
+export const trackerHtml = (input: TrackerInput, slotsHint = false): string => {
   const needs = trackerNeeds(input);
   const parts: string[] = [];
   // Needs you leads, so an unfolded slot list can never push it below the tracker's scroll fold.
@@ -151,7 +156,9 @@ export const trackerHtml = (input: TrackerInput): string => {
     }));
   }
   parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse));
+  if (slotsHint) parts.push(`<div class="hud-v2-tracker-sub hud-v2-slots-hint">${DEV_SLOTS_HINT}</div>`);
   if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
+  if (needs.length === 0 && input.nextSteps && input.nextSteps.length > 0) parts.push(nextStepsHtml(input.nextSteps));
   if (input.flags.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>Flags · ${input.flags.length}</span></div>`);
     parts.push(capped(input.flags, (f) => {

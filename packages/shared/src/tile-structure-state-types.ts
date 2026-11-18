@@ -74,6 +74,10 @@ export type TileAfcState = {
   // Set when the AFC changed hands by capture. A captured AFC was never
   // dropped from orbit, so the client skips its landing animation.
   capturedAt?: number;
+  // The House that landed or built this AFC. Never changes on capture; read
+  // through afcFoundedBy (afc-founder.ts), which covers AFCs saved before
+  // the field existed.
+  foundedBy?: PlayerId;
   // Tech ids of AFC_MODULE-category Manifests installed here. Modules without
   // a matching houseModules entry are captured copies (including legacy
   // saves created before provenance was added).

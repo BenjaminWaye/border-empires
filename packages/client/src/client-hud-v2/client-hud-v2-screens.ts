@@ -24,6 +24,8 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
+import { coinShortText } from "./client-hud-v2-next-step.js";
+import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { manifestClick } from "./client-hud-v2-manifest-click.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
@@ -71,6 +73,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
     setScreen(id, FRAME_SKELETON);
     bodyMode = "";
     writeHtml("v2s-title", TITLES[id] ?? "");
+    writeHtml("v2s-hint", SCREEN_HINTS[id] ?? "");
   }
   if (id === "afc") {
     deps.state.activePanel = "domains";
@@ -142,13 +145,14 @@ let manifestKey = "";
 const renderManifest = (deps: HudV2Deps): void => {
   const nextCost = deps.state.techCatalog.find((t) => !deps.state.techIds.includes(t.id))?.requirements.gold ?? 0;
   const pendingId = pendingTechCommissionId(deps.state, Date.now());
-  const key = [pendingId, deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
+  const netPerMinute = empireCoinIncome(deps.state).netPerMinute;
+  const key = [coinShortText(deps.state.gold, nextCost, netPerMinute), pendingId, deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
   if (key === manifestKey) return;
   manifestKey = key;
   const owned = ownedTechs(deps);
   const techs = deps.state.techCatalog;
   const afcTier = Math.max(0, ...techs.filter((t) => owned.has(t.id)).map((t) => t.tier));
-  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices), pendingId };
+  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices), pendingId, netPerMinute };
   writeHtml("v2s-head-right", manifestHeadRightHtml(input));
   if (bodyMode !== "manifest") {
     writeHtml("v2s-body", `<div class="v2m-scroll" id="v2m-scroll" data-v2-scroll="manifest"></div>${MANIFEST_LEGEND_HTML}<div class="v2m-detail" id="v2m-detail"></div>`);
@@ -281,6 +285,7 @@ const renderProfile = (deps: HudV2Deps): void => {
   const social = state.socialViewByPlayerId.get(id);
   const name = nameOf(deps, id) || "Empire";
   writeHtml("v2s-title", self ? "Your Empire" : "Profile");
+  writeHtml("v2s-hint", self ? SCREEN_HINTS.profile ?? "" : "");
   writeHtml("v2s-back-label", profileReturn ? TITLES[profileReturn] ?? "Chronicle" : "Map");
   bodyMode = "profile";
   writeHtml("v2s-body", profileHtml({

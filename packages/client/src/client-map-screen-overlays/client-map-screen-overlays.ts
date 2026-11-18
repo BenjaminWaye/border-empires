@@ -6,6 +6,7 @@ import { createAfcMapOverlays } from "../client-afc-upgrades/client-afc-map-over
 import type { ClientState } from "../client-state/client-state.js";
 import { createSalvageReadyToasts } from "../client-salvage-tribute/client-salvage-ready-toasts.js";
 import { createTownNameplates } from "../client-town-nameplates/client-town-nameplates.js";
+import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
 
 type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
@@ -19,6 +20,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
   const townNameplates = createTownNameplates(canvas, state);
   const afcMapOverlays = createAfcMapOverlays(canvas, state, openAfcUpgrades);
   const salvageToasts = createSalvageReadyToasts(canvas, state);
+  const waystationToasts = createWaystationReadyToasts(canvas, state);
   const refineryToasts = createRefineryFieldToasts(canvas, state);
   return {
     render(tiles, projection) {
@@ -41,6 +43,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       afcMapOverlays.render(tiles, projection);
       salvageToasts.render(tiles, projection);
       refineryToasts.render(tiles, projection);
+      waystationToasts.render(tiles, projection);
     }
   };
 }

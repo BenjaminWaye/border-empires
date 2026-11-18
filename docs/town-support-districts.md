@@ -20,6 +20,10 @@ Aether Tower, and adds a platform to Umbrite Rig through their dedicated
 renderers. They remain outside the town-support replacement and connection
 catalogue. Fort, Dread Tower and Siege Battery remain unchanged.
 
+The Farm Plot and its Hydrogarden Plot upgrade ([plan](farm-plot-plan.md))
+joined the kit later: planted beds and a windpump, with lit glass vaults over
+the beds once upgraded.
+
 Every remodeled model is generated from the same geometry kit as the towns. Geometry
 is baked per kind/foundation variant and batched with instancing. The 2D
 fallback uses SVGs exported from those production models and the same logical

@@ -1,4 +1,4 @@
-// The new-account tutorial guide's chapters and steps, as data. Every step is
+// The tutorial guide's chapters and steps, as data. Every step is
 // taught by doing: it completes when the game state (or a player input
 // signal) shows the player did it, never by clicking "Next". Steps complete
 // out of order too -- a player who commissions a Manifest before opening the
@@ -216,9 +216,15 @@ export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number;
 const beaconWhere = (input: GuideInput): string =>
   input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " on a garrisoned tile at the edge of your land";
 
+/** "No town in sight" is wrong when the drone already found towns across water: say none can be reached. */
+const townActionTitle = (input: GuideInput, action: GuideTargetAction): string => {
+  const title = TOWN_STEP[action].title;
+  return input.footholdTargets.town.unreachable > 0 ? title.replace("No town in sight", "No town you can reach") : title;
+};
+
 const townTitle = (input: GuideInput): string => {
   const action = townAction(input);
-  return TOWN_STEP[action].title + (action === "beacon" ? beaconWhere(input) : "");
+  return townActionTitle(input, action) + (action === "beacon" ? beaconWhere(input) : "");
 };
 
 const foodTitle = (input: GuideInput): string => {
@@ -344,7 +350,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "build-food-slot",
     chapter: "build",
     title: (i) => `A Manufactory needs a free food slot. ${foodCopy(i).title}`,
-    why: (i) => `All your food slots are in use. ${foodCopy(i).why}`,
+    why: (i) => `All your food slots are in use. ${foodCopy(i).why}${needsTownForBuild(i) ? "" : " No food nearby? Build a Farm Plot by your town with manpower."}`,
     // A free slot only counts once the Manufactory is reachable, so a spare slot a Relay Beacon
     // later uses up isn't ticked off early. Skipped when the player chose another Manifest.
     isDone: (i) => (i.manufactoryResearched && i.foodSlotFree) || i.ownsBuiltStructure || otherManifestChosen(i),

@@ -1,4 +1,4 @@
-import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, isCaptureHoldActive, settleIgnoresReach } from "@border-empires/shared";
+import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, garrisonBlockedByReach, isCaptureHoldActive } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
@@ -20,10 +20,10 @@ export type TileMenuHeaderStatus = {
 
 const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
 // Says what reach is and how far it goes, not only what it blocks: players couldn't find where theirs ended (2026-11-14 playtest).
+// Names the land-only spread (shared landGatedTileKeysInDisk): a tile 2 from a town behind a mountain or water is outside it.
 const BEYOND_REACH_HELP_TEXT =
-  `Your reach is the land within ${TOWN_REACH_RADIUS} tiles of your towns (more with Dominion) and ${OUTPOST_REACH_RADIUS} tiles of your Relay Beacons. ` +
-  "Outside it you can claim tiles but not garrison or build on them, and they are lost if their supply route is cut. " +
-  "Build a Relay Beacon nearby to extend it.";
+  `Reach: ${TOWN_REACH_RADIUS} tiles from garrisoned towns (more with Dominion), ${OUTPOST_REACH_RADIUS} from Relay Beacons, over land only; mountains and sea stop it. ` +
+  "Outside it: claim only, no garrison or build, lost if cut off. A Relay Beacon extends it.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
@@ -109,7 +109,7 @@ export const tileMenuHeaderStatusForTile = (
   // stand on this freshly captured FRONTIER tile, so it fights back instead
   // of being a free retake -- and the clock is how long that lasts.
   if (isCaptureHoldActive(tile, nowMs)) {
-    const garrisonNote = !settleIgnoresReach(tile) && isOwnedTileInReach && !isOwnedTileInReach(tile)
+    const garrisonNote = isOwnedTileInReach && garrisonBlockedByReach(tile, isOwnedTileInReach(tile))
       ? "Extend your reach here before you can garrison it."
       : "Garrison it to keep it defended.";
     return {
@@ -136,7 +136,8 @@ export const tileMenuHeaderStatusForTile = (
   // other empire's reach covers ("Inside ... Reach"), and genuine
   // no-man's-land nobody's reach covers ("Beyond your reach"), which can't be
   // garrisoned and lives or dies by its supply line (see encirclement.ts).
-  if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
+  // Exempt tiles (towns, docks, captured buildings) garrison anyway: no "can't garrison" line over a working Garrison button.
+  if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && garrisonBlockedByReach(tile, isOwnedTileInReach(tile))) {
     const ownerNames = reachOwnerNames?.() ?? [];
     if (ownerNames.length === 0 && !tile.reachOwnerId) return { text: "Beyond your reach", tone: "warning", helpText: BEYOND_REACH_HELP_TEXT };
     return { text: insideReachText(ownerNames), tone: "warning", helpText: INSIDE_REACH_HELP_TEXT };

@@ -16,7 +16,7 @@ const discoveredAround = (radius: number, extra: string[] = []): Set<string> => 
   return set;
 };
 
-const emptySet = (): GuideTargetSet => ({ outOfReach: 0, pending: [], garrison: [], expand: [] });
+const emptySet = (): GuideTargetSet => ({ outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] });
 
 const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: {
