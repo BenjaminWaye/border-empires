@@ -1,16 +1,6 @@
-import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
-import { WAYSTATION_SURVEY_RIG_ENTRY } from "./client-changelog-waystation-survey-rig.js";
-import { TOWN_PLOT_MARKERS_ENTRY } from "./client-changelog-town-plot-markers.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
-import { GUIDE_EVERY_SEASON_ENTRY } from "./client-changelog-guide-every-season.js";
-import { HILL_FOG_SEAMS_ENTRY } from "./client-changelog-hill-fog-seams.js";
-import { HUD_NEXT_STEPS_ENTRY } from "./client-changelog-hud-next-steps.js";
-import { PANEL_LAYOUT_DATA_ENTRY } from "./client-changelog-panel-layout-data.js";
-import { TAP_SELECT_CONFIRM_ENTRY } from "./client-changelog-tap-select-confirm.js";
-import { REACH_BUILD_FIXES_ENTRY } from "./client-changelog-reach-build-fixes.js";
-import { AFC_SCOUT_BUTTON_ENTRY } from "./client-changelog-afc-scout-button.js";
-import { FARM_PLOT_ENTRY } from "./client-changelog-farm-plot.js";
+import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -478,17 +468,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_16_CHANGELOG,
   { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662, },
   ...NOV_17_CHANGELOG,
-  { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
-  { ...HUD_NEXT_STEPS_ENTRY, createdAt: 1794999401321, },
-  { ...GUIDE_EVERY_SEASON_ENTRY, createdAt: 1794999821162, },
-  { ...PANEL_LAYOUT_DATA_ENTRY, createdAt: 1795000155417, },
-  { ...TAP_SELECT_CONFIRM_ENTRY, createdAt: 1794999702919, },
-  { ...REACH_BUILD_FIXES_ENTRY, createdAt: 1794999694412, },
-  { ...AFC_SCOUT_BUTTON_ENTRY, createdAt: 1795002703488, },
-  TOWN_PLOT_MARKERS_ENTRY,
-  WAYSTATION_SURVEY_RIG_ENTRY,
-  { ...FARM_PLOT_ENTRY, createdAt: 1795005541792, },
-  { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
+  ...NOV_18_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
