@@ -248,10 +248,10 @@ describe("graphical AFC modules tab", () => {
   });
 
   it("names the House a captured module came from and leaves your own modules unlabelled", () => {
-    const tile = { ...target, afc: { ownerId: "me", status: "active", modules: ["masonry", "workshops", "radar"], houseModules: ["masonry"], capturedModuleHouses: { workshops: "varn" } } } as Tile;
+    const tile = { ...target, afc: { ownerId: "me", status: "active", modules: ["masonry", "workshops", "radar", "legacy"], houseModules: ["masonry"], capturedModuleHouses: { workshops: "varn", radar: "me" } } } as Tile;
     const names = (id?: string | null): string | undefined => (id === "varn" ? "Varn" : undefined);
     const view = afcModuleTabForTile(tile, catalog, [], "me", 1000, 1, names)!;
-    expect(view.slots.map((slot) => slot.detail).slice(0, 3)).toEqual(["", "Captured from House Varn", "Captured"]);
+    expect(view.slots.map((slot) => slot.detail).slice(0, 4)).toEqual(["", "Captured from House Varn", "", "Captured"]); // radar: yours, won back; legacy: House unknown
     const root = document.createElement("div");
     root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: view }, "modules");
     expect(root.textContent).not.toContain("movable");

@@ -12,9 +12,9 @@ export type AfcModuleTabView = {
   focusSocket?: number | undefined;
 };
 
-/** A captured copy names the House it was taken from; your own modules carry no label. */
+/** A captured copy names the House it was taken from; your own modules (including one you won back) carry no label. */
 const capturedModuleDetail = (houseId: string | undefined, me: string, playerNameForOwner?: (ownerId?: string | null) => string | undefined): string => {
-  if (houseId === me) return "Recaptured";
+  if (houseId === me) return "";
   const name = houseId ? playerNameForOwner?.(houseId) : undefined;
   return name ? `Captured from ${houseStyledName(name)}` : "Captured";
 };
