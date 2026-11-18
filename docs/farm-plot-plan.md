@@ -1,6 +1,6 @@
 # Farm Plot: food without exploring
 
-Status: implemented 2026-11-18 (name still a working name, see §5 and the
+Status: implemented 2026-11-18, flat yields (name still a working name, see §5 and the
 world bible §14; AI support is a follow-up, see §7)
 
 ## 1. Problem
@@ -238,3 +238,14 @@ Choices made while building it:
   town and no FOOD slot could use one; see `docs/agents/topics/ai-planner.md`
   before adding it.
 
+- **Deferred: environment yields.** The owner asked whether good ground
+  should yield more (2026-11-18), then decided to start flat: 1 FOOD per plot
+  and 3 once upgraded, everywhere. The idea that was considered, for later:
+  read the plot tile's mechanical `landBiome` (Grass = fertile/temperate, as in
+  `town-terrain-profile.ts`) and the season's river edges
+  (`riverEdgeKeysForCurrentSeed`, worldgen v9+). Base 1, +1 on Grass, +1 with a
+  river along the tile, and the upgrade still adds +2. Open balance question:
+  a Grass riverside plot (3) would beat a bare FARM tile (1); capping a plain
+  plot at 2 keeps grain tiles the better source. Building it needs one shared
+  yield helper (sim supply and client), and the build row must show "+N FOOD
+  here" before placing. No new tile data is needed.
