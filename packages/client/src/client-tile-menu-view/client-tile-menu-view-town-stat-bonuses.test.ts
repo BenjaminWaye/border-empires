@@ -71,7 +71,7 @@ describe("menuOverviewForTile — town stat bonuses", () => {
   it("keeps the sim's unfed state with full food coverage, coin card and growth line agreeing", () => {
     const lines = townTile({ isFed: false, goldPerMinute: 0 }, { upkeepLastTick: { foodCoverage: 1 } });
     const grid = lines.find((line) => line.kind === "statgrid")?.html ?? "";
-    expect(grid).toContain("coin production stopped");
+    expect(grid).toContain("no coin · garrison grain or fish in reach");
     expect(grid).toContain("Growth paused — town is unfed");
   });
 

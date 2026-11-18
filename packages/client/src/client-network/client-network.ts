@@ -6,7 +6,7 @@ import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, OUT_OF_REACH_LABEL, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
@@ -20,6 +20,7 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
+import { releaseDevelopmentRefusedOutOfReach } from "../client-out-of-reach-rejection/client-out-of-reach-rejection.js";
 import {
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
@@ -2210,14 +2211,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
-        // Terminal, not retryable: reach only grows when the player builds a
-        // town/outpost/dock, so re-planning this step can never succeed. Cancel
-        // the waypoints depending on it (local + durable server mirror) so a
-        // reconnect cannot resurrect the loop (client-waypoint-out-of-reach.ts).
-        // failedTargetKey (the in-flight target) wins over errorTileKey, which
-        // falls back to a stale latestSettleTargetKey when no x/y is sent.
+        // Terminal: cancel the waypoints depending on it, local + server mirror (client-waypoint-out-of-reach.ts); failedTargetKey
+        // (in-flight target) wins over errorTileKey (stale latestSettleTargetKey fallback, no x/y sent). A refused garrison/build
+        // also drops the build queued on its tile, else stuck on "Build already queued" (client-out-of-reach-rejection.ts).
         cancelWaypointsBlockedByOutOfReach(state, failedTargetKey || errorTileKey, outOfReachDeps);
-        showCaptureAlertSafely("Outside your borders", actionFailureExplanation, "warn");
+        releaseDevelopmentRefusedOutOfReach(state, errorTileKey, { clearOptimisticTileState: clearOptimisticTileStateSafely, clearSettlementProgress: clearSettlementProgressSafely });
+        showCaptureAlertSafely(OUT_OF_REACH_LABEL, actionFailureExplanation, "warn");
       } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
         showCaptureAlertSafely(
           "Frontier sync mismatch",

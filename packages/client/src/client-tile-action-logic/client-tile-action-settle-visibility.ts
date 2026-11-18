@@ -5,7 +5,7 @@
 // tiles in the opening minutes expecting some benefit, when in the early game
 // there's nothing to gain from it. Once shown, manual settling is really only
 // for cheap defense, connecting towns, or consolidating territory.
-import { SETTLE_COST, settleIgnoresReach } from "@border-empires/shared";
+import { OUT_OF_REACH_LABEL, SETTLE_COST, garrisonBlockedByReach } from "@border-empires/shared";
 import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { canAffordCost, isForestTile, isHillsTile } from "../client-constants.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
@@ -57,9 +57,9 @@ export const settleActionsForFrontierTile = (
   // outside reach, show these actions disabled with the reason instead of hiding them.
   // Mirrors the server's exemption (settleIgnoresReach): towns, docks and captured
   // buildings may be garrisoned out of reach, exactly as the sim does automatically.
-  const frontierOutOfReach = !settleIgnoresReach(tile) && !authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
+  const frontierOutOfReach = garrisonBlockedByReach(tile, authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y));
   const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
-    frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
+    frontierOutOfReach ? [false, OUT_OF_REACH_LABEL, cost] : [eligible, reason, cost];
 
   const isSettling = (tileKey: string): boolean => state.settleProgressByTile.has(tileKey) || queuedDevelopmentActionExists(state, tileKey, "SETTLE");
   const ringCount = townRingGarrisonTiles(state, tile, isSettling).length;
