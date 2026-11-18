@@ -16,10 +16,18 @@ import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-ti
 import { REACH_HINT } from "./client-hud-v2-hints.js";
 import { manifestNodeState } from "./client-hud-v2-manifest.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
-import type { NextStepSite, NextStepSources } from "./client-hud-v2-next-step-sources.js";
+import { scanNextStepSources, type NextStepSite, type NextStepSources } from "./client-hud-v2-next-step-sources.js";
 
 /** Manpower counts as low below this share of the cap, or below the next beacon's price. */
 export const LOW_MANPOWER_SHARE = 0.25;
+/**
+ * Coin counts as low when the next Manifest is further away than this, or coin income isn't positive.
+ * Being a little short is the normal state (every player is saving for the next Manifest), so that alone
+ * isn't "low"; a wait longer than one daily visit is.
+ */
+export const LOW_COIN_WAIT_MS = 12 * 3_600_000;
+/** At most this many rows, so the tracker never pushes Flags and queued expansions out of view. */
+export const NEXT_STEP_CAP = 5;
 
 export type NextStepInput = {
   devBusy: number;
@@ -101,8 +109,11 @@ const coinStep = (input: NextStepInput): NextStep | undefined => {
 export const isManpowerLow = (input: Pick<NextStepInput, "manpower" | "manpowerCap" | "beaconCost">): boolean =>
   input.manpower < Math.ceil(input.beaconCost) || input.manpower < input.manpowerCap * LOW_MANPOWER_SHARE;
 
-export const isCoinLow = (input: Pick<NextStepInput, "gold" | "nextManifestCost">): boolean =>
-  input.nextManifestCost !== undefined && spendableCoin(input.gold) < input.nextManifestCost;
+export const isCoinLow = (input: Pick<NextStepInput, "gold" | "nextManifestCost" | "netPerMinute">): boolean => {
+  if (input.nextManifestCost === undefined) return false;
+  const eta = msUntilCoin(input.gold, input.nextManifestCost, input.netPerMinute);
+  return eta === undefined || eta > LOW_COIN_WAIT_MS;
+};
 
 const place = (site: NextStepSite): string => site.name ?? `${site.x}, ${site.y}`;
 const at = (site: NextStepSite): { x: number; y: number } => ({ x: site.x, y: site.y });
@@ -142,7 +153,7 @@ export const nextSteps = (input: NextStepInput): NextStep[] => {
   if (mpLow && input.sources) steps.push(...manpowerSourceSteps(input.sources));
   if (idle || coinLow) steps.push(coinStep(input));
   if (coinLow) steps.push(manufactoryStep(input));
-  return steps.filter((step): step is NextStep => step !== undefined);
+  return steps.filter((step): step is NextStep => step !== undefined).slice(0, NEXT_STEP_CAP);
 };
 
 const esc = (text: string): string =>
@@ -161,32 +172,32 @@ export const nextStepsHtml = (steps: readonly NextStep[]): string => {
 };
 
 
-/**
- * Next steps from client state. `sources` comes from the tracker's cached tile scan (scanNextStepSources).
- * The beacon price scans owned tiles, so it is only priced when a row could use it.
- */
-export const nextStepsForState = (state: ClientState, slots: { busy: number; queued: number }, nowMs: number, sources?: NextStepSources): NextStep[] => {
+/** The tile-scanning inputs, computed with the tracker's cached scan (client-hud-v2.ts) instead of per render. */
+export type NextStepScan = { sources: NextStepSources; beaconCost: number };
+
+export const nextStepScanForState = (state: ClientState): NextStepScan =>
+  ({ sources: scanNextStepSources(state), beaconCost: relayBeaconManpowerCostForState(state) });
+
+/** Next steps from client state; `scan` defaults to a fresh scan. */
+export const nextStepsForState = (state: ClientState, slots: { busy: number; queued: number }, nowMs: number, scan: NextStepScan = nextStepScanForState(state)): NextStep[] => {
   const idle = slots.busy <= 0 && slots.queued <= 0;
   const owned = new Set(state.techIds);
   const choices = new Set(state.techChoices);
   // Every Manifest shares one price, but only offer it while one can be commissioned (not all locked).
   const canCommission = state.techCatalog.some((t) => manifestNodeState(t, owned, choices) === "available");
   const nextManifestCost = canCommission ? state.techCatalog.find((t) => !owned.has(t.id))?.requirements.gold : undefined;
-  // Busy and nothing low: no rows, so skip the pricing scans.
-  if (!idle && !(state.manpower < state.manpowerCap * LOW_MANPOWER_SHARE) && !isCoinLow({ gold: state.gold, nextManifestCost })) return [];
+  const netPerMinute = empireCoinIncome(state).netPerMinute;
+  const levels = { manpower: state.manpower, manpowerCap: state.manpowerCap, beaconCost: scan.beaconCost, gold: state.gold, nextManifestCost, netPerMinute };
+  // Busy and nothing low: no rows, so skip the beacon site check.
+  if (!idle && !isManpowerLow(levels) && !isCoinLow(levels)) return [];
   const refillAt = nextManpowerRefillForPlayer(state.me, nowMs);
   return nextSteps({
+    ...levels,
     devBusy: slots.busy,
     queued: slots.queued,
-    manpower: state.manpower,
-    manpowerCap: state.manpowerCap,
-    beaconCost: relayBeaconManpowerCostForState(state),
     beaconBuildable: idle && hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me),
     nextBatchInMs: refillAt === undefined ? undefined : refillAt - nowMs,
-    gold: state.gold,
-    netPerMinute: empireCoinIncome(state).netPerMinute,
-    nextManifestCost,
-    ...(sources ? { sources } : {}),
-    manufactoryCost: structureManpowerCostForState(state, "MANUFACTORY", structureCostDefinition("MANUFACTORY").manpowerCost ?? 0)
+    sources: scan.sources,
+    ...(scan.sources.manufactoryTown ? { manufactoryCost: structureManpowerCostForState(state, "MANUFACTORY", structureCostDefinition("MANUFACTORY").manpowerCost ?? 0) } : {})
   });
 };

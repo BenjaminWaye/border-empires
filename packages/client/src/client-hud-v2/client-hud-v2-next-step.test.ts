@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
-import { coinShortText, formatEta, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
+import { NEXT_STEP_CAP, coinShortText, formatEta, isCoinLow, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
 import type { NextStepSources } from "./client-hud-v2-next-step-sources.js";
 import { trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { compactTracker, compactTrackerHtml, trackerSummaryHtml } from "./client-hud-v2-compact.js";
@@ -54,7 +54,8 @@ describe("tracker next step while the slots are idle", () => {
   });
 
   it("stays out of the way while anything builds or waits for a slot and nothing is low", () => {
-    const comfortable = { ...idle, gold: 45, sources: lowSources };
+    // Review of #2867: a few coin short of the next Manifest is the normal state, not "low".
+    const comfortable = { ...idle, gold: 35, sources: lowSources }; // 5 short at 24/day: 5h away
     expect(nextSteps({ ...comfortable, devBusy: 1 })).toEqual([]);
     expect(nextSteps({ ...comfortable, queued: 2 })).toEqual([]);
   });
@@ -103,14 +104,28 @@ describe("tracker next step when manpower or coin runs low", () => {
     expect(nextSteps({ ...idle, manpower: 300, gold: 45, sources: lowSources }).map((s) => s.title)).not.toContain("Ship salvage to the Court");
   });
 
-  it("suggests a Manufactory when coin is short of the next Manifest", () => {
-    const steps = nextSteps({ ...idle, manpower: 300, sources: lowSources, manufactoryCost: 150 });
+  it("counts coin as low only when the next Manifest is over 12h away or income has stopped", () => {
+    expect(isCoinLow({ ...idle, gold: 35 })).toBe(false); // 5h away
+    expect(isCoinLow(idle)).toBe(true); // 30h away
+    expect(isCoinLow({ ...idle, netPerMinute: 0 })).toBe(true);
+    expect(isCoinLow({ ...idle, gold: 0, netPerMinute: 1 / 60 })).toBe(true);
+    expect(isCoinLow({ ...idle, nextManifestCost: undefined })).toBe(false);
+  });
+
+  it("caps the rows so the tracker keeps its other groups in view", () => {
+    const steps = nextSteps({ ...idle, manpower: 19, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
+    expect(steps).toHaveLength(NEXT_STEP_CAP);
+  });
+
+  it("suggests a Manufactory when coin is low", () => {
+    const steps = nextSteps({ ...idle, manpower: 300, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
     expect(steps.at(-1)).toMatchObject({ title: "Build a Manufactory", sub: "150 MP · more Coin from Ashford", focus: { x: 9, y: 9 } });
   });
 
   it("still shows while the slots are busy", () => {
-    const steps = nextSteps({ ...idle, devBusy: 2, manpower: 19, sources: lowSources, manufactoryCost: 150 });
+    const steps = nextSteps({ ...idle, devBusy: 2, manpower: 19, netPerMinute: 0, sources: lowSources, manufactoryCost: 150 });
     expect(steps.map((s) => s.title)).toEqual(["Ship salvage to the Court", "Activate a waystation", "Take a neutral town", "Next Manifest 40 Coin", "Build a Manufactory"]);
+    expect(nextSteps({ ...idle, devBusy: 2, manpower: 19, gold: 35, sources: lowSources }).map((s) => s.title)).toEqual(["Ship salvage to the Court", "Activate a waystation", "Take a neutral town"]);
   });
 });
 
@@ -163,6 +178,13 @@ describe("tracker wiring", () => {
     expect(line).not.toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("v2c-track-next");
+  });
+
+  // Review of #2867: busy slots keep their count on the folded phone line; "Next" follows it.
+  it("keeps Dev on the folded phone line while slots are busy", () => {
+    const line = trackerSummaryHtml({ ...input, buildSlots: { busy: 2, limit: 3 } });
+    expect(line).toContain("Dev 2/3");
+    expect(line).toContain("v2c-track-next");
   });
 
   it("lets a decision that needs you lead instead", () => {
