@@ -380,7 +380,7 @@
       "tier": 3,
       "branch": "manpower",
       "name": "Census Office",
-      "description": "Imported census administrators and identification systems. Unlocks Census Hall.",
+      "description": "Imported census administrators and identification systems. Unlocks Census Hall and Vivarium.",
       "prereqIds": [
         "pottery"
       ],
@@ -389,7 +389,8 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockCensusHall": true
+        "unlockCensusHall": true,
+        "unlockVivarium": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },

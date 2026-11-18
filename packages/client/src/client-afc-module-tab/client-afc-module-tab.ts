@@ -1,4 +1,4 @@
-import { AFC_MODULE_SLOTS } from "@border-empires/shared";
+import { AFC_MODULE_SLOTS, houseStyledName } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import type { TechInfo, Tile, TileActionDef } from "../client-types.js";
@@ -6,22 +6,36 @@ import type { TechInfo, Tile, TileActionDef } from "../client-types.js";
 export type AfcModuleTabView = {
   owned: boolean;
   active: boolean;
-  slots: { name?: string; branch?: string | undefined; state: "empty" | "house" | "captured" | "incoming"; detail: string }[];
+  slots: { name?: string; branch?: string | undefined; description?: string | undefined; state: "empty" | "house" | "captured" | "incoming"; detail: string }[];
   actions: TileActionDef[];
+  /** 0-based socket on the arm the player tapped to open this AFC, if any. */
+  focusSocket?: number | undefined;
 };
 
-export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], actions: readonly TileActionDef[], me: string, nowMs = Date.now()): AfcModuleTabView | undefined => {
+/**
+ * A captured copy names the House it was taken from. A copy the AFC's owner won
+ * back carries no label, like their own modules; a copy taken from the viewer
+ * says so when they look at someone else's AFC.
+ */
+const capturedModuleDetail = (houseId: string | undefined, afcOwnerId: string, me: string, playerNameForOwner?: (ownerId?: string | null) => string | undefined): string => {
+  if (houseId === afcOwnerId) return "";
+  if (houseId === me) return "Captured from your House";
+  const name = houseId ? playerNameForOwner?.(houseId) : undefined;
+  return name ? `Captured from ${houseStyledName(name)}` : "Captured";
+};
+
+export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], actions: readonly TileActionDef[], me: string, nowMs = Date.now(), focusSocket?: number, playerNameForOwner?: (ownerId?: string | null) => string | undefined): AfcModuleTabView | undefined => {
   if (!tile.afc) return undefined;
   const afc = tile.afc;
   const houseCopies = new Set(afc.houseModules ?? []);
   const installed = (afc.modules ?? []).map((id) => {
     const tech = catalog.find((entry) => entry.id === id);
     const house = houseCopies.delete(id);
-    return { name: tech?.name ?? id, branch: tech?.branch, state: house ? "house" as const : "captured" as const, detail: house ? "House · movable" : "Captured · fixed" };
+    return { name: tech?.name ?? id, branch: tech?.branch, description: tech?.description, state: house ? "house" as const : "captured" as const, detail: house ? "" : capturedModuleDetail(afc.capturedModuleHouses?.[id], afc.ownerId, me, playerNameForOwner) };
   });
   const incoming = (afc.incomingModules ?? []).map((entry) => {
     const tech = catalog.find((candidate) => candidate.id === entry.techId);
-    return { name: tech?.name ?? entry.techId, branch: tech?.branch, state: "incoming" as const, detail: `Incoming · ${formatCooldownShort(entry.arrivesAt - nowMs)}` };
+    return { name: tech?.name ?? entry.techId, branch: tech?.branch, description: tech?.description, state: "incoming" as const, detail: `Incoming · ${formatCooldownShort(entry.arrivesAt - nowMs)}` };
   });
   const slots: AfcModuleTabView["slots"] = [...installed, ...incoming];
   while (slots.length < AFC_MODULE_SLOTS) slots.push({ state: "empty", detail: "Empty" });
@@ -31,6 +45,7 @@ export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], ac
     owned,
     active: afc.status === "active",
     slots,
+    focusSocket: focusSocket !== undefined && focusSocket >= 0 && focusSocket < AFC_MODULE_SLOTS ? focusSocket : undefined,
     actions: owned && afc.status === "active" && slots.some((slot) => slot.state === "empty") ? actions.filter((action) => action.id.startsWith("redeploy_afc_module:") && !present.has(action.id.slice("redeploy_afc_module:".length))) : []
   };
 };
@@ -42,7 +57,23 @@ const branchIcon = (branch?: string): string => branch === "economy" ? "⚙" : b
 const socketContentHtml = (slot: AfcModuleTabView["slots"][number], number: number): string =>
   slot.state === "empty"
     ? `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">+</span>`
-    : `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">${branchIcon(slot.branch)}</span><span class="afc-socket-name">${escapeHtml(slot.name ?? "")}</span><small>${escapeHtml(slot.detail)}</small>`;
+    : `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">${branchIcon(slot.branch)}</span><span class="afc-socket-name">${escapeHtml(slot.name ?? "")}</span>${slot.detail ? `<small>${escapeHtml(slot.detail)}</small>` : ""}`;
+
+const ARM_DIRECTIONS = ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"] as const;
+
+/** The module on the arm the player tapped: what sits there and what it does. */
+const afcArmFocusHtml = (view: AfcModuleTabView, canCallDown: boolean): string => {
+  if (view.focusSocket === undefined) return "";
+  const slot = view.slots[view.focusSocket];
+  if (!slot) return "";
+  const where = `Socket ${view.focusSocket + 1} · ${ARM_DIRECTIONS[view.focusSocket]} arm`;
+  if (slot.state === "empty") {
+    const hint = canCallDown ? `Tap socket ${view.focusSocket + 1} below to call down a module.` : "No module is docked on this arm.";
+    return `<section class="afc-arm-focus is-empty" aria-label="${escapeHtml(where)}"><small>${escapeHtml(where)}</small><strong>Empty socket</strong><p>${escapeHtml(hint)}</p></section>`;
+  }
+  const description = slot.description?.trim();
+  return `<section class="afc-arm-focus" aria-label="${escapeHtml(where)}"><small>${escapeHtml(where)}</small><strong><span aria-hidden="true">${branchIcon(slot.branch)}</span> ${escapeHtml(slot.name ?? "")}</strong>${slot.detail ? `<span class="afc-arm-focus-state">${escapeHtml(slot.detail)}</span>` : ""}${description ? `<p>${escapeHtml(description)}</p>` : ""}</section>`;
+};
 
 // Upgrades are the AFC's most-used control, so they lead the tab. The ready
 // count is filled in by the same live badge pass that marks the nav button
@@ -61,6 +92,7 @@ export const afcModuleTabHtml = (view: AfcModuleTabView, actionHtml: (action: Ti
     ${view.owned ? UPGRADES_BUTTON_HTML : ""}
     <div class="afc-module-heading"><strong>Module sockets</strong><span>${view.slots.length - empty}/${AFC_MODULE_SLOTS} filled</span></div>
     ${view.active ? "" : '<p class="afc-module-note"><span class="tile-overview-dormant">⚠ Dormant — modules inactive until this AFC is reclaimed.</span></p>'}
+    ${afcArmFocusHtml(view, canCallDown)}
     <div class="afc-socket-diagram">
       <div class="afc-socket-core" aria-hidden="true"><span class="afc-socket-north">N</span>⚙</div>
       ${view.slots.slice(0, AFC_MODULE_SLOTS).map((slot, index) => {
@@ -71,7 +103,8 @@ export const afcModuleTabHtml = (view: AfcModuleTabView, actionHtml: (action: Ti
         const socket = slot.state === "empty" && canCallDown
           ? `<button type="button" class="afc-socket is-empty is-callable" data-afc-call-down="${index + 1}" aria-label="${escapeHtml(`${label} — call down a module`)}" aria-expanded="false" aria-controls="afc-slot-picker">${content}</button>`
           : `<div class="afc-socket is-${slot.state}" role="group" aria-label="${escapeHtml(label)}">${content}</div>`;
-        return `<div class="afc-socket-cell" style="${style}" data-afc-column="${cell[0]}">${socket}</div>`;
+        const focused = index === view.focusSocket ? " is-arm-focus" : "";
+        return `<div class="afc-socket-cell${focused}" style="${style}" data-afc-column="${cell[0]}">${socket}</div>`;
       }).join("")}
     </div>
     ${canCallDown || incoming ? `<p class="afc-module-note">${[canCallDown ? "Pick an empty socket to call down a module." : "", incoming ? "Incoming modules take a free socket when they land." : ""].filter(Boolean).join(" ")}</p>` : ""}

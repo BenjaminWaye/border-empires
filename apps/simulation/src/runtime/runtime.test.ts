@@ -4705,7 +4705,7 @@ describe("simulation runtime", () => {
     const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
 
     expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
-    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(13.2 / 288); // was 15.4 pre-gold-rescope (§6.1); 13.2 reflects METROPOLIS's halved-per-tier multiplier (2.1, was 3.2)
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(11 / 288); // 13.2 at METROPOLIS's 2.1 multiplier; 11.0 now that a Metropolis with no luxury biota earns a Town's coin (biota-town-output.ts)
   });
 
   it("emits reveal updates and revealed empire stats through player messages", async () => {

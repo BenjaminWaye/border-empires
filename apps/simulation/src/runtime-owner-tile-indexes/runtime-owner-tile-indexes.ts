@@ -36,7 +36,8 @@ export class RuntimeOwnerTileIndexes {
     "reserveLatticeTilesByOwner" |
     "ancillaryFactoryTilesByOwner" |
     "incubationEngineTilesByOwner" |
-    "censusHallTilesByOwner"> {
+    "censusHallTilesByOwner" |
+    "vivariumTilesByOwner"> {
     return {
       ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
       neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
@@ -44,6 +45,7 @@ export class RuntimeOwnerTileIndexes {
       ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
       incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner,
+      vivariumTilesByOwner: this.vivariumTilesByOwner,
     };
   }
 
@@ -86,6 +88,8 @@ export class RuntimeOwnerTileIndexes {
   readonly ancillaryFactoryTilesByOwner = new Map<string, Set<string>>();
   readonly incubationEngineTilesByOwner = new Map<string, Set<string>>();
   readonly censusHallTilesByOwner = new Map<string, Set<string>>();
+  // Active Vivaria per owner: lets the biota allocation skip its per-town scan for players with none.
+  readonly vivariumTilesByOwner = new Map<string, Set<string>>();
   // Boot seeding only: which index each active manpower building lands in.
   private readonly manpowerStructureIndexByType: ReadonlyMap<string, Map<string, Set<string>>> = new Map([
     ["NEURAL_WORKS", this.neuralWorksTilesByOwner],
@@ -93,7 +97,8 @@ export class RuntimeOwnerTileIndexes {
     ["RESERVE_LATTICE", this.reserveLatticeTilesByOwner],
     ["ANCILLARY_FACTORY", this.ancillaryFactoryTilesByOwner],
     ["INCUBATION_ENGINE", this.incubationEngineTilesByOwner],
-    ["CENSUS_HALL", this.censusHallTilesByOwner]
+    ["CENSUS_HALL", this.censusHallTilesByOwner],
+    ["VIVARIUM", this.vivariumTilesByOwner]
   ]);
 
   refreshForTileChange(tileKey: string, previous: DomainTileState | undefined, next: DomainTileState): void {
@@ -113,7 +118,8 @@ export class RuntimeOwnerTileIndexes {
       reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
       ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
       incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
-      censusHallTilesByOwner: this.censusHallTilesByOwner
+      censusHallTilesByOwner: this.censusHallTilesByOwner,
+      vivariumTilesByOwner: this.vivariumTilesByOwner
     });
     if (previous?.ownerId && isImprovableResourceTile(previous)) this.improvableTilesByOwner.get(previous.ownerId)?.delete(tileKey);
     // A structure removed (or destroyed) on a tile its owner still holds garrisoned is not a new

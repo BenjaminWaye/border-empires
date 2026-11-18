@@ -39,6 +39,7 @@ const town = (overrides: Partial<TownEconomyEntry> = {}): TownEconomyEntry => ({
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
   amplifiersUnderConstruction: [],
+  biotaShortSlots: 0,
   ...overrides
 });
 
@@ -121,6 +122,21 @@ describe("synergyCandidatesForTown — manpower engine", () => {
     const types = (c: SynergyContext) => synergyCandidatesForTown(town({ ancillaryDepots: 2, ancillaryFactoriesInReach: 2 }), c).map((x) => x.type);
     expect(types(ctx({ needVector: undefined }))).toEqual(["MANUFACTORY"]);
     expect(types(ctx({ needVector: { ...NEED, MANPOWER_CEILING: 0, MANPOWER_THROUGHPUT: 0 } }))).toEqual(["MANUFACTORY"]);
+  });
+});
+
+describe("synergyCandidatesForTown — Vivarium", () => {
+  it("proposes a Vivarium only where the town is short of luxury biota", () => {
+    expect(pick(synergyCandidatesForTown(town(), ctx()), "VIVARIUM")).toBeUndefined();
+    const short = pick(synergyCandidatesForTown(town({ biotaShortSlots: 3 }), ctx()), "VIVARIUM");
+    expect(short).toMatchObject({ gain: 1 });
+    // An unruly town loses whole tiers of manpower: ranks with the Depot, below the food-crisis builds (160+).
+    expect(short!.score).toBeGreaterThanOrEqual(90);
+    expect(short!.score).toBeLessThan(160);
+  });
+  it("still proposes one with no current manpower need, since the town gives less manpower while unruly", () => {
+    const calm = { ...NEED, MANPOWER_CEILING: 0, MANPOWER_THROUGHPUT: 0 };
+    expect(pick(synergyCandidatesForTown(town({ biotaShortSlots: 1 }), ctx({ needVector: calm })), "VIVARIUM")?.score).toBe(90);
   });
 });
 

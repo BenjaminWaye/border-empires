@@ -57,7 +57,8 @@ const initialView = (): TownEconomyEntry[] =>
     reserveLatticeInReach: false,
     ancillaryFactoriesInReach: 0,
     depotTownsInReach: 0,
-    amplifiersUnderConstruction: []
+    amplifiersUnderConstruction: [],
+    biotaShortSlots: 0
   }));
 
 // Places the structure on the town's first open ring tile, like the runtime's

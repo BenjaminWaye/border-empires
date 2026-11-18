@@ -33,9 +33,12 @@ import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-t
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 import { townFoodSlotDemandByTileKey } from "../resource-slot-view/resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import { biotaShareMet } from "@border-empires/shared";
 
 export interface RuntimeTownNetworkContext {
   networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
+  /** The player's luxury biota allocation (cachedManpowerStructureBonusForPlayer). */
+  biotaTownSupplyForPlayer?: (id: string) => ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply> | undefined;
   tiles: Map<string, DomainTileState>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
@@ -161,6 +164,8 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
       dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id),
       townFoodSlotDemandByKey: townFoodSlotDemandByTileKey(settledTiles, player.id, slotWaiversForPlayer(player))
     };
+    const biotaTownSupply = ctx.biotaTownSupplyForPlayer?.(player.id);
+    if (biotaTownSupply) context.biotaTownSupply = biotaTownSupply;
     ctx.tileYieldContextCacheByPlayer.set(player.id, context);
     return context;
   };
@@ -190,7 +195,8 @@ export function enrichTileWithTownContext(
         context.firstThreeTownKeys,
         context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
         context.dormantEconomicStructureKeys,
-        context.townFoodSlotDemandByKey?.get(tileKey)
+        context.townFoodSlotDemandByKey?.get(tileKey),
+        biotaShareMet(context.biotaTownSupply?.get(tileKey))
       )
     : networkTown;
   return { ...tile, town: refreshedTown };

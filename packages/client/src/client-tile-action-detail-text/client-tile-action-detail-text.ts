@@ -1,4 +1,4 @@
-import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, RESOURCE_NETWORKS, networkResourceForAction } from "@border-empires/shared";
+import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, RESOURCE_NETWORKS, networkResourceForAction, VIVARIUM_BIOTA_SLOTS } from "@border-empires/shared";
 // Extracted from client-tile-menu-view.ts (file-line-cap task) — the giant
 // action-id -> detail-copy if-chain has no state/dependency overlap with the
 // rest of that file's tile-menu-view building, so it lives on its own here.
@@ -104,6 +104,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "abandon_territory")
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege Batteries and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_ancillary_depot") return "Manpower depot. Adds +150 manpower cap plus 10% of this town's terrain-adjusted base capacity, or 35% if a Reserve Lattice is in this town's connected network.";
+  if (actionId === "build_vivarium") return `Sealed biota dome. Covers ${VIVARIUM_BIOTA_SLOTS} of this town's luxury biota ${VIVARIUM_BIOTA_SLOTS === 1 ? "slot" : "slots"}, so a City, Great City or Metropolis needs that many fewer from your biota sites. Stacks: build one per slot the town needs.`;
   if (actionId === "build_ancillary_factory") return `Raises manpower regeneration across your whole empire: +${manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE)} manpower per batch, plus +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} more if a Neural Works is in this town's connected network. One per town.`;
   if (actionId === "build_reserve_lattice") return "Network amplifier. Each Ancillary Depot in this town's connected network adds 35% of its town's terrain-adjusted base capacity to your manpower cap, instead of 10%. One per connected-town network.";
   const networkResource = networkResourceForAction(actionId);

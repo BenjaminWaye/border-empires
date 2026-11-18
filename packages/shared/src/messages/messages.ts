@@ -184,6 +184,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "HIGH_YIELD_AETHER_CONDENSER",
       "TRADE_NEXUS",
       "ANCILLARY_DEPOT",
+      "VIVARIUM",
       "HARBOR_EXCHANGE",
       "NEURAL_WORKS",
       "MINISTRY_HALL",
@@ -479,7 +480,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("EXPLORE"),
     x: z.number().int(),
     y: z.number().int()
-  })
+  }),
+  // Call the scout drone home early: it turns back over the tile it is over now.
+  z.object({ type: z.literal("RECALL_SCOUT") })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
