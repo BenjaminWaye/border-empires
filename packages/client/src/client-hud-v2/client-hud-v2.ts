@@ -35,7 +35,7 @@ import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
-import { retryHouseChargeChoice } from "../client-house-charges/client-house-charges-alerts.js";
+import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -387,7 +387,10 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
-    if (tick % TRACKER_EVERY_TICKS === 0 && retryHouseChargeChoice(deps.state, nowMs)) deps.renderHud();
+    syncHouseChargesBubble(deps.state, nowMs, screen.id !== null || Boolean(deps.state.activePlayerProfileId), () => {
+      deps.setActivePanel("charges");
+      deps.renderHud();
+    });
     // The login briefing and release notes open as the Chronicle on the matching tab.
     const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {

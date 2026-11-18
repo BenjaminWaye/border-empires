@@ -1,0 +1,75 @@
+/* Bobbing sealed-charges bubble (client-house-charges-bubble.ts): left edge, below the guide's "?" launcher. */
+.hcb-root {
+  position: fixed;
+  left: 14px;
+  top: calc(var(--v2c-safe-top, 0px) + 290px);
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.hcb-orb,
+.hcb-speech { pointer-events: auto; }
+.hcb-orb {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 176, 74, 0.6);
+  background: radial-gradient(circle at 35% 30%, rgba(80, 56, 24, 0.95), rgba(20, 14, 6, 0.95));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(232, 176, 74, 0.5);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  animation: hcb-bob 2.4s ease-in-out infinite, hcb-glow 2.4s ease-in-out infinite;
+}
+.hcb-cards { width: 54px; height: 44px; }
+.hcb-speech {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: min(200px, calc(100vw - 100px));
+  padding: 7px 6px 7px 10px;
+  border-radius: 10px;
+  background: #f3e5c4;
+  color: #2a1c0a;
+  font-size: 12.5px;
+  line-height: 1.3;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+/* The tail points back at the cards. */
+.hcb-speech::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  margin-top: -6px;
+  border: 6px solid transparent;
+  border-left: 0;
+  border-right-color: #f3e5c4;
+}
+.hcb-speech p { margin: 0; }
+.hcb-speech-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(42, 28, 10, 0.7);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+@keyframes hcb-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes hcb-glow {
+  0%, 100% { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(232, 176, 74, 0.45); }
+  50% { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(232, 176, 74, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hcb-orb { animation: none; }
+}

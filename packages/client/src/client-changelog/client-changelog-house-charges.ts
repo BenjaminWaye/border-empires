@@ -30,5 +30,15 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "If one of a Charter's towns is still unscouted, the card gives a rough bearing to it, and Show on map goes to the town you have seen and keeps the search rings up.",
       "Your career panel shows how your rating compares with the 1,200 starting rating."
     ]
+  },
+  {
+    createdAt: 1795038711807, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.18",
+    title: "House Charges: sealed cards instead of an alert",
+    why: "The House charges alert could be buried under other alerts, and it read like a warning rather than a gift from your House.",
+    changes: [
+      "When your charges arrive, three sealed cards bob at the left edge of the map with a note that your House has handed you sealed charges. Tap the cards to choose which two to keep.",
+      "The note can be closed on its own; the cards stay until you open your charges or the choice closes."
+    ]
   }
 ];
