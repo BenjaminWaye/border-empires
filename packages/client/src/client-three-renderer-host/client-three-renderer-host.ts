@@ -44,12 +44,14 @@ const HEARTBEAT_INTERVAL_MS = 15000;
 // Mobile browsers (Android Chrome, iOS Safari) reclaim WebGL contexts from
 // backgrounded tabs; the loss event can land while hidden or just after the
 // tab is shown again. A loss while hidden, or within this window of the tab
-// being shown, is treated as a backgrounding loss — rebuilt on return — not a
-// failure of this device.
+// being shown (for a renderer built before it was shown), is treated as a
+// backgrounding loss — rebuilt on return — not a failure of this device. A
+// renderer built *after* the tab was shown that loses its context while
+// visible is a real loss: rebuilding again would just repeat the pressure.
 const BACKGROUND_LOSS_GRACE_MS = 5000;
-// Rebuilding is expensive; a device that keeps losing the context on every
-// switch eventually gets the ordinary retire-to-2D handling.
-const MAX_BACKGROUND_RECOVERIES = 5;
+// Background losses in a row with no renderer coming up in between; past this
+// the ordinary retire-to-2D handling takes over. Reset on every adopt.
+const MAX_CONSECUTIVE_BACKGROUND_RECOVERIES = 3;
 
 /** The slice of the 3D renderer this host needs; keeps three.js out of here. */
 export type StoppableRenderer = {
@@ -97,7 +99,10 @@ export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** Construction is deferred until this returns true (auth session ready). */
   readonly isReady: () => boolean;
   /** May build asynchronously (the staged 3D build); `ensure` won't start a second build meanwhile. */
-  readonly create: (onContextLost: (reason: string) => void) => TRenderer | Promise<TRenderer>;
+  readonly create: (
+    onContextLost: (reason: string) => void,
+    context: ThreeRendererBuildContext
+  ) => TRenderer | Promise<TRenderer>;
   /** Called once a build attempt ends, whether the renderer came up or 3D was retired. */
   readonly onSettled?: () => void;
   /** Resizes the 2D canvas once the WebGL canvas is gone. */
@@ -105,6 +110,12 @@ export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** Defaults to `document`; injectable for tests. */
   readonly visibility?: PageVisibilitySource;
   readonly now?: () => number;
+};
+
+export type ThreeRendererBuildContext = {
+  /** True when rebuilding after a backgrounding loss mid-session, so the
+   * caller can skip the login-time map-prep overlay. */
+  readonly rebuild: boolean;
 };
 
 /** The slice of `document` used to tell a backgrounding loss from a real one. */
@@ -140,6 +151,10 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // torn down and waits for the tab to be visible again to rebuild.
   let suspended = false;
   let backgroundRecoveries = 0;
+  // Bumped on every suspend, so a build still in flight when the context was
+  // reclaimed is recognised as stale when it settles and never adopted.
+  let generation = 0;
+  let hasAdopted = false;
   const now = deps.now ?? Date.now;
   const visibility = deps.visibility ?? documentVisibility();
   // When the tab last went from hidden to visible; a loss shortly after counts
@@ -187,13 +202,17 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     }
   };
 
-  const lostWhileBackgrounded = (): boolean =>
-    visibility !== undefined && (visibility.isHidden() || now() - lastShownAt <= BACKGROUND_LOSS_GRACE_MS);
+  const lostWhileBackgrounded = (builtAt: number): boolean => {
+    if (visibility === undefined) return false;
+    if (visibility.isHidden()) return true;
+    return builtAt < lastShownAt && now() - lastShownAt <= BACKGROUND_LOSS_GRACE_MS;
+  };
 
   // Quiet teardown for a backgrounding loss: no notice, no failure record, and
   // nothing latched — the next visible `ensure()` builds a fresh renderer.
   const suspendForBackground = (): void => {
     suspended = true;
+    generation += 1;
     backgroundRecoveries += 1;
     const dead = renderer;
     renderer = undefined;
@@ -213,14 +232,35 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     if (visibility && !visibility.isHidden()) resumeIfVisible();
   };
 
-  const handleContextLost = (reason: string): void => {
-    if (lostWhileBackgrounded() && backgroundRecoveries < MAX_BACKGROUND_RECOVERIES) {
-      console.warn("[renderer-3d-context-lost-background]", reason);
-      suspendForBackground();
+  const handleContextLost = (reason: string, buildGeneration: number, builtAt: number): void => {
+    // A stale build's context dying changes nothing: it will be discarded.
+    if (buildGeneration !== generation || failed) return;
+    if (lostWhileBackgrounded(builtAt)) {
+      if (backgroundRecoveries < MAX_CONSECUTIVE_BACKGROUND_RECOVERIES) {
+        console.warn("[renderer-3d-context-lost-background]", reason);
+        suspendForBackground();
+        return;
+      }
+      console.error("[renderer-3d-context-lost]", reason);
+      retire(`WebGL context lost: ${reason} (repeated while backgrounded)`);
       return;
     }
     console.error("[renderer-3d-context-lost]", reason);
     retire(`WebGL context lost: ${reason}`);
+  };
+
+  // A build that settles after a suspend started against a context the
+  // browser has since reclaimed: tear it down, never adopt it or let its
+  // failure retire 3D, and let a visible page start a fresh build.
+  const discardStaleBuild = (created: TRenderer | undefined, error?: unknown): void => {
+    if (error !== undefined) console.warn("[renderer-3d-stale-build-failed]", error);
+    try {
+      created?.stop();
+    } catch (stopError) {
+      console.error("[renderer-3d-teardown-failed]", stopError);
+    }
+    deps.onSettled?.();
+    ensure();
   };
 
   const failInit = (error: unknown): void => {
@@ -244,6 +284,8 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       return;
     }
     renderer = created;
+    hasAdopted = true;
+    backgroundRecoveries = 0;
     markRendererInitCompleted(tileBudget);
     captureGpuStatsAfterFirstFrame(created);
     setTrue3DRendererActive(true);
@@ -289,33 +331,41 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       isIOSSafari: typeof navigator !== "undefined" ? isIOSSafari(navigator.userAgent) : false
     });
     const tileBudget = resolveTileBudget(MIN_ZOOM, quality.tileBudgetFloor);
+    const buildGeneration = generation;
+    const builtAt = now();
     try {
       // On disk before a byte is allocated: if the tab is killed during
       // construction, the next load reads this and knows where it died.
       beginRendererAttempt(tileBudget);
-      const result = deps.create(handleContextLost);
+      const result = deps.create((reason) => handleContextLost(reason, buildGeneration, builtAt), {
+        rebuild: hasAdopted
+      });
       if (!isPromiseLike(result)) {
-        adopt(result, tileBudget);
+        if (buildGeneration !== generation) discardStaleBuild(result);
+        else adopt(result, tileBudget);
         return;
       }
       building = true;
       result.then(
         (created) => {
           building = false;
-          adopt(created, tileBudget);
+          if (buildGeneration !== generation) discardStaleBuild(created);
+          else adopt(created, tileBudget);
         },
         (error: unknown) => {
           building = false;
-          failInit(error);
+          if (buildGeneration !== generation) discardStaleBuild(undefined, error ?? "unknown");
+          else failInit(error);
         }
       );
     } catch (error) {
-      failInit(error);
+      if (buildGeneration !== generation) discardStaleBuild(undefined, error ?? "unknown");
+      else failInit(error);
     }
   };
 
-  // Deferred a tick so a loss event that arrives right after the tab is shown
-  // has landed before the rebuild starts against the same GPU.
+  // Deferred a tick so the rebuild runs outside the visibilitychange or
+  // context-loss handler that requested it.
   function resumeIfVisible(): void {
     setTimeout(() => {
       if (!suspended || visibility?.isHidden()) return;
