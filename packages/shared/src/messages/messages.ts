@@ -120,7 +120,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // running, finished or dismissed, plus the bounded list of completed
     // step ids. See player-profile-store.ts's guideStatus/guideSteps.
     guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
-    guideSteps: z.array(z.string().max(48)).max(64).optional()
+    guideSteps: z.array(z.string().max(48)).max(64).optional(),
+    // The season (CurrentSeasonSummary.seasonId) the guide state belongs to:
+    // the guide restarts for every player in each new season.
+    guideSeasonId: z.string().max(128).optional()
   }),
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
@@ -335,6 +338,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("ACTIVATE_WAYSTATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SHIP_SALVAGE_TO_COURT"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

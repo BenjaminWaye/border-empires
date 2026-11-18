@@ -1,5 +1,6 @@
 import { formatCoinPerDay, INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, defensibilityScore, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import "./client-defensibility-html.css";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import { weakDefensibilityEntries, type WeakDefensibilityEntry } from "../client-defensibility-weak-tiles/client-defensibility-weak-tiles.js";
 
@@ -127,13 +128,20 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     ? (goodShape ? " You're earning the full income and growth bonus." : " Your income and growth bonus scales with this score.")
     : "";
   const scoreCopy = shapeClause + graceClause + economicClause;
+  // The hero's right half sat empty beside a body-size "82%" (playtest 2026-11-18: "half blank"). The score is
+  // the headline, and what it is worth right now (the income effect) fills the other side.
+  const heroEconPct = Math.round((integrityEconomyMult(Math.max(0, Math.min(1, args.defensibilityPct / 100))) - 1) * 100);
+  const heroEffect = args.empireIntegrityEnabled
+    ? `<span class="defense-rating defense-rating-${heroEconPct >= 0 ? "strong" : "fragile"}">${heroEconPct >= 0 ? "+" : ""}${heroEconPct}% income</span>`
+    : "";
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
         <div>
           <div class="defense-kicker">Empire Integrity</div>
-          <strong>${rounded}%</strong>
+          <strong class="defense-score">${rounded}%</strong>
         </div>
+        ${heroEffect}
       </div>
       <p class="defense-copy">${scoreCopy}</p>
       <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${args.showWeakDefensibility ? "Hide weak tiles" : "Show weak tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>

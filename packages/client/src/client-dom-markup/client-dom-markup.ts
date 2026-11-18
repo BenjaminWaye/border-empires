@@ -219,6 +219,7 @@ export const hudMarkup = `
       <div>
         <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
         <h3 id="panel-title">Panel</h3>
+        <p id="panel-hint" class="panel-hint" hidden></p>
       </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>

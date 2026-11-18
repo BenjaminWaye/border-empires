@@ -354,11 +354,11 @@ describe("action bar", () => {
 });
 
 describe("manpower orb", () => {
-  it("clamps the fill and shows the next batch only while below cap", () => {
+  it("clamps the fill and counts down to the next batch only while below cap", () => {
     expect(orbFill(150, 100)).toBe(1);
     expect(orbFill(-5, 100)).toBe(0);
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain(">next batch 30m<");
-    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("hud-v2-orb-refill");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain(">next batch");
   });
 
   it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {

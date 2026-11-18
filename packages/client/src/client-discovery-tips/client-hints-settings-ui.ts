@@ -9,8 +9,8 @@ import { clearDiscoveryTipsMute, isDiscoveryTipsMuted, muteDiscoveryTips } from 
 import { readGuideProgress, restartGuide } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { reopenTutorialGuideCard } from "../client-tutorial-guide/tutorial-guide.js";
 
-// Only accounts that were enrolled in the tutorial guide (new accounts) get a
-// Restart button; older accounts never had the guide.
+// Only accounts enrolled in the tutorial guide (every player, once per season)
+// get a Restart button; an account with no stored guide status has none.
 const restartGuideRowHtml = (authEmail?: string | null): string =>
   readGuideProgress(authEmail).status
     ? `<div class="settings-guide-restart-row"><button type="button" class="panel-btn" data-settings-restart-guide>Restart guide</button></div>`

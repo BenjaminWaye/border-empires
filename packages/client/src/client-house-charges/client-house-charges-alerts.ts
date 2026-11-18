@@ -93,10 +93,36 @@ export const announceHouseChargeChoice = (state: FeedMutableState, payload: Hous
   markChoiceAnnounced(payload.dealtAt);
   pushFeedEntry(state, {
     title: "House charges arrived",
-    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}. Tap your crest → Manage charges.`,
+    // The card's button opens the Charges panel itself: "tap your crest" sent players hunting for a
+    // button at the bottom of a long profile (playtest 2026-11-18).
+    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}.`,
     type: "mission",
     severity: "warn",
-    at: nowMs
+    at: nowMs,
+    openPanel: "charges",
+    actionLabel: "Manage charges"
   });
   return true;
+};
+
+/** Deal already announced this session: skips the per-second localStorage read once shown. */
+let announcedDealtAt: number | undefined;
+
+/**
+ * Retries the "House charges arrived" alert from the client's own clock. The simulation re-sends
+ * HOUSE_CHARGES only when the charges change or on reconnect (runtime-side-tickers.ts), and charges are
+ * dealt at landing, when other alert cards are usually up; announceHouseChargeChoice then waits for a clear
+ * card, which without this retry never came (owner, 2026-11-18: "I never got a manage charges alert").
+ * Called about once a second; returns true when the alert was shown.
+ */
+export const retryHouseChargeChoice = (state: FeedMutableState & { houseCharges?: HouseChargesPayload | null | undefined }, nowMs: number): boolean => {
+  const payload = state.houseCharges ?? undefined;
+  if (!payload || payload.dealtAt === announcedDealtAt || nowMs >= payload.choiceClosesAt) return false;
+  if (choiceAnnounced(payload.dealtAt)) {
+    announcedDealtAt = payload.dealtAt;
+    return false;
+  }
+  const shown = announceHouseChargeChoice(state, payload, nowMs);
+  if (shown) announcedDealtAt = payload.dealtAt;
+  return shown;
 };

@@ -124,8 +124,11 @@ body.hud-v2-compact .hud-v2-season { gap: 1px; min-height: 36px; padding: 4px 10
 body.hud-v2-compact .hud-v2-season-title { font-size: 10px; }
 body.hud-v2-compact .hud-v2-season-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 
+/* The season pill takes up to 44vw from the right; the folded tracker stops a gutter short of it. 56vw minus the
+   gutter alone ran ~6px (more with notch insets) under "Victory race". */
 body.hud-v2-compact .hud-v2-tracker {
-  top: var(--v2c-top); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); width: auto; max-width: calc(56vw - var(--v2c-gutter));
+  box-sizing: border-box; top: var(--v2c-top); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); width: auto;
+  max-width: calc(56vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 3 * var(--v2c-gutter));
   max-height: none; padding: 0; overflow: visible;
 }
 body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
@@ -138,6 +141,7 @@ body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
 .v2c-track-line-open { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); border-bottom: 1px solid var(--v2-line); }
 .v2c-track-caret { color: var(--v2-gold); }
 .v2c-track-needs { color: var(--v2-amber); font-weight: 700; }
+.v2c-track-next { color: var(--v2-amber); font-weight: 700; }
 body.hud-v2-compact .hud-v2-tracker-row { min-height: var(--v2c-touch); }
 
 /* ---- Bottom corners: lens button left, manpower orb right, above the tab bar ---- */
@@ -158,6 +162,8 @@ body.hud-v2-compact .hud-v2-orb-slot { right: calc(var(--v2c-safe-right) + 8px);
 body.hud-v2-compact .hud-v2-orb { width: 84px; height: 84px; }
 body.hud-v2-compact .hud-v2-orb-label,
 body.hud-v2-compact .hud-v2-orb-refill { display: none; }
+/* Full / over cap stays visible inside the fixed 84px orb (no countdown exists in that state). */
+body.hud-v2-compact .hud-v2-orb-refill.hud-v2-orb-refill-state { display: block; margin-top: 1px; font-size: 9px; }
 body.hud-v2-compact .hud-v2-orb-value { font-size: 18px; }
 body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
 

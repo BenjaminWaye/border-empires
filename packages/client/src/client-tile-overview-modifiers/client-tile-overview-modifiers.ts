@@ -283,8 +283,8 @@ export const waystationOverviewLines = (
   if (!waystation) return [];
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
-    lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free Manifest, +1 resource slot, Coin, or manpower." });
+    lines.push(effectLine("Status", tile.ownerId === deps.me ? "Reward available · press Activate" : "Dormant", "neutral"));
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile, then press Activate to collect its reward. It grants one random bonus: vision, a population burst in a nearby town, a free Manifest, +1 resource slot, Coin, or manpower." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));

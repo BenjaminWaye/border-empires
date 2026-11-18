@@ -33,6 +33,9 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { nextStepsForState } from "./client-hud-v2-next-step.js";
+import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
+import { retryHouseChargeChoice } from "../client-house-charges/client-house-charges-alerts.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -150,6 +153,11 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
     if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
     deps.renderHud();
+    return;
+  }
+  // Tracker next step "Build a Relay Beacon": straight into beacon placement.
+  if (target.closest("[data-hud-v2-beacon]")) {
+    startRelayBeaconPlacement(deps);
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
@@ -325,6 +333,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
+    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));
@@ -377,6 +386,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
+    if (tick % TRACKER_EVERY_TICKS === 0 && retryHouseChargeChoice(deps.state, nowMs)) deps.renderHud();
     // The login briefing and release notes open as the Chronicle on the matching tab.
     const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {

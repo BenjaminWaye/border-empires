@@ -175,10 +175,11 @@ const breaksHtml = (breaks: Loadable<TruceBreakView[]>): string => {
 
 export const profileHtml = (input: ProfileInput): string =>
   `<div class="v2p" data-v2-scroll="profile-page">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
+    ${input.houseCharges !== undefined ? `<div class="v2p-grid">${houseChargesProfileSectionHtml(input.houseCharges, input.nowMs)}</div>` : ""}
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat, input.ownNetCoinPerMinute)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
-    <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
     <h3 class="v2p-h">Charge Cards</h3>
     ${houseChargeCollectionHtml(input.chargeCards, input.relation.kind === "self")}
   </div></div>`;

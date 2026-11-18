@@ -38,4 +38,13 @@ describe("Manifest price escalation is shown before you commission", () => {
     const html = manifestDetailHtml({ techs: [seed], owned: new Set(["seed"]), selectedId: seed.id, closedLanes: new Set(), gold: 50, choices: new Set(), afcTier: 0 });
     expect(html).not.toContain("Next after this");
   });
+
+  // Playtest 2026-11-18: a greyed Commission button was a dead end; say when coin covers it, in coin per day.
+  it("says how much more coin an unaffordable Manifest needs and when it arrives", () => {
+    const tooling = { ...tech("tooling", 40), requirements: { gold: 40, resources: {}, canResearch: false } };
+    const input = { techs: [tech("seed", 10), tooling], owned: new Set(["seed"]), selectedId: tooling.id, closedLanes: new Set<string>(), gold: 10, choices: new Set([tooling.id]), afcTier: 0 };
+    expect(manifestDetailHtml({ ...input, netPerMinute: 24 / 1440 })).toContain("Need 30 more Coin · +24.0/day · ready in 30h");
+    expect(manifestDetailHtml({ ...input, netPerMinute: 0 })).toContain("Need 30 more Coin · +0.0/day · feed a town for Coin");
+    expect(manifestDetailHtml({ ...input, gold: 50, netPerMinute: 1 })).not.toContain("v2m-coin-short");
+  });
 });
