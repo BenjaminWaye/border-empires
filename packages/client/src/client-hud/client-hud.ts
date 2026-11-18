@@ -21,6 +21,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
+import { renderMapLoadingCopy } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
@@ -266,8 +267,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
     dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
-    dom.mapLoadingTitleEl.textContent = loadingView.title;
-    dom.mapLoadingMetaEl.textContent = loadingView.meta;
+    renderMapLoadingCopy(dom, loadingView, state.mapLoadStartedAt);
     const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showDiagnostics;
     dom.mapLoadingActionsEl.dataset.visible = anyAction ? "true" : "false";
     dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
