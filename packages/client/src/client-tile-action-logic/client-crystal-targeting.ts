@@ -240,6 +240,7 @@ export const beginCrystalTargeting = (
       return;
     }
     state.aetherWallTargeting.active = true;
+    state.scoutDronePicking.active = false;
     state.aetherWallTargeting.validOrigins = validOrigins;
     deps.hideTileActionMenu();
     deps.renderHud();
@@ -252,6 +253,8 @@ export const beginCrystalTargeting = (
     return;
   }
   state.crystalTargeting.active = true;
+  // One armed pick at a time: a hidden Send scout drone pick would take the tap after this cast.
+  state.scoutDronePicking.active = false;
   state.crystalTargeting.ability = ability;
   state.crystalTargeting.validTargets = validTargets;
   state.crystalTargeting.originByTarget = originByTarget;
@@ -262,6 +265,22 @@ export const beginCrystalTargeting = (
     if (first) state.selected = deps.parseKey(first);
   }
   deps.renderHud();
+};
+
+/** Map tap while a Crystal ability other than Aether Wall is armed: casts on a highlighted tile, else says why (visible tiles only). */
+export const handleCrystalTargetingClick = (
+  state: ClientState,
+  clicked: Tile | undefined,
+  wx: number,
+  wy: number,
+  vis: "visible" | "fogged" | "unexplored",
+  execute: (tile: Tile) => boolean,
+  pushFeed: (message: string, type?: string, severity?: string) => void
+): void => {
+  if (vis === "unexplored" || !clicked) return;
+  state.selected = { x: wx, y: wy };
+  if (execute(clicked)) return;
+  if (vis === "visible") pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
 };
 
 export const executeCrystalTargeting = (
