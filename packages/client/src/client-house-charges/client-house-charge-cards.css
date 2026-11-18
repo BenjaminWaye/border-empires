@@ -60,6 +60,31 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
+/* Mini, face-down card (the House Charges bubble): the same rim, kind-coloured frame and parchment bars
+   at icon size, with a wax seal instead of art and text. Kept here so the icon follows the card. */
+.hc-card.is-mini {
+  width: 20px;
+  max-width: none;
+  padding: 2px;
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.hc-card.is-mini .hc-frame {
+  grid-template-rows: 4px 1fr 4px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 2px;
+  place-items: center;
+}
+.hc-card.is-mini .hc-bar { width: 100%; height: 100%; padding: 0; border-radius: 1px; }
+.hc-seal {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #c7392c, #8e1e16 70%);
+  box-shadow: 0 0 0 1px #5e110b, inset 0 0 0 1.5px rgba(232, 176, 74, 0.8);
+}
+
 .hc-name {
   min-width: 0;
   overflow: hidden;
