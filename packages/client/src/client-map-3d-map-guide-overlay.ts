@@ -7,10 +7,10 @@ import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHigh
 import type { ClientState } from "./client-state/client-state.js";
 
 // True-3D map guidance, the counterpart of the 2D client-map-guide-overlays-2d.ts:
-// the onboarding guide's ring markers plus a focused House Charge's markers,
-// its dotted rough circles and link (client-house-charges-search-guide.ts)
-// (one ring overlay, client-map-3d-onboarding-checklist-highlight.ts) and the
-// charge's shaded area, drawn as flat tiles on the ground at each tile's real
+// the onboarding guide's ring markers plus a focused House Charge's markers
+// (one ring overlay, client-map-3d-onboarding-checklist-highlight.ts), the
+// charge's dotted rough circles and link (client-house-charges-search-guide.ts)
+// and its shaded area, drawn as flat tiles on the ground at each tile's real
 // scene position (client-house-charges/client-house-charges-map.ts decides what).
 
 const MAX_TINT_TILES = 1_200;

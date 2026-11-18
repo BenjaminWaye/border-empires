@@ -81,13 +81,11 @@ const linkDots = (from: ChargeSearchCircle, to: ChargeSearchCircle, worldWidth: 
 /** End of the link at a seen town: the town itself, stopping just short of its marker ring. */
 const SEEN_TOWN_CLEARANCE = 1;
 
-const guideFor = (charge: HouseChargeView, isExplored: (x: number, y: number) => boolean, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
+const guideFor = (charge: HouseChargeView, isExploredKey: (key: string) => boolean, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
+  const isExplored = (x: number, y: number): boolean => isExploredKey(`${x},${y}`);
   if (charge.areaTileKeys) {
     // Landmass or region: the server's circle until any of it has been seen; then the shaded area takes over.
-    return charge.areaTileKeys.some((key) => {
-      const [x, y] = key.split(",").map(Number);
-      return isExplored(x ?? Number.NaN, y ?? Number.NaN);
-    })
+    return charge.areaTileKeys.some(isExploredKey)
       ? EMPTY
       : { circles: [charge.searchCircle], ringDots: ringDots(charge.searchCircle, worldWidth, worldHeight), linkDots: [] };
   }
@@ -115,5 +113,5 @@ const guideFor = (charge: HouseChargeView, isExplored: (x: number, y: number) =>
 export const houseChargeSearchGuide = (state: GuideState, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
   const charge = focusedHouseCharge(state);
   if (!charge) return EMPTY;
-  return guideFor(charge, (x, y) => state.tiles.has(`${x},${y}`), worldWidth, worldHeight);
+  return guideFor(charge, (key) => state.tiles.has(key), worldWidth, worldHeight);
 };
