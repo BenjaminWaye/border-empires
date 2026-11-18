@@ -60,6 +60,7 @@ export {
   type StructureCancelRefund
 } from "./runtime-structure-cancel-refund.js";
 import { applyStructureCancelRefund, economicOrObservatoryCancelRefund, fortCancelRefund, returnFreeFortAllowance, siegeBatteryCancelRefund } from "./runtime-structure-cancel-refund.js";
+import { farmPlotAfterCancelledUpgrade } from "./farm-plot/farm-plot.js";
 
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {
   const cancelled: string[] = [];
@@ -307,7 +308,8 @@ function cancelStructureActionTile(
     return {
       ...target,
       economicStructure: target.economicStructure.status === "under_construction"
-        ? undefined
+        // A cancelled Hydrogarden Plot upgrade leaves the Farm Plot it was replacing standing.
+        ? target.economicStructure.type === "HYDROGARDEN_PLOT" ? farmPlotAfterCancelledUpgrade(target.economicStructure) : undefined
         : { ...target.economicStructure, status: target.economicStructure.previousStatus ?? "inactive", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }

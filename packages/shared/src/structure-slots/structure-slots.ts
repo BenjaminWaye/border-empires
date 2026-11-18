@@ -49,7 +49,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   RELAY_BEACON: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1 — basic economic sinks
-  // HYDROGARDEN/HYDROWORKS deliberately have NO slot requirement (zero
+  // HYDROGARDEN/HYDROWORKS (and FARM_PLOT/HYDROGARDEN_PLOT, see
+  // FARM_PLOT_FOOD_SLOT_SUPPLY) deliberately have NO slot requirement (zero
   // upkeep, user decision): both boost FOOD supply itself (same-tile +1,
   // Hydroworks-radius +2 via HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS below), so
   // charging them their own boosted resource would be circular — dormancy
@@ -234,6 +235,21 @@ export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, 
 };
 
 export const HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS = 2;
+
+// Farm Plot (docs/farm-plot-plan.md): FOOD supplied by a structure on a plain
+// support-ring tile, not by a FARM resource tile (tile.resource is never
+// changed). A plot yields what a FARM tile yields; its Hydrogarden Plot
+// upgrade yields what a FARM tile with a Hydrogarden yields, and Hydroworks
+// in range add HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS on top, as for a
+// Hydrogarden. Neither has a slot requirement (a food source that consumed
+// FOOD would be circular, the same reason Hydrogarden has none).
+export const FARM_PLOT_FOOD_SLOT_SUPPLY: Partial<Record<BuildableStructureType, number>> = {
+  FARM_PLOT: BASE_SLOTS_BY_TILE_RESOURCE.FARM!.baseSlots,
+  HYDROGARDEN_PLOT: BASE_SLOTS_BY_TILE_RESOURCE.FARM!.baseSlots + TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN!
+};
+
+/** True for the structure types that count as a Hydrogarden for the Hydroworks radius bonus. */
+export const countsAsHydrogardenForHydroworks = (type: string | undefined): boolean => type === "HYDROGARDEN" || type === "HYDROGARDEN_PLOT";
 
 // §5.3: "a town requires ~4 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its

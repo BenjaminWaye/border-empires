@@ -116,6 +116,12 @@ describe("ClientMessageSchema", () => {
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
   });
 
+  it("accepts Farm Plot and Hydrogarden Plot builds (docs/farm-plot-plan.md)", () => {
+    for (const structureType of ["FARM_PLOT", "HYDROGARDEN_PLOT"]) {
+      expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toMatchObject({ structureType });
+    }
+  });
+
   it("accepts refinery and booster builds, with an optional field, and rejects the removed Mine", () => {
     for (const structureType of ["TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY", "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER"]) {
       expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toMatchObject({ structureType });

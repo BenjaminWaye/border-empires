@@ -14,6 +14,7 @@ import {
   FORT_VARIANT_LABELS,
   SIEGE_VARIANT_LABELS,
   TILE_SLOT_BOOST_STRUCTURES,
+  FARM_PLOT_FOOD_SLOT_SUPPLY,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import { manufactoryGoldProductionMultiplier, MANUFACTORY_GOLD_PRODUCTION_BONUS, MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
@@ -54,6 +55,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
+  if (actionId === "build_farm_plot") return `Town folk farm a plain support tile: +${FARM_PLOT_FOOD_SLOT_SUPPLY.FARM_PLOT} FOOD slot. No tech or upkeep. Not on resource tiles.`;
+  if (actionId === "build_hydrogarden_plot") return `Hyperfeed stock turns this Farm Plot into a Hydrogarden Plot: ${FARM_PLOT_FOOD_SLOT_SUPPLY.HYDROGARDEN_PLOT} FOOD slots in all, +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} near Hydroworks. Keeps its FOOD while upgrading.`;
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_manufactory") {

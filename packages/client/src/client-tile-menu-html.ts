@@ -175,6 +175,8 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_hydrogarden") return "▥";
+  if (id === "build_farm_plot") return "▦";
+  if (id === "build_hydrogarden_plot") return "⤴";
   if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";

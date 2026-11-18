@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bestFortTierForTech, bestSiegeTierForTech } from "../structure-costs/structure-costs.js";
-import { FORT_TIER_ORDER, SIEGE_TIER_ORDER, fortTierForChoice, isChosenStructureTier, siegeTierForChoice } from "./structure-tier-choice.js";
+import { FARM_PLOT_UPGRADE_TECH_ID, FORT_TIER_ORDER, SIEGE_TIER_ORDER, farmPlotUpgradeForChoice, fortTierForChoice, isChosenStructureTier, siegeTierForChoice } from "./structure-tier-choice.js";
+import { TECH_REQUIREMENTS_BY_STRUCTURE } from "../structure-registry-economic.js";
 
 const techs = (...ids: string[]) => (id: string) => ids.includes(id);
 
@@ -59,5 +60,25 @@ describe("isChosenStructureTier", () => {
   it("accepts non-Palisade fort tiers and siege tiers only", () => {
     expect(["FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"].every(isChosenStructureTier)).toBe(true);
     expect(["PALISADE", "RELAY_BEACON", "", 3, undefined].some(isChosenStructureTier)).toBe(false);
+  });
+});
+
+describe("farmPlotUpgradeForChoice", () => {
+  const has = (...ids: string[]) => (id: string) => ids.includes(id);
+  it("upgrades a standing Farm Plot once Hyperfeed Seedstock is commissioned", () => {
+    expect(farmPlotUpgradeForChoice("FARM_PLOT", has("agriculture"))).toEqual({ ok: true, tier: "HYDROGARDEN_PLOT" });
+  });
+  it("checks the research first, like fortTierForChoice", () => {
+    expect(farmPlotUpgradeForChoice("FARM_PLOT", has())).toEqual({ ok: false, reason: "commission Hyperfeed Seedstock first" });
+  });
+  it("never builds one fresh or over another structure, and never twice", () => {
+    expect(farmPlotUpgradeForChoice(undefined, has("agriculture")).ok).toBe(false);
+    expect(farmPlotUpgradeForChoice("MANUFACTORY", has("agriculture")).ok).toBe(false);
+    expect(farmPlotUpgradeForChoice("HYDROGARDEN_PLOT", has("agriculture"))).toEqual({ ok: false, reason: "tile already has a Hydrogarden Plot" });
+  });
+  it("uses the Hydrogarden Plot's registered tech", () => {
+    expect(TECH_REQUIREMENTS_BY_STRUCTURE.HYDROGARDEN_PLOT).toBe(FARM_PLOT_UPGRADE_TECH_ID);
+    expect(TECH_REQUIREMENTS_BY_STRUCTURE.HYDROGARDEN).toBe(FARM_PLOT_UPGRADE_TECH_ID);
+    expect(TECH_REQUIREMENTS_BY_STRUCTURE.FARM_PLOT).toBeUndefined();
   });
 });

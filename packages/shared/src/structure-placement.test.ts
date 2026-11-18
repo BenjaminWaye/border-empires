@@ -44,4 +44,13 @@ describe("structure placement metadata", () => {
     expect(structureShowsOnTile("HYDROGARDEN", { ownershipState: "SETTLED", resource: "FARM" })).toBe(true);
     expect(structureShowsOnTile("HYDROGARDEN", { ownershipState: "SETTLED", resource: "FISH" })).toBe(false);
   });
+
+  test("Farm Plots go only on a plain town support tile, never a resource tile or the open map", () => {
+    const support = { ownershipState: "SETTLED" as const, supportedTownCount: 1 };
+    for (const structureType of ["FARM_PLOT", "HYDROGARDEN_PLOT"] satisfies StructurePlacementType[]) {
+      expect(structureShowsOnTile(structureType, support), structureType).toBe(true);
+      expect(structureShowsOnTile(structureType, { ...support, resource: "FARM" }), structureType).toBe(false);
+      expect(structureShowsOnTile(structureType, { ownershipState: "SETTLED" }), structureType).toBe(false);
+    }
+  });
 });

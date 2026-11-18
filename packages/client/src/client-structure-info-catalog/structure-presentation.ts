@@ -84,6 +84,8 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     glyph: "⊞",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
+  FARM_PLOT: { glyph: "▦", placement: "Build on an open garrisoned support tile with no resource, for a town you own." },
+  HYDROGARDEN_PLOT: { glyph: "▥", placement: "Upgrade an existing Farm Plot on its current tile." },
   HYDROWORKS: {
     glyph: "≈",
     placement: "Build on any garrisoned land tile. Does not need a resource tile."
