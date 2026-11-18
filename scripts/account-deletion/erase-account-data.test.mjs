@@ -180,3 +180,13 @@ test("erases the account's next-Sector waitlist entries and keeps other players'
     assert.deepEqual(db.prepare("SELECT season_id, player_id FROM sector_waitlist").all().map((row) => ({ ...row })), [{ season_id: "season-7", player_id: "p10" }]);
   } finally { db.close(); }
 });
+
+test("erases the deleted player's rows from the AI diplomacy memory", () => {
+  const { db } = fixture();
+  try {
+    db.exec(`CREATE TABLE social_ai_diplomacy_memory(ai_player_id TEXT, player_id TEXT, battles REAL);
+      INSERT INTO social_ai_diplomacy_memory VALUES('ai-1', 'p1', 3), ('ai-1', 'p10', 2);`);
+    eraseAccountData(db, "receipt", { apply: true });
+    assert.deepEqual(db.prepare("SELECT player_id FROM social_ai_diplomacy_memory").all().map((row) => row.player_id), ["p10"]);
+  } finally { db.close(); }
+});

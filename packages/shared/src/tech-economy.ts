@@ -26,3 +26,26 @@ export const techGoldCostForResearchedCount = (researchedCount: number): number 
   }
   return cost;
 };
+
+/**
+ * The Coin a House pays for its next Manifest: the shared price less its
+ * discount fraction (the Calculating Engine wonder: 0.1), rounded up. The
+ * simulation charges this; every displayed Manifest price goes through it.
+ */
+export const manifestGoldCost = (researchedCount: number, discountFraction = 0): number =>
+  Math.max(0, Math.ceil(techGoldCostForResearchedCount(researchedCount) * (1 - discountFraction)));
+
+export type ManifestGoldRequirement = {
+  gold: number;
+  /** The undiscounted price, present only when a discount applies. */
+  goldBeforeDiscount?: number;
+  /** The discount fraction behind `gold` (0.1 = 10% off), present only when one applies. */
+  goldDiscountFraction?: number;
+};
+
+/** A Manifest catalog entry's Coin requirement, carrying the base price and discount so the client can say why it is lower. */
+export const manifestGoldRequirement = (researchedCount: number, discountFraction = 0): ManifestGoldRequirement => {
+  const gold = manifestGoldCost(researchedCount, discountFraction);
+  const base = techGoldCostForResearchedCount(researchedCount);
+  return discountFraction > 0 && gold < base ? { gold, goldBeforeDiscount: base, goldDiscountFraction: discountFraction } : { gold };
+};

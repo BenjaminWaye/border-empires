@@ -71,12 +71,21 @@ export const fogRevealLog = (event: string, payload: Record<string, unknown>): v
   }
 };
 
-export const verboseTileDebugEnabled = (): boolean => {
+// Called per visible tile per frame by the map draw loop, so the localStorage
+// read (a slow, synchronous storage call) is cached and refreshed at most once a
+// second; toggling the flag from devtools takes effect within that second.
+const VERBOSE_TILE_DEBUG_REFRESH_MS = 1_000;
+let verboseTileDebugCached = false;
+let verboseTileDebugReadAt = Number.NEGATIVE_INFINITY;
+export const verboseTileDebugEnabled = (now: number = performance.now()): boolean => {
+  if (now - verboseTileDebugReadAt < VERBOSE_TILE_DEBUG_REFRESH_MS) return verboseTileDebugCached;
+  verboseTileDebugReadAt = now;
   try {
-    return window.localStorage.getItem("tile-debug-verbose") === "1";
+    verboseTileDebugCached = window.localStorage.getItem("tile-debug-verbose") === "1";
   } catch {
-    return false;
+    verboseTileDebugCached = false;
   }
+  return verboseTileDebugCached;
 };
 
 const normalizeTileKey = (value: string | null): string => {

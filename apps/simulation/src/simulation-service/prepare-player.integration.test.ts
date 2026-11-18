@@ -165,7 +165,9 @@ describe("prepare player integration", () => {
     const afcTiles = ownedTiles.filter((tile) => tile.afcJson !== undefined);
     expect(afcTiles).toHaveLength(1);
     expect(afcTiles[0]?.ownershipState).toBe("SETTLED");
-    expect(ownedTiles.filter((tile) => tile.ownershipState === "SETTLED")).toHaveLength(1);
+    // Garrisoned land is the AFC super tile only: the AFC and its 3×3 footprint (landmark-super-tile).
+    const afc = afcTiles[0]!;
+    expect(ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").every((tile) => Math.abs(tile.x - afc.x) <= 1 && Math.abs(tile.y - afc.y) <= 1)).toBe(true);
   });
 
   it("does not implicitly spawn unknown players during subscribe", async () => {

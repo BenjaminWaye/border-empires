@@ -20,6 +20,8 @@ export type RuntimeTileYieldEconomyContext = {
   // dormant Manufactory/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
+  // Each own town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey), stamped as town.foodSlotDemand.
+  townFoodSlotDemandByKey?: ReadonlyMap<string, number>;
 };
 
 export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
@@ -218,13 +220,9 @@ export type SimulationRuntimeOptions = {
   dockRouteBackfillReader?: import("./dock-network/dock-sea-routes.js").SeaRouteTerrainReader;
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
-  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): granted once, the
-  // first time this playerId spawns territory in the new season (see
-  // ensurePlayerHasSpawnTerritory in runtime.ts).
-  pendingImperialWard?: { playerId: string; charges: number };
   // Galactic meta-layer v0 (§5, §12): granted once, the first time this
-  // playerId spawns territory in the new season, mirroring
-  // pendingImperialWard's lifecycle — see ensurePlayerHasSpawnTerritory.
+  // playerId spawns territory in the new season — see
+  // ensurePlayerHasSpawnTerritory.
   pendingGalacticWonderBonus?: { playerId: string };
   // Start time of the season this runtime belongs to, or undefined while it
   // isn't active (pending/ended) -- drives the late-join landing reserve

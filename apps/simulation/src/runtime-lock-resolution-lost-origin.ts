@@ -4,6 +4,7 @@ import { capturedStructureFields } from "./capture-structures/capture-structures
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
 import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
+import { applyMusterFlagCapture } from "./muster-capture/muster-capture.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 
@@ -48,9 +49,22 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
   const tileDeltas = [originDelta];
 
   // The origin's muster flag (already stripped via `_discardMuster` above) is
-  // destroyed along with its staged manpower — no refund to the player who
-  // just lost the tile.
+  // taken by the player who reclaimed the tile: its unreserved manpower moves
+  // to their pool (capped), never back to the attacker who lost it -- see
+  // muster-capture/muster-capture.ts. previousOrigin is read live, after this
+  // lock's own cost was spent from the flag (consumeOriginMuster); manpower
+  // still reserved by the attacker's other in-flight attacks is excluded.
   const hadMuster = Boolean(previousOrigin.muster);
+  if (previousOrigin.muster) {
+    const reserved = context.musterReservedByKey.get(lock.originKey) ?? 0;
+    applyMusterFlagCapture(context, {
+      commandId: lock.commandId,
+      captorId: previousOwnerId,
+      x: previousOrigin.x,
+      y: previousOrigin.y,
+      muster: { ...previousOrigin.muster, amount: Math.max(0, previousOrigin.muster.amount - reserved) }
+    });
+  }
 
   if (previousOwnerId === "barbarian-1") {
     const defenderTile = context.tiles.get(lock.targetKey);

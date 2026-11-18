@@ -38,7 +38,7 @@ export const pauseWaypointForManpowerIfNeeded = (
       pushFeed(
         `Waypoint paused at (${firstStep.target.x}, ${firstStep.target.y}) — needs ${needed} manpower, have ${manpower}. Resumes automatically once manpower regenerates.`,
         "info",
-        "warn"
+        "info" // shown by the waypoint_manpower_paused persistent alert
       );
     }
     waypoint.pausedForManpower = true;

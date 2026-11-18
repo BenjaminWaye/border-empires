@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
-import { deriveTownListRows, nextTownListSort, sortTownListRows, townListCardHtml } from "./client-town-list.js";
+import { shouldSendTileDetailRequest } from "../client-tile-interaction/client-tile-detail-request-rules.js";
+import { deriveTownListRows, nextTownListSort, sortTownListRows, townCoinPending, townListCardHtml } from "./client-town-list.js";
 
 const townTile = (x: number, name: string, goldPerMinute: number, population: number, overrides: Partial<Tile> = {}): Tile => ({
   x,
@@ -48,6 +49,61 @@ const rowsOf = (map: Map<string, Tile>) => deriveTownListRows(map.values(), "me"
 const plain = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
 
 describe("town list", () => {
+  // Playtest 2026-11-12: Towns said 17,135 / 10,000,000 (the hard cap) while
+  // the town's own screen said 17,135 / 100,000 (growth to City).
+  it("shows the next tier's population, like the town screen, not the hard cap", () => {
+    const map = mapOf([townTile(1, "Durndelve", 1, 17_135, { town: { ...townTile(1, "Durndelve", 1, 17_135).town!, maxPopulation: 10_000_000 } })]);
+    expect(rowsOf(map)[0]?.maxPopulation).toBe(100_000);
+    expect(townListCardHtml(map, "me")).toContain("17,135<small>/ 100,000</small>");
+  });
+
+  it("labels the income column Coin/day, like every other screen", () => {
+    expect(townListCardHtml(tiles, "me")).toContain("Coin/day");
+    expect(townListCardHtml(tiles, "me")).not.toContain("Gold");
+  });
+
+  // Playtest 2026-11-16: two fed towns read 0.0 Coin/day in the list while their own screens said +7/day.
+  // The growth tick re-sends a town record without goldPerMinute; the list must say "…", not 0.0.
+  it("shows … rather than 0.0 for a fed town whose coin figure hasn't arrived", () => {
+    const base = townTile(1, "Auriyrcrown", 0, 73_195);
+    const { goldPerMinute: _missing, ...withoutCoin } = base.town!;
+    const map = mapOf([{ ...base, town: withoutCoin as NonNullable<Tile["town"]> }, townTile(2, "Paid", 0.005, 50_000)]);
+    const [pending, paid] = sortTownListRows(rowsOf(map), { key: "population", descending: true });
+    expect(pending?.coinPending).toBe(true);
+    expect(paid?.coinPending).toBe(false);
+    const html = townListCardHtml(map, "me");
+    expect(html).toContain("<strong>…</strong>");
+    expect(html).toContain("<strong>7.2</strong>");
+  });
+
+  it("keeps a known 0 for unfed towns and settlements' fallback income", () => {
+    const unfed = townTile(1, "Hungry", 0, 30_000);
+    const { goldPerMinute: _a, ...unfedTown } = unfed.town!;
+    const settlement = townTile(2, "Camp", 0, 600);
+    const { goldPerMinute: _b, ...settlementTown } = settlement.town!;
+    const map = mapOf([
+      { ...unfed, town: { ...unfedTown, isFed: false } as NonNullable<Tile["town"]> },
+      { ...settlement, town: { ...settlementTown, populationTier: "SETTLEMENT" } as NonNullable<Tile["town"]> }
+    ]);
+    expect(rowsOf(map).map((row) => row.coinPending)).toEqual([false, false]);
+  });
+
+  // Review of #2817: a "…" the detail request would never fetch stays "…" forever.
+  it("only marks a town pending when its tile detail will be fetched", () => {
+    const base = townTile(1, "Auriyrcrown", 0, 73_195);
+    const { goldPerMinute: _missing, ...withoutCoin } = base.town!;
+    const { isFed: _unknown, ...fedUnknown } = withoutCoin;
+    const variants: Tile[] = [
+      { ...base, detailLevel: "full", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", ownershipState: "FRONTIER", town: withoutCoin as NonNullable<Tile["town"]> },
+      { ...base, detailLevel: "full", town: fedUnknown as NonNullable<Tile["town"]> }
+    ];
+    expect(variants.map((tile) => townCoinPending(tile, tile.town!))).toEqual([true, false, false]);
+    for (const tile of variants) {
+      if (townCoinPending(tile, tile.town!)) expect(shouldSendTileDetailRequest(tile, "me")).toBe(true);
+    }
+  });
+
   it("lists only the viewer's visible towns", () => {
     expect(rowsOf(tiles).map((row) => row.name)).toEqual(["Ashford", "Brimvale", "Cogsworth"]);
   });
@@ -74,9 +130,26 @@ describe("town list", () => {
     expect(html).not.toContain("Enemy Keep");
   });
 
-  it("shows the same gold as the map label, including sabotage and docks", () => {
-    const sabotaged = townTile(1, "Ashford", 2, 4000, { yieldRate: { goldPerMinute: 1 } });
+  it("applies sabotage and keeps the server's dock rate", () => {
+    const sabotaged = townTile(1, "Ashford", 2, 4000, { sabotage: { ownerId: "rival", endsAt: Date.now() + 60_000, outputMultiplier: 0.5 } });
     expect(rowsOf(mapOf([sabotaged]))[0]?.goldPerMinute).toBe(1);
+    const dock = townTile(2, "Brimvale", 2, 4000, { dockId: "d1", yieldRate: { goldPerMinute: 3 } });
+    expect(rowsOf(mapOf([dock]))[0]?.goldPerMinute).toBe(3);
+  });
+
+  // Playtest day 1: every town read 0.0 coin/day here while its own screen showed +21/day. A tile-detail
+  // reply had cached yieldRate 0 from before the town was garrisoned, and the later town summary that
+  // raised town.goldPerMinute did not clear it.
+  it("matches the town screen when a cached yield rate is stale", () => {
+    const stale = townTile(1, "Ashford", 21 / 1440, 4000, { yieldRate: { goldPerMinute: 0 } });
+    expect(rowsOf(mapOf([stale]))[0]?.goldPerMinute).toBeCloseTo(21 / 1440, 4);
+    expect(townListCardHtml(mapOf([stale]), "me")).toContain(">21.0<");
+  });
+
+  it("keeps the last known rate while a partial town summary lacks goldPerMinute", () => {
+    const partial = townTile(1, "Ashford", 0, 4000, { yieldRate: { goldPerMinute: 2 } });
+    delete (partial.town as { goldPerMinute?: number }).goldPerMinute;
+    expect(rowsOf(mapOf([partial]))[0]?.goldPerMinute).toBe(2);
   });
 
   it("reads missing economy fields as zero and fed instead of NaN and unfed", () => {
@@ -106,10 +179,11 @@ describe("town list", () => {
       plain(11, 10, { ownerId: "rival" }),
       plain(9, 11, { fort: { ownerId: "me", status: "active" } as NonNullable<Tile["fort"]> })
     ]);
-    expect(openBuildSlotsForTown(map, town, "me")).toBe(2);
+    // The fortified plot (9,11) is still open: a fort shares its tile with any building.
+    expect(openBuildSlotsForTown(map, town, "me")).toBe(3);
     const row = rowsOf(map).find((entry) => entry.name === "Hub");
-    expect(row?.openSlots).toBe(2);
-    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">2<');
+    expect(row?.openSlots).toBe(3);
+    expect(townListCardHtml(map, "me")).toContain('title="Open build slots">3<');
   });
 
   it("shows no slots for settlements and sorts by open slots", () => {

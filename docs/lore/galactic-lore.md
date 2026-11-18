@@ -163,7 +163,9 @@ Relics are fixed remnants of the Concordance's planetary megastructures.
 Their shared ziggurat-shaped surface buildings are access and control
 structures; different installations survive below them and provide different
 capabilities. The ground around the access structure is part of the installation
-and is kept clear of new buildings. The installations remain part of the planet
+and is kept clear of new buildings; whoever holds the access structure holds
+that ground with it, and the site is taken or lost as one. An AFC's landing
+pad is held the same way. The installations remain part of the planet
 after a war game.
 Their physical survival does not establish continued House ownership or
 bonuses between campaigns.
@@ -460,6 +462,11 @@ its garrisoned heartland, but only over ground held in depth, not over a
 thin line of outposts. The exact thresholds belong in the
 [gameplay reference](../game-mechanics.md).
 
+The same charts name the notable wastes and ice fields inside an island:
+stretches of desert and tundra large enough to matter to a House, but small
+enough to be held. These names belong to the chart too and are never
+renamed.
+
 ## 11. Houses and the planetary economy
 
 ### Knowledge, landings and seasons
@@ -476,6 +483,36 @@ that planet. On another seasonal world, the House retains its knowledge but
 must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
+
+### House Charges
+
+Before a landing, each House gives its campaign leader a few **sealed
+charges**: the House's own ambitions for this world, separate from the
+Court's terms of victory. Its trading families may want a secure road
+between two named market towns; its elders a town grown great enough to seat
+a cadet line; its surveyors a landmass, waste or ice field entered in the
+charts under its name; its scholars a particular Concordance installation
+woken. The charges are private. The House learns which goals were sent, the
+watching Core does not, and rivals can only guess from what the House chooses
+to fight for.
+
+The charges are drawn from the House's own landing reports, so they point at
+places near where it came down. A House may set one charge aside in its first
+day on the ground. The surveyors' bearings come from the Court's slow,
+incomplete charts, so a charge first marks only an area; the House finds the
+exact place by scouting it. An installation is known only by its maintenance
+beacon until the House garrisons it.
+
+A charge is fulfilled only if the House still holds it when the campaign is
+decided: a road cut, a town lost or a chart name struck in the last hours
+counts for nothing. When the campaign is decided the seals are broken in
+public, and the Core learns at last what every House was really after. A
+fulfilled charter goes into its House's archive, a record of what the House
+set out to take and held; the archive is the collection of charge cards a
+House's profile shows. What a fulfilled charge earns the House is a gameplay
+decision recorded in the
+[gameplay reference](../game-mechanics.md) and the
+[House Charges plan](../house-charges-plan.md).
 
 ### Coastal assault carriers
 
@@ -494,7 +531,9 @@ cross open water on foot.
 **Coin is offworld purchasing credit backed by planetary output.** It is a
 recognised claim on the food, freight, ore, manufacturing, tolls and future
 exports controlled by the House. The House factor accepts that claim
-because the House controls the output behind it.
+because the House controls the output behind it. Houses can pledge a share of
+newly earned Coin to another House in exchange for contracted industrial output,
+or for the term of a truce.
 
 Coin is paid offworld through the factor for machines fabricated elsewhere,
 transported crews and instruments, Imperial market access and project
@@ -548,8 +587,8 @@ long since stalled (§2), and this machinery is one of the few things it cannot
 make for itself. A Reclamation Works can fit recovered components to the
 House's weapons and armour, or ship them offworld to the Court, which repays
 each load with an Imperial delivery of ready-made Ancillaries. Salvage is
-finite: a field holds a few loads, and once the last is shipped the field and
-its Works are gone. Dismantling a Works after a field has been partly stripped
+finite: a field holds a few loads, and once the last is shipped the field is
+gone and its Works stands idle, a dark and empty yard. Dismantling a Works after a field has been partly stripped
 ruins what is left. Salvage is never pledged to another House. The Industrial
 Tooling Module authorises both Manufactories and Reclamation Works. Salvage
 fields are industrial remains, distinct from the great Monuments; no claim that
@@ -564,6 +603,15 @@ road an enemy has cut, yields only what a garrison can scrape by hand. A town
 that commits to an ore gives up more of its working ground to smelters,
 distilleries or cutting halls.
 
+A House's connected towns are linked by elevated maglev freight lines, not
+paved roads: twin graphite guideway beams on forked pylons, ending at a freight
+gantry on each town's edge. Unmanned haulers carry sealed containers, pressure
+tanks and charged energy canisters between the towns, in the House's livery.
+The cyan lights along the beams are induction coils and signal lamps, the same
+ordinary powered infrastructure as a harbour's status strips, not aether-work.
+A line runs only over the House's own settled land, so losing the ground it
+crosses breaks the link between those towns.
+
 Specialised warrants and charters commission the crews, processing standards
 and commercial rights needed to exploit these sites. A discovered deposit is
 an opportunity before it is a working supply industry. Losing a concession
@@ -573,8 +621,8 @@ holdings. Numerical yields and network limits belong in the economy reference.
 Houses may pledge resource output, other than salvage, to one another as
 continuing supply rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
-as long as both Houses maintain the arrangement. Either House may end the
-supply agreement; the land remains with its owner. An attack dissolves them: when
+the agreed term. Such agreements are binding: neither House may walk away before
+the term ends, and the land remains with its owner. An attack dissolves them: when
 one House attacks the other, every supply right between the two lapses at once. Such contracts can support another House's infrastructure or
 industry without transferring towns, bodies or knowledge. They are distinct from
 a one-time Coin payment. An interrupted concession
@@ -587,6 +635,13 @@ and settlement rules belong in the gameplay references.
 remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
+
+A **muster flag** marks bodies gathered at one place, waiting to march. If
+another House takes the ground they stand on, it takes them too: the mustered
+bodies are seized and pressed into the captor's own service, adding to its
+manpower, rather than being scattered or sent home. Barbarians keep no such
+reserve, so a muster they overrun is simply lost. How much of a seized muster
+a House can absorb is a gameplay rule.
 
 An **Ancillary Factory** remakes local people into bodies under House control.
 **Forced Ancillarification** is a coercive emergency levy: residents are taken
@@ -652,6 +707,22 @@ the House's land, winches the pod down at the site and returns to dock in the
 AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
 presentation of that supply chain, not a separately modelled unit or
 logistics system.
+
+The AFC also keeps a purpose-built reconnaissance craft in its crown. A
+**scout drone** (the Sentinel pattern) is a small armoured sensor sphere
+built around one large optical eye and carried on four rotors. It is
+fabricated by the same complex as the courier drones, but it is not one of
+them: it carries no crate and no winch, only its sensors. It leaves the
+AFC's crown, flies over the House's land and out past it, looks over the
+ground beneath it and returns to dock. Because it flies, sea and open
+country do not stop it. Over its own House's ground it flies with its
+running lights on; past the border it runs dark, showing only the dimmed
+glow of its eye. It carries no crew, takes nothing and holds
+nothing. What stops it is a rival House's local control field (§10): the
+drone's link is jammed at that House's border, so it turns back there, and
+the rival's own sensors register the intrusion. The planet's remnant
+defenses have no such field, so a drone can pass over them, and they stir
+while it watches. How far and how often a drone flies is a gameplay rule.
 
 ### Replacement supply and withdrawal
 

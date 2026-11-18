@@ -10,9 +10,15 @@ import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js"; import { oasisFeatureAt } from "./worldgen-oasis.js";
 import { computeCoastalCleanupMasks, DEFAULT_CELLULAR_SMOOTHING, NOTCH_PRESERVING_CELLULAR_SMOOTHING } from "./worldgen-island-pruning.js";
+import { loadWorldTerrain, saveWorldTerrain, worldTerrainCacheKey, worldTerrainStore } from "./worldgen-terrain-persistence.js";
 import { isMicroMountainRange, isMountainRange, isOceanChannel } from "./worldgen-mountain-ranges.js";
 
 let CURRENT_WORLD_SEED = 42;
+// False until a caller sets the world explicitly. The client draws before INIT
+// arrives using this module's default seed; that placeholder world must never be
+// loaded from or saved to the device terrain store (it would evict the real one).
+let worldSeedSet = false;
+export const worldSeedWasSet = (): boolean => worldSeedSet;
 export type WorldStyle = "continents" | "islands";
 let CURRENT_WORLD_STYLE: WorldStyle = "continents";
 export const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
@@ -90,6 +96,7 @@ const resetWorldCaches = (): void => {
 export const setWorldSeed = (seed: number, style: WorldStyle = "continents", version = 1): void => {
   CURRENT_WORLD_SEED = Math.floor(seed);
   CURRENT_WORLD_STYLE = style; setWorldgenVersionState(version);
+  worldSeedSet = true;
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
@@ -169,12 +176,23 @@ const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMa
     cachedPruneMaskSeed = seed;
     cachedPruneMaskStyle = style;
     cachedPruneMaskVersion = version;
+    const storeKey = worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT);
+    const restored = worldSeedSet ? loadWorldTerrain(storeKey, WORLD_TILE_COUNT) : undefined;
+    if (restored) {
+      // Device-cached whole-world pass (client only): skips recomputing every tile's raw terrain.
+      rawTerrainCache.set(restored.rawTerrain);
+      rawTerrainCacheReady.fill(1);
+      cachedCoastalCleanupMasks = { tinyIslandMask: restored.tinyIslandMask, coastalInfillMask: restored.coastalInfillMask };
+      return cachedCoastalCleanupMasks;
+    }
     cachedCoastalCleanupMasks = computeCoastalCleanupMasks(
       WORLD_WIDTH,
       WORLD_HEIGHT,
       (x, y) => isLandLikeCode(rawBaseTerrainCodeAt(x, y)),
       continentSeparationActive() ? NOTCH_PRESERVING_CELLULAR_SMOOTHING : DEFAULT_CELLULAR_SMOOTHING
     );
+    // The mask pass above has just filled rawTerrainCache for every tile.
+    if (worldSeedSet && worldTerrainStore()) saveWorldTerrain(storeKey, { rawTerrain: rawTerrainCache, ...cachedCoastalCleanupMasks });
   }
   return cachedCoastalCleanupMasks;
 };
@@ -182,9 +200,12 @@ const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMa
 const baseTerrainCodeAt = (x: number, y: number): number => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  const raw = rawBaseTerrainCodeAt(wx, wy);
+  rawBaseTerrainCodeAt(wx, wy); // computed before the mask pass, as it always has been (keeps server compute order)
   const idx = worldIndex(wx, wy);
   const { tinyIslandMask, coastalInfillMask } = coastalCleanupMasksFor();
+  // Re-read after the masks: a device-restored world replaces the raw cache, and
+  // must win for this tile too.
+  const raw = rawTerrainCache[idx]!;
   if (isLandLikeCode(raw) && tinyIslandMask[idx] === 1) return TERRAIN_SEA;
   if (raw === TERRAIN_SEA && coastalInfillMask[idx] === 1) return TERRAIN_LAND;
   return raw;

@@ -31,10 +31,10 @@ describe("renderEconomyPanelHtml gold display", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain('<b class="v2e-amount">24.5</b>');
+    expect(html).toContain('<b class="v2e-amount">24</b>');
     // The currency is named Coin to players, never Gold.
     expect(html).toContain("Coin");
     expect(html).not.toMatch(/>\s*Gold\s*</);
-    expect(html).not.toMatch(/24\.5\s*(<[^>]*>\s*)*\/\s*\d/);
+    expect(html).not.toMatch(/24\s*(<[^>]*>\s*)*\/\s*\d/);
   });
 });

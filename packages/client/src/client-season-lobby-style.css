@@ -16,7 +16,10 @@ body.season-lobby-active #game-surface {
   display: none;
 }
 
-body.season-lobby-active #hud > *:not(#join-season-overlay) {
+/* The season-end overlay is exempt: while the lobby is up it can only be the
+   reopened Last Contest Recap (the live one needs a winner, which closes the
+   lobby), and it stacks above the lobby (z-index 45 vs 31). */
+body.season-lobby-active #hud > *:not(#join-season-overlay):not(#season-end-overlay) {
   display: none !important;
 }
 

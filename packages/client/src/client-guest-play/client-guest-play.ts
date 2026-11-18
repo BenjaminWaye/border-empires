@@ -107,24 +107,3 @@ export const applyGuestRejection = async (
   setAuthStatus(message, "error");
   syncAuthOverlay();
 };
-
-const AUTO_JOIN_RETRY_MS = 15_000;
-let lastAutoJoinAttemptAt = 0;
-
-type AutoJoinState = Pick<ClientState, "authIsGuest" | "needsSeasonJoin" | "seasonPending" | "joinSeasonPending" | "profileSetupRequired">;
-
-// True when a guest should be sent into an active season without the "Join
-// season" prompt: "Play now" means playing, not clicking through a second
-// screen. Recording the attempt here, and refusing another for a while, is
-// what stops a join that comes back without spawning (no free spot) from
-// re-firing on every render.
-export const takeGuestAutoJoinTurn = (state: AutoJoinState, now: number): boolean => {
-  if (!state.authIsGuest || !state.needsSeasonJoin || state.seasonPending || state.joinSeasonPending || state.profileSetupRequired) return false;
-  if (now - lastAutoJoinAttemptAt < AUTO_JOIN_RETRY_MS) return false;
-  lastAutoJoinAttemptAt = now;
-  return true;
-};
-
-export const resetGuestAutoJoinForTests = (): void => {
-  lastAutoJoinAttemptAt = 0;
-};

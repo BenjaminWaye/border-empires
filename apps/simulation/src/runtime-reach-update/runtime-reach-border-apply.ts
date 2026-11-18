@@ -60,6 +60,13 @@ export type ReachBorderApplyContext = {
    * runtime wiring always supplies it.
    */
   isLandTile?: LandConnectivityQuery;
+  /**
+   * True when an EXPAND/ATTACK lock already targets the tile. A Relay Beacon's
+   * sweep of ground already in reach skips such tiles: the lock resolves and
+   * charges its claim cost regardless, so claiming the tile out from under it
+   * would bill the player for a tile they already own.
+   */
+  hasClaimInFlight?: (tileKey: string) => boolean;
 };
 
 /**
@@ -75,6 +82,7 @@ export const createReachBorderApplyContext = (deps: {
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   contestedDirtyState: ReachChangedTilesDirtyState;
   isLandTile?: LandConnectivityQuery;
+  hasClaimInFlight?: (tileKey: string) => boolean;
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
   rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
@@ -82,8 +90,16 @@ export const createReachBorderApplyContext = (deps: {
   downgradeToFrontier: deps.downgradeToFrontier,
   autoClaimFrontier: deps.autoClaimFrontier,
   contestedDirtyState: deps.contestedDirtyState,
-  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {}),
+  ...(deps.hasClaimInFlight ? { hasClaimInFlight: deps.hasClaimInFlight } : {})
 });
+
+export type ReachAnchorActivationOptions = {
+  /** World-init/boot replay: never auto-claim (see applyReachAnchorActivationToBorder). */
+  skipNeutralAutoClaim?: boolean;
+  /** Relay Beacon build: also claim neutral ground already in the owner's border. */
+  claimNeutralAlreadyInReach?: boolean;
+};
 
 export type ReachAnchorActivationResult = {
   border: Map<string, string>;
@@ -162,6 +178,14 @@ const settleOvertaken = (
  *
  * `skipNeutralAutoClaim` is the part the seeding pass genuinely does need:
  * see the auto-claim block below.
+ *
+ * `claimNeutralAlreadyInReach` widens the auto-claim from "ground that just
+ * entered the border" to "every neutral tile in this anchor's disk that the
+ * owner's border holds" -- a Relay Beacon covers its whole disk with FRONTIER
+ * every time it is built, including neutral ground that was already inside
+ * the owner's reach (from a town, another beacon, or land given up while
+ * still in reach). Without it, that ground could only be claimed by a manual
+ * EXPAND, one tile at a time.
  */
 export const applyReachAnchorActivationToBorder = (
   border: Map<string, string>,
@@ -169,7 +193,7 @@ export const applyReachAnchorActivationToBorder = (
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
   causeCommandId: string,
-  options?: { skipNeutralAutoClaim?: boolean },
+  options?: ReachAnchorActivationOptions,
   onBorderMutated?: OnBorderMutated
 ): ReachAnchorActivationResult => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
@@ -196,7 +220,8 @@ export const applyReachAnchorActivationToBorder = (
   // claim/event, not one per tile.
   const autoClaimKeys: string[] = [];
   for (const key of diskKeys) {
-    if (border.get(key) === anchor.ownerId && before.get(key) !== anchor.ownerId) {
+    const enteredBorder = before.get(key) !== anchor.ownerId;
+    if (border.get(key) === anchor.ownerId && (enteredBorder || options?.claimNeutralAlreadyInReach === true)) {
       // Reach just grew onto ground nobody owns at all (a plain grant onto
       // empty ground, or the settled-on-unclaimed contest above resolving in
       // anchor.ownerId's favor over truly neutral ground) -- auto-claim it
@@ -216,7 +241,8 @@ export const applyReachAnchorActivationToBorder = (
       if (
         options?.skipNeutralAutoClaim !== true &&
         !anchor.ownerId.startsWith("barbarian-") &&
-        !context.tileOwnership(key)?.ownerId
+        !context.tileOwnership(key)?.ownerId &&
+        (enteredBorder || context.hasClaimInFlight?.(key) !== true)
       ) {
         autoClaimKeys.push(key);
       }

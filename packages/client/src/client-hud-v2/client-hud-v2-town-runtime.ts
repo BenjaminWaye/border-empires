@@ -1,6 +1,9 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
-import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
+import { pushFeed } from "../client-alerts/client-alerts.js";
+import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
+import { RESOURCE_NETWORKS, structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { dormantResourcesForTile, structureTypeForTileAction } from "../client-tile-action-support/client-tile-action-support.js";
+import { refineryStatusFor } from "../client-refineries/refinery-client-status.js";
 // Runtime for the town screen: decides when a selected tile opens it (your
 // town, or a tile in its support ring), renders it from the tile menu views,
 // and runs town actions on the town even while a support tile is selected.
@@ -8,13 +11,14 @@ import { dormantResourcesForTile, structureTypeForTileAction } from "../client-t
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
-import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, type BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, nextPlaceFlash, placeButtonState, type PlaceFlash } from "../client-queue-logic/client-build-placed-feedback.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
@@ -61,6 +65,30 @@ export const forgetMyTowns = (): void => {
   townListCache = undefined;
 };
 
+/**
+ * Next steps for an unruly town: the charter, your biota sites, the nearest deposit you've seen.
+ * Scans every known tile, so the result is kept until the tiles, techs, town or allocation change:
+ * the town screen re-renders on every view update, Place press and work action.
+ */
+let biotaStepsCache: { key: string; steps: BiotaStep[] } | undefined;
+const townBiotaSteps = (state: HudV2Deps["state"], town: Tile, townKey: string): BiotaStep[] => {
+  const techId = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
+  const otherTownsSlots = (state.manpowerBreakdown.biotaTowns ?? [])
+    .reduce((sum, entry) => sum + (entry.tileKey === townKey ? 0 : entry.received), 0);
+  const key = `${state.tilesRevision}|${state.tiles.size}|${state.techIds.join(",")}|${townKey}|${otherTownsSlots}`;
+  if (biotaStepsCache?.key === key) return biotaStepsCache.steps;
+  const steps = biotaSteps({
+    me: state.me,
+    tiles: state.tiles.values(),
+    techIds: state.techIds,
+    techName: state.techCatalog.find((tech) => tech.id === techId)?.name,
+    otherTownsSlots,
+    from: town
+  });
+  biotaStepsCache = { key, steps };
+  return steps;
+};
+
 export const renderTownScreen = (deps: HudV2Deps): void => {
   if (screen.id !== "town" || !current) return;
   const town = deps.state.tiles.get(current.townKey);
@@ -68,6 +96,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   if (!town || !focus) return;
   const townView = current.townKey === current.focusKey ? current.focusView : deps.actionFlow.tileMenuViewForTile(town);
   const towns = myTowns(deps);
+  const townKey = current.townKey;
+  const biota = deps.state.manpowerBreakdown.biotaTowns?.find((entry) => entry.tileKey === townKey);
   const regions = townScreenRegions({
     town,
     focus,
@@ -81,8 +111,11 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
+    refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
-    placed: placeFlash && Date.now() < placeFlash.until ? placeFlash.outcome : undefined
+    biota,
+    ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
+    ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
@@ -157,7 +190,10 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }
-  if (current?.townKey !== keyOf(town)) screen.townBuildSelection = undefined;
+  if (current?.townKey !== keyOf(town)) {
+    screen.townBuildSelection = undefined;
+    placeFlash = undefined;
+  }
   if (screen.id !== "town" || current?.focusKey !== tileKey) screen.townCategory = undefined;
   // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
   if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
@@ -174,8 +210,8 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   return true;
 };
 
-/** The town screen's own Place press confirmation: set only by a press on this screen that went through (runTileActionOn). */
-let placeFlash: { outcome: BuildPlacedOutcome; until: number } | undefined;
+/** The town screen's latest Place press that went through (runTileActionOn); kept after its "✓" fades for "Place another". */
+let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const closeTownScreen = (keepPosition = false): void => {
@@ -200,7 +236,12 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
     const town = deps.state.tiles.get(saved.townKey);
     if (town && (!targetKey || targetKey === saved.townKey)) {
       const target = townBuildTarget(deps, town, actionId);
-      if (!target) return;
+      if (!target) {
+        // Never a silent Place: say why no plot could take this building.
+        pushFeed(deps.state, townTileOpenPlotReason(deps.state, town) ?? TOWN_PLOTS_TAKEN_REASON, "error", "warn");
+        deps.renderHud();
+        return;
+      }
       targetKey = keyOf(target);
     }
   }
@@ -237,9 +278,10 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
   if (type) {
     // This press's own confirmation: a press rejected locally clears an earlier "✓ Placed" rather than inherit it.
     const presses = buildPlacedPresses();
-    placeFlash = presses.count !== pressesBefore && presses.outcome ? { outcome: presses.outcome, until: Date.now() + BUILD_PLACED_FLASH_MS } : undefined;
+    const went = presses.count !== pressesBefore;
+    placeFlash = nextPlaceFlash(placeFlash, { went, outcome: presses.outcome }, actionId, Date.now());
     if (placeFlashTimer) clearTimeout(placeFlashTimer);
-    placeFlashTimer = placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
+    placeFlashTimer = went && placeFlash ? setTimeout(() => renderTownScreen(deps), BUILD_PLACED_FLASH_MS + 50) : undefined;
     renderTownScreen(deps);
   }
 };

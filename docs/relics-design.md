@@ -226,7 +226,7 @@ starts.
   infrastructure (§4). The relic fiction must reconcile with all three, and
   with §5's rule that aether-work draws Wardens. "Relic" is also already used
   for a Warden ship in the galactic campaign
-  (`docs/galactic-campaign-design.md`, `galaxy-duke-config.ts`).
+  (`docs/game-mechanics.md` "Galactic layer", `galaxy-duke-config.ts`).
 
 ## Delivery slices
 

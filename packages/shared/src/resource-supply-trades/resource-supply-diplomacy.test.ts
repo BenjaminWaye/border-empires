@@ -11,7 +11,7 @@ describe("resource diplomacy terms and AI parity",()=>{
   });
   it("retains the supply term and swaps directions in counters and card descriptions",()=>{
     expect(swapDiplomacyTerms(terms)).toMatchObject({ask:terms.give,supplyDurationHours:12});
-    expect(describeDiplomacyTermsForRecipient(terms,"Milo")).toContain("1 Luxury biota supply slot; resource supply until cancelled");
+    expect(describeDiplomacyTermsForRecipient(terms,"Milo")).toContain("1 Luxury biota supply slot. Supply lasts 7 days from acceptance.");
     const counter=aiCounterOffer(pricing,"truce",12,{...terms,give:{gold:0}}, {gold:0,resources:{LUXURY_BIOTA:1}});
     expect(counter.kind).toBe("counter");
     if (counter.kind !== "counter") throw new Error("Expected a resource counter offer");

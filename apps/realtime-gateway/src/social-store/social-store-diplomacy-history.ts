@@ -14,9 +14,13 @@ import {
 // 24h window by pruneExpired, like the in-memory history.
 
 const DIPLOMACY_EVENTS: ReadonlySet<string> = new Set<PersonalActivityDiplomacyEvent>([
+  "TRUCE_OFFERED",
   "TRUCE_STARTED",
+  "TRUCE_EXTENDED",
   "TRUCE_ENDED",
   "TRUCE_BROKEN",
+  "ALLIANCE_OFFERED",
+  "ALLIANCE_DECLINED",
   "ALLIANCE_FORMED",
   "ALLIANCE_BROKEN"
 ]);
@@ -28,6 +32,7 @@ type DiplomacyHistoryRow = {
   counterparty_player_id: string;
   counterparty_name: string;
   duration_hours: number | null;
+  ends_at: number | null;
   by_player_id: string | null;
   court: number | null;
 };
@@ -41,10 +46,14 @@ export function applyDiplomacyHistorySchema(db: DatabaseSync): void {
       counterparty_name TEXT NOT NULL,
       duration_hours INTEGER,
       by_player_id TEXT,
-      court INTEGER
+      court INTEGER,
+      ends_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS social_diplomacy_history_player_idx ON social_diplomacy_history (player_id, occurred_at);
     CREATE INDEX IF NOT EXISTS social_diplomacy_history_at_idx ON social_diplomacy_history (occurred_at);`);
+  // Added after the table shipped: a truce row's end (Chronicle "ends Sun 00:45").
+  const columns = db.prepare("PRAGMA table_info(social_diplomacy_history)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "ends_at")) db.exec("ALTER TABLE social_diplomacy_history ADD COLUMN ends_at INTEGER");
 }
 
 /** A row from an unknown event (say, written by a newer gateway) is skipped rather than misread. */
@@ -57,6 +66,7 @@ export const diplomacyHistoryFromRow = (row: DiplomacyHistoryRow): StoredDiploma
     counterpartyPlayerId: row.counterparty_player_id,
     counterpartyName: row.counterparty_name,
     ...(row.duration_hours !== null ? { durationHours: row.duration_hours } : {}),
+    ...(row.ends_at !== null && row.ends_at !== undefined ? { endsAt: row.ends_at } : {}),
     ...(row.by_player_id !== null ? { byPlayerId: row.by_player_id } : {}),
     ...(row.court ? { court: true } : {})
   }];
@@ -65,7 +75,7 @@ export const diplomacyHistoryFromRow = (row: DiplomacyHistoryRow): StoredDiploma
 export function loadDiplomacyHistory(db: DatabaseSync): StoredDiplomacyHistoryEntry[] {
   const rows = db
     .prepare(
-      `SELECT player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, by_player_id, court
+      `SELECT player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court
        FROM social_diplomacy_history`
     )
     .all() as DiplomacyHistoryRow[];
@@ -74,9 +84,9 @@ export function loadDiplomacyHistory(db: DatabaseSync): StoredDiplomacyHistoryEn
 
 export function saveDiplomacyHistory(db: DatabaseSync, playerId: string, entry: DiplomacyHistoryEntry): void {
   db.prepare(
-    `INSERT INTO social_diplomacy_history (player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, by_player_id, court)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(playerId, entry.event, entry.occurredAt, entry.counterpartyPlayerId, entry.counterpartyName, entry.durationHours ?? null, entry.byPlayerId ?? null, entry.court ? 1 : null);
+    `INSERT INTO social_diplomacy_history (player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(playerId, entry.event, entry.occurredAt, entry.counterpartyPlayerId, entry.counterpartyName, entry.durationHours ?? null, entry.endsAt ?? null, entry.byPlayerId ?? null, entry.court ? 1 : null);
   db.prepare(
     `DELETE FROM social_diplomacy_history
      WHERE player_id = ? AND rowid NOT IN (

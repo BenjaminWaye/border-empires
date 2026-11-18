@@ -150,11 +150,11 @@ export const neutralTileActions = (
       ...tileActionAvailability(
         exploreEnabled,
         state.manpower < totalExploreManpower
-          ? `Need ${totalExploreManpower} manpower`
+          ? `Need ${totalExploreManpower} manpower (${state.expandManpowerCost} expand + ${state.settleManpowerCost} garrison + ${relayBeaconManpowerCostForState(state)} build)`
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} coin`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + garrison + build • ${buildTimeLabel(totalExploreMs)} total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. (${state.expandManpowerCost} expand + ${state.settleManpowerCost} garrison + ${relayBeaconManpowerCostForState(state)} build) • ${buildTimeLabel(totalExploreMs)} total`
       )
     });
   }

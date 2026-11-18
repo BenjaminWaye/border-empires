@@ -23,7 +23,7 @@ export const freeRefineryRingTiles = (tiles: ReadonlyMap<string, Tile>, me: stri
   const radius = supportRingRadiusForTier(town.town?.populationTier);
   const free = supportRingCandidates(tiles, town.x, town.y, radius).map(({ tile }) => tile).filter((tile) => {
     if (tile.terrain !== "LAND" || tile.ownerId !== me || tile.ownershipState !== "SETTLED" || tile.dockId) return false;
-    if (tile.town || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) return false;
+    if (tile.town || tile.observatory || tile.siegeBattery || tile.economicStructure) return false;
     if (landmarkConstructionBlocker(tiles, tile.x, tile.y)) return false;
     const assigned = assignedTownForSupportTile(tiles, tile, me);
     return assigned?.x === town.x && assigned.y === town.y;

@@ -11,6 +11,7 @@ import { aggregatePersonalActivity } from "../personal-activity-aggregation/pers
 import { createPersonalImpactLog, type PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 import { createTerritoryFlipLog, isBarbarianRoamingFlip, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
+import { topCaptorOf } from "../elimination-captor/elimination-captor.js";
 
 // Cohesive ownership of all non-snapshot, rolling activity history. Keeping
 // this state out of runtime.ts both honors the source-file cap and makes the
@@ -28,6 +29,8 @@ export const createRuntimeActivityLogs = (now: () => number) => {
       exportActivityDashboardSnapshotFrom(territory, combat, tiles, players, now()),
     export: (): PersistedActivityLogs => exportActivityLogs(territory, combat, personalImpacts),
     restore: (logs: PersistedActivityLogs | undefined): void => restoreActivityLogs(territory, combat, personalImpacts, logs, now()),
+    /** Who took the most of this player's land in the last 24h (elimination notice). */
+    topCaptorOf: (playerId: string): string | undefined => topCaptorOf(playerId, territory.entries()),
     territoryGauge: () => territory.gauge(),
     combatGauge: () => combat.gauge(),
     personalImpactGauge: () => personalImpacts.gauge(),

@@ -7,6 +7,8 @@ export type ManpowerPanelMusterFlag = {
   x: number;
   y: number;
   amount: number;
+  /** This flag's own cap (musterFlagCap with its capLevel), so every screen shows the same "x / cap". */
+  cap?: number | undefined;
   mode: "HOLD" | "ADVANCE" | "MARCH";
   targetX?: number | undefined;
   targetY?: number | undefined;
@@ -15,6 +17,8 @@ export type ManpowerPanelMusterFlag = {
   nextActionAt?: number | undefined;
   fightX?: number | undefined;
   fightY?: number | undefined;
+  /** The in-flight action is a MARCH claim of neutral land, not a fight (see musterFightIsClaim). */
+  fightClaim?: boolean | undefined;
   noTargetInRange?: boolean | undefined;
   insufficientManpower?: boolean | undefined;
   unfundableTarget?: { x: number; y: number; required: number } | undefined;
@@ -35,7 +39,7 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget" | "hunt"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "fightClaim" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget" | "hunt"
   >,
   nowMs: number = Date.now()
 ): string => {
@@ -49,6 +53,24 @@ export const musterStatusText = (
     : status;
 };
 
+/**
+ * The server reports a MARCH flag's neutral EXPAND step through the same
+ * fightX/fightY it uses for attacks, so the status read "Fighting at" while
+ * the company walked over empty land (2026-11-12 playtest). A target this
+ * client sees as unowned (or already ours) is a claim, not a fight; an
+ * unseen target stays "Fighting" rather than guessing.
+ */
+export const musterFightIsClaim = (
+  muster: { inFlight?: boolean | undefined; fightX?: number | undefined; fightY?: number | undefined },
+  me: string,
+  tileAt: (x: number, y: number) => { ownerId?: string | undefined; fogged?: boolean | undefined } | undefined
+): boolean => {
+  if (!muster.inFlight || muster.fightX === undefined || muster.fightY === undefined) return false;
+  const tile = tileAt(muster.fightX, muster.fightY);
+  if (!tile) return false;
+  return tile.ownerId === undefined ? tile.fogged !== true : tile.ownerId === me;
+};
+
 const musterBaseStatusText = (
   flag: Parameters<typeof musterStatusText>[0],
   nowMs: number
@@ -56,6 +78,7 @@ const musterBaseStatusText = (
   if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
   if (flag.inFlight) {
     const countSuffix = (flag.inFlightCount ?? 1) > 1 ? ` (${flag.inFlightCount} actions active)` : "";
+    if (flag.fightClaim && flag.fightX !== undefined && flag.fightY !== undefined) return `Claiming (${flag.fightX}, ${flag.fightY})${countSuffix}.`;
     return flag.fightX !== undefined && flag.fightY !== undefined
       ? `Fighting at (${flag.fightX}, ${flag.fightY})${countSuffix}.`
       : `Fighting nearby${countSuffix}.`;
@@ -75,6 +98,10 @@ const musterBaseStatusText = (
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 
+/** "93 / 150": whole manpower over the flag's cap, the same figure the tracker shows. */
+export const musterFillText = (flag: Pick<ManpowerPanelMusterFlag, "amount" | "cap">): string =>
+  flag.cap === undefined ? String(Math.floor(flag.amount)) : `${Math.floor(flag.amount)} / ${Math.floor(flag.cap)}`;
+
 const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
   const rows = flags.length
     ? flags
@@ -82,7 +109,7 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
               <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small></span>
-              <strong>${flag.amount}</strong>
+              <strong>${musterFillText(flag)}</strong>
             </button>
           `
         )

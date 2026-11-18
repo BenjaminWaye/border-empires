@@ -63,7 +63,7 @@ describe("dispatchPactGatedAction", () => {
     expect(dispatchPactGatedAction("break_truce", tile, state, deps, NOW)).toBe(true);
     expect(sheets).toEqual([]);
     expect(deps.breakTruce).not.toHaveBeenCalled();
-    expect(deps.pushFeed).toHaveBeenCalledWith("No active truce with Rival.", "alliance", "info");
+    expect(deps.pushFeed).toHaveBeenCalledWith("No active truce with Rival.", "alliance", "warn");
   });
 
   it("blocks attacks under a Court armistice without offering a break", () => {
@@ -89,6 +89,13 @@ describe("dispatchPactGatedAction", () => {
     expect(dispatchPactGatedAction("launch_attack", tile, state, deps, NOW)).toBe(true);
     expect(sheets).toEqual([]);
     expect(deps.breakAlliance).not.toHaveBeenCalled();
-    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 3h.", "alliance", "info");
+    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 3h.", "alliance", "warn");
+  });
+
+  // Regression: 1h 5m left read "2h" here while Diplomacy showed "1h 5m".
+  it("counts an alliance break down in hours and minutes, like Diplomacy", () => {
+    const { deps, state } = setup({ ally: true, allianceBreakEndsAt: NOW + 65 * 60_000 });
+    expect(dispatchPactGatedAction("launch_attack", tile, state, deps, NOW)).toBe(true);
+    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival is already breaking. You can attack them in 1h 5m.", "alliance", "warn");
   });
 });

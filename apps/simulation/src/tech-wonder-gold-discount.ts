@@ -1,4 +1,4 @@
-import { techGoldCostForResearchedCount } from "@border-empires/shared";
+import { manifestGoldCost } from "@border-empires/shared";
 import type { DomainPlayer } from "@border-empires/game-domain";
 
 /**
@@ -10,7 +10,5 @@ export const goldCostForTechResearch = (
   player: Pick<DomainPlayer, "techIds" | "wonderTechGoldDiscount">,
   _tech: { cost?: { gold?: number } }
 ): number => {
-  const base = techGoldCostForResearchedCount(player.techIds.size);
-  const discount = player.wonderTechGoldDiscount ?? 0;
-  return Math.max(0, Math.ceil(base * (1 - discount)));
+  return manifestGoldCost(player.techIds.size, player.wonderTechGoldDiscount ?? 0);
 };

@@ -228,6 +228,28 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     ]);
   });
 
+  // Playtest 2026-11-12: Chronicle "Last 24 hours" said 0 towns right after
+  // claiming a neutral town, because only player-held towns were recorded.
+  it("records a town-captured impact, with no counterparty, for a neutral town", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN", population: 17_135, maxPopulation: 10_000_000, name: "Durndelve" } }]
+    ]);
+    const { context } = createContext(tiles);
+    const impacts: Array<Record<string, unknown>> = [];
+    context.recordPersonalImpact = (impact) => { impacts.push(impact); };
+    const lock = makeWonExpandLock();
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    expect(impacts).toEqual([
+      expect.objectContaining({ kind: "TOWN_CAPTURED", playerId: ATTACKER_ID, townName: "Durndelve", townSurvived: true, populationBefore: 17_135, populationAfter: 17_135 })
+    ]);
+    expect(impacts[0]).not.toHaveProperty("counterpartyPlayerId");
+  });
+
   // Regression: Aegis Lock (runtime-ability-helpers.ts) is an independent
   // defensive ability, unrelated to defenderBattle's frontier-defense-zero
   // combat math -- it can still block an ATTACK on undefended FRONTIER

@@ -67,3 +67,20 @@ test("fails when a new source file exceeds the cap", () => withRepo((dir) => {
     /new source file has 501 lines/
   );
 }));
+
+test("checks committed growth from an explicit CI base in detached HEAD", () => withRepo((dir) => {
+  writeFileSync(join(dir, "large.ts"), "\n" + lines(500));
+  run(dir, ["git", "add", "large.ts"]);
+  run(dir, ["git", "commit", "-qm", "base"]);
+  const base = run(dir, ["git", "rev-parse", "HEAD"]).trim();
+  run(dir, ["git", "checkout", "--quiet", "--detach"]);
+  const env = { ...process.env, FILE_LINE_LIMIT_BASE_REF: base };
+  assert.match(run(dir, ["node", scriptPath], { env }), /passed/);
+
+  writeFileSync(join(dir, "large.ts"), "\n" + lines(501));
+  run(dir, ["git", "commit", "-qam", "oversized growth"]);
+  assert.throws(
+    () => run(dir, ["node", scriptPath], { env, stdio: "pipe" }),
+    /already over 500 lines \(501\) and grew to 502/
+  );
+}));

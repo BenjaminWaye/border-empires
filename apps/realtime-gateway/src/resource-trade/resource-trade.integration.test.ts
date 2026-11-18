@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "vitest";
-import { ResourceSupplyOfferSchema, ResourceTradeOfferSchema } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DURATION_MS, ResourceSupplyAgreementSchema, ResourceSupplyOfferSchema, ResourceTradeOfferSchema } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../../../simulation/src/runtime/runtime.js";
 import { buildPlayer } from "../../../simulation/src/runtime/runtime.test-helpers.js";
@@ -19,7 +19,7 @@ const stateWithDeals = async (socket: BufferedSocket, count: number, paid?: (poi
   }
 };
 
-it("negotiates, pays, delivers and cancels consecutive independent trades over real sockets and RPC", async () => {
+it("negotiates, pays and delivers an independent trade over real sockets and RPC, and holds it binding", async () => {
   const now = Date.now();
   const tiles: DomainTileState[] = [];
   for (const [id, x] of [["seller", 10], ["buyer", 40]] as const) {
@@ -54,25 +54,31 @@ it("negotiates, pays, delivers and cancels consecutive independent trades over r
   const initialRegen = initial.player && typeof initial.player === "object" ? Reflect.get(initial.player,"manpowerRegenPerMinute") : undefined;
   expect(typeof initialRegen).toBe("number");
   expect(await nextTypedMessage(seller, "seller init", "INIT")).toMatchObject({ player: { resourceTradeHoldings: { LUXURY_BIOTA: 1 } } });
-  for (let round = 0; round < 2; round++) {
+  {
+    const round = 0;
     seller.socket.send(JSON.stringify({ type: "RESOURCE_TRADE_REQUEST", targetPlayerName: "buyer", targetPlayerId: "buyer",
-      terms: { give: { gold: 0, resources: { LUXURY_BIOTA: 1 } }, ask: { gold: 3 } } }));
+      terms: { give: { gold: 0, resources: { LUXURY_BIOTA: 1 } }, ask: { gold: 3, coinPerHour: 50 } } }));
     const offered = await nextMatchingMessage(seller, "pending trade", row => row.type === "ERROR" ||
       (row.type === "RESOURCE_TRADE_UPDATE" && Array.isArray(row.offers) && row.offers.some(value => {
         const parsed = ResourceTradeOfferSchema.safeParse(value); return parsed.success && parsed.data.status === "pending";
       })));
     expect(offered.type).toBe("RESOURCE_TRADE_UPDATE");
     const offer = ResourceTradeOfferSchema.array().parse(offered.offers).find(row => row.status === "pending")!;
+    expect(offer.terms.ask.coinPerHour).toBe(50);
     buyer.socket.send(JSON.stringify({ type: "RESOURCE_TRADE_ACCEPT", offerId: offer.id }));
     const delivered = await stateWithDeals(buyer, 1, points => points < 97.01 - round * 3);
     expect(Number(delivered.gold)).toBeCloseTo(97 - round * 3, 2);
+    const [agreement] = ResourceSupplyAgreementSchema.array().parse(delivered.resourceTradeAgreements);
+    expect(agreement!.targetCoinPerHour).toBe(50);
+    expect(agreement!.expiresAt).toBe(agreement!.startedAt + RESOURCE_SUPPLY_TRADE_DURATION_MS);
     // Biota changes manpower only for City-or-larger towns; the buyer's is Town tier, so regen is unchanged.
     expect(Number(delivered.manpowerRegenPerMinute)).toBeCloseTo(Number(initialRegen));
     const paidSeller = await stateWithDeals(seller, 1, points => points > 102.99 + round * 3);
     expect(Number(paidSeller.gold)).toBeCloseTo(103 + round * 3, 2);
     expect(ResourceSupplyOfferSchema.parse(paidSeller.resourceTradeHoldings).LUXURY_BIOTA).toBeUndefined();
+    // Deals are binding, as in Civ: ending one early is refused; only war or its term ends it.
     buyer.socket.send(JSON.stringify({ type: "RESOURCE_TRADE_END", agreementId: `diplomacy-settle:resource-trade:${offer.id}` }));
-    await stateWithDeals(buyer, 0);
-    expect(await stateWithDeals(seller, 0)).toMatchObject({ resourceTradeHoldings: { LUXURY_BIOTA: 1 } });
+    const refused = await nextMatchingMessage(buyer, "binding refusal", row => row.type === "ERROR");
+    expect(String(refused.message)).toContain("binding");
   }
 }, 20_000);

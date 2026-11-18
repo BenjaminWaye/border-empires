@@ -1,4 +1,5 @@
 import type { CurrentSeasonSummary, ScoreHistorySeries, SeasonArchiveRow, SeasonStats, SimulationSeasonState } from "@border-empires/sim-protocol";
+import { standingsFromOverall } from "./season-archive-standings.js";
 
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -95,6 +96,7 @@ export const buildCurrentSeasonSummary = ({
     rulesetId: seasonState.rulesetId,
     ...(seasonState.winner ? { seasonWinner: seasonState.winner } : {}),
     ...(seasonState.galaxyTiers ? { seasonGalaxyTiers: seasonState.galaxyTiers } : {}),
+    ...(seasonState.houseCharges ? { seasonHouseCharges: seasonState.houseCharges } : {}),
     ...(seasonStats ? { seasonStats } : {}),
     ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {}),
     leaderboard: worldStatus.leaderboard,
@@ -130,9 +132,12 @@ export const buildArchiveRow = (summary: CurrentSeasonSummary): SeasonArchiveRow
     updatedAt: summary.updatedAt,
     ...(summary.seasonWinner ? { winner: summary.seasonWinner } : {}),
     ...(summary.seasonGalaxyTiers ? { galaxyTiers: summary.seasonGalaxyTiers } : {}),
+    ...(summary.seasonHouseCharges ? { houseCharges: summary.seasonHouseCharges } : {}),
     ...(summary.seasonStats ? { seasonStats: summary.seasonStats } : {}),
     mostTerritory,
     mostPoints,
+    finalStandings: standingsFromOverall(summary.overall),
+    ...(summary.seasonVictory.length > 0 ? { seasonVictory: summary.seasonVictory } : {}),
     longestSurvivalMs: topLongestSurvival(summary.overall, summary.startedAt, endedAt),
     replayEvents: [],
     ...(summary.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: summary.defenseCampaignTargetSeasonId } : {})

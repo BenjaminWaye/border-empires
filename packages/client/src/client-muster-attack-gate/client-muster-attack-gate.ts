@@ -211,43 +211,43 @@ export const parkOrReuseMusterFlagForAttack = (
   }
 ): void => {
   const { from, to, closest } = target;
+  if (state.pendingMusterAttacks.some((entry) => entry.targetX === to.x && entry.targetY === to.y)) return;
   const nearbyOwned = findClosestOwnedMusterTile(state, from.x, from.y, to.x, to.y);
-  // Single pass for both "do we have any flag at all" (only needed for the
-  // non-reuse feed message below) and the real muster count (needed for the
-  // cap check) -- avoids two separate full scans of state.tiles for
-  // overlapping predicates.
-  const ourMusterCount = [...state.tiles.values()].filter((t) => t.muster?.ownerId === state.me).length;
-  const playerHasAnyMuster = ourMusterCount > 0;
-  const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : deps.keyFor(from.x, from.y);
-  const originAlreadyHasMuster = state.tiles.get(deps.keyFor(from.x, from.y))?.muster?.ownerId === state.me;
-  const atMusterCap = ourMusterCount >= state.musterFlagLimit;
-  if (!nearbyOwned && !originAlreadyHasMuster && atMusterCap) {
+  const ourMusterCount = [...state.tiles.values()].filter((tile) => tile.muster?.ownerId === state.me).length;
+  const originKey = deps.keyFor(from.x, from.y);
+  const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : originKey;
+  const now = Date.now();
+  const pendingPlacements = new Map<string, number>();
+  for (const entry of state.pendingMusterAttacks) {
+    const requestedAt = entry.musterRequestedAt;
+    if (requestedAt == null || now - requestedAt > MUSTER_FLAG_REQUEST_TIMEOUT_MS) continue;
+    if (state.tiles.get(entry.musterTileKey)?.muster?.ownerId !== state.me) pendingPlacements.set(entry.musterTileKey, requestedAt);
+  }
+  const pendingAtOrigin = pendingPlacements.get(originKey);
+  const needsNewFlag = !nearbyOwned && state.tiles.get(originKey)?.muster?.ownerId !== state.me && pendingAtOrigin === undefined;
+  const slotsInUse = ourMusterCount + pendingPlacements.size;
+  if (needsNewFlag && slotsInUse >= state.musterFlagLimit) {
     deps.pushFeed(
-      `Muster flags full (${ourMusterCount}/${state.musterFlagLimit}) — no flag near (${to.x}, ${to.y}) to reuse. Attack cancelled.`,
+      `Muster flags full (${slotsInUse}/${state.musterFlagLimit}) · no flag near (${to.x}, ${to.y}) to reuse. Attack cancelled.`,
       "combat", "error"
     );
     deps.renderHud();
     return;
   }
-  const willRequestNewFlag = !nearbyOwned && !originAlreadyHasMuster;
-  if (willRequestNewFlag) deps.sendSetMuster(from.x, from.y, "HOLD");
-  const alreadyPending = state.pendingMusterAttacks.some((e) => e.targetX === to.x && e.targetY === to.y);
-  if (!alreadyPending) {
-    state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: Date.now(), ...(willRequestNewFlag ? { musterRequestedAt: Date.now() } : {}) });
-    // The server only ticks muster amounts once per ~30s on the regular
-    // schedule, but ticks any *watched* flag every 1s (tickWatchedMusterTiles)
-    // — scoped per-player, no cost to anyone else. Watching the flag that's
-    // now driving the Mustering overlay makes its progress track close to
-    // real-time instead of jumping in ~30s steps.
-    const watchTile = nearbyOwned ? nearbyOwned.tile : from;
-    deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: watchTile.x, y: watchTile.y });
-    const feedMsg = nearbyOwned
-      ? `Reusing flag ${nearbyOwned.dist} tile${nearbyOwned.dist === 1 ? "" : "s"} from target — attack queued`
-      : !closest || !playerHasAnyMuster
-        ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
-        : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
-    deps.pushFeed(feedMsg, "combat", "info");
-  }
+  if (needsNewFlag) deps.sendSetMuster(from.x, from.y, "HOLD");
+  const requestedAt = needsNewFlag ? now : nearbyOwned ? undefined : pendingAtOrigin;
+  state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: now, ...(requestedAt === undefined ? {} : { musterRequestedAt: requestedAt }) });
+  // Watched flags tick every second while the pending attack is displayed.
+  const watchTile = nearbyOwned ? nearbyOwned.tile : from;
+  deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: watchTile.x, y: watchTile.y });
+  const feedMsg = nearbyOwned
+    ? `Reusing flag ${nearbyOwned.dist} tile${nearbyOwned.dist === 1 ? "" : "s"} from target · attack queued`
+    : pendingAtOrigin !== undefined || !needsNewFlag
+      ? `Waiting for the flag at (${from.x}, ${from.y}) · attack queued`
+      : closest && ourMusterCount > 0
+        ? `Closest flag is ${closest.dist} tiles away · staging a flag closer to the front`
+        : `Staging a flag near (${to.x}, ${to.y}) · attack queued`;
+  deps.pushFeed(feedMsg, "combat", "info");
   deps.renderHud();
 };
 

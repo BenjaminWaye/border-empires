@@ -46,9 +46,10 @@ describe("AFC starting vision", () => {
     });
 
     // Precondition: the rival really does hold the disk, so the newcomer owns
-    // and reaches only its AFC tile.
-    expect(runtime.exportState().tiles.filter((tile) => tile.ownerId === "newcomer")).toHaveLength(1);
-    expect([...runtime.reachTileKeysForPlayer("newcomer")]).toEqual([`${AFC.x},${AFC.y}`]);
+    // and reaches only its AFC super tile (the AFC and its 3×3, landmark-super-tile).
+    const superTileKeys = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => `${AFC.x + dx},${AFC.y + dy}`)).sort();
+    expect(runtime.exportState().tiles.filter((tile) => tile.ownerId === "newcomer").map((tile) => `${tile.x},${tile.y}`).sort()).toEqual(superTileKeys);
+    expect([...runtime.reachTileKeysForPlayer("newcomer")].sort()).toEqual(superTileKeys);
 
     // One ring past the disk the AFC would own on open ground.
     expect(AFC_VISION_RADIUS).toBe(TOWN_REACH_RADIUS + 1);

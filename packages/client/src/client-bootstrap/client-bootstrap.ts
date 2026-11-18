@@ -533,5 +533,5 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, setActivePanel, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor: effectiveOverlayColor });
+  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, setActivePanel, actionFlow, wrapX, wrapY, requestViewRefresh });
 };

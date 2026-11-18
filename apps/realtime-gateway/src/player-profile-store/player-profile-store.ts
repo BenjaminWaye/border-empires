@@ -68,7 +68,9 @@ export type EmailNotificationCategory =
   | "aetherPurgeAlert"
   | "aetherHijackAlert"
   | "seasonStart"
-  | "manpowerFull";
+  | "manpowerFull"
+  | "truceEnding"
+  | "empireFell";
 
 export type EmailNotificationPrefs = Partial<Record<EmailNotificationCategory, boolean>>;
 

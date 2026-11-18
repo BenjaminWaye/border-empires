@@ -43,6 +43,8 @@ export type ClientTownWireSummary = {
   incubationEngineActive: boolean;
   hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
   foodUpkeepPerMinute?: number;
+  /** FOOD slots this town draws after upgrade waivers, from the simulation. */
+  foodSlotDemand?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
   forcedAncillarificationCooldownUntil?: number;

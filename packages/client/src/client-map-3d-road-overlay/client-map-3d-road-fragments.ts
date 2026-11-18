@@ -1,14 +1,18 @@
-export type RoadOverlayStyle = "dirt" | "brick";
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
+
+export type RoadOverlayStyle = "shadow" | "dirt" | "brick";
 
 export const ROAD_WIDTH = 0.12;
 
 // The old cobblestone surface, preserved so Storybook can keep showing the
-// original paved-town look while the game ships the dirt style.
+// original paved-town look while the game draws towns' links as monorails.
 export const BRICK_FRAGMENT = `
 precision highp float;
 varying vec2 vUv;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+${LATTICE_HASH_GLSL}
+// Integer lattice points only (floor()ed cells; salts are integer offsets).
+float hash(vec2 p) { return latticeHash2(p); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   vec2 u = f*f*(3.0 - 2.0*f);
@@ -44,12 +48,12 @@ void main() {
   vec2 cellUV = fract(vec2(u, v) / cellSize) - 0.5;
 
   float ch = hash(cellIdx);
-  float ch2 = hash(cellIdx + vec2(0.7, 0.3));
+  float ch2 = hash(cellIdx + vec2(1031.0, 467.0));
   vec2 jitter = (vec2(ch, ch2) - 0.5) * 0.3;
   vec2 sp = cellUV - jitter;
 
   float stoneW = 0.38 + ch * 0.10;
-  float stoneH = 0.32 + hash(cellIdx + vec2(0.1, 0.2)) * 0.12;
+  float stoneH = 0.32 + hash(cellIdx + vec2(2083.0, 1597.0)) * 0.12;
   float sd = max(abs(sp.x) / stoneW, abs(sp.y) / stoneH);
 
   vec3 mortar = vec3(0.32, 0.24, 0.16);
@@ -108,7 +112,9 @@ export const DIRT_FRAGMENT = `
 precision highp float;
 varying vec2 vUv;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+${LATTICE_HASH_GLSL}
+// Integer lattice points only (floor()ed cells; salts are integer offsets).
+float hash(vec2 p) { return latticeHash2(p); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   vec2 u = f*f*(3.0 - 2.0*f);
@@ -157,7 +163,7 @@ void main() {
   vec2 gCell = floor(wp * gScale);
   vec2 gCellUV = fract(wp * gScale) - 0.5;
   float g1 = hash(gCell);
-  float g2 = hash(gCell + vec2(11.3, 7.7));
+  float g2 = hash(gCell + vec2(3109.0, 743.0));
   vec2 gc = gCellUV - (vec2(g1, g2) - 0.5) * 0.62;
   float gRad = 0.16 + fract(g2 * 3.7) * 0.16;
   float gsd = length(gc) / gRad;
@@ -188,8 +194,8 @@ void main() {
   vec2 pCell = floor(wp / pCellSize);
   vec2 pCellUV = fract(wp / pCellSize) - 0.5;
   float p1 = hash(pCell);
-  float p2 = hash(pCell + vec2(7.3, 1.9));
-  float p3 = hash(pCell + vec2(3.7, 5.1));
+  float p2 = hash(pCell + vec2(4073.0, 2971.0));
+  float p3 = hash(pCell + vec2(5051.0, 3833.0));
   float present = step(0.72, p1);
   vec2 pc = (pCellUV - (vec2(p2, p3) - 0.5) * 0.4) * pCellSize;
   float pebRadius = 0.006 + p3 * 0.007;
@@ -225,5 +231,22 @@ void main() {
 }
 `;
 
+// Soft ground shadow cast by the monorail guideway overhead
+// (client-map-3d-monorail/). Two darker bands under the twin beams inside a
+// wide feathered falloff, so the rail reads as standing above the ground.
+export const SHADOW_FRAGMENT = `
+precision highp float;
+varying vec2 vUv;
+
+void main() {
+  float c = abs(vUv.y - 0.5) * 2.0;
+  float body = 1.0 - smoothstep(0.35, 1.0, c);
+  float beams = exp(-pow((c - 0.42) * 7.0, 2.0));
+  float alpha = clamp(body * 0.20 + beams * 0.16, 0.0, 0.34);
+  if (alpha < 0.005) discard;
+  gl_FragColor = vec4(0.02, 0.03, 0.04, alpha);
+}
+`;
+
 export const buildRoadFragmentShader = (style: RoadOverlayStyle): string =>
-  style === "brick" ? BRICK_FRAGMENT : DIRT_FRAGMENT;
+  style === "brick" ? BRICK_FRAGMENT : style === "shadow" ? SHADOW_FRAGMENT : DIRT_FRAGMENT;

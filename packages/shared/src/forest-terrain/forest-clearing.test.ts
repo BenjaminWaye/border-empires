@@ -3,7 +3,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { forestClearingEpoch, isForestClearedAt, resetForestClearings, setWorldSeed, wasForestBeforeClearingAt } from "../worldgen/worldgen.js";
 import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
 import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
-import { clearForestAroundAfcTile, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles } from "./forest-clearing.js";
+import { clearForestAroundAfcTile, clearForestAroundLandmarkTiles, clearForestOnTownAndDockTiles } from "./forest-clearing.js";
 import { isForestTileAt, isTropicalForestLatitudeAt, isTropicalForestTileAt } from "./forest-terrain.js";
 
 const findForestTile = (): { x: number; y: number } => {
@@ -34,9 +34,16 @@ describe("AFC forest clearing", () => {
   it("only derives clearings from tiles that actually carry an AFC", () => {
     setWorldSeed(77, "continents", 1);
     const forest = findForestTile();
-    clearForestAroundAfcTiles([{ x: forest.x, y: forest.y }]);
+    clearForestAroundLandmarkTiles([{ x: forest.x, y: forest.y }]);
     expect(isForestTileAt(forest.x, forest.y)).toBe(true);
-    clearForestAroundAfcTiles([{ x: forest.x, y: forest.y, afc: { ownerId: "p1" } }]);
+    clearForestAroundLandmarkTiles([{ x: forest.x, y: forest.y, afc: { ownerId: "p1" } }]);
+    expect(isForestTileAt(forest.x, forest.y)).toBe(false);
+  });
+
+  it("derives the same 3x3 clearing from a relic tile", () => {
+    setWorldSeed(77, "continents", 1);
+    const forest = findForestTile();
+    expect(clearForestAroundLandmarkTiles([{ x: forest.x - 1, y: forest.y + 1, naturalWonder: { type: "QUICKFORGE" } }])).toBe(true);
     expect(isForestTileAt(forest.x, forest.y)).toBe(false);
   });
 

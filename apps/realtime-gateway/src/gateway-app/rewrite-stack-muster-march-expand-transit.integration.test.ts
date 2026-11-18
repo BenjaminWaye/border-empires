@@ -53,14 +53,9 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
         // this fixture post-migration so that unrelated infrastructure repair
         // cannot alter the MARCH corridor while the test awaits its transit
         // action.
-        {
-          x: 10,
-          y: 11,
-          terrain: "LAND",
-          ownerId: "player-1",
-          ownershipState: "SETTLED",
-          afc: { ownerId: "player-1", status: "active", activatedAt: 1_000 }
-        },
+        // (10,11) is plain corridor land: a second AFC here would pull the
+        // neutral (10,12) into its 3×3 super tile (landmark-super-tile).
+        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 10, y: 12, terrain: "LAND", ownershipState: "FRONTIER" },
         { x: 10, y: 14, terrain: "LAND", ownershipState: "FRONTIER" }
       ],
@@ -121,7 +116,8 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
       expect.objectContaining({
         type: "ACTION_ACCEPTED",
         actionType: "EXPAND",
-        origin: { x: 10, y: 11 },
+        // Any AFC footprint tile beside the target is a valid origin (the AFC's 3×3 is one super tile).
+        origin: expect.objectContaining({ y: 11 }),
         target: { x: 10, y: 12 },
         transitEndsAt: expect.any(Number),
         musterOrigin: { x: 10, y: 10 }

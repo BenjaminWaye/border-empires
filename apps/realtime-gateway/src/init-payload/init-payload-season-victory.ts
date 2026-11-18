@@ -125,7 +125,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} coin/day`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gross coin/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? emptyResourceCounts();
     let bestResource: ResourceType | undefined;
@@ -226,10 +226,10 @@ export const buildSeasonVictoryObjectives = (
       leaderPlayerId = leader?.id;
       leaderName = leader?.name ?? "No leader";
       leaderValue = leader?.incomePerMinute ?? 0;
-      progressLabel = `${(leaderValue * 1440).toFixed(1)} coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+      progressLabel = `${(leaderValue * 1440).toFixed(1)} gross coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
       // Metropolitan Concession lowers its holder's required lead; the live broadcast uses the same rule.
       const leadMult = economicHegemonyLeadMultFor(leaderPlayerId ? snapshotBootstrap.players.get(leaderPlayerId)?.domainIds : undefined, SEASON_VICTORY_ECONOMY_LEAD_MULT);
-      thresholdLabel = `Need at least 1000 coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
+      thresholdLabel = `Need at least 1000 gross coin/day and ${Math.round((leadMult - 1) * 100)}% lead`;
       conditionMet = Boolean(
         leaderPlayerId &&
           runnerUp &&

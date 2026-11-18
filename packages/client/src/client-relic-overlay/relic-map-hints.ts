@@ -1,17 +1,15 @@
-import { parseRelicMapHints, isChosenTrickleResource, type ChosenTrickleResource, type RelicMapHint } from "@border-empires/shared";
+import { parseRelicMapHints, isChosenTrickleResource, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
 export interface RelicHintClientState {
   relicMapHints: Map<string, RelicMapHint>;
   tilesRevision: number;
   relicMapHintsRevision: number;
   chosenTrickleResource: ChosenTrickleResource | undefined;
-  imperialWardCharges: number | undefined;
   wonderLastFreeRushBuyAt: number | undefined;
 }
 /** The small shared progression fields have one typed wire boundary. */
 export function applyRelicAndProgressionUpdate(state: RelicHintClientState, message: Record<string, unknown>): void {
   if (isChosenTrickleResource(message.chosenTrickleResource)) state.chosenTrickleResource = message.chosenTrickleResource;
-  if (typeof message.imperialWardCharges === "number") state.imperialWardCharges = message.imperialWardCharges;
   if (typeof message.wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = message.wonderLastFreeRushBuyAt;
   if (!("relicMapHints" in message)) return;
   const next = new Map(parseRelicMapHints(message.relicMapHints).map(hint => [`${hint.x},${hint.y}`, hint]));
@@ -20,8 +18,18 @@ export function applyRelicAndProgressionUpdate(state: RelicHintClientState, mess
   state.tilesRevision += 1;
   state.relicMapHintsRevision += 1;
 }
-export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, x: number, y: number, size: number): void {
-  if (!hint) return;
+/**
+ * The anonymous transponder beam only stands in for a relic the player cannot
+ * see yet: once the tile itself carries the relic, the model is on the map and
+ * the beam is hidden. Survey signatures stay unless the relic there is depleted.
+ */
+export function shouldDrawRelicHint(hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined): hint is RelicMapHint {
+  if (!hint) return false;
+  if (!tile?.naturalWonder) return true;
+  return hint.kind !== "RELIC" && relicRemainingUses(tile.naturalWonder) !== 0;
+}
+export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number): void {
+  if (!shouldDrawRelicHint(hint, tile)) return;
   ctx.save();
   const cx = x + size / 2, cy = y + size / 2;
   if (hint.kind === "RELIC") {

@@ -2,7 +2,8 @@
 // version they were created with, so a change that alters an older version's
 // output silently reshapes maps that are already being played. The v1 and v9
 // hashes were taken from origin/develop before v10 landed; the v10 hash is the
-// "Map A" seed shown in the map feedback form.
+// "Map A" seed shown in the map feedback form. The v12 hash is production's
+// season-14 world.
 import { createHash } from "node:crypto";
 import { describe, expect, test } from "vitest";
 
@@ -25,7 +26,10 @@ describe.skipIf(WORLD_WIDTH !== 640 || WORLD_HEIGHT !== 320)("worldgen terrain p
   test.each([
     { seed: 2024, version: 1, expected: "0e3c200b7f9c2f24" },
     { seed: 2024, version: 9, expected: "0570666c087e61da" },
-    { seed: 200185, version: 10, expected: "0819519f876c07c3" }
+    { seed: 200185, version: 10, expected: "0819519f876c07c3" },
+    // Production season-14 world, taken before the lake per-tile re-check
+    // removal (PR #2807) so that speedup is proven not to reshape a live map.
+    { seed: 377720878, version: 12, expected: "6febd745ee1a075d" }
   ])("seed $seed at worldgen v$version keeps its map", ({ seed, version, expected }) => {
     expect(terrainHash(seed, version)).toBe(expected);
   }, 180_000);

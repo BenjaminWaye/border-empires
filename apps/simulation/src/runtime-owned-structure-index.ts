@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { BuildableStructureType } from "@border-empires/shared";
+import { isDepletedReclamationWorks, type BuildableStructureType } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 
 export function ownedStructureCountForPlayer(
@@ -42,6 +42,16 @@ export function adjustOwnedStructureCount(
   }
 }
 
+/**
+ * The type an economic structure counts as in the owned-structure index, or
+ * undefined when it counts as nothing: a depleted Reclamation Works stays on
+ * the map but is no longer a salvage site (no arms bonus, nothing to ship).
+ */
+export function indexedEconomicStructureType(tile: DomainTileState | undefined): BuildableStructureType | undefined {
+  if (!tile?.economicStructure || isDepletedReclamationWorks(tile)) return undefined;
+  return tile.economicStructure.type as BuildableStructureType;
+}
+
 export function refreshOwnedStructureCountIndexForTile(input: {
   previous: DomainTileState | undefined;
   next: DomainTileState;
@@ -67,9 +77,9 @@ export function refreshOwnedStructureCountIndexForTile(input: {
     if (nextSiegeOwner) adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_BATTERY", 1);
   }
   const prevEcoOwner = previous?.economicStructure?.ownerId;
-  const prevEcoType = previous?.economicStructure?.type as BuildableStructureType | undefined;
+  const prevEcoType = indexedEconomicStructureType(previous);
   const nextEcoOwner = next.economicStructure?.ownerId;
-  const nextEcoType = next.economicStructure?.type as BuildableStructureType | undefined;
+  const nextEcoType = indexedEconomicStructureType(next);
   if (prevEcoOwner !== nextEcoOwner || prevEcoType !== nextEcoType) {
     if (prevEcoOwner && prevEcoType) adjustOwnedStructureCount(prevEcoOwner, prevEcoType, -1);
     if (nextEcoOwner && nextEcoType) adjustOwnedStructureCount(nextEcoOwner, nextEcoType, 1);
@@ -92,7 +102,7 @@ export function weaponsFactoryCountsFromIndex(
   return {
     titanium: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "TITANIUM_WEAPONS_FACTORY"),
     umbrite: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "UMBRITE_WEAPONS_FACTORY"),
-    // Reclamation Works still holding loads (an emptied field loses its Works): drives the salvage arms bonus.
+    // Reclamation Works still holding loads (a depleted Works is not indexed): drives the salvage arms bonus.
     salvage: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "RECLAMATION_WORKS")
   };
 }

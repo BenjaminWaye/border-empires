@@ -54,7 +54,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "IMPERIAL_EXCHANGE_LEVY":
     case "AEGIS_LOCK":
     case "ASTRAL_DOCK_LAUNCH":
-    case "ACTIVATE_IMPERIAL_WARD":
     case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";
@@ -62,6 +61,8 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CHOOSE_DOMAIN":
     case "SET_AUTO_SETTLE_PREFS":
     case "NAME_ISLAND":
+    case "CHOOSE_HOUSE_CHARGES":
+    case "EXPLORE":
     case "UPGRADE_TOWN_TIER":
     case "WATCH_MUSTER":
     case "UNWATCH_MUSTER":

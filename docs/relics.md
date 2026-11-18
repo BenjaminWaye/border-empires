@@ -14,7 +14,11 @@ Seven of nine produces 36 possible family sets. Planet identity also varies
 through terrain, placement, reclamation allocations and the history of captured
 and depleted sites. Family sets can recur across a catalogue of 100+ planets.
 
-The center is the only capturable installation tile. New buildings cannot be
+The installation and its eight neighbors are one super tile: all nine share
+the center's owner and ownership state, and an attack, expand or garrison
+aimed at any of them acts on the center (its defenses and combat lock), so the
+site is won, garrisoned and lost as a whole. Towns, docks and non-land tiles
+left in an older footprint keep their own ownership. New buildings cannot be
 placed on the center or any of its eight neighbors. Garrisoning
 (SETTLED ownership) activates a surviving installation. Frontier ownership does
 not activate it. A banner shows the owner independently of the ground tint.

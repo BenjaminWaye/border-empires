@@ -1,6 +1,6 @@
 import { afcInstallationPreviews } from "../afc-specializations/afc-installation-previews.js";
 import { afcPlayerStatePayload, afcInstallAllowed } from "../afc-specializations/afc-player-state.js";
-import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
+import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, manifestGoldRequirement, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
 import { VISION_RADIUS, type ResourceSlotGrant, type SlotResource } from "@border-empires/shared";
@@ -401,7 +401,7 @@ export const buildTechUpdatePayload = (
   const domainChoices = openDomainChoices(domainIds, player);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds, player));
   const available = player.strategicResources ?? {};
-  const goldCost = techGoldCostForResearchedCount(player.techIds.size);
+  const goldRequirement = manifestGoldRequirement(player.techIds.size, player.wonderTechGoldDiscount ?? 0);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
     TITANIUM: available.TITANIUM ?? 0,
@@ -423,6 +423,7 @@ export const buildTechUpdatePayload = (
     incomePerMinute: options?.incomePerMinute ?? estimateIncomePerMinuteFromTiles(player.id, tiles),
     missions: [],
     gold: player.points,
+    manifestGoldDiscount: player.wonderTechGoldDiscount ?? 0,
     strategicResources,
     techCatalog: techTree.techs.map((tech) => ({
       id: tech.id,
@@ -434,9 +435,9 @@ export const buildTechUpdatePayload = (
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {
-        gold: goldCost,
+        ...goldRequirement,
         resources: toResources(tech.cost),
-        canResearch: techChoices.includes(tech.id) && player.points >= goldCost && hasResources(toResources(tech.cost), available)
+        canResearch: techChoices.includes(tech.id) && player.points >= goldRequirement.gold && hasResources(toResources(tech.cost), available)
       },
       // Lets the client show "already built" on a claimed monument's unlock tech (monument-uniqueness.ts) instead of a generic locked state.
       ...(!player.techIds.has(tech.id) && claimedMonumentTechIds.has(tech.id)

@@ -40,7 +40,9 @@ remain authoritative for runtime behavior.
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
 | HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
+| Explore: AFC scout drones replace Expand To on unexplored tiles (implemented) | [`explore-scout-plan.md`](explore-scout-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
@@ -100,6 +102,9 @@ dead-code and duplication cleanup and the remaining items in priority order.
 [`playtest-improvements-plan.md`](playtest-improvements-plan.md) tracks the
 Waypoint playtest follow-up: recovery, bulk garrison, muster controls, selection,
 manpower-panel clarity, and area-based Activity summaries.
+[`proposals/diplomacy-depth.md`](proposals/diplomacy-depth.md) lists options for
+deeper diplomacy from the November 2026 persona playtest (truce pricing, Envoy
+Accreditation, re-signing, reparations, AI voices, notes and presence).
 
 The [Garrison Many implementation record](archive/design-history-2026/garrison-many-implementation.md)
 preserves the completed bulk-selection work; current behavior lives in the

@@ -32,6 +32,8 @@ describe("capture structure survival — AFC", () => {
           tiles: [
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, // AFC footprint tile: an attack aimed here lands on the AFC (landmark-super-tile)
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, // AFC footprint tile: an attack aimed here lands on the AFC (landmark-super-tile)
             {
               x: 10,
               y: 10,
@@ -42,7 +44,7 @@ describe("capture structure survival — AFC", () => {
             },
             {
               x: 10,
-              y: 11,
+              y: 12,
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
@@ -68,7 +70,7 @@ describe("capture structure survival — AFC", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
-      const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+      const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 12);
       expect(capturedTile).toEqual(
         expect.objectContaining({
           ownerId: "player-1",
@@ -101,6 +103,8 @@ describe("capture structure survival — AFC", () => {
           tiles: [
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, // AFC footprint tile: an attack aimed here lands on the AFC (landmark-super-tile)
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, // AFC footprint tile: an attack aimed here lands on the AFC (landmark-super-tile)
             {
               x: 10,
               y: 10,
@@ -111,7 +115,7 @@ describe("capture structure survival — AFC", () => {
             },
             {
               x: 10,
-              y: 11,
+              y: 12,
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
@@ -135,7 +139,7 @@ describe("capture structure survival — AFC", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
-      const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
+      const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 12);
       const capturedAfc = capturedTile?.afcJson ? JSON.parse(capturedTile.afcJson) : undefined;
       // Reassigned to the winner (inaccessible to player-2, the original owner).
       expect(capturedTile?.ownerId).toBe("player-1");
@@ -162,8 +166,9 @@ describe("capture structure survival — AFC", () => {
         tiles: [
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, // AFC footprint tile: an attack aimed here lands on the AFC (landmark-super-tile)
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", afc: { ownerId: "player-2", status: "active", activatedAt: 0 } },
+          { x: 10, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", afc: { ownerId: "player-2", status: "active", activatedAt: 0 } },
           { x: 14, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 20, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
@@ -187,7 +192,7 @@ describe("capture structure survival — AFC", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
       const { runtime, events, player2Afcs, advance } = await captureLastAfc(false);
-      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("player-1");
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 12)?.ownerId).toBe("player-1");
       // AFC capture plunder: 33% of the defender's remaining 10,000 Coin on top of the normal pillage.
       const resolved = events.flatMap((event) => (event.eventType === "COMBAT_RESOLVED" && event.commandId === "capture-last-afc-1" ? [event] : []));
       expect(resolved[0]?.pillagedGold ?? 0).toBeGreaterThanOrEqual(3_000);

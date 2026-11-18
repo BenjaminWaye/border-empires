@@ -102,3 +102,28 @@ describe("stale yieldRate clearing on structure/resource/dock change (Phase 4)",
     expect(deps.state.tiles.get("3,3")?.yieldRate?.goldPerMinute).toBe(9);
   });
 });
+
+// Playtest 2026-11-12: the Towns table showed a town's old coin rate (0.0)
+// while its town card showed the new one, because the client-derived
+// yieldRate was only ever computed once per tile.
+describe("stale yieldRate clearing on town income change", () => {
+  const townJson = (goldPerMinute: number, isFed: boolean) => JSON.stringify({
+    name: "Durndelve", type: "MARKET", populationTier: "TOWN", population: 17_135, maxPopulation: 10_000_000,
+    baseGoldPerMinute: goldPerMinute, goldPerMinute, isFed, connectedTownCount: 0, connectedTownBonus: 0,
+    hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
+  });
+
+  it("re-derives a town tile's yieldRate when its coin rate changes", () => {
+    const deps = createDeps();
+    applyGatewayInitialState(deps, {
+      tiles: [{ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", townJson: townJson(0.002, true) }]
+    });
+    expect(deps.state.tiles.get("3,3")?.yieldRate?.goldPerMinute).toBe(0.002);
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 3, y: 3, townJson: townJson(6 / 1440, true) }]);
+    expect(deps.state.tiles.get("3,3")?.yieldRate?.goldPerMinute).toBeCloseTo(6 / 1440, 4);
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 3, y: 3, townJson: townJson(0, false) }]);
+    expect(deps.state.tiles.get("3,3")?.yieldRate).toBeUndefined();
+  });
+});

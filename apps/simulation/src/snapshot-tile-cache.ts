@@ -33,10 +33,10 @@ export type RuntimeState = {
     afcCoreTownKeys?: string[];
     afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
-    imperialWardCharges?: number;
     lifetimeGarrisons?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;
+    wonderTechGoldDiscount?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
@@ -48,6 +48,7 @@ export type RuntimeState = {
     townCount?: number;
     incomePerMinute?: number;
     afcEnvoyIncomePerMinute?: number;
+    integrityIncomePerMinute?: number;
     incomeMultiplier?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;

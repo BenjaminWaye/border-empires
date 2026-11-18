@@ -13,7 +13,10 @@ const makeState = (tilesRevision: number) => ({
   defensibilityPct: 50,
   settledT: 10,
   settledE: 4,
-  showWeakDefensibility: false
+  showWeakDefensibility: false,
+  incomePerMinute: 0,
+  upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
+  economyBreakdown: undefined
 });
 
 const dom = () => ({ panelDefensibilityEl: { innerHTML: "" } as HTMLElement });

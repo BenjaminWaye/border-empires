@@ -2,7 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
+import { musterFightIsClaim, musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 import { pickLocatorSlots } from "./client-persistent-alert-locator-slots.js";
 import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertState, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 
@@ -42,7 +42,7 @@ const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `T
 // ("Fighting at (x,y)", "Traveling"/"Planning next move — Ns") instead of
 // MARCH silently falling through to the generic "Holding" text a mode-only
 // check would give it.
-const musterLabel = (tile: Tile): string => {
+const musterLabel = (tile: Tile, state: Pick<ClientState, "me" | "tiles">): string => {
   const muster = tile.muster;
   if (!muster) return "";
   return musterStatusText({
@@ -57,6 +57,7 @@ const musterLabel = (tile: Tile): string => {
     nextActionAt: muster.nextActionAt,
     fightX: muster.fightX,
     fightY: muster.fightY,
+    fightClaim: musterFightIsClaim(muster, state.me, (x, y) => state.tiles.get(`${x},${y}`)),
     noTargetInRange: muster.noTargetInRange,
     insufficientManpower: muster.insufficientManpower,
     unfundableTarget: muster.unfundableTarget,
@@ -117,7 +118,7 @@ export const persistentAlertsForState = (
         id: `muster_active:${tile.x},${tile.y}`,
         kind: "muster_active",
         title: "Muster flag active",
-        detail: musterLabel(tile),
+        detail: musterLabel(tile, state),
         x: tile.x,
         y: tile.y,
         severity: "warn"

@@ -7,7 +7,7 @@
 // spreads, one crammed onto a single line (devQueue/waypointQueue, added as
 // a drive-by fix for PR #1640 without ever joining a real allowlist type),
 // and init-payload-reconnect-fields.ts's own separate allowlist (eventLog/
-// logisticsThroughputPerMinute/imperialWardCharges/wonderLastFreeRushBuyAt).
+// logisticsThroughputPerMinute/wonderLastFreeRushBuyAt).
 // None of those three were tied to PlayerStateSnapshot's field list by the
 // compiler -- exactly the drift shape that caused every incident this file
 // and subscription-snapshot-merge.ts exist to prevent (see
@@ -90,8 +90,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   waypointQueue: presentField("waypointQueue"),
   eventLog: presentField("eventLog"),
   logisticsThroughputPerMinute: numberField("logisticsThroughputPerMinute"),
-  imperialWardCharges: numberField("imperialWardCharges"),
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
+  manifestGoldDiscount: numberField("manifestGoldDiscount"),
   relicMapHints: presentField("relicMapHints"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state
@@ -106,7 +106,9 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
   resourceTradeHoldings: presentField("resourceTradeHoldings"),
   resourceTradeAgreements: presentField("resourceTradeAgreements"),
-  autoSettle: presentField("autoSettle")
+  autoSettle: presentField("autoSettle"),
+  // Server-held fog memory (explored-tiles-runs.ts); the client unions it into discoveredTiles on INIT.
+  exploredTiles: presentField("exploredTiles")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 
 export type ReconnectPassthroughFields = Partial<PlayerStateSnapshot>;

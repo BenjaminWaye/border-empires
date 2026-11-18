@@ -6,8 +6,8 @@ import { manpowerPerBatch } from "@border-empires/shared";
 import {
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
-  TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_REACH_LAND_TILES, REFINERY_SLOTS_PER_TILE,
-  isRefineryBoosterType, isRefineryType
+  TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE,
+  REFINERY_FIELD_RESOURCE_BY_TYPE, isRefineryBoosterType, isRefineryType, type RefineryBoosterType, type RefineryFieldResource
 } from "@border-empires/shared";
 import {
   EXCHANGE_GOLD_PER_SLOT_PER_DAY, MINISTRY_HALL_RADIUS, INCUBATION_ENGINE_ONGOING_GROWTH_MULT,
@@ -47,16 +47,18 @@ const manufactoryModifiers = (ctx: ModifierContext): StructureModifier[] => {
 
 // Refineries (refineries/, territory-development-plan.md Phase 2): each
 // processes one linked deposit field; boosters add to every processed tile of
-// their resource in the same town.
+// their resource in the same town. Labels name the slot resource yielded (the
+// GEMS tile resource is Crystal). The field's reach is a placement rule, shown in
+// the field picker, not something the building gives.
+const REFINERY_YIELD_NAME: Readonly<Record<RefineryFieldResource, string>> = { TITANIUM: "Titanium", UMBRITE: "Umbrite", GEMS: "Crystal" };
+const BOOSTER_YIELD_NAME: Readonly<Record<RefineryBoosterType, string>> = { TITANIUM_SMELTER: "Titanium", UMBRITE_DISTILLERY: "Umbrite", CRYSTAL_CUTTER: "Crystal" };
 const refineryModifiers = (type: string): StructureModifier[] => {
   if (isRefineryType(type)) {
-    return [
-      { statLabel: "Slots per garrisoned field tile", valueText: `+${REFINERY_SLOTS_PER_TILE}`, tone: "positive", isTownWide: false },
-      { statLabel: "Field reach (land tiles from the town)", valueText: `${REFINERY_REACH_LAND_TILES}`, tone: "positive", isTownWide: false }
-    ];
+    const name = REFINERY_YIELD_NAME[REFINERY_FIELD_RESOURCE_BY_TYPE[type]];
+    return [{ statLabel: `${name} slots per garrisoned field tile`, valueText: `+${REFINERY_SLOTS_PER_TILE}`, tone: "positive", isTownWide: false }];
   }
   if (isRefineryBoosterType(type)) {
-    return [{ statLabel: "Slots per processed field tile (town refineries)", valueText: `+${REFINERY_BOOSTER_SLOTS_PER_TILE}`, tone: "positive", isTownWide: true }];
+    return [{ statLabel: `${BOOSTER_YIELD_NAME[type]} slots per processed field tile`, valueText: `+${REFINERY_BOOSTER_SLOTS_PER_TILE}`, tone: "positive", isTownWide: true }];
   }
   return [];
 };

@@ -6,11 +6,9 @@ import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
-import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
@@ -61,6 +59,7 @@ import { applyInitMessage } from "../client-network-init-message/client-network-
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
+import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld } from "../client-alliance/client-met-players.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -1432,7 +1431,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       appendFeedEntry({
         text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
         type: "combat",
-        severity: "error",
+        severity: "error", feedOnly: true,
         at: Date.now(),
         focusX: x,
         focusY: y,
@@ -1487,7 +1486,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) { state.queuedTargetKeys.delete(cancelledCurrentKey); clearOptimisticTileState(cancelledCurrentKey, true); }
       state.autoSettleTargets.clear(); state.autoBuildTargets.clear();
-      pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
+      pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "info");
       renderHud();
       return;
     }
@@ -1965,9 +1964,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      // Harmless: dev/waypoint-queue mirroring re-sends an enqueue the server
-      // already has (dedup); a real full queue is already prevented client-side.
-      if (errorCode === "DEV_QUEUE_FULL" || errorCode === "WAYPOINT_QUEUE_FULL") return;
+      // Queue-mirror dedup and rate-limit backoff: handled silently, never a popup.
+      if (handleSilentServerError(ws, errorCode, msg as Record<string, unknown>)) return;
       if (errorCode === "DISPLAY_NAME_LIMIT") {
         state.pendingDisplayNameChange = "";
         pushFeed(errorMessage, "error", "warn");
@@ -2099,7 +2097,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); renderHud(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";
@@ -2173,7 +2171,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             state.lastDevelopmentAttempt = undefined;
           }
           state.queuedDevelopmentDispatchPending = false;
-          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} coin.`;
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${spendableCoin(state.gold)} coin.`;
           showCaptureAlertSafely("Insufficient coin", goldDetail, "warn");
         }
       } else if (errorCode === "INSUFFICIENT_SLOT") {
@@ -2386,7 +2384,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
-      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); state.metPlayerIds.clear(); state.metPlayersScannedRevision = -1; } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
+      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); clearMetPlayersForNewWorld(state); } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();
@@ -2406,11 +2404,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       requestViewRefresh(1, true);
       renderHud();
       return;
-    }
-
-    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
-      applyAbilityResultMessage(state, msg);
-      renderHud();
     }
     } catch (error) {
       console.error("[client-network] unhandled message processing error", error, { msgType: msg?.type });

@@ -5,7 +5,7 @@ import type { CurrentSeasonSummary } from "@border-empires/sim-protocol";
 // flip happens inside the simulation (see maybeActivatePendingSeason /
 // recomputeAndPersistCurrentSummary), this timer only detects it and drives
 // the gateway-side start-of-season email, mirroring how the existing manual
-// START_NEW_SEASON / imperial-ward auto-start paths call notifySeasonStarted
+// START_NEW_SEASON path calls notifySeasonStarted
 // after simulationClient.startNextSeason resolves.
 export type PendingSeasonNotifyTimerDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;

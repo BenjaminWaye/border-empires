@@ -175,9 +175,9 @@ export const applyCommonTileFields = (
     if (normalizedUpdate.afc) merged.afc = normalizedUpdate.afc;
     else delete merged.afc;
   }
-  // An AFC clears forest from its 3x3 landing footprint (forest-clearing.ts
+  // An AFC or relic clears forest from its 3x3 footprint (forest-clearing.ts
   // in @border-empires/shared); derived here rather than sent on the wire.
-  if (merged.afc) clearForestAroundAfcTile(merged.x, merged.y);
+  if (merged.afc || merged.naturalWonder) clearForestAroundAfcTile(merged.x, merged.y);
   // Towns and docks never stand in a forest -- same derive-don't-send rule.
   clearForestOnTownOrDockTile(merged);
   if ("yieldRate" in normalizedUpdate) {

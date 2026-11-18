@@ -12,7 +12,8 @@ import {
   SRGBColorSpace,
   Vector3
 } from "three";
-import { drawResourceIconOnCanvas, whenResourceIconReady, type ResourceIconKey } from "../client-resource-icons/client-resource-icons.js";
+import { drawResourceIconOnCanvas, resourceIconGlyph, whenResourceIconReady, type ResourceIconKey } from "../client-resource-icons/client-resource-icons.js";
+import type { SlotResource } from "@border-empires/shared";
 
 // 3D parity for the 2D unfed-town badge, generalized: originally hardcoded to `tile.town &&
 // !tile.town.isFed` with a fixed food emoji, now parameterized by icon so
@@ -274,4 +275,10 @@ export const createResourceBadgeOverlay = (
   };
 
   return { group, clear, addInstance, commit, tick, dispose };
+};
+
+/** §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets the titanium icon while an unfed town still gets food. */
+export const createSlotResourceBadgeOverlays = (scene: Scene, maxInstances: number): Record<SlotResource, ResourceBadgeOverlay> => {
+  const slotResourceBadge = (key: SlotResource): ResourceBadgeOverlay => createResourceBadgeOverlay(scene, maxInstances, resourceIconGlyph(key), { iconKey: key });
+  return { FOOD: slotResourceBadge("FOOD"), TITANIUM: slotResourceBadge("TITANIUM"), CRYSTAL: slotResourceBadge("CRYSTAL"), UMBRITE: slotResourceBadge("UMBRITE") };
 };

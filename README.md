@@ -112,7 +112,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
 - Town resource surveys open a popup that stays until dismissed. Dismissals are remembered across reloads in the same browser for each player and season; new survey reports can still appear. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
-- Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
+- Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups; the map shows each win or loss. A MARCH step onto unclaimed land reads "Claiming (x, y)", not "Fighting".
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - Established sessions reconnect in place through server updates without an automatic page refresh. A reconnect restarts after a minute without login or initial-session download progress; active queue and download updates extend that deadline.
 - The existing town-first checklist highlights town and food objectives directly in both map renderers. New worlds require 50 food-and-town-qualified starter sites; see [the opening contract](docs/product/new-player-opening.md) for distances and late-join limits.
@@ -382,6 +382,7 @@ Full deploy procedures, first-time client provisioning and DNS cutover are docum
 | `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). Also the signing key for read-only agent tokens minted from the Google-signed-in `/admin` page (see `docs/AI_DEBUGGING.md`); rotating it revokes them all. |
 | `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
+| `GATEWAY_EMAIL_UNSUBSCRIBE_SECRET` | *(derived from the Resend key)* | Signs the login-free unsubscribe links (`/email/unsubscribe`) and `List-Unsubscribe` headers in gameplay emails. Set it so rotating the Resend key does not invalidate links in already-sent emails |
 
 See `.env.example` for a copyable local-dev template of these.
 

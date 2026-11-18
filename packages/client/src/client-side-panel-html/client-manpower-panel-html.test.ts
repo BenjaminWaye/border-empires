@@ -51,7 +51,7 @@ describe("renderManpowerPanelHtml next batch headline", () => {
 
   it("tucks the explainer behind a collapsed toggle", () => {
     const html = renderManpowerPanelHtml({ ...baseArgs, musterFlags: [] });
-    expect(html).toMatch(/<details class="manpower-info" data-manpower-info>\s*<summary[^>]*>.*How manpower works<\/summary>\s*<div[^>]*>Manpower gates attacks\./s);
+    expect(html).toMatch(/<details class="manpower-info" data-manpower-info>\s*<summary[^>]*>.*How manpower works<\/summary>\s*<div[^>]*>Manpower pays for every claim, garrison, build and attack\./s);
   });
 
   it("says Full or Paused in the callout instead of a countdown", () => {

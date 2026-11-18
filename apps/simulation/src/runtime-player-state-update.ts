@@ -47,8 +47,8 @@ export type RuntimePlayerStateUpdateContext = {
  * cached economy/defensibility snapshots, storage cap (only included in the
  * payload when it changed since the last emission), and settlement/dev-slot
  * state. Defensibility is computed before the economy snapshot so the latter
- * can read the warm defensibility cache for its integrity multiplier without
- * triggering its own rebuild.
+ * finds the defensibility cache warm for its integrity multiplier (it would
+ * otherwise rebuild it itself; runtime-economy.ts integrityEconMultForPlayer).
  */
 export function emitPlayerStateUpdate(
   context: RuntimePlayerStateUpdateContext,

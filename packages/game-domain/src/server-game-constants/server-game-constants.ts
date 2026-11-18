@@ -260,10 +260,6 @@ export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_GOLD_COST = 1_000;
-// Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
-// no cooldown between charges — a player can burn all 3 back-to-back.
-export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;
-export const IMPERIAL_WARD_CHARGES_GRANTED = 3;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 0; // §17: free
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0; // §17: free, no ongoing upkeep either
 export const SURVEY_SWEEP_CRYSTAL_COST = 0; // §17: free
@@ -378,9 +374,10 @@ export const GALAXY_OUTPOST_PROGRESS_THRESHOLD = 0.5;
 // floor (and who didn't qualify for an Outpost) gets a Stipend; a player at
 // exactly 0 (never engaged with any objective) gets no galactic record.
 export const GALAXY_STIPEND_MIN_PROGRESS = 0;
-// Stipend payout formula (§13): (10 × progress) Inf + (40 × progress) Prod.
+// Stipend payout: (10 × progress) Influence, paid once into the galaxy
+// Influence bank. No Production: galactic Production is a per-territory daily
+// build rate, and a Stipend comes with no territory.
 export const GALAXY_STIPEND_INFLUENCE_PER_PROGRESS = 10;
-export const GALAXY_STIPEND_PRODUCTION_PER_PROGRESS = 40;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",

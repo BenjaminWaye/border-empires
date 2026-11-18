@@ -55,4 +55,16 @@ describe("depleted precursor salvage", () => {
       expect(deps.state.tiles.get("4,7")?.resource).toBeUndefined();
     });
   }
+  it("keeps the depleted Reclamation Works when the field clears", () => {
+    const deps = createDeps();
+    deps.state.tiles.set("4,7", {
+      x: 4, y: 7, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", detailLevel: "full", resource: "PRECURSOR_SALVAGE",
+      economicStructure: { ownerId: "me", type: "RECLAMATION_WORKS", status: "active", salvageLoadsShipped: 2 }
+    });
+    const works = { ownerId: "me", type: "RECLAMATION_WORKS", status: "active", salvageLoadsShipped: 3 };
+    applyGatewayTileDeltaBatch(deps, [{ x: 4, y: 7, ownerId: "me", ownershipState: "SETTLED", resource: "", economicStructureJson: JSON.stringify(works) }]);
+    const tile = deps.state.tiles.get("4,7");
+    expect(tile?.resource).toBeUndefined();
+    expect(tile?.economicStructure).toMatchObject({ type: "RECLAMATION_WORKS", salvageLoadsShipped: 3 });
+  });
 });

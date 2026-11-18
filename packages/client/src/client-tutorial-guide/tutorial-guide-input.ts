@@ -18,7 +18,9 @@ import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -47,6 +49,13 @@ export type GuideInputState = Pick<
   | "gold"
   | "strategicResources"
   | "pendingDomainUnlockId"
+  | "serverReach"
+  | "serverReachRevision"
+  | "manpower"
+  | "manpowerCap"
+  | "scoutDroneFlight"
+  | "afcRecovery"
+  | "discoveredTiles"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -60,6 +69,8 @@ type TileScan = {
   ownsBuiltStructure: boolean;
   ownsRelayBeacon: boolean;
   ownsMusterFlag: boolean;
+  /** Manifests a Waystation granted this player for free (its TECH effect): owned, but never commissioned. */
+  waystationGiftTechIds: Set<string>;
   buildTargetTiles: Array<{ x: number; y: number }>;
   musterTargetTiles: Array<{ x: number; y: number }>;
 };
@@ -94,10 +105,14 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
   let ownsMusterFlag = false;
   let manufactoryInstalled = false;
   let rivalHouseMet = false;
+  const waystationGiftTechIds = new Set<string>();
   const buildCandidates: Array<{ x: number; y: number }> = [];
   const musterCandidates: Array<{ x: number; y: number }> = [];
   for (const tile of tiles.values()) {
     if (isMeetablePlayerId(tile.ownerId, me)) rivalHouseMet = true;
+    // The activation record stays on the tile, whoever owns it now.
+    const waystation = tile.waystation;
+    if (waystation?.activated && waystation.activatedByPlayerId === me && waystation.grantedTechId) waystationGiftTechIds.add(waystation.grantedTechId);
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
@@ -118,6 +133,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     ownsBuiltStructure,
     ownsRelayBeacon,
     ownsMusterFlag,
+    waystationGiftTechIds,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
     musterTargetTiles: nearest(musterCandidates, MAX_MUSTER_TARGETS)
   };
@@ -132,6 +148,7 @@ let cached:
   | {
       revision: number;
       chunks: number;
+      reachKey: string;
       me: string;
       footholdSaved: boolean;
       checklist: OnboardingChecklistState;
@@ -148,6 +165,29 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
   if (ownsRelayBeacon) return undefined;
   const [site] = bestRelayBeaconSites(tiles, me, { reach: computeLocalReachSet(tiles, me), limit: 1 });
   return site ? { x: site.x, y: site.y } : undefined;
+};
+
+// The explore target scans rings of discoveredTiles around home. A drone flight grows that set
+// without touching tiles, so it is cached on the set's size and home, not on the tiles revision.
+let exploreCache: { size: number; homeKey: string; value: { x: number; y: number } | undefined } | undefined;
+
+// Distinct drone flights seen this session (by launch time), per player, capped: after
+// GUIDE_EXPLORE_MAX_FLIGHTS the town and food steps stop asking for Explore.
+let flightsSeen: { me: string; launches: Set<number> } = { me: "", launches: new Set() };
+
+const scoutFlightsOf = (state: GuideInputState): number => {
+  if (flightsSeen.me !== state.me) flightsSeen = { me: state.me, launches: new Set() };
+  const flight = state.scoutDroneFlight;
+  if (flight && flightsSeen.launches.size < GUIDE_EXPLORE_MAX_FLIGHTS) flightsSeen.launches.add(flight.launchedAt);
+  return flightsSeen.launches.size;
+};
+
+const exploreTargetOf = (state: GuideInputState): { x: number; y: number } | undefined => {
+  const homeKey = state.homeTile ? tileKey(state.homeTile.x, state.homeTile.y) : "";
+  if (!exploreCache || exploreCache.size !== state.discoveredTiles.size || exploreCache.homeKey !== homeKey) {
+    exploreCache = { size: state.discoveredTiles.size, homeKey, value: guideExploreTarget(state.discoveredTiles, state.homeTile) };
+  }
+  return exploreCache.value;
 };
 
 /** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
@@ -176,25 +216,33 @@ const foodSlotFreeFor = (state: GuideInputState): boolean => {
   return (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= needed;
 };
 
+/** Towns and food to point at; food only inside reach (the server's border once a REACH_UPDATE has arrived). */
+const footholdTargetsFor = (state: GuideInputState): GuideFootholdTargets => {
+  const reach = resolveMyReach(state);
+  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)));
+};
+
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   const footholdSaved = footholdStepsSaved(state.authEmail);
   if (
     !cached ||
     cached.revision !== state.tilesRevision ||
     cached.chunks !== state.chunkFullCount ||
+    cached.reachKey !== serverReachKey(state) ||
     cached.me !== state.me ||
     cached.footholdSaved !== footholdSaved
   ) {
     cached = {
       revision: state.tilesRevision,
       chunks: state.chunkFullCount,
+      reachKey: serverReachKey(state),
       me: state.me,
       footholdSaved,
       // Judged from the live tiles, not the checklist's account-wide saved flag, until the guide's
       // own foothold steps are saved; then a constant DONE, so later chapters skip the reach scan.
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
-      footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
+      footholdTargets: footholdTargetsFor(state),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
@@ -209,7 +257,9 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     openPanel,
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
-    manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
+    // A Waystation's free Manifest isn't one the player commissioned: it must not tick the Manifest steps.
+    manifestCount: state.techIds.filter((id) => id !== state.techRootId && !current.scan.waystationGiftTechIds.has(id)).length,
+    ...manifestPriceOf(state),
     manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
     manufactoryUnlocked: cached.scan.manufactoryInstalled,
     afcUpgradeReady: readyAfcUpgradeCount(state) > 0,
@@ -226,11 +276,26 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     buildTargetTiles: cached.scan.buildTargetTiles,
     musterUnlocked: cached.musterUnlocked,
     ownsMusterFlag: cached.scan.ownsMusterFlag,
-    musterTargetTiles: cached.scan.musterTargetTiles
+    musterTargetTiles: cached.scan.musterTargetTiles,
+    manpower: { current: state.manpower, cap: state.manpowerCap },
+    // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
+    scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
+    exploreTarget: () => exploreTargetOf(state),
+    scoutFlights: scoutFlightsOf(state),
+    // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
+    nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };
+};
+
+/** Every Manifest costs the same at a given moment, so the recommended one's catalog price is the next Manifest's. */
+const manifestPriceOf = (state: GuideInputState): Pick<GuideInput, "manifestPrice"> => {
+  const cost = state.techCatalog.find((t) => t.id === RECOMMENDED_FIRST_MANIFEST_ID)?.requirements.gold;
+  return typeof cost === "number" ? { manifestPrice: { cost, coin: state.gold } } : {};
 };
 
 /** Test-only: drops the per-revision tile-scan cache. */
 export const resetGuideInputCacheForTests = (): void => {
   cached = undefined;
+  exploreCache = undefined;
+  flightsSeen = { me: "", launches: new Set() };
 };

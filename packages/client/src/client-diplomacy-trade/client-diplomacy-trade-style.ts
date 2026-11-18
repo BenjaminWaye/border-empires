@@ -41,6 +41,7 @@ export const diplomacyTradeStyles = `
     font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
   }
   .diplomacy-trade-war ul { margin: 0; padding: 0; list-style: none; }
+  .diplomacy-trade-war-weight { margin: 4px 0 0; font-size: 12px; }
   .diplomacy-trade-war li span {
     display: inline-block; min-width: 32px; color: var(--sp-parchment-100, #f2e8d3);
     font: 600 12px/1.6 var(--sp-font-mono, "Space Mono", monospace);
@@ -69,6 +70,7 @@ export const diplomacyTradeStyles = `
   }
   .diplomacy-trade-subhead:first-of-type { margin-top: 0; }
   .diplomacy-trade-kinds { display: grid; gap: 6px; }
+  .diplomacy-trade-allied-note { margin: 0; font-size: 13px; color: var(--sp-parchment-muted, #bda880); }
   .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-suggest {
     min-height: 40px; padding: 8px 12px;
     border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 6px;
@@ -179,6 +181,9 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-verdict[data-tone="good"] { border-left: 3px solid #7fb069; }
   .diplomacy-trade-verdict[data-tone="bad"] { border-left: 3px solid #c8643c; }
   .diplomacy-trade-verdict[data-tone="neutral"] { border-left: 3px solid var(--sp-brass-500, #b8862f); }
+  .diplomacy-resource-limit { margin: 0 0 8px; color: var(--sp-parchment-muted, #bda880); font: 400 12px/1.4 var(--sp-font-mono, "Space Mono", monospace); }
+  .diplomacy-resource-limit[data-tone="warn"] { color: var(--sp-brass-300, #d9ad52); }
+  .diplomacy-resource-limit[data-tone="bad"] { color: #e08a64; }
   .diplomacy-trade-suggest { display: block; width: 100%; margin-bottom: 12px; }
   .diplomacy-trade-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .diplomacy-trade-actions button { flex: 1; }

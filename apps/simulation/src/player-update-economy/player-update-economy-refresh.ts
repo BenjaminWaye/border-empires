@@ -21,7 +21,9 @@ export const refreshTownEconomyFields = (
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys?: ReadonlySet<string>,
   connectedClearingHouseKeys?: readonly string[],
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  // The town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey); undefined leaves the field as it is.
+  foodSlotDemand?: number
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
@@ -62,7 +64,8 @@ export const refreshTownEconomyFields = (
     town.terrainProfile === terrainProfile.id &&
     Boolean(town.coastal) === coastal &&
     (town.firstThreeTownGoldMult ?? 1) === firstThreeTownGoldMult &&
-    (town.firstThreeTownPopGrowthMult ?? 1) === firstThreeTownPopGrowthMult
+    (town.firstThreeTownPopGrowthMult ?? 1) === firstThreeTownPopGrowthMult &&
+    (foodSlotDemand === undefined || town.foodSlotDemand === foodSlotDemand)
   ) {
     return town;
   }
@@ -73,6 +76,7 @@ export const refreshTownEconomyFields = (
     ...(coastal ? { coastal: true } : {}),
     goldPerMinute,
     isFed,
+    ...(foodSlotDemand !== undefined ? { foodSlotDemand } : {}),
     ...(firstThreeTownGoldMult !== 1 ? { firstThreeTownGoldMult } : {}),
     ...(firstThreeTownPopGrowthMult !== 1 ? { firstThreeTownPopGrowthMult } : {})
   };

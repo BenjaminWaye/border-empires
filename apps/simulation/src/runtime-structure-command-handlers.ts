@@ -23,6 +23,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
 import { type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { releaseQueuedBuildReservation } from "./dev-queue-build-release/dev-queue-build-release.js";
 import { multiplicativeEffectForPlayer, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
@@ -312,14 +313,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery?.ownerId === command.playerId);
   // A fortification (Palisade or any Fort tier, all in tile.fort) may share a
-  // tile with a Relay Beacon or a Harbor Exchange (HARBOR_EXCHANGE): a fort
-  // build ignores either one in economicStructure, and a Relay Beacon build
-  // ignores an existing fortification.
-  const economicConflict = !!target.economicStructure &&
-    !(buildingFort &&
-      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "HARBOR_EXCHANGE"));
+  // tile with any building -- every economic structure and an Aether Tower --
+  // in either build order; only a siege engine excludes it (a fort build
+  // ignores economicStructure/observatory, and those builds ignore tile.fort).
+  // A Relay Beacon is the one outpost that may share a fortified tile.
+  const economicConflict = !!target.economicStructure && !buildingFort;
+  const observatoryConflict = !!target.observatory && !buildingFort;
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
-  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeBattery || economicConflict || fortConflict)) {
+  if (!upgrading && !sameFamilyUpgrade && (observatoryConflict || target.siegeBattery || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }
@@ -362,6 +363,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   const fortCharge = fortTier ? fortBuildManpowerCharge(actor, fortTier.variant, target.fort?.variant, manpowerCost) : undefined;
   manpowerCost = fortCharge ? fortCharge.manpower : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
+  // A client-dispatched queued build pays from its own dev-queue hold, once (dev-queue-build-release.ts).
+  if (context.summaryForPlayer) releaseQueuedBuildReservation(context.summaryForPlayer(actor.id), actor, simulationTileKey(payload.x, payload.y), structureType);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;

@@ -35,7 +35,7 @@ describe("buildManpowerPanelMusterFlags", () => {
       MANPOWER_CAP,
       new Map()
     );
-    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "HOLD", targetX: undefined, targetY: undefined }]);
+    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, cap: 150, mode: "HOLD", targetX: undefined, targetY: undefined }]);
   });
 
   it("returns an empty list when no tiles have a muster flag", () => {
@@ -58,7 +58,7 @@ describe("buildManpowerPanelMusterFlags", () => {
       MANPOWER_CAP,
       new Map()
     );
-    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "ADVANCE", targetX: 9, targetY: 10 }]);
+    expect(flags).toEqual([{ x: 5, y: 6, amount: 50, cap: 150, mode: "ADVANCE", targetX: 9, targetY: 10 }]);
   });
 });
 
@@ -117,5 +117,18 @@ describe("wireManpowerPanel explainer toggle", () => {
     reopened.open = false;
     reopened.dispatchEvent(new Event("toggle"));
     expect(manpowerInfoHtml()).not.toContain("data-manpower-info open");
+  });
+});
+
+describe("march claim status in the flag list", () => {
+  it("marks an in-flight step onto unowned land as a claim", () => {
+    const neutral = { x: 6, y: 6, terrain: "LAND", fogged: false } as Tile;
+    const enemy = { x: 7, y: 6, terrain: "LAND", ownerId: "rival", fogged: false } as Tile;
+    const byKey = new Map([["6,6", neutral], ["7,6", enemy]]);
+    const tileAt = (x: number, y: number) => byKey.get(`${x},${y}`);
+    const [claim] = buildManpowerPanelMusterFlags([tile({ muster: { mode: "MARCH", inFlight: true, fightX: 6, fightY: 6 } })], "me", MANPOWER_CAP, MANPOWER_CAP, new Map(), tileAt);
+    const [fight] = buildManpowerPanelMusterFlags([tile({ muster: { mode: "MARCH", inFlight: true, fightX: 7, fightY: 6 } })], "me", MANPOWER_CAP, MANPOWER_CAP, new Map(), tileAt);
+    expect(claim?.fightClaim).toBe(true);
+    expect(fight?.fightClaim).toBeUndefined();
   });
 });

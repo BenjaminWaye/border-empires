@@ -5,16 +5,13 @@ import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featuresPart } from "./client-activity-dashboard-features.js";
 import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
+import { supplyEndedCardText } from "./client-activity-dashboard-supply-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
+import { scoutFindingsText } from "../client-scout-drone/client-scout-drone-state.js";
 
 export type { PlayerNameLookup };
 
-const timeLabel = (occurredAt: number): string => {
-  const date = new Date(occurredAt);
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-};
+import { relativeDayTimeLabel } from "./client-activity-dashboard-time.js";
 
 // An AI player's ClientState.playerNames entry is its diplomacy name (see
 // client-owner-name.ts), so AI display names come from the leaderboard's live
@@ -37,13 +34,19 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
 export type TechNameLookup = (techId: string) => string | undefined;
 
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
-  const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
+  const tiles = `${card.tileCount} tile${card.tileCount === 1 ? "" : "s"}`;
+  const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  // A loss names who took the land, in a sentence: "Lost 12 tiles to Konrad".
   const text = card.direction === "GAINED"
-    ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed${counterparty}`
-    : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
+    ? `+${tiles} claimed${other ? ` (${other})` : ""}`
+    : `Lost ${tiles}${other ? ` to ${other}` : ""}`;
   const owner = card.direction === "LOST" ? "your" : card.counterpartyPlayerId ? "their" : undefined;
-  const lostWith = featuresPart(card.features, owner);
-  return lostWith ? `${text} · ${lostWith}` : text;
+  // A lost AFC leads the row: as a trailing "incl." feature playtesters missed it and read the loss as a town's.
+  const lostAfcs = card.direction === "LOST" ? (card.features ?? []).reduce((sum, feature) => sum + (feature.kind === "AFC" ? feature.count : 0), 0) : 0;
+  const features = lostAfcs > 0 ? card.features?.filter((feature) => feature.kind !== "AFC") : card.features;
+  const lead = lostAfcs > 0 ? `Lost your AFC${lostAfcs > 1 ? ` ×${lostAfcs}` : ""} (Automated Fabrication Complex, not a town)${other ? ` to ${other}` : ""} · ${tiles}` : text;
+  const lostWith = featuresPart(features, owner);
+  return lostWith ? `${lead} · ${lostWith}` : lead;
 };
 
 const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>, techName: TechNameLookup): string => {
@@ -59,9 +62,14 @@ const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTAT
 const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>, playerNames: PlayerNameLookup): string => {
   const town = card.townName ?? card.townTier.toLowerCase();
   const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "TOWN_LOST" && card.lostToStrike && counterparty) {
+    return `Lost ${town} in a strike by ${counterparty} · ${card.townSurvived ? "left unclaimed" : "settlement razed"}`;
+  }
   const outcome = card.kind === "TOWN_CAPTURED"
     ? `Captured ${town}${counterparty ? ` from ${counterparty}` : ""}`
     : `Lost ${town}${counterparty ? ` to ${counterparty}` : ""}`;
+  // No captor (abandoned, cut off, struck down): it was left unclaimed. Say so as it was then, not as it is now.
+  if (card.kind === "TOWN_LOST" && !counterparty && card.townSurvived) return `Lost ${town} · left unclaimed`;
   const aftermath = card.townSurvived ? `${roundedAmount(card.populationAfter)} population remaining` : "settlement razed";
   return `${outcome} · ${aftermath}`;
 };
@@ -72,6 +80,14 @@ const dockCardText = (card: Extract<PersonalActivityCard, { kind: "DOCK_CAPTURED
   return `Lost your Dock${counterparty ? ` to ${counterparty}` : ""}`;
 };
 
+const musterCardText = (card: Extract<PersonalActivityCard, { kind: "MUSTER_CAPTURED" | "MUSTER_LOST" }>, playerNames: PlayerNameLookup): string => {
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "MUSTER_LOST") return `Lost muster flag${counterparty ? ` to ${counterparty}` : ""} · −${roundedAmount(card.amount)} manpower`;
+  const gained = card.gained ?? card.amount;
+  const capped = gained < card.amount ? ` (${roundedAmount(card.amount)} on flag, at cap)` : "";
+  return `Captured muster flag${counterparty ? ` from ${counterparty}` : ""} · +${roundedAmount(gained)} manpower${capped}`;
+};
+
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
   const parts = [`${structureDisplayName(card.structureType)} completed`];
   if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} coin`);
@@ -79,8 +95,15 @@ const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_
   return parts.join(" · ");
 };
 
+// A scout drone's flight (docs/explore-scout-plan.md): what it saw on the way.
+const scoutReportCardText = (card: Extract<PersonalActivityCard, { kind: "SCOUT_REPORT" }>, playerNames: PlayerNameLookup): string => {
+  const found = scoutFindingsText(card, (id) => nameOf(id, playerNames));
+  const turned = card.blockedByPlayerId ? ` · turned back at ${nameOf(card.blockedByPlayerId, playerNames)}'s border` : "";
+  return `Scout drone ${found ? `found ${found}` : "found nothing new"}${turned}`;
+};
+
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
-export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
+export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined, nowMs: number = Date.now()): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
   if (card.kind === "COMBAT_GROUP") return combatGroupCardText(card, playerNames);
   if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
@@ -88,19 +111,24 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
+  if (card.kind === "MUSTER_CAPTURED" || card.kind === "MUSTER_LOST") return musterCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
-  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
+  if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
+  if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
+  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames, nowMs);
+  if (card.kind === "SUPPLY_ENDED") return supplyEndedCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true
   // rather than misreading it as a truncation note.
   return "Activity on your territory";
 };
 
-export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
+/** "00:45" today; a row from another day names it ("yesterday 00:45", "Sun 00:45"). */
+export const activityCardTimeLabel = (card: PersonalActivityCard, nowMs: number = Date.now()): string => relativeDayTimeLabel(card.occurredAt, nowMs);
 
-/** Map events carry a location; the truncation note and diplomacy rows (between empires, not on a tile) never do. */
+/** Map events carry a location; the truncation note, diplomacy and supply rows (between empires, not on a tile) never do. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
-  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" ? undefined : { x: card.x, y: card.y };
+  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" || card.kind === "SUPPLY_ENDED" ? undefined : { x: card.x, y: card.y };
 
 /** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
 export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {

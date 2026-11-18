@@ -96,7 +96,7 @@ const meta: Meta<Args> = {
     showHill: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 4, max: 40, step: 2 } },
     cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } },
-    style: { control: "inline-radio", options: ["dirt", "brick"] }
+    style: { control: "inline-radio", options: ["dirt", "brick", "shadow"] }
   },
   args: { showHill: true, cameraDistance: 12, cameraTilt: 0.55, style: "dirt" },
   render

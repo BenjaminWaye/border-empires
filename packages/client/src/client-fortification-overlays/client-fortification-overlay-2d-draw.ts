@@ -18,6 +18,7 @@ import {
   type FortificationOverlayDeps,
   type FortificationOverlayKind
 } from "./client-fortification-overlays.js";
+import { drawFortPerimeterWall2D, fortPerimeterCoverage } from "../client-fort-perimeter/client-fort-perimeter.js";
 
 // Which structure record a fortification overlay kind is built from; undefined for
 // kinds that have no construction rendering yet (siege camps).
@@ -84,6 +85,7 @@ export const drawTileFortificationOverlays2D = (
   epochMs: number = Date.now(),
   remembered = false
 ): void => {
+  if (!remembered && deps.perimeterWallState) drawFortPerimeterWall2D(ctx, tile, fortPerimeterCoverage(deps.perimeterWallState), px, py, size);
   const kind = fortificationOverlayKindForTile(tile);
   if (!kind) return;
   drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, epochMs, remembered);
