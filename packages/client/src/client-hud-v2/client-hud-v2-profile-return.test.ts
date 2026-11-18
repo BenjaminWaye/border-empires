@@ -52,6 +52,25 @@ describe("profile return", () => {
     expect(state.activePlayerProfileId).toBeUndefined();
   });
 
+  // Regression: a profile opened from a deal's header closed back to the empire list, losing the deal.
+  it("closes back to the deal it was opened from", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    state.playerNames.set("p2", "Rival");
+    const deps = depsFor(state);
+    openScreen(deps, "diplomacy", { diplomacyTarget: "p2" });
+    const link = document.querySelector<HTMLElement>(".v2d-deal-profile-link");
+    expect(link?.dataset.hudV2Profile).toBe("p2");
+    state.activePlayerProfileId = "p2";
+    openScreen(deps, "profile");
+    expect(document.getElementById("v2s-back-label")?.textContent).toBe("Diplomacy");
+    screenClick(deps, document.querySelector("[data-v2-close]") as Element);
+    expect(screen.id).toBe("diplomacy");
+    expect(screen.diplomacyTargetId).toBe("p2");
+    expect(document.querySelector(".v2d-deal-with")?.textContent).toBe("Rival");
+  });
+
   it("closes to the map when opened from the map, and when told to", () => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();

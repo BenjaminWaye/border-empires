@@ -244,6 +244,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-emp-tiles { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2d-deal-nav { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
 .v2d-deal-with { font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }
+/* The empire's name opens their profile (with the Profile ▸ link after the facts). */
+.v2d-deal-profile { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-decoration: underline dotted rgba(255, 255, 255, 0.35); text-underline-offset: 4px; }
+.v2d-deal-profile:hover { color: var(--v2-gold-hi); }
+.v2d-deal-profile-link { margin-left: auto; }
 .v2d-deal-facts { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2d-deal { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
 .v2d-terms { min-height: 0; overflow: auto; padding: 16px 18px; background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); }
