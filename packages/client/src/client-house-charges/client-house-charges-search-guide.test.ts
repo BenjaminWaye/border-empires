@@ -81,3 +81,16 @@ describe("Show on map for a Charter with neither town scouted", () => {
     expect(houseChargeSearchGuide({ ...stateFor(road), houseChargeFocusId: undefined }, W, H)).toEqual({ circles: [], ringDots: [], linkDots: [] });
   });
 });
+
+describe("Show on map for charges without an exact point", () => {
+  it("draws the server's search circle for a Correction or Three Seats charge, scouted or not, and never a link", () => {
+    for (const kind of ["CORRECTION", "METROPOLIS"] as const) {
+      const charge: HouseChargeView = { ...road, id: `${kind}:x`, kind, searchCircle: { x: 40, y: 30, radius: 9 }, targets: [{ key: "house:p2", name: "Varn", x: 40, y: 30 }] };
+      for (const seen of [[], ["40,30"]]) {
+        const guide = houseChargeSearchGuide(stateFor(charge, seen), W, H);
+        expect(guide.circles).toEqual([charge.searchCircle]);
+        expect(guide.linkDots).toEqual([]);
+      }
+    }
+  });
+});

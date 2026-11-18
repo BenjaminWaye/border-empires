@@ -6,8 +6,8 @@
 // O(kept charges); an area charge scans that area's cells (at most a few
 // hundred), never the map.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { keptHouseCharges, type HouseCharge } from "@border-empires/shared";
-import { houseChargesWorldFor } from "./house-charges-world.js";
+import { HOUSE_CHARGE_METROPOLIS_COUNT, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
+import { chargeDistance, houseChargesWorldFor } from "./house-charges-world.js";
 
 export type HouseChargeExpansionObjective = { x: number; y: number; kind: "neutral_value" | "enemy" };
 
@@ -41,7 +41,24 @@ const chargeTarget = (charge: HouseCharge, tiles: ReadonlyMap<string, DomainTile
     const area = charge.kind === "SURVEY" ? world.islands.byId.get(targetTileKey(first.key)) : world.regions.byId.get(targetTileKey(first.key));
     return area ? openAreaTile(area.cells, world.width, first, tiles, playerId) : undefined;
   }
-  // The first target not yet held; a Charter with both towns held still needs the road between them.
+  if (charge.kind === "METROPOLIS") {
+    // The nearest town on the landmass the House does not hold yet; growth itself needs no expansion.
+    const world = houseChargesWorldFor(tiles);
+    const islandId = targetTileKey(first.key);
+    let best: { x: number; y: number; distance: number } | undefined;
+    let held = 0;
+    for (const town of world.towns) {
+      if (town.islandId !== islandId) continue;
+      if (isGarrisonedBy(tiles.get(town.key), playerId)) {
+        held += 1;
+        continue;
+      }
+      const distance = chargeDistance(world, town, first);
+      if (!best || distance < best.distance) best = { x: town.x, y: town.y, distance };
+    }
+    return held < HOUSE_CHARGE_METROPOLIS_COUNT && best ? { x: best.x, y: best.y } : undefined;
+  }
+  // The first target not yet held (a Correction aims at the rival's landing site); a Charter with both towns held still needs the road between them.
   const unheld = charge.targets.find((target) => !isGarrisonedBy(tiles.get(`${target.x},${target.y}`), playerId));
   if (unheld) return unheld;
   if (charge.kind === "CHARTER" && second) return { x: Math.round((first.x + second.x) / 2), y: Math.round((first.y + second.y) / 2) };

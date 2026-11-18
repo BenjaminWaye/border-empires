@@ -60,7 +60,9 @@ never decide who wins the season.
 | Charge | Objective (all held at game end) | Availability | Existing rule it reuses |
 |---|---|---|---|
 | **Charter of Passage** | Connect *{Town A}* and *{Town B}* with an unbroken road of your settled land | Common | Longest Road connectivity (endpoints at least Town tier) |
-| **Founding of a Seat** | Own *{Town}* and grow it to City | Common | Town `populationTier` |
+| ~~Founding of a Seat~~ | Own *{Town}* and grow it to City. **Retired 2026-11-18** (owner: growing one town to City is not a real goal); no longer dealt | — | Town `populationTier` |
+| **Writ of Correction** | Capture any AFC founded by *{House}* and hold it | Rare | AFC capture, AFC founder (`afc.foundedBy`) |
+| **Founding of the Three Seats** | Hold three towns on *{Landmass}* and grow each to a Metropolis | Common (own landmass) / Rare | Town `populationTier`, island registry |
 | **Survey Claim** | Hold *{Landmass}* fully enough that your House's name stands in the charts | Common on island maps | Island naming, held/contested/revert rules |
 | **Garrison the {Desert}** | Garrison at least 75% (proposed) of a named desert region as settled land | Common | Tile `landBiome` (`SAND`, `COASTAL_SAND`) |
 | **Garrison the {Tundra}** | As above, for a named tundra region | Rare | Tile `landBiome` (`TUNDRA`) |
@@ -324,6 +326,27 @@ These are design expectations, not measurements.
   read. This is accepted, because it is what drives the deduction layer.
 - Charges introduce hidden information into a game that currently shows all
   standings. This is a deliberate change of principle.
+
+## Decisions (owner, 2026-11-18): Seat replaced
+
+- Founding of a Seat (one town to City) is no longer dealt. Charges already
+  dealt keep their rule until the season ends.
+- **Writ of Correction** (Rare): the House's elders press a grievance against
+  a rival House whose landing site is 12–45 tiles away. Held while the House
+  owns and garrisons **any AFC that rival founded**. Every AFC records its
+  founder (`afc.foundedBy`), kept through captures and shown on the tile.
+  At most 5 Houses are dealt the same rival.
+- **Founding of the Three Seats**: hold three towns on a named landmass, each
+  a Metropolis. Any towns on the landmass count, rivals' landing towns
+  included; one House per three of its towns may be dealt it. On continent
+  maps this is usually the House's own landmass (Common); a landmass elsewhere
+  is Rare. Growth from Town to Metropolis takes about 12–15 days of fed,
+  peaceful growth, so it must start early in a 30-day season.
+- Simulation (2026-11-18, `createSeasonSeedWorld`, 100 empires, the seeded
+  test maps): every House is still dealt two charges on all four maps.
+  Without Seat, island seed 4242 fell to 81–85% until Correction allowed
+  5 Houses per rival. Offers per 100 Houses: Correction 45–50 (continents)
+  and 71–76 (islands); Three Seats 80–82 (continents) and 53–63 (islands).
 
 ## Decisions (owner, 2026-11-14)
 

@@ -25,7 +25,9 @@ const explored = (state: ChargeMapState, x: number, y: number): boolean => state
 /** Ring markers for the focused charge: its point targets the player has explored. Unscouted ones get a rough circle instead (client-house-charges-search-guide.ts). */
 export const houseChargeMarkerTiles = (state: ChargeMapState): ChargeMapPoint[] => {
   const charge = focusedHouseCharge(state);
-  if (!charge || charge.areaTileKeys) return [];
+  // A Three Metropolises target is only the middle of the landmass's nearest towns, and a Correction's is the
+  // centre of its search circle (the server never sends the rival's landing site): neither is a spot to mark.
+  if (!charge || charge.areaTileKeys || charge.kind === "METROPOLIS" || charge.kind === "CORRECTION") return [];
   return charge.targets.filter((target) => explored(state, target.x, target.y)).map(({ x, y }) => ({ x, y }));
 };
 

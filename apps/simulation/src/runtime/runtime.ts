@@ -646,7 +646,7 @@ export class SimulationRuntime {
   private reachBorder: Map<string, string> = new Map();
   // ISLAND_NAMES push + House Charges upkeep (side-tickers/runtime-side-tickers.ts).
   private readonly sideTickers = createRuntimeSideTickers({
-    tiles: () => this.state.tiles, players: () => this.state.players, docks: () => this.state.docks,
+    tiles: () => this.state.tiles, players: () => this.state.players, docks: () => this.state.docks, afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys,
     isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
   });
   // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.

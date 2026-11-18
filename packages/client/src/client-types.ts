@@ -212,7 +212,7 @@ export type Tile = {
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; foundedBy?: string; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
 };
 
 export type SeasonVictoryObjectiveView = {
