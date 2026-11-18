@@ -63,3 +63,10 @@ describe("drawSalvageDeliveries2D", () => {
     expect(state.salvageDeliveryFxByKey.size).toBe(0);
   });
 });
+
+describe("salvage delivery changelog", () => {
+  it("ships in the player-facing changelog", async () => {
+    const { CLIENT_CHANGELOG_ENTRIES } = await import("../client-changelog/client-changelog-data.js");
+    expect(CLIENT_CHANGELOG_ENTRIES.some((entry) => entry.title === "Watch the Court's Ancillaries arrive")).toBe(true);
+  });
+});
