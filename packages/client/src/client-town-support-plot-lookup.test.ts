@@ -122,3 +122,17 @@ describe("empty plot eligibility in both renderers", () => {
     expect(townSupportPlotMapFor2D(undefined, deps).size).toBe(0);
   });
 });
+
+describe("landmark-reserved ground", () => {
+  it.each(["afc", "naturalWonder"] as const)("hides the center and neighboring footprint of a %s in both renderers", kind => {
+    const town = townTile(10, 10, "CITY");
+    const landmark: Tile = landTile(11, 10);
+    if (kind === "afc") landmark.afc = {} as NonNullable<Tile["afc"]>;
+    else landmark.naturalWonder = {} as NonNullable<Tile["naturalWonder"]>;
+    const tiles = new Map([["10,10", town], ["11,10", landmark]]);
+    const deps = depsFor(tiles);
+    const plotKeys = townSupportPlotEntries(town, deps).map(t => keyFor(t.wx, t.wy));
+    expect(plotKeys).toEqual(["9,9", "9,10", "9,11"]);
+    expect([...townSupportPlotMapFor2D(town, deps).keys()]).toEqual(plotKeys);
+  });
+});

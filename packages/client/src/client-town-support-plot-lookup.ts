@@ -1,5 +1,5 @@
 import type { Terrain } from "@border-empires/shared";
-import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier, landmarkConstructionBlocker } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 // Shared eligibility/anchor logic for a town's support ring, used by both
@@ -32,6 +32,7 @@ export const isTownSupportHighlightableAt = (wx: number, wy: number, deps: TownS
   if (terrain !== "LAND") return false;
   if (tile?.dockId || tile?.afc || tile?.town || tile?.economicStructure || tile?.observatory || tile?.siegeBattery) return false;
   if (tile?.ownerId && tile.ownerId !== deps.me) return false;
+  if (landmarkConstructionBlocker(deps.tiles, wx, wy)) return false;
   return true;
 };
 
