@@ -13,6 +13,7 @@ import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
 import { dispatchExploreAction } from "./client-scout-drone/client-scout-drone-explore-action.js";
+import { dispatchAfcScoutAction } from "./client-scout-drone/client-scout-drone-picking.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -130,7 +131,8 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   // An unexplored tile's Explore: launch the scout drone toward it (client-scout-drone/).
-  if (dispatchExploreAction(actionId, selected, state.scoutDroneFlight, { sendGameMessage, pushFeed })) {
+  // An AFC's Send scout drone arms the map pick (client-scout-drone-picking.ts) instead.
+  if (dispatchExploreAction(actionId, selected, state.scoutDroneFlight, { sendGameMessage, pushFeed }) || dispatchAfcScoutAction(actionId, state, { pushFeed })) {
     hideTileActionMenu();
     renderHud();
     return true;
