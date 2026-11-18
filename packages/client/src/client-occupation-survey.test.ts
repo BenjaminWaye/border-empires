@@ -161,11 +161,11 @@ describe("occupation survey presentation", () => {
   // backfill keeps the clue (Manifest card, Chronicles) without a card; new clues still pop.
   it("restores standing reports quietly on login, skipping resources whose reveal tech is researched", () => {
     const report = entry();
-    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1");
+    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1", false);
     sync(true);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(occupationSurveyController.currentForResource("TITANIUM")).toBeUndefined();
-    occupationSurveyController.reconcile([report], [], "new-player:season-1");
+    occupationSurveyController.reconcile([report], [], "new-player:season-1", false);
     sync(true);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(occupationSurveyController.currentForResource("TITANIUM")?.id).toBe(report.id);
@@ -178,8 +178,10 @@ describe("occupation survey presentation", () => {
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Crystal nearby");
   });
 
-  it("does not pop a survey card from the first-sync feed backfill", () => {
-    seedFeedFromEventLog({ feed: [] } as never, [{ ...entry(), occurredAt: 1_000 }], 1_000);
+  it("does not pop a survey card from the first-sync feed backfill, even one older than the feed window", () => {
+    const old = { ...entry(), occurredAt: 1_000 };
+    seedFeedFromEventLog({ feed: [] } as never, [old], 1_000 + 3 * 24 * 60 * 60 * 1000);
+    occupationSurveyController.reconcile([old]);
     sync(true);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });

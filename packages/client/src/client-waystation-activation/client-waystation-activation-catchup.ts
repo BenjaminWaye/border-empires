@@ -13,7 +13,10 @@ import { retireWaystationDiscoveryTip, type DiscoveryTipId } from "../client-dis
 // they got. The server now also records a WAYSTATION_ACTIVATED entry on the
 // player's durable eventLog (packages/game-domain/src/index/player-event-log.ts),
 // delivered on every INIT/reconnect regardless of device -- this module
-// watches for those entries and shows the same popup once per activation.
+// watches for those entries and shows the same popup once per activation
+// that lands during a session (in-place reconnects included). A login's
+// backfill is quiet instead (markWaystationActivationsSeenFromEventLog): the
+// Chronicle entry tells the player, without a stack of cards on login.
 //
 // The Activity Feed entry for a WAYSTATION_ACTIVATED eventLog item always
 // renders regardless (see feedEntryForEventLogEntry), so the player is never
@@ -130,7 +133,7 @@ export const notifyWaystationActivationEventLogEntry = (
   showOverlay(info);
 };
 
-/** Runs notifyWaystationActivationEventLogEntry over a whole eventLog batch -- the shape client-network.ts's single INIT/PLAYER_UPDATE eventLog handler needs, whether it's a first-sync backfill or a later incremental sync. */
+/** Runs notifyWaystationActivationEventLogEntry over a whole eventLog batch -- the shape the INIT (in-place reconnect) and PLAYER_UPDATE eventLog handlers need for entries that arrive during a session. */
 export const notifyWaystationActivationsFromEventLog = (
   entries: ReadonlyArray<ClientEventLogEntry>,
   state: CatchupState,
@@ -159,9 +162,11 @@ export const markWaystationActivationsSeenFromEventLog = (
   const activations = entries.filter((entry) => entry.type === "WAYSTATION_ACTIVATED");
   if (activations.length === 0) return;
   const ids = shownIdsFor(state.me);
-  for (const entry of activations) ids.add(`${entry.x ?? 0},${entry.y ?? 0}`);
+  const unseen = activations.map((entry) => `${entry.x ?? 0},${entry.y ?? 0}`).filter((key) => !ids.has(key));
+  if (unseen.length === 0) return;
+  for (const key of unseen) ids.add(key);
   persist(state.me, ids);
-  // An activated waystation answers its Discovered tip, as the live card does.
+  // A newly activated waystation answers its Discovered tip, as the live card does.
   retireWaystationDiscoveryTip(state.discoveryTipQueue, state.authEmail);
 };
 

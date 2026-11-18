@@ -105,8 +105,9 @@ export const seedFeedFromEventLog = (
   incomingEventLog: ClientEventLogEntry[],
   nowMs: number = Date.now()
 ): void => {
-  // A first sync is a login backfill: its waystation cards stay quiet (the feed lines below say what happened).
+  // A first sync is a backfill: its waystation and survey cards stay quiet (the feed lines below say what happened).
   if (state.me) markWaystationActivationsSeenFromEventLog(incomingEventLog, { me: state.me });
+  for (const entry of incomingEventLog) occupationSurveyController.record(entry, false);
   const cutoff = nowMs - FEED_BACKFILL_WINDOW_MS;
   const toBackfill = incomingEventLog.filter((entry) => entry.occurredAt >= cutoff).sort((a, b) => a.occurredAt - b.occurredAt);
   for (const entry of toBackfill) pushFeedEntry(state, feedEntryForEventLogEntry(entry, false));

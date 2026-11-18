@@ -175,12 +175,11 @@ export const occupationSurveyController = {
   },
   installViewHandler(handler: (report: OccupationSurveyReport) => void): void { viewHandler = handler; },
   /**
-   * A call with `scope` is the login (INIT) backfill: its clues are recorded
-   * quietly, never popped, so logging back in does not bury the player in
-   * cards for things that happened while they were away. The clue stays on its
-   * Manifest card and in the Chronicles. Later calls (live updates) pop new clues.
+   * `present: false` is the login backfill: clues are recorded (Manifest card,
+   * town capture card, Chronicle) but not popped, so logging back in does not
+   * bury the player in cards for things that happened while they were away.
    */
-  reconcile(entries: readonly SurveyEventEntry[], techIds?: readonly string[], scope?: string): void {
+  reconcile(entries: readonly SurveyEventEntry[], techIds?: readonly string[], scope?: string, present = true): void {
     if (scope !== undefined && scope !== reportScope) {
       this.beginCapture();
       capturePanelOpen = false;
@@ -198,7 +197,6 @@ export const occupationSurveyController = {
     for (const [resource, report] of reports) if (!currentIds.has(report.id)) reports.delete(resource);
     queue.splice(0, queue.length, ...queue.filter((report) => currentIds.has(report.id)));
     if (active && !currentIds.has(active.id)) dismissPopup();
-    const present = scope === undefined;
     for (const entry of entries) this.record(entry, present);
   },
   dismiss: acknowledgePopup
