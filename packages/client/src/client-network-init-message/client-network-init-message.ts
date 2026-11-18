@@ -171,7 +171,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail);
+  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail, state.bridgeDebugSeasonId);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);

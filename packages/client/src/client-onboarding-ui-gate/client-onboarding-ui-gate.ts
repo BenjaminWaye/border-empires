@@ -19,6 +19,26 @@ export const isOnboardingUiDeferred = (state: OnboardingUiGateState): boolean =>
   !isMapUnobstructed(state) || isAfcJoinDropPending(state.afcJoinDrop);
 
 /**
+ * True while the join drop is about to play or playing: "waiting" counts only
+ * once its gate is open (the AFC is on screen, dwelling before the descent).
+ * A waiting drop whose AFC is off screen waits for the player to look at it,
+ * for up to AFC_JOIN_FALLBACK_REVEAL_MS (5 min).
+ */
+export const isAfcJoinDropOnScreen = (drop: Pick<AfcJoinDropState, "phase" | "gateOpenSince">): boolean =>
+  drop.phase === "playing" || (drop.phase === "waiting" && drop.gateOpenSince > 0);
+
+/**
+ * The tutorial guide's deferral: a dialog over the map, or the AFC drop on
+ * screen. Unlike isOnboardingUiDeferred it doesn't wait for an off-screen drop.
+ * Playtest: on a new account the guide only appeared ~2 minutes in, at step 3
+ * (the pan and zoom steps had ticked while it was hidden), because the drop
+ * sat in "waiting" with the AFC off screen and held the guide with it. The
+ * guide must be up on step 1 the moment the player is on the map.
+ */
+export const isTutorialGuideDeferred = (state: OnboardingUiGateState): boolean =>
+  !isMapUnobstructed(state) || isAfcJoinDropOnScreen(state.afcJoinDrop);
+
+/**
  * Per-frame edge detector: calls `onChange` once each time the deferral
  * flips, so the corner UI is shown the moment the drop finishes (or the
  * dialog closes) instead of waiting for the next tile-delta batch, and

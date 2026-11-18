@@ -10,6 +10,7 @@ const GUIDE_STATUSES: readonly string[] = ["active", "done", "dismissed"];
 // the client never sends more than its own step count).
 const MAX_GUIDE_STEPS = 64;
 const MAX_GUIDE_STEP_ID_LENGTH = 48;
+const MAX_GUIDE_SEASON_ID_LENGTH = 128;
 
 const isGuideStatus = (value: unknown): value is GuideStatus => typeof value === "string" && GUIDE_STATUSES.includes(value);
 const isGuideSteps = (value: unknown): value is string[] =>
@@ -23,6 +24,8 @@ export type StoredHintState = {
   dashboardQuietedSeasonId?: string;
   guideStatus?: GuideStatus;
   guideSteps?: string[];
+  /** The season the guide state belongs to: the client restarts the guide in a new season. */
+  guideSeasonId?: string;
 };
 
 export type SetHintStateMessageDeps = {
@@ -34,6 +37,7 @@ export type SetHintStateMessageDeps = {
   dashboardQuietedSeasonId?: unknown;
   guideStatus?: unknown;
   guideSteps?: unknown;
+  guideSeasonId?: unknown;
   profileStore: {
     setHintState: (playerId: string, patch: StoredHintState) => Promise<StoredHintState>;
   };
@@ -51,11 +55,12 @@ export const hintStateInitFields = (
   musterUnlockedSeasonId: profile?.musterUnlockedSeasonId ?? "",
   dashboardQuietedSeasonId: profile?.dashboardQuietedSeasonId ?? "",
   guideStatus: profile?.guideStatus ?? "",
-  guideSteps: profile?.guideSteps ?? []
+  guideSteps: profile?.guideSteps ?? [],
+  guideSeasonId: profile?.guideSeasonId ?? ""
 });
 
 export const handleSetHintStateMessage = async (deps: SetHintStateMessageDeps): Promise<void> => {
-  const { playerId, dismissedHints, hintsMuted, onboardingChecklistCompleted, musterUnlockedSeasonId, dashboardQuietedSeasonId, guideStatus, guideSteps, profileStore, invalidateProfileCache, sendJson } = deps;
+  const { playerId, dismissedHints, hintsMuted, onboardingChecklistCompleted, musterUnlockedSeasonId, dashboardQuietedSeasonId, guideStatus, guideSteps, guideSeasonId, profileStore, invalidateProfileCache, sendJson } = deps;
   const patch = {
     ...(Array.isArray(dismissedHints) && dismissedHints.every((id) => typeof id === "string")
       ? { dismissedHints: dismissedHints as string[] }
@@ -65,7 +70,8 @@ export const handleSetHintStateMessage = async (deps: SetHintStateMessageDeps): 
     ...(typeof musterUnlockedSeasonId === "string" && musterUnlockedSeasonId ? { musterUnlockedSeasonId } : {}),
     ...(typeof dashboardQuietedSeasonId === "string" && dashboardQuietedSeasonId ? { dashboardQuietedSeasonId } : {}),
     ...(isGuideStatus(guideStatus) ? { guideStatus } : {}),
-    ...(isGuideSteps(guideSteps) ? { guideSteps } : {})
+    ...(isGuideSteps(guideSteps) ? { guideSteps } : {}),
+    ...(typeof guideSeasonId === "string" && guideSeasonId && guideSeasonId.length <= MAX_GUIDE_SEASON_ID_LENGTH ? { guideSeasonId } : {})
   };
   const updated = await profileStore.setHintState(playerId, patch);
   invalidateProfileCache(playerId);

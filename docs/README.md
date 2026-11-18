@@ -38,7 +38,7 @@ remain authoritative for runtime behavior.
 | Historical relic anchor proposal (superseded) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
-| Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
+| Tutorial guide (every player, every season): research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
 | HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
 | Explore: AFC scout drones replace Expand To on unexplored tiles (implemented) | [`explore-scout-plan.md`](explore-scout-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |

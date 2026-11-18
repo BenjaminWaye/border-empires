@@ -4,7 +4,7 @@ import { upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { EmailNotificationPrefs, GatewayPlayerProfileStore, GuideStatus, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
 
-const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at";
+const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, guide_season_id, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at";
 
 type Row = {
   player_id: string;
@@ -21,6 +21,7 @@ type Row = {
   dashboard_quieted_season_id: string | null;
   guide_status: string | null;
   guide_steps: string | null;
+  guide_season_id: string | null;
   email_notification_prefs: string | null;
   last_activity_seen_at: number | null;
   last_activity_seen_season_id: string | null;
@@ -89,6 +90,7 @@ const toProfile = (row: Row): StoredPlayerProfile => {
     ...(row.dashboard_quieted_season_id ? { dashboardQuietedSeasonId: row.dashboard_quieted_season_id } : {}),
     ...(guideStatus ? { guideStatus } : {}),
     ...(guideSteps ? { guideSteps } : {}),
+    ...(row.guide_season_id ? { guideSeasonId: row.guide_season_id } : {}),
     ...(emailNotificationPrefs ? { emailNotificationPrefs } : {}),
     ...(row.last_activity_seen_at !== null ? { lastActivitySeenAt: row.last_activity_seen_at } : {}),
     ...(row.last_activity_seen_season_id ? { lastActivitySeenSeasonId: row.last_activity_seen_season_id } : {}),
@@ -152,7 +154,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     } catch {
       // Column already exists from a previous applySchema() call.
     }
-    for (const column of ["guide_status TEXT", "guide_steps TEXT"]) {
+    for (const column of ["guide_status TEXT", "guide_steps TEXT", "guide_season_id TEXT"]) {
       try {
         this.db.exec(`ALTER TABLE player_profiles ADD COLUMN ${column};`);
       } catch {
@@ -269,10 +271,11 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const dashboardQuietedSeasonId = patch.dashboardQuietedSeasonId ?? null;
     const guideStatus = patch.guideStatus ?? null;
     const guideStepsJson = patch.guideSteps ? JSON.stringify(patch.guideSteps) : null;
+    const guideSeasonId = patch.guideSeasonId ?? null;
     const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
-        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, guide_season_id, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            dismissed_hints = COALESCE(excluded.dismissed_hints, player_profiles.dismissed_hints),
            hints_muted = COALESCE(excluded.hints_muted, player_profiles.hints_muted),
@@ -281,10 +284,11 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            dashboard_quieted_season_id = COALESCE(excluded.dashboard_quieted_season_id, player_profiles.dashboard_quieted_season_id),
            guide_status = COALESCE(excluded.guide_status, player_profiles.guide_status),
            guide_steps = COALESCE(excluded.guide_steps, player_profiles.guide_steps),
+           guide_season_id = COALESCE(excluded.guide_season_id, player_profiles.guide_season_id),
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, dashboardQuietedSeasonId, guideStatus, guideStepsJson, now) as Row);
+      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, dashboardQuietedSeasonId, guideStatus, guideStepsJson, guideSeasonId, now) as Row);
     return toProfile(row);
   }
 

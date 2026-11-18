@@ -6,8 +6,9 @@
 //
 // It shows exactly one step at a time: chapter, what to do, one line of why,
 // progress, and the step's actions -- "Show me" (centre the camera on the
-// step's map target), "Skip" and, on the final step, "Finish". A "Hide guide"
-// link turns the guide off (Settings can restart it).
+// step's map target), "Skip" (this step) and, on the final step, "Finish". A
+// compact "Skip guide" button in the same row ends the guide for the rest of the season (Settings can
+// restart it; every season starts it again).
 
 import type { GuideLookForIcon, GuideView } from "./tutorial-guide-steps.js";
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
@@ -67,7 +68,7 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
         <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
         <span class="tg-count">${view.completedCount}/${view.totalCount}</span>
       </div>
-      <div class="tg-actions">${actions}<button type="button" class="tg-hide" data-guide-action="hide">Hide guide</button></div>
+      <div class="tg-actions">${actions}<button type="button" class="tg-btn tg-skip-guide" data-guide-action="hide">Skip guide</button></div>
     </section>
     <button type="button" class="tg-launcher" data-guide-action="toggle" ${expanded ? "hidden" : ""} aria-label="Open guide (${remaining} steps left)">
       <span aria-hidden="true">?</span><span class="tg-badge">${remaining}</span>
@@ -76,16 +77,20 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
 
 /**
  * The card after Finish: a short "Guide complete" acknowledgement that closes
- * itself (renderGuideCompleteCard) or on its Close button.
+ * itself (renderGuideCompleteCard) or on its Close button. Its bar is always
+ * full: Finish is only offered once every step left waits on a first contact,
+ * and those steps are handed to the First Contact tip, so the guide is
+ * complete. (A partial "14/16" under "Guide complete" contradicted itself.)
+ * `handedOff` is how many steps were left waiting at Finish.
  */
-export const guideCompleteCardHtml = (doneCount: number, stepCount: number): string => `
+export const guideCompleteCardHtml = (stepCount: number, handedOff: number): string => `
     <section class="tg-card tg-card-complete" role="status" aria-label="Guide complete">
       <div class="tg-head"><span class="tg-chapter">Guide complete</span></div>
       <div class="tg-title"><span class="tg-check" aria-hidden="true">&#10003;</span> You know the basics</div>
-      <div class="tg-why">${doneCount >= stepCount ? "Every step done." : "Contest and Diplomacy are explained when you first meet another House."} Restart the guide from Settings.</div>
+      <div class="tg-why">${handedOff === 0 ? "Every step done." : "Contest and Diplomacy are explained when you first meet another House."} Restart the guide from Settings.</div>
       <div class="tg-progress-row">
-        <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${stepCount}" aria-valuenow="${doneCount}"><span style="width:${Math.round((doneCount / stepCount) * 100)}%"></span></div>
-        <span class="tg-count">${doneCount}/${stepCount}</span>
+        <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${stepCount}" aria-valuenow="${stepCount}"><span style="width:100%"></span></div>
+        <span class="tg-count">${stepCount}/${stepCount}</span>
       </div>
       <div class="tg-actions"><button type="button" class="tg-btn tg-btn-primary" data-guide-complete-close>Close</button></div>
     </section>`;
@@ -93,7 +98,7 @@ export const guideCompleteCardHtml = (doneCount: number, stepCount: number): str
 const COMPLETE_CARD_MS = 8_000;
 
 /** Replaces the card with the completion acknowledgement; it removes itself after a few seconds. */
-export const renderGuideCompleteCard = (doneCount: number, stepCount: number): void => {
+export const renderGuideCompleteCard = (stepCount: number, handedOff: number): void => {
   if (typeof document === "undefined") return;
   injectStyles();
   document.getElementById(ROOT_ID)?.remove();
@@ -101,7 +106,7 @@ export const renderGuideCompleteCard = (doneCount: number, stepCount: number): v
   root.id = ROOT_ID;
   root.className = "onb-root";
   root.style.setProperty("--tg-bottom", `${ONBOARDING_CORNER_BOTTOM_PX}px`);
-  root.innerHTML = guideCompleteCardHtml(doneCount, stepCount);
+  root.innerHTML = guideCompleteCardHtml(stepCount, handedOff);
   document.body.appendChild(root);
   const close = (): void => {
     if (root.isConnected) root.remove();
@@ -183,6 +188,9 @@ const styles = `
 body.hud-v2-screen-manifest #${ROOT_ID}, body.hud-v2-screen-diplomacy #${ROOT_ID} { display: block !important; }
 body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 #${ROOT_ID} [hidden] { display: none !important; }
+/* The mirrored spot on the right edge, used while the usual one would cover the step's target or a notification (tutorial-guide-placement.ts). */
+#${ROOT_ID}.tg-side-end { left: auto !important; right: 16px; }
+body.hud-v2-compact #${ROOT_ID}.tg-side-end { right: calc(var(--v2c-safe-right, 0px) + 6px); }
 /* Minimised, the guide is just its "?" launcher; over a panel or screen that sat on their Back buttons and headings (playtest day 1). The map brings it back. */
 #${ROOT_ID}.${OVER_UI_CLASS} .tg-launcher { display: none !important; }
 .tg-card {
@@ -208,7 +216,7 @@ body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 .tg-actions { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tg-btn { appearance: none; border-radius: 8px; border: 1px solid rgba(126,224,138,0.35); background: transparent; color: #eafff0; font-size: 12px; font-weight: 700; padding: 5px 10px; cursor: pointer; }
 .tg-btn-primary { background: rgba(126,224,138,0.18); }
-.tg-hide { appearance: none; margin-left: auto; border: 0; background: transparent; color: rgba(240,224,200,0.55); font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0; }
+.tg-skip-guide { margin-left: auto; padding: 4px 8px; font-size: 11px; border-color: rgba(240,224,200,0.4); color: #fbf3e6; }
 .tg-launcher {
   position: relative; width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid rgba(126, 224, 138, 0.4); background: rgba(3, 7, 14, 0.85); color: #a7f3b0;
@@ -220,6 +228,7 @@ body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }
 }
 @media (max-width: 520px) {
   #${ROOT_ID} { left: 10px; }
+  #${ROOT_ID}.tg-side-end { right: 10px; }
   .tg-card { width: min(250px, calc(100vw - 20px)); }
   .tg-launcher { width: 40px; height: 40px; font-size: 18px; }
 }`;
