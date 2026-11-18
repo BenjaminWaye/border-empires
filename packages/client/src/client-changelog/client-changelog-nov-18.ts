@@ -13,6 +13,7 @@ import { FARM_PLOT_ENTRY } from "./client-changelog-farm-plot.js";
 import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js";
 import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
+import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 import { TOWN_PLOT_PICK_ENTRY } from "./client-changelog-town-plot-pick.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
@@ -29,5 +30,6 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...LOGIN_LORE_QUOTES_ENTRY, createdAt: 1795004512423, },
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
+  { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
   { ...TOWN_PLOT_PICK_ENTRY, createdAt: 1795034895049 },
 ];
