@@ -3184,7 +3184,7 @@ export class SimulationRuntime {
       handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
-      handleActivateWaystationCommand: (command) => handleActivateWaystationCommand({ ...this.watchtowerRevealContext(), visibilityCoverage: this.state.visibilityCoverage }, command, (key, x, y, playerId, commandId) => this.activateWaystationAt(key, x, y, playerId, commandId, false)),
+      handleActivateWaystationCommand: (command) => handleActivateWaystationCommand({ ...this.watchtowerRevealContext(), visibilityCoverage: this.state.visibilityCoverage, emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd) }, command, (key, x, y, playerId, commandId) => this.activateWaystationAt(key, x, y, playerId, commandId, false)),
       handleExploreCommand: (command) => this.scoutDrones.handleExplore(command),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),

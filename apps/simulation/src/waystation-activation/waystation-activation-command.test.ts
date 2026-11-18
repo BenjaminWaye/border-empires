@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { makePlayer, waystationTile, townTile, RANDOM_FOR, createInput } from "../runtime-waystation-activation.test-helpers.js";
@@ -35,13 +35,30 @@ describe("explicit waystation collection", () => {
     } finally { random.mockRestore(); }
   });
 
+  it.each(["GOLD", "MANPOWER"] as const)("publishes the new %s balance immediately after collection", async effect => {
+    const runtime = new SimulationRuntime({ now: () => 1000,
+      initialPlayers: new Map([["player-1", makePlayer()]]),
+      seedTiles: new Map([["10,10", waystationTile()], ["9,10", townTile(9, 10, "player-1")]]), seedDocks: [] });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent(event => events.push(event));
+    const random = vi.spyOn(Math, "random").mockReturnValue(RANDOM_FOR[effect]);
+    try {
+      runtime.submitCommand(command("collect-balance"));
+      await Promise.resolve();
+      const player = runtime.exportState().players.find(player => player.id === "player-1")!;
+      const updates = events.filter(event => event.eventType === "PLAYER_MESSAGE" && event.commandId === "collect-balance")
+        .map(event => JSON.parse(event.payloadJson ?? "{}"));
+      expect(updates).toContainEqual(expect.objectContaining({ type: "PLAYER_UPDATE", gold: player.points, manpower: player.manpower }));
+    } finally { random.mockRestore(); }
+  });
+
   it.each([
     ["neutral", undefined, true], ["rival", "other", true], ["fogged", "player-1", false]
   ])("rejects collection of a %s site without touching its reward", (_label, ownerId, visible) => {
     const tiles = new Map([["10,10", waystationTile({ ownerId })]]);
     const emitEvent = vi.fn();
     const activate = vi.fn();
-    handleActivateWaystationCommand({ tiles, visibilityCoverage: { isVisible: () => visible }, emitEvent }, command("blocked"), activate);
+    handleActivateWaystationCommand({ tiles, visibilityCoverage: { isVisible: () => visible }, emitEvent, emitPlayerStateUpdate: vi.fn() }, command("blocked"), activate);
     expect(activate).not.toHaveBeenCalled();
     expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: "COMMAND_REJECTED" }));
     expect(tiles.get("10,10")?.waystation?.activated).toBe(false);
@@ -50,7 +67,7 @@ describe("explicit waystation collection", () => {
   it.each([{ x: -1, y: 10 }, { x: WORLD_WIDTH, y: 10 }, { x: 10, y: WORLD_HEIGHT }, { x: 1.5, y: 10 }, { x: null, y: 10 }])("rejects invalid coordinates %j", payload => {
     const emitEvent = vi.fn();
     const activate = vi.fn();
-    handleActivateWaystationCommand({ tiles: new Map(), visibilityCoverage: { isVisible: () => true }, emitEvent }, command("invalid", "player-1", payload), activate);
+    handleActivateWaystationCommand({ tiles: new Map(), visibilityCoverage: { isVisible: () => true }, emitEvent, emitPlayerStateUpdate: vi.fn() }, command("invalid", "player-1", payload), activate);
     expect(activate).not.toHaveBeenCalled();
     expect(emitEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: "COMMAND_REJECTED" }));
   });

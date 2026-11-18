@@ -9,6 +9,7 @@ type Context = {
   tiles: ReadonlyMap<string, DomainTileState>;
   visibilityCoverage: Pick<VisibilityCoverageTracker, "isVisible">;
   emitEvent: (event: SimulationEvent) => void;
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
 };
 type Activate = (key: string, x: number, y: number, playerId: string, commandId: string) => void;
 
@@ -27,5 +28,6 @@ export function handleActivateWaystationCommand(context: Context, command: Comma
   if (!context.visibilityCoverage.isVisible(command.playerId, key)) return reject("The waystation must be visible");
   activate(key, at.x, at.y, command.playerId, command.commandId);
   if (!context.tiles.get(key)?.waystation?.activated) return reject("The waystation could not be activated");
+  context.emitPlayerStateUpdate(command);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
