@@ -143,7 +143,9 @@ export const discoveryTipIdForNewlySeenTile = (
   }
   if (tile.town) return "TOWN";
   if (tile.dockId) return "DOCK";
-  if (tile.waystation) return "WAYSTATION";
+  // An already-activated Waystation has nothing left to teach ("expand onto it to activate it"); its
+  // Activated card is the popup that matters, and a Discovered tip after it read out of order.
+  if (tile.waystation && !tile.waystation.activated) return "WAYSTATION";
   if (tile.ownerId?.startsWith("barbarian")) return "BARBARIAN";
   return discoveryTipIdForTileResource(tile.resource);
 };
@@ -188,6 +190,14 @@ export const enqueueDiscoveryTipForNewlySeenTile = (
 };
 
 /**
+ * A Waystation's Activated card supersedes its Discovered tip: a tip still waiting in the queue (held back behind
+ * an open screen or a fullscreen card) would otherwise pop up after the activation it explains.
+ */
+export const retireWaystationDiscoveryTip = (queue: DiscoveryTipId[] | undefined, authEmail?: string | null): void => {
+  if (queue) retireQueuedDiscoveryTips(queue, WAYSTATION_TIP_IDS, authEmail);
+};
+
+/**
  * Marks the active tip (front of queue) as dismissed (30-day/season TTL) and
  * pops it. When `mute` is true (the "Don't show tooltips" checkbox), also
  * suppresses every discovery tip for the same window.
@@ -207,6 +217,8 @@ export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: s
  * tutorial guide's steps cover the first town, food, muster flag and first
  * contact, so their toasts would only repeat the guide card.
  */
+const WAYSTATION_TIP_IDS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["WAYSTATION"]);
+
 export const retireQueuedDiscoveryTips = (queue: DiscoveryTipId[], ids: ReadonlySet<DiscoveryTipId>, authEmail?: string | null): void => {
   for (let i = queue.length - 1; i >= 0; i -= 1) {
     const id = queue[i]!;
