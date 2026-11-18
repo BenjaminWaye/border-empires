@@ -57,7 +57,7 @@ const buildingBonuses = (town: Town, matches: RegExp): TownStatBonus[] =>
 // already list the town's buildings separately (HUD v2 "In this town").
 export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolean } = {}): TownStatBonus[] => {
   if (town.populationTier === "SETTLEMENT") return [];
-  if (!town.isFed) return [{ label: "Unfed", effect: "coin production stopped", tone: "negative" }];
+  if (!town.isFed) return [{ label: "Unfed", effect: "no coin · garrison grain or fish in reach", tone: "negative" }];
   const bonuses: TownStatBonus[] = [];
   const tierMult = townPopulationMultiplier(town.populationTier);
   if (tierMult !== 1) {
