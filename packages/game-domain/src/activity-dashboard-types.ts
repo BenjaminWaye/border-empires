@@ -28,6 +28,15 @@ export type TerritoryMomentumEntry = {
   tilesGained24h: number;
   tilesLost24h: number;
   net24h: number;
+  /**
+   * Every tile the player owns right now (frontier and settled) -- the same
+   * kind of tile tilesLost24h counts, so the daily story can say what SHARE
+   * of a realm was lost. The leaderboard's `tiles` is settled-only and would
+   * overstate that share. Optional so a gateway reading an older sim's
+   * snapshot mid-deploy still works; never shown to players as a number --
+   * the gateway keeps it off the public /api/activity JSON.
+   */
+  tilesOwned?: number;
 };
 
 export type BiggestSwing24h = {

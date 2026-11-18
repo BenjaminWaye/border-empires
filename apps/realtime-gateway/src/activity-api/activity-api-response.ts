@@ -31,10 +31,12 @@ export const buildActivityApiResponse = async (input: {
     playerAName: nameFor(war.playerA),
     playerBName: nameFor(war.playerB)
   }));
-  const territoryMomentum = input.dashboard.territoryMomentum.map((entry) => ({
-    ...entry,
-    playerName: nameFor(entry.playerId)
-  }));
+  // tilesOwned stays in-process only (non-enumerable): the daily story turns
+  // it into a "% of their realm" share, but a realm's raw size is never
+  // published on /api/activity.
+  const territoryMomentum = input.dashboard.territoryMomentum.map(({ tilesOwned, ...entry }) =>
+    Object.defineProperty({ ...entry, playerName: nameFor(entry.playerId) }, "tilesOwned", { value: tilesOwned, enumerable: false })
+  );
   const biggestSwing24h =
     input.dashboard.biggestSwing24h === null
       ? null
