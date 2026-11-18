@@ -110,5 +110,28 @@ export const createDemoTileSpecs = () => {
     return STRUCTURE_DEMO_ENTRIES[dx];
   };
 
-  return { isTownDemoTile, fortDemoSpec, structureDemoEntryFor };
+  // Places this tile's ?structuredemo / ?fortdemo instance, if any, into the
+  // real overlays (moved here from client-map-3d.ts's per-tile pass).
+  const addDemoInstancesForTile = (overlays: DemoInstanceOverlays, at: DemoInstanceAt, originX: number, originY: number): void => {
+    const { x, z, surfaceY, wx, wy } = at;
+    const structure = structureDemoEntryFor(wx, wy, originX, originY);
+    if (structure?.kind === "UMBRITE_RIG") overlays.umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
+    else if (structure?.kind === "UMBRITE_WEAPONS_FACTORY") overlays.umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
+    else if (structure) overlays.structureOverlay.addInstance(x, z, surfaceY, structure.kind, structure.resource);
+    const fort = fortDemoSpec(wx, wy, originX, originY);
+    if (fort?.kind === "RELAY_BEACON") overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+    else if (fort) overlays.fortOverlay.addInstance(x, z, surfaceY, fort.kind, fort.opening, wx, wy);
+  };
+
+  return { isTownDemoTile, fortDemoSpec, structureDemoEntryFor, addDemoInstancesForTile };
+};
+
+type DemoInstanceAt = { x: number; z: number; surfaceY: number; wx: number; wy: number };
+type TileInstanceOverlay = { addInstance: (x: number, z: number, surfaceY: number, wx: number, wy: number) => unknown };
+type DemoInstanceOverlays = {
+  umbriteExtractionRigOverlay: TileInstanceOverlay;
+  umbriteWeaponsFactoryOverlay: TileInstanceOverlay;
+  relayBeaconOverlay: TileInstanceOverlay;
+  structureOverlay: { addInstance: (x: number, z: number, surfaceY: number, kind: StructureKind, resource?: "TITANIUM" | "GEMS") => unknown };
+  fortOverlay: { addInstance: (x: number, z: number, surfaceY: number, kind: FortificationOverlayKind, opening: FortificationOpening, wx: number, wy: number) => unknown };
 };

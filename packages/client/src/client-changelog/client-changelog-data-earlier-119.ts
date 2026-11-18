@@ -1,17 +1,21 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { BEACON_CLAIMS_REACH_ENTRY } from "./client-changelog-beacon-claims-reach.js";
 import { AUTO_GARRISON_ASK_ENTRY } from "./client-changelog-auto-garrison-ask.js";
 import { TOWN_COIN_BLANK_ENTRY } from "./client-changelog-town-coin-blank.js";
+import { CLEARER_CAPTURES_ENTRY } from "./client-changelog-clearer-captures.js";
 import { MANPOWER_BUILD_TEXT_ENTRY } from "./client-changelog-manpower-build-text.js";
 import { OFFER_DOCK_COUNTER_ENTRY } from "./client-changelog-offer-dock-counter.js";
 import { RESTORED_CAMERA_FOG_ENTRY } from "./client-changelog-restored-camera-fog.js";
-import { PLAYTEST_MAP_READABILITY_ENTRY } from "./client-changelog-playtest-map-readability.js";
+import { STRUCTURE_INFO_SCROLL_ENTRY } from "./client-changelog-structure-info-scroll.js";
 
 // Split out of client-changelog-data.ts to keep it under the line cap.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_119: ClientChangelogEntry[] = [
   { ...AUTO_GARRISON_ASK_ENTRY, createdAt: 1794806556716, },
   { ...TOWN_COIN_BLANK_ENTRY, createdAt: 1794807224989, },
+  { ...CLEARER_CAPTURES_ENTRY, createdAt: 1794771007813, },
   { ...MANPOWER_BUILD_TEXT_ENTRY, createdAt: 1794806234122, },
   { ...OFFER_DOCK_COUNTER_ENTRY, createdAt: 1794817332101, },
   { ...RESTORED_CAMERA_FOG_ENTRY, createdAt: 1794818244321, },
-  { ...PLAYTEST_MAP_READABILITY_ENTRY, createdAt: 1794817797219, },
+  { ...STRUCTURE_INFO_SCROLL_ENTRY, createdAt: 1794861792324, },
+  { ...BEACON_CLAIMS_REACH_ENTRY, createdAt: 1794864280133, },
 ];

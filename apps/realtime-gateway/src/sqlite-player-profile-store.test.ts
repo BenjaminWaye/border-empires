@@ -120,6 +120,11 @@ describe("SqliteGatewayPlayerProfileStore", () => {
 
     await store.setHintState("player-1", { guideStatus: "done", guideSteps: ["look-pan", "look-select"] });
     await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ guideStatus: "done", guideSteps: ["look-pan", "look-select"] }));
+
+    // Per season: the season the guide state belongs to persists and COALESCEs like the rest.
+    await store.setHintState("player-1", { guideStatus: "active", guideSteps: [], guideSeasonId: "season-2" });
+    await store.setHintState("player-1", { guideSteps: ["look-pan"] });
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ guideStatus: "active", guideSteps: ["look-pan"], guideSeasonId: "season-2" }));
   });
 
   it("persists dashboardQuietedSeasonId per season and keeps it across unrelated hint patches", async () => {

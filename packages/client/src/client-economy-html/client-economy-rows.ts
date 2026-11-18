@@ -5,7 +5,7 @@ import { networkSupplyHtml } from "../client-resource-networks/network-supply-ht
 // uses it. Integrity has its own panel, so it is not here. The numbers come from the helpers in
 // client-economy-html.ts, which hands them in to avoid an import cycle.
 
-import { formatCoinPerDay, type CoinIncomeBreakdown, type CoinIncomeBucket, type CoinIncomeLine, type NetworkSupplyStatus, type SlotResource } from "@border-empires/shared";
+import { formatCoinPerDay, spendableCoin, type CoinIncomeBreakdown, type CoinIncomeBucket, type CoinIncomeLine, type NetworkSupplyStatus, type SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { EconomyPanelArgs } from "./client-economy-html.js";
 
@@ -64,7 +64,7 @@ const pinIntegrityLine = (rows: readonly CoinIncomeLine[]): readonly CoinIncomeL
 const coinRowHtml = (input: EconomyRowsInput): string => {
   const { coin } = input;
   return `<section class="v2e-row${input.focus === "GOLD" ? " v2e-focus" : ""}" data-v2e-row="GOLD">
-    <div class="v2e-head">${input.resourceIconHtml("GOLD")}<span class="v2e-name">Coin</span><b class="v2e-amount">${input.gold.toFixed(1)}</b><span class="v2e-status ${coin.netPerMinute >= 0 ? "v2e-good" : "v2e-bad"}">${perDay(coin.netPerMinute)}</span></div>
+    <div class="v2e-head">${input.resourceIconHtml("GOLD")}<span class="v2e-name">Coin</span><b class="v2e-amount">${spendableCoin(input.gold).toLocaleString("en-US")}</b><span class="v2e-status ${coin.netPerMinute >= 0 ? "v2e-good" : "v2e-bad"}">${perDay(coin.netPerMinute)}</span></div>
     ${coinListHtml("Earned", pinIntegrityLine(coin.earned), "No income yet", (b) => perDay(b.amountPerMinute), perDay)}
     ${coinListHtml("Upkeep", coin.upkeep, "None", upkeepAmount, (perMinute) => perDay(-perMinute))}
   </section>`;
@@ -78,13 +78,12 @@ const slotStatus = (supply: number, demand: number): { text: string; tone: strin
 };
 
 /**
- * With no tiles yet, a strategic resource says how to get some and links to the Resources lens: "No tiles yet"
- * alone left a playtester three sessions unable to find titanium (2026-11-14). Food keeps the short line.
+ * With no slots yet, a resource says how to get some and links to the Resources lens: "No tiles yet" alone left a
+ * playtester three sessions unable to find titanium (2026-11-14), and for Food it read as false next to a dozen farm
+ * tiles still ungarrisoned on the frontier (2026-11-18): only garrisoned grain and fish sites give slots.
  */
 const noSourcesHtml = (resource: SlotResource): string =>
-  resource === "FOOD"
-    ? "No tiles yet"
-    : `Garrison a ${NAMES[resource].toLowerCase()} deposit <button type="button" class="v2e-lens" data-economy-lens="${resource}">Find on map</button>`;
+  `Garrison a ${resource === "FOOD" ? "grain or fish site" : `${NAMES[resource].toLowerCase()} deposit`} <button type="button" class="v2e-lens" data-economy-lens="${resource}">Find on map</button>`;
 
 const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string => {
   const focus = input.focus === resource ? " v2e-focus" : "";

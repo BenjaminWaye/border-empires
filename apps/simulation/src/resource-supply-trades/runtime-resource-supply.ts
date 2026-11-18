@@ -2,7 +2,7 @@ import { tradedSlotSources } from "./traded-slot-sources.js";
 import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState, PersonalActivitySupplyEndedReason } from "@border-empires/game-domain";
-import { emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
+import { BINDING_DEAL_MESSAGE, TRUCE_PLEDGE_ID_PREFIX, hasResourceSupplyOffer, emptyNetworkSiteCounts, isSiphonModeSabotage, NETWORK_RESOURCES, OFFERABLE_SUPPLY_RESOURCES, UPKEEP_TRADE_RESOURCES,
   offerIncludesNonTradableSupply, type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { networkSupplyWithSiphon } from "./network-supply-with-siphon.js";
 import { supplyShortfallMessage } from "./supply-shortfall-message.js";
@@ -43,7 +43,7 @@ export class RuntimeResourceSupply {
   constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = [], journalSequence = 0) {
     this.journalSequence = journalSequence;
     // Salvage is never exported: zero capacity suspends any legacy salvage deal.
-    this.ledger = new ResourceSupplyLedger({ ...ctx, changed: (...args) => {
+    this.ledger = new ResourceSupplyLedger({ ...ctx, nameOf: id => ctx.player(id)?.name, changed: (...args) => {
       const [action, agreement] = args;
       ctx.changed(...args);
       if (action === "expired") ctx.ended?.(agreement, "EXPIRED");
@@ -106,6 +106,9 @@ export class RuntimeResourceSupply {
   create(row: ResourceSupplyAgreement, targetCoinDelta?: number): SupplyLedgerResult {
     if (offerIncludesNonTradableSupply(row.proposerGives) || offerIncludesNonTradableSupply(row.targetGives))
       return { ok: false, message: "Precursor salvage can't be traded." };
+    // The agreement limit is reported before a slot shortfall: it can't be fixed by finding spare slots.
+    const full = this.ledger.capacityRefusal(row);
+    if (full) { this.ctx.capacityRejected?.(); return { ok: false, message: full }; }
     for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
       const shortfall = supplyShortfallMessage(this.ctx.player(id)?.name ?? id, offer, this.available(id));
       if (shortfall) return { ok: false, message: shortfall };
@@ -194,6 +197,9 @@ export class RuntimeResourceSupply {
   cancel(id: string, actorId: string): SupplyLedgerResult {
     const row = this.ledger.rows().find(row => row.id === id);
     if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
+    // Deals are binding for their term, as in Civ: only expiry or war (cancelBetween) ends one early.
+    // Open-ended agreements saved before terms existed have nothing to honour and may still be ended.
+    if (row?.expiresAt !== undefined) return {ok:false,message:BINDING_DEAL_MESSAGE};
     if (row && this.ledger.remove(id, this.ctx.now())) this.ctx.ended?.(row, "CANCELLED", actorId);
     return {ok:true};
   }
@@ -210,6 +216,21 @@ export class RuntimeResourceSupply {
     for (const row of rows) if (this.ledger.remove(row.id, this.ctx.now())) {
       ended += 1;
       this.ctx.ended?.(row, "ATTACK", playerAId);
+    }
+    return ended;
+  }
+  /**
+   * A truce's slot-free Coin pledge is the price of that truce: when the truce
+   * ends early (broken, or ended any other way), its pledges between the two
+   * Houses end with it. Binding supply deals are untouched.
+   */
+  endTrucePledgesBetween(playerAId: string, playerBId: string, actorId: string): number {
+    if (playerAId === playerBId || this.ledger.size === 0) return 0;
+    let ended = 0;
+    for (const row of this.ledger.rows()) {
+      const between = (row.proposerId === playerAId && row.targetId === playerBId) || (row.proposerId === playerBId && row.targetId === playerAId);
+      if (!between || !row.id.startsWith(TRUCE_PLEDGE_ID_PREFIX) || hasResourceSupplyOffer(row.proposerGives) || hasResourceSupplyOffer(row.targetGives)) continue;
+      if (this.ledger.remove(row.id, this.ctx.now())) { ended += 1; this.ctx.ended?.(row, "CANCELLED", actorId); }
     }
     return ended;
   }

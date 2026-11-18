@@ -29,13 +29,26 @@ describe("openTownSupportNeighborTiles", () => {
 
   it("excludes SETTLED neighbors that already have a structure", () => {
     const town = tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "TOWN" } });
-    const occupied = tile(1, 0, { ownerId: "p1", ownershipState: "SETTLED", fort: { ownerId: "p1" } });
+    const occupied = tile(1, 0, { ownerId: "p1", ownershipState: "SETTLED", economicStructure: { ownerId: "p1", type: "MANUFACTORY" } } as Partial<TownSupportTile>);
     const tiles = new Map<string, TownSupportTile>([
       ["0,0", town],
       ["1,0", occupied]
     ]);
 
     expect(openTownSupportNeighborTiles(tiles, "p1", "0,0")).toHaveLength(0);
+  });
+
+  // Regression: a fort shares its tile with any building, so a fortified but otherwise empty plot is still
+  // open. Excluding it made a fully fortified ring reject every support build placed from the town.
+  it("treats a fortified empty neighbor as open", () => {
+    const town = tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "TOWN" } });
+    const fortified = tile(1, 0, { ownerId: "p1", ownershipState: "SETTLED", fort: { ownerId: "p1" } });
+    const tiles = new Map<string, TownSupportTile>([
+      ["0,0", town],
+      ["1,0", fortified]
+    ]);
+
+    expect(openTownSupportNeighborTiles(tiles, "p1", "0,0").map((t) => `${t.x},${t.y}`)).toEqual(["1,0"]);
   });
 
   it("returns an open SETTLED neighbor assigned to this town", () => {

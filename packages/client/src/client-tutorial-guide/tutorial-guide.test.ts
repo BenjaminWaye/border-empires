@@ -98,6 +98,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap the marked town and Expand To it");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
@@ -111,6 +112,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Tap the marked town and Garrison it");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
@@ -132,11 +134,29 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector(".tg-lookfor")?.textContent).toContain("Grain");
   });
 
-  it("with no town in sight, goes straight from Look around to building a Relay Beacon (no instruction-less 'Find a town' step)", () => {
+  it("with no town in sight, asks for a scout drone flight to find one (no instruction-less 'Find a town' step)", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     state.tiles.delete("2,0"); // the only town
     state.tilesRevision += 1;
+    state.homeTile = { x: 0, y: 0 }; // nothing discovered yet: unexplored ground all around
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Tap the marked unexplored ground and Explore");
+    click("skip"); // explore
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("No town in sight: tap the marked unexplored ground and Explore");
+    expect(state.onboardingHighlightTiles).toHaveLength(1);
+  });
+
+  it("with no town in sight and no AFC to launch a drone, asks for a Relay Beacon", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    state.tiles.delete("2,0"); // the only town
+    state.tilesRevision += 1;
+    state.afcRecovery = { requiredSince: 1 } as never;
     noteGuideMapPanned();
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
@@ -210,12 +230,13 @@ describe("tutorial guide in the onboarding corner", () => {
     document.body.className = "";
   });
 
-  it("clears the map rings on the next frame after Hide guide", () => {
+  it("clears the map rings on the next frame after Skip guide", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
     click("skip");
     click("skip");
+    click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
     click("hide");
@@ -265,9 +286,11 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
     click("finish");
     expect(readGuideProgress(EMAIL).status).toBe("done");
-    // Only the Guide complete acknowledgement is left, honest about the steps it never reached.
+    // Only the Guide complete acknowledgement is left. Playtest: it said "Guide complete" over a 14/16 bar;
+    // the waiting steps are handed to the First Contact tip, so the bar is full and the note says so.
     expect(card()?.querySelector("[data-guide-action]")).toBeNull();
-    expect(card()?.textContent).toContain(`${GUIDE_STEPS.length - 2}/${GUIDE_STEPS.length}`);
+    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
+    expect(card()?.querySelector(".tg-progress")?.getAttribute("aria-valuenow")).toBe(String(GUIDE_STEPS.length));
     expect(card()?.textContent).toContain("Contest and Diplomacy are explained");
     state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
     state.tilesRevision += 1;
@@ -275,10 +298,14 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector("[data-guide-action]")).toBeNull(); // contact after Finish doesn't bring the guide back
   });
 
-  it("Hide guide turns it off for good and removes the card", () => {
+  it("Skip guide is a visible button that turns it off and removes the card", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
+    const skipGuide = card()?.querySelector('[data-guide-action="hide"]');
+    expect(skipGuide?.textContent).toBe("Skip guide");
+    expect(skipGuide?.classList.contains("tg-btn")).toBe(true); // a button, not the old faint underlined link
+    expect(skipGuide?.closest(".tg-card .tg-actions")).not.toBeNull(); // in the card's own action row: no new HUD element on crowded phones
     click("hide");
     expect(card()).toBeNull();
     expect(readGuideProgress(EMAIL).status).toBe("dismissed");

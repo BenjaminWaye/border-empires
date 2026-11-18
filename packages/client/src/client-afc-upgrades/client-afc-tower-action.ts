@@ -26,6 +26,7 @@ export function afcTowerSuppressionAction(tile: Tile, options: AfcTowerActionOpt
 
 /** Shared tile-targeted actions; suppression uses its own command and preserves ordinary Purge effects. */
 export function dispatchTileAetherAction(actionId: string, selected: Pick<Tile, "x" | "y">, state: Pick<ClientState, "aetherLanceFxQueue">, send: (payload: unknown) => boolean): void {
+  if (actionId === "activate_waystation") send({ type: "ACTIVATE_WAYSTATION", x: selected.x, y: selected.y });
   if (actionId === "forced_ancillarification") send({ type: "FORCED_ANCILLARIFICATION", x: selected.x, y: selected.y });
   // Opens the confirm popup; the command is sent from its gold "Ship 1 load" button.
   if (actionId === "ship_salvage_to_court") showSalvageTributeSheet(selected, send);

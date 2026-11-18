@@ -8,7 +8,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { autoSettlePrefsCommandPayload, isChosenTrickleResource } from "@border-empires/shared";
+import { autoSettlePrefsCommandPayload, COMMAND_RATE_LIMIT_CAPACITY, COMMAND_RATE_LIMIT_REFILL_PER_SECOND, isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
@@ -53,6 +53,8 @@ import { startNextContestTimer } from "../next-contest/next-contest.js"; import 
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
+import { handlePlayerRespawned } from "../player-respawned-email/player-respawned-email.js";
+import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -598,11 +600,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
   };
-  const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {
-    for (const [key, entry] of cache) {
-      if (entry.expiresAt <= nowMs) cache.delete(key);
-    }
-  };
   const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
@@ -781,7 +778,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // Bounds the flood a single connection can push at the simulation: idempotency/dedup
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
-  const commandRateLimiter = new CommandRateLimiter({ capacity: 20, refillPerSecond: 5 });
+  const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
   // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
   // world changes, but doing that synchronously inside the per-batch event
   // handler blocks the gateway loop for hundreds of ms × N batches per second
@@ -982,11 +979,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ensureSubscribed: (playerId) => playerSubscriptions.ensureSubscribed(playerId),
     cachedSnapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
-    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert,
+    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert, sendTruceEndingAlert: emailAlerts.sendTruceEndingAlert,
     onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
     isSimulationConnected: () => simulationHealth.connected,
-    fetchSeasonSummary: () => simulationClient.getCurrentSeasonSummary()
+    simulationReads: simulationClient
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1184,7 +1181,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") handlePlayerRespawned(event.playerId, event.payload, { ...(slackAlerter ? { alertPlayerRespawned: (id, reason) => slackAlerter.alertPlayerRespawned(id, reason) } : {}), nameOf: (id) => socialState.playerNameOf(id), sendEmpireFellAlert: emailAlerts.sendEmpireFellAlert, sendGameplayEmailAlert });
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
       if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent, countSeasonRolloverResyncSockets: (count) => gatewayMetrics.incrementSeasonRolloverResyncSocketsTotal(count) })) return;
@@ -2301,7 +2298,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ onSpawned: playerFunnel.onSpawned, playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
           if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
-          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
+          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, guideSeasonId: message.guideSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") { await handleSetProfileMessage({ playerId: session.playerId, displayName: message.displayName, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), buildTakenNameSet, incrementDisplayNameCollisionRejectedTotal: () => gatewayMetrics.incrementDisplayNameCollisionRejectedTotal(), runExclusive: runProfileExclusive, profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, renamePlayer: socialState.renamePlayer, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload), preSerializeBroadcast }); return; }
           if (message.type === "SET_EMAIL_NOTIFICATION_PREFS") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetEmailNotificationPrefsMessage({ playerId: session.playerId, prefs: message.prefs, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_PERSONAL_ACTIVITY") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestPersonalActivityMessage({ playerId: session.playerId, now: () => Date.now(), getPersonalActivityTimeline: (playerId, from, to) => simulationClient.getPersonalActivityTimeline(playerId, from, to), getDiplomacyCards: (playerId, from, to) => socialState.diplomacyActivityCards(playerId, from, to), recordPayloadBytes: (bytes) => gatewayMetrics.observeActivityTimelinePayloadBytes(bytes), recordCardCount: (count) => gatewayMetrics.observeActivityTimelineCardCount(count), recordTruncated: () => gatewayMetrics.incrementActivityTimelineTruncatedTotal(), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_WORLD_PULSE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestWorldPulseMessage({ playerId: session.playerId, getActivity: getWorldPulseActivity, profileStore, invalidateProfileCache, recordPayloadBytes: (bytes) => gatewayMetrics.observeWorldPulsePayloadBytes(bytes), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "ACKNOWLEDGE_ACTIVITY_SEEN") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleAcknowledgeActivitySeenMessage({ playerId: session.playerId, seenAt: message.seenAt, seasonId: message.seasonId, now: () => Date.now(), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
@@ -2452,7 +2449,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
           };
           const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
-            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, rejectedMessage: message, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
             return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
           };
           if (message.type === "SETTLE") {

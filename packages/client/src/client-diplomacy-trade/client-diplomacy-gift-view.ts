@@ -9,6 +9,7 @@ import {
   giftOpinionGain,
   giftToReach,
   netValueToAi,
+  spendableCoin,
   type DiplomacyGoods,
   type DiplomacyTerms
 } from "@border-empires/shared";
@@ -26,7 +27,7 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
   const { targetName, reply, own } = input;
   const give = input.selection.terms.give;
   if (give.gold > own.gold) {
-    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel: SEND_LABEL };
+    return { tone: "bad", text: `You only have ${spendableCoin(own.gold)} coin.`, canSend: false, sendLabel: SEND_LABEL };
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel: SEND_LABEL };
   if (reply?.found && !reply.ai) return { tone: "bad", text: "Only AI empires take gifts.", canSend: false, sendLabel: SEND_LABEL };

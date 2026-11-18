@@ -34,7 +34,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "Waystation site: a tall thin brass mast with a small emissive cyan lens near the top, a dark-iron shelter, and two crate props at the base — always drawn. The lens is dim while dormant and brightens to full emissive once a player activates it. Unlike the watchtower there is no pulse/countdown ring, since activation is permanent with nothing to count down."
+          "Portable Survey Rig: a splayed iron tripod, brass surveying head with a pulsing cyan lens, equipment case, canvas lean-to and bedroll. Human players claim the tile then press Activate; the live map hides consumed rigs. The activated study shows its dim static lens for historical state compatibility."
       }
     }
   },

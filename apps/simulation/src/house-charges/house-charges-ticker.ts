@@ -9,10 +9,11 @@
 // All state lives on DomainPlayer.houseCharges and is snapshotted with the
 // player; the geometry is derived per tile map (house-charges-world.ts).
 // Cost per run: a tile scan only while some House is still waiting for a
-// deal, plus each kept charge's evaluation (bounded by the target's size or
+// deal, plus each kept charge's evaluation (a Writ of Correction reads only the
+// House's own AFCs from the runtime's per-player index) (bounded by the target's size or
 // the House's own garrisoned land for a Charter).
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { HOUSE_CHARGES_KEPT, encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseCharge, type HouseChargePoint } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, afcFoundedBy, encodeChargeArt, getWorldSeed, keptHouseCharges, type HouseCharge, type HouseChargePoint } from "@border-empires/shared";
 import { dealHouseCharges, offeredTargetKeys } from "./house-charge-dealing.js";
 import { houseChargeStanding } from "./house-charge-held.js";
 import { houseChargesWorldFor } from "./house-charges-world.js";
@@ -28,6 +29,8 @@ export type HouseChargesTickerDeps = {
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   /** Worldgen dock routes: a Charter road may cross the sea along them (house-charge-held.ts). */
   readonly docks?: () => readonly DockRouteDefinition[];
+  /** Tile keys of the AFCs a player owns (runtime summary index), so a Writ of Correction never scans the map. */
+  readonly afcTileKeys?: (playerId: string) => ReadonlySet<string>;
   /** Runs after every pass, with the players whose charges were dealt, completed or lost on it. */
   readonly onPassComplete?: (changedPlayerIds: readonly string[], nowMs: number) => void;
 };
@@ -37,6 +40,18 @@ export type HouseChargesTicker = {
   readonly tick: (nowMs: number) => void;
   /** Runs now regardless of the throttle (tests, and a final pass before crowning). */
   readonly runNow: (nowMs: number) => void;
+};
+
+/** A player's own AFC tiles: from the runtime's per-player index when given, else one scan of the map (tests, and a CHOOSE command). */
+const ownAfcTilesFor = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  playerId: string,
+  afcTileKeys: ((playerId: string) => ReadonlySet<string>) | undefined
+): (() => readonly DomainTileState[]) => () => {
+  if (afcTileKeys) return [...afcTileKeys(playerId)].map((key) => tiles.get(key)).filter((tile): tile is DomainTileState => Boolean(tile?.afc));
+  const own: DomainTileState[] = [];
+  for (const tile of tiles.values()) if (tile.afc?.ownerId === playerId) own.push(tile);
+  return own;
 };
 
 /** Each landed House's landing site: its first AFC (one it landed preferred). */
@@ -57,7 +72,7 @@ export const runHouseChargesPass = (
   tiles: ReadonlyMap<string, DomainTileState>,
   players: ReadonlyMap<string, DomainPlayer>,
   nowMs: number,
-  options: { readonly deal: boolean; readonly docks?: readonly DockRouteDefinition[] } = { deal: true }
+  options: { readonly deal: boolean; readonly docks?: readonly DockRouteDefinition[]; readonly afcTileKeys?: (playerId: string) => ReadonlySet<string> } = { deal: true }
 ): string[] => {
   const world = houseChargesWorldFor(tiles, options.docks);
   const changed = new Set<string>();
@@ -73,10 +88,15 @@ export const runHouseChargesPass = (
       const home = sites.get(player.id);
       if (!home) continue;
       // A landing with no qualifying target gets an empty deal, so it is not retried every pass.
-      const rivalLandingSites = [...sites].filter(([playerId]) => playerId !== player.id).map(([, site]) => site);
-      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites }) ??
+      const rivalSites = [...sites].filter(([playerId]) => playerId !== player.id);
+      const rivalLandingSites = rivalSites.map(([, site]) => site);
+      // A Writ of Correction names only a real House standing on an AFC it founded: never barbarians, never a House left with only captured AFCs.
+      const rivalLandings = rivalSites
+        .filter(([playerId, site]) => playerId !== BARBARIAN_PLAYER_ID && afcFoundedBy(tiles.get(`${site.x},${site.y}`)?.afc) === playerId)
+        .map(([playerId, site]) => ({ playerId, name: players.get(playerId)?.name ?? playerId, x: site.x, y: site.y }));
+      const dealt = dealHouseCharges({ world, tiles, playerId: player.id, home, worldSeed, holders: (key) => holderCount.get(key) ?? 0, now: nowMs, rivalLandingSites, rivalLandings }) ??
         { dealtAt: nowMs, offered: [], keptIds: [] };
-      // AI Houses never name islands (NAME_ISLAND), so they keep charges they can complete over a Survey Claim.
+      // AI Houses keep charges they can complete, and that keep them out of rivals' capitals, first (aiKeptIds).
       if (player.isAi) dealt.keptIds = aiKeptIds(dealt.offered);
       player.houseCharges = dealt;
       for (const key of offeredTargetKeys(dealt)) holderCount.set(key, (holderCount.get(key) ?? 0) + 1);
@@ -84,13 +104,15 @@ export const runHouseChargesPass = (
     }
   }
   for (const player of players.values()) {
-    if (refreshPlayerHouseCharges(player, tiles, players, nowMs)) changed.add(player.id);
+    if (refreshPlayerHouseCharges(player, tiles, players, nowMs, ownAfcTilesFor(tiles, player.id, options.afcTileKeys))) changed.add(player.id);
   }
   return [...changed];
 };
 
+/** AI Houses keep a Survey Claim (they never name islands) and a Writ of Correction (it would aim their idle expansion at a rival's capital) last. */
+const AI_LAST_KINDS = new Set<HouseCharge["kind"]>(["SURVEY", "CORRECTION"]);
 const aiKeptIds = (offered: readonly HouseCharge[]): string[] =>
-  [...offered.filter((charge) => charge.kind !== "SURVEY"), ...offered.filter((charge) => charge.kind === "SURVEY")]
+  [...offered.filter((charge) => !AI_LAST_KINDS.has(charge.kind)), ...offered.filter((charge) => AI_LAST_KINDS.has(charge.kind))]
     .slice(0, HOUSE_CHARGES_KEPT)
     .map((charge) => charge.id);
 
@@ -99,7 +121,8 @@ export const refreshPlayerHouseCharges = (
   player: DomainPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
   players: ReadonlyMap<string, DomainPlayer>,
-  nowMs: number
+  nowMs: number,
+  ownAfcTiles: () => readonly DomainTileState[] = ownAfcTilesFor(tiles, player.id, undefined)
 ): boolean => {
   const state = player.houseCharges;
   if (!state) return false;
@@ -107,7 +130,7 @@ export const refreshPlayerHouseCharges = (
   const completeSince: Record<string, number> = {};
   const sizes: Record<string, number> = {};
   for (const charge of keptHouseCharges(state)) {
-    const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id });
+    const standing = houseChargeStanding(charge, { world, tiles, players, playerId: player.id, ownAfcTiles });
     sizes[charge.id] = standing.size;
     if (standing.complete) completeSince[charge.id] = state.completeSince?.[charge.id] ?? nowMs;
     // Art follows what was last held complete, so a card shows the road or area the House actually held.
@@ -142,7 +165,7 @@ export const createHouseChargesTicker = (deps: HouseChargesTickerDeps): HouseCha
     const deal = nowMs - lastDealAt >= HOUSE_CHARGES_DEAL_MIN_INTERVAL_MS;
     if (deal) lastDealAt = nowMs;
     const docks = deps.docks?.();
-    const changed = runHouseChargesPass(deps.tiles(), deps.players(), nowMs, { deal, ...(docks ? { docks } : {}) });
+    const changed = runHouseChargesPass(deps.tiles(), deps.players(), nowMs, { deal, ...(docks ? { docks } : {}), ...(deps.afcTileKeys ? { afcTileKeys: deps.afcTileKeys } : {}) });
     deps.onPassComplete?.(changed, nowMs);
   };
   return {

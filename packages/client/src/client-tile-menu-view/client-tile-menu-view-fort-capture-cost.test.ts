@@ -57,6 +57,58 @@ describe("menuOverviewForTile — fort capture cost line", () => {
     expect(line).toContain(`Capturing requires ${requiredMusterForFort("FORT")} mustered manpower.`);
   });
 
+  it("omits the line on the viewer's own fort, since only attackers need it", () => {
+    const line = captureLine({
+      x: 5,
+      y: 5,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "active", variant: "FORT" }
+    });
+    expect(line).toBeUndefined();
+  });
+
+  it("puts the line under its own Defense heading, not under Upkeep", () => {
+    const lines = menuOverviewForTile(
+      { x: 5, y: 5, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", fort: { ownerId: "enemy", status: "active", variant: "FORT" } },
+      baseDeps
+    );
+    const index = lines.findIndex((line) => line.html.includes("Capturing requires"));
+    expect(index).toBeGreaterThan(0);
+    expect(lines[index - 1]).toEqual({ html: "Defense", kind: "section" });
+  });
+
+  it("ends the overview with the Defense block so it never adopts unrelated lines", () => {
+    // An upgrading fort is still defending but has no active-fort upkeep, so
+    // there is no Upkeep heading to close the Defense section.
+    const tile: Tile = {
+      x: 5, y: 5, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED",
+      fort: { ownerId: "enemy", status: "under_construction", variant: "FORT", upgradingFrom: "FORT" }
+    };
+    const town: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "enemy", town: { name: "Ashford" } as NonNullable<Tile["town"]> };
+    const lines = menuOverviewForTile(tile, { ...baseDeps, supportedOwnedTownsForTile: () => [town], tileHistoryLines: () => ["Captured 3 days ago."] });
+    const index = lines.findIndex((line) => line.kind === "section" && line.html === "Defense");
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(lines.slice(index + 1).map((line) => line.html)).toEqual([`Capturing requires ${requiredMusterForFort("FORT")} mustered manpower.`]);
+  });
+
+  it("shows the capture-shock fort status under Defense, even on the viewer's own fort", () => {
+    const now = Date.now();
+    const lines = menuOverviewForTile(
+      {
+        x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+        fort: { ownerId: "me", status: "active", variant: "FORT", disabledUntil: now + 60_000 },
+        history: { previousOwners: ["enemy"], captureCount: 1, structureHistory: [], lastCapturedAt: now - 60_000 }
+      },
+      baseDeps
+    );
+    const index = lines.findIndex((line) => line.html.startsWith("Recently captured. Fort defense is offline"));
+    expect(index).toBeGreaterThan(0);
+    expect(lines[index - 1]).toEqual({ html: "Defense", kind: "section" });
+    expect(lines.some((line) => line.html.includes("Capturing requires"))).toBe(false);
+  });
+
   it("omits the line entirely while the fort is still under construction", () => {
     const line = captureLine({
       x: 5,

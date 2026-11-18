@@ -21,9 +21,11 @@ export const activityCardTone = (card: PersonalActivityCard, playerId: string): 
       return card.outcome === "FELL" ? "loss" : "hold";
     case "TOWN_CAPTURED":
     case "DOCK_CAPTURED":
+    case "MUSTER_CAPTURED":
       return "gain";
     case "TOWN_LOST":
     case "DOCK_LOST":
+    case "MUSTER_LOST":
       return "loss";
     case "SUPPLY_ENDED":
       // Losing an import you did not end yourself is a loss; the rest is bookkeeping.

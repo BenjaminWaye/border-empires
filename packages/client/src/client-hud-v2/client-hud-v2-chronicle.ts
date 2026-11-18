@@ -2,9 +2,12 @@
 // personal activity timeline. Every event that happened somewhere has a Show
 // button that flies the camera there; rivals filter one timeline.
 
+import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
+import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
+import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
 
 export type ChronicleInput = {
   me: string;
@@ -19,6 +22,8 @@ export type ChronicleInput = {
   nowMs: number;
   /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
   awaySince?: number | undefined;
+  /** The latest respawn notice, so the headline can say the empire was wiped out and restarted. */
+  respawn?: ChronicleRespawn | undefined;
 };
 
 const esc = (text: string): string =>
@@ -38,6 +43,8 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
     case "TOWN_LOST":
     case "DOCK_CAPTURED":
     case "DOCK_LOST":
+    case "MUSTER_CAPTURED":
+    case "MUSTER_LOST":
       return card.counterpartyPlayerId ? [card.counterpartyPlayerId] : [];
     case "DIPLOMACY":
     case "SUPPLY_ENDED":
@@ -47,10 +54,7 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
   }
 };
 
-const dayKey = (at: number): string => {
-  const d = new Date(at);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-};
+const dayKey = localDayKey;
 
 /** "TODAY", "YESTERDAY" or a short date, relative to now. */
 export const dayHeading = (at: number, nowMs: number): string => {
@@ -91,14 +95,14 @@ const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
-  const text = activityCardText(card, input.me, input.nameOf, input.techName);
+  const text = activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs);
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
   const coords = activityCardCoordinates(card);
   const show = coords
     ? `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${coords.x}" data-y="${coords.y}">Show</button>`
     : "";
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
-    <span class="v2c-time">${activityCardTimeLabel(card)}</span>
+    <span class="v2c-time">${activityCardTimeLabel(card, input.nowMs)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
     <span class="v2c-text"><span class="v2c-what">${esc(text)}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
     ${show}
@@ -148,7 +152,7 @@ const filtersHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput):
 
 /** Title, close and (when given) the Yours / World / Updates tabs. */
 export const chronicleHeadHtml = (tabs = ""): string =>
-  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle"><span class="v2-key-hint">Esc </span>✕</button></div>${tabs}`;
+  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><span class="v2s-hint">${SCREEN_HINTS.chronicle ?? ""}</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle"><span class="v2-key-hint">Esc </span>✕</button></div>${tabs}`;
 
 export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const head = chronicleHeadHtml(tabs);
@@ -161,5 +165,9 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const list = groups.length > 0
     ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
-  return `${head}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
+  // A returning player gets a short "since you left" headline above everything else.
+  const headline = input.awaySince === undefined
+    ? ""
+    : chronicleHeadlineHtml({ me: input.me, timeline, awaySince: input.awaySince, respawn: input.respawn, nameOf: input.nameOf });
+  return `${head}${headline}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
 };

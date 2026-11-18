@@ -140,9 +140,21 @@ describe("occupation survey presentation", () => {
     occupationSurveyController.record(entry());
     sync(true);
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
-    occupationSurveyController.endCapture(occupationSurveyController.currentReports());
+    // The card did not list this clue (it arrived after the card was built), so it still presents.
+    occupationSurveyController.endCapture([]);
     sync(true);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+  });
+
+  // 10-persona playtest: the capture card listed the clue, the player closed it, and the same clue
+  // came back as its own survey card. Closing the card reads the clues it listed.
+  it("does not re-show a clue the town capture card already listed", () => {
+    occupationSurveyController.beginCapture();
+    occupationSurveyController.record(entry());
+    occupationSurveyController.endCapture(occupationSurveyController.currentReports());
+    sync(true);
+    expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(occupationSurveyController.currentReports()).toHaveLength(1);
   });
 
   it("restores standing reports directly, but skips resources whose reveal tech is researched", () => {

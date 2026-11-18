@@ -33,7 +33,8 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   // An unexplored tile: launch the scout drone (client-scout-drone/).
   "explore_scout",
   // Only offered on your own Reclamation Works; gold while there is salvage to ship.
-  "ship_salvage_to_court"
+  "ship_salvage_to_court",
+  "activate_waystation"
 ];
 
 const RELAY_BEACON_IDS: ReadonlyArray<TileActionDef["id"]> = ["build_relay_beacon", "build_relay_beacon_frontier"];

@@ -208,6 +208,22 @@ export type PersonalActivityDockCard = {
   counterpartyPlayerId?: string;
 };
 
+// A muster flag taken with its tile: the captor gains its staged manpower
+// (up to their manpower ceiling), the flag's owner loses it.
+export type PersonalActivityMusterCard = {
+  kind: "MUSTER_CAPTURED" | "MUSTER_LOST";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  /** Manpower staged on the flag. */
+  amount: number;
+  /** MUSTER_CAPTURED: what the captor actually gained (less than amount at their manpower ceiling). */
+  gained?: number;
+  // Whom it was taken from on MUSTER_CAPTURED, who took it on MUSTER_LOST.
+  counterpartyPlayerId?: string;
+};
+
 export type PersonalActivityBuildingCard = {
   kind: "BUILDING_COMPLETED";
   id: string;
@@ -285,6 +301,8 @@ export type PersonalActivityDiplomacyCard = {
   counterpartyName: string;
   /** TRUCE_STARTED: the truce length. TRUCE_EXTENDED: the hours added. */
   durationHours?: number;
+  /** TRUCE_STARTED / TRUCE_EXTENDED: when the truce ends as of this row (an extension's new end). */
+  endsAt?: number;
   /** TRUCE_BROKEN: who broke it. ALLIANCE_OFFERED: who offered. ALLIANCE_DECLINED: who declined. */
   byPlayerId?: string;
   /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
@@ -317,6 +335,7 @@ export type PersonalActivityCard =
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
   | PersonalActivityDockCard
+  | PersonalActivityMusterCard
   | PersonalActivityBuildingCard
   | PersonalActivityScoutReportCard
   | PersonalActivityScoutSightedCard

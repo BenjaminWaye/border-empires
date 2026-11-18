@@ -35,11 +35,14 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
 
     expect(source).toContain(
-      'showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin.")'
+      "reportBulkFrontierClaim(state, out, neutralTargets, { pushFeed, showCaptureAlert })"
     );
-    expect(source).not.toContain(
-      'showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin.", "warn"); pushFeed('
-    );
+    // Frontier claims cost no coin; the warning must never blame coin.
+    expect(source).not.toContain("you need enough coin");
+  });
+
+  it("lets the frontier queue accept any target pickOriginForTarget can reach (e.g. bordering a still-pending claim)", () => {
+    expect(actionFlowSource()).toContain("hasOrigin: (x, y) => Boolean(pickOriginForTarget(x, y, false))");
   });
 
   it("keeps the generic build handler blocking a second build on a tile with a settle-then-build queued", () => {
@@ -79,7 +82,8 @@ describe("client action flow regressions", () => {
     // than silently doing nothing.
     expect(source).toContain('if (vis === "fogged") {');
     expect(source).not.toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
-    expect(source).toContain("openSingleTileActionMenu(persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor), clientX, clientY);");
+    expect(source).toContain("const foggedTile = persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor);");
+    expect(source).toContain("openSingleTileActionMenu(foggedTile, clientX, clientY);");
   });
 
   it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
@@ -116,10 +120,10 @@ describe("client action flow regressions", () => {
     // even when it touched the player's own territory.
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
-    // Mouse clicks only: a touch tap opens the sheet (tap-to-inspect, see
-    // client-tile-interaction.ts).
+    // Only on the confirming second tap: the first tap selects and opens the
+    // sheet (select first, then confirm -- client-tile-interaction.ts).
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;'
+      'const frontierOrigin = isLand && isNeutral && confirmTap ? pickOriginForTarget(wx, wy, false) : undefined;'
     );
   });
 
@@ -158,7 +162,7 @@ describe("client action flow regressions", () => {
     expect(unexploredBranch).not.toContain("queueAdjacentExpandClaim");
   });
 
-  it("auto-claims an adjacent unowned tile with a single mouse click, regardless of reach -- no menu detour", () => {
+  it("claims an adjacent unowned tile on the confirming second tap, regardless of reach", () => {
     const source = actionFlowSource();
 
     // An earlier version of this file gated the quick-claim shortcuts on
@@ -169,14 +173,15 @@ describe("client action flow regressions", () => {
     // Adjacent-tile clicks (fogged, unexplored, and visible) go straight to
     // queueAdjacentExpandClaim again; reach only affects what's *visible*
     // once a menu is actually opened some other way (e.g. re-clicking an
-    // already-queued tile), never whether the quick-claim fires. Touch taps
-    // are the exception: they inspect first (tapInput, 2026-11-12 playtest).
+    // already-queued tile), never whether the quick-claim fires. Since the
+    // 2026-11-17 playtest every input selects first: the claim fires only on
+    // the second tap of the same tile (confirmTap).
     expect(source).not.toContain("targetInReach: clickTargetInReach");
     expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
     const visibleBranchStart = source.indexOf("const to = clicked;");
     const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
     expect(visibleBranch).toContain(
-      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId,\n      tapInput\n    });"
+      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId,\n      confirmTap\n    });"
     );
   });
 
@@ -293,5 +298,37 @@ describe("client action flow regressions", () => {
     // capLevel bump lands (client-tile-delta-batch-handler.ts), so it must
     // stay open rather than force the player to reopen it each time.
     expect(actionFlowSource()).toContain('if (actionId !== "muster_expand_cap") hideTileActionMenu();');
+  });
+
+  // Playtest 2026-11-17: one tap spent manpower with no preview. Select first, then confirm.
+  it("arms the tapped tile and offers the big confirm prompt instead of spending on the first tap", () => {
+    const source = actionFlowSource();
+    expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy);");
+    expect(source).toContain("if (confirmTap && confirmAction && confirmTapReady(confirmAction)) {\n      handleTileAction(confirmAction.id);");
+    expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(confirmAction && (() => confirmPromptOffer(");
+    // An action button disarms, so a later tap on the same tile can't fire it again.
+    expect(source).toContain("tapConfirm.disarm(); // an action button ran");
+    // Never a one-tap attack on an ally or truce partner, never a Garrison on own land (review of #2848).
+    expect(source).toContain("const confirmAction = confirmTapActionForTile(menuActionsForSingleTile(to), { ownTile: to.ownerId === state.me, pactHolder });");
+    // A pan or zoom between the taps lapses the arm (review of #2848).
+    expect(source).toContain("const tapConfirm = createTapConfirm(() => `${state.camX},${state.camY},${state.zoom}`);");
+  });
+
+  it("routes Build Relay Beacon on neutral land through placement (reach preview + confirm) instead of spending from the menu", () => {
+    const source = actionFlowSource();
+    const branch = source.slice(source.indexOf('if (actionId === "build_relay_beacon_frontier") {'), source.indexOf('if (actionId === "remove_structure") {'));
+    expect(branch).toContain('triggerBuildForStructureType("RELAY_BEACON", selected)');
+    expect(branch).not.toContain("enqueueRelayBeaconFrontierWaypoint");
+  });
+
+  // Review of #2848: re-tapping an invalid (red) placement tile used to confirm, fail and drop the whole placement.
+  it("only a valid previewed tile confirms Relay Beacon placement on a re-tap", () => {
+    expect(actionFlowSource()).toContain("if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement();");
+  });
+
+  it("disarms when the tile sheet is dismissed, and reads the confirm before the tap's own sheet close", () => {
+    const source = actionFlowSource();
+    expect(source).toContain("  const hideTileActionMenu = (): void => {\n    sheetDismiss.sheetHidden();");
+    expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)\n    hideTileActionMenu();");
   });
 });

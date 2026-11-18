@@ -160,7 +160,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   const refinery = refineryActionIcon(id);
   if (refinery) return refinery;
   if (id === "expand_here") return "⚐";
-  if (id === "explore_scout") return "⌖";
+  if (id === "explore_scout" || id === "afc_scout_drone") return "⌖";
   if (id.startsWith("march_attack_") || id === "march_to_pick_origin") return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
@@ -175,6 +175,8 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_hydrogarden") return "▥";
+  if (id === "build_farm_plot") return "▦";
+  if (id === "build_hydrogarden_plot") return "⤴";
   if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";

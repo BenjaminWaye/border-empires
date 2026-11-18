@@ -18,6 +18,8 @@ export type TileActionDef = {
     | "build_observatory"
     | "build_hydrogarden"
     | "build_hydroworks"
+    | "build_farm_plot"
+    | "build_hydrogarden_plot"
     | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
@@ -90,6 +92,7 @@ export type TileActionDef = {
     | "hijack_aether_tower"
     | "forced_ancillarification"
     | "ship_salvage_to_court"
+    | "activate_waystation"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
@@ -112,7 +115,7 @@ export type TileActionDef = {
     | "expand_here"
     | "march_attack_flag" | "march_attack_flag_2" | "march_attack_flag_3" | "march_attack_new_flag"
     | "march_to_pick_origin"
-    | "explore_scout"
+    | "explore_scout" | "afc_scout_drone"
     | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;

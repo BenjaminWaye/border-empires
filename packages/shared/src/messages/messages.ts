@@ -3,7 +3,10 @@ import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
 import type { ResourceType } from "../types.js";
-import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, recurringCoinHasSlot } from "../diplomacy-terms/diplomacy-terms.js";
+
+/** Alliance and independent trade terms: Coin per hour rides on a supply contract there. */
+const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE });
 
 const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
   AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
@@ -70,14 +73,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
-  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
+  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: SlottedTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
-  z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:DiplomacyTermsSchema }),
+  // countersOfferId: the incoming resource offer this one answers; the gateway withdraws it once this one is made.
+  z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:SlottedTermsSchema,countersOfferId:z.string().min(1).max(128).optional() }),
   z.object({ type:z.literal("RESOURCE_TRADE_ACCEPT"),offerId:z.string().min(1).max(128) }),
   z.object({ type:z.literal("RESOURCE_TRADE_REJECT"),offerId:z.string().min(1).max(128) }),
   z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
@@ -116,7 +120,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // running, finished or dismissed, plus the bounded list of completed
     // step ids. See player-profile-store.ts's guideStatus/guideSteps.
     guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
-    guideSteps: z.array(z.string().max(48)).max(64).optional()
+    guideSteps: z.array(z.string().max(48)).max(64).optional(),
+    // The season (CurrentSeasonSummary.seasonId) the guide state belongs to:
+    // the guide restarts for every player in each new season.
+    guideSeasonId: z.string().max(128).optional()
   }),
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
@@ -131,7 +138,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       attackAlert: z.boolean().optional(),
       aetherPurgeAlert: z.boolean().optional(),
       aetherHijackAlert: z.boolean().optional(),
-      seasonStart: z.boolean().optional()
+      seasonStart: z.boolean().optional(),
+      manpowerFull: z.boolean().optional(),
+      truceEnding: z.boolean().optional(),
+      empireFell: z.boolean().optional()
     })
   }),
   z.object({
@@ -150,6 +160,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
+      "FARM_PLOT",
+      "HYDROGARDEN_PLOT",
       "TITANIUM_REFINERY",
       "UMBRITE_REFINERY",
       "CRYSTAL_REFINERY",
@@ -328,6 +340,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("ACTIVATE_WAYSTATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SHIP_SALVAGE_TO_COURT"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

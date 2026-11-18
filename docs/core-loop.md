@@ -247,8 +247,12 @@ a development slot. It buys three things:
 - Towns (radius 3), docks (radius 1) and Relay Beacons (radius 5) are *reach
   anchors*. When one activates, every neutral land tile in its radius becomes
   your FRONTIER **instantly and free** (`autoClaimFrontier` in
-  `runtime-reach-border-apply.ts`). The ground inside your reach is therefore
-  already yours as FRONTIER. There is nothing left there to Expand To.
+  `runtime-reach-border-apply.ts`). A Relay Beacon goes further: every time
+  one finishes building it claims every neutral land tile in its whole radius that your
+  border holds, including ground that was already in your reach but still
+  neutral (`claimNeutralAlreadyInReach`). Land a rival's live reach holds is
+  never taken this way. The ground inside your reach is therefore normally
+  already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
   1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
@@ -494,7 +498,11 @@ to expansion and war.
    as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
-   and forts multiply defense (×1.35 / 2.5 / 4 / 8).
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A fort's perimeter
+   lends its owner's garrisoned tiles around it a share of that bonus
+   (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for Titanium and 1/5 for Thunder Bastion;
+   `fort-perimeter.ts`), and plain frontier tiles inside a perimeter
+   auto-garrison at the normal cost.
 5. **Resolve:** the winner takes the tile, including any town, dock or
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,
@@ -523,7 +531,7 @@ loop at a named point.
 | **Dock gold** | **Core (part of the economy)** | Docks are reach anchors, gold sources, and a victory path (Maritime Supremacy) at once. Island-heavy maps make them important | Reach → Docks → Gold, sea crossings |
 | **Military buildings** | **Core, in the conflict loop** | War is the second source of land. Forts and siege set how much taking land costs, and they compete with economic buildings for MP and slots | Structures → Attack/defense |
 | **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by the casting Aether Tower's shots (3 per tower per 24h, 6 with Resonance Governor). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
-| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Capturing one grants one random reward and removes the waystation: permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), a resource site on that tile, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
+| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Claiming its tile makes the Survey Rig available to activate; pressing **Activate** grants one random reward and removes the rig and hovering prompt (AI captures collect automatically): permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), a resource site on that tile, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
 | **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP, which makes them the biggest manpower sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), Sovereign Siege Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Census Directorate and Titanium Levy feed manpower instead | Manpower → Monuments → abilities |
 | **Sky Dock** | **Supporting (ability structure, not a monument)** | Works like a monument ability but isn't unique and has no stages: 150 MP (doubling per copy), and it needs a powered Aether Tower. Its Bombard hits tiles up to 30 away | Tech → Sky Dock → Attack |
 | **Diplomacy** | **Supporting (social layer)**, with one exception | Alliances and truces decide *who* you fight and when, not how you grow. Allies can't attack each other, and breaking a truce locks you out of truces for 24h. The exception: **Diplomatic Dominance** is a victory path, so for a player going for it, diplomacy moves into the season loop | Choice of attack target; the Victory path |

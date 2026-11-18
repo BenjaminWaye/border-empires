@@ -1,5 +1,6 @@
 import { defendingFortVariant, isFortDefending, OUTPOST_AURA_RADIUS } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import type { FortPerimeterCoverageState } from "../client-fort-perimeter/client-fort-perimeter.js";
 
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_BATTERY" | "PALISADE" | "RELAY_BEACON";
 export type FortificationSide = "NORTH" | "EAST" | "SOUTH" | "WEST";
@@ -36,6 +37,8 @@ export type FortificationOverlayDeps = {
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
+  /** When set (live 2D map only), the fort perimeter wall is drawn along covered tiles' outer edges (client-fort-perimeter.ts). */
+  perimeterWallState?: FortPerimeterCoverageState;
 };
 
 const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: FortificationSide }> = [

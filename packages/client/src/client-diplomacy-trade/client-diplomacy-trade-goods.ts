@@ -62,9 +62,11 @@ const specFor = (key: TradeGoodKey): TradeGoodSpec => TRADE_GOODS.find((spec) =>
 const heldAmount = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
   spec.good === "gold" ? holdings.gold : spec.good === "coinPerHour" ? 0 : holdings.resources?.[spec.good] ?? 0;
 
-/** The AI's holdings when its reply carries them; undefined for a human or an unread AI. */
-export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined =>
-  reply?.found && reply.ai && reply.pricing ? reply.pricing.aiHoldings : undefined;
+/** Their holdings when the reply carries them; undefined for an offline human or an unread AI. */
+export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined => {
+  if (!reply?.found) return undefined;
+  return reply.ai ? reply.pricing?.aiHoldings : reply.holdings;
+};
 
 /**
  * Each slider's top end: your own holdings for what you give, the AI's
@@ -163,6 +165,8 @@ export type TradeGoodsView = {
   haveText: (spec: TradeGoodSpec) => string;
   /** A supply row whose side has none spare (and none in the deal) is hidden rather than greyed out. */
   hideEmptySupply: Record<TradeSide, boolean>;
+  /** Coin per hour rows a target can't take (an AI never pays it, and takes it only for a truce), unless the deal already holds some. */
+  hideCoinPerHour?: Partial<Record<TradeSide, boolean>>;
 };
 
 /**
@@ -178,7 +182,7 @@ export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): Tr
     const max = limits[spec.key];
     const row = overlay.querySelector<HTMLElement>(`[data-trade-row="${spec.key}"]`);
     if (!row) continue;
-    row.hidden = spec.supply && view.hideEmptySupply[spec.side] && max === 0 && amount === 0;
+    row.hidden = amount === 0 && ((spec.supply && view.hideEmptySupply[spec.side] && max === 0) || (spec.good === "coinPerHour" && Boolean(view.hideCoinPerHour?.[spec.side])));
     const tile = row.querySelector<HTMLButtonElement>("[data-trade-good]");
     if (tile) {
       tile.setAttribute("aria-expanded", String(open === spec.key));

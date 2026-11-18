@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createTownSupportTileOverlay } from "@client/client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
+import { createTownSupportPreview } from "../../../fixtures/town-support-preview.js";
 import { createStage, wrapWithCleanup, createGrassGround } from "../../../fixtures/three-stage.js";
 
 type Args = {
   cameraDistance: number;
   showSingle: "none" | "north" | "northeast" | "south" | "southwest" | "east";
-  settled: boolean;
+  highlighted: boolean;
 };
 
 const CARDINAL_ORDER: ReadonlyArray<readonly [number, number]> = [
@@ -23,28 +23,20 @@ const SINGLE_MAP: Record<Args["showSingle"], readonly [number, number]> = {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#161a22" });
-  const overlay = createTownSupportTileOverlay(stage.scene, 64);
   const ground = createGrassGround(2, 0);
 
-  if (args.showSingle === "none") {
-    for (const [dx, dz] of CARDINAL_ORDER) {
-      overlay.addInstance(dx, dz, 0, dx, dz, args.settled);
-    }
-  } else {
-    const [dx, dz] = SINGLE_MAP[args.showSingle];
-    overlay.addInstance(dx, dz, 0, dx, dz, args.settled);
-  }
+  const offsets = args.showSingle === "none" ? CARDINAL_ORDER : [SINGLE_MAP[args.showSingle]];
+  const overlay = createTownSupportPreview(stage.scene, offsets, args.highlighted);
 
   if (args.showSingle !== "none") {
     const [dx, dz] = SINGLE_MAP[args.showSingle];
-    // Centre the camera on the single tile so the hatch glow reads clearly.
+    // Centre the camera on the single tile so the corner markers read clearly.
     const horizontal = Math.sin(0.6) * args.cameraDistance;
     const vertical = Math.cos(0.6) * args.cameraDistance;
     stage.camera.position.set(dx, vertical + dz * 0.15, dz + horizontal);
     stage.camera.lookAt(dx, 0, dz);
   }
 
-  overlay.commit();
   stage.scene.add(ground.group);
   return wrapWithCleanup(stage, [overlay.dispose, ground.dispose]);
 };
@@ -55,7 +47,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "The eight supporting tiles around each steampunk town. Each tile is minimal and unobtrusive: just a single recessed hatch sunk into the ground, like an illuminated service well in a garage floor. A hollow dark shaft drops below the surface with a glowing base, and seated flat inside sits a single glowing ionic battery cell — a soft luminous disc flush with the floor — waiting to attach to the economic building that will be placed on top. The battery glow and glowing hatch rim are the only elements that show, keeping the prepared plots quiet until a building lands on them."
+          "Open building plots around a selected town: four ivory corner brackets and a brass centre diamond, with amber on the hovered plot. The ground remains visible; no hatches or raised pads."
       }
     }
   },
@@ -65,9 +57,9 @@ const meta: Meta<Args> = {
       control: "inline-radio",
       options: ["none", "north", "northeast", "east", "south", "southwest"]
     },
-    settled: { control: "boolean" }
+    highlighted: { control: "boolean" }
   },
-  args: { cameraDistance: 6, showSingle: "none", settled: true },
+  args: { cameraDistance: 6, showSingle: "none", highlighted: false },
   render
 };
 
@@ -75,10 +67,10 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const FullRing: Story = {};
-export const FullRingUnsettled: Story = { args: { settled: false } };
+export const FullRingHighlighted: Story = { args: { highlighted: true } };
 export const NorthTile: Story = { args: { showSingle: "north", cameraDistance: 3 } };
 export const NortheastTile: Story = { args: { showSingle: "northeast", cameraDistance: 3 } };
 export const EastTile: Story = { args: { showSingle: "east", cameraDistance: 3 } };
 export const SouthTile: Story = { args: { showSingle: "south", cameraDistance: 3 } };
 export const SouthwestTile: Story = { args: { showSingle: "southwest", cameraDistance: 3 } };
-export const NorthTileUnsettled: Story = { args: { showSingle: "north", cameraDistance: 3, settled: false } };
+export const NorthTileHighlighted: Story = { args: { showSingle: "north", cameraDistance: 3, highlighted: true } };

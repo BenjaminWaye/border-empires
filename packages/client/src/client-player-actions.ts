@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, OUT_OF_REACH_LABEL, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
 import { refineryRejectionMessage } from "./client-refineries/refinery-commands.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -9,6 +9,7 @@ import { explainCombatLockRejection } from "./client-muster-siege/client-muster-
 import { showCaptureAlert } from "./client-alerts/client-alerts.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { markTechCommissionPending, pendingTechCommissionId } from "./client-tech-commission/client-tech-commission.js";
+import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 
 /** State the LOCKED / MUSTER_UNDER_SIEGE explanation reads to name the blocked tile and its countdown. */
 export type CombatLockExplainContext = {
@@ -93,7 +94,7 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.state.techUiSelectedId = techId;
   markTechCommissionPending(deps.state, techId, Date.now());
   console.info("[tech] sending CHOOSE_TECH", { techId });
-  deps.ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
+  pacedSocketSend(deps.ws, { type: "CHOOSE_TECH", techId });
   deps.renderHud();
 };
 
@@ -109,7 +110,7 @@ const sendDomainCommand = (
     domainId: domain.id
   };
   if (chosenTrickleResource) payload.chosenTrickleResource = chosenTrickleResource;
-  deps.ws.send(JSON.stringify(payload));
+  pacedSocketSend(deps.ws, payload);
   const trickleSuffix = chosenTrickleResource ? ` (${chosenTrickleResource} trickle)` : "";
   deps.pushFeed(`Choosing domain: ${domain.name}${trickleSuffix}.`, "tech", "info");
   deps.renderHud();
@@ -223,7 +224,12 @@ export const explainActionFailureFromServer = (
   // The gateway already words these for players; "Error DIPLOMACY_SETTLEMENT_FAILED: …" was shown raw.
   if (code === "DIPLOMACY_SETTLEMENT_FAILED") return `Couldn't accept the offer. ${message || "The deal fell through."}`;
   if (code === "DIPLOMACY_OFFER_WITHDRAWN" || code === "RESOURCE_TERMS_CONFIRMATION_REQUIRED" || code === "OFFER_SETTLING") return message;
+  // Resource trade refusals are worded by the gateway too ("Astrid already has 16/16 active supply agreements…").
+  if (code === "RESOURCE_TRADE_FAILED") return message || "The resource trade didn't go through.";
   if (code === "TRUCE_LOCKED_OUT") return "A House in this deal recently broke a truce. New truces are locked for 24 hours after a break.";
+  // Only reached once a throttled command was re-sent and refused repeatedly (client-command-pacer).
+  if (code === "COMMAND_RATE_LIMITED") return "Too many orders at once. That one didn't go through; try it again in a moment.";
+  if (code === "OUT_OF_REACH") return `${OUT_OF_REACH_LABEL}. A Relay Beacon extends it.`;
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -292,5 +298,7 @@ export const explainActionFailureFromServer = (
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }
-  return `Error ${code}: ${message}`;
+  // Never the raw code ("Error OUT_OF_REACH: ..." reached players, 2026-11 playtest): the sim's message, sentence-cased.
+  const plain = message.trim().replace(/[.。]\s*$/, "");
+  return plain && plain !== "unknown failure" ? `${plain.charAt(0).toUpperCase()}${plain.slice(1)}.` : "That didn't go through.";
 };

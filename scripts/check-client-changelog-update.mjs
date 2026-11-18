@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
@@ -12,6 +12,14 @@ const changelogPath = "packages/client/src/client-changelog/client-changelog.ts"
 // so the only thing this check enforces is that a new entry with a fresh
 // createdAt was actually added, not just that either file was touched.
 const changelogDataPath = "packages/client/src/client-changelog/client-changelog-data.ts";
+// Entries (and their createdAt literals) also live in sibling files that
+// client-changelog-data.ts imports: per-entry files and dated groups such as
+// client-changelog-nov-18.ts, split out for the same line cap. Every
+// timestamp and createdAt guard below scans the whole directory, so moving
+// entries between these files can't hide a new entry or a Date.now().
+const changelogDir = "packages/client/src/client-changelog/";
+const isChangelogEntrySource = (path) =>
+  path.startsWith(changelogDir) && path.endsWith(".ts") && !path.endsWith(".test.ts") && !path.slice(changelogDir.length).includes("/");
 const relevantRoots = ["packages/client/src/", "packages/shared/src/"];
 
 const runGit = (args) =>
@@ -54,16 +62,16 @@ const changedFiles = new Set([...branchDiffFiles, ...workingTreeFiles, ...untrac
 // permanently sorts above every real, correctly-dated entry. Runs
 // unconditionally (before the "any relevant change at all?" gate below) so
 // it can't be skipped just because no other product code changed.
-if (changedFiles.has(changelogDataPath)) {
-  const source = readFileSync(resolve(repoRoot, changelogDataPath), "utf8");
+for (const changedPath of [...changedFiles].filter(isChangelogEntrySource)) {
+  const source = readFileSync(resolve(repoRoot, changedPath), "utf8");
   // Only checks entry object properties ("createdAt: <value>,"), not the
   // interface field declaration ("createdAt: number;").
-  const liveCreatedAtCalls = [...source.matchAll(/createdAt:\s*([^,\n]+),/g)]
+  const liveCreatedAtCalls = [...source.matchAll(/createdAt:\s*([^,}\n]+)[,}]/g)]
     .map((match) => match[1].trim())
     .filter((value) => !/^\d+$/.test(value));
   if (liveCreatedAtCalls.length > 0) {
     console.error("Client changelog check failed.");
-    console.error(`${changelogDataPath} has non-literal createdAt value(s) — use a frozen Unix-ms number, not Date.now() or any other expression:`);
+    console.error(`${changedPath} has non-literal createdAt value(s) — use a frozen Unix-ms number, not Date.now() or any other expression:`);
     for (const call of liveCreatedAtCalls) console.error(`- ${call}`);
     process.exit(1);
   }
@@ -75,7 +83,8 @@ if (changedFiles.has(changelogDataPath)) {
 // window) is data cleanup, not a product change needing a new entry, so
 // they're excluded from the relevance check the same way changelogDataPath
 // itself is.
-const isChangelogDataFile = (path) => /^packages\/client\/src\/client-changelog\/client-changelog-data(-earlier(-\d+)?)?\.ts$/.test(path);
+const isChangelogDataFile = (path) =>
+  /^packages\/client\/src\/client-changelog\/client-changelog-(data(-earlier(-\d+)?)?|[a-z]{3}-\d{2})\.ts$/.test(path);
 
 const isRelevantChange = (path) =>
   relevantRoots.some((root) => path.startsWith(root)) &&
@@ -87,7 +96,7 @@ const isRelevantChange = (path) =>
 const relevantChanges = [...changedFiles].filter(isRelevantChange);
 if (relevantChanges.length === 0) process.exit(0);
 
-if (!changedFiles.has(changelogPath) && !changedFiles.has(changelogDataPath)) {
+if (![...changedFiles].some(isChangelogEntrySource)) {
   console.error("Client changelog check failed.");
   console.error(`Relevant product code changed without updating ${changelogDataPath}.`);
   console.error("Changed files:");
@@ -97,15 +106,19 @@ if (!changedFiles.has(changelogPath) && !changedFiles.has(changelogDataPath)) {
 
 const extractCreatedAtTimestamps = (source) => new Set([...source.matchAll(/createdAt:\s*(\d+)/g)].map((match) => match[1]));
 
-const currentSource = readFileSync(resolve(repoRoot, changelogDataPath), "utf8");
+const currentSource = readdirSync(resolve(repoRoot, changelogDir))
+  .map((name) => `${changelogDir}${name}`)
+  .filter(isChangelogEntrySource)
+  .map((path) => readFileSync(resolve(repoRoot, path), "utf8"))
+  .join("\n");
 const currentTimestamps = extractCreatedAtTimestamps(currentSource);
-const previousSource = mergeBase ? optionalGit(["show", `${mergeBase}:${changelogDataPath}`]) : "";
+const previousSource = mergeBase ? optionalGit(["grep", "-h", "-F", "createdAt:", mergeBase, "--", `${changelogDir}*.ts`]) : "";
 const previousTimestamps = previousSource ? extractCreatedAtTimestamps(previousSource) : new Set();
 
 const addedTimestamps = [...currentTimestamps].filter((timestamp) => !previousTimestamps.has(timestamp));
 
 if (previousSource && addedTimestamps.length === 0) {
   console.error("Client changelog check failed.");
-  console.error(`${changelogDataPath} changed, but no new entry (new createdAt timestamp) was added.`);
+  console.error(`${changelogDir} changed, but no new entry (new createdAt timestamp) was added.`);
   process.exit(1);
 }

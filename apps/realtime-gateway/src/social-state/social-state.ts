@@ -150,7 +150,7 @@ export const createSocialState = (options: {
     if (pruned) sink?.pruneExpired(current);
   };
 
-  const forcedTruces = createForcedTruces({ now, playersById, trucesByPair, ...(options.initial?.forcedTruceCooldowns ? { initial: options.initial.forcedTruceCooldowns } : {}), sink, ok: (ids, announcement) => ok(ids, announcement), onForced: (actorId, targetId, truce) => diplomacyHistory.recordPair(actorId, targetId, "TRUCE_STARTED", truce.startedAt, { durationHours: Math.round((truce.endsAt - truce.startedAt) / 3_600_000), court: true }) });
+  const forcedTruces = createForcedTruces({ now, playersById, trucesByPair, ...(options.initial?.forcedTruceCooldowns ? { initial: options.initial.forcedTruceCooldowns } : {}), sink, ok: (ids, announcement) => ok(ids, announcement), onForced: (actorId, targetId, truce) => diplomacyHistory.recordPair(actorId, targetId, "TRUCE_STARTED", truce.startedAt, { durationHours: Math.round((truce.endsAt - truce.startedAt) / 3_600_000), endsAt: truce.endsAt, court: true }) });
 
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
     sweepExpired();
@@ -413,7 +413,7 @@ export const createSocialState = (options: {
       trucesByPair.set(pairKey(actor.id, from.id), truce);
       // An extension logs the hours it actually added: extendTruce caps the total length.
       const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : request.durationHours;
-      if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", running ? now() : truce.startedAt, { durationHours: addedHours });
+      if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", running ? now() : truce.startedAt, { durationHours: addedHours, endsAt: truce.endsAt });
       const announcement = running
         ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
         : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
@@ -486,6 +486,7 @@ export const createSocialState = (options: {
     diplomacyActivityCards: (playerId, from, to) => (sweepExpired(), diplomacyActivityCards(diplomacyHistory.cardsFor(playerId, from, to), completedAllianceBreaks.values(), playerId, playersById, from, to)),
     withdrawTruceOffersOnCombat: createCombatOfferWithdrawal({ truceRequests, settlingRequestIds, sink, playersById, ok }),
     activeTruceEndsAt: (playerAId, playerBId) => activeTruceBetween(playerAId, playerBId, trucesByPair, now())?.endsAt,
-    activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
+    activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId])),
+    activeTruces: () => (sweepExpired(), [...trucesByPair.values()].map((truce) => ({ ...truce })))
   };
 };

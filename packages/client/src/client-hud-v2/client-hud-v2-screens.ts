@@ -24,8 +24,11 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
+import { coinShortText } from "./client-hud-v2-next-step.js";
+import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { manifestClick } from "./client-hud-v2-manifest-click.js";
+import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { forgetSeenEmpireTile, hasSeenEmpireTile, nearestSeenEmpireTile } from "../client-empire-map-focus/client-empire-map-focus.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
@@ -36,6 +39,7 @@ import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -65,6 +69,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
     setScreen(id, FRAME_SKELETON);
     bodyMode = "";
     writeHtml("v2s-title", TITLES[id] ?? "");
+    writeHtml("v2s-hint", SCREEN_HINTS[id] ?? "");
   }
   if (id === "afc") {
     deps.state.activePanel = "domains";
@@ -134,13 +139,14 @@ let manifestKey = "";
 const renderManifest = (deps: HudV2Deps): void => {
   const nextCost = deps.state.techCatalog.find((t) => !deps.state.techIds.includes(t.id))?.requirements.gold ?? 0;
   const pendingId = pendingTechCommissionId(deps.state, Date.now());
-  const key = [pendingId, deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
+  const netPerMinute = empireCoinIncome(deps.state).netPerMinute;
+  const key = [coinShortText(deps.state.gold, nextCost, netPerMinute), pendingId, deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
   if (key === manifestKey) return;
   manifestKey = key;
   const owned = ownedTechs(deps);
   const techs = deps.state.techCatalog;
   const afcTier = Math.max(0, ...techs.filter((t) => owned.has(t.id)).map((t) => t.tier));
-  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices), pendingId };
+  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices), pendingId, netPerMinute };
   writeHtml("v2s-head-right", manifestHeadRightHtml(input));
   if (bodyMode !== "manifest") {
     writeHtml("v2s-body", `<div class="v2m-scroll" id="v2m-scroll" data-v2-scroll="manifest"></div>${MANIFEST_LEGEND_HTML}<div class="v2m-detail" id="v2m-detail"></div>`);
@@ -178,7 +184,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       me: state.me,
       resourceOffers: state.resourceTradeOffers,
       resourceAgreements: state.resourceTradeAgreements,
-      metPlayerIds: state.metPlayerIds,
+      metPlayerIds: refreshMetPlayerIds(state),
       allies: state.allies,
       activeTruces: state.activeTruces,
       incomingAlliance: state.incomingAllianceRequests,
@@ -273,6 +279,7 @@ const renderProfile = (deps: HudV2Deps): void => {
   const social = state.socialViewByPlayerId.get(id);
   const name = nameOf(deps, id) || "Empire";
   writeHtml("v2s-title", self ? "Your Empire" : "Profile");
+  writeHtml("v2s-hint", self ? SCREEN_HINTS.profile ?? "" : "");
   writeHtml("v2s-back-label", profileReturn ? TITLES[profileReturn] ?? "Chronicle" : "Map");
   bodyMode = "profile";
   writeHtml("v2s-body", profileHtml({
@@ -441,6 +448,20 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
   if (build) {
     screen.townBuildSelection = build.dataset.v2BuildPick;
     renderTownScreen(deps);
+    return true;
+  }
+  // Biota next steps (client-hud-v2-town-biota.ts): a site's coordinates go to it on the map; the charter opens in the Manifest.
+  const goto = target.closest<HTMLElement>("[data-v2-town-goto]")?.dataset.v2TownGoto?.split(",").map(Number);
+  if (goto?.length === 2 && goto.every(Number.isFinite)) {
+    closeScreen(deps, { toMap: true });
+    focusCamera(deps, goto[0]!, goto[1]!);
+    deps.renderHud();
+    return true;
+  }
+  const tech = target.closest<HTMLElement>("[data-view-tech]")?.dataset.viewTech;
+  if (tech) {
+    openTechDetailFromTileMenu(deps.state, tech);
+    deps.renderHud();
     return true;
   }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");

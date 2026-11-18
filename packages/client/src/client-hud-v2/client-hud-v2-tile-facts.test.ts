@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { actionBarHtml, hasDetails } from "./client-hud-v2-action-bar.js";
-import { tileFactsFor, townGrowth, wonderName, type TileFact } from "./client-hud-v2-tile-facts.js";
+import { builtStructureFacts, tileFactsFor, townGrowth, wonderName, type TileFact } from "./client-hud-v2-tile-facts.js";
 
 const tile = (patch: Partial<Tile>): Tile => ({ x: 3, y: 4, terrain: "LAND", ...patch }) as Tile;
 const noView: Pick<TileMenuView, "combatBreakdown" | "overviewLines"> = { overviewLines: [] };
@@ -21,6 +21,14 @@ describe("tile fact strip", () => {
     expect(off[1]).toEqual({ label: "State", value: "Off · no upkeep", tone: "warn" });
     const theirs = tileFactsFor(tile({ ownerId: "them", ownershipState: "SETTLED", economicStructure: { ownerId: "them", type: "MANUFACTORY", status: "active" } }), noView, "me");
     expect(labels(theirs)).not.toContain("Upkeep");
+  });
+
+  // Regression: a fort shares its tile with any building; the town screen's "Built here" card showed only
+  // the building, so a fort just placed on a Manufactory plot was invisible there.
+  it("describes both the fort and the building on a shared tile", () => {
+    const shared = tile({ ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }, fort: { ownerId: "me", variant: "FORT", status: "active" } });
+    const names = builtStructureFacts(shared, true).filter((f) => f.label === "Building").map((f) => f.value);
+    expect(names).toEqual(["Manufactory", "Fort"]);
   });
 
   it("gives a dock's coin and links", () => {
@@ -108,5 +116,26 @@ describe("tile details", () => {
 
   it("offers no Details while the overview is still loading", () => {
     expect(hasDetails(view([{ html: "<span>Loading</span>", kind: "loading" }]))).toBe(false);
+  });
+});
+
+// Playtest 2026-11-18: a town read "Coin 0.0/day" beside "Food Fed" with nothing saying why.
+describe("a town earning no coin says why", () => {
+  const town = (patch: Partial<NonNullable<Tile["town"]>>): NonNullable<Tile["town"]> =>
+    ({ populationTier: "TOWN", isFed: true, supportCurrent: 4, supportMax: 4, goldPerMinute: 0, ...patch }) as NonNullable<Tile["town"]>;
+  const coin = (patch: Partial<Tile>): TileFact | undefined =>
+    tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", ...patch }), noView, "me").find((f) => f.label === "Coin");
+
+  it("names ungarrisoned plots, unfed and sabotage", () => {
+    expect(coin({ town: town({ supportCurrent: 0 }) })).toEqual({ label: "Coin", value: "0.0/day · 0/4 plots garrisoned", tone: "warn" });
+    // Unfed is said once, on the Food row (review of #2846: "Coin 0.0/day · Unfed" then "Food Unfed").
+    expect(coin({ town: town({ isFed: false }) })).toEqual({ label: "Coin", value: "0.0/day", tone: "warn" });
+    const unfedFacts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", town: town({ isFed: false }) }), noView, "me");
+    expect(unfedFacts.filter((f) => f.value.includes("Unfed"))).toEqual([{ label: "Food", value: "Unfed", tone: "warn" }]);
+    expect(coin({ town: town({ goldPerMinute: 0.01 }), sabotage: { endsAt: Date.now() + 60_000, ownerId: "rival", outputMultiplier: 0 } })?.value).toBe("0.0/day · Sabotaged");
+  });
+
+  it("adds nothing to a town that earns", () => {
+    expect(coin({ town: town({ goldPerMinute: 0.01 }) })).toEqual({ label: "Coin", value: "14.4/day" });
   });
 });

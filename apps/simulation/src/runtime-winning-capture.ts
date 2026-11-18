@@ -7,6 +7,7 @@ import { isAiControlledActor } from "./runtime-player-factory.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
 import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
+import { applyMusterFlagCapture } from "./muster-capture/muster-capture.js";
 import type { SimulationTileWireDelta, LockRecord } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 /** One capture pipeline for regular wins and non-recursive Breakthrough capitulation. */
@@ -64,12 +65,27 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       // A razed Relay Beacon or siege engine leaves its wreck for 24h (shared razed-wreck.ts).
       ...razedWreckFieldsOnCapture(previousTarget, context.now())
     };
-    // Capturing a tile destroys any muster flag staged on it — the accumulated
-    // manpower is lost, not refunded to the previous owner's pool. resolvedTarget
-    // never carries `muster` forward (see the object literal above), so the flag
-    // itself is already gone; this just drops the pooled manpower with it.
+    // Capturing a tile takes any muster flag staged on it. resolvedTarget never
+    // carries `muster` forward (see the object literal above), so the flag
+    // itself is gone; its manpower moves to the captor's pool (capped) and is
+    // never refunded to the previous owner -- see muster-capture/muster-capture.ts.
+    // Read the flag as it stands now, not `previousTarget`: a flag shielding
+    // its own tile was already spent by this fight (applyShieldConsumptionAndReveal).
+    // Manpower still reserved by the owner's other in-flight attacks or shields
+    // is excluded; those fights resolve without charging it once the flag is gone.
     const hadMuster = Boolean(previousTarget?.muster);
+    const liveMuster = context.tiles.get(lock.targetKey)?.muster;
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (liveMuster) {
+      const reserved = context.musterReservedByKey.get(lock.targetKey) ?? 0;
+      applyMusterFlagCapture(context, {
+        commandId: lock.commandId,
+        captorId: lock.playerId,
+        x: lock.targetX,
+        y: lock.targetY,
+        muster: { ...liveMuster, amount: Math.max(0, liveMuster.amount - reserved) }
+      });
+    }
     // A neutral town (no previous owner) is taken whole: no capture loss, and only the captor gets a card.
     const neutralTownPopulation = previousTarget?.town && !previousOwnerId && lock.playerId !== "barbarian-1" ? previousTarget.town.population ?? 0 : undefined;
     const populationBefore = townAftermath.populationBefore ?? neutralTownPopulation;

@@ -1,8 +1,8 @@
-# Tutorial guide for new accounts
+# Tutorial guide
 
 Status: active; phases 1–3 implemented, phase 4 (telemetry and playtests) open
 Owner: client maintainers
-Last verified: 2026-11-02
+Last verified: 2026-11-17
 
 ## Why
 
@@ -33,21 +33,29 @@ building, mustering or the "every visit is a turn" rhythm (`core-loop.md` §0).
 
 ## Design
 
-**Who gets it.** New accounts only. The gateway marks an account that has not
-finished its first profile setup with `profileNeedsSetup` on INIT. An account
-with no stored guide status that is in that state, and has not completed the
-checklist, is enrolled once (`guideStatus: "active"`). Guest ("Play now")
-sessions are enrolled too: the gateway always reports `profileNeedsSetup:
-false` for guests, so the client treats a guest session as new. Each guest's
-local storage is scoped by its Firebase uid (`guest:<uid>`,
-`debugAuthIdentityKeyForEmail`), not one shared `anonymous` key, so a new
-guest doesn't inherit an earlier guest's progress on the same browser. Every older
-account has no status and a complete profile, so it keeps the New empire
-checklist unchanged.
+**Who gets it.** Every player, at the start of every season (owner decision
+after the 2026-11 playtest, where an account from an earlier season went
+straight to the map with no guide). Progress is per season: the gateway
+stores `guideSeasonId` with `guideStatus`/`guideSteps`, and on INIT the client
+starts a fresh guide whenever the stored progress belongs to another season,
+or there is none. Progress saved before it carried a season is adopted as the
+current season's (and stamped), so a player who already finished or skipped
+the guide this season isn't sent through it again. **Skip guide** ends it for
+the rest of the season. With no season known (no current season on INIT) the
+old rule applies: only a new account (`profileNeedsSetup`, or a guest
+session) is enrolled. Each guest's local storage is scoped by its Firebase
+uid (`guest:<uid>`, `debugAuthIdentityKeyForEmail`), not one shared
+`anonymous` key, so a new guest doesn't inherit an earlier guest's progress on
+the same browser.
 
 **What it looks like.** One small card in the bottom-left corner: the same slot
-the checklist bubble uses, measured to clear the Center/AFC button. The card
-shows:
+the checklist bubble uses, measured to clear the Center/AFC button. When that
+spot would cover the step's ringed tiles (projected by the active renderer,
+2D or true-3D) or a notification (salvage and refinery toasts on the map, the
+discovery-tip toast, the HUD v2 tracker and right-hand column), the card moves
+to the mirrored spot on the right edge (`tutorial-guide-placement.ts`). It only
+moves when its current spot covers something and the other covers less. The
+card shows:
 
 - the chapter's name (no "n/10" chapter number: steps complete out of order and
   waiting chapters are passed over, so the number jumped and read as skipped
@@ -59,13 +67,16 @@ shows:
 - a progress bar with a steps-done count;
 - **Show me** (centres the camera on the step's map target; repeated presses
   cycle through the targets; when the card covers the screen centre, as on a
-  phone, it folds to its launcher so the target isn't under it), **Skip** and,
-  on the last step, **Finish**;
-- a "Hide guide" link.
+  phone, it folds to its launcher so the target isn't under it), **Skip** (this step)
+  and, on the last step, **Finish**;
+- a compact **Skip guide** button in the same action row (no new HUD element,
+  and the card keeps its size on a 375px phone).
 
-**Finish** replaces the card with a short "Guide complete" card (steps done,
-and a note when Contest and Diplomacy were never reached) that closes itself
-after a few seconds. There is no in-game reward for finishing.
+**Finish** replaces the card with a short "Guide complete" card that closes
+itself after a few seconds. Its bar is always full: Finish is only offered once
+every step left waits on a first contact, and those steps are handed to the
+First Contact tip (the card says so). A "Guide complete" over a 14/16 bar
+contradicted itself. There is no in-game reward for finishing.
 
 The card minimises to a round launcher with a remaining-steps badge. The root
 element ignores pointer events; only the card and the launcher take clicks.
@@ -95,9 +106,12 @@ element ignores pointer events; only the card and the launcher take clicks.
 - **Off-screen targets** get no edge arrow. "Show me" pans the camera to them
   instead.
 
-**When it hides.** The guide uses the existing onboarding UI gate: it is hidden
-while a dialog covers the map or the AFC landing is still pending or playing,
-then returns.
+**When it hides.** The guide is hidden while a dialog covers the map, and while
+the AFC landing is about to play (its AFC on screen) or playing
+(`isTutorialGuideDeferred`). Unlike the other onboarding UI it doesn't wait for
+a landing whose AFC is off screen: that can wait up to 5 minutes for the player
+to look at it, and in the playtest the guide only appeared minutes in, at step
+3, with the pan and zoom steps ticked while it was hidden.
 
 **Discovery tips while it runs.** While the card is expanded on a step the
 player can do now, the discovery-tip toast stays quiet so there aren't two
@@ -121,15 +135,15 @@ is unavailable until the recommended Manifest exists.
 
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
-| 1 | Look around | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal, and on the new desktop HUD a tap on neutral land next to your border claims it | — |
+| 1 | Explore | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers); then **Explore**: the scout drone is in the air (`scoutDroneFlight` with `landsAt` ahead). The drone is free and reports towns, food and rivals, so it is the guide's way to find what the foothold asks for. Explore is skipped for a House with no AFC (`afcRecovery.requiredSince`, no drone to send), counts as done when nothing within 16 tiles of home is unexplored, and, added after launch, counts as done for saved progress past it (`doneIfLaterStepDone`). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal, and on the new desktop HUD a tap on neutral land next to your border claims it | an unexplored tile: the nearest unexplored tile to home, pushed 8 tiles further along the same line (at most 16 from home, within a drone's 15-tile range past your land) while that tile is also unexplored (`tutorial-guide-explore-target.ts`), so tapping it opens the Explore menu |
 | 2 | A foothold | two of the checklist goals (`onboardingChecklistState`): take a town, then take 4 food slots (judged from live tiles until the guide's own foothold steps are saved, then a constant DONE so later chapters skip the reach scan; never from the checklist's saved completion flag, which is account-wide and never resets). There are no separate "find" steps: they could only wait, with no instruction, when nothing was in sight | see below |
-| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first; once a town is held it always asks for the beacon | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
+| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first, never an Explore; once a town is held it always asks for the beacon | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
 | 4 | Manpower | the manpower panel is open | manpower gauge |
 | 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`, minus any Manifest a Waystation granted for free: the activated waystation tile's `grantedTechId`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory. A free Manifest raises the next price (10 to 40 Coin), so the commission step waits while the player's Coin is below the catalog price, showing the price; Finish isn't offered during that wait (`waitBlocksFinish`) | Manifest button |
 | 6 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built. Without any garrisoned town (the town step was skipped), it asks for a town first, with the town step's wording and target | the player's garrisoned towns; without one, the town to take |
-| 7 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House | own garrisoned tiles touching another owner |
-| 8 | Diplomacy | after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
-| 9 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." | Activity button |
+| 7 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House; until then the note says to Explore to find one | own garrisoned tiles touching another owner |
+| 8 | Diplomacy | (waiting note: Explore to find a rival House) after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
+| 9 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." (at or over the manpower cap, where no batch is paid: "That's the basics. Spend your N manpower."). The why line leads with Explore for towns | Activity button |
 
 **Finish rule:** Finish appears once every other step left is waiting (no
 Planetary Defense or rival House met yet), so a player with no neighbours can
@@ -147,20 +161,37 @@ the same rule.
   the step asks for a Relay Beacon. Towns ignore reach (`settleIgnoresReach`).
 - A target that is already the player's frontier: "Garrison it". Its tile
   menu offers Garrison, not Expand To.
-- Otherwise, a neutral target in vision (not fogged), in practice one outside
-  reach: "Expand To it". Expand To walks the border across through a waypoint
-  chain.
-- Otherwise, nothing in vision: "build a Relay Beacon: tap the marked tile,
-  then Build" when the checklist has a recommended beacon site (only that site
-  is ringed). Without a site, the step says "…on a garrisoned tile at the edge
-  of your land".
+- Otherwise, a neutral target the player has seen, in vision or remembered
+  under fog (a scout drone's reveal drops back to fog behind it, and fogged
+  tiles offer Expand To too), in practice one outside reach: "Expand To it".
+  Expand To walks the border across through a waypoint chain.
+- Otherwise, with grain or fish known outside reach within 12 tiles of home
+  (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
+  can't bring it into reach; food further out is no reason to stop exploring.
+- Otherwise, nothing known: "tap the marked unexplored ground and Explore"
+  while the drone can launch (ringed at the Explore target), or "Your scout
+  drone is out: wait for its report" while it flies. Only for the first 3
+  flights of the session: a target the drone can't reach (a rival border,
+  open sea) would otherwise be asked for again and again.
+- Otherwise (no AFC, or nothing unexplored near home): "build a Relay Beacon:
+  tap the marked tile, then Build" when the checklist has a recommended beacon
+  site (only that site is ringed). Without a site, the step says "…on a
+  garrisoned tile at the edge of your land".
 - While a claim or garrison on a target is already underway
   (`optimisticPending`, for example right after Expand To), the step says so
   instead of asking for a Garrison that is already queued.
 
-Known limit: "Expand To" is suggested for the nearest neutral target in
-vision without checking that a land route exists. A visible town across
-water may have no Expand To in its menu.
+A neutral town counts as an Expand To target only with an overland route from
+the player's land (`tutorial-guide-town-route.ts`, a bounded client-only search
+mirroring the Expand To planner: LAND steps, unexplored ground passable, dock
+pairs). A town across water the player has seen has no Expand To in its menu,
+so the step asks for the scout drone instead ("No town you can reach: …"):
+crossing water is what the drone is for. Only the nearest 8 towns are checked.
+
+Known limits: food targets don't get the route check, and allied or truce
+borders are not modelled in the town route. A fogged target shows its owner as
+last seen, so a town a rival took since the drone flew over can still be
+suggested until the player sees it again.
 
 The ringed tiles are the nearest matching targets (up to three), or the beacon
 site. Both food steps show "Look for" with the game's own grain and fish
@@ -183,9 +214,12 @@ payouts".
 | `…/tutorial-guide-card.ts`, `…/tutorial-guide-anchor.ts` | Card DOM and its layer over panels; HUD-button outline |
 | `…/tutorial-guide-manifest-pick.ts` | "Guide pick" mark on the recommended Manifest in both trees |
 | `…/tutorial-guide-storage.ts` | Enrollment, progress, server sync |
-| `…/tutorial-guide-foothold-targets.ts` | Garrison / Expand To / beacon choice for the town and food steps |
+| `…/tutorial-guide-placement.ts` | Moves the card off its ringed tiles and notifications |
+| `…/tutorial-guide-town-route.ts` | Overland route check for town targets |
+| `…/tutorial-guide-foothold-targets.ts` | Garrison / Expand To / Explore / beacon choice for the town and food steps |
+| `…/tutorial-guide-explore-target.ts` | Scout drone status and the unexplored tile the Explore steps ring |
 | `client-onboarding-ui-gate/client-onboarding-ui-overlays.ts` | Chooses guide versus checklist; per-frame tick |
-| `apps/realtime-gateway/src/gateway-app/handle-set-hint-state-message.ts`, `sqlite-player-profile-store.ts` | Server persistence (`guide_status`, `guide_steps` columns) |
+| `apps/realtime-gateway/src/gateway-app/handle-set-hint-state-message.ts`, `sqlite-player-profile-store.ts` | Server persistence (`guide_status`, `guide_steps`, `guide_season_id` columns) |
 
 ## Phases
 
@@ -203,6 +237,8 @@ payouts".
 
 ## Lore
 
-Lore reviewed; no canon change. The guide's copy uses existing canon terms: a
+Lore reviewed; no canon change. The scout drone is already canon (world
+bible §12, "AFCs as industrial seeds": the Sentinel-pattern sensor drone). The
+guide's copy uses existing canon terms: a
 Manifest is *commissioned*, barbarians are *Planetary Defense*, and empires
 are *Houses* (see [the world bible](lore/galactic-lore.md) §11–12).

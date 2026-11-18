@@ -1,7 +1,7 @@
 import { STARTING_GOLD, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { RuntimeRespawnContext } from "../runtime-respawn-helpers.js";
-import { respawnIfEliminated } from "../runtime-respawn-helpers.js";
+import { preparePlayerRespawnNotice, respawnIfEliminated } from "../runtime-respawn-helpers.js";
 import { abandonedStructureFields } from "../capture-structures/capture-structures.js";
 import { emitRecoveryState } from "./afc-recovery.js";
 
@@ -32,6 +32,8 @@ export function withdrawAndRedeploy(context: RuntimeRespawnContext, command: Com
   actor.waystationManpowerOverflow = 0;
   actor.afcRecovery = { globalLosses: actor.afcRecovery?.globalLosses ?? 0 };
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: effectId, playerId: actor.id, tileDeltas: deltas });
+  // Marks the redeploy notice as a withdrawal (respawnIfEliminated keeps a pending notice).
+  if (!actor.isAi) preparePlayerRespawnNotice(context, actor.id, "eliminated", effectId, { wasOnline: true, withdrawn: true });
   respawnIfEliminated(context, actor.id, effectId);
   if (context.summaryForPlayer(actor.id).ownedAfcTileKeys.size === 0) {
     actor.afcRecovery.requiredSince = context.now();

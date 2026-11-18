@@ -4,7 +4,7 @@ import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-ac
 import { waystationFacts } from "./client-hud-v2-tile-facts.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
-import { RIVAL_STRIP_CAP, rivalTokens } from "./client-hud-v2-rivals.js";
+import { RIVAL_STRIP_CAP, rivalTokens, rivalsHtml } from "./client-hud-v2-rivals.js";
 import { TRACKER_GROUP_CAP, trackerHtml, trackerNeeds } from "./client-hud-v2-tracker.js";
 
 const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt, createdByPlayerId: "me" });
@@ -17,10 +17,9 @@ describe("resource bar", () => {
     expect(slotChipState(3, 2)).toBe("over");
   });
 
-  it("renders the used count in amber only when over", () => {
+  it("shows a shortfall in amber with a minus only when over", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
-    expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     // Playtest 2026-11-12: the phone chip showed "4" for both a shortfall (orange) and free slots (green); a shortfall now reads "−1".
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
@@ -32,14 +31,18 @@ describe("resource bar", () => {
     expect(html).toContain('data-hud-v2-open="settings"');
   });
 
-  it("summarizes available slots for phones and preserves the exact desktop counts", () => {
+  it("shows free slots, not used / total, on every screen", () => {
     const slots = { FOOD: 437, TITANIUM: 1_250_000, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 12_981_234, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, FOOD: 378, TITANIUM: 0 }, integrityPct: 100 });
-    expect(html).toContain('<span class="hud-v2-chip-slot"><span class="hud-v2-chip-value">378</span><span class="hud-v2-chip-of">/437</span>');
+    // Owner 2026-11-17: desktop showed used / total; players only care what they can still use.
+    expect(html).not.toContain("hud-v2-chip-slot");
+    expect(html).not.toContain("hud-v2-chip-of");
+    // Review: a bare green number didn't say what it counts; hover names it and keeps the totals.
+    expect(html).toContain('data-hud-v2-chip="food" title="Food: 59 free slots (378 / 437 used)"');
     expect(html).not.toContain('class="hud-v2-chip-status"');
     expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');
-    expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">13M</span>');
+    expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">12.9M</span>');
   });
 
   // Regression: Crystal showed as 0/0 on the bar before it was researched.
@@ -185,6 +188,13 @@ describe("rivals strip", () => {
       nowMs: 0
     });
     expect(shown[0]?.label).toBe("TRUCE 37m");
+  });
+
+  // Regression: "TRUCE 1h 23m" wrapped mid-time in the 58px token.
+  it("keeps a truce's hours and minutes together on one line", () => {
+    const html = rivalsHtml({ me: "me", metPlayerIds: new Set(["h"]), allies: [], activeTruces: [truce("h", 83 * 60_000)], nameOf: () => "Hugo", colorOf: () => "#123456", nowMs: 0 });
+    expect(html).toContain('<span class="hud-v2-rival-stance">TRUCE <span class="hud-v2-rival-time">1h 23m</span></span>');
+    expect(html).toContain('aria-label="Hugo, truce 1h 23m"');
   });
 
   // Regression: meeting one empire showed "+1" instead of its name and colour.
@@ -344,11 +354,11 @@ describe("action bar", () => {
 });
 
 describe("manpower orb", () => {
-  it("clamps the fill and shows the next batch only while below cap", () => {
+  it("clamps the fill and counts down to the next batch only while below cap", () => {
     expect(orbFill(150, 100)).toBe(1);
     expect(orbFill(-5, 100)).toBe(0);
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain(">next batch 30m<");
-    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("hud-v2-orb-refill");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain(">next batch");
   });
 
   it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {

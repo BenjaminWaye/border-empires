@@ -52,7 +52,8 @@ import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/c
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { attackSyncLog, recordClientDebugEvent, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { logVerboseTileRender } from "./client-runtime-loop-tile-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
@@ -206,7 +207,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
-    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
+    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud, { canvas: deps.canvas, worldToScreen: deps.worldToScreen }); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
       paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);
@@ -253,6 +254,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       resourceInstallations: deps
     };
     const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const verboseTileDebug = verboseTileDebugEnabled(nowMs); // read once per frame: renderOverlayTile runs for every visible tile
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -323,72 +325,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
-          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor);
+          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, perimeterWallState: state }, deps.fortificationOverlayImageFor);
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
         // 2D-only: the 3D renderer paints the Aether Tower via ambaricTransformerOverlay.
         drawAetherTowerSprite2D(aetherTowerSpriteDeps2D, t.observatory, t.ownerId, px, py, size);
       }
       if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant like the ownership tint below / the 3D renderer's ungated check */ && t.economicStructure) {
-        if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
-          debugTileLog(
-            "render",
-            {
-              x: wx,
-              y: wy,
-              vis,
-              detailLevel: t.detailLevel,
-              economicStructure: t.economicStructure.type,
-              overlayLoaded: Boolean(deps.structureOverlayImages[t.economicStructure.type]?.complete),
-              hasBuiltResourceOverlay: Boolean(deps.builtResourceOverlayForTile(t)),
-              zoom: size
-            },
-            { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
-          );
-        }
         drawEconomicStructureOverlay2D(deps, t, px, py, size, true);
-      } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
-        debugTileLog(
-          "render-missing-structure",
-          {
-            x: wx,
-            y: wy,
-            vis,
-            detailLevel: t.detailLevel,
-            resource: t.resource,
-            town: Boolean(t.town),
-            economicStructure: undefined,
-            zoom: size
-          },
-          { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
-        );
       }
-      if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
-        const renderKey = deps.keyFor(wx, wy);
-        const renderSignature = JSON.stringify({
-          ownerId: t?.ownerId ?? null,
-          ownershipState: t?.ownershipState ?? null,
-          optimisticPending: t?.optimisticPending ?? null,
-          detailLevel: t?.detailLevel ?? null,
-          fogged: t?.fogged ?? null,
-          vis
-        });
-        const previousRenderSignature = lastRenderedTileStateByKey.get(renderKey);
-        if (previousRenderSignature !== renderSignature) {
-          debugTileTimeline("frontier-render-transition", {
-            x: wx,
-            y: wy,
-            after: t,
-            state,
-            keyFor: deps.keyFor,
-            extra: {
-              vis,
-              previousRenderSignature
-            }
-          });
-          lastRenderedTileStateByKey.set(renderKey, renderSignature);
-        }
-      }
+      if (verboseTileDebug) logVerboseTileRender({ state, keyFor: deps.keyFor, structureOverlayImages: deps.structureOverlayImages, builtResourceOverlayForTile: deps.builtResourceOverlayForTile, lastRenderedTileStateByKey }, { wx, wy, vis, t }, size);
       if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
       if (t && vis === "visible") drawSiphonOverlay2D(deps.ctx, t, px, py, size, Date.now()); // drained-tile X + siphon-mode tower ring
 

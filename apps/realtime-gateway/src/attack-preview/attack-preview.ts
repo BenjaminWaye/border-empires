@@ -1,4 +1,4 @@
-import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, isCaptureHoldActive, requiredMusterForFort, salvageArmsMultiplier } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, fortPerimeterSourceVariant, isCaptureHoldActive, requiredMusterForFort, salvageArmsMultiplier } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -189,7 +189,17 @@ export const attackPreviewResult = async (
   const fort = targetHasActiveFort ? defendingFortVariant(target.fort) : undefined;
   const requiredMuster = Math.max(1, Math.ceil(requiredMusterForFort(fort) * (fort ? (target.fort?.attackCommitmentMult ?? 1) * (attackerDomainIds?.includes("afc-vanguard-4") ? 0.5 : 1) : 1)));
   const preview = buildFrontierCombatPreview(
-    { ...target, fortVariant: targetHasActiveFort ? defendingFortVariant(target.fort) : undefined },
+    {
+      ...target,
+      fortVariant: targetHasActiveFort ? defendingFortVariant(target.fort) : undefined,
+      // Mirrors the sim's targetFortPerimeterVariantFor (held forts project nothing).
+      fortPerimeterVariant: target.ownershipState === "SETTLED"
+        ? fortPerimeterSourceVariant(target.ownerId, to.x, to.y, (x, y) => tileMap.get(previewTileKey(x, y)), Date.now(), (x, y) => {
+            const fortTile = tileMap.get(previewTileKey(x, y));
+            return Boolean(fortTile) && !isCaptureHoldActive(fortTile!, Date.now());
+          })
+        : undefined
+    },
     {
       attackerOutpostMult,
       relicAttackMult: attackerRelics?.attackMultiplier,

@@ -13,6 +13,8 @@ export const DISTRICT_BUILDING_KINDS = [
   "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
   "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3",
   "HYDROWORKS", "MINISTRY_HALL",
+  // Farm Plot and its in-place upgrade (docs/farm-plot-plan.md), modelled in support-model-farm.ts.
+  "FARM_PLOT", "HYDROGARDEN_PLOT",
   // Town refineries and boosters (territory-development-plan.md Phase 2),
   // modelled in support-model-refinery.ts.
   "TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY", "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER",

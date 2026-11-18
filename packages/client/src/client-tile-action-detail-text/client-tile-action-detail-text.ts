@@ -14,12 +14,14 @@ import {
   FORT_VARIANT_LABELS,
   SIEGE_VARIANT_LABELS,
   TILE_SLOT_BOOST_STRUCTURES,
+  FARM_PLOT_FOOD_SLOT_SUPPLY,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import { manufactoryGoldProductionMultiplier, MANUFACTORY_GOLD_PRODUCTION_BONUS, MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
 import { converterStructureDetailText } from "../client-converter-menu.js";
 import { observatoryToggleDetailText } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { economicStructureName } from "../client-map-display.js";
+import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import type { Tile } from "../client-types.js";
 
 const structureNameForTile = (tile: Tile): string | undefined => {
@@ -53,6 +55,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
+  if (actionId === "build_farm_plot") return `Town folk farm a plain support tile: +${FARM_PLOT_FOOD_SLOT_SUPPLY.FARM_PLOT} FOOD slot. No tech or upkeep. Not on resource tiles.`;
+  if (actionId === "build_hydrogarden_plot") return `Hyperfeed stock turns this Farm Plot into a Hydrogarden Plot: ${FARM_PLOT_FOOD_SLOT_SUPPLY.HYDROGARDEN_PLOT} FOOD slots in all, +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} near Hydroworks. Keeps its FOOD while upgrading.`;
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_manufactory") {
@@ -79,7 +83,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
   }
   if (actionId === "build_hydroworks") {
-    return `Build on this support tile for ${supportedTownLabel}. Every Hydrogarden within 10 tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots.`;
+    // Hydroworks is not support-ring-only (structure-placement-metadata.json), so
+    // the copy must not say "support tile". Effect first, and placement worded so
+    // it still reads right on frontier tiles (" • garrisons this tile first").
+    return `Each of your Hydrogardens within ${HYDROWORKS_RADIUS} tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots. Can go on any empty land tile you hold — no town, support or resource tile needed.`;
   }
   if (actionId === "build_census_hall") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade coin cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;

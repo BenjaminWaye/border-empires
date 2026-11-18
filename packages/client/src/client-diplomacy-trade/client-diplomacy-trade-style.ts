@@ -181,6 +181,9 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-verdict[data-tone="good"] { border-left: 3px solid #7fb069; }
   .diplomacy-trade-verdict[data-tone="bad"] { border-left: 3px solid #c8643c; }
   .diplomacy-trade-verdict[data-tone="neutral"] { border-left: 3px solid var(--sp-brass-500, #b8862f); }
+  .diplomacy-resource-limit { margin: 0 0 8px; color: var(--sp-parchment-muted, #bda880); font: 400 12px/1.4 var(--sp-font-mono, "Space Mono", monospace); }
+  .diplomacy-resource-limit[data-tone="warn"] { color: var(--sp-brass-300, #d9ad52); }
+  .diplomacy-resource-limit[data-tone="bad"] { color: #e08a64; }
   .diplomacy-trade-suggest { display: block; width: 100%; margin-bottom: 12px; }
   .diplomacy-trade-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .diplomacy-trade-actions button { flex: 1; }

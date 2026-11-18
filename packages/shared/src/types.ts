@@ -38,6 +38,8 @@ export type EconomicStructureType =
   | import("./resource-networks/resource-networks.js").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"
@@ -328,6 +330,10 @@ export interface PlayerRespawnNotice {
   wasOnline?: boolean;
   previousHomeTileKey?: TileKey;
   spawnTileKey?: TileKey;
+  /** Elimination only: who took the most of the fallen empire's land in the last 24h. */
+  fellToPlayerId?: PlayerId;
+  /** Elimination by the player's own AFC withdrawal, not by conquest. */
+  withdrawn?: boolean;
 }
 
 export interface Player {

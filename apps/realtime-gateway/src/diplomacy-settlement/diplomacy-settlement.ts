@@ -9,7 +9,11 @@
 // recorded: such a late payment is paid straight back (see `abandoned`).
 import crypto from "node:crypto";
 
-import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer, emptyDiplomacyTerms, type DiplomacyTerms } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasRecurringCoin, hasResourceSupplyOffer, emptyDiplomacyTerms, type DiplomacyTerms } from "@border-empires/shared";
+
+/** Terms the simulation records as a running agreement: resource slots, or Coin per hour. */
+export const termsCreateAgreement = (terms: DiplomacyTerms): boolean =>
+  hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources) || hasRecurringCoin(terms);
 import { DIPLOMACY_SETTLEMENT_COMMAND_PREFIX, type CommandEnvelope } from "@border-empires/sim-protocol";
 
 /** Command-id prefix; the gateway's own COMMAND_REJECTED fan-out skips these (no raw ERROR to players). */
@@ -37,6 +41,8 @@ export type DiplomacySettlementInput = {
   refundOf?: string;
   commandId?: string;
   issuedAt?: number;
+  /** A truce's length: how long Coin per hour without resource slots is paid. */
+  coinTermHours?: 12 | 24;
 };
 
 export type DiplomacySettlementDeps = {
@@ -86,7 +92,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
   };
 
   const refundLatePayment = (commandId: string, deal: Abandoned): void => {
-    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false, ...((hasResourceSupplyOffer(deal.terms.give.resources) || hasResourceSupplyOffer(deal.terms.ask.resources)) ? { refundOf: commandId } : {}) }).then((refund) => {
+    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false, ...(termsCreateAgreement(deal.terms) ? { refundOf: commandId } : {}) }).then((refund) => {
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_late_refund", {
         commandId,
         proposerId: deal.proposerId,
@@ -96,7 +102,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
     });
   };
 
-  const settle = async ({ proposerId, targetId, terms, refundIfLate = true, refundOf, commandId: suppliedCommandId, issuedAt, cancelAgreementId }: DiplomacySettlementInput & { cancelAgreementId?: string }): Promise<DiplomacySettlementResult> => {
+  const settle = async ({ proposerId, targetId, terms, refundIfLate = true, refundOf, commandId: suppliedCommandId, issuedAt, cancelAgreementId, coinTermHours }: DiplomacySettlementInput & { cancelAgreementId?: string }): Promise<DiplomacySettlementResult> => {
     if (!cancelAgreementId && diplomacyTermsAreEmpty(terms)) return { ok: true };
     if (!deps.isSimulationConnected()) return { ok: false, message: "The world is unavailable right now. Try again shortly." };
     if (pending.size >= MAX_PENDING_DIPLOMACY_SETTLEMENTS) {
@@ -111,7 +117,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
         deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_timeout", { commandId, proposerId, targetId });
         giveUp(commandId, { ok: false, message: "The deal timed out before it could be paid. Try again.", ...(suppliedCommandId ? {pending:true as const} : {}) });
       }, deps.timeoutMs ?? DIPLOMACY_SETTLEMENT_TIMEOUT_MS);
-      pending.set(commandId, { resolve, timer, durable: Boolean(suppliedCommandId), hasResourceSupply: !refundOf && (hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)), ...(refundIfLate ? { abandon: { proposerId, targetId, terms, at: 0 } } : {}) });
+      pending.set(commandId, { resolve, timer, durable: Boolean(suppliedCommandId), hasResourceSupply: !refundOf && termsCreateAgreement(terms), ...(refundIfLate ? { abandon: { proposerId, targetId, terms, at: 0 } } : {}) });
     });
     try {
       await deps.submitCommand({
@@ -122,7 +128,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
         issuedAt: issuedAt ?? deps.now(),
         type: cancelAgreementId ? "CANCEL_RESOURCE_SUPPLY" : "SETTLE_DIPLOMACY_TERMS",
         payloadJson: cancelAgreementId ? JSON.stringify({agreementId:cancelAgreementId}) : JSON.stringify({ proposerId, targetId, proposerPays: terms.give, targetPays: terms.ask,
-          ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {}), ...(refundOf ? { refundOf } : {}) })
+          ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {}), ...(coinTermHours ? { coinTermHours } : {}), ...(refundOf ? { refundOf } : {}) })
       });
     } catch (error) {
       deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_submit_failed", {

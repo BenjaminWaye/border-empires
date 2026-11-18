@@ -14,6 +14,8 @@ export type StructurePlacementMetadata = {
   sortGroup: StructureSortGroup;
   requiresBorder?: StructureBorderRule;
   resourceTypes?: readonly ResourceType[];
+  // Never on a resource tile (Farm Plot: a resource tile is the better place for that resource's own structure).
+  excludesResourceTiles?: boolean;
 };
 
 type TileSurfaceInput = {
@@ -76,6 +78,7 @@ export const structureShowsOnTile = (type: StructurePlacementType, input: TileSu
   const metadata = structurePlacementMetadata(type);
   const surfaces = structureTileSurfaces(input);
   if (metadata.resourceTypes && !input.resource) return false;
+  if (metadata.excludesResourceTiles && input.resource) return false;
   if (metadata.resourceTypes && input.resource && !metadata.resourceTypes.includes(input.resource)) return false;
   return metadata.showOn.some((surface) => surfaces.includes(surface));
 };

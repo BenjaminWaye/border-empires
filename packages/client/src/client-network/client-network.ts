@@ -6,10 +6,9 @@ import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, OUT_OF_REACH_LABEL, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
@@ -21,6 +20,7 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
+import { releaseDevelopmentRefusedOutOfReach } from "../client-out-of-reach-rejection/client-out-of-reach-rejection.js";
 import {
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
@@ -60,6 +60,7 @@ import { applyInitMessage } from "../client-network-init-message/client-network-
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
+import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld } from "../client-alliance/client-met-players.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -1964,9 +1965,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      // Harmless: dev/waypoint-queue mirroring re-sends an enqueue the server
-      // already has (dedup); a real full queue is already prevented client-side.
-      if (errorCode === "DEV_QUEUE_FULL" || errorCode === "WAYPOINT_QUEUE_FULL") return;
+      // Queue-mirror dedup and rate-limit backoff: handled silently, never a popup.
+      if (handleSilentServerError(ws, errorCode, msg as Record<string, unknown>)) return;
       if (errorCode === "DISPLAY_NAME_LIMIT") {
         state.pendingDisplayNameChange = "";
         pushFeed(errorMessage, "error", "warn");
@@ -2172,7 +2172,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             state.lastDevelopmentAttempt = undefined;
           }
           state.queuedDevelopmentDispatchPending = false;
-          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} coin.`;
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${spendableCoin(state.gold)} coin.`;
           showCaptureAlertSafely("Insufficient coin", goldDetail, "warn");
         }
       } else if (errorCode === "INSUFFICIENT_SLOT") {
@@ -2211,14 +2211,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
-        // Terminal, not retryable: reach only grows when the player builds a
-        // town/outpost/dock, so re-planning this step can never succeed. Cancel
-        // the waypoints depending on it (local + durable server mirror) so a
-        // reconnect cannot resurrect the loop (client-waypoint-out-of-reach.ts).
-        // failedTargetKey (the in-flight target) wins over errorTileKey, which
-        // falls back to a stale latestSettleTargetKey when no x/y is sent.
+        // Terminal: cancel the waypoints depending on it, local + server mirror (client-waypoint-out-of-reach.ts); failedTargetKey
+        // (in-flight target) wins over errorTileKey (stale latestSettleTargetKey fallback, no x/y sent). A refused garrison/build
+        // also drops the build queued on its tile, else stuck on "Build already queued" (client-out-of-reach-rejection.ts).
         cancelWaypointsBlockedByOutOfReach(state, failedTargetKey || errorTileKey, outOfReachDeps);
-        showCaptureAlertSafely("Outside your borders", actionFailureExplanation, "warn");
+        releaseDevelopmentRefusedOutOfReach(state, errorTileKey, { clearOptimisticTileState: clearOptimisticTileStateSafely, clearSettlementProgress: clearSettlementProgressSafely });
+        showCaptureAlertSafely(OUT_OF_REACH_LABEL, actionFailureExplanation, "warn");
       } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
         showCaptureAlertSafely(
           "Frontier sync mismatch",
@@ -2385,7 +2383,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
-      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); state.metPlayerIds.clear(); state.metPlayersScannedRevision = -1; } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
+      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); clearMetPlayersForNewWorld(state); } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();

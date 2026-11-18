@@ -51,6 +51,10 @@ export const hudMarkup = `
         <div id="map-loading-meta">Preparing map data...</div>
       </div>
     </div>
+    <figure id="map-loading-quote" hidden>
+      <blockquote id="map-loading-quote-text"></blockquote>
+      <figcaption id="map-loading-quote-source"></figcaption>
+    </figure>
     <div id="map-loading-actions">
       <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
       <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
@@ -215,6 +219,7 @@ export const hudMarkup = `
       <div>
         <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
         <h3 id="panel-title">Panel</h3>
+        <p id="panel-hint" class="panel-hint" hidden></p>
       </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>

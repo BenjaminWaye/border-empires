@@ -1,5 +1,6 @@
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
 import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
+import { afcFoundedBy } from "@border-empires/shared";
 
 type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeBattery" | "economicStructure" | "afc">;
 
@@ -83,8 +84,11 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
   // Modules still in transit (incomingModules) never land: they are lost.
   // landedAt marks the lander's guaranteed footprint (runtime-reach-anchors.ts) and never transfers.
   const { incomingModules: _inTransit, landedAt: _landedAt, ...afc } = tile.afc;
+  // The founder survives every capture, so a Writ of Correction can still name whose AFC it was.
+  const foundedBy = afcFoundedBy(tile.afc);
   return {
     ...afc,
+    ...(foundedBy ? { foundedBy } : {}),
     ownerId: nextOwnerId,
     activatedAt: now,
     capturedAt: now,

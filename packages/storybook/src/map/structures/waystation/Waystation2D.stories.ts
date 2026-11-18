@@ -62,7 +62,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "In-game 2D tile overlay for waystations (client-map-2d-waystation-overlay.ts): thin brass mast, dark-iron shelter, two crate props, and a cyan lens that glows once activated. Silhouette mirrors the 3D overlay. No pulse ring — activation is permanent, with nothing to count down."
+          "Portable Survey Rig: a splayed iron tripod, brass surveying head with a pulsing cyan lens, equipment case, canvas lean-to and bedroll. Human players claim the tile then press Activate; the live map hides consumed rigs. The activated study shows its dim static lens for historical state compatibility."
       }
     }
   },

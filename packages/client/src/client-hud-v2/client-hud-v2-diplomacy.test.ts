@@ -85,3 +85,29 @@ describe("phone Diplomacy list: layout", () => {
     expect(diplomacyListHtml(input())).not.toMatch(/<div class="v2d-grid"><div class="v2s-empty">/);
   });
 });
+
+// Playtest run 2: truces ran out with no warning, and Extend was two screens away.
+describe("phone Diplomacy list: truces ending", () => {
+  const truce = (id: string, endsAt: number) => ({ otherPlayerId: id, otherPlayerName: names[id] ?? id, startedAt: 0, endsAt, createdByPlayerId: "me" });
+
+  it("pins a truce in its last two hours with the time left and an Extend button that opens the deal", () => {
+    const html = diplomacyListHtml(input({ activeTruces: [truce("ai-1", 90 * 60_000), truce("p-3", 9 * 3_600_000)] }));
+    expect(html).toContain("Truces ending · 1");
+    expect(html).toMatch(/v2d-ending[\s\S]*Tove[\s\S]*Truce ends 1h 30m[\s\S]*data-v2-dip-open="ai-1">Extend</);
+    expect(html).not.toMatch(/Nordmark<\/b><span>Truce ends/);
+    expect(html).toContain("v2d-emp-truce v2d-emp-ending");
+    expect(html).toContain("Truce 9h");
+  });
+
+  it("offers no Extend once the truce is at its total-length cap", () => {
+    const capped = { ...truce("ai-1", 47 * 3_600_000), startedAt: 0 };
+    const html = diplomacyListHtml(input({ activeTruces: [capped], nowMs: 46 * 3_600_000 }));
+    expect(html).toContain("Truces ending · 1");
+    expect(html).not.toContain(">Extend<");
+    expect(html).toContain('data-v2-dip-open="ai-1">Open<');
+  });
+
+  it("shows no section when no truce is ending", () => {
+    expect(diplomacyListHtml(input({ activeTruces: [truce("ai-1", 3 * 3_600_000)] }))).not.toContain("Truces ending");
+  });
+});

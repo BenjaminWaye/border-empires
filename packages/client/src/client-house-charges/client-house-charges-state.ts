@@ -57,6 +57,7 @@ const parseCharge = (value: unknown): HouseChargeView | undefined => {
     ...(typeof value.startTier === "string" ? { startTier: value.startTier } : {}),
     ...(typeof value.relicType === "string" ? { relicType: value.relicType } : {}),
     ...(isFiniteNumber(value.areaTiles) ? { areaTiles: value.areaTiles } : {}),
+    ...(isFiniteNumber(value.areaTowns) ? { areaTowns: value.areaTowns } : {}),
     ...(Array.isArray(value.areaTileKeys) ? { areaTileKeys: value.areaTileKeys.filter((key): key is string => typeof key === "string").slice(0, 2_000) } : {})
   };
 };

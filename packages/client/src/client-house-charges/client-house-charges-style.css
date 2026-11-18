@@ -84,6 +84,15 @@
   color: rgba(240, 207, 130, 0.9);
 }
 
+/* The House's sealed letter (Writ of Correction, Three Seats): flavour, quieter than the objective. */
+.house-charge-letter {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  font-style: italic;
+  opacity: 0.78;
+}
+
 .house-charge-foot {
   display: flex;
   flex-wrap: wrap;

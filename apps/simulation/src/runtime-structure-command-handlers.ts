@@ -1,6 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { handleAssignRefineryFieldCommand, refineryFieldForBuild } from "./refineries/refinery-commands.js";
 import {
+  farmPlotUpgradeForChoice,
   resolveFortBuildTier,
   resolveSiegeBuildTier,
   STRUCTURE_REGISTRY,
@@ -113,6 +114,7 @@ export type RuntimeStructureCommandContext = {
 type StrategicCost = Partial<Record<StrategicResourceKey, number>>;
 
 function upgradeBaseType(structureType: BuildableStructureType): string | undefined {
+  if (structureType === "HYDROGARDEN_PLOT") return "FARM_PLOT";
   if (structureType === "HIGH_YIELD_UMBRITE_WORKS") return "UMBRITE_WORKS";
   if (structureType === "HIGH_YIELD_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "HIGH_YIELD_AETHER_CONDENSER") return "AETHER_CONDENSER";
@@ -309,18 +311,23 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       target.economicStructure.type === base &&
       activeOrInactive(target.economicStructure);
   }
+  // A Hydrogarden Plot only ever replaces a standing Farm Plot (never a fresh build).
+  const plotUpgrade = structureType === "HYDROGARDEN_PLOT"
+    ? farmPlotUpgradeForChoice(target.economicStructure?.ownerId === command.playerId && activeOrInactive(target.economicStructure) ? target.economicStructure.type : undefined, hasTech)
+    : undefined;
+  if (plotUpgrade && !plotUpgrade.ok) return rejectCommand(context, command, "BUILD_INVALID", plotUpgrade.reason);
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery?.ownerId === command.playerId);
   // A fortification (Palisade or any Fort tier, all in tile.fort) may share a
-  // tile with a Relay Beacon or a Harbor Exchange (HARBOR_EXCHANGE): a fort
-  // build ignores either one in economicStructure, and a Relay Beacon build
-  // ignores an existing fortification.
-  const economicConflict = !!target.economicStructure &&
-    !(buildingFort &&
-      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "HARBOR_EXCHANGE"));
+  // tile with any building -- every economic structure and an Aether Tower --
+  // in either build order; only a siege engine excludes it (a fort build
+  // ignores economicStructure/observatory, and those builds ignore tile.fort).
+  // A Relay Beacon is the one outpost that may share a fortified tile.
+  const economicConflict = !!target.economicStructure && !buildingFort;
+  const observatoryConflict = !!target.observatory && !buildingFort;
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
-  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeBattery || economicConflict || fortConflict)) {
+  if (!upgrading && !sameFamilyUpgrade && (observatoryConflict || target.siegeBattery || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }
@@ -424,6 +431,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
       ...(refineryField ? { refineryField } : {}),
+      ...(plotUpgrade && target.economicStructure?.activatedAt !== undefined ? { activatedAt: target.economicStructure.activatedAt } : {}),
       ...(fortCharge?.freeFort ? { freeFort: true } : {}),
       ...(standingFort
         ? {

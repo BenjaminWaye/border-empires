@@ -127,4 +127,17 @@ describe("client structure effects", () => {
       ])
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
+
+  it("lists the Fort perimeter bonus on a garrisoned neighbour, but not on frontier or out-of-range tiles", () => {
+    const fort: Tile = { x: 40, y: 40, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", fort: { ownerId: "me", status: "active", variant: "FORT" } };
+    const neighbour: Tile = { x: 41, y: 41, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    const frontier: Tile = { x: 39, y: 40, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" };
+    const far: Tile = { x: 42, y: 40, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    const tiles = [fort, neighbour, frontier, far];
+    const perimeter = (tile: Tile) => tileAreaEffectModifiersForTile(tile, tiles).find((m) => m.reason === "Fort perimeter");
+    expect(perimeter(neighbour)).toEqual({ reason: "Fort perimeter", effect: "+50% defense", tone: "positive" });
+    expect(perimeter(frontier)).toBeUndefined();
+    expect(perimeter(far)).toBeUndefined();
+    expect(perimeter(fort)).toBeUndefined();
+  });
 });
