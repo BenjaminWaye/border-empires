@@ -52,7 +52,7 @@ describe("townGoldBonuses", () => {
   });
 
   it("reports an unfed town's coin as stopped", () => {
-    expect(townGoldBonuses(town({ isFed: false }))).toEqual([{ label: "Unfed", effect: "coin production stopped", tone: "negative" }]);
+    expect(townGoldBonuses(town({ isFed: false }))).toEqual([{ label: "Unfed", effect: "no coin · garrison grain or fish in reach", tone: "negative" }]);
   });
 });
 

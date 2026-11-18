@@ -70,6 +70,7 @@ export * from "./outpost-aura/outpost-aura.js";
 export * from "./fort-perimeter/fort-perimeter.js";
 export * from "./reach/reach.js";
 export * from "./reach/reach-settle-exemption.js";
+export * from "./reach/reach-action-gate.js";
 export * from "./explored-tiles/explored-tiles-runs.js";
 export * from "./player-display-name.js";
 export * from "./seasonal-ai-names/seasonal-ai-names.js";

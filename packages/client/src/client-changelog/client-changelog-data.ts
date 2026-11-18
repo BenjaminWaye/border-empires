@@ -1,6 +1,7 @@
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { HILL_FOG_SEAMS_ENTRY } from "./client-changelog-hill-fog-seams.js";
+import { REACH_BUILD_FIXES_ENTRY } from "./client-changelog-reach-build-fixes.js";
 import { AFC_SCOUT_BUTTON_ENTRY } from "./client-changelog-afc-scout-button.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
@@ -470,6 +471,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662, },
   ...NOV_17_CHANGELOG,
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
+  { ...REACH_BUILD_FIXES_ENTRY, createdAt: 1794999694412, },
   { ...AFC_SCOUT_BUTTON_ENTRY, createdAt: 1795002703488, },
   {
     createdAt: 1794998310613,
