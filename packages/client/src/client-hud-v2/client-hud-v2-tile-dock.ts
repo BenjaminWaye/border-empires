@@ -321,7 +321,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
       el?.addEventListener("mousedown", (event) => event.stopPropagation());
     }
     watchMenuVisibility(menuEl);
-    // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
+    // Tells a real map tap from other menu opens (feed/alert "Center", tips, town stepping) for onMenuView.
     trackMapTaps();
     dock = { deps, state, rerender, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
