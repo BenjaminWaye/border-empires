@@ -5,7 +5,7 @@ import { manpowerPerBatch } from "@border-empires/shared";
 // constants (no duplicated magic numbers).
 import {
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
-  ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
+  ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST, VIVARIUM_BIOTA_SLOTS,
   TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE,
   REFINERY_FIELD_RESOURCE_BY_TYPE, isRefineryBoosterType, isRefineryType, type RefineryBoosterType, type RefineryFieldResource
 } from "@border-empires/shared";
@@ -151,6 +151,9 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
     return [
       { statLabel: `Nearby town FOOD slot demand (${MINISTRY_HALL_RADIUS}-tile radius)`, valueText: "-1 tier step", tone: "positive", isTownWide: true }
     ];
+  }
+  if (type === "VIVARIUM") {
+    return [{ statLabel: "Luxury biota slots covered", valueText: `+${VIVARIUM_BIOTA_SLOTS}`, tone: "positive", isTownWide: true, rawValue: VIVARIUM_BIOTA_SLOTS }];
   }
   if (type === "ANCILLARY_DEPOT") {
     return [{ statLabel: "Manpower cap", valueText: `+${ANCILLARY_DEPOT_MANPOWER_CAP_BONUS}`, tone: "positive", isTownWide: true, rawValue: ANCILLARY_DEPOT_MANPOWER_CAP_BONUS }];

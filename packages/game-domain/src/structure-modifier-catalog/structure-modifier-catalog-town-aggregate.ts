@@ -51,7 +51,7 @@ export const CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructure
 ];
 
 export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
-  "ANCILLARY_DEPOT", "ANCILLARY_FACTORY", "MANUFACTORY",
+  "ANCILLARY_DEPOT", "ANCILLARY_FACTORY", "MANUFACTORY", "VIVARIUM",
   "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ...CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
 ];
@@ -59,6 +59,7 @@ export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
 const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
   ANCILLARY_DEPOT: { singular: "Ancillary Depot", plural: "Ancillary Depots" },
   ANCILLARY_FACTORY: { singular: "Ancillary Factory", plural: "Ancillary Factories" },
+  VIVARIUM: { singular: "Vivarium", plural: "Vivaria" },
   MANUFACTORY: { singular: "Manufactory", plural: "Manufactories" },
   WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },

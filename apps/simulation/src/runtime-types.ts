@@ -22,6 +22,8 @@ export type RuntimeTileYieldEconomyContext = {
   dormantEconomicStructureKeys: ReadonlySet<string>;
   // Each own town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey), stamped as town.foodSlotDemand.
   townFoodSlotDemandByKey?: ReadonlyMap<string, number>;
+  // Each large town's luxury biota allocation; a short town earns part of its tier's coin.
+  biotaTownSupply?: ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply>;
 };
 
 export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;

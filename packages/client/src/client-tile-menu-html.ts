@@ -197,6 +197,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
   if (id === "build_ancillary_depot") return "⛨";
+  if (id === "build_vivarium") return "❀";
   if (id === "build_harbor_exchange") return "⚓\uFE0E";
   if (id === "build_lockworks_port") return "⚓\uFE0E";
   if (id === "build_neural_works") return "⊞";
