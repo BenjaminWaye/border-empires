@@ -9,6 +9,8 @@ import {
   SALVAGE_DELIVERY_TOTAL_MS,
   SALVAGE_DEPART_START_MS,
   SALVAGE_MARCH_START_MS,
+  SALVAGE_PACE,
+  SALVAGE_RAMP_WALK_MS,
   SALVAGE_MARCHER_COUNT,
   SALVAGE_RAMP_FOOT_DY,
   SALVAGE_SHIP_DESCENT_MS,
@@ -79,14 +81,19 @@ describe("salvage delivery timeline", () => {
     expect(salvageShipAt(SALVAGE_DELIVERY_TOTAL_MS).visible).toBe(false);
   });
 
+  it("runs at a 1.5x stately pace", () => {
+    expect(SALVAGE_PACE).toBe(1.5);
+    expect(SALVAGE_DELIVERY_TOTAL_MS).toBeCloseTo(6_500 * 1.5);
+  });
+
   it("marches each Ancillary down the ramp and out, fading as it disappears into the land", () => {
     const target = { dx: 2, dy: 2 };
     expect(salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS - 1).visible).toBe(false);
-    const onRamp = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + 10);
+    const onRamp = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + 10 * SALVAGE_PACE);
     expect(onRamp.lift).toBeGreaterThan(0.3);
-    const offRamp = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + 400);
+    const offRamp = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + SALVAGE_RAMP_WALK_MS);
     expect(offRamp.dy).toBeCloseTo(SALVAGE_RAMP_FOOT_DY, 1);
-    const late = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + 400 + 1600);
+    const late = salvageMarcherAt(target, 0, SALVAGE_MARCH_START_MS + SALVAGE_RAMP_WALK_MS + 1600 * SALVAGE_PACE);
     expect(late.alpha).toBeLessThan(0.2);
     expect(late.dx).toBeGreaterThan(1.8);
     expect(salvageMarcherAt(target, SALVAGE_MARCHER_COUNT - 1, SALVAGE_DELIVERY_TOTAL_MS).visible).toBe(false);

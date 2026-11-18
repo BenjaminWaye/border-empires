@@ -21,6 +21,7 @@ import { createSalvageAncillaryColumn, type SalvageAncillaryColumn } from "./cli
 import { createSalvageDropship, type SalvageDropship } from "./client-map-3d-salvage-dropship.js";
 import {
   SALVAGE_DELIVERY_TOTAL_MS,
+  SALVAGE_PACE,
   SALVAGE_SHIP_APPROACH_DY,
   SALVAGE_SHIP_HOVER_HEIGHT,
   SALVAGE_SHIP_ORBIT_HEIGHT,
@@ -236,12 +237,12 @@ export const createSalvageDeliveryFxLayer = (
     const wash = frame.burn * clamp01(1 - (frame.height - SALVAGE_SHIP_HOVER_HEIGHT) / 1.6) * frame.alpha;
     e.blast.scale.setScalar(0.5 + 0.5 * wash);
     (e.blast.material as MeshBasicMaterial).opacity = 0.55 * wash;
-    const ringT = (age - 1700) / 900;
+    const ringT = (age - 1700 * SALVAGE_PACE) / (900 * SALVAGE_PACE);
     e.ring.visible = ringT > 0 && ringT < 1;
     e.ring.scale.setScalar(0.4 + 2.2 * clamp01(ringT));
     (e.ring.material as MeshBasicMaterial).opacity = 0.5 * (1 - clamp01(ringT));
     for (const puff of e.smoke) {
-      const d = frame.dust * clamp01((age - 1500 - puff.delay) / 400 + 0.4);
+      const d = frame.dust * clamp01((age - (1500 + puff.delay) * SALVAGE_PACE) / (400 * SALVAGE_PACE) + 0.4);
       const r = puff.radius * (0.45 + 0.55 * frame.dust);
       puff.sprite.position.set(Math.cos(puff.angle) * r, 0.1 + puff.rise * frame.dust, Math.sin(puff.angle) * r * 0.85);
       puff.sprite.scale.setScalar(0.7 + 0.9 * frame.dust);

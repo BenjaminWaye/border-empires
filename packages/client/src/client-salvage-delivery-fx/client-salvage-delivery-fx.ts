@@ -42,25 +42,28 @@ export const createInitialSalvageDeliveryFxState = (): SalvageDeliveryFxState =>
 
 // ---- Shared timeline (ms from startedAt) ----
 
+/** Stretches the whole sequence; every duration below (and the 3D layer's dust timings) is authored at 1x and scaled by it. */
+export const SALVAGE_PACE = 1.5;
+const paced = (ms: number): number => ms * SALVAGE_PACE;
 /** The ship falls from orbit to its hover over the Works. */
-export const SALVAGE_SHIP_DESCENT_MS = 2200;
+export const SALVAGE_SHIP_DESCENT_MS = paced(2200);
 /** The ramp swings down once the ship has settled. */
-export const SALVAGE_RAMP_OPEN_MS = 450;
+export const SALVAGE_RAMP_OPEN_MS = paced(450);
 export const SALVAGE_MARCH_START_MS = SALVAGE_SHIP_DESCENT_MS + SALVAGE_RAMP_OPEN_MS;
 export const SALVAGE_MARCHER_COUNT = 6;
 /** Gap between one Ancillary stepping onto the ramp and the next. */
-export const SALVAGE_MARCHER_STAGGER_MS = 260;
+export const SALVAGE_MARCHER_STAGGER_MS = paced(260);
 /** Time to walk down the ramp. */
-export const SALVAGE_RAMP_WALK_MS = 400;
+export const SALVAGE_RAMP_WALK_MS = paced(400);
 /** Time to walk from the ramp's foot out to the target, fading out over the end of it. */
-export const SALVAGE_GROUND_WALK_MS = 1700;
+export const SALVAGE_GROUND_WALK_MS = paced(1700);
 /** Fraction of the ground walk at which an Ancillary starts to fade into the land. */
 const MARCHER_FADE_FROM = 0.55;
 const LAST_OFF_RAMP_MS = SALVAGE_MARCH_START_MS + (SALVAGE_MARCHER_COUNT - 1) * SALVAGE_MARCHER_STAGGER_MS + SALVAGE_RAMP_WALK_MS;
-export const SALVAGE_RAMP_CLOSE_START_MS = LAST_OFF_RAMP_MS + 50;
-export const SALVAGE_RAMP_CLOSE_MS = 400;
-export const SALVAGE_DEPART_START_MS = SALVAGE_RAMP_CLOSE_START_MS + SALVAGE_RAMP_CLOSE_MS + 100;
-export const SALVAGE_DEPART_MS = 1600;
+export const SALVAGE_RAMP_CLOSE_START_MS = LAST_OFF_RAMP_MS + paced(50);
+export const SALVAGE_RAMP_CLOSE_MS = paced(400);
+export const SALVAGE_DEPART_START_MS = SALVAGE_RAMP_CLOSE_START_MS + SALVAGE_RAMP_CLOSE_MS + paced(100);
+export const SALVAGE_DEPART_MS = paced(1600);
 export const SALVAGE_DELIVERY_TOTAL_MS = SALVAGE_DEPART_START_MS + SALVAGE_DEPART_MS;
 
 // ---- Shared geometry (tiles) ----
@@ -126,12 +129,12 @@ export const salvageShipAt = (ageMs: number): SalvageShipFrame => {
   const closing = clamp01((ageMs - SALVAGE_RAMP_CLOSE_START_MS) / SALVAGE_RAMP_CLOSE_MS);
   const rampOpen = easeOut(opening) * (1 - easeIn(closing));
   const burn = !departing && ageMs < SALVAGE_SHIP_DESCENT_MS ? 0.45 + 0.55 * fall : departing ? 0.7 + 0.3 * (1 - rise) : 0.25;
-  const heat = departing ? 0 : clamp01(ageMs / 180) * (1 - clamp01(fall / 0.55));
+  const heat = departing ? 0 : clamp01(ageMs / paced(180)) * (1 - clamp01(fall / 0.55));
   const legs = departing ? 1 - clamp01(rise / 0.25) : clamp01((fall - 0.65) / 0.3);
-  const fadeIn = clamp01(ageMs / 250);
+  const fadeIn = clamp01(ageMs / paced(250));
   const fadeOut = 1 - clamp01((rise - 0.6) / 0.4);
-  const landing = (ageMs - SALVAGE_SHIP_DESCENT_MS * 0.7) / 1500;
-  const liftoff = (ageMs - SALVAGE_DEPART_START_MS) / 1000;
+  const landing = (ageMs - SALVAGE_SHIP_DESCENT_MS * 0.7) / paced(1500);
+  const liftoff = (ageMs - SALVAGE_DEPART_START_MS) / paced(1000);
   const pulse = (p: number): number => (p <= 0 || p >= 1 ? 0 : Math.sin(Math.PI * p));
   return {
     visible: true, height, offsetDy, pitch, alpha: fadeIn * fadeOut, rampOpen, burn, heat, legs,
@@ -166,7 +169,7 @@ const HIDDEN_MARCHER: SalvageMarcherFrame = { visible: false, dx: 0, dy: 0, lift
 export const salvageMarcherAt = (target: SalvageMarcherTarget, index: number, ageMs: number): SalvageMarcherFrame => {
   const t = ageMs - SALVAGE_MARCH_START_MS - index * SALVAGE_MARCHER_STAGGER_MS;
   if (t < 0 || t >= SALVAGE_RAMP_WALK_MS + SALVAGE_GROUND_WALK_MS) return HIDDEN_MARCHER;
-  const bob = Math.abs(Math.sin(t / 95)) * 0.025;
+  const bob = Math.abs(Math.sin(t / paced(95))) * 0.025;
   if (t < SALVAGE_RAMP_WALK_MS) {
     const p = t / SALVAGE_RAMP_WALK_MS;
     return {
