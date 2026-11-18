@@ -4,6 +4,7 @@ import type {
   RecentAllianceBreakView
 } from "../client-types.js";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
+import type { HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 
 /**
  * Alliance/truce/profile client state, extracted out of client-state.ts
@@ -22,6 +23,9 @@ export const createInitialSocialState = () => ({
   // players the Alliances tab lets you propose to. See client-met-players.ts.
   metPlayerIds: new Set<string>(),
   metPlayersScannedRevision: -1,
+  // "<me>|<seasonId>" whose saved met set is loaded, and the set size last saved (-1: not yet).
+  metPlayersLoadedFor: "",
+  metPlayersSavedCount: -1,
   // Set by a tile's Diplomacy action: the Alliances panel highlights and
   // scrolls to this player's card until `until`. See client-alliance-focus.ts.
   socialFocus: undefined as { playerId: string; until: number; scrollPending: boolean } | undefined,
@@ -39,6 +43,8 @@ export const createInitialSocialState = () => ({
   // Same lifecycle/caching semantics as galaxyHoldingsByPlayerId above, for
   // GET /hq/career/by-player/:playerId.
   careerStatsByPlayerId: new Map<string, CareerStatsView | "loading">(),
+  // Same lifecycle/caching semantics, for GET /hq/house-charges/cards/by-player/:playerId.
+  houseChargeCardsByPlayerId: new Map<string, HouseChargeCardView[] | "loading">(),
   // Same lifecycle/caching semantics as galaxyHoldingsByPlayerId above, for
   // GET /hq/social/by-player/:playerId (current-season allies/truces).
   socialViewByPlayerId: new Map<string, SocialPublicView | "loading">()

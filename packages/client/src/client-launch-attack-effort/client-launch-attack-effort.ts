@@ -62,7 +62,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.`,
+    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -91,7 +91,7 @@ const queueAndReport = (
   if (out.queued > 0) {
     deps.processActionQueue();
     const where = request.scope === "region" ? " across the connected region" : "";
-    deps.pushFeed(`Queued ${out.queued} attacks${where}${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
+    deps.pushFeed(`Queued ${out.queued} attacks${where}${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "info");
     return;
   }
   const failureMessage =
@@ -104,24 +104,38 @@ const queueAndReport = (
   deps.pushFeed(failureMessage, "combat", "error");
 };
 
-/** Multi-target sheet: presets only, each eligible target gets its own floor times the chosen multiplier. */
+/**
+ * Multi-target sheet: presets only, each eligible target gets its own floor
+ * times the chosen multiplier. The tapped tile's win chance (when it is one of
+ * the defended targets and has a preview) moves with the preset, so the
+ * player can see what Extra/Double buy -- this sheet used to show only a
+ * manpower total (2026-11-12 playtest: "Double didn't change the win %").
+ */
 const promptBulkEffort = (
   state: ClientState,
   eligible: Tile[],
   title: string,
-  onConfirm: (preset: MusterCommitPreset) => void
+  onConfirm: (preset: MusterCommitPreset) => void,
+  focus?: { tile: Tile | undefined; deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget"> }
 ): boolean => {
+  const focusTile = focus?.tile && eligible.includes(focus.tile) ? focus.tile : undefined;
+  const focusOdds = (preset: MusterCommitPreset): string => {
+    if (!focusTile || !focus) return "";
+    const commit = musterCommitPresetAmount(preset, attackEffortFloorForTarget(focusTile, state));
+    const chance = percent(commitPreviewWinChanceForTarget(state, focusTile, commit, focus.deps));
+    return chance ? `Win chance ${chance} at (${focusTile.x}, ${focusTile.y}) · ` : "";
+  };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
+    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
+    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
     onConfirm: (_commit, preset) => onConfirm(preset ?? "normal")
   });
   return handle !== undefined;
@@ -186,6 +200,6 @@ const launchWithEffort = (
     const multiplier = MUSTER_COMMIT_PRESET_MULTIPLIERS[preset];
     for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile, state) * multiplier));
     launch();
-  });
+  }, { tile: request.selected ? state.tiles.get(deps.keyFor(request.selected.x, request.selected.y)) : undefined, deps });
   if (!shown) launch();
 };

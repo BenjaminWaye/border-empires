@@ -1,6 +1,6 @@
 import { musterReportsHtml } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
 import { refineryActionIcon } from "./client-refineries/refinery-action-ids.js";
-import { advanceCommitOddsText } from "./client-muster-commit-tab/client-muster-commit-tab.js";
+import { musterCommitCardHtml } from "./client-muster-commit-tab/client-muster-commit-card.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -160,6 +160,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   const refinery = refineryActionIcon(id);
   if (refinery) return refinery;
   if (id === "expand_here") return "⚐";
+  if (id === "explore_scout") return "⌖";
   if (id.startsWith("march_attack_") || id === "march_to_pick_origin") return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
@@ -329,36 +330,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     `;
   }
   if (activeTab === "reports") return musterReportsHtml(view.musterReports);
-  if (activeTab === "commit") {
-    const commit = view.commit;
-    if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
-    const oddsText = commit.winChancePercent != null
-      ? `${commit.winChancePercent}% win chance`
-      : commit.mode === "ADVANCE"
-        ? advanceCommitOddsText(commit.commitManpower, commit.floor)
-        : commit.hasTarget
-          ? "Win chance unavailable — open Launch Attack on the target tile once to preview odds"
-          : "Set a march target to preview odds";
-    return `
-      <div class="muster-commit-card">
-        <div class="muster-commit-row">
-          <label for="muster-commit-slider">Commit manpower</label>
-          <input id="muster-commit-slider" type="range" min="${commit.floor}" max="${commit.cap}" step="1" value="${commit.commitManpower}" data-muster-commit-slider data-muster-commit-floor="${commit.floor}" data-muster-commit-base-odds="${commit.baseWinChancePercent ?? ""}"${commit.mode === "ADVANCE" ? " data-muster-commit-advance" : ""} />
-          <span class="muster-commit-value" data-muster-commit-value>${commit.commitManpower}</span>
-        </div>
-        <div class="muster-commit-presets">
-          ${commit.presets
-            .map(
-              (preset) =>
-                `<button type="button" class="muster-commit-preset-btn" data-muster-commit-preset="${preset.amount}">${preset.label} (${preset.amount})</button>`
-            )
-            .join("")}
-        </div>
-        <div class="muster-commit-odds" data-muster-commit-odds>${oddsText}</div>
-        <button type="button" class="muster-commit-save-btn" data-muster-commit-save>Save commitment</button>
-      </div>
-    `;
-  }
+  if (activeTab === "commit") return musterCommitCardHtml(view.commit);
   return tileOverviewCardHtml(view.overviewLines);
 };
 

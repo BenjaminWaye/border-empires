@@ -11,6 +11,7 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   name,
   tierLabel: "Town",
   goldPerMinute,
+  coinPending: false,
   population: 4200,
   maxPopulation: 8000,
   growthPerMinute: 1.25,
@@ -34,9 +35,21 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain('data-v2-towns-open="4,2"');
     expect(html).toContain("4,200");
     expect(html).toContain("+1.3");
-    expect(html).toContain("Gold/day ▲");
+    expect(html).toContain("Coin/day ▲");
     expect(html).toContain('title="Open build slots">3<');
     expect(html).toContain(">Slots<");
+  });
+
+  // Playtest day 1 (four personas at 375px): the headers ran together as "Coin/day ▼PopulationGrowth/min".
+  it("keeps column headers short enough for a phone, with the full meaning in their titles", () => {
+    const host = document.createElement("div");
+    host.innerHTML = townsBodyHtml([row(1, "A", 1)], { key: "gold", descending: true });
+    const headers = Array.from(host.querySelectorAll<HTMLElement>("[data-v2-towns-sort]"));
+    expect(headers.map((h) => h.textContent)).toEqual(["Coin/day ▼", "Pop", "Growth", "Slots"]);
+    for (const h of headers) expect((h.textContent ?? "").replace(/\s[▼▲]$/u, "").length).toBeLessThanOrEqual(8);
+    expect(headers.every((h) => (h.title ?? "").length > 0)).toBe(true);
+    // The short "Growth" header keeps its unit visible in the cell.
+    expect(host.querySelectorAll(".v2l-row .v2l-num")[2]?.textContent).toMatch(/\/min$/);
   });
 
   it("flags unfed towns and escapes names", () => {
@@ -44,6 +57,11 @@ describe("HUD v2 towns screen", () => {
     expect(html).toContain("v2l-unfed");
     expect(html).toContain("Unfed");
     expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
+  });
+
+  it("says when a fed town is short of garrisoned plots, which is why it earns little or nothing", () => {
+    const html = townsBodyHtml([{ ...row(1, "Voltspire", 0), plotsNote: "0/4 plots garrisoned" }], { key: "gold", descending: true });
+    expect(html).toContain("Town · 0/4 plots garrisoned");
   });
 
   it("shows an empty state and the town count", () => {

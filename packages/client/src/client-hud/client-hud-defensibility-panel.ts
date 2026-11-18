@@ -1,4 +1,5 @@
 import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -6,6 +7,7 @@ import type { Tile } from "../client-types.js";
 type DefensibilityPanelState = Pick<
   ClientState,
   "tiles" | "tilesRevision" | "me" | "defensibilityPct" | "settledT" | "settledE" | "showWeakDefensibility"
+  | "incomePerMinute" | "upkeepPerMinute" | "economyBreakdown"
 >;
 
 type DefensibilityPanelDeps = {
@@ -32,7 +34,9 @@ export const renderDefensibilityPanels = (
   dom: { readonly panelDefensibilityEl: HTMLElement },
   deps: DefensibilityPanelDeps
 ): void => {
-  const key = [state.tilesRevision, state.tiles.size, state.me, state.defensibilityPct, state.settledT, state.settledE, state.showWeakDefensibility].join("|");
+  // The panel shows the Integrity line from the same coin breakdown the Economy panel lists.
+  const integrityCoinPerMinute = empireCoinIncome(state).integrityPerMinute;
+  const key = [state.tilesRevision, state.tiles.size, state.me, state.defensibilityPct, state.settledT, state.settledE, state.showWeakDefensibility, integrityCoinPerMinute].join("|");
   if (key !== cachedKey || !cachedHtml) {
     const html = deps.safeValue("renderDefensibilityPanelHtml", "", () =>
       renderDefensibilityPanelHtml({
@@ -43,6 +47,7 @@ export const renderDefensibilityPanels = (
         settledE: state.settledE,
         showWeakDefensibility: state.showWeakDefensibility,
         empireIntegrityEnabled: EMPIRE_INTEGRITY_ENABLED,
+        integrityCoinPerMinute,
         keyFor: deps.keyFor,
         wrapX: deps.wrapX,
         wrapY: deps.wrapY,

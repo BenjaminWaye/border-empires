@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, forEachExploredTile } from "@border-empires/shared";
 import { DISCOVERED_TILES_STORAGE_KEY } from "../client-constants.js";
 import { keyForTile, parseTileKey } from "../client-app-runtime-utils.js";
 import { storageGet, storageRemove, storageSet } from "./client-state.js";
@@ -144,4 +144,21 @@ export const maybeSaveDiscoveredTiles = (state: {
   if (now - lastDiscoveredTilesSaveAt < DISCOVERED_TILES_SAVE_THROTTLE_MS) return;
   lastDiscoveredTilesSaveAt = now;
   flushDiscoveredTiles(state);
+};
+
+// Unions the server-held explored-tile memory (INIT's player.exploredTiles,
+// see apps/simulation explored-tiles-store.ts) into discoveredTiles. The
+// server copy survives what the localStorage copy above does not: cleared
+// site data, a new device or browser, and a season/player mismatch on
+// reconnect. Malformed or other-world-size payloads add nothing. Returns the
+// number of tiles added.
+export const applyServerExploredTiles = (discoveredTiles: Set<string>, exploredTiles: unknown): number => {
+  let added = 0;
+  forEachExploredTile(exploredTiles, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => {
+    const key = keyForTile(x, y);
+    if (discoveredTiles.has(key)) return;
+    discoveredTiles.add(key);
+    added += 1;
+  });
+  return added;
 };

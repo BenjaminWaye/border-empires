@@ -16,17 +16,22 @@ import {
   valueNoise,
   worldIndex,
   worldSeed,
+  worldSeedWasSet,
   worldStyle
 } from "./worldgen.js";
 import { isNaturalRangeFoothill } from "./worldgen-natural-ranges.js";
 import { naturalRangeShapeActive, worldgenVersion } from "./worldgen-version.js";
 import { hillFieldAt, hillThresholdFor } from "./worldgen-biome-thresholds.js";
+import { loadWorldBits, saveWorldBits, worldTerrainCacheKey, worldTerrainStore } from "./worldgen-terrain-persistence.js";
 
 let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheSeed: number | undefined;
 let hillsCacheVersion: number | undefined;
 let hillsCacheStyle: string | undefined;
+// Tiles computed so far for the current world; once it reaches every tile the
+// layer is saved to the device store (client only) so the next login restores it.
+let hillsComputedCount = 0;
 
 // How far out (Chebyshev distance, in tiles) a mountain's foothill effect
 // reaches, and the chance a LAND tile at each distance becomes hills purely
@@ -105,6 +110,12 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
     hillsCacheSeed = seed;
     hillsCacheVersion = version;
     hillsCacheStyle = style;
+    const restored = worldSeedWasSet() && loadWorldBits("hills", worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT), WORLD_TILE_COUNT);
+    if (restored) {
+      hillsCache.set(restored);
+      hillsCacheReady.fill(1);
+    }
+    hillsComputedCount = 0;
   }
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -160,5 +171,21 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
   }
   hillsCache[idx] = isHills ? 1 : 0;
   hillsCacheReady[idx] = 1;
+  hillsComputedCount += 1;
+  if (hillsComputedCount === WORLD_TILE_COUNT && worldSeedWasSet() && worldTerrainStore()) {
+    saveWorldBits("hills", worldTerrainCacheKey(seed, style, version, WORLD_WIDTH, WORLD_HEIGHT), hillsCache);
+  }
   return isHills;
+};
+
+// Completes and saves the hills layer for the device store (client only). A
+// whole-map consumer (the river network's clear-corner pass) calls this after it
+// has checked every land tile, so the remaining tiles are the cheap non-land ones.
+// No-op when there is no store or the layer was restored rather than computed.
+export const persistHillsLayer = (): void => {
+  if (!worldTerrainStore() || !worldSeedWasSet()) return;
+  isHillsRegionAt(0, 0); // syncs the cache to the current world first
+  for (let i = 0; i < WORLD_TILE_COUNT; i += 1) {
+    if (hillsCacheReady[i] !== 1) isHillsRegionAt(i % WORLD_WIDTH, Math.floor(i / WORLD_WIDTH));
+  }
 };

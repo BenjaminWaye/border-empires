@@ -80,9 +80,9 @@ export type SeededAiDiplomacyResponderDeps = {
   hasLiveSocket: (playerId: string) => boolean;
   /** Pays out any terms in the simulation before recording (diplomacy-offer-acceptance.ts). */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
-  rejectTruce: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean }) => SocialActionResult;
+  rejectTruce: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean; recordDecline?: boolean }) => SocialActionResult;
   acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
-  rejectAlliance: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean }) => SocialActionResult;
+  rejectAlliance: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean; recordDecline?: boolean }) => SocialActionResult;
   /** The AI's counter-offer goes back to the requester as a fresh offer from the AI. */
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
   requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: SocialOfferOptions) => SocialActionResult;
@@ -204,8 +204,9 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       const text = aiDiplomacyAnnouncements(offer.kind, accepted, names, reason, offer.durationHours, offer.extendsTruce);
       return { [offer.fromPlayerId]: text.toRequester, [offer.toPlayerId]: text.toAi };
     };
-    const decline = (reason: string, startCooldown: boolean): SocialActionResult => {
-      const options = { announcementByPlayerId: announce(false, reason), startCooldown };
+    // recordDecline false: a counter or a failed payment isn't the AI saying no (no Chronicle decline row).
+    const decline = (reason: string, startCooldown: boolean, recordDecline = true): SocialActionResult => {
+      const options = { announcementByPlayerId: announce(false, reason), startCooldown, recordDecline };
       return offer.kind === "truce" ? deps.rejectTruce(offer.toPlayerId, offer.id, options) : deps.rejectAlliance(offer.toPlayerId, offer.id, options);
     };
 
@@ -221,10 +222,10 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       // coin meanwhile): turn it into a decline that names why, no cooldown.
       if (!response.ok && response.code === "DIPLOMACY_SETTLEMENT_FAILED") {
         outcome = "settlement_failed";
-        response = decline(response.message, false);
+        response = decline(response.message, false, false);
       }
     } else {
-      response = decline(decision.reason, decision.kind === "decline" ? decision.startCooldown : true);
+      response = decline(decision.reason, decision.kind === "decline" ? decision.startCooldown : true, decision.kind !== "counter");
     }
     if (!response.ok) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_response_failed", {

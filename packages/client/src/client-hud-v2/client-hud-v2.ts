@@ -4,10 +4,13 @@
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
+import { showCaptureAlert } from "../client-alerts/client-alerts.js";
+import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { activateImperialWard, imperialWardButtonHtml } from "../client-imperial-ward/client-imperial-ward.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
@@ -32,6 +35,7 @@ import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
+import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -39,6 +43,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
@@ -49,7 +54,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-ward" class="hud-v2-ward-slot"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
@@ -58,7 +63,7 @@ const shellHtml = `
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>
   <div class="hud-v2-dim" data-hud-v2-dim aria-hidden="true"></div>`;
 
-type Region = "bar" | "nav" | "season" | "ward" | "rivals" | "tracker" | "orb-slot" | "overlays";
+type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
 const written = new Map<Region, string>();
 
@@ -127,10 +132,6 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     deps.renderHud();
     return;
   }
-  if (target.closest("[data-imperial-ward-activate]")) {
-    activateImperialWard(deps.sendGameMessage);
-    return;
-  }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
   // Phone: resource chips open their breakdown, the tracker folds to one line (client-hud-v2-compact.ts).
   if (document.body.classList.contains("hud-v2-compact") && event.currentTarget instanceof HTMLElement && compactLayerClick(target, {
@@ -143,6 +144,12 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
+  if (target.closest("[data-hud-v2-cancel-waypoints]")) {
+    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
+    deps.renderHud();
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
@@ -243,7 +250,7 @@ const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
-    netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
+    netPerMinute: empireCoinIncome(state).netPerMinute,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
@@ -259,12 +266,12 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     active: screen.id === "profile" && state.activePlayerProfileId === state.me ? "self" : screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory, state.seasonWinner, state.me, (id) => state.playerNames.get(id) ?? ""));
-  writeRegion("ward", imperialWardButtonHtml(state, nowMs));
   writeRegion("rivals", rivalsHtml({
     me: state.me,
-    metPlayerIds: state.metPlayerIds,
+    metPlayerIds: refreshMetPlayerIds(state),
     allies: state.allies,
     activeTruces: state.activeTruces,
+    warPlayerIds: warOpponentIds(state, nowMs),
     nameOf: (id) => state.playerNames.get(id) ?? "",
     colorOf: ownerColor,
     nowMs
@@ -294,7 +301,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       key,
       at: nowMs,
       buildSlots: { busy: development.busy, limit: development.limit },
-      flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
+      flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile, (x, y) => state.tiles.get(`${x},${y}`)),
       building: development.activeSlots,
       queue: development.queue
     };
@@ -317,6 +324,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsOpen: slotsFold.open,
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
+    waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));

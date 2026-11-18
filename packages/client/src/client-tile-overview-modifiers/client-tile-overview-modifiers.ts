@@ -1,4 +1,4 @@
-import { prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
+import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, prospectSignatureResource, isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_DEFENSE_MULT, HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, prospectClueResourceLabel, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
@@ -250,22 +250,13 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
   // Hills-ness is a permanent, purely procedural property of the coordinate
   // (isHillsTileAt, mirrored server-side in vision-footprint-table.ts) —
   // not gated on ownership or a built structure, so it's shown for any land
-  // tile the same way the natural-wonder line is. Computed last so it can
-  // tell whether the tile already has another modifier: with one (e.g. a
-  // Relay Beacon's own vision line already showing), "Hills" is named as
-  // the source to disambiguate; alone, there's nothing to disambiguate
-  // from, so it's shown as a plain "Vision" line instead.
+  // tile the same way the natural-wonder line is. Always named "Hills": a bare
+  // "Vision: +1" line didn't say where the bonus came from (2026-11-16 playtest).
   if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
-    const named = modifiers.length > 0;
-    const defense = `+${Math.round((HILLS_DEFENSE_MULT - 1) * 100)}% when garrisoned`;
-    // High ground also defends (terrain-combat.ts), labelled the same way.
+    // High ground also defends (terrain-combat.ts).
     modifiers.push(
-      named
-        ? { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" }
-        : { reason: "Vision", effect: `+${HILLS_VISION_BONUS}`, tone: "positive" },
-      named
-        ? { reason: "Hills", effect: `defense ${defense}`, tone: "positive" }
-        : { reason: "Defense", effect: defense, tone: "positive" }
+      { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" },
+      { reason: "Hills", effect: `defense +${Math.round((HILLS_DEFENSE_MULT - 1) * 100)}% when garrisoned`, tone: "positive" }
     );
   }
 
@@ -348,7 +339,8 @@ export const tileFeatureLeadLines = (
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const structureKeys = structureKeysForTile(tile);
-  if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key)).join(", ")}` });
+  const depleted = isDepletedReclamationWorks(tile);
+  if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key, depleted && key === "RECLAMATION_WORKS" ? DEPLETED_RECLAMATION_WORKS_NAME : undefined)).join(", ")}` });
   lines.push(...waystationOverviewLines(tile, {
     ...deps,
     techName: (techId) => deps.techCatalog.find((tech) => tech.id === techId)?.name

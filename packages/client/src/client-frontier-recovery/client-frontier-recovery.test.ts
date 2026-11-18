@@ -41,7 +41,7 @@ describe("sweepExpiredFrontierRecovery", () => {
     expect(pushFeed).toHaveBeenCalledWith(
       "A delayed frontier sync expired locally. Reverting the stuck tile and refreshing nearby state.",
       "combat",
-      "warn"
+      "info"
     );
   });
 

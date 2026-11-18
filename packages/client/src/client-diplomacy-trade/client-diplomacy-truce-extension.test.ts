@@ -39,6 +39,25 @@ describe("extending a truce from the trade screen", () => {
     expect(send).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "Elin", targetPlayerId: "ai-2", durationHours: 24 }, expect.any(String));
   });
 
+  // Regression: paying an AI Coin per hour for a truce said "Add a resource slot to trade Coin income.", and with a slot the AI refused anyway.
+  it("lets you pay an AI Coin per hour for a truce, valued over the truce's hours", () => {
+    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, resources: { FOOD: 1 } }) });
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    const wary: DiplomacyStanceReply = { ...aiReply, pricing: { required: { truce12: 300, truce24: 600, alliance: 900 }, aiHoldings: { gold: 500 }, requesterSpareCoinPerHour: 100 } };
+    receiveDiplomacyStance(wary);
+    // You can pledge your income; an AI never pledges its own.
+    expect(overlay.querySelector<HTMLElement>('[data-trade-row="give-coinPerHour"]')?.hidden).toBe(false);
+    expect(overlay.querySelector<HTMLElement>('[data-trade-row="ask-coinPerHour"]')?.hidden).toBe(true);
+    const verdictFor = (kind: "truce" | "alliance", coinPerHour: number) => tradeVerdict({
+      targetName: "Elin", reply: wary, own: { gold: 100 }, cooldownRemainingMs: 0,
+      selection: { kind, durationHours: 12, terms: { give: { gold: 0, coinPerHour }, ask: { gold: 0 } } }
+    });
+    // 64/h for 12h, at half its upfront value: 384 against a 300 price.
+    expect(verdictFor("truce", 64)).toMatchObject({ tone: "good", canSend: true });
+    expect(verdictFor("truce", 40).text).toBe("Elin would refuse: wants about 60 more coin.");
+    expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses accept Coin per hour only from you, and only for a truce." });
+  });
+
   it("disables an extension past the 48h cap and falls back to one that fits", () => {
     const { overlay } = openInTruce(30);
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.disabled).toBe(true);

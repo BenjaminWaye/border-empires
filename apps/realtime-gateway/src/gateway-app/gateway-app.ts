@@ -8,7 +8,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { autoSettlePrefsCommandPayload, isChosenTrickleResource } from "@border-empires/shared";
+import { autoSettlePrefsCommandPayload, COMMAND_RATE_LIMIT_CAPACITY, COMMAND_RATE_LIMIT_REFILL_PER_SECOND, isChosenTrickleResource } from "@border-empires/shared";
 import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
@@ -47,12 +47,14 @@ import { createGatewayJoinStores } from "../gateway-join-stores/gateway-join-sto
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
-import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js"; import { wireGalaxyDuke } from "../galaxy-duke-wiring/galaxy-duke-wiring.js";
+import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js"; import { wireGalaxyDuke } from "../galaxy-duke-wiring/galaxy-duke-wiring.js";
 import { createSovereignSiegeEngineStrikeGatewayIntegration } from "../sovereign-siege-engine-strike-broadcast/sovereign-siege-engine-strike-broadcast.js";
 import { startNextContestTimer } from "../next-contest/next-contest.js"; import { createGatewayNextContest } from "../next-contest/gateway-next-contest.js"; import { handleStartNewSeasonMessage } from "../season-start-vote/handle-start-new-season-message.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
+import { handlePlayerRespawned } from "../player-respawned-email/player-respawned-email.js";
+import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -79,7 +81,7 @@ import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recover
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
-import { buildGatewaySocialState } from "./build-social-state-sink.js";
+import { buildAiDiplomacyMemoryPersistence, buildGatewaySocialState } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
@@ -545,7 +547,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
-  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions)), galaxyBattleLogStore = options.galaxyBattleLogStore ?? (await createGalaxyBattleLogStore(commandStoreFactoryOptions)), galaxyExplorationStore = options.galaxyExplorationStore ?? (await createGalaxyExplorationStore(commandStoreFactoryOptions)), { galaxyFleetStore, stop: stopGalaxyFleetScheduler } = await wireGalaxyFleets({ ...(options.galaxyFleetStore ? { existingStore: options.galaxyFleetStore } : {}), storeOptions: commandStoreFactoryOptions, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, onError: (error) => app.log.error({ err: error }, "galaxy fleet tick failed") }), { galaxyDukeService, stop: stopGalaxyDukeScheduler } = await wireGalaxyDuke({ storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, galaxyPlanetStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onCounter: (counter) => app.log.warn({ counter }, "galaxy duke guard fired"), onError: (error) => app.log.error({ err: error }, "galaxy duke tick failed") });
+  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyBattleLogStore = options.galaxyBattleLogStore ?? (await createGalaxyBattleLogStore(commandStoreFactoryOptions)), galaxyExplorationStore = options.galaxyExplorationStore ?? (await createGalaxyExplorationStore(commandStoreFactoryOptions)), { galaxyFleetStore, stop: stopGalaxyFleetScheduler } = await wireGalaxyFleets({ ...(options.galaxyFleetStore ? { existingStore: options.galaxyFleetStore } : {}), storeOptions: commandStoreFactoryOptions, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, onError: (error) => app.log.error({ err: error }, "galaxy fleet tick failed") }), { galaxyDukeService, stop: stopGalaxyDukeScheduler } = await wireGalaxyDuke({ storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, galaxyPlanetStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onCounter: (counter) => app.log.warn({ counter }, "galaxy duke guard fired"), onError: (error) => app.log.error({ err: error }, "galaxy duke tick failed") });
   const sovereignSiegeEngineStrike = await createSovereignSiegeEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
@@ -597,11 +599,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
-  };
-  const sweepExpiredCacheEntries = (cache: Map<string, { expiresAt: number }>, nowMs: number): void => {
-    for (const [key, entry] of cache) {
-      if (entry.expiresAt <= nowMs) cache.delete(key);
-    }
   };
   const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
@@ -781,7 +778,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // Bounds the flood a single connection can push at the simulation: idempotency/dedup
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
-  const commandRateLimiter = new CommandRateLimiter({ capacity: 20, refillPerSecond: 5 });
+  const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
   // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
   // world changes, but doing that synchronously inside the per-batch event
   // handler blocks the gateway loop for hundreds of ms × N batches per second
@@ -900,7 +897,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
     simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
-    onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
+    onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
 
@@ -927,16 +924,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       resolveHttpBearerIdentity,
       rallyLinkStore, sectorWaitlistStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
-      galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
+      galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
-      authBindingStore,
+      authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache,
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
       snapshotForPlayer: socialState.snapshotForPlayer,
       playerFunnel: { store: playerFunnelStore, tracker: playerFunnel }
     })
@@ -978,15 +975,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     onStrandedRegionCheck: (outcome) => gatewayMetrics.incrementStrandedRegionCheck(outcome)
   });
   const diplomacySocket = buildDiplomacySocketHandler({
-    socialState, seededAiPlayerIds, sendJson, fanoutPlayerPayloads, syncTruceToSimulation, syncAllianceToSimulation, recordGatewayEvent, sendGameplayEmailAlert, gatewayMetrics,
+    socialState, seededAiPlayerIds, sendJson, fanoutPlayerPayloads, syncTruceToSimulation, syncAllianceToSimulation, recordGatewayEvent, sendGameplayEmailAlert, gatewayMetrics, aiDiplomacyMemory: buildAiDiplomacyMemoryPersistence(socialStore, persistedSocialSnapshot),
     ensureSubscribed: (playerId) => playerSubscriptions.ensureSubscribed(playerId),
     cachedSnapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
-    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert,
+    sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert, sendTruceEndingAlert: emailAlerts.sendTruceEndingAlert,
     onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
     isSimulationConnected: () => simulationHealth.connected,
-    fetchSeasonSummary: () => simulationClient.getCurrentSeasonSummary()
+    simulationReads: simulationClient
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1184,7 +1181,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") handlePlayerRespawned(event.playerId, event.payload, { ...(slackAlerter ? { alertPlayerRespawned: (id, reason) => slackAlerter.alertPlayerRespawned(id, reason) } : {}), nameOf: (id) => socialState.playerNameOf(id), sendEmpireFellAlert: emailAlerts.sendEmpireFellAlert, sendGameplayEmailAlert });
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
       if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent, countSeasonRolloverResyncSockets: (count) => gatewayMetrics.incrementSeasonRolloverResyncSocketsTotal(count) })) return;
@@ -1568,8 +1565,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const aiDiplomacyTimer = startRecurringTask(() => void diplomacySocket.tickProactive(), 15_000, { runImmediately: false });
   const allianceBreakFinalize = startRecurringTask(() => diplomacySocket.runAllianceMaintenance(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   // No clock restarts a season: the next Sector Contest starts once enough Houses
-  // commit, or an admin force-starts it (next-contest.ts). Imperial Ward
-  // auto-apply and Defense Campaign auto-scheduling are not wired to this path.
+  // commit, or an admin force-starts it (next-contest.ts). Defense Campaign
+  // auto-scheduling is not wired to this path.
   const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });
   const nextContestTimer = startNextContestTimer(nextContest, { onError: (error) => app.log.error({ err: error }, "next contest start check failed") });
   const databaseKeepAlive = startDatabaseKeepAlive({
@@ -1649,7 +1646,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive();
+    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive(); diplomacySocket.flushAiDiplomacyMemory();
     allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); nextContestTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
@@ -2452,7 +2449,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
           };
           const dispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata = false): Promise<void> => {
-            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
+            if (rejectIfCommandRateLimited({ limiter: commandRateLimiter, playerId: authedSession.playerId, commandType: type, rejectedMessage: message, nowMs: Date.now(), socket, sendJson, recordGatewayEvent })) return Promise.resolve();
             return trackSubmitLatency(() => submitDurableCommand(authedSession, { type, payload, ...(withMetadata ? optionalCommandMetadata(message) : {}) }, submitDeps));
           };
           if (message.type === "SETTLE") {
@@ -2546,10 +2543,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
-          } else if (message.type === "ACTIVATE_IMPERIAL_WARD") {
-            // Per-player ability with no anchor tile — zero-field payload, unlike AEGIS_LOCK.
-            await dispatchDurableCommand(message.type, {}, true);
-          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND") {
+          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND" || message.type === "EXPLORE") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
             await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", autoSettlePrefsCommandPayload(message));

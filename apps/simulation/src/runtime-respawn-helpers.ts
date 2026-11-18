@@ -45,6 +45,8 @@ export type RuntimeRespawnContext = SpawnSearchLookups & {
   incrementAuthRecoveryRespawnGuarded: () => void;
   /** Grants the one-time landing reserve (base + late-join catch-up) a respawned empire lands with, same as a brand-new one. */
   grantLandingReserve?: (player: RuntimePlayer) => void;
+  /** Who took the most of this player's land recently (elimination-captor.ts); named in the "empire fell" notice. */
+  topCaptorOf?: (playerId: string) => string | undefined;
 };
 
 // Keep an opening buffer without rejecting good food/town routes merely
@@ -110,11 +112,13 @@ export const preparePlayerRespawnNotice = (
   playerId: string,
   reasonCode: PlayerRespawnReasonCode,
   triggerEvent: string,
-  options?: { wasOnline?: boolean }
+  options?: { wasOnline?: boolean; withdrawn?: boolean }
 ): void => {
   const player = ctx.players.get(playerId);
   const territoryTiles = ctx.summaryForPlayer(playerId).territoryTileKeys.size;
   if (player?.isAi === true) return;
+  // A withdrawal is the player's own choice: nobody "took" the empire.
+  const fellToPlayerId = reasonCode === "eliminated" && !options?.withdrawn ? ctx.topCaptorOf?.(playerId) : undefined;
   ctx.pendingRespawnNoticeByPlayerId.set(playerId, {
     at: ctx.now(),
     reasonCode,
@@ -124,14 +128,15 @@ export const preparePlayerRespawnNotice = (
     previousExposure: 0,
     wasEliminated: false,
     respawnPending: territoryTiles === 0,
-    ...(typeof options?.wasOnline === "boolean" ? { wasOnline: options.wasOnline } : {})
+    ...(typeof options?.wasOnline === "boolean" ? { wasOnline: options.wasOnline } : {}),
+    ...(fellToPlayerId ? { fellToPlayerId } : {}),
+    ...(options?.withdrawn ? { withdrawn: true } : {})
   });
 };
 
-export const consumeRespawnNotice = (lastRespawnNoticeByPlayerId: Map<string, PlayerRespawnNotice>, playerId: string): PlayerRespawnNotice | undefined => {
-  const notice = lastRespawnNoticeByPlayerId.get(playerId);
-  lastRespawnNoticeByPlayerId.delete(playerId);
-  return notice;
+const respawnTileCoords = (spawnTileKey: string): { x?: number; y?: number } => {
+  const [x, y] = spawnTileKey.split(",").map(Number);
+  return x !== undefined && y !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {};
 };
 
 export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: string, spawnTileKey: string): void => {
@@ -151,7 +156,13 @@ export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: stri
     commandId: `respawn-notice:${playerId}:${ctx.now()}`,
     playerId,
     messageType: "PLAYER_RESPAWNED",
-    payloadJson: JSON.stringify({ reason: pending.reasonCode })
+    // x/y/fellToPlayerId feed the gateway's "empire fell" email (player-respawned-email.ts).
+    payloadJson: JSON.stringify({
+      reason: pending.reasonCode,
+      ...respawnTileCoords(spawnTileKey),
+      ...(pending.fellToPlayerId ? { fellToPlayerId: pending.fellToPlayerId } : {}),
+      ...(pending.withdrawn ? { withdrawn: true } : {})
+    })
   });
 };
 

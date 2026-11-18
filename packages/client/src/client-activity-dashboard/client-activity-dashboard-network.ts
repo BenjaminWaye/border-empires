@@ -11,24 +11,78 @@ type NetworkDeps = {
 };
 
 /**
+ * How long a Chronicle fetch may stay in flight before the client gives up on
+ * it. The gateway already answers a stalled sim RPC with an error after 10s
+ * (handle-activity-timeline-messages.ts); this covers a request or answer the
+ * socket itself lost, which would otherwise leave "Loading…" up forever.
+ */
+export const ACTIVITY_REQUEST_TIMEOUT_MS = 15_000;
+export const ACTIVITY_LOAD_FAILED_MESSAGE = "Couldn't load your activity. Tap Yours to try again.";
+export const WORLD_PULSE_LOAD_FAILED_MESSAGE = "Couldn't load world news. Tap World to try again.";
+
+// One live request per feed: a timer from an older request never clears a newer one.
+let personalActivityRequestSeq = 0;
+let worldPulseRequestSeq = 0;
+
+/**
  * Fetches the trailing-24h personal timeline. The server always scopes it to
  * the session player and "now" (packages/shared/src/messages/messages.ts) --
  * REQUEST_PERSONAL_ACTIVITY takes no payload. In-flight guarded the same way
  * REQUEST_TILE_DETAIL is (client-action-flow.ts) so repeated opens/refreshes
- * don't pile up duplicate requests.
+ * don't pile up duplicate requests. The guard always ends: an unsent request,
+ * a dropped socket (releaseActivityRequestsOnDisconnect) or the timeout clear it.
  */
 export const requestPersonalActivity = (state: ActivityDashboardState, deps: NetworkDeps): void => {
   if (state.activityDashboard.loading) return;
   state.activityDashboard.loading = true;
   state.activityDashboard.error = undefined;
-  deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.");
+  const seq = ++personalActivityRequestSeq;
+  if (!deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.")) {
+    state.activityDashboard.loading = false;
+    state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+    return;
+  }
+  setTimeout(() => {
+    if (seq !== personalActivityRequestSeq || !state.activityDashboard.loading) return;
+    state.activityDashboard.loading = false;
+    state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+    deps.renderHud();
+  }, ACTIVITY_REQUEST_TIMEOUT_MS);
 };
 
 export const requestWorldPulse = (state: ActivityDashboardState, deps: NetworkDeps): void => {
   if (state.activityDashboard.worldPulseLoading) return;
   state.activityDashboard.worldPulseLoading = true;
   state.activityDashboard.worldPulseError = undefined;
-  deps.sendGameMessage({ type: "REQUEST_WORLD_PULSE" }, "Finish sign-in before viewing the world pulse.");
+  const seq = ++worldPulseRequestSeq;
+  if (!deps.sendGameMessage({ type: "REQUEST_WORLD_PULSE" }, "Finish sign-in before viewing the world pulse.")) {
+    state.activityDashboard.worldPulseLoading = false;
+    state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+    return;
+  }
+  setTimeout(() => {
+    if (seq !== worldPulseRequestSeq || !state.activityDashboard.worldPulseLoading) return;
+    state.activityDashboard.worldPulseLoading = false;
+    state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+    deps.renderHud();
+  }, ACTIVITY_REQUEST_TIMEOUT_MS);
+};
+
+/**
+ * A closed socket loses any Chronicle request still in flight: its answer can
+ * never arrive, and reconnects deliberately do not refetch. Release the
+ * in-flight guards so reopening the tab asks again instead of waiting forever.
+ */
+export const releaseActivityRequestsOnDisconnect = (state: Pick<ClientState, "activityDashboard">): void => {
+  const dash = state.activityDashboard;
+  if (dash.loading) {
+    dash.loading = false;
+    dash.error = ACTIVITY_LOAD_FAILED_MESSAGE;
+  }
+  if (dash.worldPulseLoading) {
+    dash.worldPulseLoading = false;
+    dash.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
+  }
 };
 
 // capPersonalActivityCards (apps/simulation/.../personal-activity-cap.ts)
@@ -66,9 +120,18 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
     state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
-  } else if (!state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
+  } else if (
+    !hasUnseenPersonalActivity &&
+    !(state.activityDashboard.open && state.activityDashboard.activeView === "YOURS") &&
+    !state.activityDashboard.updatesAutoOpenedThisSession &&
+    shouldShowClientChangelog(state)
+  ) {
     // Release notes are second to a genuine personal briefing. They share the
-    // dashboard, so no competing changelog modal can cover the timeline.
+    // dashboard, so no competing changelog modal can cover the timeline. A
+    // player coming back to unread events (raids, lost land) lands on Yours,
+    // never on patch notes: Updates waits while anything in the timeline is
+    // unread, and a later timeline response (every Chronicle open refetches)
+    // must not turn a Yours briefing that has not been shown yet into Updates.
     state.activityDashboard.updatesAutoOpenedThisSession = true;
     state.activityDashboard.activeView = "UPDATES";
     state.activityDashboard.open = true;
@@ -79,7 +142,9 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
 
 export const applyActivityTimelineErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.loading = false;
-  state.activityDashboard.error = typeof msg.message === "string" ? msg.message : "Couldn't load activity.";
+  // The server's message is engineering text (e.g. "personal activity timeline
+  // timed out after 10000ms"); the player gets the same retry hint as a client timeout.
+  state.activityDashboard.error = ACTIVITY_LOAD_FAILED_MESSAGE;
   deps.renderHud();
 };
 
@@ -91,7 +156,7 @@ export const applyWorldPulseMessage = (msg: Record<string, unknown>, state: Acti
 
 export const applyWorldPulseErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.worldPulseLoading = false;
-  state.activityDashboard.worldPulseError = typeof msg.message === "string" ? msg.message : "Couldn't load the world pulse.";
+  state.activityDashboard.worldPulseError = WORLD_PULSE_LOAD_FAILED_MESSAGE;
   deps.renderHud();
 };
 

@@ -1,4 +1,5 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
+import { lastContestRecapButtonHtml } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { diplomacyTermsLineHtml } from "../client-diplomacy-trade/client-diplomacy-terms-html.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
@@ -147,8 +148,12 @@ export const selfPlayerIdFromLeaderboard = (leaderboard: {
 export const socialRemainingLabel = (untilMs: number, nowMs: number): string => {
   const remainingMs = Math.max(0, untilMs - nowMs);
   const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60_000));
-  if (remainingMinutes >= 60) return `${Math.ceil(remainingMinutes / 60)}h`;
-  return `${remainingMinutes}m`;
+  if (remainingMinutes < 60) return `${remainingMinutes}m`;
+  // Whole hours are floored with the leftover minutes shown, so 1h 23m left
+  // reads "1h 23m" instead of being rounded up to "2h".
+  const hours = Math.floor(remainingMinutes / 60);
+  const minutes = remainingMinutes % 60;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 };
 
 // States what a pending request actually proposes, so the card reads as
@@ -442,6 +447,10 @@ export const leaderboardHtml = (
     <article class="card">
       <strong>Most Manifests</strong>
       ${metricRows(leaderboard.byTechs, leaderboard.selfByTechs)}
+    </article>
+    <article class="card last-contest-recap-card">
+      <strong>${seasonWinner ? "Contest Recap" : "Last Sector Contest"}</strong>
+      ${lastContestRecapButtonHtml(seasonWinner ? "View Contest Recap" : "Last Contest Recap")}
     </article>
   `;
 };

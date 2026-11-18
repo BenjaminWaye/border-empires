@@ -14,6 +14,7 @@
 .v2p-rel-self { border-color: var(--v2-edge-strong); color: var(--v2-gold); }
 .v2p-rel-ally { border-color: var(--v2-green); color: var(--v2-green-hi); }
 .v2p-rel-truce { border-color: var(--v2-aether); color: var(--v2-aether); }
+.v2p-rel-war { border-color: var(--v2-red); color: var(--v2-red); }
 .v2p-rank { display: grid; justify-items: center; margin-top: 8px; padding: 12px 28px; border-top: 1px solid var(--v2-line); border-bottom: 1px solid var(--v2-line); }
 .v2p-rank b { font-family: var(--v2-display); font-size: 40px; line-height: 1; color: var(--v2-text); }
 .v2p-rank span { margin-top: 4px; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-muted); }
@@ -26,6 +27,9 @@
   font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
 }
 .v2p-action:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
+.v2p-action + .v2p-action { margin-top: 8px; }
+.v2p-action:disabled { cursor: default; color: var(--v2-muted); border-color: var(--v2-line); }
+.v2p-action:disabled:hover { border-color: var(--v2-line); color: var(--v2-muted); }
 .v2p-main { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .v2p-h, .v2p-panel h3 { margin: 0; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-gold); }
 /* One strip with dividers rather than a framed box per number. */

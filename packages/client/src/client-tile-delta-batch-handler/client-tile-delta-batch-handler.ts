@@ -9,7 +9,8 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
 import { showWaystationActivationOverlayWhenClear } from "../client-waystation-activation/client-waystation-activation-gate.js";
-import { refreshOnboardingChecklistHighlight, renderDiscoveryTipOverlayForState } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
+import { announceDiscoveryTipForState, refreshOnboardingChecklistHighlight, renderDiscoveryTipOverlayForState } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
+import { offerFirstDockTip } from "../client-first-dock-tip/client-first-dock-tip.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
@@ -197,6 +198,10 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         deps.requestViewRefresh();
       }
     });
+    if (state.discoveryTipQueue) {
+      offerFirstDockTip({ tileUpdates, tiles: state.tiles, me: state.me, authEmail: state.authEmail, keyFor }, (dock) =>
+        announceDiscoveryTipForState(state, "FIRST_DOCK", () => deps.renderHud(), dock));
+    }
     emitWaystationActivationIfActivated({
       tileUpdates,
       me: state.me,

@@ -1,3 +1,4 @@
+import { announceQueuedBehindEarlierWaypoints } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { settleIgnoresReach, wireStepsForPlan } from "@border-empires/shared";
@@ -10,8 +11,8 @@ import {
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
-import { dispatchMarchAttackAction, MARCH_TO_PICK_ORIGIN_ACTION_ID } from "./client-march-attack-actions/client-march-attack-actions.js";
-import { startMarchOriginPicking } from "./client-march-origin-picking/client-march-origin-picking.js";
+import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
+import { dispatchExploreAction } from "./client-scout-drone/client-scout-drone-explore-action.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -93,6 +94,8 @@ const setWaypointForSelected = (
   pushFeed(`${feedPrefix ?? ""}Waypoint set at (${selected.x}, ${selected.y}) — ${summary}.${queueLabel}`, "info", "info");
   hideTileActionMenu();
   processActionQueue();
+  // The feed line above is admin-only; behind earlier expansions the player also gets the on-screen notice.
+  announceQueuedBehindEarlierWaypoints(state, selected.x, selected.y);
   renderHud();
   return true;
 };
@@ -102,7 +105,7 @@ const setWaypointForSelected = (
 // empty). Does not push its own feed line -- callers either fold the
 // prefix into a following message (clear_waypoint_and_expand_here) or
 // push it standalone (cancel_all_waypoints).
-const clearAllWaypoints = (params: {
+export const clearAllWaypoints = (params: {
   state: ClientState;
   sendGameMessage?: (payload: unknown) => boolean;
 }): string => {
@@ -126,10 +129,9 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
     return true;
   }
 
-  // An unexplored tile's March To: close the menu and pick where to march from.
-  if (actionId === MARCH_TO_PICK_ORIGIN_ACTION_ID && selected && sendGameMessage) {
+  // An unexplored tile's Explore: launch the scout drone toward it (client-scout-drone/).
+  if (dispatchExploreAction(actionId, selected, state.scoutDroneFlight, { sendGameMessage, pushFeed })) {
     hideTileActionMenu();
-    startMarchOriginPicking(state, selected, { pushFeed, sendGameMessage, renderHud, keyFor });
     renderHud();
     return true;
   }

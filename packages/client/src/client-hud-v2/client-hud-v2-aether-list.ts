@@ -4,6 +4,7 @@
 
 import { abilityIconHtml, abilityKeyForTileAction } from "../client-ability-icons/client-ability-icons.js";
 import type { TileActionDef } from "../client-types.js";
+import { buildPanelCloseHtml } from "./client-hud-v2-build-list.js";
 
 export type AetherListInput = {
   abilities: readonly TileActionDef[];
@@ -28,5 +29,5 @@ const rowHtml = (a: TileActionDef): string => {
 };
 
 export const aetherListHtml = (input: AetherListInput): string =>
-  `<div class="v2t-build-head"><span class="v2t-build-title hud-v2-aether-title">Aether</span><span class="v2t-focus v2t-focus-on">${esc(input.focusLabel)}</span></div>
+  `<div class="v2t-build-head"><span class="v2t-build-title hud-v2-aether-title">Aether</span><span class="v2t-focus v2t-focus-on">${esc(input.focusLabel)}</span>${buildPanelCloseHtml("aether")}</div>
     <div class="v2t-build-list" data-v2-scroll="aether-list" aria-label="Aether abilities">${input.abilities.map(rowHtml).join("")}</div>`;

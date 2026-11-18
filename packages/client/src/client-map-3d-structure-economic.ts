@@ -26,8 +26,9 @@ export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new 
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
 // its cart load between titanium ore and blue crystals depending on what's
-// under the structure. Other kinds ignore it.
-export type StructureResourceHint = "TITANIUM" | "GEMS" | undefined;
+// under the structure. DEPLETED marks a Reclamation Works whose salvage field
+// is used up (its depleted model). Other kinds ignore it.
+export type StructureResourceHint = "TITANIUM" | "GEMS" | "DEPLETED" | undefined;
 
 export type EconomicStructureLayout = (
   sceneX: number,

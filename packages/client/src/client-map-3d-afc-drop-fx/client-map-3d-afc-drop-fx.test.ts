@@ -9,7 +9,7 @@ describe("createAfcDropFxLayer", () => {
   it("adds one entry per drop and removes it (and its model) once the sequence ends", () => {
     const scene = new Scene();
     const layer = createAfcDropFxLayer(scene);
-    const now = performance.now();
+    const now = Math.round(performance.now()); // integer ms: fractional now makes (now + D) - now fall a hair short of D
     layer.spawn(3, 4, 0, now);
     expect(entryGroups(layer)).toHaveLength(1);
     layer.update(now + 100);
@@ -22,7 +22,7 @@ describe("createAfcDropFxLayer", () => {
 
   it("unfolds its arms at touchdown, slides out all eight bays, and hands off on the rebuilt pad", () => {
     const layer = createAfcDropFxLayer(new Scene());
-    const now = performance.now();
+    const now = Math.round(performance.now()); // integer ms: fractional now makes (now + D) - now fall a hair short of D
     let permanent = false;
     layer.spawn(3, 4, 0.1, now, {
       worldX: 5,
@@ -88,7 +88,7 @@ describe("createAfcDropFxLayer", () => {
 
   it("clear() removes every in-flight drop", () => {
     const layer = createAfcDropFxLayer(new Scene());
-    const now = performance.now();
+    const now = Math.round(performance.now()); // integer ms: fractional now makes (now + D) - now fall a hair short of D
     layer.spawn(0, 0, 0, now);
     layer.spawn(5, 5, 0, now);
     layer.clear();

@@ -4,7 +4,6 @@ import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { EmailAlertConfig } from "../email-alerts/email-alerts.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
-import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
@@ -22,7 +21,7 @@ export type RealtimeGatewayAppOptions = {
   simulationClient?: SimulationClient; commandStore?: GatewayCommandStore; profileStore?: GatewayPlayerProfileStore;
   growthBaselineStore?: PlayerGrowthBaselineStore; authBindingStore?: GatewayAuthBindingStore;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"]; galaxySenateStore?: Awaited<ReturnType<typeof wireGalaxySenate>>["galaxySenateStore"];
-  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: Awaited<ReturnType<typeof wireGalaxyFleets>>["galaxyFleetStore"]; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore;
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: Awaited<ReturnType<typeof wireGalaxyFleets>>["galaxyFleetStore"]; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore; sqlitePath?: string; applySchema?: boolean;
   defaultHumanPlayerId?: string; firebaseProjectId?: string; firebaseTokenVerifier?: FirebaseTokenVerifier;
   simulationSeedProfile?: SimulationSeedProfile; allowNonAuthoritativeInitialState?: boolean;

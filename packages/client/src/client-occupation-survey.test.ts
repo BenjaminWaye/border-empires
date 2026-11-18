@@ -83,6 +83,19 @@ describe("occupation survey presentation", () => {
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
   });
 
+  // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", a screen that no longer exists.
+  // The clue is not in the Chronicle either: the resource's Manifest card is where it shows again
+  // (client-manifest-fit.ts, "A town you garrisoned turned up signs of ...").
+  it("points to the Manifest card that keeps the clue", () => {
+    occupationSurveyController.record(entry());
+    sync(true);
+    const hint = document.querySelector(".occupation-survey-hint")?.textContent ?? "";
+    expect(hint).toContain("Manifest's card keeps this clue");
+    expect(hint).not.toContain("Activity");
+    expect(hint).not.toContain("Chronicle");
+    document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
+  });
+
   it("keeps important information visible until Got it is clicked, even after a minute", () => {
     vi.useFakeTimers();
     occupationSurveyController.record(entry());
@@ -127,9 +140,21 @@ describe("occupation survey presentation", () => {
     occupationSurveyController.record(entry());
     sync(true);
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
-    occupationSurveyController.endCapture(occupationSurveyController.currentReports());
+    // The card did not list this clue (it arrived after the card was built), so it still presents.
+    occupationSurveyController.endCapture([]);
     sync(true);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+  });
+
+  // 10-persona playtest: the capture card listed the clue, the player closed it, and the same clue
+  // came back as its own survey card. Closing the card reads the clues it listed.
+  it("does not re-show a clue the town capture card already listed", () => {
+    occupationSurveyController.beginCapture();
+    occupationSurveyController.record(entry());
+    occupationSurveyController.endCapture(occupationSurveyController.currentReports());
+    sync(true);
+    expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(occupationSurveyController.currentReports()).toHaveLength(1);
   });
 
   it("restores standing reports directly, but skips resources whose reveal tech is researched", () => {

@@ -21,7 +21,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 100
@@ -52,7 +51,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -83,7 +81,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -109,7 +106,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -135,7 +131,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 10
@@ -177,7 +172,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 1_200,
@@ -215,7 +209,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -245,7 +238,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       expandClaimDurationMs: FRONTIER_CLAIM_MS * 4
@@ -277,7 +269,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -307,7 +298,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: false,
       isDockCrossing: false,
       isBridgeCrossing: true,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -337,7 +327,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: true,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: true,
       defenderIsAlliedOrTruced: false
     });
@@ -363,7 +352,6 @@ describe("game domain frontier validation", () => {
       isAdjacent: false,
       isDockCrossing: false,
       isBridgeCrossing: false,
-      targetShielded: false,
       crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
@@ -400,7 +388,6 @@ describe("game domain frontier validation", () => {
         isAdjacent: true,
         isDockCrossing: false,
         isBridgeCrossing: false,
-        targetShielded: false,
         crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: false
@@ -425,7 +412,6 @@ describe("game domain frontier validation", () => {
         isAdjacent: false,
         isDockCrossing: true,
         isBridgeCrossing: false,
-        targetShielded: false,
         crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
@@ -446,7 +432,6 @@ describe("game domain frontier validation", () => {
         isAdjacent: false,
         isDockCrossing: false,
         isBridgeCrossing: true,
-        targetShielded: false,
         crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
@@ -466,7 +451,6 @@ describe("game domain frontier validation", () => {
         isAdjacent: true,
         isDockCrossing: false,
         isBridgeCrossing: false,
-        targetShielded: false,
         crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
@@ -486,7 +470,6 @@ describe("game domain frontier validation", () => {
         isAdjacent: true,
         isDockCrossing: false,
         isBridgeCrossing: false,
-        targetShielded: false,
         crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         originMuster: 100,

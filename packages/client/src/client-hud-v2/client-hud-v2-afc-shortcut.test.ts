@@ -49,7 +49,7 @@ it("opens AFC upgrades from the yellow action and keeps the shortcut beside a to
   const upgrade = bar.querySelector<HTMLButtonElement>('.hud-v2-act-primary[data-hud-v2-open="afc"]');
   expect(upgrade?.textContent).toContain("1 ready");
   expect(bar.querySelector('.hud-v2-act-primary[data-hud-v2-action="build_relay_beacon"]')).toBeNull();
-  expect(bar.querySelector('[data-hud-v2-tab="modules"]')).not.toBeNull();
+  expect(bar.querySelector('[data-hud-v2-panel="modules"]')).not.toBeNull();
   upgrade!.click();
   expect(screen.id).toBe("afc");
   expect(state.activePanel).toBe("domains");
@@ -58,7 +58,7 @@ it("opens AFC upgrades from the yellow action and keeps the shortcut beside a to
   state.domainChoices = [];
   render();
   expect(bar.querySelector('[data-hud-v2-open="afc"]')?.textContent).toContain("AFC upgrades");
-  expect(bar.querySelector('[data-hud-v2-tab="modules"]')).not.toBeNull();
+  expect(bar.querySelector('[data-hud-v2-panel="modules"]')).not.toBeNull();
   state.tiles.get("4,4")!.ownerId = "rival";
   render();
   expect(bar.querySelector('[data-hud-v2-open="afc"]')).toBeNull();

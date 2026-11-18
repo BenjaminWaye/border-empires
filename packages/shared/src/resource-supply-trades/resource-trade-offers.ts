@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DiplomacyTermsSchema, evaluateAiOffer } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyTermsSchema, evaluateAiOffer, hasRecurringCoin } from "../diplomacy-terms/diplomacy-terms.js";
 import { hasResourceSupplyOffer } from "./resource-supply-trades.js";
 export const MAX_PENDING_RESOURCE_TRADE_OFFERS = 256;
 export const MAX_PENDING_RESOURCE_TRADE_OFFERS_PER_PLAYER = 16;
@@ -14,6 +14,8 @@ export type ResourceTradeOffer = z.infer<typeof ResourceTradeOfferSchema>;
 
 /** Independent trades have no treaty price; the AI requires a fair exchange. */
 export const evaluateResourceTradeOffer = (terms: import("../diplomacy-terms/diplomacy-terms.js").DiplomacyTerms,
-  holdings: import("../diplomacy-terms/diplomacy-terms.js").DiplomacyGoods): ReturnType<typeof evaluateAiOffer> => evaluateAiOffer({
+  holdings: import("../diplomacy-terms/diplomacy-terms.js").DiplomacyGoods): ReturnType<typeof evaluateAiOffer> =>
+  // An AI takes Coin per hour only for a truce (diplomacy-terms aiTakesRecurringCoin), never in an independent trade.
+  hasRecurringCoin(terms) ? { accepts: false, reason: "refuses" } : evaluateAiOffer({
     required:{truce12:0,truce24:0,alliance:0},aiHoldings:holdings
   },"truce",12,terms);

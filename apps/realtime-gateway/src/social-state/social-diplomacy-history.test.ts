@@ -66,8 +66,9 @@ describe("social state diplomacy cards", () => {
 
     clock.now += 1_000;
     expect(social.requestAlliance(me.id, "Tove").ok).toBe(true);
+    clock.now += 1_000;
     expect(social.acceptAlliance(tove.id, social.snapshotForPlayer(tove.id).incomingAllianceRequests[0]!.id).ok).toBe(true);
-    expect(social.diplomacyActivityCards(tove.id, 0, clock.now).map((card) => card.event)).toEqual(["ALLIANCE_FORMED", "TRUCE_BROKEN", "TRUCE_STARTED"]);
+    expect(social.diplomacyActivityCards(tove.id, 0, clock.now).map((card) => card.event)).toEqual(["ALLIANCE_FORMED", "ALLIANCE_OFFERED", "TRUCE_BROKEN", "TRUCE_OFFERED", "TRUCE_STARTED"]);
 
     // The 24h break notice runs out; by then the rows above have aged out of the window.
     clock.now += 1_000;
@@ -98,7 +99,7 @@ describe("social state diplomacy cards", () => {
     expect(social.resolvePlayerById("ghost")).toBeUndefined();
   });
 
-  it("adds no row when a running truce is extended, and one ending when the extended truce runs out", () => {
+  it("adds an extension row when a running truce is extended, and one ending when the extended truce runs out", () => {
     const { social, clock } = setup();
     expect(social.requestTruce(me.id, "Tove", 12).ok).toBe(true);
     expect(social.acceptTruce(tove.id, social.snapshotForPlayer(tove.id).incomingTruceRequests[0]!.id).ok).toBe(true);
@@ -107,12 +108,17 @@ describe("social state diplomacy cards", () => {
     const extension = social.snapshotForPlayer(me.id).incomingTruceRequests[0]!;
     expect(extension).toMatchObject({ extendsTruce: true });
     expect(social.acceptTruce(me.id, extension.id).ok).toBe(true);
-    expect(social.diplomacyActivityCards(me.id, 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_STARTED"]);
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_OFFERED", "TRUCE_EXTENDED", "TRUCE_STARTED"]);
 
-    // The extended truce outlasts the 24h window, so by its end only the ending is left to show.
+    // The extended truce outlasts the start's 24h window; its end shows with the extension that led to it.
+    const extendedAt = clock.now;
     const endsAt = social.snapshotForPlayer(me.id).activeTruces[0]!.endsAt;
     clock.now = endsAt + 1;
-    expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([expect.objectContaining({ event: "TRUCE_ENDED", occurredAt: endsAt })]);
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([
+      expect.objectContaining({ event: "TRUCE_ENDED", occurredAt: endsAt }),
+      expect.objectContaining({ event: "TRUCE_OFFERED", occurredAt: extendedAt, durationHours: 12 }),
+      expect.objectContaining({ event: "TRUCE_EXTENDED", occurredAt: extendedAt, durationHours: 12 })
+    ]);
   });
 
   // Regression: the season reset cleared only the store, so last season's rows stayed in the new season's Chronicle.

@@ -35,7 +35,7 @@ export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "
   ownedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
   pickReadyOwnedObservatoryForTarget: (playerId: string, targetX: number, targetY: number, now: number) => string | undefined;
   spendObservatoryShot: (tileKey: string, now: number, commandId: string, playerId: string) => void;
-  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string, strikeByPlayerId?: string) => void;
   // Re-checks a victim's frontier connectivity after SKY_DOCK_BOMBARD stripped some of their tiles.
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -166,7 +166,7 @@ export function handleSkyDockBombardCommand(context: RuntimeMapCommandContext, c
         // it — the accumulated manpower is lost, not refunded.
         muster: undefined
       };
-      context.replaceTileState(tileKey, updatedTile, command.commandId);
+      context.replaceTileState(tileKey, updatedTile, command.commandId, actor.id);
       // musterJson isn't in tileDeltaFromState's output, so it must be stamped on explicitly here too, not just below, or the bomber's own delta never clears their cached muster view.
       changedTiles.push({ ...context.tileDeltaFromState(updatedTile), ...(hadMuster ? { musterJson: "" } : {}) });
       if (hadMuster) {

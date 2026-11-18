@@ -1,16 +1,18 @@
 // Bridges the legacy floating tile menu into the new HUD. With the flag on,
 // every render of the floating menu also renders the bottom action bar and
 // hides the floating menu itself. Build ▸ and Aether ▸ open a right-hand
-// sidebar on the map; a legacy-only tab link "expands" the full legacy menu
-// docked on the right, so nothing the old menu could do is lost. Screens
+// sidebar on the map, and so do the views with no bar-sized form (an AFC's
+// Modules, a muster flag's Attack commitment and Combat reports, see
+// client-hud-v2-tile-views.ts): the legacy menu is never shown. Screens
 // (town, battle) hook in through a listener; neutral land next to yours
 // expands on the click, with no bar.
 
 import { dormantResourcesForTile } from "../client-tile-action-support/client-tile-action-support.js";
+import { refineryStatusFor } from "../client-refineries/refinery-client-status.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
+import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
@@ -18,14 +20,18 @@ import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
-import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
+import { MAX_FACTS, tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
+import { leadWithMusterFacts, musterFactsFor } from "./client-hud-v2-muster-facts.js";
 import { syncTileProgress } from "./client-hud-v2-tile-progress-live.js";
+import { isTileViewPanel, keepTileView, TILE_VIEW_TITLE, tileViewPanelHtml, wireTileView } from "./client-hud-v2-tile-views.js";
 
 export type TileDockDeps = {
   tileActionMenuEl: HTMLElement;
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   hideTileActionMenu: () => void;
   renderHud: () => void;
+  /** Saves a muster flag's Attack commitment; without it the sidebar's Save does nothing. */
+  sendGameMessage?: (payload: unknown) => boolean;
 };
 
 export type DockListener = {
@@ -44,7 +50,6 @@ type DockState = {
   deps: TileDockDeps;
   state: ClientState;
   rerender: () => void;
-  expandedKey: string | undefined;
   lastHtml: string;
   /** Last sidebar HTML written; ticks repaint, and a rewrite would drop a half-done click and the list's scroll. */
   lastSideHtml: string;
@@ -76,7 +81,6 @@ const BUILD_ID = "hud-v2-build";
 const OWNERSHIP_HELP = "details.tile-ownership-help";
 const BUILDING_BODY_CLASS = "hud-v2-building";
 const DOCKED = "hud-v2-docked";
-const EXPANDED = "hud-v2-expanded";
 
 let trackedGame: HTMLElement | undefined;
 let pressReleaseWatched = false;
@@ -141,16 +145,21 @@ const hideBar = (): void => {
   }
 };
 
-/** Writes the bar (and the sidebar while Build or Aether is open) for the current view. */
+/** Writes the bar (and the sidebar while Build, Aether or a tile view is open) for the current view. */
 const paintBar = (): void => {
   const bar = barEl();
   if (!dock || !bar || !dock.lastView) return;
   const view = dock.lastView;
   // Aether ▸ disappears from the bar when the tile loses its abilities; its sidebar goes with it.
   if (dock.panel === "aether" && view.crystal.length === 0) dock.panel = undefined;
+  // Likewise the status explainer, so a later status with help on this tile doesn't pop open untapped.
+  if (dock.panel === "status" && !(view.statusText && view.statusHelpText)) dock.panel = undefined;
+  // A tile view whose tab the tile no longer has (the flag was cleared) closes too.
+  if (isTileViewPanel(dock.panel) && !view.tabs.includes(dock.panel)) dock.panel = undefined;
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const state = dock.state;
-  const facts = tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field));
+  // Your muster flag's size leads: it is why you tapped the flag.
+  const facts = leadWithMusterFacts(musterFactsFor(tile, state), tileFactsFor(tile, view, state.me, Date.now(), (t, field) => dormantResourcesForTile(state, t, field), (t) => refineryStatusFor(state, t)), MAX_FACTS);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
   // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.
@@ -168,17 +177,30 @@ const paintBar = (): void => {
   bar.hidden = false;
   const side = document.getElementById(BUILD_ID);
   if (!side) return;
-  if (dock.panel !== "build" && dock.panel !== "aether") {
+  const sidePanel = dock.panel;
+  if (sidePanel !== "build" && sidePanel !== "aether" && !isTileViewPanel(sidePanel)) {
     hideSidebar();
     return;
   }
   const key = dock.state.tileActionMenu.currentTileKey;
   const [x, y] = key.split(",");
-  side.setAttribute("aria-label", dock.panel === "aether" ? "Aether" : "Build");
-  const sideHtml = dock.panel === "aether" ? aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` }) : buildSideHtml(view, key, `(${x}, ${y})`);
+  const focusLabel = `(${x}, ${y})`;
+  side.setAttribute("aria-label", sidePanel === "aether" ? "Aether" : sidePanel === "build" ? "Build" : TILE_VIEW_TITLE[sidePanel]);
+  const sideHtml = sidePanel === "aether" ? aetherListHtml({ abilities: view.crystal, focusLabel })
+    : sidePanel === "build" ? buildSideHtml(view, key, focusLabel)
+    : tileViewPanelHtml(sidePanel, view, focusLabel);
   if (sideHtml !== dock.lastSideHtml) {
+    // A repaint of the same tile's view keeps an unsaved commitment, opened reports and the socket picker.
+    const sameView = isTileViewPanel(sidePanel) && side.dataset.tileKey === key && side.dataset.view === sidePanel && dock.lastSideHtml !== "";
+    const keep = sameView ? keepTileView(side) : undefined;
     side.innerHTML = sideHtml;
+    side.dataset.tileKey = key;
+    side.dataset.view = sidePanel;
     dock.lastSideHtml = sideHtml;
+    if (isTileViewPanel(sidePanel)) {
+      const { deps, state } = dock;
+      wireTileView(side, sidePanel, view, { state, sendGameMessage: deps.sendGameMessage ?? (() => false), renderHud: deps.renderHud }, keep);
+    }
   }
   side.hidden = false;
   document.body.classList.add(BUILDING_BODY_CLASS);
@@ -193,17 +215,9 @@ const buildSideHtml = (view: TileMenuView, key: string, focusLabel: string): str
     focusLabel,
     focusHighlighted: true,
     category: dock?.buildCategory,
-    emptyText: "Nothing to build here"
+    emptyText: "Nothing to build here",
+    closePanel: "build"
   }) + `<div class="hud-v2-build-place">${buildPlaceHtml(place)}</div>`;
-};
-
-/** Shows the full legacy menu docked on the right, on `tab`. */
-export const expandDockedMenu = (tab: TileMenuTab): void => {
-  if (!dock) return;
-  dock.expandedKey = dock.state.tileActionMenu.currentTileKey;
-  dock.state.tileActionMenu.activeTab = tab;
-  dock.state.tileActionMenu.renderSignature = "";
-  dock.rerender();
 };
 
 const onBarClick = (event: MouseEvent): void => {
@@ -246,6 +260,18 @@ const onBarClick = (event: MouseEvent): void => {
     paintBar();
     return;
   }
+  // An AFC's module choices (the Modules view) are the legacy menu's own action buttons.
+  const moduleAction = target.closest<HTMLButtonElement>(".afc-slot-picker button[data-action]");
+  if (moduleAction && !moduleAction.disabled && moduleAction.dataset.action) {
+    deps.handleTileAction(moduleAction.dataset.action as TileActionDef["id"], moduleAction.dataset.targetKey, moduleAction.dataset.originKey);
+    return;
+  }
+  // The sheet's own ✕: phones have no Esc, and on a phone the sheet fills the screen, so there is no outside to tap.
+  if (target.closest("[data-hud-v2-panel-close]")) {
+    dock.panel = undefined;
+    paintBar();
+    return;
+  }
   const panel = target.closest<HTMLElement>("[data-hud-v2-panel]");
   if (panel) {
     const next = panel.dataset.hudV2Panel as BarPanel;
@@ -266,11 +292,6 @@ const onBarClick = (event: MouseEvent): void => {
     paintBar();
     return;
   }
-  const tab = target.closest<HTMLElement>("[data-hud-v2-tab]");
-  if (tab) {
-    expandDockedMenu(tab.dataset.hudV2Tab as TileMenuTab);
-    return;
-  }
   if (target.closest("[data-hud-v2-close]")) {
     deps.hideTileActionMenu();
     return;
@@ -287,11 +308,7 @@ const watchMenuVisibility = (menuEl: HTMLElement): void => {
   new MutationObserver(() => {
     if (menuEl.style.display !== "none") return;
     hideBar();
-    menuEl.classList.remove(EXPANDED);
-    if (dock) {
-      dock.expandedKey = undefined;
-      dock.lastKey = "";
-    }
+    if (dock) dock.lastKey = "";
     listener?.onMenuHidden(mapPointerDown?.press);
   }).observe(menuEl, { attributes: true, attributeFilter: ["style"] });
 };
@@ -321,7 +338,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     watchMenuVisibility(menuEl);
     // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
     trackMapTaps();
-    dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
+    dock = { deps, state, rerender, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
   dock.deps = deps;
   dock.state = state;
@@ -337,9 +354,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     dock.buildSelection = undefined;
     dock.buildCategory = undefined;
   }
-  if (dock.expandedKey !== undefined && dock.expandedKey !== state.tileActionMenu.currentTileKey) dock.expandedKey = undefined;
   menuEl.classList.add(DOCKED);
-  menuEl.classList.toggle(EXPANDED, dock.expandedKey !== undefined);
   const fromMapClick = Date.now() - lastMapClickAt < MAP_CLICK_WINDOW_MS;
   if (fresh && key && fromMapClick && Date.now() > suppressAutoExpandUntil && shouldAutoExpand(state, state.tiles.get(key), view)) {
     hideBar();

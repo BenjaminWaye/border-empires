@@ -73,6 +73,11 @@ defines what these systems mean in the fiction; follow the
 - The HUD shows manpower as a gauge (spendable now, manpower staged in muster
   flags, countdown to the next refill; ember below an ordinary attack, green at
   the cap; below 1440px wide the gauge is a strip along the chip's bottom edge) and the Development chip as one gear per slot (busy slots spin).
+- Taking a tile that holds another player's muster flag in combat credits
+  the captor with the flag's staged manpower (minus any amount reserved by the
+  owner's in-flight attacks), clamped to the captor's manpower ceiling; the
+  flag's owner gets nothing back and barbarian captors gain nothing
+  (`apps/simulation/src/muster-capture/`).
 - Town cap / regeneration by tier: Settlement 150 / 150÷720 per minute, Town
   300 / 300÷720, City 450 / 450÷720, Great City 750 / 750÷720, Metropolis
   1,350 / 1,350÷720. Terrain can adjust these values at runtime.
@@ -266,12 +271,19 @@ its nameplate shows the biota icon struck through (the DOM plate layer drawn ove
 both the 2D and 3D maps), ranked just below unfed.
 
 **Precursor salvage (finite).** Each salvage tile holds 3 loads, recorded on
-its Reclamation Works (`salvageLoadsShipped`). While a Works stands, it gives
+its Reclamation Works (`salvageLoadsShipped`). While a Works holds loads, it gives
 +1% attack and +1% defense to all the owner's troops, up to +10% (combat
 breakdown label "Precursor salvage"). The `SHIP_SALVAGE_TO_COURT` command
-spends one load: the Court sends an Imperial delivery of ancillaries worth 25%
-of the manpower cap, never above it, and is refused when manpower is full. The
-last load removes the deposit and its Works, ending that site's arms bonus.
+spends one load: the Court sends an Imperial delivery of a flat 1000 manpower
+(`SALVAGE_TRIBUTE_MANPOWER`; the same for every empire, so a larger cap earns
+no more per load), never above the cap, and is refused when manpower is full.
+AI Houses ship one load at a time when their manpower is below both 35% of the
+cap and the 1000 a load brings, so each dip spends one load
+(`apps/simulation/src/ai/salvage-tribute-planner.ts`). The
+last load removes the deposit and leaves a depleted Works
+(`isDepletedReclamationWorks`): it ends that site's arms bonus, is no longer
+counted as a salvage site, and is drawn as an empty yard on both the 2D and
+3D maps. The owner can dismantle it to free the tile.
 Dismantling a Works that has shipped any load also removes the deposit, so a
 rebuild cannot restore loads. A captured Works keeps its remaining loads.
 Salvage cannot be traded or siphoned. Court Strength in the space layer is not
@@ -308,7 +320,18 @@ Sources: `packages/shared/src/resource-networks/`,
 
 All four upkeep resources and luxury biota (not precursor salvage) can be negotiated in independent Resource trade offers or alongside a
 truce/alliance. These are exclusive renewable slots or developed sites, not a
-new inventory of mined stockpiles. Coin remains a one-time transfer. For upkeep
+new inventory of mined stockpiles. Upfront Coin transfers at acceptance. Houses
+can also offer Coin per hour from future earnings when a deal includes slots, or
+alongside a truce with no slot, where it runs for the truce's hours.
+Recurring payments pause with resource delivery and draw only from earned Coin.
+Inactivity pauses payments when it pauses income. Resuming play starts a fresh
+income interval. After a restart, recurring payments resume from the new runtime's
+start. If earnings fall short, dues share available income proportionally.
+AI Houses accept Coin per hour only from the requester and only for a truce,
+counting it at half the value of the same Coin upfront and only up to the
+requester's spare income (earned Coin per hour not already pledged). They never
+pledge their own income. A truce's Coin pledge ends early if its truce ends
+early, for example when either House breaks it. For upkeep
 resources only surplus beyond current domestic use and existing export
 commitments may be newly promised; any developed biota site may be pledged, and
 the supplier loses that site's 2 biota slots while the receiver gains them.
@@ -316,23 +339,37 @@ Offers containing salvage are refused, and agreements saved with salvage are
 suspended. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
 
-Supply continues until either participating House ends the agreement. Both
+New supply agreements run for seven days from acceptance and are binding: neither
+House can end one early; only expiry or war between the two ends it. Both
 resource deliveries pause when either supplier loses required output and resume
 when output recovers. Ending supply releases both directions immediately after
 old-rate income/manpower settlement. One-time Coin payments are not
 refunded for a later shortage or cancellation. Supply contracts survive the
 accompanying treaty ending. Active agreements persist through recovery; new
-agreements have no expiry. Historical saved agreements may still contain an expiry
-and retain deadline settlement during recovery.
+agreements settle at their deadline during recovery. Older agreements keep their
+original expiry, or remain active until either House ends them if they had none.
 
 Independent offers can be accepted, declined or withdrawn without creating a
 truce or alliance. Unaccepted offers expire after 24 hours. A payment already
 being resolved cannot be withdrawn: either party finishes/retries the same accepted
-payment identity before deciding whether to end its resulting supply agreement.
+payment identity.
 
 Starting AI negotiation values per slot or site are FOOD 4 Coin, Titanium 4,
 Crystal 6, Umbrite 4, and luxury biota 10. These are
 one-day-equivalent negotiation weights for an open-ended promise, not recurring
 charges, guaranteed market prices or playtest-proven balance. Human offers can
 use other prices. Limits: 16 active supply agreements per House, 256 per world;
-16 pending offers per House, 256 globally; 10,000 slots per resource per offer.
+16 pending offers per House, 256 globally; 10,000 slots per resource per offer. The
+per-House agreement limit is shown to players ("Supply agreements in use: N/16") and
+checked up front where the count is known: an independent resource trade offer is
+refused when made if either House is full, naming that House
+(`resource-supply-capacity.ts` in shared; the gateway reads live or memoized AI
+snapshots only, never fetching an offline House's). The proactive AI trade loop
+skips a House at its limit and makes no offer while full itself. The client
+disables Accept/Send at 16/16 for any deal adding supply, truce and alliance
+offers included. When the other House is full (its count known from a live or
+AI snapshot when the trade screen opens, `supplyAgreementsFull` on the stance
+reply), the screen warns but leaves Send enabled, since one of its agreements
+may end before you send. Accepts, and truce/alliance terms and AI counter-offers, are
+left to the simulation, whose refusal names the full House before any slot
+shortfall.

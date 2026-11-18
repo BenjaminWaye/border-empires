@@ -61,9 +61,9 @@ export const sweepExpiredFrontierRecovery = (
   }
 
   if (revertedAnyTile) {
-    deps.pushFeed("A delayed frontier sync expired locally. Reverting the stuck tile and refreshing nearby state.", "combat", "warn");
+    deps.pushFeed("A delayed frontier sync expired locally. Reverting the stuck tile and refreshing nearby state.", "combat", "info");
   } else if (requestedRefresh) {
-    deps.pushFeed("A delayed frontier sync expired locally. Refreshing nearby state.", "combat", "warn");
+    deps.pushFeed("A delayed frontier sync expired locally. Refreshing nearby state.", "combat", "info");
   }
   return requestedRefresh;
 };

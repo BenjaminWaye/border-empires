@@ -15,6 +15,7 @@ import {
   isOpaquePlayerId
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
+import { superTileActionTarget } from "./landmark-super-tile/landmark-super-tile.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
@@ -78,11 +79,6 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   /** The player's live aether bridges: bridge crossings, and a muster company crosses them on foot. */
   activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
-  // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
-  // tile's owner has an active Imperial Ward — blocks ATTACK-lock creation
-  // outright (full invulnerability), unlike Aegis Lock's resolution-time
-  // "attack always loses" mechanism.
-  isTileWardedByImperialWard: (targetOwnerId: string | undefined) => boolean;
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
   requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
@@ -116,21 +112,25 @@ export const handleFrontierCommandImpl = (
   ctx.applyManpowerRegen(actor);
 
   const submittedFrom = ctx.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
-  const to = ctx.tiles.get(simulationTileKey(payload.toX, payload.toY));
-  if (!submittedFrom || !to) { ctx.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return { accepted: false, code: "UNKNOWN_TILE" }; }
+  // An AFC/relic and its eight footprint tiles are one super tile: aiming at
+  // any of them fights over the centre (its owner, defences and lock), while
+  // reach/adjacency/crossing geometry stays measured from the tile aimed at.
+  const clickedTo = ctx.tiles.get(simulationTileKey(payload.toX, payload.toY));
+  const to = clickedTo ? superTileActionTarget(ctx.tiles, clickedTo) : undefined;
+  if (!submittedFrom || !clickedTo || !to) { ctx.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return { accepted: false, code: "UNKNOWN_TILE" }; }
 
   const adjacentOwnedOrigin = submittedFrom.ownerId === actor.id
     ? undefined
-    : ctx.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND");
+    : ctx.adjacentTileStates(clickedTo.x, clickedTo.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND");
   const dockOrigin = submittedFrom.ownerId === actor.id || adjacentOwnedOrigin
     ? undefined
-    : ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y);
+    : ctx.findOwnedDockOriginForCrossing(actor.id, clickedTo.x, clickedTo.y);
   const from =
     submittedFrom.ownerId === actor.id
       ? submittedFrom
       : adjacentOwnedOrigin ??
         dockOrigin?.tile ??
-        ctx.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
+        ctx.findOwnedAetherBridgeOriginForCrossing(actor.id, clickedTo.x, clickedTo.y) ??
         submittedFrom;
   const originIsAlliedDockCrossing = dockOrigin?.isAlliedDockCrossing === true && from === dockOrigin.tile;
 
@@ -141,7 +141,9 @@ export const handleFrontierCommandImpl = (
   // ally's tile that is the origin of that ally's own fight still can't be
   // reused as a dock-crossing origin.
   const fromKey = simulationTileKey(from.x, from.y);
-  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
+  // A super tile under attack is locked as a whole: none of its nine tiles can launch.
+  const fromSite = superTileActionTarget(ctx.tiles, from);
+  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.targetLockAt(simulationTileKey(fromSite.x, fromSite.y)) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
   const targetLock = ctx.locksByTile.targetLockAt(simulationTileKey(to.x, to.y));
   ctx.commandTrace?.({
     phase: "frontier_validate",
@@ -168,8 +170,8 @@ export const handleFrontierCommandImpl = (
     return { accepted: false, code: "ORIGIN_CUT_OFF" };
   }
 
-  const isDockCrossing = isDockCrossingTarget(from, to.x, to.y, ctx.dockLanding);
-  const isBridgeCrossing = isAetherBridgeCrossingTarget(ctx.activeAetherBridgesForPlayer(actor.id), from.x, from.y, to.x, to.y);
+  const isDockCrossing = isDockCrossingTarget(from, clickedTo.x, clickedTo.y, ctx.dockLanding);
+  const isBridgeCrossing = isAetherBridgeCrossingTarget(ctx.activeAetherBridgesForPlayer(actor.id), from.x, from.y, clickedTo.x, clickedTo.y);
   // EXPAND-into-a-rival's-reach carve-out: your border touches theirs right
   // here (origin is inside YOUR reach, target is inside THEIRS, and the two
   // are adjacent by construction below) -- open exactly enough ground to
@@ -177,7 +179,7 @@ export const handleFrontierCommandImpl = (
   // free colonization anywhere else along their border. Skips barbarians
   // implicitly (they hold no reach anchors, so reachBorderOwnerAt never
   // resolves to a barbarian owner) and allies/truces explicitly.
-  const targetReachOwnerId = actionType === "EXPAND" ? ctx.reachBorderOwnerAt(to.x, to.y) : undefined;
+  const targetReachOwnerId = actionType === "EXPAND" ? ctx.reachBorderOwnerAt(clickedTo.x, clickedTo.y) : undefined;
   const isEnemyBorderContact =
     targetReachOwnerId !== undefined &&
     targetReachOwnerId !== actor.id &&
@@ -223,12 +225,11 @@ export const handleFrontierCommandImpl = (
     targetLockedUntil: targetLock?.resolvesAt,
     targetLockOwnerId: targetLock?.playerId,
     actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-    isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
+    isAdjacent: isFrontierAdjacent(from.x, from.y, clickedTo.x, clickedTo.y),
     isDockCrossing,
     isBridgeCrossing,
     originIsAlliedDockCrossing,
-    targetShielded: ctx.isTileWardedByImperialWard(to.ownerId),
-    crossingBlockedByAetherWall: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
+    crossingBlockedByAetherWall: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, clickedTo.x, clickedTo.y),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
     expandManpowerCost,
@@ -239,9 +240,8 @@ export const handleFrontierCommandImpl = (
     // player's normal Chebyshev reach border by design (that's the whole
     // point of both -- linking distant landmasses/points with no anchor of
     // your own there yet) -- gating either on isInReach as well would block
-    // the very crossings they exist to enable. Same carve-out targetShielded
-    // already gives dock crossings above.
-    isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, to.x, to.y) || isEnemyBorderContact
+    // the very crossings they exist to enable.
+    isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, clickedTo.x, clickedTo.y) || isEnemyBorderContact
   });
 
   if (!validation.ok) {

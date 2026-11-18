@@ -168,7 +168,7 @@ describe("client network message handler error containment", () => {
 
     expect(() =>
       ws.emit("message", {
-        data: JSON.stringify({ type: "IMPERIAL_WARD_ACTIVATED", playerId: "me" })
+        data: JSON.stringify({ type: "JOIN_SEASON_ACK", spawned: false })
       })
     ).not.toThrow();
 
@@ -176,7 +176,7 @@ describe("client network message handler error containment", () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "[client-network] unhandled message processing error",
       expect.any(Error),
-      expect.objectContaining({ msgType: "IMPERIAL_WARD_ACTIVATED" })
+      expect.objectContaining({ msgType: "JOIN_SEASON_ACK" })
     );
 
     consoleErrorSpy.mockRestore();

@@ -2,7 +2,7 @@ import { attackHasFundedMuster } from "./ai-attack-muster-funding.js";
 import { resourceSlotHeadroomFrom } from "./food-slot-relief-surplus.js";
 import { planRelayBeaconWithFoodWait } from "./relay-beacon-food-wait.js";
 import { chooseAiAetherCommand } from "./ai-aether-planner.js";
-import { planRefineryReassignment } from "./refinery-reassign-planner.js";
+import { planEconomyInterrupt } from "./economy-interrupt-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
@@ -88,7 +88,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
   }
 
-  const interrupt = chooseAiAetherCommand(input) ?? planRefineryReassignment(input);
+  const interrupt = chooseAiAetherCommand(input) ?? planEconomyInterrupt(input);
   if (interrupt) return interrupt;
 
   // Restrict per-AI candidate sets to the spatial focus front when present.

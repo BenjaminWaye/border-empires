@@ -3,13 +3,15 @@
 // coin, a fight's odds). Everything else stays one click away under
 // Details ▾, which shows the full overview inside the panel.
 
+import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { structureModifiersFor } from "@border-empires/game-domain";
-import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
+import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
 import { ownTownGrowthRatePending } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { upkeepDescriptorFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
+import { refineryGivesFact, type RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { DormancyField } from "../client-tile-menu-view/client-tile-menu-dormancy-line.js";
 import type { SlotResource } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
@@ -21,7 +23,7 @@ export type DormantResourcesFor = (tile: Tile, field: DormancyField) => readonly
 
 const SLOT_RESOURCE_NAME: Record<SlotResource, string> = { FOOD: "Food", TITANIUM: "Titanium", CRYSTAL: "Crystal", UMBRITE: "Umbrite" };
 
-const MAX_FACTS = 4;
+export const MAX_FACTS = 4;
 const MAX_GIVES = 2;
 
 export const plainText = (html: string): string =>
@@ -46,13 +48,15 @@ type StructureSlot = {
   /** Aether Tower only: a Resonance Hijack takeover in progress, and Counterphase suppression. */
   hijackEndsAt?: number;
   suppressedUntil?: number;
+  /** A Reclamation Works whose field shipped its last load (isDepletedReclamationWorks). */
+  depleted?: true;
 };
 
 /** Every building on a tile, economic structures first since they carry the tile's purpose. */
 const structuresOn = (tile: Tile): StructureSlot[] => {
   const slots: StructureSlot[] = [];
   const s = tile.economicStructure;
-  if (s) slots.push({ key: s.type, field: "economicStructure", status: s.status, ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) });
+  if (s) slots.push({ key: s.type, field: "economicStructure", status: s.status, ...(isDepletedReclamationWorks(tile) ? { depleted: true as const } : {}), ...(s.inactiveReason ? { inactiveReason: s.inactiveReason } : {}), ...(s.disabledUntil ? { disabledUntil: s.disabledUntil } : {}) });
   if (tile.fort) slots.push({ key: tile.fort.variant ?? "FORT", field: "fort", status: tile.fort.status, ...(tile.fort.disabledUntil ? { disabledUntil: tile.fort.disabledUntil } : {}) });
   if (tile.siegeBattery) slots.push({ key: tile.siegeBattery.variant ?? "SIEGE_BATTERY", field: "siegeBattery", status: tile.siegeBattery.status });
   if (tile.observatory) slots.push({ key: "OBSERVATORY", field: "observatory", status: tile.observatory.status, ...(tile.observatory.hijack ? { hijackEndsAt: tile.observatory.hijack.endsAt } : {}), ...(tile.observatory.suppressedUntil ? { suppressedUntil: tile.observatory.suppressedUntil } : {}) });
@@ -62,7 +66,7 @@ const structuresOn = (tile: Tile): StructureSlot[] => {
 type ShownStructure = { slot: StructureSlot; dormant: readonly SlotResource[] };
 
 /**
- * The building the fact strip describes. A Fort may share its tile with a Relay Beacon or Harbor Exchange
+ * The building the fact strip describes. A Fort may share its tile with any building
  * (runtime-structure-command-handlers.ts), so a dormant one wins over the economic structure: it's the one
  * giving nothing, and the map's shortage badge points at it.
  */
@@ -83,7 +87,9 @@ const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
 
 const capitalized = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 
-const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant: readonly SlotResource[] = []): TileFact[] => {
+const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant: readonly SlotResource[] = [], refinery?: () => ReturnType<RefineryStatusOf>): TileFact[] => {
+  // A depleted Works gives nothing and costs nothing; the same for its owner and anyone else.
+  if (s.depleted) return [{ label: "Building", value: DEPLETED_RECLAMATION_WORKS_NAME }, s.status === "removing" ? stateFact(s, nowMs) : { label: "State", value: "Depleted · no salvage left", tone: "warn" }];
   const facts: TileFact[] = [];
   const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });
@@ -96,7 +102,10 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
   const gives = isDormant
     ? modifiers.length > 0 ? [`No ${[...new Set(modifiers.map((m) => capitalized(m.statLabel)))].join(" / ")} bonus`] : []
     : modifiers.map((m) => `${capitalized(m.statLabel)} ${m.valueText}`);
-  if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · "), ...(isDormant ? { tone: "warn" as const } : {}) });
+  // A refinery says what it yields now; the catalog only knows its per-tile rate.
+  const refineryGives = !isDormant && s.field === "economicStructure" ? refineryGivesFact(s.key, mine, s.status, refinery?.()) : undefined;
+  if (refineryGives) facts.push(refineryGives);
+  else if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · "), ...(isDormant ? { tone: "warn" as const } : {}) });
   if (mine && !COUNT_DEPENDENT_UPKEEP.has(s.key)) {
     const upkeep = upkeepDescriptorFor(s.key);
     if (upkeep.length > 0) facts.push({ label: "Upkeep", value: upkeep.join(" · ") });
@@ -109,11 +118,11 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number, dormant:
  * selected support tile. A building going up or being removed is left to the screen's work cards, which
  * already show it with its progress.
  */
-export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor): TileFact[] => {
-  const shown = structureToShow(tile, dormantResourcesFor);
-  if (!shown || shown.slot.status === "under_construction" || shown.slot.status === "removing") return [];
-  return structureFacts(shown.slot, mine, nowMs, shown.dormant);
-};
+export const builtStructureFacts = (tile: Tile, mine: boolean, nowMs: number = Date.now(), dormantResourcesFor?: DormantResourcesFor, refineryStatusOf?: RefineryStatusOf): TileFact[] =>
+  // A fort shares its tile with any building, so describe every standing structure, not just one.
+  structuresOn(tile)
+    .filter((slot) => slot.status !== "under_construction" && slot.status !== "removing")
+    .flatMap((slot) => structureFacts(slot, mine, nowMs, dormantResourcesFor?.(tile, slot.field) ?? [], () => refineryStatusOf?.(tile)));
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
 
@@ -131,7 +140,7 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
   if (!town) return [];
   const facts: TileFact[] = [{ label: "Town", value: displayTownPopulationTierLabel(town.populationTier) }];
   // Only your own towns carry their yield; a rival's would read 0.0/day.
-  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tile.yieldRate?.goldPerMinute ?? 0) });
+  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tileCoinPerMinute(tile)) });
   if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
   if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
@@ -235,7 +244,8 @@ export const tileFactsFor = (
   view: Pick<TileMenuView, "combatBreakdown" | "overviewLines">,
   me: string,
   nowMs: number = Date.now(),
-  dormantResourcesFor?: DormantResourcesFor
+  dormantResourcesFor?: DormantResourcesFor,
+  refineryStatusOf?: RefineryStatusOf
 ): TileFact[] => {
   const waystation = waystationFacts(view);
   if (waystation.length > 0) return waystation.slice(0, MAX_FACTS);
@@ -246,7 +256,7 @@ export const tileFactsFor = (
   const facts = [
     ...wonderFacts(tile, mine),
     ...(!mine ? fightFacts(view) : []),
-    ...(structure ? structureFacts(structure.slot, mine, nowMs, structure.dormant) : []),
+    ...(structure ? structureFacts(structure.slot, mine, nowMs, structure.dormant, () => refineryStatusOf?.(tile)) : []),
     ...townFacts(tile, mine, nowMs),
     ...dockFacts(tile, mine),
     ...(!structure && !tile.town && !tile.naturalWonder ? landFacts(tile, mine) : [])

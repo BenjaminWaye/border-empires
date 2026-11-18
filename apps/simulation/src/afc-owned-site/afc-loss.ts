@@ -1,4 +1,5 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { displayNameForOwnershipChange } from "../runtime/runtime-ownership-change-sample.js";
 import type { RuntimeState } from "../runtime/runtime-state.js";
 import type { RuntimeStructureCommandContext } from "../runtime-structure-command-handlers.js";
 import { emitRecoveryState, cancelAfcReplacement } from "./afc-recovery.js";
@@ -19,6 +20,21 @@ export function createAfcTileObserver(stateFor: () => AfcLossState, contextFor: 
   };
 }
 
+/**
+ * The owner's Recent Events line for a lost AFC. Playtesters read an AFC loss as
+ * "lost my only town": the AFC is not a town, so the line names it outright.
+ */
+export const afcLostEventText = (
+  owner: string,
+  next: Pick<DomainTileState, "x" | "y" | "ownerId">,
+  players: ReadonlyMap<string, Pick<DomainPlayer, "name">>,
+  wasLast: boolean
+): string => {
+  const where = `Your AFC (Automated Fabrication Complex) at (${next.x}, ${next.y})`;
+  const what = next.ownerId && next.ownerId !== owner ? `${where} was captured by ${displayNameForOwnershipChange(next.ownerId, players)}.` : `${where} was destroyed.`;
+  return wasLast ? `${what} It was your last AFC. An AFC is not a town: your towns are held separately. Build a replacement AFC to fabricate structures again.` : what;
+};
+
 /** One scalar per campaign. No capture history is retained. */
 export function recordAfcLoss(state: AfcLossState, context: AfcLossContext, previous: DomainTileState | undefined, next: DomainTileState, commandId: string): void {
   // A site's owner is the only player who could have reserved it: O(1), no delivery index.
@@ -34,11 +50,14 @@ export function recordAfcLoss(state: AfcLossState, context: AfcLossContext, prev
   const owner = previous?.afc?.ownerId;
   if (!owner || (next.ownerId === owner && next.afc?.ownerId === owner)) return;
   state.afcGlobalLosses++;
+  const ownerPlayer = owner.startsWith("barbarian-") ? undefined : state.players.get(owner);
+  const wasLast = context.summaryForPlayer?.(owner).controlledAfcCount === 0;
+  if (ownerPlayer) appendPlayerEventLogEntry(ownerPlayer, { type: "AFC_LOST", text: afcLostEventText(owner, next, state.players, wasLast), occurredAt: context.now(), x: next.x, y: next.y });
   for (const player of state.players.values()) {
     if (player.id.startsWith("barbarian-")) continue;
     const recovery = player.afcRecovery ??= { globalLosses: state.afcGlobalLosses };
     recovery.globalLosses = state.afcGlobalLosses;
-    if (player.id === owner && context.summaryForPlayer?.(owner).controlledAfcCount === 0) {
+    if (player.id === owner && wasLast) {
       recovery.requiredSince = context.now();
       // Losing capacity suspends replenishment; it never deletes existing reserves.
       player.waystationManpowerOverflow = Math.max(player.waystationManpowerOverflow ?? 0, player.manpower - context.playerManpowerCap(player));

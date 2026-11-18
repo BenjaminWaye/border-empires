@@ -6,7 +6,7 @@ import type { EmailNotificationPrefs } from "../player-profile-store/player-prof
 // handle-set-hint-state-message.ts's SET_HINT_STATE pattern. Every category
 // defaults to on -- only an explicit `false` in the patch disables it.
 
-const EMAIL_NOTIFICATION_CATEGORIES = [
+export const EMAIL_NOTIFICATION_CATEGORIES = [
   "allianceRequest",
   "allianceBreak",
   "truceOffer",
@@ -14,7 +14,9 @@ const EMAIL_NOTIFICATION_CATEGORIES = [
   "aetherPurgeAlert",
   "aetherHijackAlert",
   "seasonStart",
-  "manpowerFull"
+  "manpowerFull",
+  "truceEnding",
+  "empireFell"
 ] as const;
 
 export type SetEmailNotificationPrefsMessageDeps = {
@@ -48,7 +50,9 @@ export const emailNotificationPrefsInitFields = (
   aetherPurgeAlert: stored?.aetherPurgeAlert ?? true,
   aetherHijackAlert: stored?.aetherHijackAlert ?? true,
   seasonStart: stored?.seasonStart ?? true,
-  manpowerFull: stored?.manpowerFull ?? true
+  manpowerFull: stored?.manpowerFull ?? true,
+  truceEnding: stored?.truceEnding ?? true,
+  empireFell: stored?.empireFell ?? true
 });
 
 export const handleSetEmailNotificationPrefsMessage = async (deps: SetEmailNotificationPrefsMessageDeps): Promise<void> => {

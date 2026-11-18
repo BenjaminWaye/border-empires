@@ -58,7 +58,8 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(info.townName).toBe("Ironwick");
     expect(info.populationTier).toBe("CITY");
     expect(info.population).toBe(8_000);
-    expect(info.maxPopulation).toBe(100_000);
+    // The next tier (Great City), as the town screen shows -- not the fixture maxPopulation.
+    expect(info.maxPopulation).toBe(1_000_000);
     expect(info.empireName).toBe("Iron Dominion");
     expect(info.ownedTownCount).toBe(0);
     expect(info.destroyed).toBe(false);

@@ -126,6 +126,7 @@ export type GatewayTileUpdate = {
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "tilesRevision" | "tilesRevisionChangedKeys" | "tilesRevisionOverflowed" | "incomingAttacksByTile" | "discoveredTiles"> & {
     me?: string | undefined;
+    allies?: readonly string[];
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
     discoveryTipQueue?: ClientState["discoveryTipQueue"];
@@ -346,11 +347,12 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     });
   }
   logOwnershipChangeIfAny(update.x, update.y, existing, resolved, "apply-gateway-tile-update");
-  // Structure/resource/dock change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
+  // Structure/resource/dock/town-income change without a fresh server rate clears the stale value (radius-yield-delivery plan Phase 4).
   const staleYieldInputsChanged =
     ("economicStructure" in normalizedGateway && JSON.stringify(normalizedGateway.economicStructure) !== JSON.stringify(existing?.economicStructure)) ||
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
-    ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId);
+    ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId) ||
+    ("town" in normalizedGateway && normalizedGateway.town?.goldPerMinute !== existing?.town?.goldPerMinute);
   if (staleYieldInputsChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
   const ownIncomeMultiplier =
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
@@ -366,6 +368,35 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if (!skipRevision && revisionRelevant) { deps.state.tilesRevision += 1; recordTileRevisionChange(deps.state, update.x, update.y); }
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
+};
+
+// Every key a redacted lock-target stub can carry (runtime-visible-state.ts
+// visibleTileProjection returns {x, y, terrain}; the live filter adds ownership).
+const RECONNECT_STUB_KEYS = new Set(["x", "y", "terrain", "visibilityState", "ownerId", "ownershipState"]);
+
+/**
+ * A reconnect INIT keeps the cached tiles and merges the snapshot over them.
+ * The login projection sends every overlay a tile has and omits the rest, so
+ * merged as-is an omitted overlay read as "unchanged" and a structure razed
+ * while the socket was down (a captured Relay Beacon) stayed drawn. Each
+ * omitted overlay becomes an explicit clear, as does the town when the tile
+ * carries no town identity at all. Only where the snapshot is authoritative:
+ * the viewer's own and allied tiles are never redacted, but another player's
+ * tile that is only a lock target arrives as a stub, indistinguishable from a
+ * bare tile, so a tile with nothing beyond the stub keys keeps its cache. Tile
+ * fields the projection never sends (capture hold, war scar, wreck) are left
+ * alone, and the ended-season overview (no structures at all) matches what a
+ * fresh load of that overview shows.
+ */
+export const withReconnectSnapshotClears = (tile: GatewayTileUpdate, viewerSideIds: ReadonlySet<string>): GatewayTileUpdate => {
+  if (tile.ownershipClearOnly === true) return tile;
+  const viewerSide = typeof tile.ownerId === "string" && viewerSideIds.has(tile.ownerId);
+  if (!viewerSide && Object.keys(tile).every((key) => RECONNECT_STUB_KEYS.has(key))) return tile;
+  const cleared: GatewayTileUpdate = { ...tile };
+  for (const field of GATEWAY_OVERLAY_JSON_FIELDS) if (!(field in tile)) cleared[field] = "";
+  const hasTownIdentity = "townJson" in tile || "townType" in tile || "townName" in tile || "townPopulationTier" in tile;
+  if (!hasTownIdentity) cleared.townJson = "";
+  return cleared;
 };
 
 export const applyGatewayInitialState = (
@@ -404,9 +435,11 @@ export const applyGatewayInitialState = (
   // ENEMY_EMPIRE discovery tip on that first-ever contact, same as the live
   // delta path. `musterUnlockPending` stops the per-tile localStorage check
   // once unlocked instead of re-reading storage for every remaining tile.
+  const viewerSideIds = preserveExistingDiscoveredTiles ? new Set([deps.state.me, ...(deps.state.allies ?? [])].filter((id): id is string => Boolean(id))) : undefined;
   let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
-    invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
+    const snapshotTile = viewerSideIds ? withReconnectSnapshotClears(tile, viewerSideIds) : tile;
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, snapshotTile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
       unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);

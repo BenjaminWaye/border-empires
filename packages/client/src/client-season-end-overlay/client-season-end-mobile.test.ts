@@ -14,6 +14,7 @@ const stateForSummary = (): State => ({
     objectiveId: "ECONOMIC_HEGEMONY", objectiveName: "Economic Ascendancy"
   },
   seasonEndDismissed: false,
+  lastContestRecap: { open: false, load: "idle" as const },
   seasonEndStarting: false,
   seasonStartError: undefined as string | undefined,
   seasonStartVoteCount: 0,

@@ -22,6 +22,13 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
   const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles), sort);
   writeHtml("v2s-head-right", townsBannerHtml(rows));
   writeHtml("v2s-body", townsBodyHtml(rows, sort));
+  // A row reading "…" is waiting on a coin figure only a tile-detail reply carries; without this it stayed
+  // at 0.0 until you opened that town (playtest 2026-11-16). The request throttles and dedupes itself.
+  for (const row of rows) {
+    if (!row.coinPending) continue;
+    const tile = deps.state.tiles.get(`${row.x},${row.y}`);
+    if (tile) deps.actionFlow.requestTileDetailIfNeeded(tile);
+  }
 };
 
 /** Clicks on the Towns screen; true when handled. `closeList` closes the screen to the map. */

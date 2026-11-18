@@ -1,5 +1,6 @@
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
+import { isDistrictBuilding, isDistrictProject } from "../client-town-district/district-catalog.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, isDepletedReclamationWorks, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
 import { createNetworkOverlay } from "../client-resource-networks/network-models.js";
 import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
@@ -121,7 +122,10 @@ const STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH = new Set<string>([
 export function isStructureHandledBy3D(kind: string): boolean {
   return (
     STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH.has(kind) ||
-    STRUCTURE_KINDS_HANDLED_BY_3D.has(kind as StructureKind)
+    STRUCTURE_KINDS_HANDLED_BY_3D.has(kind as StructureKind) ||
+    // The town-district kit (district-map-3d.ts addTile) models every district
+    // building and project, including kinds absent from the lists above.
+    isDistrictBuilding(kind) || isDistrictProject(kind)
   );
 }
 
@@ -154,7 +158,8 @@ type UniformLayoutFn = (
 ) => void;
 
 export const mineResourceHintFor = (structureType: string, tileResource: string | undefined): StructureResourceHint =>
-  structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS") ? tileResource : undefined;
+  structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS") ? tileResource
+  : isDepletedReclamationWorks({ resource: tileResource, economicStructure: { type: structureType } }) ? "DEPLETED" : undefined;
 
 const heightKey = (kind: StructureKind, hint: StructureResourceHint): string => (hint ? `${kind}:${hint}` : kind);
 // Used only if a kind somehow has no measured height (every layout is measured at creation).
@@ -267,7 +272,8 @@ export const createStructureOverlay = (
     }
     const networkResource = networkResourceForBuilding(kind);
     if (networkResource) {
-      network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: networkResource, operational: !site && !frozen, foundation: true, ...(site ? { site } : {}) });
+      const depleted = resource === "DEPLETED";
+      network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: networkResource, operational: !site && !frozen && !depleted, foundation: true, depleted, ...(site ? { site } : {}) });
       contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
       return;
     }

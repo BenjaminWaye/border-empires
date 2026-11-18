@@ -74,11 +74,12 @@ describe("AI aether commands obey the real simulation rules", () => {
   });
   it("turns an exposed hostile muster beside a capital into a mountain", async () => {
     const tiles = baseTiles();
-    tiles[0]!.town = { type: "MARKET", populationTier: "TOWN" };
-    tiles.push({ x: 9, y: 10, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", muster: { ownerId: "enemy", amount: 100 } });
+    // The capital sits outside the AFC's 3×3: every tile beside an AFC is part of it (landmark-super-tile).
+    tiles.push(own(9, 12, { town: { type: "MARKET", populationTier: "TOWN" } }));
+    tiles.push({ x: 8, y: 12, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", muster: { ownerId: "enemy", amount: 100 } });
     const runtime = runtimeFor(tiles, ["terrain-engineering", "crystal-lattices"], () => 1000, 0);
     await applyPlan(runtime, "CREATE_MOUNTAIN", true);
-    expect(runtime.exportState().tiles.find(tile => tile.x === 9 && tile.y === 10)).toMatchObject({ terrain: "MOUNTAIN" });
+    expect(runtime.exportState().tiles.find(tile => tile.x === 8 && tile.y === 12)).toMatchObject({ terrain: "MOUNTAIN" });
   });
   it("creates a real bridge to its known valuable landing", async () => {
     const tiles = [own(10, 10, { afc: { ownerId: "ai-1", status: "active" } }),
@@ -93,8 +94,9 @@ describe("AI aether commands obey the real simulation rules", () => {
   });
   it("creates a real wall against an adjacent hostile muster", async () => {
     const tiles = baseTiles();
-    tiles[0]!.town = { type: "MARKET", populationTier: "TOWN" };
-    tiles.push({ x: 9, y: 10, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", muster: { ownerId: "enemy", amount: 100 } });
+    // The capital sits outside the AFC's 3×3: every tile beside an AFC is part of it (landmark-super-tile).
+    tiles.push(own(9, 12, { town: { type: "MARKET", populationTier: "TOWN" } }));
+    tiles.push({ x: 8, y: 12, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", muster: { ownerId: "enemy", amount: 100 } });
     const runtime = runtimeFor(tiles, ["harborcraft", "crystal-lattices"], () => 1000, 0);
     const { events } = await applyPlan(runtime, "CAST_AETHER_WALL", true);
     expect(events).toContainEqual(expect.objectContaining({ eventType: "PLAYER_MESSAGE", messageType: "AETHER_WALL_UPDATE" }));

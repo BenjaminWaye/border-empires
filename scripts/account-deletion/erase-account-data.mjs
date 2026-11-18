@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
+// galaxy_endorsements is no longer written (Imperial Ward removed) but the table
+// still exists in older databases, so it stays classified here.
 const PERSONAL_TABLES = new Set([
   "auth_identity_bindings", "player_profiles", "player_growth_baseline", "player_funnel",
   "player_funnel_session", "rally_links", "season_participation", "social_players",
   "social_alliance_requests", "social_truce_requests", "social_offer_cooldowns",
-  "social_forced_truce_cooldowns", "social_truce_lockouts", "social_truce_breaks",
+  "social_forced_truce_cooldowns", "social_truce_lockouts", "social_truce_breaks", "social_ai_diplomacy_memory",
   "commands", "client_seq_watermarks", "galaxy_survey_snapshot", "galaxy_economy_balances",
   "galaxy_fleet_blueprints", "galaxy_fleet_orders", "galaxy_endorsements", "galaxy_senate_votes",
   "galaxy_court_contributions", "sector_waitlist"

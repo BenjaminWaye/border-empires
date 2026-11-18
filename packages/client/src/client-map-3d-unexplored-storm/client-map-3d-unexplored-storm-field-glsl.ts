@@ -4,8 +4,13 @@
 // the same place: value noise, the contour level, and the blurred deep-fog
 // field read from the mask's G channel.
 
+import { LATTICE_HASH_GLSL } from "../client-map-3d-lattice-hash/client-map-3d-lattice-hash-glsl.js";
+
 export const STORM_FIELD_GLSL = `
-float stormHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+${LATTICE_HASH_GLSL}
+// Exact integer lattice hash (see LATTICE_HASH_GLSL): a sine hash broke the
+// fog into offset cell-sized rectangles on some phones.
+float stormHash(vec2 p) { return latticeHash2(p); }
 float stormNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);

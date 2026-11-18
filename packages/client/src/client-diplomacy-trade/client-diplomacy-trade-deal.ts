@@ -3,7 +3,7 @@
 // with a ✕ to take it out again. Also decides what kind of offer the deal is:
 // a truce or alliance when one is picked, otherwise a resource trade, or a
 // gift when you only give an AI coin.
-import { diplomacyTermsAreEmpty, hasResourceSupplyOffer, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, recurringCoinTermHours, diplomacyTermsAreEmpty, hasResourceSupplyOffer, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import { TRADE_GOODS, tradeAmount, type TradeSide } from "./client-diplomacy-trade-goods.js";
@@ -25,16 +25,18 @@ const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(ter
  * gift. Humans take no gifts, so that is a (not yet sendable) trade for them.
  */
 export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms, targetIsAi: boolean): TradeKind =>
-  treaty ?? (hasSupply(terms) || asksAnything(terms) || !targetIsAi ? "trade" : "gift");
+  treaty ?? (hasSupply(terms) || hasRecurringCoin(terms) || asksAnything(terms) || !targetIsAi ? "trade" : "gift");
 
 /** Treaty-less trade/gift verdicts that the shared verdict words for a different screen. */
-export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string): TradeVerdict | undefined => {
+export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string, allied = false): TradeVerdict | undefined => {
   if (treaty) return undefined;
   if (diplomacyTermsAreEmpty(terms)) {
-    return { tone: "neutral", text: "Pick a truce or alliance on the left, or add goods from either side.", canSend: false, sendLabel: "Send offer" };
+    const text = allied ? "Add goods from either side to trade with your ally." : "Pick a truce or alliance, or add goods from either side.";
+    return { tone: "neutral", text, canSend: false, sendLabel: "Send offer" };
   }
   if (!hasSupply(terms) && kind !== "gift") {
-    return { tone: "neutral", text: "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
+    const text = allied ? "Coin changes hands with a resource supply. Add one to the deal." : "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.";
+    return { tone: "neutral", text, canSend: false, sendLabel };
   }
   return undefined;
 };
@@ -42,12 +44,12 @@ export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: 
 export const treatyLabel = (selection: TradeSelection): string =>
   selection.kind === "alliance" ? "Alliance" : `${selection.extendsTruce ? "Extend truce" : "Truce"} · ${selection.durationHours}h`;
 
-const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide): string =>
+const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number): string =>
   TRADE_GOODS.filter((spec) => spec.side === side)
     .flatMap((spec) => {
       const amount = tradeAmount(terms, spec);
       if (amount <= 0) return [];
-      const unit = spec.supply ? ` <small>supply slot${amount === 1 ? "" : "s"}</small>` : "";
+      const unit = spec.good === "coinPerHour" ? ` <small>up to ${amount * coinHours} Coin over ${coinHours}h</small>` : spec.supply ? ` <small>supply slot${amount === 1 ? "" : "s"}</small>` : "";
       return [
         `<li class="diplomacy-deal-item" data-deal-item="${spec.key}">
           <button type="button" class="diplomacy-deal-edit" data-deal-edit="${spec.key}" title="Change amount">
@@ -72,13 +74,17 @@ export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: Deal
   if (!treaty && diplomacyTermsAreEmpty(terms)) {
     return `<p class="diplomacy-deal-empty">Nothing in the deal yet.</p>`;
   }
-  const give = sideItemsHtml(terms, "give");
-  const ask = sideItemsHtml(terms, "ask");
+  // Coin per hour runs for the supply term, or a slot-free truce's own length.
+  const coinHours = recurringCoinTermHours(selection.kind === "gift" ? "trade" : selection.kind, selection.durationHours, terms) ?? RESOURCE_SUPPLY_TRADE_DAYS * 24;
+  const give = sideItemsHtml(terms, "give", coinHours);
+  const ask = sideItemsHtml(terms, "ask", coinHours);
   const sideBlock = (heading: string, items: string, side: TradeSide): string =>
     `<div class="diplomacy-deal-side" data-deal-side="${side}"><h4>${escapeHtml(heading)}</h4>${items ? `<ul>${items}</ul>` : `<p class="diplomacy-deal-none">Nothing</p>`}</div>`;
   const supplyNote = hasSupply(terms)
-    ? `<p class="diplomacy-deal-note">Supply runs until either House cancels. Coin is paid once when accepted.</p>`
+    ? `<p class="diplomacy-deal-note">Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance and is binding: only war between you ends it early. Upfront Coin is paid when accepted.</p>`
     : "";
+  const incomeNote = hasRecurringCoin(terms)
+    ? `<p class="diplomacy-deal-note">Recurring payments come from earned Coin${hasSupply(terms) ? " and pause if resource delivery pauses" : `, run ${coinHours}h from acceptance and end only with the term or war`}. Payments are reduced if income falls short.</p>` : "";
   const isGift = selection.kind === "gift";
-  return `${treatyHtml}${sideBlock(isGift ? "Your gift" : "You give", give, "give")}${isGift ? "" : sideBlock(`${targetName} gives`, ask, "ask")}${supplyNote}`;
+  return `${treatyHtml}${sideBlock(isGift ? "Your gift" : "You give", give, "give")}${isGift ? "" : sideBlock(`${targetName} gives`, ask, "ask")}${supplyNote}${incomeNote}`;
 };

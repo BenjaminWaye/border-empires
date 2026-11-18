@@ -34,6 +34,35 @@ describe("docked tile panel", () => {
     expect(help()?.open).toBe(false);
   });
 
+  // Regression: the status chip opens only its explainer, and a stale "status" panel must not reopen by itself
+  // when a later status on the same tile has help again (e.g. hold → captured → beyond reach).
+  it("toggles the status explainer from the chip and drops it once the status has no help", async () => {
+    // The dock is a module singleton wired to the first test's (now detached) bar: start from a fresh module.
+    vi.resetModules();
+    const { dockTileActionMenuForHudV2 } = await import("./client-hud-v2-tile-dock.js");
+    document.body.innerHTML = `<div id="tile-action-menu"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside>`;
+    const state = createInitialState();
+    state.tileActionMenu.mode = "single";
+    state.tileActionMenu.currentTileKey = "16,15";
+    const deps: TileDockDeps = {
+      tileActionMenuEl: document.getElementById("tile-action-menu") as HTMLElement,
+      handleTileAction: () => undefined,
+      hideTileActionMenu: () => undefined,
+      renderHud: () => undefined
+    };
+    const withStatus = (statusText: string, statusHelpText?: string): TileMenuView =>
+      ({ ...view("Sand (16, 15)"), statusText, statusTone: "warning", ...(statusHelpText ? { statusHelpText } : {}), overviewLines: [{ html: "Hills: vision +1", kind: "effect" }] }) as TileMenuView;
+    const popup = (): Element | null => document.querySelector("#hud-v2-tile .hud-v2-status-help");
+    dockTileActionMenuForHudV2(state, withStatus("Inside Maren Reach", "Can't garrison inside another empire's reach."), deps, () => undefined);
+    document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-hud-v2-panel="status"]')!.click();
+    expect(popup()?.textContent).toContain("Can't garrison inside another empire's reach.");
+    expect(document.querySelector("#hud-v2-tile")!.textContent).not.toContain("Hills: vision +1");
+    dockTileActionMenuForHudV2(state, withStatus("Recently captured 2m"), deps, () => undefined);
+    expect(popup()).toBeNull();
+    dockTileActionMenuForHudV2(state, withStatus("Beyond your reach", "Your reach is the land within 3 tiles of your towns."), deps, () => undefined);
+    expect(popup()).toBeNull();
+  });
+
   // Regression: tap tracking was installed with the dock on the first menu render, after that render's own
   // pointer-up, so the first tap of a session never counted (a flagged town needed three taps).
   it("counts the very first map tap of a session", () => {

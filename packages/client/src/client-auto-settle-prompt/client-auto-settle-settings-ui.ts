@@ -6,6 +6,7 @@
 import { AUTO_IMPROVE_RESOURCES, AUTO_SETTLE_CATEGORIES, isAutoImproveResource, type AutoSettleCategory } from "@border-empires/shared";
 import { settingsToggleRowHtml } from "../client-hud/client-settings-controls.js";
 import { autoSettleCategoryGroup, autoSettleCategoryLabel } from "./client-auto-settle-labels.js";
+import { markAutoSettleAsked } from "./client-auto-settle-ask.js";
 import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 import { autoImproveStructureLabel } from "../client-hud-v2/client-resource-improvement-action.js";
 
@@ -68,6 +69,11 @@ export const installAutoSettleSettingsBinding = (send: (payload: unknown) => boo
       const category = box.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
       if (category && category in prefs) prefs[category] = box.checked;
     });
+    // A choice made in Settings is an answer: the tile menu shouldn't ask about that category again.
+    if (target.matches("[data-settings-auto-settle]")) {
+      const changed = target.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
+      if (changed && changed in prefs) markAutoSettleAsked(changed);
+    }
     const improve: Record<string, boolean> = {};
     document.querySelectorAll<HTMLInputElement>("[data-settings-auto-improve]").forEach((box) => {
       const resource = box.dataset.settingsAutoImprove;

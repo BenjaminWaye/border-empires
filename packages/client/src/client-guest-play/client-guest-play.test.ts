@@ -18,10 +18,8 @@ import {
   bindGuestPlay,
   hasReturningAccount,
   markReturningAccount,
-  resetGuestAutoJoinForTests,
   startGuestPlay,
-  syncPlayNowEmphasis,
-  takeGuestAutoJoinTurn
+  syncPlayNowEmphasis
 } from "./client-guest-play.js";
 
 const auth = {} as never;
@@ -45,7 +43,6 @@ beforeEach(() => {
   vi.mocked(logEvent).mockClear();
   vi.mocked(getAdditionalUserInfo).mockReset();
   window.localStorage.clear();
-  resetGuestAutoJoinForTests();
 });
 
 afterEach(() => {
@@ -204,32 +201,5 @@ describe("applyGuestRejection", () => {
     await applyGuestRejection({ state: makeGuestState(true), firebaseAuth: auth, setAuthStatus, syncAuthOverlay: vi.fn() }, "GUEST_SLOTS_FULL", "Full.");
 
     expect(setAuthStatus).toHaveBeenCalledWith("Full.", "error");
-  });
-});
-
-describe("takeGuestAutoJoinTurn", () => {
-  const ready = { authIsGuest: true, needsSeasonJoin: true, seasonPending: false, joinSeasonPending: false, profileSetupRequired: false };
-
-  it("lets a guest waiting to join an active season through, once", () => {
-    expect(takeGuestAutoJoinTurn(ready, 100_000)).toBe(true);
-    expect(takeGuestAutoJoinTurn(ready, 100_500)).toBe(false);
-  });
-
-  it("allows another attempt after a while, so a join that did not spawn is retried but never in a tight loop", () => {
-    expect(takeGuestAutoJoinTurn(ready, 100_000)).toBe(true);
-    expect(takeGuestAutoJoinTurn(ready, 110_000)).toBe(false);
-    expect(takeGuestAutoJoinTurn(ready, 115_001)).toBe(true);
-  });
-
-  it.each([
-    ["a real account", { authIsGuest: false }],
-    ["nothing to join", { needsSeasonJoin: false }],
-    ["a pending season (the lobby countdown joins them)", { seasonPending: true }],
-    ["a join already in flight", { joinSeasonPending: true }],
-    ["profile setup not finished", { profileSetupRequired: true }]
-  ])("does not fire for %s", (_label, override) => {
-    expect(takeGuestAutoJoinTurn({ ...ready, ...override }, 100_000)).toBe(false);
-    // a refusal must not use up the guest's turn
-    expect(takeGuestAutoJoinTurn(ready, 100_000)).toBe(true);
   });
 });

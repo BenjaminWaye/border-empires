@@ -1,4 +1,3 @@
-import type { SectorBoardView } from "../client-sector-board/client-sector-board.js";
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
@@ -14,9 +13,13 @@ import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
+import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
+import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
+import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialMapFxQueueState } from "./client-state-map-fx-queue-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenStructureTier, type FrontierCombatSideBreakdown } from "@border-empires/shared";
@@ -251,7 +254,7 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; timeout?: boolean } | undefined,
+  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; timeout?: boolean } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
@@ -268,22 +271,25 @@ export const createInitialState = () => ({
   // Season-end screen: shown once a winner is crowned (season ended). The player
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
+  lastContestRecap: createInitialLastContestRecapState(),
   seasonEndStarting: false,
   // Why the last START_NEW_SEASON was refused, shown on the season-end screen (client-next-contest.ts).
   seasonStartError: undefined as string | undefined,
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
   ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
+  ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
+  ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
+  ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
-  sectorBoard: undefined as SectorBoardView | undefined, // join screen Sector board (client-sector-board.ts), loaded from GET /sector/board
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
@@ -446,6 +452,7 @@ export const createInitialState = () => ({
   discoveredTiles: new Set<string>(),
   discoveryTipQueue: [] as import("../client-discovery-tips/client-discovery-tips.js").DiscoveryTipId[], // see client-discovery-tips.ts
   autoSettleTargets: new Set<string>(),
+  townRingGarrisons: new Map<string, import("../client-town-ring-garrison/client-town-ring-garrison.js").TownRingGarrison>(), // bounded there
   autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
   // How many times processActionQueue has deferred a target while waiting for

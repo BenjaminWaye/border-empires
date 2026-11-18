@@ -204,8 +204,8 @@ export const playerManpowerBreakdownFromSummary = (
     regenLines.push({ label, amount: -shortfall.regen });
   }
   return {
-    cap: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }] : []), ...capLinesWithNeuralWorksNetwork],
-    regen: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }] : []), ...regenLines]
+    cap: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "AFC baseline", amount: STARTING_CAPITAL_MANPOWER_CAP }] : []), ...capLinesWithNeuralWorksNetwork],
+    regen: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "AFC baseline", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }] : []), ...regenLines]
   };
 };
 

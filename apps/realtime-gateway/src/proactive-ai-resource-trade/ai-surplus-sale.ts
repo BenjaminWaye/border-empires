@@ -6,9 +6,8 @@
 // of coin, a different spare upkeep resource of equal value. AIs already ask
 // for what they need themselves, so sales only go to players.
 //
-// Supply runs until someone ends it, so the AI ends a sale once the day the
-// buyer paid for has passed (expiredSurplusSale), and offers again if the
-// buyer is still short.
+// New sales expire automatically. The AI still ends legacy sales without a
+// deadline after the first day.
 import { resourceSupplyCoinValue, type DiplomacyTerms } from "@border-empires/shared";
 
 import type { TradePlayerState } from "./proactive-ai-resource-trade.js";
@@ -62,6 +61,6 @@ export const surplusSaleTerms = (seller: TradePlayerState | undefined, buyer: Tr
 
 /** A sale this AI made through the resource-trade service that has run for the day it was paid for. */
 export const expiredSurplusSale = (aiId: string, player: TradePlayerState | undefined, nowMs: number): string | undefined =>
-  player?.resourceTradeAgreements?.find(row => row.proposerId === aiId && row.id.startsWith(RESOURCE_TRADE_AGREEMENT_PREFIX) &&
+  player?.resourceTradeAgreements?.find(row => row.expiresAt === undefined && row.proposerId === aiId && row.id.startsWith(RESOURCE_TRADE_AGREEMENT_PREFIX) &&
     SALE_RESOURCES.some(resource => (row.proposerGives[resource] ?? 0) > 0) && (row.targetGives.FOOD ?? 0) === 0 &&
     nowMs - row.startedAt >= AI_SALE_DURATION_HOURS * 3_600_000)?.id;

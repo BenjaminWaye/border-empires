@@ -18,7 +18,8 @@ import type { EconomyPlayer } from "../economy-network/economy-network.js";
 import {
   buildFedTownKeysByPlayer,
   buildResourceSlotDormancyByPlayer,
-  dormantEconomicStructureKeysFromDormancy
+  dormantEconomicStructureKeysFromDormancy,
+  townFoodSlotDemandForSnapshotPlayer
 } from "../snapshot-economy-helpers.js";
 
 // Re-exports for callers that import from this module path
@@ -36,6 +37,8 @@ type EnrichmentContext = {
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
   // §5.4: dormant economicStructure tile keys ("x,y") per player.
   dormantEconomicStructureKeysByPlayer: Map<string, ReadonlySet<string>>;
+  // The viewer's own towns' FOOD slot demand after waivers ("x,y" -> slots).
+  ownTownFoodSlotDemand?: ReadonlyMap<string, number>;
 };
 
 const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined): DomainTileState["town"] | undefined => {
@@ -207,7 +210,7 @@ const buildEnrichedTile = (
   // Linear `players.find` was O(P) per tile; pre-indexed lookup is O(1).
   const player = tile.ownerId ? playersById.get(tile.ownerId) : undefined;
   const economyPlayer = tile.ownerId ? ctx.economyPlayersById.get(tile.ownerId) : undefined;
-  const town = buildTownSummary(
+  const summary = buildTownSummary(
     tile,
     player,
     ctx.tilesByKey,
@@ -218,6 +221,9 @@ const buildEnrichedTile = (
     ctx.nearbyWarTownKeys,
     (tile.ownerId ? ctx.dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
   );
+  // The viewer's own towns carry their FOOD slot demand after waivers (live path: refreshTownEconomyFields).
+  const foodSlotDemand = summary && tile.ownerId === playerId ? ctx.ownTownFoodSlotDemand?.get(keyFor(tile.x, tile.y)) : undefined;
+  const town = summary && foodSlotDemand !== undefined ? { ...summary, foodSlotDemand } : summary;
   const yieldFields = buildSnapshotTileYieldFields(tile, town, {
     ...(economyPlayer ? { player: economyPlayer } : {}),
     ...(tile.ownerId
@@ -245,7 +251,7 @@ export const enrichSnapshotTilesForPlayer = (
   playerEconomy: LivePlayerEconomySnapshot,
   fullVisibility = false
 ): RuntimeState["tiles"] => {
-  const ctx = buildEnrichmentContext(runtimeState, playerEconomy, visibleTiles);
+  const ctx = { ...buildEnrichmentContext(runtimeState, playerEconomy, visibleTiles), ownTownFoodSlotDemand: townFoodSlotDemandForSnapshotPlayer(runtimeState, playerId) };
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
   return visibleTiles.map((tile) => {
     const enriched = buildEnrichedTile(playerId, tile, ctx, playersById);

@@ -82,7 +82,6 @@ describe("build menu building art", () => {
     const missing = buildActionIds().filter((id) => !buildActionArtUrl(id)).sort();
     expect(missing).toMatchInlineSnapshot(`
       [
-        "build_afc",
         "build_bank",
         "build_exchange_house",
         "build_fuel_plant",

@@ -286,3 +286,14 @@ describe("reach explanation", () => {
     expect(body).not.toContain("can't Garrison");
   });
 });
+
+// Playtest 2026-11-12: the first sighting of anyone's land, a far-off town
+// included, greeted a diplomacy-minded player with "You've found an enemy!".
+describe("First Contact tip", () => {
+  it("doesn't call a House you've just spotted an enemy, and points at Diplomacy as well as mustering", () => {
+    const { body } = DISCOVERY_TIPS.ENEMY_EMPIRE;
+    expect(body.toLowerCase()).not.toContain("enemy");
+    expect(body).toContain("Diplomacy");
+    expect(body).toContain("Muster");
+  });
+});

@@ -13,8 +13,7 @@ export const mountBootstrapSidePanels = (deps: { state: ClientState; firebaseAut
   const { state, firebaseAuth, wsUrl } = deps;
   [mountRallyNewPanel, mountRallyInvitePanel].forEach((mount) => mount(firebaseAuth ? { firebaseAuth, wsUrl } : { wsUrl }));
   // The galaxy overlay's own launcher hides itself for accounts that own a
-  // Planet, and Space View no longer opens it, so for them christening and Emperor
-  // endorsement are not reachable from the UI (see client-galaxy-view.ts).
+  // Planet, and Space View no longer opens it, so for them christening is not reachable from the UI (see client-galaxy-view.ts).
   mountGalaxyView(firebaseAuth ? { firebaseAuth, wsUrl } : { wsUrl });
   mountSpaceView({ state, firebaseAuth, wsUrl });
 };

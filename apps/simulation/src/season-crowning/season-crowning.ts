@@ -4,6 +4,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { galaxyTiersAtCrowning } from "../season-galaxy-tiers/season-galaxy-tiers.js";
+import { houseChargesAtCrowning } from "../house-charges/house-charges-crowning.js";
 import type { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -22,6 +23,15 @@ type WorldStatus = ReturnType<typeof buildWorldStatusSnapshot>;
  * on "ended" doesn't re-scan tiles on every subsequent recompute) — this
  * function itself does not re-check that guard.
  */
+/**
+ * A final House Charges pass at the crowning, so held state is current rather
+ * than up to one ticker interval old, then the players it updated.
+ */
+const freshHouseChargePlayers = (runtime: SimulationRuntime, crownedAt: number): RuntimeState["players"] => {
+  runtime.tickSideTickers(crownedAt, true);
+  return runtime.getPlayersForLeaderboard();
+};
+
 export const captureSeasonWinnerAtCrowning = ({
   seasonState,
   winner,
@@ -55,6 +65,7 @@ export const captureSeasonWinnerAtCrowning = ({
         : {}),
       ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {})
     },
+    houseCharges: houseChargesAtCrowning(freshHouseChargePlayers(runtime, winner.crownedAt), winner.crownedAt),
     galaxyTiers: galaxyTiersAtCrowning({
       objectives,
       crownedWinner: winner,

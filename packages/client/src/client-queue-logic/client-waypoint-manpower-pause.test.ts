@@ -10,7 +10,7 @@ describe("pauseWaypointForManpowerIfNeeded", () => {
     const pushFeed = vi.fn();
     expect(pauseWaypointForManpowerIfNeeded(waypoint, expandStep(13), 14, pushFeed, 15)).toBe(true);
     expect(waypoint.pausedForManpower).toBe(true);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("needs 15 manpower"), "info", "warn");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("needs 15 manpower"), "info", "info");
   });
 
   it("keeps going once manpower covers the higher of the planned and live price", () => {

@@ -6,6 +6,7 @@ import { bindMinimapDrag } from "../client-map-input-minimap-drag.js";
 import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import type { TileTapInput } from "../client-tile-interaction/client-tile-interaction.js";
 import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
 import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
 
@@ -22,7 +23,8 @@ type BindClientMapInputDeps = {
   computeDragPreview: () => void;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
   maybeRefreshForCamera: (force?: boolean) => void;
-  handleTileSelection: (wx: number, wy: number, clientX: number, clientY: number) => void;
+  /** `tapInput` "touch" only inspects a tile (opens its sheet); see TileTapInput. */
+  handleTileSelection: (wx: number, wy: number, clientX: number, clientY: number, tapInput: TileTapInput) => void;
   cancelOngoingCapture: () => void;
   hideTileActionMenu: () => void;
   clearCrystalTargeting: () => void;
@@ -93,7 +95,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return { wx: deps.wrapX(raw.gx), wy: deps.wrapY(raw.gy) };
   };
 
-  const focusPersistentAlertAtPointer = (offsetX: number, offsetY: number, clientX: number, clientY: number): boolean => {
+  const focusPersistentAlertAtPointer = (offsetX: number, offsetY: number, clientX: number, clientY: number, tapInput: TileTapInput): boolean => {
     if (state.garrisonMany.active) return false;
     const locator = persistentAlertLocatorAt(state, offsetX, offsetY);
     if (!locator) return false;
@@ -103,18 +105,18 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     state.camSubY = 0;
     state.selected = { x: deps.wrapX(locator.x), y: deps.wrapY(locator.y) };
     deps.requestViewRefresh(2, true);
-    deps.handleTileSelection(locator.x, locator.y, clientX, clientY);
+    deps.handleTileSelection(locator.x, locator.y, clientX, clientY, tapInput);
     return true;
   };
 
   // Mouse-up and touch-end commit once, giving alert locators priority over
   // the world tile underneath. Arm suppression only for the follow-up click.
-  const commitPointerSelection = (offsetX: number, offsetY: number, clientX: number, clientY: number): boolean => {
+  const commitPointerSelection = (offsetX: number, offsetY: number, clientX: number, clientY: number, tapInput: TileTapInput): boolean => {
     deps.interactionFlags.suppressNextClick = false;
-    const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY);
+    const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY, tapInput);
     if (!focusedAlert) {
       const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-      deps.handleTileSelection(wx, wy, clientX, clientY);
+      deps.handleTileSelection(wx, wy, clientX, clientY, tapInput);
     }
     deps.interactionFlags.suppressNextClick = true;
     return focusedAlert;
@@ -133,9 +135,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.interactionFlags.suppressNextClick = false;
       return;
     }
-    if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY)) return;
+    if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY, "mouse")) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
-    deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
+    deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY, "mouse");
   });
 
   let dragActive = false;
@@ -298,7 +300,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (insideCanvas) {
         const offsetX = ev.clientX - rect.left;
         const offsetY = ev.clientY - rect.top;
-        commitPointerSelection(offsetX, offsetY, ev.clientX, ev.clientY);
+        commitPointerSelection(offsetX, offsetY, ev.clientX, ev.clientY, "mouse");
       }
     }
     if (dragActive && boxSelectionMode && boxSelectionEngaged) {
@@ -447,7 +449,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
           const rect = deps.canvas.getBoundingClientRect();
           const offsetX = touchTapCandidate.x - rect.left;
           const offsetY = touchTapCandidate.y - rect.top;
-          if (!commitPointerSelection(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
+          if (!commitPointerSelection(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y, "touch")) {
             lastTapTime = now;
             lastTapLocation = { x: touchTapCandidate.x, y: touchTapCandidate.y };
           }
