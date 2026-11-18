@@ -10,6 +10,7 @@ import { TAP_SELECT_CONFIRM_ENTRY } from "./client-changelog-tap-select-confirm.
 import { REACH_BUILD_FIXES_ENTRY } from "./client-changelog-reach-build-fixes.js";
 import { AFC_SCOUT_BUTTON_ENTRY } from "./client-changelog-afc-scout-button.js";
 import { FARM_PLOT_ENTRY } from "./client-changelog-farm-plot.js";
+import { SCOUT_RECALL_ENTRY } from "./client-changelog-scout-recall.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -487,6 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   TOWN_PLOT_MARKERS_ENTRY,
   WAYSTATION_SURVEY_RIG_ENTRY,
   { ...FARM_PLOT_ENTRY, createdAt: 1795005541792, },
+  { ...SCOUT_RECALL_ENTRY, createdAt: 1795028076014, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
