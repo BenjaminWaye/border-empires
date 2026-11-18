@@ -43,6 +43,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "HIJACK_AETHER_TOWER",
   "RECRUIT_ANCILLARIES",
   "SHIP_SALVAGE_TO_COURT",
+  "ACTIVATE_WAYSTATION",
   "FORCED_ANCILLARIFICATION",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",

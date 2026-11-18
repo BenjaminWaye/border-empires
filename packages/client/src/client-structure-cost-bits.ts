@@ -9,6 +9,8 @@ export type StructureBaseKey =
   | "OBSERVATORY"
   | "SIEGE_BATTERY"
   | "HYDROGARDEN"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"

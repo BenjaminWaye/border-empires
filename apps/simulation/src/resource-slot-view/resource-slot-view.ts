@@ -30,6 +30,7 @@ import { HYDROWORKS_RADIUS, MINISTRY_HALL_RADIUS } from "@border-empires/game-do
 import { NO_REFINERY_SLOT_BONUSES, type RefinerySlotBonuses } from "../refineries/refinery-slot-supply.js";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { farmPlotFoodSupply } from "../farm-plot/farm-plot.js";
 
 export type ResourceSlotTotals = Record<SlotResource, number>;
 
@@ -159,6 +160,17 @@ export const resourceSlotSupplyForPlayer = (
           totals[req.resource] += req.count;
           onSource?.(req.resource, "CONVERTER", structureType, req.count);
         }
+      }
+    }
+
+    // Farm Plot / Hydrogarden Plot: FOOD off a plain support tile (farm-plot.ts), plus the Hydroworks bonus a Hydrogarden would get.
+    const plot = farmPlotFoodSupply(tile.economicStructure);
+    if (plot) {
+      totals.FOOD += plot.slots;
+      onSource?.("FOOD", "STRUCTURE", plot.type, plot.slots);
+      if (plot.type === "HYDROGARDEN_PLOT" && hydroworksKeys.size > 0 && withinRadiusOfAnyKey(tile.x, tile.y, hydroworksKeys, HYDROWORKS_RADIUS)) {
+        totals.FOOD += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
+        onSource?.("FOOD", "STRUCTURE_BOOST", "HYDROWORKS", HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS);
       }
     }
 
