@@ -4,17 +4,19 @@
 // leaderboard rows. Pure and derives everything from data the activity API
 // already assembles (activity-api-response.ts); no new sim-side tracking.
 //
-// Voice: matches the game's own in-fiction alert copy (see
-// packages/client/src/client-alerts/client-alerts.ts and
-// apps/simulation/src/runtime/runtime-ownership-change-sample.ts) — terse,
-// present-passive, numbers stated plainly, coordinates in parens, no
-// exclamation points, no adjectives that aren't load-bearing.
+// Voice: a war correspondent, not a spreadsheet. Active verbs ("hurled",
+// "carved off", "broke through"), numbers grouped ("18,730"), and every cost
+// paired with what it bought -- a reader should learn who is winning, not
+// just how much was spent. Still no exclamation points, and every adjective
+// must be true of the data (no "heroic" defence that lost 400 tiles).
 import type {
   ActivityApiResponse,
   DailyStoryEvent
 } from "@border-empires/game-domain";
 
+import { buildBloodiestBattle, buildFiercestAttacker, buildFiercestFighting, buildToughestTarget } from "./daily-story-combat.js";
 import { FIXED_SIGNIFICANCE, normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
+import { formatCount, lossShareClause, pluralize, story, territoryShrinkShare } from "./daily-story-text.js";
 import { buildEconomyBoom, buildManpowerSurge } from "./player-growth.js";
 
 type DailyStoryInput = Pick<
@@ -39,29 +41,16 @@ type DailyStoryInput = Pick<
 // narrate them.
 type PlayerNameResolver = (playerId: string) => string;
 
-// "1 tiles" / "1 flips" reads as broken English, and a quiet-day frontline
-// hotspot can genuinely have only one contestant (e.g. a barbarian filtered
-// out elsewhere), where "X flips between Alice" is equally wrong -- caught
-// against real staging data, not invented.
-const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
-
-type DailyStoryEventPayload = Omit<DailyStoryEvent, "participantIds" | "dashboardText">;
-
-// Keep these World Pulse-only fields off the public /api/activity JSON shape.
-// The authenticated projection reads them in-process, while existing public
-// clients and the Slack digest retain their established response contract.
-const story = (event: DailyStoryEventPayload, participantIds: string[], dashboardText: string = event.text): DailyStoryEvent =>
-  Object.defineProperties(event, {
-    participantIds: { value: participantIds, enumerable: false },
-    dashboardText: { value: dashboardText, enumerable: false }
-  }) as DailyStoryEvent;
-
-const buildBiggestDefeat = (swing: DailyStoryInput["biggestSwing24h"]): DailyStoryEvent | undefined => {
+const buildBiggestDefeat = (
+  swing: DailyStoryInput["biggestSwing24h"],
+  territoryMomentum: DailyStoryInput["territoryMomentum"]
+): DailyStoryEvent | undefined => {
   if (!swing || swing.tilesLost <= 0) return undefined;
+  const share = lossShareClause(territoryShrinkShare(swing.playerId, territoryMomentum));
   return story({
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
-    text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — the worst losses of the day.`,
+    text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — more than any other empire${share}.`,
     significance: normalizeSignificance(swing.tilesLost, SIGNIFICANCE_SCALE.tileCount),
     players: [swing.playerName]
   }, [swing.playerId]);
@@ -75,90 +64,39 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
   return story({
     type: "OPEN_WAR",
     headline: "Open War",
-    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tilesContested24h, "tile")} changed hands today.`,
+    text: `${top.playerAName} and ${top.playerBName} are locked in open war — ${pluralize(top.tilesContested24h, "tile")} changed hands today.`,
     significance: normalizeSignificance(top.tilesContested24h, SIGNIFICANCE_SCALE.tileCount),
     players: [top.playerAName, top.playerBName]
   }, [top.playerA, top.playerB]);
 };
 
-const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): DailyStoryEvent | undefined => {
-  const top = hotspots[0];
-  if (!top || top.flips24h <= 0) return undefined;
-  const flips = pluralize(top.flips24h, "flip");
-  // A hotspot can have a single contestant (the other side got filtered out
-  // upstream, e.g. an eliminated player) -- "between Alice" reads as broken
-  // as "1 flips" did, so this isn't always a two-name sentence.
-  const contested =
-    top.contestedByNames.length === 1
-      ? `${flips} involving ${top.contestedByNames[0]}`
-      : `${flips} between ${top.contestedByNames.join(" and ")}`;
-  // "manpower" is uncountable (like "gold") -- never pluralize it with an
-  // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
-  const manpowerClause = top.manpowerLost24h > 0 ? ` — ${top.manpowerLost24h} manpower lost there` : "";
-  return story({
-    type: "FIERCEST_FIGHTING",
-    headline: "Fiercest Fighting",
-    text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}${manpowerClause}.`,
-    significance: normalizeSignificance(top.flips24h, SIGNIFICANCE_SCALE.flipCount),
-    players: top.contestedByNames,
-    x: top.x,
-    y: top.y
-  }, top.contestedBy, `The fiercest fighting today involved ${contested}${manpowerClause}.`);
-};
-
-const buildBloodiestBattle = (
-  battle: DailyStoryInput["biggestBattle24h"]
-): DailyStoryEvent | undefined => {
-  if (!battle || battle.manpowerLoss <= 0) return undefined;
-  const against = battle.defenderName ?? "unclaimed land";
-  // "manpower" is uncountable (like "gold") -- never pluralize it with an
-  // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
-  return story({
-    type: "BLOODIEST_BATTLE",
-    headline: "Bloodiest Battle",
-    text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.`,
-    significance: normalizeSignificance(battle.manpowerLoss, SIGNIFICANCE_SCALE.singleBattleManpower),
-    players: battle.defenderName ? [battle.attackerName, battle.defenderName] : [battle.attackerName],
-    x: battle.x,
-    y: battle.y
-  }, battle.defenderId ? [battle.attackerId, battle.defenderId] : [battle.attackerId], `The bloodiest battle today was ${battle.attackerName} against ${against} — ${battle.manpowerLoss} manpower lost.`);
-};
-
-// Aggression, not damage taken: the player who spent the most manpower
-// attacking (barbarian-origin attacks already excluded sim-side, see
-// FiercestAttacker24h's doc comment -- they're rate-limited by cooldown, not
-// manpower, so they never actually pay for the losses they'd otherwise log).
-const buildFiercestAttacker = (fiercestAttacker24h: DailyStoryInput["fiercestAttacker24h"]): DailyStoryEvent | undefined => {
-  if (!fiercestAttacker24h || fiercestAttacker24h.manpowerSpent <= 0) return undefined;
-  return story({
-    type: "FIERCEST_ATTACKER",
-    headline: "Fiercest Attacker",
-    text: `${fiercestAttacker24h.attackerName} pressed hardest today, spending ${fiercestAttacker24h.manpowerSpent} manpower on attacks.`,
-    significance: normalizeSignificance(fiercestAttacker24h.manpowerSpent, SIGNIFICANCE_SCALE.aggregateManpower),
-    players: [fiercestAttacker24h.attackerName]
-  }, [fiercestAttacker24h.attackerId]);
-};
-
-// The complement to buildFiercestAttacker: who got attacked hardest, and
-// whether it actually cost them anything. Cross-references territoryMomentum
-// (already computed, not a new sim-side metric) for how many tiles that
-// player actually lost in the same window -- a target that cost attackers
-// dearly while losing zero ground is the more interesting story than the
-// raw manpower figure alone, hence "not a tile lost" rather than just a number.
-const buildToughestTarget = (
-  toughestTarget24h: DailyStoryInput["toughestTarget24h"],
+// When the day's heaviest defeat happened inside the day's biggest war, the
+// two were read as separate headlines ("Alden lost 475 tiles" then "Alden and
+// Freja are at war — 476 tiles changed hands") -- one story told twice, and
+// dedupeByPlayerSet can't catch it because the war names a new player. Fold
+// the loss into the war headline instead, so it reads as one escalating
+// story with a clear loser.
+//
+// tilesLost is the loser's total from every front, so the fold only happens
+// when this war is big enough to account for at least half of it --
+// otherwise a 3-tile skirmish with Freja would be blamed for 470 tiles lost
+// to Bjorn, and inherit the defeat's ranking.
+const WAR_SHARE_OF_LOSS_TO_MERGE = 0.5;
+const mergeDefeatIntoWar = (
+  war: DailyStoryEvent | undefined,
+  defeat: DailyStoryEvent | undefined,
+  swing: DailyStoryInput["biggestSwing24h"],
+  wars: DailyStoryInput["wars"],
   territoryMomentum: DailyStoryInput["territoryMomentum"]
-): DailyStoryEvent | undefined => {
-  if (!toughestTarget24h || toughestTarget24h.manpowerSpentAgainst <= 0) return undefined;
-  const tilesLost = territoryMomentum.find((entry) => entry.playerId === toughestTarget24h.defenderId)?.tilesLost24h ?? 0;
-  const outcome = tilesLost === 0 ? "not a tile lost" : `just ${pluralize(tilesLost, "tile")} lost`;
-  return story({
-    type: "TOUGHEST_TARGET",
-    headline: "Toughest Target",
-    text: `Attacking ${toughestTarget24h.defenderName} cost ${toughestTarget24h.manpowerSpentAgainst} manpower today — ${outcome}.`,
-    significance: normalizeSignificance(toughestTarget24h.manpowerSpentAgainst, SIGNIFICANCE_SCALE.aggregateManpower),
-    players: [toughestTarget24h.defenderName]
-  }, [toughestTarget24h.defenderId]);
+): { events: DailyStoryEvent[]; folded: boolean } => {
+  const topWarTiles = Math.max(0, ...wars.map((entry) => entry.tilesContested24h));
+  const warExplainsLoss = !!swing && topWarTiles >= swing.tilesLost * WAR_SHARE_OF_LOSS_TO_MERGE;
+  if (!war || !defeat || !swing || !warExplainsLoss || !war.participantIds.includes(swing.playerId)) {
+    return { events: [war, defeat].filter((event): event is DailyStoryEvent => event !== undefined), folded: false };
+  }
+  const share = lossShareClause(territoryShrinkShare(swing.playerId, territoryMomentum));
+  const text = `${war.text} ${swing.playerName} is bleeding worst: ${pluralize(swing.tilesLost, "tile")} lost, more than any empire${share}.`;
+  return { events: [story({ ...war, text, significance: Math.max(war.significance, defeat.significance) }, war.participantIds)], folded: true };
 };
 
 const buildAllianceFormed = (
@@ -173,7 +111,7 @@ const buildAllianceFormed = (
   return story({
     type: "ALLIANCE_FORMED",
     headline: "New Alliance",
-    text: `${playerA} and ${playerB} have formed an alliance.`,
+    text: `${playerA} and ${playerB} have sealed an alliance.`,
     // Fixed weight, not tile-count-derived — an alliance is dramatic
     // regardless of either empire's current size.
     significance: FIXED_SIGNIFICANCE.allianceFormed,
@@ -191,10 +129,11 @@ const buildAllianceBroken = (
   const playerA = nameFor(newest.playerA);
   const playerB = nameFor(newest.playerB);
   const brokenBy = nameFor(newest.brokenBy);
+  const betrayed = nameFor(newest.brokenBy === newest.playerA ? newest.playerB : newest.playerA);
   return story({
     type: "ALLIANCE_BROKEN",
     headline: "Alliance Broken",
-    text: `${playerA} and ${playerB}'s alliance was broken by ${brokenBy}.`,
+    text: `${brokenBy} has broken their alliance with ${betrayed}.`,
     significance: FIXED_SIGNIFICANCE.allianceBroken,
     players: [playerA, playerB]
   }, [newest.playerA, newest.playerB, newest.brokenBy]);
@@ -207,7 +146,7 @@ const buildFastestExpansion = (momentum: DailyStoryInput["territoryMomentum"]): 
   return story({
     type: "FASTEST_EXPANSION",
     headline: "Fastest Expansion",
-    text: `${top.playerName} expanded fastest today, gaining ${pluralize(top.net24h, "tile")} net.`,
+    text: `${top.playerName} grew faster than any empire today — a net ${pluralize(top.net24h, "tile")} gained.`,
     significance: normalizeSignificance(top.net24h, SIGNIFICANCE_SCALE.tileCount),
     players: [top.playerName]
   }, [top.playerId]);
@@ -219,7 +158,7 @@ const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyS
   return story({
     type: "STRONGEST_EMPIRE",
     headline: "Standing",
-    text: `${leader.name} holds the strongest empire in the realm — ${pluralize(leader.tiles, "tile")}, score ${leader.score}.`,
+    text: `${leader.name} still holds the strongest empire in the realm — ${pluralize(leader.tiles, "tile")}, score ${formatCount(leader.score)}.`,
     // Fixed low weight — this is a standing, not news; it should rarely
     // outrank an actual event of the day.
     significance: FIXED_SIGNIFICANCE.strongestEmpire,
@@ -256,13 +195,27 @@ const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[
 
 /** Builds the day's narrated highlights, ranked most-significant first. */
 export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResolver): DailyStoryEvent[] => {
-  const events = [
-    buildBiggestDefeat(input.biggestSwing24h),
+  const heaviestLoserId = input.biggestSwing24h && input.biggestSwing24h.tilesLost > 0 ? input.biggestSwing24h.playerId : undefined;
+  const toughestTarget = buildToughestTarget(input.toughestTarget24h, input.territoryMomentum, heaviestLoserId);
+  const warAndDefeat = mergeDefeatIntoWar(
     buildOpenWar(input.wars),
+    buildBiggestDefeat(input.biggestSwing24h, input.territoryMomentum),
+    input.biggestSwing24h,
+    input.wars,
+    input.territoryMomentum
+  );
+  // Once the war line reports the heaviest loser's losses, an "Under Siege"
+  // story about that same player would tell them twice (and, being a subset
+  // of the war's players, dedupe can only drop it if it ranks lower). Without
+  // a fold, Heaviest Defeat and Under Siege are both single-player stories
+  // and dedupeByPlayerSet keeps just the higher-ranked one.
+  const siegeRepeatsDefeat = warAndDefeat.folded && toughestTarget?.headline === "Under Siege" && toughestTarget.participantIds[0] === heaviestLoserId;
+  const events = [
+    ...warAndDefeat.events,
     buildFiercestFighting(input.frontlineHotspots),
     buildBloodiestBattle(input.biggestBattle24h),
-    buildFiercestAttacker(input.fiercestAttacker24h),
-    buildToughestTarget(input.toughestTarget24h, input.territoryMomentum),
+    buildFiercestAttacker(input.fiercestAttacker24h, input.territoryMomentum),
+    siegeRepeatsDefeat ? undefined : toughestTarget,
     buildAllianceFormed(input.alliances, nameFor),
     buildAllianceBroken(input.allianceBreaks, nameFor),
     buildFastestExpansion(input.territoryMomentum),

@@ -41,10 +41,12 @@ export const buildActivityDashboardSnapshot = (input: {
   combatManpowerLogEntries: readonly CombatManpowerLoss[];
   now: number;
 }): ActivityDashboardSnapshot => {
-  const fortificationTiles: FortificationRankingTile[] = [...input.tiles.values()].map((tile) => ({
-    ownerId: tile.ownerId,
-    fort: tile.fort
-  }));
+  const fortificationTiles: FortificationRankingTile[] = [];
+  const tilesOwnedBy = new Map<string, number>();
+  for (const tile of input.tiles.values()) {
+    fortificationTiles.push({ ownerId: tile.ownerId, fort: tile.fort });
+    if (tile.ownerId) tilesOwnedBy.set(tile.ownerId, (tilesOwnedBy.get(tile.ownerId) ?? 0) + 1);
+  }
   return {
     generatedAt: input.now,
     fortification: computeFortificationRanking(fortificationTiles),
@@ -52,7 +54,7 @@ export const buildActivityDashboardSnapshot = (input: {
     territoryMomentum: computeTerritoryMomentum(input.flipLogEntries, {
       excludeBarbarianId: BARBARIAN_PLAYER_ID,
       currentOwnerOf: (tileId) => input.tiles.get(tileId)?.ownerId
-    }),
+    }).map((entry) => ({ ...entry, tilesOwned: tilesOwnedBy.get(entry.playerId) ?? 0 })),
     biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries, BARBARIAN_PLAYER_ID),
     frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
     manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),

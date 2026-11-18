@@ -3,6 +3,30 @@ import { describe, expect, it } from "vitest";
 import { buildActivityDashboardSnapshot } from "./activity-dashboard-snapshot.js";
 
 describe("buildActivityDashboardSnapshot", () => {
+  // The daily story's "% of their realm" share must divide tiles lost (any
+  // owned tile, frontier included) by the same kind of count -- not the
+  // leaderboard's settled-only figure.
+  it("reports every owned tile, frontier and settled, on each territory momentum entry", () => {
+    const tile = (id: string, ownerId: string | undefined, ownershipState: string) => [id, { ownerId, ownershipState }] as const;
+    const tiles = new Map([
+      tile("1,1", "p1", "SETTLED"),
+      tile("1,2", "p1", "FRONTIER"),
+      tile("1,3", "p1", "FRONTIER"),
+      tile("2,1", "p2", "SETTLED"),
+      tile("3,1", undefined, "NEUTRAL")
+    ]) as unknown as Parameters<typeof buildActivityDashboardSnapshot>[0]["tiles"];
+    const snapshot = buildActivityDashboardSnapshot({
+      tiles,
+      players: new Map(),
+      flipLogEntries: [{ tileId: "2,1", fromOwner: "p1", toOwner: "p2", at: 0 }] as unknown as Parameters<typeof buildActivityDashboardSnapshot>[0]["flipLogEntries"],
+      combatManpowerLogEntries: [],
+      now: 1_000
+    });
+    const byPlayer = new Map(snapshot.territoryMomentum.map((entry) => [entry.playerId, entry.tilesOwned]));
+    expect(byPlayer.get("p1")).toBe(3);
+    expect(byPlayer.get("p2")).toBe(1);
+  });
+
   it("includes manpowerLost24h/biggestBattle24h computed from the combat manpower log", () => {
     const snapshot = buildActivityDashboardSnapshot({
       tiles: new Map(),
