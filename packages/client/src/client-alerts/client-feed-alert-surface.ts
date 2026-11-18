@@ -13,7 +13,9 @@
 // - It never replaces an alert raised explicitly via showCaptureAlert (a
 //   combat result, a timeout with Report bug, a hostile-muster warning) while
 //   that alert is still showing, matching client-persistent-alerts-frame.ts.
-//   It may replace an earlier mirrored alert, so the latest rejection wins.
+//   It may replace an earlier mirrored alert, so the latest rejection wins,
+//   except one with a panel button (House charges arrived): that is a one-time
+//   call to act, and a rejection a moment later must not wipe it unseen.
 // - Mirrored alerts carry fromFeed so the battle screen does not mistake one
 //   for a fight's outcome (client-hud-v2-battle-runtime.ts).
 import type { ClientState } from "../client-state/client-state.js";
@@ -36,7 +38,7 @@ const FEED_ALERT_TITLE: Record<FeedType, string> = {
 export const surfaceFeedEntryAsAlert = (state: FeedAlertSurfaceState, entry: FeedEntry, nowMs = Date.now()): void => {
   if (entry.feedOnly || (!entry.alert && entry.severity !== "warn" && entry.severity !== "error")) return;
   const current = state.captureAlert;
-  if (current && current.until > nowMs && !current.fromFeed) return;
+  if (current && current.until > nowMs && (!current.fromFeed || current.openPanel)) return;
   state.captureAlert = {
     title: entry.title ?? FEED_ALERT_TITLE[entry.type],
     detail: entry.text,

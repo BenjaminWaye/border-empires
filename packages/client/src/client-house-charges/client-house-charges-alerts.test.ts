@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
 import type { FeedEntry } from "../client-types.js";
+import { pushFeedEntry } from "../client-alerts/client-alerts.js";
 import { announceHouseChargeChoice, announceHouseChargeLosses, retryHouseChargeChoice } from "./client-house-charges-alerts.js";
 import { houseChargesPanelHtml } from "./client-house-charges-panel.js";
 
@@ -85,6 +86,15 @@ describe("House Charge keep-choice reminder", () => {
     expect(state.feed[0]).toMatchObject({ title: "House charges arrived", openPanel: "charges" });
     expect(retryHouseChargeChoice(state as never, 74_000)).toBe(false); // once only
     expect(retryHouseChargeChoice({ ...feedState(), houseCharges: { ...deal, dealtAt: 80_000 } } as never, 95_000)).toBe(false); // window closed
+  });
+
+  // Review of #2845: the alert is marked shown once, so a rejection pushed a moment later must not replace it unseen.
+  it("is not replaced by a later warning while it is showing", () => {
+    const deal = { ...three, dealtAt: 60_000, choiceClosesAt: 90_000 };
+    const state: { captureAlert?: { title: string } } & ReturnType<typeof feedState> = feedState();
+    expect(announceHouseChargeChoice(state as never, deal, 61_000)).toBe(true);
+    pushFeedEntry(state as never, { title: "Expand rejected", text: "Out of reach", type: "error", severity: "error", at: 61_200 });
+    expect(state.captureAlert).toMatchObject({ title: "House charges arrived", actionLabel: "Manage charges", openPanel: "charges" });
   });
 
   it("stays quiet once the choice has closed or there is nothing to choose", () => {

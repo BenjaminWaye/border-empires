@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { relayBeaconStartTile, startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";

@@ -12,6 +12,7 @@ import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { REACH_HINT } from "./client-hud-v2-hints.js";
+import { manifestNodeState } from "./client-hud-v2-manifest.js";
 
 export type NextStepInput = {
   devBusy: number;
@@ -113,6 +114,10 @@ export const nextStepsHtml = (steps: readonly NextStep[]): string => {
 export const nextStepsForState = (state: ClientState, slots: { busy: number; queued: number }, nowMs: number): NextStep[] => {
   if (slots.busy > 0 || slots.queued > 0) return [];
   const refillAt = nextManpowerRefillForPlayer(state.me, nowMs);
+  const owned = new Set(state.techIds);
+  const choices = new Set(state.techChoices);
+  // Every Manifest shares one price, but only offer it while one can be commissioned (not all locked).
+  const canCommission = state.techCatalog.some((t) => manifestNodeState(t, owned, choices) === "available");
   return nextSteps({
     devBusy: slots.busy,
     queued: slots.queued,
@@ -122,6 +127,6 @@ export const nextStepsForState = (state: ClientState, slots: { busy: number; que
     nextBatchInMs: refillAt === undefined ? undefined : refillAt - nowMs,
     gold: state.gold,
     netPerMinute: empireCoinIncome(state).netPerMinute,
-    nextManifestCost: state.techCatalog.find((t) => !state.techIds.includes(t.id))?.requirements.gold
+    nextManifestCost: canCommission ? state.techCatalog.find((t) => !owned.has(t.id))?.requirements.gold : undefined
   });
 };

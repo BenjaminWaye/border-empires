@@ -5,7 +5,8 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites, isRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
-import { focusCamera, type HudV2Deps } from "./client-hud-v2-context.js";
+import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
+import { focusCamera, screenCentre, type HudV2Deps } from "./client-hud-v2-context.js";
 
 /** Where placement starts: a buildable tile, preferring the site that adds the most new reach. */
 export const relayBeaconStartTile = (state: Parameters<typeof resolveMyReach>[0] & Pick<ClientState, "tiles" | "me">): { x: number; y: number } | undefined => {
@@ -21,8 +22,12 @@ export const startRelayBeaconPlacement = (deps: HudV2Deps): boolean => {
   const at = relayBeaconStartTile(deps.state);
   if (!at) return false;
   deps.state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: at.x, y: at.y };
+  // No map tap started this, so anchor the confirm prompt on the tile the camera is about to centre (camY is
+  // shifted down by the same row offset, in tiles of `zoom` px, in both renderers) rather than the last tap.
+  const rowOffset = measuredCompactFocusRowOffset(deps.state.zoom);
   focusCamera(deps, at.x, at.y);
-  deps.actionFlow.renderPlacementOverlay?.();
+  const centre = screenCentre();
+  deps.actionFlow.renderPlacementOverlay?.({ x: centre.x, y: centre.y - rowOffset * deps.state.zoom });
   deps.renderHud();
   return true;
 };

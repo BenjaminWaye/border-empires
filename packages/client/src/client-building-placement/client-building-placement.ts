@@ -24,7 +24,7 @@ export type BuildingPlacementFlowDeps = {
   /** Confirmed Relay Beacon on a tile not settled yet: garrison (and expand) first, then build. See client-relay-beacon-placement.ts. */
   startRelayBeaconChain: (tile: Tile) => void;
   /** The big confirm prompt at the tapped tile (client-tap-confirm-button.ts); shown for Relay Beacon placement. */
-  confirmPrompt?: Pick<TapConfirmButton, "offer" | "hide">;
+  confirmPrompt?: Pick<TapConfirmButton, "offer" | "hide"> & Partial<Pick<TapConfirmButton, "notePoint">>;
 };
 
 export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPlacementFlowDeps) => {
@@ -95,7 +95,11 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     cancelBuildingPlacement();
   };
 
-  const renderPlacementOverlay = (): void => {
+  /**
+   * `anchor` (client px) places the confirm prompt when placement starts without a map tap, e.g. from the
+   * HUD tracker; otherwise the prompt stays at the last tap, which is the placement tile.
+   */
+  const renderPlacementOverlay = (anchor?: { x: number; y: number }): void => {
     if (!state.buildingPlacement.active) {
       removePlacementOverlay();
       return;
@@ -108,6 +112,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     deps.placementOverlayEl.style.display = "flex";
     if (st !== "RELAY_BEACON") return;
     const valid = isPlacementValidForTile(placementTile);
+    if (anchor) deps.confirmPrompt?.notePoint?.(anchor.x, anchor.y);
     deps.confirmPrompt?.offer(valid ? { label: "Build Relay Beacon", cost } : { label: "Pick a highlighted tile", disabled: true }, confirmBuildingPlacement);
   };
 
