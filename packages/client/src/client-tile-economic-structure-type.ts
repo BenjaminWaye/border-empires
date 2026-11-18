@@ -7,6 +7,8 @@ export type ClientTileEconomicStructure = {
     | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
+    | "FARM_PLOT"
+    | "HYDROGARDEN_PLOT"
     | "TITANIUM_REFINERY"
     | "UMBRITE_REFINERY"
     | "CRYSTAL_REFINERY"

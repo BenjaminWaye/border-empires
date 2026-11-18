@@ -38,6 +38,8 @@ export type EconomicStructureType =
   | import("./resource-networks/resource-networks.js").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"

@@ -6,15 +6,16 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
 import { refineryTileActions, type RefineryActionDeps } from "../client-refineries/refinery-tile-actions.js";
+import { farmPlotTileActions } from "../client-farm-plot/farm-plot-tile-actions.js";
 
 type ResourceBuild = { type: EconomicStructureType; id: TileActionDef["id"]; name: string; tech: string; requirement: string; effect: string };
 export interface ResourceBuildDeps extends RefineryActionDeps {
   buildDetailTextForAction: (id: TileActionDef["id"], tile: Tile) => string | undefined;
 }
 
-/** The deposit's own build row (network building, Hydrogarden), then the town-refinery rows (refinery-tile-actions.ts). */
+/** The deposit's own build row (network building, Hydrogarden), then the town-refinery rows (refinery-tile-actions.ts), then the Farm Plot rows (farm-plot-tile-actions.ts). */
 export function resourceBuildActions(state: ClientState, tile: Tile, blocked: boolean, detailSuffix: string, deps: ResourceBuildDeps): TileActionDef[] {
-  return [...depositBuildActions(state, tile, blocked, detailSuffix, deps), ...refineryTileActions(state, tile, deps)];
+  return [...depositBuildActions(state, tile, blocked, detailSuffix, deps), ...refineryTileActions(state, tile, deps), ...farmPlotTileActions(state, tile, deps)];
 }
 
 function depositBuildActions(state: ClientState, tile: Tile, blocked: boolean, detailSuffix: string, deps: ResourceBuildDeps): TileActionDef[] {

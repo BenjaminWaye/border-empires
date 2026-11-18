@@ -10,6 +10,8 @@ import type { SlotResource } from "../structure-slots/structure-slots.js";
  *   same-tile Hydrogarden, a radius HYDROWORKS, or a town refinery / its
  *   booster processing a deposit field, e.g. TITANIUM_REFINERY / TITANIUM_SMELTER).
  * CONVERTER: a SYNTHESIZE-mode converter (id = structure type).
+ * STRUCTURE: a structure that supplies slots off a resource tile (id = structure
+ *   type, e.g. FARM_PLOT / HYDROGARDEN_PLOT).
  * TECH: a tech bonus (id = tech id, e.g. "agriculture" for the fish bonus).
  * UPGRADE: an installed domain / AFC upgrade (id = domain or upgrade id).
  * WAYSTATION, FOUNDRY_HEART, RELIC: those effects (id = "").
@@ -19,6 +21,7 @@ export type ResourceSlotSourceKind =
   | "TILE"
   | "STRUCTURE_BOOST"
   | "CONVERTER"
+  | "STRUCTURE"
   | "TECH"
   | "UPGRADE"
   | "WAYSTATION"
