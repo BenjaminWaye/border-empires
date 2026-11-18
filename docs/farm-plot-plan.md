@@ -1,6 +1,6 @@
 # Farm Plot: food without exploring
 
-Status: proposal (not accepted; nothing built)
+Status: proposal (core numbers decided 2026-11-18; name and fiction open; nothing built)
 
 ## 1. Problem
 
@@ -92,7 +92,30 @@ tile holds one structure.
 4. Later, commission Hyperfeed (40 coin) and upgrade the plot. This gives more
    FOOD for a Census Hall, Mine and so on.
 
-## 3. Decisions needed (owner)
+## 3. Decisions
+
+### 3.1 Answered by the owner (2026-11-18)
+
+| Question | Decision |
+|---|---|
+| Player with no town | **Town first.** Farm Plots go only on a town's support ring, never around the AFC. Capturing the nearby town is the accepted first step. |
+| Yield | **1 FOOD slot per plot**, the same as a FARM tile. |
+| Price | **150 manpower**, the same as a Manufactory. |
+| Upgrade to Hydrogarden | **Full Hydrogarden price** (80 manpower), as fort upgrades charge the new tier's full price. An upgraded plot then gives 3, like a FARM tile with a Hydrogarden. |
+
+What these mean in practice (arithmetic, not a balance judgement):
+
+- **Feeding a bare Town (4 FOOD):**
+  - with plain plots: 4 plots, 600 manpower and half of a Town's 8 support
+    tiles;
+  - with upgraded plots: 2 plots, 2 × (150 + 80) = 460 manpower, 2 tiles, once
+    Hyperfeed is commissioned.
+- **Town plus one Manufactory (5 FOOD):** 2 upgraded plots give 6, using 3 of
+  the 8 support tiles in total.
+
+Still open: the name and fiction (§5), and AI support (default below).
+
+### 3.2 Questions as asked (kept for the record)
 
 1. **What if the player has no town?** A new empire starts with only its AFC
    (towns are world-generated, all neutral at season start;
