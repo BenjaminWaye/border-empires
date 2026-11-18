@@ -7,7 +7,7 @@
 // reach on the chosen tile, the label shows the cost, and nothing is spent
 // until the player presses Confirm.
 
-import { FRONTIER_CLAIM_COST, SETTLE_COST, tileKey } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, frontierBuildBlockedByReach, tileKey } from "@border-empires/shared";
 import { canAffordCost } from "../client-constants.js";
 import { enqueueRelayBeaconFrontierWaypoint, relayBeaconFrontierBlockMessage } from "../client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -30,7 +30,9 @@ export const isRelayBeaconPlacementTarget = (state: ClientState, tile: Tile | un
   const reach = resolveMyReachCached(state);
   if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER") {
     const clear = tile.terrain === "LAND" && !tile.optimisticPending && !tile.economicStructure && !tile.siegeBattery && !tile.observatory;
-    return clear && reach.has(tileKey(tile.x, tile.y)); // the menu disables the frontier beacon outside reach
+    const inOwnReach = reach.has(tileKey(tile.x, tile.y));
+    // Same shared rule as the menu: towns, docks and captured buildings garrison (and so build) outside reach too.
+    return clear && !frontierBuildBlockedByReach(tile, "RELAY_BEACON", { inOwnReach, inAnyReach: inOwnReach || Boolean(tile.reachOwnerId) });
   }
   return isRelayBeaconSiteCandidate(tile, state.me, reach);
 };

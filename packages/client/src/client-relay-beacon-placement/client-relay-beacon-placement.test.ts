@@ -35,6 +35,13 @@ describe("Relay Beacon placement targets", () => {
     expect(isRelayBeaconPlacementTarget(state, state.tiles.get("3,2"))).toBe(false);
   });
 
+  // Review of PR #2848: the menu offers the beacon on an owned FRONTIER dock/town outside reach (shared
+  // frontierBuildBlockedByReach exemption); placement must agree or the offered beacon dead-ends at Confirm.
+  it("accepts an owned FRONTIER dock outside reach, exactly as the menu does", () => {
+    const { state } = setup([{ x: 8, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", dockId: "dock-1" }], []);
+    expect(isRelayBeaconPlacementTarget(state, state.tiles.get("8,8"))).toBe(true);
+  });
+
   it("a re-tap of the previewed tile is a confirm; a tap elsewhere is a move", () => {
     const { state } = setup([], []);
     state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 3, y: 1 };

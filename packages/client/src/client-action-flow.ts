@@ -148,7 +148,7 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { confirmPromptOffer, confirmTapAction, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapAction, confirmTapActionForTile, confirmTapReady, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { createSheetDismissDisarm } from "./client-tile-interaction/client-tap-confirm-dismiss.js";
 import { createTapConfirmButton } from "./client-tap-confirm-button/client-tap-confirm-button.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
@@ -688,7 +688,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
   };
 
-  const tapConfirm = createTapConfirm();
+  const tapConfirm = createTapConfirm(() => `${state.camX},${state.camY},${state.zoom}`); // a pan or zoom lapses the arm
   const confirmButton = createTapConfirmButton(); // the big confirm prompt at the tapped tile
   const sheetDismiss = createSheetDismissDisarm({ win: typeof window === "undefined" ? undefined : window, disarm: tapConfirm.disarm });
   const hideTileActionMenu = (): void => {
@@ -1399,7 +1399,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
-    if (state.buildingPlacement.active && isRelayBeaconPlacementRetap(state, wx, wy)) return confirmBuildingPlacement(); // re-tapping the previewed tile confirms
+    if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement(); // re-tapping a valid previewed tile confirms
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderPlacementOverlay(); renderHud(); return; }
     // Local reach approximation (client-reach-overlay.ts MOCK-DATA SEAM); only logged by the tile-sync debug below.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
@@ -1492,10 +1492,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queueAdjacentExpandClaim(to.x, to.y);
       return;
     }
-    // A second tap fires the sheet's claim/attack, never against an ally or truce partner (that would break the pact).
+    // A second tap fires the sheet's claim/attack: not on own land (Garrison), not against an ally or truce partner.
     const pactHolder = isTileOwnedByAlly(to) || Boolean(to.ownerId && activeTruceWithPlayer(to.ownerId));
-    const confirmAction = pactHolder ? undefined : confirmTapAction(menuActionsForSingleTile(to));
-    if (confirmTap && confirmAction) {
+    const confirmAction = confirmTapActionForTile(menuActionsForSingleTile(to), { ownTile: to.ownerId === state.me, pactHolder });
+    if (confirmTap && confirmAction && confirmTapReady(confirmAction)) {
       handleTileAction(confirmAction.id);
       renderHud();
       return;

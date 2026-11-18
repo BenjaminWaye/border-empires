@@ -304,12 +304,14 @@ describe("client action flow regressions", () => {
   it("arms the tapped tile and offers the big confirm prompt instead of spending on the first tap", () => {
     const source = actionFlowSource();
     expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy);");
-    expect(source).toContain("if (confirmTap && confirmAction) {\n      handleTileAction(confirmAction.id);");
+    expect(source).toContain("if (confirmTap && confirmAction && confirmTapReady(confirmAction)) {\n      handleTileAction(confirmAction.id);");
     expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(confirmAction && (() => confirmPromptOffer(");
     // An action button disarms, so a later tap on the same tile can't fire it again.
     expect(source).toContain("tapConfirm.disarm(); // an action button ran");
-    // Never a one-tap attack on an ally or truce partner (it would break the pact).
-    expect(source).toContain("const confirmAction = pactHolder ? undefined : confirmTapAction(menuActionsForSingleTile(to));");
+    // Never a one-tap attack on an ally or truce partner, never a Garrison on own land (review of #2848).
+    expect(source).toContain("const confirmAction = confirmTapActionForTile(menuActionsForSingleTile(to), { ownTile: to.ownerId === state.me, pactHolder });");
+    // A pan or zoom between the taps lapses the arm (review of #2848).
+    expect(source).toContain("const tapConfirm = createTapConfirm(() => `${state.camX},${state.camY},${state.zoom}`);");
   });
 
   it("routes Build Relay Beacon on neutral land through placement (reach preview + confirm) instead of spending from the menu", () => {
@@ -317,6 +319,11 @@ describe("client action flow regressions", () => {
     const branch = source.slice(source.indexOf('if (actionId === "build_relay_beacon_frontier") {'), source.indexOf('if (actionId === "remove_structure") {'));
     expect(branch).toContain('triggerBuildForStructureType("RELAY_BEACON", selected)');
     expect(branch).not.toContain("enqueueRelayBeaconFrontierWaypoint");
+  });
+
+  // Review of #2848: re-tapping an invalid (red) placement tile used to confirm, fail and drop the whole placement.
+  it("only a valid previewed tile confirms Relay Beacon placement on a re-tap", () => {
+    expect(actionFlowSource()).toContain("if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement();");
   });
 
   it("disarms when the tile sheet is dismissed, and reads the confirm before the tap's own sheet close", () => {

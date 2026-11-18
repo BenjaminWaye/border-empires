@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmPromptOffer, confirmTapActionId, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapActionForTile, confirmTapActionId, confirmTapReady, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction.js";
 
 const adjacentNeutral = { isLand: true, isFogged: false, hasFrontierOrigin: true, isNeutral: true };
 
@@ -57,6 +57,32 @@ describe("createTapConfirm (select first, then confirm)", () => {
     tap.arm(4, 5);
     tap.disarm();
     expect(tap.take(4, 5)).toBe(false);
+  });
+});
+
+// Review of PR #2848 regressions.
+describe("tap confirm guards", () => {
+  it("a pan or zoom after the first tap lapses the arm: the next tap on the tile selects, never spends", () => {
+    let view = "10,10,24";
+    const tap = createTapConfirm(() => view);
+    tap.arm(4, 5);
+    view = "12,10,24"; // the player dragged the map (a pan never reaches take())
+    expect(tap.take(4, 5)).toBe(false);
+    tap.arm(4, 5);
+    expect(tap.take(4, 5)).toBe(true); // unmoved view: the second tap still confirms
+  });
+
+  it("never fires Garrison (settle_land) on your own land, nor anything against a pact holder", () => {
+    const garrison = [{ id: "settle_land" as const }];
+    expect(confirmTapActionForTile(garrison, { ownTile: true, pactHolder: false })).toBeUndefined();
+    expect(confirmTapActionForTile([{ id: "launch_attack" as const }], { ownTile: false, pactHolder: true })).toBeUndefined();
+    expect(confirmTapActionForTile(garrison, { ownTile: false, pactHolder: false })?.id).toBe("settle_land"); // Expand To on neutral land
+  });
+
+  it("does not fire an attack whose preview (win chance, cost) is still loading", () => {
+    expect(confirmTapReady({ loading: true })).toBe(false);
+    expect(confirmTapReady({})).toBe(true);
+    expect(confirmTapReady(undefined)).toBe(false);
   });
 });
 

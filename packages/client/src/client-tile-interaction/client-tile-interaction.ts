@@ -29,21 +29,26 @@ export type TapConfirm = {
   armed: () => { x: number; y: number } | undefined;
 };
 
-export const createTapConfirm = (): TapConfirm => {
-  let armedTile: { x: number; y: number } | undefined;
+/**
+ * `viewKey` describes the camera (pan + zoom). A pan, zoom or double-tap zoom
+ * never reaches take(), so the arm also lapses when the view changed since it
+ * was set: a tile looked at again after moving the map selects, never spends.
+ */
+export const createTapConfirm = (viewKey: () => string = () => ""): TapConfirm => {
+  let armedTile: { x: number; y: number; view: string } | undefined;
   return {
     take: (x, y) => {
-      const hit = armedTile !== undefined && armedTile.x === x && armedTile.y === y;
+      const hit = armedTile !== undefined && armedTile.x === x && armedTile.y === y && armedTile.view === viewKey();
       armedTile = undefined;
       return hit;
     },
     arm: (x, y) => {
-      armedTile = { x, y };
+      armedTile = { x, y, view: viewKey() };
     },
     disarm: () => {
       armedTile = undefined;
     },
-    armed: () => armedTile
+    armed: () => (armedTile ? { x: armedTile.x, y: armedTile.y } : undefined)
   };
 };
 
@@ -55,6 +60,19 @@ const CONFIRM_TAP_ACTION_IDS: ReadonlySet<string> = new Set(["settle_land", "exp
 /** The claim or attack a confirming second tap fires: the first enabled one on the tile's sheet. */
 export const confirmTapAction = <A extends Pick<TileActionDef, "id" | "disabled">>(actions: readonly A[]): A | undefined =>
   actions.find((action) => CONFIRM_TAP_ACTION_IDS.has(action.id) && !action.disabled);
+
+/**
+ * The action a second tap on this tile may fire. Never on your own land: there
+ * "settle_land" is the Garrison button, which spends and keeps its own button.
+ * Never against an ally or truce partner (that would break the pact).
+ */
+export const confirmTapActionForTile = <A extends Pick<TileActionDef, "id" | "disabled">>(
+  actions: readonly A[],
+  guard: { ownTile: boolean; pactHolder: boolean }
+): A | undefined => (guard.ownTile || guard.pactHolder ? undefined : confirmTapAction(actions));
+
+/** A confirming tap fires only once the cost is known: never an attack whose preview is still loading. */
+export const confirmTapReady = (action: Pick<TileActionDef, "loading"> | undefined): boolean => action !== undefined && !action.loading;
 
 export const confirmTapActionId = (actions: readonly Pick<TileActionDef, "id" | "disabled">[]): TileActionDef["id"] | undefined =>
   confirmTapAction(actions)?.id;
