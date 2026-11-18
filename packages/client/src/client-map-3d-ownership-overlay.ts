@@ -36,7 +36,7 @@ const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
 const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
 // Small clearance above the dome's own surface height so the two coincident
 // meshes don't z-fight.
-const HILL_DRAPE_CLEARANCE = 0.012;
+export const HILL_DRAPE_CLEARANCE = 0.012;
 // Hills are a minority terrain type by world-gen design (see
 // client-map-3d-hills.ts) -- budgeting for every visible tile being a hill
 // would multiply this buffer ~12x for no realistic scenario. This cap is
