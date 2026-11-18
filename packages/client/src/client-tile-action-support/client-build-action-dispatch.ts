@@ -19,6 +19,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "HYDROGARDEN";
     case "build_hydroworks":
       return "HYDROWORKS";
+    case "build_farm_plot":
+      return "FARM_PLOT";
+    case "build_hydrogarden_plot":
+      return "HYDROGARDEN_PLOT";
     case "build_manufactory":
       return "MANUFACTORY";
     case "build_incubation_engine":
@@ -141,6 +145,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_umbrite_weapons_factory":
       return "leatherworking";
     case "build_hydrogarden":
+    case "build_hydrogarden_plot":
       return "agriculture";
     case "build_hydroworks":
       return "irrigation";

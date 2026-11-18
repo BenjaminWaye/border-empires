@@ -30,7 +30,8 @@ export const hideTechLockedTileAction = (
 // locked, naming the tech and linking to it instead of vanishing.
 const SHOWN_WHEN_TECH_LOCKED: ReadonlySet<TileActionDef["id"]> = new Set<TileActionDef["id"]>([
   ...NETWORK_RESOURCES.map(networkBuildAction),
-  "build_hydrogarden"
+  "build_hydrogarden",
+  "build_hydrogarden_plot"
 ]);
 
 /**

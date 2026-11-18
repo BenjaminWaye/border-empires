@@ -91,6 +91,12 @@ body.hud-v2-screen-manifest .v2s-backdrop { background: rgba(9, 8, 6, 0.9); back
 .v2s-back kbd { padding: 0 4px; border: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 10px; font-weight: 400; color: var(--v2-muted); }
 .v2s-title { margin: 0; font-family: var(--v2-display); font-size: 24px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .v2s-head-right { margin-left: auto; }
+/* One-line "what is this" under each screen and panel title (client-hud-v2-hints.ts): visible on every device. */
+.v2s-hint { flex: 0 1 auto; min-width: 0; font-size: 12px; color: var(--v2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2s-hint:empty { display: none; }
+.v2c-head .v2s-hint { flex: 1 1 0; margin: 0 10px; }
+#side-panel .panel-hint { margin: 2px 0 0; font-size: 12px; color: var(--v2-muted); }
+.hud-v2-slots-hint { padding: 2px 10px 4px; }
 .v2s-body { position: fixed; top: 192px; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; min-height: 0; }
 /* AFC upgrades fill the frame like the other screens. */
 body.hud-v2-screen-afc #side-panel {

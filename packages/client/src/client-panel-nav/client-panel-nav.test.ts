@@ -83,4 +83,23 @@ describe("renderSidePanel", () => {
     renderSidePanel({ ...state, activePanel: null }, deps);
     expect(sidePanelEl.classList.contains("settings-panel-active")).toBe(false);
   });
+
+  // Owner 2026-11-18: hover titles don't exist on a phone, so each panel says what it is in visible text.
+  it("shows a one-line explanation under the title of the manpower, Integrity and House Charges panels", () => {
+    const head = document.createElement("div");
+    head.innerHTML = '<h3 id="panel-title">Panel</h3><p id="panel-hint" class="panel-hint" hidden></p>';
+    const panelTitleEl = head.querySelector<HTMLElement>("#panel-title")!;
+    const hint = head.querySelector<HTMLElement>("#panel-hint")!;
+    const deps = { sidePanelBodyEl: document.createElement("div"), sidePanelEl: document.createElement("aside"), panelTitleEl };
+    const base = { techTreeExpanded: false, domainDetailOpen: false };
+    renderSidePanel({ ...base, activePanel: "manpower" }, deps);
+    expect(hint.hidden).toBe(false);
+    expect(hint.textContent).toBe("Expand, garrison, build, attack · refills every 4h");
+    renderSidePanel({ ...base, activePanel: "defensibility" }, deps);
+    expect(hint.textContent).toContain("Compact garrisoned land");
+    renderSidePanel({ ...base, activePanel: "charges" }, deps);
+    expect(hint.textContent).toContain("Secret goals");
+    renderSidePanel({ ...base, activePanel: "settings" }, deps);
+    expect(hint.hidden).toBe(true);
+  });
 });

@@ -1,12 +1,4 @@
-/**
- * Regression test: a dormant waystation sitting next to a settled town used to
- * be free-claimed by tickTerritoryAutomation without ever activating, leaving it
- * "Dormant" under its owner forever (activation is one-shot and only the
- * lock-resolution and reach-auto-claim paths called it). The same tick now
- * activates it. The boot sweep must NOT activate an already-owned dormant
- * waystation: a restart used to erase activation (see snapshot-compaction.ts),
- * so the sweep re-rolled every owned waystation's reward on every deploy.
- */
+/** Human waystations stay collectible after territory automation claims their tile. */
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
@@ -65,7 +57,7 @@ const waystationAt = (runtime: SimulationRuntime) =>
   (runtime as unknown as { state: { tiles: Map<string, DomainTileState> } }).state.tiles.get("51,50")!;
 
 describe("tickTerritoryAutomation waystation activation", () => {
-  it("converts a resource waystation it auto-claims and streams the new site", () => {
+  it("keeps an auto-claimed human waystation waiting for explicit activation", () => {
     const runtime = buildRuntime(undefined);
     expect(waystationAt(runtime).waystation?.activated).toBe(false);
     const events: SimulationEvent[] = [];
@@ -78,15 +70,9 @@ describe("tickTerritoryAutomation waystation activation", () => {
       random.mockRestore();
     }
 
-    expect(waystationAt(runtime)).toMatchObject({
-      ownerId: PLAYER_ID,
-      resource: "FARM",
-      waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "RESOURCE_TILE" }
-    });
-    expect(events.flatMap((event) => event.eventType === "TILE_DELTA_BATCH" ? event.tileDeltas : [])).toContainEqual(
-      expect.objectContaining({ x: 51, y: 50, resource: "FARM", waystationJson: expect.stringContaining('"activated":true') })
-    );
-    expect(runtime.exportState().tiles).toContainEqual(expect.objectContaining({ x: 51, y: 50, resource: "FARM" }));
+    expect(waystationAt(runtime)).toMatchObject({ ownerId: PLAYER_ID, waystation: { activated: false } });
+    expect(waystationAt(runtime).resource).toBeUndefined();
+    expect(events.some(event => event.eventType === "DOMAIN_UPDATE" && event.payloadJson?.includes('WAYSTATION'))).toBe(false);
   });
 
   it("does not re-roll an already-owned dormant waystation on the first tick (regression: +1000 manpower per deploy)", () => {

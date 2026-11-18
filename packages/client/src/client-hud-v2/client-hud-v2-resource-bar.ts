@@ -4,6 +4,7 @@
 
 import { formatCoinPerDay, spendableCoin, type SlotResource } from "@border-empires/shared";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
+import { INTEGRITY_HINT } from "./client-hud-v2-hints.js";
 
 export const NET_COIN_TITLE = "Net coin per day: income less coin upkeep";
 
@@ -78,7 +79,7 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
   }).join("");
   const integrity = input.integrityPct === undefined
     ? ""
-    : chip("integrity", "Integrity", `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`);
+    : chip("integrity", "Integrity", `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`, undefined, INTEGRITY_HINT);
   const gear = `<button type="button" class="hud-v2-gear" data-hud-v2-open="settings" aria-label="Settings" title="Settings · Esc"><span aria-hidden="true">⚙</span><img src="/icons/nav/settings.svg" alt="" draggable="false"></button>`;
   return `${coin}${slots}<span class="hud-v2-sep" aria-hidden="true"></span>${integrity}${gear}`;
 };

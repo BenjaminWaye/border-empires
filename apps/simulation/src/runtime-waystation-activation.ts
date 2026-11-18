@@ -250,8 +250,8 @@ const lowestBalanceWaystationResource = (player: DomainPlayer): SlotResource => 
 };
 
 /**
- * Activates a dormant waystation the first time a player expands onto its
- * tile: flips it to activated and grants exactly ONE of six possible
+ * Activates a dormant waystation on explicit collection (or AI capture).
+ * Flips it to activated and grants exactly ONE of six possible
  * effects, chosen uniformly at random via the injected `random`
  * (defaults to Math.random) --
  *  0. VISION: a permanent map-vision reveal (same coverage-tracker plumbing
@@ -275,7 +275,8 @@ export const activateWaystationAt = (
   x: number,
   y: number,
   playerId: string,
-  commandId: string
+  commandId: string,
+  automatic = false
 ): void => {
   const tile = input.tiles.get(targetKey);
   if (!tile?.waystation || tile.waystation.activated) return;
@@ -286,7 +287,7 @@ export const activateWaystationAt = (
   // waystation would burn its one activation with no effect applied at all,
   // permanently.
   const player = input.players.get(playerId);
-  if (!player) return;
+  if (!player || (automatic && !player.isAi)) return;
 
   const random = input.random ?? Math.random;
   const effectIndex = Math.floor(random() * WAYSTATION_EFFECTS.length) % WAYSTATION_EFFECTS.length;

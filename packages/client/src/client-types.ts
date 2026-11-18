@@ -16,6 +16,8 @@ export type OptimisticStructureKind =
   | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"
@@ -405,6 +407,8 @@ export type FeedEntry = {
   focusX?: number;
   focusY?: number;
   actionLabel?: string;
+  /** The alert card's action opens this side panel instead of centring the map (e.g. "Manage charges"). */
+  openPanel?: "charges";
   unread?: boolean;
   /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
   feedOnly?: boolean;
