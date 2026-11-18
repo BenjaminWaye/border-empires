@@ -19,8 +19,10 @@ import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-l
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
 import { STALE_WAYSTATION_CARD_ENTRY } from "./client-changelog-stale-waystation-card.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
+import { TOWN_PLOT_PICK_ENTRY } from "./client-changelog-town-plot-pick.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
+  { ...TOWN_PLOT_PICK_ENTRY, createdAt: 1795034895049 },
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
   { ...HUD_NEXT_STEPS_ENTRY, createdAt: 1794999401321, },
   { ...GUIDE_EVERY_SEASON_ENTRY, createdAt: 1794999821162, },

@@ -2,6 +2,7 @@
 // contract, which screen is open, and a region writer that only touches the
 // DOM when the HTML changed (keeping list scroll positions across rewrites).
 
+import { clearTownPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 import type { createClientActionFlow } from "../client-action-flow.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -109,6 +110,7 @@ export const setScreen = (id: HudV2ScreenId, skeletonHtml: string): void => {
   if (screen.id === id) return;
   const host = document.getElementById(SCREEN_HOST_ID);
   if (!host) return;
+  clearTownPlotPlacement(); // a town plot pick belongs to the town screen this replaces
   screen.id = id;
   host.innerHTML = skeletonHtml;
   written.clear();
@@ -117,6 +119,7 @@ export const setScreen = (id: HudV2ScreenId, skeletonHtml: string): void => {
 
 export const clearScreen = (): void => {
   if (!screen.id) return;
+  clearTownPlotPlacement();
   screen.id = null;
   const host = document.getElementById(SCREEN_HOST_ID);
   if (host) host.innerHTML = "";
