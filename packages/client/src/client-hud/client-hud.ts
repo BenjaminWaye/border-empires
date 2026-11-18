@@ -214,7 +214,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
     dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
-    renderMapLoadingCopy(dom, loadingView, state.mapLoadStartedAt);
+    renderMapLoadingCopy(dom, loadingView);
     const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showDiagnostics;
     dom.mapLoadingActionsEl.dataset.visible = anyAction ? "true" : "false";
     dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";

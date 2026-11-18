@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 import { LOGIN_LORE_QUOTES, loginLoreQuoteForView, pickLoginLoreQuote, renderMapLoadingCopy } from "./client-login-lore-quotes.js";
@@ -16,18 +16,29 @@ const calmView: MapLoadingView = {
   tone: "normal"
 };
 
-const memoirText = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../../../../docs/lore/duke-memoir.md"), "utf8")
-  .replace(/\s+/g, " ")
-  .toLowerCase();
+const loreDoc = (name: string): string =>
+  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../../../../docs/lore", name), "utf8").replace(/\s+/g, " ");
+const memoirText = loreDoc("duke-memoir.md");
+const worldBibleText = loreDoc("galactic-lore.md");
+
+// Verbatim apart from a capitalised first letter and the closing full stop.
+const expectQuotedFrom = (sourceText: string, quoteText: string): void => {
+  const body = quoteText.replace(/\.$/, "");
+  const sentenceStart = body.charAt(0).toLowerCase() + body.slice(1);
+  expect(sourceText.includes(body) || sourceText.includes(sentenceStart), quoteText).toBe(true);
+};
 
 describe("LOGIN_LORE_QUOTES", () => {
   it("quotes the Sable memoir verbatim", () => {
     const sableQuotes = LOGIN_LORE_QUOTES.filter((quote) => quote.source.includes("Sable"));
     expect(sableQuotes.length).toBeGreaterThan(0);
-    for (const quote of sableQuotes) {
-      const body = quote.text.replace(/\.$/, "").toLowerCase();
-      expect(memoirText, quote.text).toContain(body);
-    }
+    for (const quote of sableQuotes) expectQuotedFrom(memoirText, quote.text);
+  });
+
+  it("quotes the Writ of Sectors verbatim from the world bible", () => {
+    const writQuotes = LOGIN_LORE_QUOTES.filter((quote) => quote.source === "The Writ of Sectors");
+    expect(writQuotes.length).toBeGreaterThan(0);
+    for (const quote of writQuotes) expectQuotedFrom(worldBibleText, quote.text);
   });
 
   it("keeps every quote short enough for the loading card", () => {
@@ -62,6 +73,10 @@ describe("loginLoreQuoteForView", () => {
 });
 
 describe("renderMapLoadingCopy", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const mount = () => {
     document.body.innerHTML = `
       <div id="map-loading-overlay">
@@ -92,5 +107,18 @@ describe("renderMapLoadingCopy", () => {
     renderMapLoadingCopy(dom, { ...calmView, tone: "warn", title: "Map sync stalled" }, 5);
     expect(dom.mapLoadingTitleEl.textContent).toBe("Map sync stalled");
     expect(document.querySelector<HTMLElement>("#map-loading-quote")!.hidden).toBe(true);
+  });
+
+  it("keeps one quote for the whole page load while the login state moves on", () => {
+    const dom = mount();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_763_000_000_000);
+    renderMapLoadingCopy(dom, { ...calmView, title: "Connecting to server..." });
+    const first = document.querySelector("#map-loading-quote-text")!.textContent;
+    for (const [offset, title] of [[1_234, "Syncing empire..."], [2_717, "Loading nearby land..."], [9_001, "Loading world..."]] as const) {
+      vi.setSystemTime(1_763_000_000_000 + offset);
+      renderMapLoadingCopy(dom, { ...calmView, title });
+      expect(document.querySelector("#map-loading-quote-text")!.textContent).toBe(first);
+    }
   });
 });

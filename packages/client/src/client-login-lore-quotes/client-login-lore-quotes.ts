@@ -18,19 +18,17 @@ export const LOGIN_LORE_QUOTES: readonly LoginLoreQuote[] = [
   { text: "Unclaimed ground is a debt the galaxy owes itself.", source: "The Writ of Sectors" },
   { text: "Because whatever's still hungry out here already ate it.", source: "A frontier town elder, to Alvra Sable" },
   { text: "I did not understand, that day, that a Duke's debts are never called paid. Only refinanced.", source: SABLE },
-  { text: "The Bleed does not hate you. It does not know you exist until you make it know.", source: SABLE },
+  { text: "The Bleed does not hate you.", source: SABLE },
   { text: "The Court noticed before I did. That is, I have come to believe, always true.", source: SABLE },
   { text: "I was running a shipping concern that had grown teeth.", source: SABLE },
-  { text: "Keep feeding a fire that keeps drawing wolves.", source: SABLE },
   { text: "Calling it a game and understanding what it actually was were two different things.", source: SABLE },
   { text: "Crystal is aether that has gone quiet. Refining it wakes it up.", source: "Frontier saying" },
   { text: "The frontier doesn't care who you are. It cares what you're doing.", source: "Frontier saying" },
   { text: "Build more, and the frontier pushes back harder.", source: "Frontier saying" },
-  { text: "The Wardens were sent to destroy the infestations. They could not tell them from us.", source: "Court histories" }
+  { text: "The Wardens were built to destroy the infestations. They could not tell them from their makers.", source: "Court histories" }
 ];
 
-// Same seed, same quote: the overlay re-renders every frame, so the quote must
-// stay put for one load. Seeded from mapLoadStartedAt, it changes between loads.
+// Same seed, same quote.
 export const pickLoginLoreQuote = (seed: number): LoginLoreQuote => {
   const count = LOGIN_LORE_QUOTES.length;
   const index = Number.isFinite(seed) ? ((Math.floor(Math.abs(seed)) % count) + count) % count : 0;
@@ -47,13 +45,23 @@ export const loginLoreQuoteForView = (
   return pickLoginLoreQuote(seed);
 };
 
+// One quote per page load. The overlay re-renders every frame, and the
+// client resets mapLoadStartedAt several times during a single login (socket
+// open, init, auth retry), so seeding from that would swap the quote while
+// the player is reading it.
+let pageQuoteSeed: number | null = null;
+const pageLoginLoreQuoteSeed = (): number => {
+  pageQuoteSeed ??= Date.now();
+  return pageQuoteSeed;
+};
+
 type MapLoadingCopyElements = {
   mapLoadingOverlayEl: HTMLElement;
   mapLoadingTitleEl: HTMLElement;
   mapLoadingMetaEl: HTMLElement;
 };
 
-export const renderMapLoadingCopy = (dom: MapLoadingCopyElements, view: MapLoadingView, seed: number): void => {
+export const renderMapLoadingCopy = (dom: MapLoadingCopyElements, view: MapLoadingView, seed: number = pageLoginLoreQuoteSeed()): void => {
   dom.mapLoadingTitleEl.textContent = view.title;
   dom.mapLoadingMetaEl.textContent = view.meta;
   const quoteEl = dom.mapLoadingOverlayEl.querySelector<HTMLElement>("#map-loading-quote");
