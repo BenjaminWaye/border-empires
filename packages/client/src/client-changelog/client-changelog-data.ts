@@ -7,6 +7,7 @@ import { HILL_FOG_SEAMS_ENTRY } from "./client-changelog-hill-fog-seams.js";
 import { HUD_NEXT_STEPS_ENTRY } from "./client-changelog-hud-next-steps.js";
 import { PANEL_LAYOUT_DATA_ENTRY } from "./client-changelog-panel-layout-data.js";
 import { TAP_SELECT_CONFIRM_ENTRY } from "./client-changelog-tap-select-confirm.js";
+import { EXPAND_CONFIRM_DOCK_ENTRY } from "./client-changelog-expand-confirm-dock.js";
 import { REACH_BUILD_FIXES_ENTRY } from "./client-changelog-reach-build-fixes.js";
 import { AFC_SCOUT_BUTTON_ENTRY } from "./client-changelog-afc-scout-button.js";
 import { FARM_PLOT_ENTRY } from "./client-changelog-farm-plot.js";
@@ -487,6 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   TOWN_PLOT_MARKERS_ENTRY,
   WAYSTATION_SURVEY_RIG_ENTRY,
   { ...FARM_PLOT_ENTRY, createdAt: 1795005541792, },
+  { ...EXPAND_CONFIRM_DOCK_ENTRY, createdAt: 1795027635298, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

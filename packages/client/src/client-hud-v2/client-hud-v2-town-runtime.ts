@@ -16,7 +16,6 @@ import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
-import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
@@ -254,7 +253,6 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
       deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
       return;
     }
-    suppressAutoExpand();
     deps.state.selected = { x: target.x, y: target.y };
     const centre = screenCentre();
     deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
@@ -305,7 +303,6 @@ export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
   // Match a map press: even a previously full tile can have stale economy
   // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
   deps.actionFlow.requestTileDetailIfNeeded(next, { force: true });
-  suppressAutoExpand();
   const centre = screenCentre();
   deps.actionFlow.openSingleTileActionMenu(next, centre.x, centre.y);
 };
