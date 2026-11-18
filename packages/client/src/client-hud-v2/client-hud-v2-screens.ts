@@ -38,6 +38,7 @@ import { pendingTechCommissionId } from "../client-tech-commission/client-tech-c
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
+import { cancelTownPlotPick, townPlotPickClick } from "./client-hud-v2-town-plot-pick.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 
@@ -432,6 +433,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
 };
 
 const townClick = (deps: HudV2Deps, target: Element): boolean => {
+  if (townPlotPickClick(deps, target)) return true;
   const step = target.closest<HTMLElement>("[data-v2-town-step]");
   if (step) {
     stepTown(deps, Number(step.dataset.v2TownStep));
@@ -480,7 +482,7 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
 /** Esc while a screen is open; true when it handled the key. Foreign dialogs (effort sheet, trade view) handle their own. */
 export const screenEscape = (deps: HudV2Deps): boolean => {
   if (!screen.id) return false;
-  if (document.querySelector(".effort-confirm-overlay, .break-pact-overlay")) return true;
+  if (document.querySelector(".effort-confirm-overlay, .break-pact-overlay") || cancelTownPlotPick(deps)) return true;
   if (screen.id === "diplomacy" && screen.diplomacyTargetId) {
     if (!document.querySelector(".diplomacy-trade-overlay")) {
       screen.diplomacyTargetId = undefined;

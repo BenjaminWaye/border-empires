@@ -46,6 +46,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-town-plot-pick.css";
 import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 

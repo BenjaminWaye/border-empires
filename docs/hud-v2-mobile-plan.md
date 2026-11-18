@@ -273,6 +273,14 @@ Full-screen town with Overview · Build · Tiles tabs, built from the existing
 Rush/Cancel/Jump to front). The support ring stays visible on the map in the
 Tiles tab with the sheet at half.
 
+Placing a plot building (shipped 2026-11-18): with the town itself selected,
+tapping a building that goes on a town plot, or its Place, hides the town
+screen's panels and starts a map pick (`client-hud-v2-town-plot-pick.ts`,
+slot in `client-town-plot-placement/`). The open plots glow (both renderers,
+through the shared picker highlight), the best is chosen, a map tap on another
+glowing plot moves it, and a foot bar offers Cancel / Build here. Desktop keeps
+the list and Place.
+
 ### Phase 5: destination screens
 
 Chronicle half sheet, Manifest lane-by-lane, AFC single column, Diplomacy
