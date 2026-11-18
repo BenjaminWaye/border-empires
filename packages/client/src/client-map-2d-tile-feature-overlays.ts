@@ -19,6 +19,8 @@ import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { drawRememberedStructures2D, type RememberedStructures2DDeps } from "./client-remembered-structures-2d/client-remembered-structures-2d.js";
 import type { Tile } from "./client-types.js";
 import { drawTownTierUpgrade2D } from "./client-town-tier-upgrade-fx/client-map-2d-town-tier-upgrade.js";
+import { drawSalvageDelivery2D } from "./client-salvage-delivery-fx/client-map-2d-salvage-delivery.js";
+import type { SalvageDeliveryFxEntry } from "./client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 import type { TownTierUpgradeFxEntry } from "./client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 
 export type TileFeatureOverlayDeps2D = {
@@ -33,6 +35,8 @@ export type TileFeatureOverlayDeps2D = {
   remembered: RememberedStructures2DDeps;
   /** Town tier-upgrade celebrations by tile key (client-town-tier-upgrade-fx/). */
   townTierUpgradeFxByKey: ReadonlyMap<string, TownTierUpgradeFxEntry>;
+  /** Salvage-to-Court Imperial deliveries by Reclamation Works tile key (client-salvage-delivery-fx/). */
+  salvageDeliveryFxByKey?: ReadonlyMap<string, SalvageDeliveryFxEntry>;
   /** Known tiles: which way a burning dock faces its water. */
   tiles?: ReadonlyMap<string, Tile>;
 };
@@ -72,4 +76,6 @@ export const drawTileFeatureOverlays2D = (
   }
   const townUpgrade = deps.townTierUpgradeFxByKey.size > 0 ? deps.townTierUpgradeFxByKey.get(tileKey) : undefined;
   if (townUpgrade) drawTownTierUpgrade2D(deps.ctx, townUpgrade, px, py, size, Date.now());
+  const salvageDelivery = deps.salvageDeliveryFxByKey?.size ? deps.salvageDeliveryFxByKey.get(tileKey) : undefined;
+  if (salvageDelivery) drawSalvageDelivery2D(deps.ctx, salvageDelivery, px, py, size, Date.now());
 };
