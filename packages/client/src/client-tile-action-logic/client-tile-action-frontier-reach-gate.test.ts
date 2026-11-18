@@ -175,3 +175,31 @@ describe("settle_land on out-of-reach tiles the sim garrisons automatically", ()
     expect(settleLand?.disabled).toBeFalsy();
   });
 });
+
+// Regression (2026-11 staging playtest): Build stayed lit on an owned FRONTIER
+// tile outside reach. It garrisons first, the sim refuses that garrison as
+// OUT_OF_REACH, and the player got a raw error plus a stuck "already queued".
+describe("garrison-first builds on an owned FRONTIER tile outside reach", () => {
+  const farmFrontier = (x: number, y: number) => {
+    const fixture = stateWithTownAndFrontierTile(x, y);
+    fixture.state.techIds = ["agriculture"];
+    fixture.target.resource = "FARM";
+    return fixture;
+  };
+
+  it("disables Build Hydrogarden with 'Outside your reach', even inside a rival's reach", () => {
+    const { state, target } = farmFrontier(50, 50);
+    target.reachOwnerId = "rival-player";
+    const build = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "build_hydrogarden");
+    expect(build).toBeDefined();
+    expect(build?.disabled).toBe(true);
+    expect(build?.disabledReason).toBe("Outside your reach");
+  });
+
+  it("leaves Build Hydrogarden enabled inside your reach", () => {
+    const { state, target } = farmFrontier(2, 2);
+    const build = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "build_hydrogarden");
+    expect(build).toBeDefined();
+    expect(build?.disabled).toBeFalsy();
+  });
+});

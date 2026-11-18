@@ -1,4 +1,4 @@
-import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, settleIgnoresReach } from "@border-empires/shared";
+import { DEV_QUEUE_TOTAL_CAP, OUT_OF_REACH_LABEL, SETTLE_COST, garrisonBlockedByReach } from "@border-empires/shared";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -23,7 +23,7 @@ export const garrisonTileReason = (state: ClientState, tile: Tile | undefined): 
   if (state.capture?.target.x === tile.x && state.capture.target.y === tile.y ||
       state.actionInFlight && state.actionTargetKey === key ||
       (state.frontierSyncWaitUntilByTarget.get(key) ?? 0) > Date.now()) return "Waiting for combat or tile sync";
-  if (!settleIgnoresReach(tile) && !authoritativeIsInReach(state, (x, y) => `${x},${y}`)(tile.x, tile.y)) return "Outside your reach";
+  if (garrisonBlockedByReach(tile, authoritativeIsInReach(state, (x, y) => `${x},${y}`)(tile.x, tile.y))) return OUT_OF_REACH_LABEL;
   return "";
 };
 
