@@ -1,6 +1,7 @@
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { HILL_FOG_SEAMS_ENTRY } from "./client-changelog-hill-fog-seams.js";
+import { AFC_SCOUT_BUTTON_ENTRY } from "./client-changelog-afc-scout-button.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
@@ -470,6 +471,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662, },
   ...NOV_17_CHANGELOG,
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
+  { ...AFC_SCOUT_BUTTON_ENTRY, createdAt: 1795002703488, },
+  {
+    createdAt: 1794998310613,
+    introducedIn: "2026.11.18",
+    title: "Clearer town building plots",
+    why: "Dark hatches around towns looked like objects rather than open building space.",
+    changes: [
+      "Select your town to see open plots marked by ivory corners and a small brass diamond.",
+      "Hover or select a plot to highlight it in amber; markers keep the ground visible in both map renderers.",
+      "Occupied plots and enemy land no longer appear as empty building space."
+    ]
+  },
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
 ];
 

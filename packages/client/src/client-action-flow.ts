@@ -29,6 +29,8 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
+import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js";
+import { handleCrystalTargetingClick } from "./client-tile-action-logic/client-crystal-targeting.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
@@ -1386,22 +1388,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (state.crystalTargeting.active) {
-      if (vis === "unexplored") {
-        renderHud();
-        return;
-      }
-      if (clicked) state.selected = { x: wx, y: wy };
-      if (clicked && executeCrystalTargeting(clicked)) {
-        renderHud();
-        return;
-      }
-      if (clicked && vis === "visible") {
-        pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
-      }
+      handleCrystalTargetingClick(state, clicked, wx, wy, vis, executeCrystalTargeting, pushFeed);
       renderHud();
       return;
     }
-    if (handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
+    if (handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
