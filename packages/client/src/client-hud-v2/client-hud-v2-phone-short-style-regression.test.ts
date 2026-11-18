@@ -44,8 +44,15 @@ describe("short phone layout", () => {
 
   // Review of #2781: with the links on top, a 118px cap that also held the safe-area padding left ~24px
   // for Garrison/Raise flag on a home-indicator iPhone. The panels above already reserve town bar + safe area.
-  it("sizes the town bar to its reserve plus the safe area, so the action buttons stay in view", () => {
-    expect(rulesFor(screens, "body.hud-v2-compact #v2t-bar.v2t-bar")).toContain("max-height: calc(var(--v2c-town-bar, 118px) + var(--v2c-safe-bottom))");
+  // 2026-11-18 playtest: a wrapped link row plus an unaffordable Garrison's reason outgrew the fixed 118px cap,
+  // so the bar scrolled and Garrison / Raise flag / ◁ Map were cut off. The bar now grows with its content and
+  // the panels above end at its measured height (--v2c-town-bar-h, client-hud-v2-town-bar-height.ts).
+  it("sizes the town bar to its content, so the action buttons stay in view", () => {
+    const bar = rulesFor(screens, "body.hud-v2-compact #v2t-bar.v2t-bar");
+    expect(bar).not.toContain("118px");
+    expect(bar).toContain("max-height: 50dvh");
+    expect(rulesFor(screens, "body.hud-v2-compact .v2t-right")).toContain("bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px))");
+    expect(screens).toMatch(/body\.hud-v2-compact \.v2t-left \{[^}]*bottom: var\(--v2c-town-bar-h,/);
   });
 
   // Review of #2781: in landscape the docked guide left Manifest and Diplomacy ~125px of body.

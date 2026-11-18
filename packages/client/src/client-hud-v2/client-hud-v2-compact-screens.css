@@ -110,7 +110,7 @@ body.hud-v2-compact .v2t-built { padding: 4px 12px; }
 body.hud-v2-compact .v2t-grow-wrap { padding: 8px 12px 10px; }
 body.hud-v2-compact .v2t-grow { height: 46px; }
 body.hud-v2-compact .v2t-right {
-  left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); width: auto; border-width: 1px 0;
+  left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px)); width: auto; border-width: 1px 0;
 }
 body.hud-v2-compact .v2t-build-head { padding: 8px 12px 6px; }
 body.hud-v2-compact .v2t-build-close { width: var(--v2c-touch); height: var(--v2c-touch); }
@@ -127,8 +127,10 @@ body.hud-v2-compact #v2t-build > * { flex-shrink: 0; }
 body.hud-v2-compact #v2t-build .v2t-build-list,
 body.hud-v2-compact #v2t-build .v2t-work { flex: none; max-height: none; min-height: 0; overflow: visible; }
 body.hud-v2-compact #v2t-build .v2t-place-docked { position: sticky; bottom: 0; z-index: 1; margin-top: auto; }
+/* Sized to its content (a wrapped link row used to push Garrison / Raise flag / ◁ Map out of a fixed 118px);
+   the panels above end at its measured height, --v2c-town-bar-h (client-hud-v2-town-bar-height.ts). */
 body.hud-v2-compact #v2t-bar.v2t-bar {
-  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: calc(var(--v2c-town-bar, 118px) + var(--v2c-safe-bottom)); overflow-y: auto;
+  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: 50dvh; overflow-y: auto;
   padding: 8px calc(var(--v2c-safe-right) + 8px) calc(var(--v2c-safe-bottom) + 8px) calc(var(--v2c-safe-left) + 8px); border-width: 1px 0 0;
 }
 body.hud-v2-compact .v2t-act { min-height: 48px; height: auto; }
@@ -177,7 +179,7 @@ body.hud-v2-compact .v2b-panel-actions .v2s-btn:last-child { width: auto; flex: 
   /* Docked to the side at full height: no detents to drag between, so no grabber (a drag could only close it unseen). */
   body.hud-v2-compact .hud-v2-sheet-grabber { display: none; }
   body.hud-v2-compact .v2c-drawer { bottom: var(--v2c-bottom); }
-  body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); max-height: none; }
+  body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px)); max-height: none; }
   body.hud-v2-compact .v2t-right { left: auto; width: 56vw; top: var(--v2c-top); }
   body.hud-v2-compact .v2b-side { max-height: calc(100dvh - var(--v2c-safe-top) - 84px - 150px); }
   body.hud-v2-compact .v2b-panel { left: 25vw; right: 25vw; max-height: 150px; }
