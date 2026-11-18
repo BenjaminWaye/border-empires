@@ -37,18 +37,39 @@ export const houseChargesUnhandled = (payload: HouseChargesPayload | null | unde
 
 export const markHouseChargesHandled = (dealtAt: number): void => writeDeal(HANDLED_KEY, dealtAt);
 
-/** Three fanned, sealed cards: parchment faces, gold edges and a red wax seal on the front one. */
+/**
+ * Three fanned, sealed charge cards drawn like the trading cards (client-house-charge-cards.css): near-black
+ * rim, bronze hatched frame (the Charter colours) and parchment bars, with a red wax seal on the front card.
+ * The cards have no back design, so the sealed face uses the card frame.
+ */
 const CARDS_SVG = `<svg class="hcb-cards" viewBox="-6 2 76 60" aria-hidden="true" focusable="false">
-  <g stroke="#b8862f" stroke-width="1.6" stroke-linejoin="round">
-    <rect x="9" y="15" width="23" height="33" rx="3" fill="#d9c49a" transform="rotate(-24 20 48)"/>
-    <rect x="32" y="15" width="23" height="33" rx="3" fill="#e6d3aa" transform="rotate(24 44 48)"/>
-    <rect x="20.5" y="13" width="23" height="33" rx="3" fill="#f3e5c4"/>
-  </g>
-  <g stroke="#b8862f" stroke-width="1.2" stroke-linecap="round" opacity="0.7">
-    <line x1="25" y1="19" x2="39" y2="19"/><line x1="25" y1="23" x2="36" y2="23"/><line x1="25" y1="40" x2="39" y2="40"/>
-  </g>
-  <circle cx="32" cy="31.5" r="6" fill="#a8261e" stroke="#6e130d" stroke-width="1.2"/>
-  <path d="M32 28.1l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3-1.7-1.6 2.3-.3z" fill="#e8b04a"/>
+  <defs>
+    <linearGradient id="hcb-frame" x1="0" y1="0" x2="0.45" y2="1"><stop offset="0" stop-color="#c99158"/><stop offset="0.45" stop-color="#8a5a2b"/><stop offset="1" stop-color="#4a2d14"/></linearGradient>
+    <pattern id="hcb-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.2" height="4" fill="rgba(255,255,255,0.08)"/></pattern>
+  </defs>
+    <g transform="rotate(-24 20 48)">
+      <rect x="9" y="13" width="23" height="33" rx="3" fill="#0f0d0a"/>
+      <rect x="10.8" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-frame)"/>
+      <rect x="10.8" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-hatch)"/>
+      <rect x="12.4" y="16.6" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+      <rect x="12.4" y="38.4" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+    </g>
+    <g transform="rotate(24 44 48)">
+      <rect x="32" y="13" width="23" height="33" rx="3" fill="#0f0d0a"/>
+      <rect x="33.8" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-frame)"/>
+      <rect x="33.8" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-hatch)"/>
+      <rect x="35.4" y="16.6" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+      <rect x="35.4" y="38.4" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+    </g>
+    <g>
+      <rect x="20.5" y="13" width="23" height="33" rx="3" fill="#0f0d0a"/>
+      <rect x="22.3" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-frame)"/>
+      <rect x="22.3" y="14.8" width="19.4" height="29.4" rx="1.6" fill="url(#hcb-hatch)"/>
+      <rect x="23.9" y="16.6" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+      <rect x="23.9" y="38.4" width="16.2" height="4" rx="1" fill="#ecdfc0"/>
+    </g>
+  <circle cx="32" cy="29.5" r="6" fill="#a8261e" stroke="#6e130d" stroke-width="1.2"/>
+  <path d="M32 26.1l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3-1.7-1.6 2.3-.3z" fill="#e8b04a"/>
 </svg>`;
 
 export const houseChargesBubbleHtml = (payload: HouseChargesPayload, showSpeech: boolean): string => {
