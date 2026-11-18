@@ -17,6 +17,7 @@ import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
@@ -119,6 +120,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
+  watchTownBarHeight(document.getElementById("v2t-bar"));
 };
 
 /**
@@ -218,6 +220,7 @@ export const closeTownScreen = (keepPosition = false): void => {
   placeFlash = undefined;
   screen.townBuildSelection = undefined;
   if (lastDeps) endCloseUp(lastDeps, keepPosition);
+  unwatchTownBarHeight();
   if (screen.id === "town") clearScreen();
 };
 

@@ -70,8 +70,10 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
   const parts = [
     needs > 0 ? `<b class="v2c-track-needs">${needs} need${needs === 1 ? "s" : ""} you</b>` : "",
     // Idle: "Next" takes Dev's place on the one folded line (shorter than "Dev 0/3", so the phone HUD never
-    // grows); the steps themselves are behind the tap that unfolds the tracker.
-    needs === 0 && input.nextSteps?.[0] ? `<b class="v2c-track-next" title="${esc(input.nextSteps[0].title)}">Next ›</b>` : `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
+    // grows); the steps themselves are behind the tap that unfolds the tracker. Busy slots keep their count,
+    // and "Next" follows it only while manpower or coin is low (the only busy-slot next steps).
+    needs === 0 && busy === 0 && input.nextSteps?.[0] ? "" : `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
+    needs === 0 && input.nextSteps?.[0] ? `<b class="v2c-track-next" title="${esc(input.nextSteps[0].title)}">Next ›</b>` : "",
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
     input.waypoints.length > 0 ? `→ ${input.waypoints.length} queued` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""
