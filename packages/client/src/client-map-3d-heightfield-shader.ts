@@ -112,7 +112,10 @@ ${BEACH_WET_SAND_GLSL}
       // multiply down toward a forest-floor tone. Gated by grassMask so
       // sand near forests stays bright. Only ~30% darkening at full
       // strength so the speckled grass detail is still readable.
-      float forestDarken = vForestZone * grassMask;
+      // Never on bare-rock hill peaks: grassMask follows the dome's biome hue,
+      // so without (1 - rockMask) a grass hill's grey peak beside a wood would
+      // be tinted forest-floor green too.
+      float forestDarken = vForestZone * grassMask * (1.0 - rockMask);
       vec3 forestTinted = biomeColor * mix(vec3(1.0), vec3(0.66, 0.78, 0.58), forestDarken);
 
       // Very mild vertex-color tint at 12% — beach-corner blends and

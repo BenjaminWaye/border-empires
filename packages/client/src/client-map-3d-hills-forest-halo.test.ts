@@ -53,3 +53,15 @@ describe("hill dome forest halo", () => {
     expect(read(5, 5)).toBe(0);
   });
 });
+
+describe("forest halo on bare-rock hill peaks", () => {
+  it("leaves the grey rock peaks out of the forest-floor darkening", async () => {
+    // Regression: with the halo now on hill domes, a grass hill beside a wood had its grey rock peak multiplied
+    // toward the green forest-floor tone too, since grassMask follows the dome's biome hue, not the rock.
+    const { ShaderLib, Texture } = await import("three");
+    const { applyHeightfieldMaterialShaderPatch } = await import("./client-map-3d-heightfield-shader.js");
+    const shader = { vertexShader: ShaderLib.standard.vertexShader, fragmentShader: ShaderLib.standard.fragmentShader, uniforms: {} as Record<string, unknown> };
+    applyHeightfieldMaterialShaderPatch(new Texture(), new Texture())(shader as never);
+    expect(shader.fragmentShader).toContain("float forestDarken = vForestZone * grassMask * (1.0 - rockMask);");
+  });
+});
