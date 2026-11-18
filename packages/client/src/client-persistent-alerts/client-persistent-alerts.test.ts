@@ -95,7 +95,7 @@ describe("persistent alerts", () => {
         id: "town_unfed:12,18",
         kind: "town_unfed",
         title: "Town unfed",
-        detail: "Ravenhold needs FOOD upkeep.",
+        detail: "Ravenhold: garrison grain or fish in your reach.",
         x: 12,
         y: 18
       })

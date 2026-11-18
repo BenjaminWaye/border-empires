@@ -3,7 +3,8 @@ import { canBuildPlacementStructure } from "../client-structure-effects/client-s
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
-import { isRelayBeaconPlacementTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import type { TapConfirmButton } from "../client-tap-confirm-button/client-tap-confirm-button.js";
+import { isRelayBeaconPlacementTarget, relayBeaconPlacementCostLabel } from "../client-relay-beacon-placement/client-relay-beacon-placement.js";
 
 type PlacedStructureType = "HYDROWORKS" | "RELAY_BEACON";
 
@@ -20,6 +21,10 @@ export type BuildingPlacementFlowDeps = {
   ) => boolean;
   applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
   sendGameMessage: (payload: { type: "BUILD_AFC"; x: number; y: number }) => boolean;
+  /** Confirmed Relay Beacon on a tile not settled yet: garrison (and expand) first, then build. See client-relay-beacon-placement.ts. */
+  startRelayBeaconChain: (tile: Tile) => void;
+  /** The big confirm prompt at the tapped tile (client-tap-confirm-button.ts); shown for Relay Beacon placement. */
+  confirmPrompt?: Pick<TapConfirmButton, "offer" | "hide">;
 };
 
 export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPlacementFlowDeps) => {
@@ -35,12 +40,13 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       return isValidAfcLandingTile(state, tile, afcReplacement);
     }
     if (landmarkConstructionBlocker(state.tiles, tile.x, tile.y)) return false;
-    if (st === "RELAY_BEACON") return isRelayBeaconPlacementTile(tile, state.me);
+    if (st === "RELAY_BEACON") return isRelayBeaconPlacementTarget(state, tile);
     if (st !== "HYDROWORKS") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
 
   const removePlacementOverlay = (): void => {
+    deps.confirmPrompt?.hide();
     deps.placementOverlayEl.style.display = "none";
   };
 
@@ -76,6 +82,11 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       cancelBuildingPlacement();
       return;
     }
+    if (structureType === "RELAY_BEACON" && tile && tile.ownershipState !== "SETTLED") {
+      deps.startRelayBeaconChain(tile);
+      cancelBuildingPlacement();
+      return;
+    }
     deps.sendDevelopmentBuild(
       { type: "BUILD_STRUCTURE", x, y, structureType },
       () => deps.applyOptimisticStructureBuild(x, y, structureType),
@@ -86,13 +97,18 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
 
   const renderPlacementOverlay = (): void => {
     if (!state.buildingPlacement.active) {
-      deps.placementOverlayEl.style.display = "none";
+      removePlacementOverlay();
       return;
     }
     const st = state.buildingPlacement.structureType;
     const name = st === "AFC" ? "Automated Fabrication Complex" : structureDisplayName(st);
-    deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
+    const placementTile = state.tiles.get(deps.keyFor(state.buildingPlacement.x, state.buildingPlacement.y));
+    const cost = st === "RELAY_BEACON" ? relayBeaconPlacementCostLabel(state, placementTile) : "";
+    deps.placementLabelEl.textContent = `Placing ${name}${cost ? ` (${cost})` : ""} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
+    if (st !== "RELAY_BEACON") return;
+    const valid = isPlacementValidForTile(placementTile);
+    deps.confirmPrompt?.offer(valid ? { label: "Build Relay Beacon", cost } : { label: "Pick a highlighted tile", disabled: true }, confirmBuildingPlacement);
   };
 
   return {

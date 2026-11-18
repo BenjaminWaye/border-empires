@@ -50,7 +50,7 @@ describe("HUD v2 town screen bonuses", () => {
       }
     } as unknown as Tile;
     const { left } = townScreenRegions({ town: tile, focus: tile, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
-    expect(left).toContain(">coin production stopped<");
+    expect(left).toContain(">no coin · garrison grain or fish in reach<");
     expect(left).not.toContain("Coin coin");
   });
 });
