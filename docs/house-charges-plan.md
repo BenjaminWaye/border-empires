@@ -123,7 +123,8 @@ Every charge must be findable and readable on the map.
 | Reawakening | Relic marker and garrison status | "Installation: not garrisoned" |
 
 - **Progressive reveal.** A charge starts as a **search circle** plus a
-  region name. Exact tiles are highlighted only once the player has seen them.
+  region name (each unscouted town of a Charter or Seat gets its own rough
+  circle, with a dotted line between a Charter's two). Exact tiles are highlighted only once the player has seen them.
   For relics the installation type stays hidden, and the exact marker appears
   only under the normal 12-tile beacon rule. This keeps exploration meaningful
   and does not bypass the relic discovery rules.

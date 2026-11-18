@@ -11,6 +11,7 @@ import { WAYSTATION_SURVEY_RIG_ENTRY } from "./client-changelog-waystation-surve
 import { TOWN_PLOT_MARKERS_ENTRY } from "./client-changelog-town-plot-markers.js";
 import { FARM_PLOT_ENTRY } from "./client-changelog-farm-plot.js";
 import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js";
+import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
@@ -25,5 +26,6 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   WAYSTATION_SURVEY_RIG_ENTRY,
   { ...FARM_PLOT_ENTRY, createdAt: 1795005541792, },
   { ...LOGIN_LORE_QUOTES_ENTRY, createdAt: 1795004512423, },
+  { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
 ];

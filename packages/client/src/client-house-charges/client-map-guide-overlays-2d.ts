@@ -1,17 +1,25 @@
 // 2D canvas map guidance, drawn once per frame on the 2D renderer only (the
 // true-3D counterpart is client-map-3d-map-guide-overlay.ts): the shaded
-// area of a focused House Charge, then the guide ring markers for both the
-// onboarding guide and the focused charge (client-house-charges-map.ts).
+// area of a focused House Charge, its dotted rough circles and link
+// (client-house-charges-search-guide.ts), then the guide ring markers for both
+// the onboarding guide and the focused charge (client-house-charges-map.ts).
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawOnboardingChecklistHighlights } from "../client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles } from "./client-house-charges-map.js";
+import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges-map.js";
+import { houseChargeSearchGuide } from "./client-house-charges-search-guide.js";
 
 export const CHARGE_TINT_GARRISONED = "rgba(95, 211, 106, 0.5)";
 /** Tiles still to take: a dark wash plus pale diagonal hatching, so they read by pattern on sand, grass or snow alike. */
 export const CHARGE_TINT_OPEN = "rgba(18, 14, 8, 0.3)";
 export const CHARGE_HATCH = "rgba(255, 232, 170, 0.9)";
 export const CHARGE_OUTLINE = "rgba(240, 207, 130, 0.95)";
+/** Rough search circles: gold dots, the area outline's colour. The link between two towns: smaller pale dots. */
+export const CHARGE_RING_DOT = CHARGE_OUTLINE;
+export const CHARGE_LINK_DOT = "rgba(255, 244, 214, 0.9)";
+/** Dot radii as a share of one tile. */
+export const CHARGE_RING_DOT_RADIUS = 0.16;
+export const CHARGE_LINK_DOT_RADIUS = 0.12;
 
 const drawHatch = (ctx: CanvasRenderingContext2D, left: number, top: number, size: number): void => {
   ctx.save();
@@ -27,6 +35,20 @@ const drawHatch = (ctx: CanvasRenderingContext2D, left: number, top: number, siz
   }
   ctx.stroke();
   ctx.restore();
+};
+
+const drawDots = (deps: MapGuideOverlays2dDeps, dots: readonly ChargeMapPoint[], color: string, radius: number): void => {
+  if (dots.length === 0) return;
+  const { ctx, size } = deps;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (const dot of dots) {
+    const { sx, sy } = deps.worldToScreen(dot.x, dot.y, size, deps.halfW, deps.halfH);
+    const r = Math.max(1.5, size * radius);
+    ctx.moveTo(sx + r, sy);
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  }
+  ctx.fill();
 };
 
 export type MapGuideOverlays2dDeps = {
@@ -66,6 +88,13 @@ export const drawMapGuideOverlays = (
     ctx.stroke();
     ctx.restore();
   }
-  const markers = houseChargeMarkerTiles(state, WORLD_WIDTH, WORLD_HEIGHT);
+  const guide = houseChargeSearchGuide(state, WORLD_WIDTH, WORLD_HEIGHT);
+  if (guide.ringDots.length > 0 || guide.linkDots.length > 0) {
+    deps.ctx.save();
+    drawDots(deps, guide.linkDots, CHARGE_LINK_DOT, CHARGE_LINK_DOT_RADIUS);
+    drawDots(deps, guide.ringDots, CHARGE_RING_DOT, CHARGE_RING_DOT_RADIUS);
+    deps.ctx.restore();
+  }
+  const markers = houseChargeMarkerTiles(state);
   drawOnboardingChecklistHighlights(markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles, deps);
 };
