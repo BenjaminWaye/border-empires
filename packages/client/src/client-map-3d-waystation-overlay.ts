@@ -1,12 +1,12 @@
-// Portable Survey Rig: three splayed iron legs, brass instrument head with a
-// cyan lens, a strapped equipment case, canvas lean-to and rolled bedroll.
-// All pieces are instanced; only the unclaimed, visible lens pulses per frame.
+// Holo-Locked Stack waystation (client-waystation-holo-crates/): three armoured
+// crates on an anti-grav pad under a floating hologram padlock. Every part is
+// instanced; per frame only the live padlocks bob and turn and the cyan
+// lights pulse. Remembered (fogged) sites use their own still materials.
+import { Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Material, type Scene, type Texture } from "three";
 import {
-  BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group,
-  IcosahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion,
-  Scene, Texture, TorusGeometry, Vector3
-} from "three";
-import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+  createHoloCrateGeometries, createHoloCrateMaterials, DOOR_HINGE, HOLO_CRATE_PARTS, holoPartSlot, LOCK_ANCHOR,
+  type HoloCratePart, type HoloMaterialKey
+} from "./client-waystation-holo-crates/holo-crate-model-3d.js";
 
 export type WaystationOverlay = {
   readonly group: Group;
@@ -18,134 +18,93 @@ export type WaystationOverlay = {
   readonly dispose: () => void;
 };
 
+/** Materials whose look animates; remembered sites get a still copy of each. */
+const ANIMATED: ReadonlySet<HoloMaterialKey> = new Set(["glow", "holo", "holoBeam"]);
+
+/** Padlock pose for a site at `nowMs`: a slow bob and turn, phase-shifted per tile so neighbours don't move in lockstep. */
+export const holoLockMatrix = (out: Matrix4, siteX: number, siteY: number, siteZ: number, nowMs: number, phase: number, still: boolean): Matrix4 => {
+  const bob = still ? 0 : Math.sin(nowMs * 0.0021 + phase) * 0.018;
+  const turn = still ? 0.35 : nowMs * 0.0006 + phase;
+  return out.compose(
+    new Vector3(siteX + LOCK_ANCHOR.x, siteY + LOCK_ANCHOR.y + bob, siteZ + LOCK_ANCHOR.z),
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.sin(turn) * 0.6),
+    new Vector3(1, 1, 1)
+  );
+};
+
 export const createWaystationOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): WaystationOverlay => {
   const group = new Group();
   group.name = "waystation-overlay";
   scene.add(group);
-  const material = (color: string, metalness: number): MeshStandardMaterial => {
-    const result = new MeshStandardMaterial({ color, roughness: 0.6, metalness, flatShading: true });
-    applyBuildingEnvMap(result, buildingEnvironmentTexture);
-    return result;
-  };
-  const iron = material("#30343b", 0.6);
-  const brass = material("#af8545", 0.8);
-  const canvas = material("#ad9062", 0.02);
-  canvas.side = DoubleSide;
-  const straps = material("#695338", 0.05);
-  const glass = material("#193b43", 0.35);
-  const dormant = material("#123a40", 0.2);
-  dormant.emissive.set("#39c4dd");
-  dormant.emissiveIntensity = 1;
-  const active = dormant.clone();
-  active.emissiveIntensity = 0.3;
-  const remembered = dormant.clone();
-  remembered.emissiveIntensity = 1.175;
-  const materials = [iron, brass, canvas, straps, glass, dormant, active, remembered];
+  const geometries = createHoloCrateGeometries();
+  const live = createHoloCrateMaterials(buildingEnvironmentTexture);
+  const still: Partial<Record<HoloMaterialKey, Material>> = {};
+  for (const key of ANIMATED) still[key] = live[key].clone();
+  const materialFor = (key: HoloMaterialKey, frozen: boolean): Material => (frozen && still[key]) || live[key];
 
-  // Two pitched cloth panels, open at both ends so it reads as a packed camp.
-  const shelter = new BufferGeometry();
-  shelter.setAttribute("position", new Float32BufferAttribute([
-    -0.19, 0, -0.15, 0, 0.3, -0.15, -0.19, 0, 0.15,
-    -0.19, 0, 0.15, 0, 0.3, -0.15, 0, 0.3, 0.15,
-    0, 0.3, -0.15, 0.19, 0, -0.15, 0.19, 0, 0.15,
-    0, 0.3, -0.15, 0.19, 0, 0.15, 0, 0.3, 0.15
-  ], 3));
-  shelter.computeVertexNormals();
-  const unitBar = new CylinderGeometry(0.018, 0.024, 1, 6);
-  const foot = new BoxGeometry(0.09, 0.035, 0.09);
-  const collar = new CylinderGeometry(0.065, 0.09, 0.1, 8);
-  const head = new BoxGeometry(0.23, 0.2, 0.17);
-  const lensBarrel = new CylinderGeometry(0.104, 0.104, 0.16, 12);
-  lensBarrel.rotateX(Math.PI / 2);
-  const rim = new TorusGeometry(0.09, 0.018, 6, 12);
-  const lens = new IcosahedronGeometry(0.077, 1);
-  const dial = new CylinderGeometry(0.035, 0.035, 0.04, 8);
-  dial.rotateZ(Math.PI / 2);
-  const caseBody = new BoxGeometry(0.29, 0.16, 0.2);
-  const caseBand = new BoxGeometry(0.025, 0.175, 0.215);
-  const bedroll = new CylinderGeometry(0.06, 0.06, 0.25, 10);
-  bedroll.rotateZ(Math.PI / 2);
-  const bedrollBand = new TorusGeometry(0.061, 0.01, 5, 10);
-  bedrollBand.rotateY(Math.PI / 2);
-  const geometries = [shelter, unitBar, foot, collar, head, lensBarrel, rim, lens, dial, caseBody, caseBand, bedroll, bedrollBand];
   type Slot = { mesh: InstancedMesh; count: number; capacity: number };
   const slots = new Map<string, Slot>();
-  const make = (name: string, geometry: BufferGeometry, mat: MeshStandardMaterial, perSite = 1): void => {
-    const capacity = Math.max(1, maxTiles * perSite);
-    const mesh = new InstancedMesh(geometry, mat, capacity);
-    mesh.name = `survey-rig-${name}`;
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    group.add(mesh);
-    slots.set(name, { mesh, count: 0, capacity });
-  };
-  make("legs", unitBar, iron, 3);
-  make("feet", foot, iron, 3);
-  make("leg-bands", unitBar, brass, 3);
-  make("collar", collar, brass);
-  make("head", head, brass);
-  make("lens-barrel", lensBarrel, iron);
-  make("lens-rim", rim, brass);
-  make("lensDormant", lens, dormant);
-  make("lensActive", lens, active);
-  make("lensRemembered", lens, remembered);
-  make("lens-back", head, glass);
-  make("dial", dial, brass);
-  make("case", caseBody, iron);
-  make("case-bands", caseBand, brass, 2);
-  make("shelter", shelter, canvas);
-  make("bedroll", bedroll, canvas);
-  make("bedroll-bands", bedrollBand, straps, 2);
-  const matrix = new Matrix4();
-  const position = new Vector3();
-  const scale = new Vector3();
-  const rotation = new Quaternion();
-  const up = new Vector3(0, 1, 0);
-  const direction = new Vector3();
-  const identity = new Quaternion();
-  let sites = 0;
+  const slotKey = (part: HoloCratePart, frozen: boolean): string => `${holoPartSlot(part)}${frozen && ANIMATED.has(part.material) ? "|still" : ""}`;
+  for (const frozen of [false, true]) {
+    const perSite = new Map<string, number>();
+    for (const part of HOLO_CRATE_PARTS) perSite.set(slotKey(part, frozen), (perSite.get(slotKey(part, frozen)) ?? 0) + 1);
+    for (const [key, count] of perSite) {
+      if (slots.has(key)) continue;
+      const [geometryKey, materialKey] = key.split("|")[0]!.split(":") as [keyof typeof geometries, HoloMaterialKey];
+      const capacity = Math.max(1, maxTiles * count);
+      const mesh = new InstancedMesh(geometries[geometryKey], materialFor(materialKey, key.endsWith("|still")), capacity);
+      mesh.name = `holo-crate-${key}`;
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      if (materialKey === "holo" || materialKey === "holoBeam") mesh.renderOrder = 2;
+      group.add(mesh);
+      slots.set(key, { mesh, count: 0, capacity });
+    }
+  }
 
-  const piece = (name: string, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, quaternion = identity): void => {
-    const slot = slots.get(name);
+  const lockParts = HOLO_CRATE_PARTS.filter((part) => part.role === "lock");
+  const lockSlotKeys = new Set(lockParts.flatMap((part) => [slotKey(part, false), slotKey(part, true)]));
+  type LockSite = { x: number; y: number; z: number; phase: number; frozen: boolean };
+  let lockSites: LockSite[] = [];
+  let sites = 0;
+  const site = new Matrix4();
+  const anchor = new Matrix4();
+  const matrix = new Matrix4();
+  const put = (key: string, m: Matrix4): void => {
+    const slot = slots.get(key);
     if (!slot || slot.count >= slot.capacity) return;
-    matrix.compose(position.set(x, y, z), quaternion, scale.set(sx, sy, sz));
-    slot.mesh.setMatrixAt(slot.count++, matrix);
+    slot.mesh.setMatrixAt(slot.count++, m);
   };
-  const bar = (name: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, thickness = 1): void => {
-    direction.set(dx, dy, dz);
-    const length = direction.length();
-    rotation.setFromUnitVectors(up, direction.normalize());
-    piece(name, x, y, z, thickness, length, thickness, rotation);
+  const placeLocks = (nowMs: number): void => {
+    for (const key of lockSlotKeys) { const slot = slots.get(key); if (slot) slot.count = 0; }
+    for (const lock of lockSites) {
+      holoLockMatrix(anchor, lock.x, lock.y, lock.z, nowMs, lock.phase, lock.frozen);
+      for (const part of lockParts) put(slotKey(part, lock.frozen), matrix.multiplyMatrices(anchor, part.matrix));
+    }
+    for (const key of lockSlotKeys) {
+      const slot = slots.get(key);
+      if (!slot) continue;
+      slot.mesh.count = slot.count;
+      if (slot.count) slot.mesh.instanceMatrix.needsUpdate = true;
+    }
   };
+
   return {
     group,
-    clear() { sites = 0; for (const slot of slots.values()) slot.count = 0; },
-    addInstance(x, z, y, _worldX, _worldZ, waystation, frozen = false) {
+    clear() { sites = 0; lockSites = []; for (const slot of slots.values()) slot.count = 0; },
+    addInstance(x, z, y, worldX, worldZ, waystation, frozen = false) {
       if (sites >= maxTiles) return;
       sites += 1;
-      // Instrument slightly left of centre, packed camp to the right.
-      const tx = x - 0.12;
-      for (const angle of [Math.PI / 2, Math.PI * 7 / 6, Math.PI * 11 / 6]) {
-        const dx = Math.cos(angle) * 0.24;
-        const dz = Math.sin(angle) * 0.24;
-        bar("legs", tx + dx / 2, y + 0.29, z + dz / 2, -dx, 0.53, -dz);
-        piece("feet", tx + dx, y + 0.025, z + dz);
-        bar("leg-bands", tx + dx * 0.65, y + 0.2, z + dz * 0.65, -dx * 0.1, 0.053, -dz * 0.1, 1.35);
+      site.makeTranslation(x, y, z);
+      for (const part of HOLO_CRATE_PARTS) {
+        if (part.role === "lock") continue;
+        if (part.role === "door") put(slotKey(part, frozen), matrix.multiplyMatrices(site, DOOR_HINGE).multiply(part.matrix));
+        else put(slotKey(part, frozen), matrix.multiplyMatrices(site, part.matrix));
       }
-      piece("collar", tx, y + 0.58, z);
-      piece("head", tx, y + 0.73, z);
-      piece("lens-back", tx, y + 0.73, z - 0.02, 0.7, 0.7, 1);
-      piece("lens-barrel", tx, y + 0.74, z + 0.11);
-      piece("lens-rim", tx, y + 0.74, z + 0.195);
-      piece(waystation.activated ? "lensActive" : frozen ? "lensRemembered" : "lensDormant", tx, y + 0.74, z + 0.19, 1, 1, 0.35);
-      piece("dial", tx - 0.14, y + 0.72, z);
-      piece("case", x + 0.2, y + 0.085, z + 0.24);
-      for (const dx of [0.12, 0.28]) piece("case-bands", x + dx, y + 0.085, z + 0.24);
-      piece("shelter", x + 0.26, y + 0.02, z - 0.18);
-      piece("bedroll", x + 0.26, y + 0.08, z - 0.16);
-      for (const dx of [0.19, 0.33]) piece("bedroll-bands", x + dx, y + 0.08, z - 0.16);
+      if (!waystation.activated) lockSites.push({ x, y, z, phase: ((worldX * 7919 + worldZ * 104729) % 628) / 100, frozen });
     },
     commit() {
+      placeLocks(performance.now());
       for (const { mesh, count } of slots.values()) {
         mesh.count = count;
         if (!count) continue;
@@ -154,12 +113,20 @@ export const createWaystationOverlay = (scene: Scene, maxTiles: number, building
         mesh.instanceMatrix.needsUpdate = true;
       }
     },
-    update(nowMs) { dormant.emissiveIntensity = 1 + 0.35 * (0.5 + 0.5 * Math.sin(nowMs * 0.0016)); },
+    update(nowMs) {
+      const pulse = 0.5 + 0.5 * Math.sin(nowMs * 0.0024);
+      (live.glow as MeshStandardMaterial).emissiveIntensity = 0.8 + 0.45 * pulse;
+      // Hologram flicker: a steady shimmer plus a rare, brief dropout.
+      const dropout = Math.sin(nowMs * 0.0131) > 0.985 ? 0.45 : 1;
+      (live.holo as MeshBasicMaterial).opacity = (0.36 + 0.1 * Math.sin(nowMs * 0.019)) * dropout;
+      (live.holoBeam as MeshBasicMaterial).opacity = 0.06 + 0.05 * pulse;
+      if (lockSites.length) placeLocks(nowMs);
+    },
     dispose() {
       scene.remove(group);
       for (const slot of slots.values()) slot.mesh.dispose();
-      for (const geometry of geometries) geometry.dispose();
-      for (const mat of materials) mat.dispose();
+      for (const geometry of Object.values(geometries)) geometry.dispose();
+      for (const material of [...Object.values(live), ...Object.values(still)]) material?.dispose();
       slots.clear();
     }
   };

@@ -12,6 +12,7 @@ import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-s
 import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
 import { createTownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
+import { createWaystationOpenFxLayer } from "../client-waystation-holo-crates/holo-crate-open-fx-3d.js";
 import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js";
 import { createAnchoredFxRoot, type AnchoredFxRoot } from "./client-map-3d-anchored-fx-root.js";
 
@@ -44,6 +45,8 @@ export type AnchoredFxLayers = {
   readonly afcModuleDeliveryFx: ReturnType<typeof createAfcModuleDeliveryFxLayer>;
   readonly afcDropFx: ReturnType<typeof createAfcDropFxLayer>;
   readonly townTierUpgradeFx: ReturnType<typeof createTownTierUpgradeFxLayer>;
+  /** A collected waystation's crate opening (client-waystation-holo-crates/). */
+  readonly waystationOpenFx: ReturnType<typeof createWaystationOpenFxLayer>;
 };
 
 export const createAnchoredFxLayers = (scene: Object3D, buildingEnvironmentTexture: Texture | undefined): AnchoredFxLayers => {
@@ -76,6 +79,7 @@ export const createAnchoredFxLayers = (scene: Object3D, buildingEnvironmentTextu
     unsettleFx: anchored(createUnsettleFxLayer(root.group)),
     afcModuleDeliveryFx: anchored(createAfcModuleDeliveryFxLayer(root.group)),
     afcDropFx: anchored(createAfcDropFxLayer(root.group, buildingEnvironmentTexture)),
-    townTierUpgradeFx: anchored(createTownTierUpgradeFxLayer(root.group))
+    townTierUpgradeFx: anchored(createTownTierUpgradeFxLayer(root.group)),
+    waystationOpenFx: anchored(createWaystationOpenFxLayer(root.group, buildingEnvironmentTexture))
   };
 };

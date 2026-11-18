@@ -1,4 +1,5 @@
 import { createInitialTownTierUpgradeFxState } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
+import { createInitialWaystationOpenFxState } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { createInitialMusterCaptureLabelState } from "../client-muster-capture/client-muster-capture.js";
 
@@ -17,6 +18,8 @@ export const createInitialMapFxQueueState = () => ({
   ...createInitialAfcDeliveryState(),
   // Town tier-upgrade growth; see client-town-tier-upgrade-fx/.
   ...createInitialTownTierUpgradeFxState(),
+  // A collected waystation's 10 s opening, drawn by both renderers; see client-waystation-holo-crates/.
+  ...createInitialWaystationOpenFxState(),
   // "+N / −N manpower" over a captured muster flag, drawn by both renderers; see client-muster-capture/.
   ...createInitialMusterCaptureLabelState()
 });

@@ -25,6 +25,8 @@ import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { townGrowthDustSeed } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 import { expireTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
+import type { WaystationOpenFxLayer } from "../client-waystation-holo-crates/holo-crate-open-fx-3d.js";
+import { expireWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { liveMusterCaptureLabels } from "../client-muster-capture/client-muster-capture.js";
@@ -53,6 +55,7 @@ export type FxCastOverlayLayers = {
   afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
   afcDropFx: AfcDropFxLayer;
   townTierUpgradeFx: TownTierUpgradeFxLayer;
+  waystationOpenFx: WaystationOpenFxLayer;
   /** "+N / −N manpower" over a captured muster flag (client-muster-capture/; 2D draws its own). */
   floatingText: FloatingTextLayer;
 };
@@ -296,6 +299,17 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     expireTownTierUpgrades(state, Date.now());
   };
 
+  const syncWaystationOpenFxQueue = (): void => {
+    while (state.waystationOpenFxQueue.length > 0) {
+      const opening = state.waystationOpenFxQueue.shift()!;
+      const { sceneX, sceneZ } = fxXZ(opening.x, opening.y);
+      // startedAt is wall-clock (shared with 2D); the layer ticks on performance.now().
+      layers.waystationOpenFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(opening.x, opening.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
+        performance.now() - Math.max(0, Date.now() - opening.startedAt), opening.x * 31 + opening.y);
+    }
+    expireWaystationOpenings(state, Date.now());
+  };
+
   // Labels carry increasing ids: spawn each once, the floating-text layer animates it.
   let lastSpawnedMusterLabelId = 0;
   const syncMusterCaptureLabels = (epochMs: number): void => {
@@ -321,6 +335,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncSovereignSiegeEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
+    syncWaystationOpenFxQueue();
     syncMusterCaptureLabels(Date.now()); // epoch ms, like the labels' startedAt
   };
 

@@ -17,6 +17,7 @@ import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
+import { detectWaystationOpenings, recordWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string; waystationJson?: string };
 
@@ -85,6 +86,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       );
     }
   }
+  // Before the merge: it deletes the collected rig, which the opening animation replaces.
+  const waystationOpenings = Array.isArray(tileUpdates) ? detectWaystationOpenings(state.tiles, tileUpdates, keyFor) : [];
   applyGatewayTileDeltaBatch(
     { state, keyFor, mergeIncomingTileDetail: deps.mergeIncomingTileDetail, mergeServerTileWithOptimisticState: deps.mergeServerTileWithOptimisticState, clearRenderCaches: deps.clearRenderCaches, buildMiniMapBase: deps.buildMiniMapBase },
     tileUpdates
@@ -175,6 +178,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     const lostAnAfc = [...myAfcKeysBefore].some((key) => state.tiles.get(key)?.afc?.ownerId !== state.me || state.tiles.get(key)?.ownerId !== state.me);
     if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
     emitTownTierUpgrades({ state, tileUpdates, previousTileByKey, keyFor, nowMs, pushFeed: deps.pushFeed });
+    if (waystationOpenings.length) recordWaystationOpenings(state, waystationOpenings, keyFor, nowMs);
     recordAfcModuleDeliveries(
       state,
       detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),
