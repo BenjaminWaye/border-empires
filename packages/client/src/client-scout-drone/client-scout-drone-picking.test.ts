@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ScoutDroneFlight } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { createInitialState } from "../client-state/client-state.js";
 import { afcScoutDroneAction, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { SCOUT_DRONE_PICKING_CARD_HTML } from "../client-hud/client-hud-targeting-overlay.js";
 
@@ -17,6 +18,7 @@ const flight = (landsAt: number): ScoutDroneFlight => ({
 const tile = (x: number, y: number, ownerId?: string): Tile => ({ x, y, terrain: "LAND", ...(ownerId ? { ownerId } : {}) }) as Tile;
 
 const pickingState = (scoutDroneFlight?: ScoutDroneFlight) => ({
+  ...createInitialState(),
   me: "me",
   allies: ["friend"],
   scoutDroneFlight,

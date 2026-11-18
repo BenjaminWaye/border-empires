@@ -5,9 +5,12 @@
 // active AFC nearest the target (planScoutDroneFlight), so the button aims
 // the drone; it does not pick which AFC it leaves from. A tap on the player's
 // own or allied land is refused here, as the server would (SCOUT_TARGET_HOME),
-// and picking continues so a mis-tap doesn't drop the order. The armed card
+// and picking continues so a mis-tap doesn't drop the order. Arming clears
+// the other map picks, and arming a Crystal ability clears this one. The armed card
 // with its Cancel button is client-hud/client-hud-targeting-overlay.ts.
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
+import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
+import { clearCrystalTargeting } from "../client-tile-action-logic/client-crystal-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { activeScoutDroneFlight, dispatchExploreAction, EXPLORE_ACTION_ID, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
@@ -33,13 +36,17 @@ export const afcScoutDroneAction = (state: Pick<ClientState, "me" | "scoutDroneF
 };
 
 /** Handles the AFC menu row. Returns true when `actionId` was Send scout drone. */
-export const dispatchAfcScoutAction = (actionId: string, state: PickingState, deps: Pick<ExploreDispatchDeps, "pushFeed">, nowMs: number = Date.now()): boolean => {
+export const dispatchAfcScoutAction = (actionId: string, state: ClientState, deps: Pick<ExploreDispatchDeps, "pushFeed">, nowMs: number = Date.now()): boolean => {
   if (actionId !== AFC_SCOUT_ACTION_ID) return false;
   const active = activeScoutDroneFlight(state.scoutDroneFlight, nowMs);
   if (active) {
     deps.pushFeed(`${droneOutReason(active.landsAt, nowMs)}.`, "info", "warn");
     return true;
   }
+  // One armed pick at a time, so the card on screen is always the one the next tap answers.
+  clearCrystalTargeting(state);
+  if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
+  state.musterMarchTargeting.active = false;
   state.scoutDronePicking.active = true;
   return true;
 };

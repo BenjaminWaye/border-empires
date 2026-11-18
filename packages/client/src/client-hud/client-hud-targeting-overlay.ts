@@ -18,7 +18,7 @@ export const SCOUT_DRONE_PICKING_CARD_HTML = `
       <div class="targeting-card tone-amber">
         <div class="targeting-kicker">Scout Drone Ready</div>
         <div class="targeting-title">Send scout drone</div>
-        <div class="targeting-detail">Tap a tile beyond your land. The drone launches from your AFC nearest that tile, reveals land as it flies, and claims nothing.</div>
+        <div class="targeting-detail">Tap a tile beyond your own and allied land. The drone launches from your AFC nearest that tile, reveals land as it flies, and claims nothing.</div>
         <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
       </div>
     `;

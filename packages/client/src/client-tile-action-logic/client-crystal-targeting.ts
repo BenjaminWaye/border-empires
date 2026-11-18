@@ -240,6 +240,7 @@ export const beginCrystalTargeting = (
       return;
     }
     state.aetherWallTargeting.active = true;
+    state.scoutDronePicking.active = false;
     state.aetherWallTargeting.validOrigins = validOrigins;
     deps.hideTileActionMenu();
     deps.renderHud();
@@ -252,6 +253,8 @@ export const beginCrystalTargeting = (
     return;
   }
   state.crystalTargeting.active = true;
+  // One armed pick at a time: a hidden Send scout drone pick would take the tap after this cast.
+  state.scoutDronePicking.active = false;
   state.crystalTargeting.ability = ability;
   state.crystalTargeting.validTargets = validTargets;
   state.crystalTargeting.originByTarget = originByTarget;
