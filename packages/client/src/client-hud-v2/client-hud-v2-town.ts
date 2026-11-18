@@ -7,7 +7,7 @@
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { townCoinNote, townPlotIncomeNote, townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
-import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { biotaAdjustedTownManpower, manpowerPerBatch, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
@@ -104,9 +104,9 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
-  // A large town short of biota gives a smaller tier's manpower: show what it gives, and why.
-  const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
-  const manpower = terrainAdjustedTownManpower(biota.manpowerTier, terrainProfile, coastal);
+  // A large town short of biota gives part of its tier's manpower: show what it gives, and why.
+  const biota = townBiota(input.biota, input.biotaSteps);
+  const manpower = biotaAdjustedTownManpower(town.populationTier, terrainProfile, coastal, input.biota);
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
   const foodBase = townFoodSlotDemandForTier(town.populationTier);

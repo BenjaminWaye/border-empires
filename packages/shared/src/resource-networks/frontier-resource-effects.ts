@@ -40,7 +40,7 @@ export const biotaSlotsNeededFromSites = (tier: PopulationTier, vivaria = 0): nu
 
 /** `vivaria`: active Vivaria supporting the town; each covers one slot without drawing on biota sites. */
 export type BiotaTown = { readonly key: string; readonly tier: PopulationTier; readonly heldSince: number; readonly vivaria?: number };
-/** `received` counts every covered slot; `local` is the part the town's own Vivaria cover (omitted when 0). */
+/** `received` counts every covered slot; `local` is the part the town's own Vivaria cover (omitted when 0); `manpowerTier` is the highest tier fully met (a label: output scales with received/needed). */
 export type BiotaTownSupply = { readonly received: number; readonly needed: number; readonly manpowerTier: PopulationTier; readonly local?: number };
 
 /**

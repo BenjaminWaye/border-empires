@@ -272,11 +272,14 @@ buildings and no per-building slot caps. Formulas live in
 **Luxury biota (large towns' manpower).** Each developed biota site supplies 2
 biota slots. Each tier needs more than the one before (`BIOTA_SLOTS_BY_TIER`):
 a City needs 1 slot, a Great City 3, a Metropolis 6; Settlements and Towns need
-none. A town above Town tier gives Town-level manpower with no biota, and
-otherwise the manpower of the highest tier, up to its real tier, whose need its
-slots meet (so a Metropolis with 3 slots gives Great City manpower, and with 2
-still City manpower). Slots are handed out in full to each town in turn, so a
-town part-way between tiers holds slots that do not yet raise its manpower. A town's own
+none. A town above Town tier gives a Town's manpower cap, manpower regen and
+Coin with no biota, its own tier's with all of it, and in between in proportion
+to the share of its need met (`biotaShareMet`, `biotaAdjustedTownManpower` and
+`biotaBlend` in `biota-town-output.ts`): a Metropolis with 3 of 6 slots gives
+half-way from a Town's figures to a Metropolis's. Every slot counts, so a slot
+is never wasted between tiers. Town Coin blends the tier's population
+multiplier (`townGoldPerMinuteForPlayer`'s `biotaShare`; the login snapshot
+reads the exported `manpowerBreakdown.biotaTowns`). A town's own
 Vivaria cover slots before biota sites do: each active Vivarium on the town
 tile or its support ring (`countSupportedStructures`) covers
 `VIVARIUM_BIOTA_SLOTS` (1) slot, so the town draws only the rest from biota

@@ -266,7 +266,7 @@ import {
   censusHallConnectedIncubationEngineBonusCountForPlayer as censusHallConnectedIncubationEngineBonusCountForPlayerImpl,
   tileYieldEconomyContextForPlayer as tileYieldEconomyContextForPlayerImpl,
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
-  type RuntimeTownNetworkContext
+  type RuntimeTownNetworkContext, frontierSupplyAccessors
 } from "./runtime-town-network.js";
 import { townEconomyViewForPlayer } from "./runtime-town-economy-view.js";
 import { resolveMusterSource as resolveMusterSourceImpl } from "../runtime-muster-source.js";
@@ -1578,7 +1578,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       players: this.state.players,
-      networkSitesForPlayer: id => this.resourceSupply?.network(id),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       economySnapshotCacheByPlayer: this.economyCaches.economySnapshotCacheByPlayer,
       economySnapshotDirtyPlayerIds: this.economyCaches.economySnapshotDirtyPlayerIds,
       economySnapshotLastRebuiltAtMsByPlayer: this.economyCaches.economySnapshotLastRebuiltAtMsByPlayer,
@@ -2316,7 +2316,7 @@ export class SimulationRuntime {
   private townNetworkContext(): RuntimeTownNetworkContext {
     return {
       tiles: this.state.tiles,
-      networkSitesForPlayer: id => this.resourceSupply?.network(id),
+      ...frontierSupplyAccessors(id => this.resourceSupply?.network(id), this.state.players, p => this.cachedManpowerStructureBonusForPlayer(p)),
       townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
       townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
       tileYieldContextCacheByPlayer: this.economyCaches.tileYieldContextCacheByPlayer,

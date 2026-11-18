@@ -8,7 +8,7 @@ import {
   neuralWorksNetworkAncillaryFactoryCountForPlayer,
   type ConnectedTownNetworkEntry
 } from "./economy-network/economy-network.js";
-import { ancillaryFactoryCapacityBonus, resolvedTownCoastal, resolvedTownTerrainProfileId, terrainAdjustedTownManpower } from "@border-empires/shared";
+import { ancillaryFactoryCapacityBonus, biotaAdjustedTownManpower, resolvedTownCoastal, resolvedTownTerrainProfileId } from "@border-empires/shared";
 import { countSupportedStructures, reserveLatticeAlreadyInNetwork } from "./economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
@@ -174,11 +174,12 @@ export const cachedManpowerStructureBonusForPlayer = (
     if (!townTile?.town) continue;
     const factoryCount = countSupportedStructures(player.id, townTile, "ANCILLARY_DEPOT", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
     if (factoryCount <= 0) continue;
-    // A town short of biota gives a lower tier's manpower (frontier-resource-effects.ts), Depot capacity included.
-    const base = terrainAdjustedTownManpower(
-      biotaTownSupply?.get(townKey)?.manpowerTier ?? townTile.town.populationTier,
+    // A town short of biota gives part of its tier's manpower (biota-town-output.ts), Depot capacity included.
+    const base = biotaAdjustedTownManpower(
+      townTile.town.populationTier,
       resolvedTownTerrainProfileId(townTile.town.terrainProfile, townTile.landBiome),
-      resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal)
+      resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal),
+      biotaTownSupply?.get(townKey)
     ).cap;
     ancillaryFactoryCapacityBonusByTown.set(townKey, ancillaryFactoryCapacityBonus(base, factoryCount, reserveLatticeAlreadyInNetwork(player.id, townKey, ctx.tiles, localTownNetwork)));
   }

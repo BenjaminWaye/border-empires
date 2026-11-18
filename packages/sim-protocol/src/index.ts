@@ -67,7 +67,7 @@ export type BiotaTownStatus = {
   tileKey: string;
   received: number;
   needed: number;
-  /** The tier whose manpower the town gives right now. */
+  /** Highest tier whose biota need is fully met (label only; output scales with received/needed, biota-town-output.ts). */
   manpowerTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   /** Slots of `received` covered by the town's own Vivaria (omitted when none). */
   local?: number;

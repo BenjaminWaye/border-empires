@@ -60,12 +60,12 @@ describe("resource networks in the real runtime", () => {
     expect(unruly.manpowerRegenPerMinute).toBeCloseTo(town.manpowerRegenPerMinute!);
     expect(unruly.manpowerBreakdown?.cap.find(row => row.label === "Unruly town, short of biota (1)")?.amount).toBe(-(1350 - 300));
   });
-  it("one developed biota site (2 slots) lifts a Metropolis from Town to City manpower; it needs 6 for its own", () => {
+  it("one developed biota site (2 of a Metropolis's 6 slots) lifts it a third of the way from Town to Metropolis manpower", () => {
     const supplied = player(fixture(true, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
     const unruly = player(fixture(false, () => boundary, 0, techIds, false, undefined, "METROPOLIS"));
-    // Town line 300 -> City 450, plus the Depot's capacity bonus, which scales with the town's working tier.
-    expect(supplied.manpowerCap! - unruly.manpowerCap!).toBeGreaterThanOrEqual(450 - 300);
-    expect(supplied.manpowerBreakdown?.cap.find(row => row.label === "Unruly town, short of biota (1)")?.amount).toBe(-(1350 - 450));
+    // Town 300, Metropolis 1350: 2/6 of the 1050 gap, plus the Depot's capacity bonus, which scales with the town's working capacity.
+    expect(supplied.manpowerCap! - unruly.manpowerCap!).toBeGreaterThanOrEqual(350);
+    expect(supplied.manpowerBreakdown?.cap.find(row => row.label === "Unruly town, short of biota (1)")?.amount).toBe(-700);
   });
   it("preserves deposits, installations and bonuses across snapshot recovery", () => {
     const runtime=fixture(true,()=>boundary);

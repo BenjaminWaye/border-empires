@@ -50,18 +50,39 @@ describe("Vivarium in the real runtime", () => {
   it("tops up a Great City's one biota site (2 of 3 slots) to full manpower", () => {
     const short = fixture({ tier: "GREAT_CITY", vivaria: 0, biotaSite: true });
     const covered = fixture({ tier: "GREAT_CITY", vivaria: 1, biotaSite: true });
-    expect(unrulyRow(short)?.amount).toBe(-(750 - 450));
+    // Great City 750, Town 300: 2 of 3 slots leaves 1/3 of the 450 gap.
+    expect(unrulyRow(short)?.amount).toBe(-150);
     expect(unrulyRow(covered)).toBeUndefined();
-    expect(player(covered).manpowerCap! - player(short).manpowerCap!).toBe(750 - 450);
+    expect(player(covered).manpowerCap! - player(short).manpowerCap!).toBe(150);
     expect(player(covered).manpowerBreakdown?.biotaTowns).toEqual([{ tileKey: "10,10", received: 3, needed: 3, manpowerTier: "GREAT_CITY", local: 1 }]);
   });
-  it("lifts a Metropolis (needs 6) from City to Great City manpower once a Vivarium joins its biota site", () => {
-    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: true }))?.amount).toBe(-(1350 - 450));
-    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true }))?.amount).toBe(-(1350 - 750));
+  it("raises a Metropolis's manpower by a sixth of the Town-to-Metropolis gap for every slot, Vivarium or site", () => {
+    // Metropolis 1350, Town 300: each of the 6 slots is worth 175 cap.
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: true }))?.amount).toBe(-700);
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true }))?.amount).toBe(-525);
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: false }))?.amount).toBe(-875);
   });
-  it("keeps a town with no biota at all working at the tier its Vivaria cover", () => {
-    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: false }))?.amount).toBe(-(1350 - 450));
+  it("gives full manpower once Vivaria alone cover the whole need", () => {
     expect(unrulyRow(fixture({ tier: "GREAT_CITY", vivaria: 3, biotaSite: false }))).toBeUndefined();
+  });
+  it("scales a short town's coin with the share of its biota need met", () => {
+    const income = (vivaria: number): number => {
+      const runtime = fixture({ tier: "GREAT_CITY", vivaria, biotaSite: false });
+      runtime.applyPassiveIncome(boundary, Number.MAX_SAFE_INTEGER);
+      return player(runtime).incomePerMinute!;
+    };
+    const [none, one, two, all] = [income(0), income(1), income(2), income(3)];
+    expect(one).toBeGreaterThan(none);
+    expect(two).toBeGreaterThan(one);
+    expect(all).toBeGreaterThan(two);
+    // Linear in the share met: each slot adds the same coin.
+    expect(two - one).toBeCloseTo(one - none, 5);
+  });
+  it("shows the same reduced coin in the login snapshot as the live economy", () => {
+    const loginIncome = (vivaria: number): number =>
+      buildLivePlayerEconomySnapshot("p", fixture({ tier: "GREAT_CITY", vivaria, biotaSite: false }).exportState()).incomePerMinute;
+    expect(loginIncome(1)).toBeGreaterThan(loginIncome(0));
+    expect(loginIncome(3)).toBeGreaterThan(loginIncome(1));
   });
   it("frees the biota site a City no longer needs in the economy panel", () => {
     const used = (vivaria: number) =>
