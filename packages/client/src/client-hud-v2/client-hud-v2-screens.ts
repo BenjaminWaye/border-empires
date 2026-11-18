@@ -393,9 +393,10 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       state: deps.state
     });
     if (!input) return true;
+    // No profile link on a counter: the round trip would reopen it as a plain new offer, not a counter.
     rememberDiplomacyListScroll();
     screen.diplomacyTargetId = input.targetPlayerId;
-    writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : "", input.targetPlayerId));
+    writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : ""));
     bodyMode = `deal:${input.targetPlayerId}`;
     forgetWritten("v2d-pact");
     hostTradeView(deps, input.targetPlayerId, input);

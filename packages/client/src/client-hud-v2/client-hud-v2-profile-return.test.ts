@@ -71,6 +71,20 @@ describe("profile return", () => {
     expect(document.querySelector(".v2d-deal-with")?.textContent).toBe("Rival");
   });
 
+  // Regression: a counter-offer deal's profile link reopened it as a plain new offer, dropping the counter.
+  it("offers no profile link on a counter-offer deal", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    state.playerNames.set("p2", "Rival");
+    state.incomingTruceRequests = [{ id: "r1", fromPlayerId: "p2", toPlayerId: "p1", fromName: "Rival", durationHours: 12, createdAt: 0, expiresAt: Date.now() + 60_000 } as never];
+    const deps = depsFor(state);
+    openScreen(deps, "diplomacy");
+    screenClick(deps, document.querySelector("[data-v2-dip-counter]") as Element);
+    expect(document.querySelector(".v2d-deal-with")?.textContent).toBe("Rival");
+    expect(document.querySelector("[data-hud-v2-profile]")).toBeNull();
+  });
+
   it("closes to the map when opened from the map, and when told to", () => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();
