@@ -3,6 +3,7 @@ import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { TRUCE_EMAIL_EMPIRE_FELL_ENTRY } from "./client-changelog-truce-email-empire-fell.js";
 import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
 import { MANPOWER_COPY_ENTRY } from "./client-changelog-manpower-copy.js";
+import { GUIDE_EXPLORE_ENTRY } from "./client-changelog-guide-explore.js";
 import { MUSTER_CAPTURE_ENTRY } from "./client-changelog-muster-capture.js";
 import { CHRONICLE_HEADLINE_ENTRY } from "./client-changelog-chronicle-headline.js";
 import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-placement-text.js";
@@ -495,6 +496,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...MUSTER_CAPTURE_ENTRY, createdAt: 1794949929394, },
   { ...TOWN_SCREEN_BIOTA_ENTRY, createdAt: 1794950085487, },
   { ...TOWN_BAR_STRUCTURE_TOGGLE_ENTRY, createdAt: 1794950483222, },
+  { ...GUIDE_EXPLORE_ENTRY, createdAt: 1794951057397, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

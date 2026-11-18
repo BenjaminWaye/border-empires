@@ -20,6 +20,7 @@ import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -52,6 +53,9 @@ export type GuideInputState = Pick<
   | "serverReachRevision"
   | "manpower"
   | "manpowerCap"
+  | "scoutDroneFlight"
+  | "afcRecovery"
+  | "discoveredTiles"
 >;
 
 const MAX_BUILD_TARGETS = 6;
@@ -163,6 +167,29 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
   return site ? { x: site.x, y: site.y } : undefined;
 };
 
+// The explore target scans rings of discoveredTiles around home. A drone flight grows that set
+// without touching tiles, so it is cached on the set's size and home, not on the tiles revision.
+let exploreCache: { size: number; homeKey: string; value: { x: number; y: number } | undefined } | undefined;
+
+// Distinct drone flights seen this session (by launch time), per player, capped: after
+// GUIDE_EXPLORE_MAX_FLIGHTS the town and food steps stop asking for Explore.
+let flightsSeen: { me: string; launches: Set<number> } = { me: "", launches: new Set() };
+
+const scoutFlightsOf = (state: GuideInputState): number => {
+  if (flightsSeen.me !== state.me) flightsSeen = { me: state.me, launches: new Set() };
+  const flight = state.scoutDroneFlight;
+  if (flight && flightsSeen.launches.size < GUIDE_EXPLORE_MAX_FLIGHTS) flightsSeen.launches.add(flight.launchedAt);
+  return flightsSeen.launches.size;
+};
+
+const exploreTargetOf = (state: GuideInputState): { x: number; y: number } | undefined => {
+  const homeKey = state.homeTile ? tileKey(state.homeTile.x, state.homeTile.y) : "";
+  if (!exploreCache || exploreCache.size !== state.discoveredTiles.size || exploreCache.homeKey !== homeKey) {
+    exploreCache = { size: state.discoveredTiles.size, homeKey, value: guideExploreTarget(state.discoveredTiles, state.homeTile) };
+  }
+  return exploreCache.value;
+};
+
 /** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
 const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" && document.body.classList.contains(cls);
 
@@ -250,7 +277,13 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     musterUnlocked: cached.musterUnlocked,
     ownsMusterFlag: cached.scan.ownsMusterFlag,
     musterTargetTiles: cached.scan.musterTargetTiles,
-    manpower: { current: state.manpower, cap: state.manpowerCap }
+    manpower: { current: state.manpower, cap: state.manpowerCap },
+    // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
+    scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
+    exploreTarget: () => exploreTargetOf(state),
+    scoutFlights: scoutFlightsOf(state),
+    // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
+    nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };
 };
 
@@ -263,4 +296,6 @@ const manifestPriceOf = (state: GuideInputState): Pick<GuideInput, "manifestPric
 /** Test-only: drops the per-revision tile-scan cache. */
 export const resetGuideInputCacheForTests = (): void => {
   cached = undefined;
+  exploreCache = undefined;
+  flightsSeen = { me: "", launches: new Set() };
 };
