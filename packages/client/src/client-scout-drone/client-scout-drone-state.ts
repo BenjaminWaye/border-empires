@@ -19,7 +19,9 @@ import type { FeedEntry } from "../client-types.js";
 
 export const createInitialScoutDroneState = () => ({
   /** The player's drone while it is in the air (times in local clock), otherwise undefined. */
-  scoutDroneFlight: undefined as ScoutDroneFlight | undefined
+  scoutDroneFlight: undefined as ScoutDroneFlight | undefined,
+  /** Armed by Send scout drone on an AFC menu: the next map tap picks where to send it (client-scout-drone-picking.ts). */
+  scoutDronePicking: { active: false }
 });
 
 type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playerNames: Map<string, string> };
