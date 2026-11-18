@@ -230,4 +230,5 @@ export const townScreenRegions = (input: TownScreenInput): { left: string; build
 
 export const TOWN_SCREEN_SKELETON = `<section class="v2t-left" id="v2t-left" aria-label="Town"></section>
   <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
-  <div class="v2t-bar" id="v2t-bar"></div>`;
+  <div class="v2t-bar" id="v2t-bar"></div>
+  <div class="v2t-pick" id="v2t-pick" aria-label="Place building"></div>`;
