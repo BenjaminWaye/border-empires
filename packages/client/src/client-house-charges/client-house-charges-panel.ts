@@ -6,6 +6,7 @@ import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } f
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
+import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 
 export type HouseChargesPanelDeps = {
@@ -29,13 +30,14 @@ const formatWhen = (epochMs: number): string =>
 
 /**
  * Where "Show on map" goes: a target the player has explored, otherwise the
- * search circle, so the camera never lands on an unscouted Charter town the
- * card only gives a rough bearing to. Area charges centre on their region.
- * Without `isExplored` (no tile knowledge) the first target is used.
+ * middle of the rough circles the map draws (client-house-charges-search-guide.ts),
+ * so the camera lands on what is shown and never on an unscouted town itself.
+ * Area charges centre on their region. Without `isExplored` (no tile
+ * knowledge) the first target is used.
  */
 export const houseChargeFocusPoint = (charge: HouseChargeView, isExplored?: (x: number, y: number) => boolean): { x: number; y: number } => {
   if (charge.areaTileKeys || !isExplored) return charge.targets[0] ?? charge.searchCircle;
-  return charge.targets.find((target) => isExplored(target.x, target.y)) ?? charge.searchCircle;
+  return charge.targets.find((target) => isExplored(target.x, target.y)) ?? houseChargeGuideCentre(charge, isExplored, WORLD_WIDTH, WORLD_HEIGHT) ?? charge.searchCircle;
 };
 
 const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {

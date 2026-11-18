@@ -2,7 +2,8 @@
 // map renderers (client-map-guide-overlays-2d.ts and the true-3D
 // client-map-3d-map-guide-overlay.ts). Progressive reveal: exact targets are
 // only marked on ground the player has explored (a tile in state.tiles);
-// until then the search circle is outlined with markers instead.
+// until then a rough dotted circle shows where to look
+// (client-house-charges-search-guide.ts).
 import type { HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -11,7 +12,6 @@ export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean };
 
 type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
 
-const SEARCH_CIRCLE_MARKERS = 12;
 /** Upper bound on shaded tiles (a Survey landmass is at most 600 LAND tiles plus mountains). */
 const MAX_TINT_TILES = 1_200;
 
@@ -22,26 +22,11 @@ export const focusedHouseCharge = (state: Pick<ClientState, "houseCharges" | "ho
 
 const explored = (state: ChargeMapState, x: number, y: number): boolean => state.tiles.has(`${x},${y}`);
 
-/** Evenly spaced markers around the charge's search circle. */
-export const searchCircleMarkers = (charge: HouseChargeView, worldWidth: number, worldHeight: number): ChargeMapPoint[] => {
-  const { x, y, radius } = charge.searchCircle;
-  return Array.from({ length: SEARCH_CIRCLE_MARKERS }, (_, index) => {
-    const angle = (index / SEARCH_CIRCLE_MARKERS) * Math.PI * 2;
-    return { x: wrap(Math.round(x + Math.cos(angle) * radius), worldWidth), y: wrap(Math.round(y + Math.sin(angle) * radius), worldHeight) };
-  });
-};
-
-/** Ring markers for the focused charge: its explored targets, or its search circle while nothing of it has been seen. */
-export const houseChargeMarkerTiles = (state: ChargeMapState, worldWidth: number, worldHeight: number): ChargeMapPoint[] => {
+/** Ring markers for the focused charge: its point targets the player has explored. Unscouted ones get a rough circle instead (client-house-charges-search-guide.ts). */
+export const houseChargeMarkerTiles = (state: ChargeMapState): ChargeMapPoint[] => {
   const charge = focusedHouseCharge(state);
-  if (!charge) return [];
-  const areaSeen = charge.areaTileKeys?.some((key) => state.tiles.has(key)) ?? false;
-  if (areaSeen) return [];
-  const seenTargets = charge.areaTileKeys ? [] : charge.targets.filter((target) => explored(state, target.x, target.y));
-  if (seenTargets.length === 0) return searchCircleMarkers(charge, worldWidth, worldHeight);
-  const marked = seenTargets.map(({ x, y }) => ({ x, y }));
-  // A Charter whose second town is still unscouted: keep the search circle so the player knows where to look.
-  return seenTargets.length < charge.targets.length ? [...marked, ...searchCircleMarkers(charge, worldWidth, worldHeight)] : marked;
+  if (!charge || charge.areaTileKeys) return [];
+  return charge.targets.filter((target) => explored(state, target.x, target.y)).map(({ x, y }) => ({ x, y }));
 };
 
 const COMPASS = ["east", "southeast", "south", "southwest", "west", "northwest", "north", "northeast"] as const;
