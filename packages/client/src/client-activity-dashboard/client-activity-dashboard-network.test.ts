@@ -313,12 +313,15 @@ describe("handleActivityDashboardMessage", () => {
 
   it("handles ACTIVITY_SEEN_ACKNOWLEDGED and returns true", () => {
     const state = makeState();
+    const renderHud = vi.fn();
     const handled = handleActivityDashboardMessage(
       { type: "ACTIVITY_SEEN_ACKNOWLEDGED", lastActivitySeenAt: 1, lastActivitySeenSeasonId: "s" },
       state,
-      { sendGameMessage: vi.fn(), renderHud: vi.fn() }
+      { sendGameMessage: vi.fn(), renderHud }
     );
     expect(handled).toBe(true);
+    // Regression (playtest 2026-11-18): the Chronicle badge kept its unread count until an unrelated redraw.
+    expect(renderHud).toHaveBeenCalledTimes(1);
   });
 
   it("intercepts only its own ERROR code and clears loading, showing the retry hint rather than the server's text", () => {
