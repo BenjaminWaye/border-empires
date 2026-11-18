@@ -344,7 +344,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "build-food-slot",
     chapter: "build",
     title: (i) => `A Manufactory needs a free food slot. ${foodCopy(i).title}`,
-    why: (i) => `All your food slots are in use. ${foodCopy(i).why}`,
+    why: (i) => `All your food slots are in use. ${foodCopy(i).why}${needsTownForBuild(i) ? "" : " No food nearby? Build a Farm Plot by your town with manpower."}`,
     // A free slot only counts once the Manufactory is reachable, so a spare slot a Relay Beacon
     // later uses up isn't ticked off early. Skipped when the player chose another Manifest.
     isDone: (i) => (i.manufactoryResearched && i.foodSlotFree) || i.ownsBuiltStructure || otherManifestChosen(i),

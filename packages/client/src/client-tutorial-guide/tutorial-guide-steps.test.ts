@@ -307,6 +307,8 @@ describe("tutorial guide steps", () => {
       expect(noSlot.title).toMatch(/free food slot/i);
       expect(noSlot.highlightTiles).toEqual([{ x: 7, y: 7 }]);
       expect(noSlot.step.lookFor).toEqual(["FOOD", "FISH"]);
+      // Farm Plot (docs/farm-plot-plan.md): a held town can grow its own food with manpower.
+      expect(noSlot.kind === "step" && noSlot.why).toMatch(/Farm Plot/);
 
       const slotFree = evaluateGuide(baseInput({ ...withManifest, foodSlotFree: true, manufactoryUnlocked: true }), new Set([...afcDone, "build-food-slot"]));
       expect(slotFree.kind === "step" && slotFree.step.id).toBe("build-first");

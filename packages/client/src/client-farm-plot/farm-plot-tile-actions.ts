@@ -43,8 +43,8 @@ export const farmPlotTileActions = (state: ClientState, tile: Tile, deps: FarmPl
     return [row("build_hydrogarden_plot", "Upgrade to Hydrogarden Plot", deps.buildDetailTextForAction("build_hydrogarden_plot", tile) ?? "",
       deps.availability("HYDROGARDEN_PLOT", choice.ok, reason, costLine(state, deps, "HYDROGARDEN_PLOT")))];
   }
-  // A town's support ring only; a resource tile takes that resource's own building instead.
-  if (!deps.townBuildSource || (tile.resource && !tile.town)) return [];
+  // A town's support ring only; a resource tile takes that resource's own building instead, and an occupied plot shows its own rows.
+  if (!deps.townBuildSource || (!tile.town && (tile.resource || structure))) return [];
   const blocked = deps.supportPlacementBlockedReason;
   return [row("build_farm_plot", "Build Farm Plot", deps.buildDetailTextForAction("build_farm_plot", tile) ?? "",
     deps.availability("FARM_PLOT", !blocked, blocked ?? "Unavailable", costLine(state, deps, "FARM_PLOT")))];
