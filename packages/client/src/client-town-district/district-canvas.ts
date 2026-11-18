@@ -6,13 +6,12 @@ import type { Tile, TileVisibilityState } from "../client-types.js";
 import { townSupportPlotMapFor2D } from "../client-town-support-plot-lookup.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { buildDistrictNetwork, districtRecord, type DistrictEdge } from "./district-network.js";
-import { isDistrictBuilding, isDistrictProject } from "./district-catalog.js";
 import { refinerySceneAround, type RefineryScene } from "../client-refineries/refinery-scene.js";
 import { drawRefineryGoods2D, drawRefineryPickerHighlight2D } from "../client-refineries/refinery-canvas-2d.js";
 import { refineryPickerHighlight } from "../client-refineries/refinery-picker-highlight.js";
 
 type CanvasDeps = {
-  readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures" | "camX" | "camY">;
+  readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures" | "camX" | "camY"> & { readonly hover?: ClientState["hover"] };
   readonly ctx: CanvasRenderingContext2D;
   readonly visibilityAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   readonly terrainAt: (x: number, y: number) => Tile["terrain"];
@@ -41,10 +40,9 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
       const { state } = deps;
       const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;
       const plots = townSupportPlotMapFor2D(selected, { tiles: state.tiles, wrapX, wrapY, keyFor: (x, y) => `${x},${y}`, terrainAt: deps.terrainAt, me: state.me });
-      for (const key of plots.keys()) {
-        const tile = state.tiles.get(key);
-        if (isDistrictBuilding(tile?.economicStructure?.type) || isDistrictProject(tile?.economicStructure?.type)) plots.delete(key);
-      }
+      const selectedKey = state.selected && `${state.selected.x},${state.selected.y}`;
+      const hoverKey = state.hover && `${state.hover.x},${state.hover.y}`;
+      for (const key of plots.keys()) plots.set(key, key === selectedKey || key === hoverKey);
       return plots;
     },
     draw: (size, halfW, halfH) => {

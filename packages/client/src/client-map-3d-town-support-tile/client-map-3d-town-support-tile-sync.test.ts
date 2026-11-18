@@ -1,90 +1,97 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Group } from "three";
 import { describe, expect, it } from "vitest";
-import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
-import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "../client-map-3d-hill-shape.js";
-import { hillFootprintTopY } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { Color, Mesh, Scene } from "three";
 import type { Tile } from "../client-types.js";
-import { HATCH_COLLAR_HEIGHT, type TownSupportTileOverlay } from "./client-map-3d-town-support-tile.js";
-import { createTownSupportTileSync } from "./client-map-3d-town-support-tile-sync.js";
+import { PLOT_AMBER, PLOT_IVORY, PLOT_VERTICES } from "../client-town-support-plot/plot-style.js";
+import { createTownSupportTileOverlay } from "./client-map-3d-town-support-tile.js";
+import { createTownSupportTileSync, plotSurfaceHeights, type TownSupportTileSyncDeps } from "./client-map-3d-town-support-tile-sync.js";
 
-const identity = (v: number): number => v;
-const allHills = (): boolean => true;
-const GROUND_Y = 0.1;
-const HALF = 0.18;
+const keyFor = (x: number, y: number): string => `${x},${y}`;
+const wrap = (x: number): number => (x + 100) % 100;
+const fixture = () => {
+  const scene = new Scene(), overlay = createTownSupportTileOverlay(scene, 24);
+  const town: Tile = { x: 20, y: 20, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+  // Only population tier is read by the support-plot lookup.
+  town.town = { populationTier: "TOWN" } as NonNullable<Tile["town"]>;
+  const tiles = new Map([[keyFor(20, 20), town]]);
+  let selected: { x: number; y: number } | undefined;
+  let hovered: { x: number; y: number } | undefined;
+  let visible = true, groundY = 0.1;
+  let hillCutAt = (): undefined => undefined;
+  const deps: TownSupportTileSyncDeps = {
+    overlay, selected: () => selected, hover: () => hovered, visibleAt: () => visible,
+    sceneOrigin: { camX: 20, camY: 20 }, toroidDelta: (from, to, dim) => ((to - from + dim * 1.5) % dim) - dim / 2,
+    worldWidth: 100, worldHeight: 100, cornerYAt: () => groundY, isHillsAt: () => false, hillCutAt: () => hillCutAt, rise: 0.01,
+    lookupDeps: { tiles, keyFor, wrapX: wrap, wrapY: wrap, terrainAt: () => "LAND", me: "me" }
+  };
+  const sync = createTownSupportTileSync(deps);
+  const mesh = overlay.group.children[0]!;
+  if (!(mesh instanceof Mesh)) throw new Error("missing plot mesh");
+  return { deps, overlay, town, tiles, sync, mesh,
+    select: (coord: typeof selected) => { selected = coord; }, hover: (coord: typeof hovered) => { hovered = coord; },
+    visibility: (value: boolean) => { visible = value; },
+    rebuild: (height: number) => { groundY = height; hillCutAt = (): undefined => undefined; }
+  };
+};
 
-const domeYAt = (wx: number, wy: number, u: number, v: number): number =>
-  GROUND_Y + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, hillBumpsWithCorridorAt(wx, wy, hillNeighborFlagsAt(wx, wy, allHills, identity, identity)), wx, wy);
-
-const topFor = (wx: number, wy: number, isHillsAt: (x: number, y: number) => boolean, hillCut?: { readonly afcPads: readonly { du: number; dv: number }[] }): number =>
-  hillFootprintTopY({ cornerYAt: () => GROUND_Y, wx, wy, wxNext: wx + 1, wyNext: wy + 1, rise: 0, halfExtent: HALF, isHillsAt, wrapX: identity, wrapY: identity, hillCut });
-
-const grid = (n: number): number[] => Array.from({ length: n }, (_, i) => -1 + (2 * i) / (n - 1));
-
-describe("town support hatch seating on hills", () => {
-  it("seats the hatch rim on the dome instead of at ground level, where the dome buried it (regression)", () => {
-    let raisedTiles = 0;
-    for (let wx = 10; wx < 30; wx += 1) {
-      for (let wy = 10; wy < 30; wy += 1) {
-        const top = topFor(wx, wy, allHills);
-        // The frame's underside sits 0.029 above the seat; nothing under it may poke through.
-        for (const su of grid(9)) for (const sv of grid(9)) expect(top + 0.029).toBeGreaterThanOrEqual(domeYAt(wx, wy, su * HALF, sv * HALF));
-        if (top > GROUND_Y + 0.05) raisedTiles += 1;
-      }
-    }
-    // The old max-of-corners height was GROUND_Y: every one of these hatches was under the dome.
-    expect(raisedTiles).toBe(400);
+describe("town plot corner markers", () => {
+  it("appears on town selection, stays while selecting a plot, and clears on deselection or unrelated selection", () => {
+    const f = fixture();
+    // Real renderer output rather than just checking that clear()/commit() ran.
+    const drawCount = (): number => f.mesh.geometry.drawRange.count;
+    f.sync(); expect(drawCount()).toBe(0);
+    f.select(f.town); f.sync(); expect(drawCount()).toBe(8 * PLOT_VERTICES.length);
+    const plot: Tile = { x: 21, y: 20, terrain: "LAND" };
+    f.tiles.set(keyFor(21, 20), plot);
+    f.select(plot); f.sync(); expect(drawCount()).toBe(8 * PLOT_VERTICES.length);
+    f.select({ x: 40, y: 40 }); f.sync(); expect(drawCount()).toBe(0);
+    f.select(f.town); f.sync(); f.select(undefined); f.sync(); expect(drawCount()).toBe(0);
+    f.overlay.dispose();
   });
 
-  it("keeps the collar reaching below the lowest dome point under the frame, so no gap shows on a slope", () => {
-    const collarBottomBelowSeat = HATCH_COLLAR_HEIGHT - 0.03;
-    for (let wx = 10; wx < 30; wx += 1) {
-      for (let wy = 10; wy < 30; wy += 1) {
-        const top = topFor(wx, wy, allHills);
-        let lowest = Infinity;
-        for (const su of grid(7)) for (const sv of grid(7)) lowest = Math.min(lowest, domeYAt(wx, wy, su * 0.17, sv * 0.17));
-        expect(top - lowest).toBeLessThan(collarBottomBelowSeat);
-      }
-    }
+  it("covers both rings for a Great City, hides invisible plots, and refreshes after a terrain rebuild", () => {
+    const f = fixture();
+    f.town.town!.populationTier = "GREAT_CITY";
+    f.select(f.town); f.sync();
+    const geometry = f.mesh.geometry;
+    expect(geometry.drawRange.count).toBe(24 * PLOT_VERTICES.length);
+    expect(geometry.getAttribute("position").getY(0)).toBeCloseTo(0.11);
+    f.rebuild(0.3); f.sync();
+    expect(geometry.getAttribute("position").getY(0)).toBeCloseTo(0.31);
+    f.visibility(false); f.sync(); expect(geometry.drawRange.count).toBe(0);
   });
 
-  it("is the plain max-of-corners height off hills and follows the hill cut on hills", () => {
-    expect(topFor(5, 5, () => false)).toBe(GROUND_Y);
-    expect(topFor(5, 5, allHills, { afcPads: [{ du: 0, dv: 0 }] })).toBe(GROUND_Y);
+  it("turns only the hovered plot amber and clears its highlight when the pointer leaves", () => {
+    const f = fixture();
+    f.select(f.town); f.hover({ x: 19, y: 19 }); f.sync();
+    const colors = f.mesh.geometry.getAttribute("color");
+    expect(colors.getY(0)).toBeCloseTo(new Color(PLOT_AMBER).g);
+    expect(colors.getY(PLOT_VERTICES.length)).toBeCloseTo(new Color(PLOT_IVORY).g);
+    f.hover(undefined); f.sync();
+    expect(colors.getY(0)).toBeCloseTo(new Color(PLOT_IVORY).g);
   });
 
-  it("caches each plot's seat until the next terrain rebuild hands out a new hill cut", () => {
-    const seats: number[] = [];
-    const overlay: TownSupportTileOverlay = {
-      group: new Group(), clear: () => { seats.length = 0; }, commit: () => undefined, dispose: () => undefined,
-      addInstance: (_x, _z, surfaceY) => { seats.push(surfaceY); }
-    };
-    const town = { x: 20, y: 20, ownerId: "me", ownershipState: "SETTLED", town: { populationTier: "TOWN" } } as unknown as Tile;
-    let groundY = 0.1;
-    let hillCutAt = (): undefined => undefined;
-    const sync = createTownSupportTileSync({
-      overlay, selected: () => ({ x: 20, y: 20 }), sceneOrigin: { camX: 20, camY: 20 }, toroidDelta: (from, to) => to - from,
-      worldWidth: 100, worldHeight: 100, cornerYAt: () => groundY, isHillsAt: () => false, hillCutAt: () => hillCutAt, rise: 0,
-      lookupDeps: { tiles: new Map([["20,20", town]]), keyFor: (x, y) => `${x},${y}`, wrapX: identity, wrapY: identity, terrainAt: () => "LAND", me: "me" }
+  it("matches the rendered triangles when the four terrain corners are not coplanar", () => {
+    const f = fixture();
+    const heights = plotSurfaceHeights(20, 20, { ...f.deps,
+      cornerYAt: (x, y) => (x === 21 && y === 20) || (x === 20 && y === 21) ? 0.4 : 0
     });
-    sync();
-    expect(seats).toHaveLength(8);
-    expect(new Set(seats)).toEqual(new Set([0.1]));
-    groundY = 0.3; // terrain moved, but no rebuild yet: cached seats stay
-    sync();
-    expect(new Set(seats)).toEqual(new Set([0.1]));
-    hillCutAt = (): undefined => undefined; // a rebuild hands out a fresh lookup
-    sync();
-    expect(new Set(seats)).toEqual(new Set([0.3]));
+    PLOT_VERTICES.forEach(([x, z], i) => {
+      const u = x + 0.5, v = z + 0.5;
+      const ground = u + v <= 1 ? (u + v) * 0.4 : (2 - u - v) * 0.4;
+      expect(heights[i]).toBeCloseTo(ground + 0.01);
+    });
   });
 
-  it("is wired into the true-3D map with the latest rebuild's hill cut", () => {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const mapSource = readFileSync(resolve(here, "../client-map-3d/client-map-3d.ts"), "utf8");
-    expect(mapSource).toContain("const syncTownSupportTiles = createTownSupportTileSync({");
-    expect(mapSource).toContain("hillCutAt: () => latestHillCutAt");
-    expect(mapSource).toContain("latestHillCutAt = hillCutAt;");
+  it("follows the slope at every marker vertex rather than floating a horizontal square at its highest point", () => {
+    const f = fixture();
+    const heights = plotSurfaceHeights(20, 20, { ...f.deps, cornerYAt: (x, y) => (x - 20) * 0.3 + (y - 20) * 0.1 });
+    PLOT_VERTICES.forEach(([x, z], i) => expect(heights[i]).toBeCloseTo((x + 0.5) * 0.3 + (z + 0.5) * 0.1 + 0.01));
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(0.3);
+    const hills = { ...f.deps, isHillsAt: () => true };
+    const dome = plotSurfaceHeights(20, 20, hills);
+    expect(Math.max(...dome)).toBeGreaterThan(0.11);
+    const graded = plotSurfaceHeights(20, 20, { ...hills, hillCutAt: () => () => ({ afcPads: [{ du: 0, dv: 0 }] }) });
+    expect(Math.min(...graded)).toBeGreaterThanOrEqual(0.1);
+    expect(Math.max(...graded)).toBeLessThanOrEqual(Math.max(...dome));
   });
 });
