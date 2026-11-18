@@ -305,6 +305,7 @@ describe("tutorial guide in the onboarding corner", () => {
     const skipGuide = card()?.querySelector('[data-guide-action="hide"]');
     expect(skipGuide?.textContent).toBe("Skip guide");
     expect(skipGuide?.classList.contains("tg-btn")).toBe(true); // a button, not the old faint underlined link
+    expect(skipGuide?.closest(".tg-card .tg-actions")).not.toBeNull(); // in the card's own action row: no new HUD element on crowded phones
     click("hide");
     expect(card()).toBeNull();
     expect(readGuideProgress(EMAIL).status).toBe("dismissed");

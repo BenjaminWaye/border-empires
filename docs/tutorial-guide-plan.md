@@ -67,9 +67,10 @@ card shows:
 - a progress bar with a steps-done count;
 - **Show me** (centres the camera on the step's map target; repeated presses
   cycle through the targets; when the card covers the screen centre, as on a
-  phone, it folds to its launcher so the target isn't under it), **Skip step**
+  phone, it folds to its launcher so the target isn't under it), **Skip** (this step)
   and, on the last step, **Finish**;
-- a **Skip guide** button.
+- a compact **Skip guide** button in the same action row (no new HUD element,
+  and the card keeps its size on a 375px phone).
 
 **Finish** replaces the card with a short "Guide complete" card that closes
 itself after a few seconds. Its bar is always full: Finish is only offered once

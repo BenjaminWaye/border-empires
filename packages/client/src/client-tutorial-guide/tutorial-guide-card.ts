@@ -6,8 +6,8 @@
 //
 // It shows exactly one step at a time: chapter, what to do, one line of why,
 // progress, and the step's actions -- "Show me" (centre the camera on the
-// step's map target), "Skip step" and, on the final step, "Finish". A "Skip
-// guide" button ends the guide for the rest of the season (Settings can
+// step's map target), "Skip" (this step) and, on the final step, "Finish". A
+// compact "Skip guide" button in the same row ends the guide for the rest of the season (Settings can
 // restart it; every season starts it again).
 
 import type { GuideLookForIcon, GuideView } from "./tutorial-guide-steps.js";
@@ -52,7 +52,7 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
     view.highlightTiles.length > 0 ? `<button type="button" class="tg-btn tg-btn-primary" data-guide-action="show-me">Show me</button>` : "",
     view.step.acknowledge
       ? `<button type="button" class="tg-btn tg-btn-primary" data-guide-action="finish">Finish</button>`
-      : `<button type="button" class="tg-btn" data-guide-action="skip">Skip step</button>`
+      : `<button type="button" class="tg-btn" data-guide-action="skip">Skip</button>`
   ].join("");
   return `
     <section class="tg-card" ${expanded ? "" : "hidden"} aria-label="Guide">
@@ -216,7 +216,7 @@ body.hud-v2-compact #${ROOT_ID}.tg-side-end { right: calc(var(--v2c-safe-right, 
 .tg-actions { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tg-btn { appearance: none; border-radius: 8px; border: 1px solid rgba(126,224,138,0.35); background: transparent; color: #eafff0; font-size: 12px; font-weight: 700; padding: 5px 10px; cursor: pointer; }
 .tg-btn-primary { background: rgba(126,224,138,0.18); }
-.tg-skip-guide { margin-left: auto; border-color: rgba(240,224,200,0.4); color: #fbf3e6; }
+.tg-skip-guide { margin-left: auto; padding: 4px 8px; font-size: 11px; border-color: rgba(240,224,200,0.4); color: #fbf3e6; }
 .tg-launcher {
   position: relative; width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid rgba(126, 224, 138, 0.4); background: rgba(3, 7, 14, 0.85); color: #a7f3b0;
