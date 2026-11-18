@@ -17,6 +17,8 @@ export type RuntimeSideTickersDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   readonly docks?: () => readonly DockRouteDefinition[];
+  /** Tile keys of the AFCs a player owns (runtime summary index); a Writ of Correction checks only these. */
+  readonly afcTileKeys?: (playerId: string) => ReadonlySet<string>;
   readonly isPlayerSubscribed: (playerId: string) => boolean;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload) => void;
 };
@@ -46,6 +48,7 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
   const houseCharges = createHouseChargesTicker({
     tiles: deps.tiles,
     ...(deps.docks ? { docks: deps.docks } : {}),
+    ...(deps.afcTileKeys ? { afcTileKeys: deps.afcTileKeys } : {}),
     players: deps.players,
     onPassComplete: () => {
       const online = new Set<string>();

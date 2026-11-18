@@ -1,4 +1,5 @@
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
+import { afcFounderOverviewLines } from "../client-afc-founder/client-afc-founder-line.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
@@ -472,7 +473,7 @@ export const tileMenuViewForTile = (
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),
     tabs,
     ...(modules ? { modules } : {}),
-    overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
+    overviewLines: [...afcFounderOverviewLines(tile, deps.playerNameForOwner, deps.state.me), ...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
