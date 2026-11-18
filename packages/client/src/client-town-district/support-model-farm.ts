@@ -24,7 +24,7 @@ const irrigationMast = (t: TownBuilders, x: number, z: number): void => {
   t.body.cylinder(x, 0.08, z, 0.048, 0.048, 0.004, "water", 10);
   for (const dx of [-0.03, 0.03]) t.body.box(x + dx, 0.08, z, 0.01, 0.2, 0.01, "iron");
   t.body.box(x, 0.28, z, 0.05, 0.03, 0.04, "ironDark");
-  t.body.disc(x, 0.3, z + 0.03, 0.065, 0.006, "brass");
+  t.body.disc(x, 0.3, z + 0.03, 0.045, 0.006, "brass");
   band(t, x, 0.18, z, 0.035);
   t.body.pipe(x, 0.06, z, 0.04, 0.03, 0.2, 0.01, "brassDark");
 };
@@ -47,7 +47,7 @@ const hydrogardenPlot = (t: TownBuilders): void => {
   // Hyperfeed glasshouses: a lit, ribbed glass vault over each bed.
   for (const z of BED_ZS) {
     t.body.ellipsoid(0.04, 0.05, z, 0.17, 0.09, 0.05, "glassLight");
-    for (const x of [-0.08, 0.04, 0.16]) t.body.box(x, 0.05, z, 0.006, 0.085, 0.1, "brassDark");
+    for (const x of [-0.08, 0.04, 0.16]) t.body.box(x, 0.05, z, 0.006, 0.07, 0.1, "brassDark");
     t.glow.box(0.04, 0.14, z, 0.18, 0.004, 0.012, "lamp");
   }
   t.body.cylinder(-0.22, 0.012, -0.16, 0.05, 0.055, 0.17, "iron", 8);
