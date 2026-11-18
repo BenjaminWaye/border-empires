@@ -29,7 +29,7 @@ describe("sealed charges bubble", () => {
   it("shows three illustrated cards and the House's note while the choice is open", () => {
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, () => {});
     // Reuses the charge card and the shared map callout rather than restyling them (owner 2026-11-18).
-    expect(root()?.querySelectorAll(".hcb-cards .hc-card.is-mini")).toHaveLength(3);
+    expect(root()?.querySelectorAll(".hcb-cards .hc-card.is-back.is-mini .sp-cog")).toHaveLength(3);
     expect(root()?.querySelector(".hcb-speech")?.classList.contains("sp-callout")).toBe(true);
     expect(root()?.textContent).toContain("Your House has handed you 3 sealed charges. Keep 2.");
   });

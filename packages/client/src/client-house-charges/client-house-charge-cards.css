@@ -60,8 +60,31 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
-/* Mini, face-down card (the House Charges bubble): the same rim, kind-coloured frame and parchment bars
-   at icon size, with a wax seal instead of art and text. Kept here so the icon follows the card. */
+/* Card back: one shared back for every charge (docs/house-charges-plan.md), the brass cog seal
+   (.sp-cog) over a starfield, in a brass frame rather than a kind colour. */
+.hc-card.is-back {
+  --hc-frame: var(--sp-brass-500, #b8862f);
+  --hc-frame-hi: var(--sp-brass-300, #d9ad52);
+  --hc-frame-lo: var(--sp-brass-700, #8a611f);
+}
+.hc-card.is-back .hc-frame { grid-template-rows: 1fr; }
+.hc-back-face {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle at 18% 22%, #fff9 0 1px, transparent 1.5px),
+    radial-gradient(circle at 76% 14%, #fff7 0 1px, transparent 1.5px),
+    radial-gradient(circle at 64% 80%, #fff8 0 1px, transparent 1.5px),
+    radial-gradient(circle at 28% 70%, #fff6 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 86% 56%, #fff6 0 0.8px, transparent 1.3px),
+    radial-gradient(ellipse at 50% 40%, #1d2a3a, #0a0e16 75%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(217, 173, 82, 0.25);
+}
+.hc-back-face .sp-cog { width: 52%; aspect-ratio: 1; }
+
+/* Icon-size card (the House Charges bubble): the same rim and frame, scaled down. */
 .hc-card.is-mini {
   width: 20px;
   max-width: none;
@@ -69,21 +92,9 @@
   border-radius: 3px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
-.hc-card.is-mini .hc-frame {
-  grid-template-rows: 4px 1fr 4px;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 2px;
-  place-items: center;
-}
-.hc-card.is-mini .hc-bar { width: 100%; height: 100%; padding: 0; border-radius: 1px; }
-.hc-seal {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #c7392c, #8e1e16 70%);
-  box-shadow: 0 0 0 1px #5e110b, inset 0 0 0 1.5px rgba(232, 176, 74, 0.8);
-}
+.hc-card.is-mini .hc-frame { padding: 1.5px; border-radius: 2px; }
+.hc-card.is-mini .hc-back-face { border-radius: 1px; }
+.hc-card.is-mini .hc-back-face .sp-cog { width: 70%; }
 
 .hc-name {
   min-width: 0;

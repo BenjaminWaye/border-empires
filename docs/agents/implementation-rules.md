@@ -21,7 +21,8 @@ Read only the sections matching the change. These requirements were moved from t
 
 - Reuse an existing component or shared class before writing new CSS for something that already exists, so styles do not drift apart. Use the theme tokens in `packages/client/src/client-steampunk-theme-style.css` (`--sp-brass-*`, `--sp-leather-*`, `--sp-parchment-*`, `--sp-font-*`) instead of restating their hex values.
 - Map notices and speech-style notes (a dark leather box, brass edge and rotated-square pointer) use `.sp-callout` with `.sp-callout-tail-down` or `.sp-callout-tail-left` from `packages/client/src/client-callout/client-callout.css`. Import that file before your own stylesheet, and set only position, padding and size yourself.
-- Anything that shows a House Charge card, at any size, uses the card's own classes (`.hc-card`, `.hc-frame`, `.hc-bar`; `.is-mini` for icons) from `client-house-charges/client-house-charge-cards.css`.
+- Anything that shows a House Charge card, at any size, uses the card's own markup and classes from `client-house-charges/client-house-charge-cards.ts`/`.css`: `houseChargeCardHtml` for a face, `houseChargeCardBackHtml` (`{ mini: true }` for icons) for the back.
+- The brass cog emblem is `.sp-cog` in `client-steampunk-theme-style.css`; size it and set `--sp-cog-color` rather than drawing another cog.
 
 ## Changelog gate (client-visible changes)
 

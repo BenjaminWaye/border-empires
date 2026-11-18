@@ -7,6 +7,7 @@
 // bury (owner, 2026-11-18). Both flags are kept per deal in localStorage.
 import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
 // Shared pieces first, so the bubble's own rules come after them.
+import { houseChargeCardBackHtml } from "./client-house-charge-cards.js";
 import "../client-callout/client-callout.css";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-bubble.css";
@@ -40,8 +41,8 @@ export const houseChargesUnhandled = (payload: HouseChargesPayload | null | unde
 
 export const markHouseChargesHandled = (dealtAt: number): void => writeDeal(HANDLED_KEY, dealtAt);
 
-/** A face-down charge card: the trading card's own classes (client-house-charge-cards.css, `.is-mini`). */
-const MINI_CARD = `<div class="hc-card kind-charter is-mini"><div class="hc-frame"><span class="hc-bar"></span><span class="hc-seal"></span><span class="hc-bar"></span></div></div>`;
+/** A face-down charge card: the trading card's own back (client-house-charge-cards.ts). */
+const MINI_CARD = houseChargeCardBackHtml({ mini: true });
 
 /** Three fanned, sealed charge cards. */
 const CARDS_HTML = `<span class="hcb-cards" aria-hidden="true">${MINI_CARD}${MINI_CARD}${MINI_CARD}</span>`;
