@@ -37,7 +37,7 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
     title: "House Charges: sealed cards instead of an alert",
     why: "The House charges alert could be buried under other alerts, and it read like a warning rather than a gift from your House.",
     changes: [
-      "House Charge cards now have a back: a gold-leaf frame around ribbed dark and light blue, with a brass cog seal in the middle.",
+      "House Charge cards now have a back: a gold-leaf frame around diagonal ribs of dark and light blue, with a brass cog seal in the middle.",
       "When your charges arrive, three face-down charge cards bob at the left edge of the map with a note that your House has handed you sealed charges. Tap the cards to choose which two to keep.",
       "The note can be closed on its own; the cards stay until you open your charges or the choice closes."
     ]

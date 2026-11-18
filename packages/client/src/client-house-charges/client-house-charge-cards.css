@@ -61,7 +61,7 @@
 }
 
 /* Card back: one shared back for every charge (docs/house-charges-plan.md). A gold-leaf frame around
-   ribbed blue (dark and light ribs, each shaded like a rounded rod) with the brass cog seal (.sp-cog)
+   diagonally ribbed blue (dark and light ribs, each shaded like a rounded rod) with the brass cog seal (.sp-cog)
    on a dark plate. Hard colour stops only, no blur, so it stays crisp at every size. */
 .hc-card.is-back {
   --hc-frame: var(--sp-brass-300, #d9ad52);
@@ -81,7 +81,7 @@
     /* Light from above, shade below, across all the ribs. */
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 35%, transparent 65%, rgba(0, 0, 0, 0.35)),
     /* One dark rib then one light rib, each lit in the middle and dark at its edges (the grooves). */
-    repeating-linear-gradient(90deg,
+    repeating-linear-gradient(45deg,
       #071226 0, #163460 calc(var(--hc-rib) * 0.5), #071226 var(--hc-rib),
       #10305a var(--hc-rib), #5d9ad6 calc(var(--hc-rib) * 1.5), #10305a calc(var(--hc-rib) * 2));
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(244, 223, 166, 0.6);
