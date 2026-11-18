@@ -352,7 +352,7 @@ import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../r
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
 import { createPlannerCandidateWiring } from "./runtime-planner-candidate-wiring.js";
-import { createScoutDroneRuntime } from "../scout-drone/scout-drone-runtime.js";
+import { createScoutDroneRuntime, scoutDroneCommandDispatchHandlers } from "../scout-drone/scout-drone-runtime.js";
 import { buildMapCommandContext } from "./runtime-map-command-context.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -3185,8 +3185,7 @@ export class SimulationRuntime {
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleActivateWaystationCommand: (command) => handleActivateWaystationCommand({ ...this.watchtowerRevealContext(), visibilityCoverage: this.state.visibilityCoverage, emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd) }, command, (key, x, y, playerId, commandId) => this.activateWaystationAt(key, x, y, playerId, commandId, false)),
-      handleExploreCommand: (command) => this.scoutDrones.handleExplore(command),
-      handleRecallScoutCommand: (command) => this.scoutDrones.handleRecall(command),
+      ...scoutDroneCommandDispatchHandlers(() => this.scoutDrones),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),

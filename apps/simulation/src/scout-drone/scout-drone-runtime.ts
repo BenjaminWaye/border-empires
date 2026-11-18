@@ -78,6 +78,14 @@ export type ScoutDroneRuntime = {
   readonly gauge: () => ScoutDroneGauge;
 };
 
+/** The runtime's EXPLORE and RECALL_SCOUT dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
+export const scoutDroneCommandDispatchHandlers = (
+  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall">
+): { handleExploreCommand: (command: CommandEnvelope) => void; handleRecallScoutCommand: (command: CommandEnvelope) => void } => ({
+  handleExploreCommand: (command) => drones().handleExplore(command),
+  handleRecallScoutCommand: (command) => drones().handleRecall(command)
+});
+
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
 const keyOf = (x: number, y: number): string => `${x},${y}`;
 export const isPlanetaryDefenseId = (playerId: string): boolean => playerId.startsWith("barbarian-");
