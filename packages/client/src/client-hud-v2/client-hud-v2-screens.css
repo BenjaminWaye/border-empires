@@ -5,10 +5,13 @@
 .hud-v2-screen > * { pointer-events: auto; }
 .hud-v2-screen:empty { display: none; }
 
-/* What each screen hides. Frame screens keep the resource bar and the crest and screen buttons (the open one lit), so you can move between screens. */
+/* What each screen hides. The map's Build ▸ / Aether ▸ sidebar (.hud-v2-build-side) goes with the tile panel: left open,
+   it sat over the town screen's stats (a full-height sheet on a phone) with its ✕ unreachable behind the screen.
+   Frame screens keep the resource bar and the crest and screen buttons (the open one lit), so you can move between screens. */
 body.hud-v2-screen-frame .hud-v2-right,
 body.hud-v2-screen-frame .hud-v2-tracker,
 body.hud-v2-screen-frame .hud-v2-tile,
+body.hud-v2-screen-frame .hud-v2-build-side,
 body.hud-v2-screen-frame .hud-v2-orb-slot,
 body.hud-v2-screen-frame #mini-map-wrap,
 body.hud-v2-screen-frame .hud-v2-overlays,
@@ -21,6 +24,7 @@ body.hud-v2-screen-town .hud-v2-nav,
 body.hud-v2-screen-town .hud-v2-right,
 body.hud-v2-screen-town .hud-v2-tracker,
 body.hud-v2-screen-town .hud-v2-tile,
+body.hud-v2-screen-town .hud-v2-build-side,
 body.hud-v2-screen-town #mini-map-wrap,
 body.hud-v2-screen-town .hud-v2-overlays,
 body.hud-v2-screen-town .onb-root { display: none !important; }
@@ -28,6 +32,7 @@ body.hud-v2-screen-battle .hud-v2-top,
 body.hud-v2-screen-battle .hud-v2-right,
 body.hud-v2-screen-battle .hud-v2-tracker,
 body.hud-v2-screen-battle .hud-v2-tile,
+body.hud-v2-screen-battle .hud-v2-build-side,
 body.hud-v2-screen-battle .hud-v2-orb-slot,
 body.hud-v2-screen-battle #mini-map-wrap,
 body.hud-v2-screen-battle .hud-v2-overlays,
@@ -69,7 +74,12 @@ body.hud-v2-screen-open #side-panel { z-index: 47; }
 .v2s-empty { padding: 18px; font-size: 14px; color: var(--v2-muted); text-align: center; }
 
 /* ---- Frame: map darkened and blurred behind, header under the bubbles ---- */
-.v2s-backdrop { position: fixed; inset: 0; background: rgba(9, 8, 6, 0.66); backdrop-filter: blur(4px); }
+/* Near-solid behind the header (and the compact header under the bar): a town nameplate on the map read through the
+   Diplomacy title at 66%. Below it the map still hints through. */
+.v2s-backdrop {
+  position: fixed; inset: 0; backdrop-filter: blur(4px);
+  background: linear-gradient(rgba(9, 8, 6, 0.95) 0, rgba(9, 8, 6, 0.95) 200px, rgba(9, 8, 6, 0.66) 260px);
+}
 /* The tree's small labels need a near-solid backdrop to read; the map only hints through. */
 body.hud-v2-screen-manifest .v2s-backdrop { background: rgba(9, 8, 6, 0.9); backdrop-filter: blur(6px); }
 .v2s-head { position: fixed; top: 140px; left: 16px; right: 16px; display: flex; align-items: center; gap: 18px; }

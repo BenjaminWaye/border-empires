@@ -5,20 +5,38 @@
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { activityDashboardUnreadCount } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { latestClientChangelogTimestamp, markClientChangelogSeen, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
-import { storageSet } from "../client-state/client-storage.js";
+import { storageGet, storageSet } from "../client-state/client-storage.js";
 import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 
-/** What the Chronicle button's badge counts: unread activity plus unseen release notes. */
+// The newest release note the Chronicle has been opened past. Opening the Chronicle answers the button's badge:
+// it read 117 after the player had read Yours, because unseen release notes only cleared on the Updates tab
+// (playtest 2026-11-18). The Updates tab keeps its own count until it is opened.
+const CHRONICLE_BADGE_SEEN_KEY = "border-empires-chronicle-badge-seen-v1";
+let badgeSeenAt: number | undefined;
+const chronicleBadgeSeenAt = (): number => (badgeSeenAt ??= Number(storageGet(CHRONICLE_BADGE_SEEN_KEY)) || 0);
+
+/** Test-only: forget the remembered badge watermark. */
+export const resetChronicleBadgeSeenForTests = (): void => { badgeSeenAt = undefined; };
+
+/** What the Chronicle button's badge counts: unread activity plus release notes newer than the last Chronicle open. */
 export const chronicleBadgeCount = (state: HudV2Deps["state"]): number =>
-  activityDashboardUnreadCount(state) + unseenClientChangelogEntries(state.changelog.seenAt).length;
+  activityDashboardUnreadCount(state) + unseenClientChangelogEntries(Math.max(state.changelog.seenAt, chronicleBadgeSeenAt())).length;
+
+const markChronicleBadgeSeen = (): void => {
+  const latest = latestClientChangelogTimestamp();
+  if (chronicleBadgeSeenAt() >= latest) return;
+  badgeSeenAt = latest;
+  storageSet(CHRONICLE_BADGE_SEEN_KEY, String(latest));
+};
 
 export const renderChronicle = (deps: HudV2Deps): void => {
   const { state } = deps;
   const dash = state.activityDashboard;
   const tab = screen.chronicleTab;
+  markChronicleBadgeSeen();
   if (tab !== "updates") {
     screen.chronicleUpdatesBaseline = undefined;
     screen.chronicleOpenUpdate = undefined;
