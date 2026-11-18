@@ -338,6 +338,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("ACTIVATE_WAYSTATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SHIP_SALVAGE_TO_COURT"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

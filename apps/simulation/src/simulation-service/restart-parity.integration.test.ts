@@ -41,6 +41,7 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
       return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
     case "SETTLE":
       return { x: 999, y: 999 };
+    case "ACTIVATE_WAYSTATION":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
     case "BUILD_SIEGE_BATTERY":

@@ -37,4 +37,24 @@ describe("3D waystation overlay — lens glow per capture state", () => {
 
     overlay.dispose();
   });
+  it("builds a bounded portable tripod and keeps fogged glass still", () => {
+    const overlay = createWaystationOverlay(new Scene(), 1);
+    overlay.addInstance(0, 0, 0, 0, 0, { activated: false }, true);
+    overlay.addInstance(1, 1, 0, 1, 1, { activated: false });
+    overlay.commit();
+    const mesh = (name: string): InstancedMesh => overlay.group.getObjectByName(`survey-rig-${name}`) as InstancedMesh;
+    expect(mesh("legs").count).toBe(3);
+    expect(mesh("case").count).toBe(1);
+    expect(mesh("shelter").count).toBe(1);
+    const remembered = mesh("lensRemembered").material as MeshStandardMaterial;
+    overlay.update(0);
+    const brightness = remembered.emissiveIntensity;
+    overlay.update(5000);
+    expect(remembered.emissiveIntensity).toBe(brightness);
+    overlay.clear(); overlay.commit();
+    expect(mesh("legs").count).toBe(0);
+    expect(mesh("lensRemembered").count).toBe(0);
+    overlay.dispose();
+  });
+
 });
