@@ -56,7 +56,7 @@ import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { buildDurationMsForState, buildManpowerCostForState, buildTimeLabel, relayBeaconBuildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
-import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
 import { afcModuleActionsForTile, buildAfcActionForTile } from "../client-afc-actions.js";
@@ -148,7 +148,7 @@ export const chainedBuildAvailabilityFromModule = (
   const manpowerCost = buildManpowerCostForState(state, structureType);
   // Same OUT_OF_REACH rule the sim applies (shared frontierBuildBlockedByReach): disabled with the reason, not lit to fail.
   if (tile.ownershipState === "FRONTIER" && tile.ownerId === state.me) {
-    const inOwnReach = authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
+    const inOwnReach = resolveMyReachCached(state).has(deps.keyFor(tile.x, tile.y)); // cached: runs once per build button
     if (frontierBuildBlockedByReach(tile, structureType, { inOwnReach, inAnyReach: inOwnReach || Boolean(tile.reachOwnerId) })) return [false, OUT_OF_REACH_LABEL, settledCostText];
   }
   // The siege ladder never needs SETTLED (see runtime-structure-command-

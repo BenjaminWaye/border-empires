@@ -212,7 +212,7 @@ export const handleClaimContinuationSetCommand = (
  * a build should follow -- see tryDrainClaimContinuationBuildTail.
  */
 export const tryDrainClaimContinuation = (
-  context: RuntimeDevQueueCommandContext,
+  context: RuntimeDevQueueCommandContext & Pick<RuntimeClaimContinuationCommandContext, "isGarrisonBlockedByReach">,
   playerId: string,
   tileKey: string,
   x: number,
@@ -221,6 +221,14 @@ export const tryDrainClaimContinuation = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
+  // EXPAND is not reach-gated, so a claim can land outside reach. Its garrison
+  // step would be refused OUT_OF_REACH, so drop the continuation instead of
+  // queueing a SETTLE that blocks the tile and fires an unasked-for build later.
+  const needsGarrison = !continuation.structureType || !structureSkipsSettledRequirement(continuation.structureType);
+  if (needsGarrison && context.isGarrisonBlockedByReach(playerId, x, y)) {
+    summary.claimContinuations.delete(tileKey);
+    return;
+  }
   if (continuation.structureType && structureSkipsSettledRequirement(continuation.structureType)) {
     const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, { ...continuation, structureType: continuation.structureType }, context.now());
     if (buildEnqueued) summary.claimContinuations.delete(tileKey);
