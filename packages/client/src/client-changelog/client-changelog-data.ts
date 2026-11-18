@@ -1,5 +1,6 @@
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
+import { GUIDE_EVERY_SEASON_ENTRY } from "./client-changelog-guide-every-season.js";
 import { HILL_FOG_SEAMS_ENTRY } from "./client-changelog-hill-fog-seams.js";
 import { HUD_NEXT_STEPS_ENTRY } from "./client-changelog-hud-next-steps.js";
 import { PANEL_LAYOUT_DATA_ENTRY } from "./client-changelog-panel-layout-data.js";
@@ -475,6 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_17_CHANGELOG,
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
   { ...HUD_NEXT_STEPS_ENTRY, createdAt: 1794999401321, },
+  { ...GUIDE_EVERY_SEASON_ENTRY, createdAt: 1794999821162, },
   { ...PANEL_LAYOUT_DATA_ENTRY, createdAt: 1795000155417, },
   { ...TAP_SELECT_CONFIRM_ENTRY, createdAt: 1794999702919, },
   { ...REACH_BUILD_FIXES_ENTRY, createdAt: 1794999694412, },

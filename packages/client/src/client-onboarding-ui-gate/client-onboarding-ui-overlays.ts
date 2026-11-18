@@ -3,8 +3,9 @@ import type { DiscoveryTipId, DiscoveryTipTarget } from "../client-discovery-tip
 import { announceDiscoveryTip, renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { removeOnboardingChecklistOverlay, renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { pushDiscoveryTipFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
-import { createOnboardingUiGateTicker, isOnboardingUiDeferred, type OnboardingUiGateState } from "./client-onboarding-ui-gate.js";
-import { isEnrolledInTutorialGuide, isTutorialGuideHoldingTips, renderTutorialGuide } from "../client-tutorial-guide/tutorial-guide.js";
+import { createOnboardingUiGateTicker, isOnboardingUiDeferred, isTutorialGuideDeferred, type OnboardingUiGateState } from "./client-onboarding-ui-gate.js";
+import { isEnrolledInTutorialGuide, isTutorialGuideHoldingTips, renderTutorialGuide, syncTutorialGuidePlacement } from "../client-tutorial-guide/tutorial-guide.js";
+import type { GuideTileProjector } from "../client-tutorial-guide/tutorial-guide-placement.js";
 import { retireQueuedDiscoveryTips } from "../client-discovery-tips/client-discovery-tips.js";
 import type { GuideInputState } from "../client-tutorial-guide/tutorial-guide-input.js";
 
@@ -55,11 +56,11 @@ export const announceDiscoveryTipForState = (state: DiscoveryTipUiState, id: Dis
 /** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
 export const refreshOnboardingChecklistHighlight = (state: OnboardingChecklistUiState): void => {
   if (isEnrolledInTutorialGuide(state.authEmail)) {
-    // New accounts get the tutorial guide instead of the checklist bubble (the
+    // Players enrolled in the tutorial guide (every player, each season) get it instead of the checklist bubble (the
     // guide's "A foothold" chapter carries the same four goals), and keep
     // getting no bubble after finishing or hiding the guide.
     removeOnboardingChecklistOverlay();
-    state.onboardingHighlightTiles = renderTutorialGuide(state, isOnboardingUiDeferred(state));
+    state.onboardingHighlightTiles = renderTutorialGuide(state, isTutorialGuideDeferred(state));
     return;
   }
   state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles, state.me, state.authEmail, isOnboardingUiDeferred(state));
@@ -79,7 +80,7 @@ export const resetOnboardingUiOverlaysForTests = (): void => {
  * toast and checklist as soon as the deferral lifts (drop landed, dialog
  * closed) or returns (a dialog reopened), rather than on the next tile delta.
  */
-export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & OnboardingChecklistUiState, renderHud: () => void): void => {
+export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & OnboardingChecklistUiState, renderHud: () => void, project?: GuideTileProjector): void => {
   tickGate(state, () => {
     renderDiscoveryTipOverlayForState(state, renderHud);
     // Before the player's first map chunk the checklist has nothing to judge
@@ -93,9 +94,10 @@ export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & Onboar
   // The guide also completes steps on input with no tile change (a pan, an
   // opened panel), so it is evaluated every frame; tile scans are cached per
   // tiles revision and the card only re-renders when its content changes.
-  // Enrolled rather than running, so the frame after Hide guide / Finish
+  // Enrolled rather than running, so the frame after Skip guide / Finish
   // clears the guide's map rings instead of leaving them until a tile delta.
   if (state.me && state.firstChunkAt > 0 && isEnrolledInTutorialGuide(state.authEmail)) {
-    state.onboardingHighlightTiles = renderTutorialGuide(state, isOnboardingUiDeferred(state));
+    state.onboardingHighlightTiles = renderTutorialGuide(state, isTutorialGuideDeferred(state));
+    syncTutorialGuidePlacement(project, performance.now());
   }
 };
