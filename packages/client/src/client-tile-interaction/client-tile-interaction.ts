@@ -71,3 +71,16 @@ export const neutralTileClickOutcome = (input: {
   const adjacentNeutralClick = isLand && !isFogged && isNeutral && hasFrontierOrigin;
   return adjacentNeutralClick && confirmTap ? "queue-adjacent-neutral" : "open-menu";
 };
+
+/**
+ * What the big confirm prompt shows for a sheet action. While an attack's
+ * preview is still loading its cost would be missing or stale, so the prompt
+ * shows the action without a number rather than a wrong one.
+ */
+export const confirmPromptOffer = (
+  action: Pick<TileActionDef, "label" | "cost" | "disabled" | "loading"> | undefined
+): { label: string; cost?: string; disabled?: boolean } | undefined => {
+  if (!action) return undefined;
+  const cost = action.loading ? undefined : action.cost;
+  return { label: action.label, ...(cost ? { cost } : {}), ...(action.disabled ? { disabled: true } : {}) };
+};

@@ -146,7 +146,8 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { confirmTapAction, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapAction, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { createSheetDismissDisarm } from "./client-tile-interaction/client-tap-confirm-dismiss.js";
 import { createTapConfirmButton } from "./client-tap-confirm-button/client-tap-confirm-button.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
@@ -685,7 +686,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
   };
 
+  const tapConfirm = createTapConfirm();
+  const confirmButton = createTapConfirmButton(); // the big confirm prompt at the tapped tile
+  const sheetDismiss = createSheetDismissDisarm({ win: typeof window === "undefined" ? undefined : window, disarm: tapConfirm.disarm });
   const hideTileActionMenu = (): void => {
+    sheetDismiss.sheetHidden(); // a dismissed selection never spends on a later tap
     sendUnwatchMusterIfWatching();
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
@@ -1094,8 +1099,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     keyFor, pickOriginForTarget, isTileOwnedByAlly, queueSpecificTargets, processActionQueue, attackQueueFailureReason, pushFeed, showCaptureAlert, hideTileActionMenu
   });
 
-  const tapConfirm = createTapConfirm();
-  const confirmButton = createTapConfirmButton(); // the big confirm prompt at the tapped tile
   const garrisonMany = createGarrisonManyFlow(state, {
     keyFor, hideTileActionMenu, renderHud, requestSettlement, processDevelopmentQueue, pushFeed
   });
@@ -1323,8 +1326,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       mapInteractionFlags.suppressNextClick = false;
       return;
     }
-    hideTileActionMenu();
     const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)
+    hideTileActionMenu();
     confirmButton.notePoint(clientX, clientY);
     const reTap = (): void => { mapInteractionFlags.suppressNextClick = false; handleTileSelection(wx, wy, clientX, clientY); }; // the prompt confirms exactly like a second tap
 
@@ -1410,10 +1413,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // Local reach approximation (client-reach-overlay.ts MOCK-DATA SEAM); only logged by the tile-sync debug below.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
       resolveMyReachCached(state).has(keyFor(x, y));
-    // A confirming second tap on an adjacent claimable tile (visible or
-    // fogged) claims it here; the first tap only selected it and showed the
-    // cost. The queue tolerates a claim against a stale fogged guess via
-    // frontierSyncWaitUntilByTarget, like any other rejected attempt.
+    // Claims an adjacent tile on the confirming tap (visible or fogged); a stale fogged guess is
+    // tolerated via frontierSyncWaitUntilByTarget like any other rejected attempt.
     const queueAdjacentExpandClaim = (x: number, y: number): void => {
       const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;
       const isActiveCapture = Boolean(state.capture && state.capture.target.x === x && state.capture.target.y === y);
@@ -1453,7 +1454,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       tapConfirm.arm(wx, wy);
       const foggedTile = persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor);
       const adjacentClaim = isLand && isNeutral && Boolean(pickOriginForTarget(wx, wy, false)); // only an adjacent claim confirms on a re-tap here
-      confirmButton.offer(adjacentClaim ? confirmTapAction(menuActionsForSingleTile(foggedTile)) : undefined, reTap);
+      confirmButton.offer(adjacentClaim ? confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(foggedTile))) : undefined, reTap);
       openSingleTileActionMenu(foggedTile, clientX, clientY);
       renderHud();
       return;
@@ -1496,8 +1497,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     }
     if (clickOutcome === "queue-adjacent-neutral") {
-      // An already-queued or active-capture tile opens its progress detail
-      // instead of re-running the afford/enqueue gate (queueAdjacentExpandClaim).
+      // An already-queued or active-capture tile opens its progress detail instead (queueAdjacentExpandClaim).
       queueAdjacentExpandClaim(to.x, to.y);
       return;
     }
@@ -1510,7 +1510,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     tapConfirm.arm(wx, wy);
-    confirmButton.offer(confirmAction, reTap);
+    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(wx, wy)) ?? to)))), reTap); // live: an attack's cost lands with its preview
     openSingleTileActionMenu(to, clientX, clientY);
     requestAttackPreviewForHover();
     renderHud();

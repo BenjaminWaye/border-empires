@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmTapActionId, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapActionId, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction.js";
 
 const adjacentNeutral = { isLand: true, isFogged: false, hasFrontierOrigin: true, isNeutral: true };
 
@@ -71,5 +71,22 @@ describe("confirmTapActionId", () => {
     expect(confirmTapActionId([{ id: "launch_attack", disabled: true }])).toBeUndefined();
     expect(confirmTapActionId([{ id: "settle_land", disabled: true }, { id: "build_relay_beacon_frontier" }])).toBeUndefined();
     expect(confirmTapActionId([{ id: "abandon_territory" }, { id: "attack_connected_region" }])).toBeUndefined();
+  });
+});
+
+describe("confirmPromptOffer", () => {
+  it("shows the action and its cost once known", () => {
+    expect(confirmPromptOffer({ label: "Launch Attack", cost: "est. 12 manpower" })).toEqual({ label: "Launch Attack", cost: "est. 12 manpower" });
+  });
+
+  // Coordinator follow-up on PR #2848: never a stale or wrong number on the button.
+  it("shows the action without a number while the attack preview is still loading", () => {
+    expect(confirmPromptOffer({ label: "Launch Attack", cost: "est. 99 manpower", loading: true })).toEqual({ label: "Launch Attack" });
+    expect(confirmPromptOffer({ label: "Launch Attack", loading: true })).toEqual({ label: "Launch Attack" });
+  });
+
+  it("passes disabled through and nothing for no action", () => {
+    expect(confirmPromptOffer({ label: "Expand To", disabled: true })).toEqual({ label: "Expand To", disabled: true });
+    expect(confirmPromptOffer(undefined)).toBeUndefined();
   });
 });

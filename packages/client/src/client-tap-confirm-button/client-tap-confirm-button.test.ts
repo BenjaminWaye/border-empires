@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTapConfirmButton, tapConfirmButtonPosition } from "./client-tap-confirm-button.js";
+import { CONFIRM_OFFER_REFRESH_MS, createTapConfirmButton, tapConfirmButtonPosition } from "./client-tap-confirm-button.js";
 
 const size = { width: 200, height: 64, viewportWidth: 375, viewportHeight: 812 };
 
@@ -68,5 +68,23 @@ describe("createTapConfirmButton", () => {
     expect(onConfirm).not.toHaveBeenCalled();
     prompt.offer(undefined, onConfirm);
     expect(prompt.isVisible()).toBe(false);
+  });
+
+  it("re-reads a live offer while showing, so an attack's cost updates when its preview lands", () => {
+    vi.useFakeTimers();
+    try {
+      const prompt = createTapConfirmButton(document);
+      let offer: { label: string; cost?: string } | undefined = { label: "Launch Attack" };
+      prompt.offer(() => offer, vi.fn());
+      expect(button().textContent).toBe("Launch Attack");
+      offer = { label: "Launch Attack", cost: "est. 12 manpower" };
+      vi.advanceTimersByTime(CONFIRM_OFFER_REFRESH_MS);
+      expect(button().textContent).toBe("Launch Attackest. 12 manpower");
+      offer = undefined; // the attack is no longer possible
+      vi.advanceTimersByTime(CONFIRM_OFFER_REFRESH_MS);
+      expect(prompt.isVisible()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

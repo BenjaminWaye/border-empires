@@ -15,11 +15,17 @@ export type ConfirmOffer = {
   disabled?: boolean | undefined;
 };
 
+/** A fixed offer, or a getter re-read while the prompt is up (an attack's cost lands when its preview arrives). */
+export type ConfirmOfferSource = ConfirmOffer | (() => ConfirmOffer | undefined);
+
+// How often a live offer is re-read while the prompt is showing.
+export const CONFIRM_OFFER_REFRESH_MS = 250;
+
 export type TapConfirmButton = {
   /** Remember where the player just tapped; offers anchor there. Also hides any open prompt. */
   notePoint: (clientX: number, clientY: number) => void;
   /** Show the prompt for this action at the last tap point. `undefined` (nothing to confirm) hides it. */
-  offer: (action: ConfirmOffer | undefined, onConfirm: () => void) => void;
+  offer: (action: ConfirmOfferSource | undefined, onConfirm: () => void) => void;
   hide: () => void;
   isVisible: () => boolean;
 };
@@ -51,9 +57,12 @@ export const createTapConfirmButton = (doc: Document = document): TapConfirmButt
   let button: HTMLButtonElement | undefined;
   let confirm: (() => void) | undefined;
   let point = { x: 0, y: 0 };
+  let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
   const hide = (): void => {
     confirm = undefined;
+    if (refreshTimer !== undefined) clearInterval(refreshTimer);
+    refreshTimer = undefined;
     if (button) button.style.display = "none";
   };
 
@@ -80,12 +89,8 @@ export const createTapConfirmButton = (doc: Document = document): TapConfirmButt
     return el;
   };
 
-  const offer = (action: ConfirmOffer | undefined, onConfirm: () => void): void => {
-    if (!action) {
-      hide();
-      return;
-    }
-    const el = ensureButton();
+  // Fills the prompt's label and cost, and sets what a press does.
+  const render = (el: HTMLButtonElement, action: ConfirmOffer, onConfirm: () => void): void => {
     el.replaceChildren();
     const label = doc.createElement("span");
     label.className = "tap-confirm-label";
@@ -99,7 +104,30 @@ export const createTapConfirmButton = (doc: Document = document): TapConfirmButt
     }
     el.disabled = Boolean(action.disabled);
     confirm = action.disabled ? undefined : onConfirm;
+  };
+
+  const offer = (source: ConfirmOfferSource | undefined, onConfirm: () => void): void => {
+    hide();
+    const read = (): ConfirmOffer | undefined => (typeof source === "function" ? source() : source);
+    const action = read();
+    if (!action) return;
+    const el = ensureButton();
+    render(el, action, onConfirm);
     el.style.display = "flex";
+    if (typeof source === "function") {
+      let shown = JSON.stringify(action);
+      refreshTimer = setInterval(() => {
+        const next = read();
+        if (!next) {
+          hide();
+          return;
+        }
+        const text = JSON.stringify(next);
+        if (text === shown) return;
+        shown = text;
+        render(el, next, onConfirm);
+      }, CONFIRM_OFFER_REFRESH_MS);
+    }
     const view = doc.defaultView;
     const { left, top } = tapConfirmButtonPosition({
       clientX: point.x,

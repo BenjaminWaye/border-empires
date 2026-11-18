@@ -305,7 +305,7 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
     expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy);");
     expect(source).toContain("if (confirmTap && confirmAction) {\n      handleTileAction(confirmAction.id);");
-    expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(confirmAction, reTap);\n    openSingleTileActionMenu(to, clientX, clientY);");
+    expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(confirmAction && (() => confirmPromptOffer(");
     // An action button disarms, so a later tap on the same tile can't fire it again.
     expect(source).toContain("tapConfirm.disarm(); // an action button ran");
     // Never a one-tap attack on an ally or truce partner (it would break the pact).
@@ -317,5 +317,11 @@ describe("client action flow regressions", () => {
     const branch = source.slice(source.indexOf('if (actionId === "build_relay_beacon_frontier") {'), source.indexOf('if (actionId === "remove_structure") {'));
     expect(branch).toContain('triggerBuildForStructureType("RELAY_BEACON", selected)');
     expect(branch).not.toContain("enqueueRelayBeaconFrontierWaypoint");
+  });
+
+  it("disarms when the tile sheet is dismissed, and reads the confirm before the tap's own sheet close", () => {
+    const source = actionFlowSource();
+    expect(source).toContain("  const hideTileActionMenu = (): void => {\n    sheetDismiss.sheetHidden();");
+    expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)\n    hideTileActionMenu();");
   });
 });
