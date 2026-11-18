@@ -17,6 +17,13 @@ Read only the sections matching the change. These requirements were moved from t
 - Treat strict TypeScript as a hard requirement (`noUnusedLocals` is on: delete unused imports/locals/private members instead of silencing them). No `Record<string, any>`, no untyped dependency bags, no broad `unknown`/`any` casts for module wiring. Factories must declare explicit dependency interfaces and return types. No `as any` at composition roots — fix the contract.
 - When touching loosely typed legacy areas, tighten the boundary you are working in as part of the change.
 
+## Client UI reuse
+
+- Reuse an existing component or shared class before writing new CSS for something that already exists, so styles do not drift apart. Use the theme tokens in `packages/client/src/client-steampunk-theme-style.css` (`--sp-brass-*`, `--sp-leather-*`, `--sp-parchment-*`, `--sp-font-*`) instead of restating their hex values.
+- Map notices and speech-style notes (a dark leather box, brass edge and rotated-square pointer) use `.sp-callout` with `.sp-callout-tail-down` or `.sp-callout-tail-left` from `packages/client/src/client-callout/client-callout.css`. Import that file before your own stylesheet, and set only position, padding and size yourself.
+- Anything that shows a House Charge card, at any size, uses the card's own markup and classes from `client-house-charges/client-house-charge-cards.ts`/`.css`: `houseChargeCardHtml` for a face, `houseChargeCardBackHtml` (`{ mini: true }` for icons) for the back.
+- The brass cog emblem is `.sp-cog` in `client-steampunk-theme-style.css`; size it and set `--sp-cog-color` rather than drawing another cog.
+
 ## Changelog gate (client-visible changes)
 
 - Any user-visible gameplay, client, shared-rules, or server behavior change must add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch, with `createdAt` set to a frozen Unix-ms value captured once from `Date.now()`.

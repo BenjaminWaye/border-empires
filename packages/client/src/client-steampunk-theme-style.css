@@ -299,3 +299,16 @@ h1, h2, h3, .auth-panel-title, #side-panel-head h3, .auth-brand-text {
 .economy-line strong {
   color: var(--sp-brass-100);
 }
+
+/* Shared brass cog emblem (the House Charge card back, the season-end button). Size it and, if needed,
+   recolour it with --sp-cog-color; do not redraw the cog elsewhere. */
+.sp-cog {
+  display: inline-block;
+  border-radius: 50%;
+  /* Eight teeth on the rim, a solid wheel, and a real hole in the hub (the mask), at any size. */
+  background:
+    radial-gradient(circle, var(--sp-cog-color, var(--sp-brass-300)) 0 38%, transparent 38.5%),
+    repeating-conic-gradient(var(--sp-cog-color, var(--sp-brass-300)) 0deg 22.5deg, transparent 22.5deg 45deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 16%, #000 16.5% 49.5%, transparent 50%);
+  mask: radial-gradient(circle, transparent 0 16%, #000 16.5% 49.5%, transparent 50%);
+}

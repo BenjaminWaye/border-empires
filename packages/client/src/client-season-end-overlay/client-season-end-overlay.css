@@ -332,12 +332,10 @@
 }
 .se-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 26px rgba(240, 215, 154, 0.55); }
 .se-btn-primary:disabled { cursor: progress; filter: grayscale(0.3) brightness(0.85); }
+/* The cog itself is the shared .sp-cog (client-steampunk-theme-style.css). */
 .se-btn-cog {
   width: 17px; height: 17px;
-  border-radius: 50%;
-  background:
-    repeating-conic-gradient(#2a1d05 0deg 30deg, transparent 30deg 60deg),
-    radial-gradient(circle, transparent 30%, #2a1d05 31% 46%, transparent 47%);
+  --sp-cog-color: #2a1d05;
 }
 .se-btn-primary:hover .se-btn-cog,
 .se-btn-primary:disabled .se-btn-cog { animation: se-spin 2.4s linear infinite; }
