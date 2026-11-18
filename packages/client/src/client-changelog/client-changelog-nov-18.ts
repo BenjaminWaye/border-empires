@@ -14,12 +14,17 @@ import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js
 import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
 import { VIVARIUM_ENTRY } from "./client-changelog-vivarium.js";
+import { AFC_SUPPORT_TILE_TAP_ENTRY } from "./client-changelog-afc-support-tile-tap.js";
+import { THREE_D_TAB_SWITCH_ENTRY } from "./client-changelog-3d-tab-switch.js";
 import { TOWN_BAR_BUTTONS_ENTRY } from "./client-changelog-town-bar-buttons.js";
 import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
+import { STALE_WAYSTATION_CARD_ENTRY } from "./client-changelog-stale-waystation-card.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
+import { TOWN_PLOT_PICK_ENTRY } from "./client-changelog-town-plot-pick.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
+  { ...TOWN_PLOT_PICK_ENTRY, createdAt: 1795034895049 },
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
   { ...HUD_NEXT_STEPS_ENTRY, createdAt: 1794999401321, },
   { ...GUIDE_EVERY_SEASON_ENTRY, createdAt: 1794999821162, },
@@ -34,8 +39,11 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
   { ...VIVARIUM_ENTRY, createdAt: 1795035472775, },
+  { ...AFC_SUPPORT_TILE_TAP_ENTRY, createdAt: 1795033573064, },
+  { ...THREE_D_TAB_SWITCH_ENTRY, createdAt: 1795033764700, },
   { ...TOWN_BAR_BUTTONS_ENTRY, createdAt: 1795035149737, },
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
   { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
+  { ...STALE_WAYSTATION_CARD_ENTRY, createdAt: 1795038774065, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
 ];

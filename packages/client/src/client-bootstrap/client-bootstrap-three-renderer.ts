@@ -31,7 +31,10 @@ export const createBootstrapThreeRendererHost = (deps: BootstrapThreeRendererDep
     enabled: deps.enabled,
     isReady: () => deps.state.authSessionReady,
     resizeTwoDimensionalCanvas: deps.resizeTwoDimensionalCanvas,
-    create: (onContextLost) => createClientThreeTerrainRenderer({ ...deps.rendererDeps(), onContextLost, onStage: mapPrep.onStage }),
+    // A mid-game rebuild after a backgrounding loss must not bring back the
+    // login overlay's "Drawing your map" steps over the running game.
+    create: (onContextLost, { rebuild }) =>
+      createClientThreeTerrainRenderer({ ...deps.rendererDeps(), onContextLost, ...(rebuild ? {} : { onStage: mapPrep.onStage }) }),
     // The first frame is scheduled before the build resolves; keep the
     // "Drawing your map" step up until it has actually been painted.
     onSettled: () => yieldToPaint(mapPrep.finish)

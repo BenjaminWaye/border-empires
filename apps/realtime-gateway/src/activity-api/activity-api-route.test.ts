@@ -10,7 +10,7 @@ const dashboard: ActivityDashboardSnapshot = {
   generatedAt: 1_000_000,
   fortification: [{ playerId: "p1", score: 9.25, forts: 2 }],
   wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, tilesContested24h: 3, lastFlipAt: 900_000 }],
-  territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4 }],
+  territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4, tilesOwned: 40 }],
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
   frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"], manpowerLost24h: 15 }],
   manpowerLost24h: 15,
@@ -62,7 +62,10 @@ describe("GET /api/activity", () => {
     // p1 is on the leaderboard ("Alice"); p2 is not, so it falls back to its raw id.
     expect(body.fortification).toEqual([{ ...dashboard.fortification[0], playerName: "Alice" }]);
     expect(body.wars).toEqual([{ ...dashboard.wars[0], playerAName: "Alice", playerBName: "p2" }]);
-    expect(body.territoryMomentum).toEqual([{ ...dashboard.territoryMomentum[0], playerName: "Alice" }]);
+    // tilesOwned feeds the daily story's "% of their realm" share in-process,
+    // but a realm's raw size is never published on the public endpoint.
+    expect(body.territoryMomentum).toEqual([{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4, playerName: "Alice" }]);
+    expect(body.territoryMomentum[0]).not.toHaveProperty("tilesOwned");
     expect(body.biggestSwing24h).toEqual({ ...dashboard.biggestSwing24h, playerName: "p2" });
     expect(body.frontlineHotspots).toEqual([
       { ...dashboard.frontlineHotspots[0], contestedByNames: ["Alice", "p2"] }
@@ -94,7 +97,7 @@ describe("GET /api/activity", () => {
     expect(body.dailyStory[0]).toEqual({
       type: "ALLIANCE_BROKEN",
       headline: "Alliance Broken",
-      text: "Alice and p5's alliance was broken by Alice.",
+      text: "Alice has broken their alliance with p5.",
       significance: 80,
       players: ["Alice", "p5"]
     });
@@ -178,5 +181,28 @@ describe("GET /api/activity", () => {
     const response = await app.inject({ method: "GET", url: "/api/activity" });
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ ok: false, error: "rpc unavailable" });
+  });
+
+  // tilesOwned rides as a non-enumerable property from the sim snapshot
+  // through buildActivityApiResponse into the daily story. If any step copied
+  // the entry and dropped it, the "% smaller" clause would silently vanish.
+  it("carries the realm size through to the daily story's share without publishing it", async () => {
+    const app = Fastify();
+    registerActivityApiRoute(app, {
+      getActivityDashboardSnapshot: async () => ({
+        ...dashboard,
+        territoryMomentum: [{ playerId: "p7", tilesGained24h: 0, tilesLost24h: 50, net24h: -50, tilesOwned: 150 }],
+        biggestSwing24h: { playerId: "p7", tilesLost: 50, windowStart: 0, windowEnd: 1_000_000 },
+        wars: []
+      }),
+      getSocialSnapshot: () => socialSnapshot,
+      getPowerScore: async () => powerScore,
+      growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
+      now: () => 1_000_000
+    });
+    const body = (await app.inject({ method: "GET", url: "/api/activity" })).json();
+    const defeat = body.dailyStory.find((e: { type: string }) => e.type === "BIGGEST_DEFEAT");
+    expect(defeat.text).toBe("p7 lost 50 tiles today — more than any other empire, leaving their realm 25% smaller.");
+    expect(body.territoryMomentum[0]).not.toHaveProperty("tilesOwned");
   });
 });

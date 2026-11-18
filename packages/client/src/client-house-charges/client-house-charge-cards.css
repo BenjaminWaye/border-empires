@@ -60,6 +60,90 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
+/* Card back: one shared back for every charge (docs/house-charges-plan.md). A gold-leaf frame around
+   diagonally ribbed blue (dark and light ribs, each shaded like a rounded rod) with the brass cog seal (.sp-cog)
+   on a dark plate. Hard colour stops only, no blur, so it stays crisp at every size. */
+.hc-card.is-back {
+  --hc-frame: var(--sp-brass-300, #d9ad52);
+  --hc-frame-hi: var(--sp-brass-100, #f4dfa6);
+  --hc-frame-lo: var(--sp-brass-700, #8a611f);
+  --hc-rib: 7px;
+}
+.hc-card.is-back .hc-frame { grid-template-rows: 1fr; }
+.hc-back-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background:
+    /* Light from above, shade below, across all the ribs. */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 35%, transparent 65%, rgba(0, 0, 0, 0.35)),
+    /* One dark rib then one light rib, each lit in the middle and dark at its edges (the grooves). */
+    repeating-linear-gradient(45deg,
+      #071226 0, #163460 calc(var(--hc-rib) * 0.5), #071226 var(--hc-rib),
+      #10305a var(--hc-rib), #5d9ad6 calc(var(--hc-rib) * 1.5), #10305a calc(var(--hc-rib) * 2));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(244, 223, 166, 0.6);
+}
+/* The cog's plate: a dark disc with a gold rim, so the cog reads cleanly against the ribs. */
+.hc-back-face::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--sp-brass-300, #d9ad52);
+  background: radial-gradient(circle at 50% 35%, #12274a, #060d1c 70%);
+  box-shadow: 0 0 0 1.5px #050a14, 0 3px 0 rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.hc-back-face .sp-cog {
+  position: relative;
+  z-index: 1;
+  width: 44%;
+  aspect-ratio: 1;
+  --sp-cog-color: var(--sp-brass-300, #d9ad52);
+}
+/* Engraved wordmark on a dark band along the bottom. */
+.hc-back-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9%;
+  padding: 3px 0;
+  text-align: center;
+  background: #060d1c;
+  border-top: 1px solid var(--sp-brass-300, #d9ad52);
+  border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(7px, 6cqi, 12px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sp-brass-100, #f4dfa6);
+}
+
+/* Icon-size card (the House Charges bubble): the same frame, ribs and cog, scaled down; the wordmark
+   is too fine to read at this size. */
+.hc-card.is-mini {
+  --hc-rib: 2.5px;
+  width: 20px;
+  max-width: none;
+  padding: 2px;
+  border-radius: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.hc-card.is-mini .hc-frame { padding: 1.5px; border-radius: 2px; }
+.hc-card.is-mini .hc-back-face { border-radius: 1px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.75); }
+.hc-card.is-mini .hc-back-face::after { width: 80%; border-width: 1px; box-shadow: none; }
+.hc-card.is-mini .hc-back-title { display: none; }
+.hc-card.is-mini .hc-back-face .sp-cog { width: 62%; }
+
 .hc-name {
   min-width: 0;
   overflow: hidden;
