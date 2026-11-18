@@ -81,5 +81,13 @@ describe("action bar on your own AFC", () => {
       const v = ownAfc({ actions: [act("muster_hunt_attackers"), send] });
       expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
     });
+
+    // Regression (PR #2858 review): a callable module took gold from hunting attackers, which then
+    // dropped off the bar entirely.
+    it("lets an urgent action keep gold over a module to call down", () => {
+      const v = ownAfc({ actions: [act("muster_hunt_attackers"), send], modules: modules([callDown]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
+      expect(selectBarButtons(v)).toContainEqual({ kind: "panel", panel: "modules", label: "Modules ▸", primary: false });
+    });
   });
 });

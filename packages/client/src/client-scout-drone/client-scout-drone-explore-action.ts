@@ -28,10 +28,10 @@ export const buildExploreAction = (flight: ScoutDroneFlight | undefined, nowMs: 
 
 export const RECALL_SCOUT_ACTION_ID = "recall_scout" as const;
 
-/** Recall drone: only while the drone is still flying out (on its way home there is nothing to cut short). */
+/** Recall drone: only while the drone is still flying out and not already called home (then there is nothing to cut short). */
 export const buildRecallScoutAction = (flight: ScoutDroneFlight | undefined, nowMs: number = Date.now()): TileActionDef | undefined => {
   const active = activeScoutDroneFlight(flight, nowMs);
-  if (!active || scoutDroneStepIndexAt(active, nowMs) >= active.turnIndex) return undefined;
+  if (!active || active.endReason === "RECALLED" || scoutDroneStepIndexAt(active, nowMs) >= active.turnIndex) return undefined;
   return { id: RECALL_SCOUT_ACTION_ID, label: "Recall drone", detail: "Turn the scout drone back now. It flies home the way it came." };
 };
 

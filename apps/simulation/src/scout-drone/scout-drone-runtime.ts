@@ -280,12 +280,13 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       // Catch up first: outbound tiles passed since the last tick still count toward the
       // report, and a border on the path may already have turned it back (or it landed).
       advance(active, now);
-      if (!flights.has(command.playerId) || active.lastStepIndex >= active.flight.turnIndex) {
+      // Already called home (it may still be finishing its last outbound leg), or past its turn.
+      if (!flights.has(command.playerId) || active.flight.endReason === "RECALLED" || active.lastStepIndex >= active.flight.turnIndex) {
         return reject(command, "SCOUT_DRONE_RETURNING", "your scout drone is already flying home");
       }
-      active.flight = recallScoutDroneFlight(active.flight, active.lastStepIndex, now);
-      const turn = active.flight.steps[active.flight.turnIndex]!;
-      moveReveal(active, { x: turn.x, y: turn.y });
+      // Turn over the tile it is flying toward: it finishes this leg, then heads home
+      // (turning over the last tile reached would snap it backwards mid-leg).
+      active.flight = recallScoutDroneFlight(active.flight, active.lastStepIndex + 1, now);
       send(command.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },

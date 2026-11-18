@@ -8,16 +8,35 @@ import { formatCooldownShort } from "../client-app-runtime-utils.js";
 
 const CYAN = "#4fd8ff";
 
+// Both renderers call these every frame, so the text and font strings are rebuilt only when they
+// change (once a second, or on a new tile size), keeping the drone's draw path allocation-free.
+let lastLandsAt = Number.NaN;
+let lastSeconds = -1;
+let lastText = "";
+let lastFontPx = -1;
+let lastFont = "";
+
 /** The pill's text at `nowMs` (local clock), or undefined once the drone has docked. */
 export const scoutDroneEtaText = (flight: ScoutDroneFlight | undefined, nowMs: number): string | undefined => {
   if (!flight || nowMs >= flight.landsAt) return undefined;
-  return `Back in ${formatCooldownShort(flight.landsAt - nowMs)}`;
+  const remaining = flight.landsAt - nowMs;
+  const seconds = Math.ceil(remaining / 1_000);
+  if (flight.landsAt !== lastLandsAt || seconds !== lastSeconds) {
+    lastLandsAt = flight.landsAt;
+    lastSeconds = seconds;
+    lastText = `Back in ${formatCooldownShort(remaining)}`;
+  }
+  return lastText;
 };
 
 /** Draws the pill centred on (cx, cy). Leaves font, alignment and alpha as it found them. */
 export const drawScoutDroneEtaPill = (ctx: CanvasRenderingContext2D, cx: number, cy: number, text: string, fontPx: number): void => {
   ctx.save();
-  ctx.font = `700 ${fontPx}px sans-serif`;
+  if (fontPx !== lastFontPx) {
+    lastFontPx = fontPx;
+    lastFont = `700 ${fontPx}px sans-serif`;
+  }
+  ctx.font = lastFont;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const width = ctx.measureText(text).width + fontPx * 1.1;

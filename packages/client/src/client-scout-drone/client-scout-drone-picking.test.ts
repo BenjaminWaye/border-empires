@@ -52,6 +52,8 @@ describe("afcScoutDroneActions", () => {
     const outbound: ScoutDroneFlight = { ...flight(40_000), steps: [{ x: 1, y: 1, at: 0 }, { x: 2, y: 1, at: 10_000 }, { x: 1, y: 1, at: 20_000 }], turnIndex: 1 };
     expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: outbound }, afc("me", "active"), 5_000).map((a) => a.id)).toEqual(["recall_scout", "afc_scout_drone"]);
     expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: outbound }, afc("me", "active"), 15_000).map((a) => a.id)).toEqual(["afc_scout_drone"]);
+    // Already called home but still finishing its last outbound leg: no second Recall to tap.
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: { ...outbound, endReason: "RECALLED" } }, afc("me", "active"), 5_000).map((a) => a.id)).toEqual(["afc_scout_drone"]);
   });
 });
 

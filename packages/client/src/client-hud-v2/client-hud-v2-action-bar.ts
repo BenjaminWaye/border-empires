@@ -108,14 +108,19 @@ const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
 /** afcUpgradesReady is only set when the selected tile is the viewer's own AFC (client-hud-v2-tile-dock.ts). */
 const isOwnAfc = (view: Pick<BarView, "afcUpgradesReady">): boolean => view.afcUpgradesReady !== undefined;
 
-/** A module this AFC can call down right now (the Modules tab only lists rows while a slot is free). */
+/** A module this AFC can call down right now (an enabled Call down row; full AFCs show only disabled ones). */
 const hasModuleToCallDown = (view: Pick<BarView, "modules">): boolean => view.modules?.actions.some((a) => !a.disabled) ?? false;
+
+/** The scout drone's AFC rows: the main action only when the AFC has nothing to upgrade or call down. */
+const SCOUT_AFC_IDS: ReadonlyArray<TileActionDef["id"]> = ["afc_scout_drone", "recall_scout"];
 
 export const selectBarButtons = (view: BarView): BarButton[] => {
   const buttons: BarButton[] = [];
   const afcReady = (view.afcUpgradesReady ?? 0) > 0;
-  const modulesReady = !afcReady && isOwnAfc(view) && hasModuleToCallDown(view);
-  const primary = afcReady || modulesReady ? undefined : primaryAction(view);
+  const candidate = afcReady ? undefined : primaryAction(view);
+  // A module to call down outranks only the scout drone; an urgent action (e.g. hunting attackers) keeps gold.
+  const modulesReady = !afcReady && isOwnAfc(view) && hasModuleToCallDown(view) && (!candidate || SCOUT_AFC_IDS.includes(candidate.id));
+  const primary = modulesReady ? undefined : candidate;
   // On your own AFC, a ready AFC upgrade leads in gold, then a module to call down; with neither,
   // Send scout drone does (PRIMARY_ORDER), unless an urgent action (e.g. hunting attackers) applies.
   // AFC upgrades and Modules always stay on the bar instead of hiding in the minor row under Build ▸.

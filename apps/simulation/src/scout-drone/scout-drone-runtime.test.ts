@@ -7,6 +7,7 @@ import {
   SCOUT_DRONE_VISION_RADIUS,
   SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS,
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
+  scoutDronePositionAt,
   type ScoutDronePayload
 } from "@border-empires/shared";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
@@ -222,7 +223,7 @@ describe("scout drone runtime", () => {
     // Launch at 1000 from (2,10): home tiles 3,4 at 1s each, then 7.5s per tile past x=4.
     const outAtX6 = 1_000 + 2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS;
 
-    it("turns the drone back over the tile it is over and flies it home along the same tiles", () => {
+    it("finishes the leg it is on, then flies home along the same tiles at the outbound pace", () => {
       const h = harness(homeRow());
       h.explore(9, 10);
       h.advanceTo(outAtX6 + 500);
@@ -231,16 +232,42 @@ describe("scout drone runtime", () => {
       const flight = lastPayload(h).flight!;
       expect(flight.endReason).toBe("RECALLED");
       expect(flight.blockedByPlayerId).toBeUndefined();
-      expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 6, y: 10 });
-      expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 4, 5, 6, 5, 4, 3, 2]);
-      // Home at the outbound pace, timed from the recall: 2 open tiles, then 2 home tiles.
-      expect(flight.landsAt).toBe(outAtX6 + 500 + 2 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
+      // Between x=6 and x=7 when recalled: it turns over x=7, the tile it was flying toward.
+      expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 7, y: 10, at: outAtX6 + SCOUT_DRONE_STEP_MS });
+      expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2]);
+      // Home at the outbound pace: 3 open-tile legs, then 2 home-tile legs.
+      expect(flight.landsAt).toBe(outAtX6 + SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
       expect(h.runtime.flightFor("me")?.endReason).toBe("RECALLED");
       h.advanceTo(flight.landsAt);
       expect(h.runtime.flightFor("me")).toBeUndefined();
       expect(lastPayload(h).report).toMatchObject({ targetX: 9, targetY: 10 });
       expect(lastPayload(h).report?.blockedByPlayerId).toBeUndefined();
       expect(h.liveReveals()).toBe(0);
+    });
+
+    // Regression (PR #2858 review): turning over the last tile reached snapped the drone ~1.4 tiles
+    // backwards on screen when recalled late in a leg, and slowed its first homeward leg.
+    it("does not move the drone on screen at the moment of the recall", () => {
+      const h = harness(homeRow());
+      h.explore(9, 10);
+      const at = outAtX6 + 6_750;
+      h.advanceTo(at);
+      const before = scoutDronePositionAt(h.runtime.flightFor("me")!, at, W, H)!;
+      h.recall();
+      const after = scoutDronePositionAt(h.runtime.flightFor("me")!, at, W, H)!;
+      expect(after.x).toBeCloseTo(before.x);
+      expect(after.y).toBeCloseTo(before.y);
+    });
+
+    it("recalled right at launch, still flies one tile out and lands on a later tick", () => {
+      const h = harness(homeRow());
+      h.explore(9, 10);
+      h.recall("me", "r0");
+      const flight = h.runtime.flightFor("me")!;
+      expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 2]);
+      expect(flight.landsAt).toBeGreaterThan(h.now());
+      h.advanceTo(flight.landsAt);
+      expect(h.runtime.flightFor("me")).toBeUndefined();
     });
 
     it("refuses when no drone is out", () => {
@@ -267,7 +294,7 @@ describe("scout drone runtime", () => {
       h.setNow(outAtX6 + 500);
       h.recall();
       const turned = h.runtime.flightFor("me")!;
-      expect(turned.steps[turned.turnIndex]).toMatchObject({ x: 6, y: 10 });
+      expect(turned.steps[turned.turnIndex]).toMatchObject({ x: 7, y: 10 });
       h.advanceTo(turned.landsAt);
       expect(lastPayload(h).report).toMatchObject({ towns: 1 });
     });

@@ -234,9 +234,11 @@ export const turnScoutDroneFlightBack = (
 };
 
 /**
- * The owner calls the drone home early: it turns back over `turnIndex` (the
- * outbound tile it is over now) and flies the same tiles home at the same pace,
- * like a border turn-back but with no rival to blame.
+ * The owner calls the drone home early: it turns back over `turnIndex` and flies
+ * the same tiles home at the same pace, like a border turn-back but with no rival
+ * to blame. Pass the outbound tile it is flying toward, not the one it last
+ * reached: the drone finishes its current leg, so it never jumps back on screen
+ * and every homeward leg keeps its outbound time.
  */
 export const recallScoutDroneFlight = (flight: ScoutDroneFlight, turnIndex: number, nowMs: number): ScoutDroneFlight => {
   const turned = turnScoutDroneFlightBack(flight, turnIndex, nowMs, { x: flight.targetX, y: flight.targetY });
