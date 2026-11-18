@@ -3,7 +3,7 @@
 // deposits you have seen, then the local Vivarium alternative. The town
 // screen shows these under its biota row.
 
-import { RESOURCE_NETWORKS, wrappedChebyshevDistance } from "@border-empires/shared";
+import { RESOURCE_NETWORKS, TECH_REQUIREMENTS_BY_STRUCTURE, wrappedChebyshevDistance } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type BiotaStep =
@@ -15,7 +15,7 @@ export type BiotaStep =
   /** search: no biota deposit seen yet. more: only your developed sites, which aren't enough. */
   | { kind: "search" | "more" }
   /** The local alternative: a Vivarium on one of the town's support tiles covers one slot. */
-  | { kind: "vivarium" };
+  | { kind: "vivarium"; researched: boolean };
 
 export type BiotaStepInput = {
   me: string;
@@ -30,6 +30,7 @@ export type BiotaStepInput = {
 };
 
 const { building: ESTATE, tech: CHARTER } = RESOURCE_NETWORKS.LUXURY_BIOTA;
+const VIVARIUM_TECH = TECH_REQUIREMENTS_BY_STRUCTURE.VIVARIUM!;
 
 export const biotaSteps = (input: BiotaStepInput): BiotaStep[] => {
   const steps: BiotaStep[] = [];
@@ -59,6 +60,6 @@ export const biotaSteps = (input: BiotaStepInput): BiotaStep[] => {
   else if (building) steps.push({ kind: "building", x: building.x, y: building.y });
   else if (seen) steps.push({ kind: "capture", x: seen.x, y: seen.y });
   else steps.push({ kind: ownsAny ? "more" : "search" });
-  steps.push({ kind: "vivarium" });
+  steps.push({ kind: "vivarium", researched: input.techIds.includes(VIVARIUM_TECH) });
   return steps;
 };

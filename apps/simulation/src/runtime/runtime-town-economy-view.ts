@@ -31,6 +31,20 @@ export type TownEconomyViewOptions = {
   biotaTownSupply?: () => ReadonlyMap<string, BiotaTownSupply> | undefined;
 };
 
+// Each manpower-cache rebuild makes a new allocation Map, so compare contents, not identity. O(large towns).
+const sameBiotaAllocation = (
+  a: ReadonlyMap<string, BiotaTownSupply> | undefined,
+  b: ReadonlyMap<string, BiotaTownSupply> | undefined
+): boolean => {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const [key, supply] of a) {
+    const other = b.get(key);
+    if (!other || other.received !== supply.received || other.needed !== supply.needed) return false;
+  }
+  return true;
+};
+
 export const townEconomyViewForPlayer = (
   ctx: RuntimeTownNetworkContext,
   playerId: string,
@@ -48,7 +62,7 @@ export const townEconomyViewForPlayer = (
   // Callers without a biota source (the metrics tick) take whatever view is memoised.
   const biota = options.biotaTownSupply?.();
   let memo = viewByNetwork.get(network);
-  if (!memo || (options.biotaTownSupply && memo.biota !== biota)) {
+  if (!memo || (options.biotaTownSupply && !sameBiotaAllocation(memo.biota, biota))) {
     memo = { view: buildTownEconomyView(playerId, ctx.summaryForPlayer(playerId).ownedTownTierByTile.keys(), ctx.tiles, network, biota), biota };
     viewByNetwork.set(network, memo);
   }

@@ -36,9 +36,11 @@ describe("HUD v2 town screen luxury biota", () => {
   it("says how many of a town's biota slots its own Vivaria cover, and offers a Vivarium when short", () => {
     const html = left({ received: 1, needed: 1, manpowerTier: "CITY", local: 1 });
     expect(html).toContain("● 1 of 1 (1 from Vivaria) · Full manpower");
-    const short = left(unruly, [{ kind: "vivarium" }]);
+    const short = left(unruly, [{ kind: "vivarium", researched: true }]);
     expect(short).toContain('data-v2-info-structure="VIVARIUM"');
+    expect(short).toContain("Or build a");
     expect(short).toContain("+1 slot each");
+    expect(left(unruly, [{ kind: "vivarium", researched: false }])).toContain("Or research Census Office for a");
   });
 
   it("shows an unruly town's biota shortfall and the manpower it actually gives", () => {

@@ -40,6 +40,8 @@ export type ManpowerStructureBonusContext = {
   ancillaryFactoryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   incubationEngineTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Active Vivaria per owner; optional so older test contexts without it count none. */
+  vivariumTilesByOwner?: ReadonlyMap<string, ReadonlySet<string>>;
   townNetworkCacheByPlayer: ReadonlyMap<string, Map<string, ConnectedTownNetworkEntry>>;
   activeMonumentOwnerByType: ReadonlyMap<MonumentalStructureType, { ownerId: string; tileKey: string }>;
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
@@ -63,6 +65,7 @@ export const cachedManpowerStructureBonusForPlayer = (
   const neuralWorksKeys = ctx.neuralWorksTilesByOwner.get(player.id);
   const reserveLatticeKeys = ctx.reserveLatticeTilesByOwner.get(player.id);
   const ancillaryFactoryKeys = ctx.ancillaryFactoryTilesByOwner.get(player.id);
+  const hasVivaria = (ctx.vivariumTilesByOwner?.get(player.id)?.size ?? 0) > 0;
   // §5.4: a dormant Ancillary Depot/Neural Works doesn't grant its bonus —
   // filter the raw existence indices against this player's current
   // dormant-economicStructure set before counting/checking presence. Only
@@ -80,7 +83,8 @@ export const cachedManpowerStructureBonusForPlayer = (
     (ancillaryDepotKeys?.size ?? 0) > 0 ||
     (neuralWorksKeys?.size ?? 0) > 0 ||
     (reserveLatticeKeys?.size ?? 0) > 0 ||
-    (ancillaryFactoryKeys?.size ?? 0) > 0
+    (ancillaryFactoryKeys?.size ?? 0) > 0 ||
+    hasVivaria
       ? ctx.dormantEconomicStructureKeysForPlayer(player.id)
       : undefined;
   const ancillaryDepotCount = ancillaryDepotKeys
@@ -157,7 +161,9 @@ export const cachedManpowerStructureBonusForPlayer = (
   const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
   const sites = ctx.networkSitesForPlayer?.(player.id) ??
     developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds);
+  // A dormant Vivarium (FOOD upkeep unpaid) covers nothing; with none owned, skip the ring scans.
   const vivariaAt = (townKey: string): number => {
+    if (!hasVivaria) return 0;
     const townTile = ctx.tiles.get(townKey);
     return townTile ? countSupportedStructures(player.id, townTile, "VIVARIUM", ctx.tiles, dormantEconomicStructureKeys ?? new Set()) : 0;
   };

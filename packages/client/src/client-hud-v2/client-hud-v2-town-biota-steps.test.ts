@@ -9,7 +9,7 @@ const site = (x: number, y: number, extra: Partial<Tile> = {}): Tile =>
 // Every list ends with the local Vivarium alternative; the cases below check what comes before it.
 const steps = (tiles: Tile[], opts: { charter?: boolean; otherTownsSlots?: number; from?: { x: number; y: number } } = {}) => {
   const all = biotaSteps({ me: "me", tiles, techIds: opts.charter ? [CHARTER] : [], techName: "Frontier Export Charter", otherTownsSlots: opts.otherTownsSlots ?? 0, from: opts.from ?? { x: 10, y: 10 } });
-  expect(all.at(-1)).toEqual({ kind: "vivarium" });
+  expect(all.at(-1)).toEqual({ kind: "vivarium", researched: false });
   return all.slice(0, -1);
 };
 
@@ -46,5 +46,11 @@ describe("biota next steps", () => {
     expect(steps([estate("active")], { charter: true, otherTownsSlots: 2 })).toEqual([{ kind: "taken", slots: 2 }, { kind: "more" }]);
     // Review of #2840: a Metropolis partly filled by your only Estate was told its slots went to older towns.
     expect(steps([estate("active")], { charter: true, otherTownsSlots: 0 })).toEqual([{ kind: "more" }]);
+  });
+
+  it("ends with the Vivarium, flagged by whether Census Office is researched", () => {
+    const base = { me: "me", tiles: [], otherTownsSlots: 0, from: { x: 0, y: 0 } };
+    expect(biotaSteps({ ...base, techIds: [] }).at(-1)).toEqual({ kind: "vivarium", researched: false });
+    expect(biotaSteps({ ...base, techIds: ["census-records"] }).at(-1)).toEqual({ kind: "vivarium", researched: true });
   });
 });

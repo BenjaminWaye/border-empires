@@ -23,7 +23,8 @@ export const townSupportCandidates = (args: {
   const candidates: TownSupportCandidate[] = [{ type: "INCUBATION_ENGINE", score: foodLow ? 160 : 20 }];
   if (town) {
     for (const candidate of synergyCandidatesForTown(town, args.synergy)) {
-      if (foodLow && candidate.type === "MANUFACTORY") continue;
+      // Manufactory and Vivarium each take a FOOD slot: during a shortage they would go dormant.
+      if (foodLow && (candidate.type === "MANUFACTORY" || candidate.type === "VIVARIUM")) continue;
       candidates.push({ type: candidate.type, score: candidate.score });
     }
   } else if (!foodLow) {

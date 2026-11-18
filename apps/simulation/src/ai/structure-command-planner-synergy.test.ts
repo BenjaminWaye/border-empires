@@ -118,6 +118,12 @@ describe("chooseBestEconomicBuild — economic synergy", () => {
     expect(plan(player([entry("10,10")], ["census-records"]), tiles)?.structureType).toBe("MANUFACTORY");
   });
 
+  it("holds off on a Vivarium during a food shortage, since it would go dormant without its FOOD slot", () => {
+    const tiles = townSite(10, 10, "METROPOLIS");
+    const starving = { ...player([entry("10,10", { biotaShortSlots: 3 })], ["census-records"]), strategicResources: { FOOD: 0 } };
+    expect(plan(starving, tiles)?.structureType).not.toBe("VIVARIUM");
+  });
+
   it("puts the Manufactory in the richer town", () => {
     const tiles = [...townSite(10, 10), ...townSite(30, 30, "METROPOLIS")];
     const result = plan(player([entry("10,10"), entry("30,30", { baseGoldWeight: 2.1 })]), tiles);

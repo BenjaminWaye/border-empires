@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MANPOWER_REFILL_WINDOW_MS, RESOURCE_NETWORKS, lastManpowerRefillAtMs, structureBuildDurationMs } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
@@ -11,15 +11,15 @@ const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const BIOTA_TECH = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
 
-type Fixture = { tier: "CITY" | "GREAT_CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number };
-function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary }: Fixture): SimulationRuntime {
+type Fixture = { tier: "CITY" | "GREAT_CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number; farms?: number };
+function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary, farms = 24 }: Fixture): SimulationRuntime {
   const tiles: DomainTileState[] = [];
   for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x, y));
   tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name: "Heartland", type: "MARKET", populationTier: tier, population: 50000, maxPopulation: 100000 };
   for (const [x, y] of ([[9, 9], [10, 9], [11, 9]] as const).slice(0, vivaria)) {
     tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId: "p", type: "VIVARIUM", status: "active" };
   }
-  for (let i = 0; i < 24; i += 1) tiles.push({ ...land(40 + i, 40), resource: "FARM" });
+  for (let i = 0; i < farms; i += 1) tiles.push({ ...land(40 + i, 40), resource: "FARM" });
   tiles.push({
     ...land(20, 20), resource: "LUXURY_BIOTA",
     ...(biotaSite ? { economicStructure: { ownerId: "p", type: RESOURCE_NETWORKS.LUXURY_BIOTA.building, status: "active" as const } } : {})
@@ -37,6 +37,16 @@ const player = (runtime: SimulationRuntime) => runtime.exportState().players.fin
 const unrulyRow = (runtime: SimulationRuntime) => player(runtime).manpowerBreakdown?.cap.find(row => row.label.startsWith("Unruly town"));
 
 describe("Vivarium in the real runtime", () => {
+  afterEach(() => { vi.useRealTimers(); });
+  // Review of #2865: with no Depot/Factory/Neural Works/Lattice the dormancy set was never
+  // computed, so a Vivarium whose FOOD upkeep was unpaid still covered biota.
+  it("covers nothing while dormant for want of its FOOD slot", () => {
+    const fed = fixture({ tier: "GREAT_CITY", vivaria: 3, biotaSite: false });
+    const starved = fixture({ tier: "GREAT_CITY", vivaria: 3, biotaSite: false, farms: 0 });
+    expect(unrulyRow(fed)).toBeUndefined();
+    expect(player(starved).manpowerBreakdown?.biotaTowns?.[0]).toMatchObject({ received: 0, needed: 3, manpowerTier: "TOWN" });
+  });
+
   it("tops up a Great City's one biota site (2 of 3 slots) to full manpower", () => {
     const short = fixture({ tier: "GREAT_CITY", vivaria: 0, biotaSite: true });
     const covered = fixture({ tier: "GREAT_CITY", vivaria: 1, biotaSite: true });
@@ -76,5 +86,17 @@ describe("Vivarium in the real runtime", () => {
     locked.submitCommand({ commandId: "locked-vivarium", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: now, type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 11, y: 10, structureType: "VIVARIUM" }) });
     await Promise.resolve();
     expect(rejected.some(event => event.eventType === "COMMAND_REJECTED")).toBe(true);
+  });
+});
+
+// Review of #2865: production runs the AI planner in a worker, which reads the town-economy
+// view from exportPlannerPlayerViews; that path did not pass the biota allocation, so the
+// worker never saw a short town and never proposed a Vivarium.
+describe("Vivarium AI inputs through the planner-worker export", () => {
+  it("exports each town's biota shortfall to the planner", () => {
+    const short = fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true });
+    expect(short.exportPlannerPlayerViews(["p"])[0]?.townEconomy?.find(town => town.townKey === "10,10")?.biotaShortSlots).toBe(3);
+    const covered = fixture({ tier: "GREAT_CITY", vivaria: 1, biotaSite: true });
+    expect(covered.exportPlannerPlayerViews(["p"])[0]?.townEconomy?.find(town => town.townKey === "10,10")?.biotaShortSlots).toBe(0);
   });
 });

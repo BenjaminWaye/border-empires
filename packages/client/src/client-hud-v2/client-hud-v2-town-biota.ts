@@ -44,7 +44,9 @@ const stepHtml = (step: BiotaStep): string => {
     case "capture": return `Nearest biota ${gotoLink(step.x, step.y)}`;
     case "search": return `No biota seen yet · ${HABITAT}`;
     case "more": return `Capture more biota · ${HABITAT}`;
-    case "vivarium": return `Or build a ${vivariumLink} on this town's support tiles (+${VIVARIUM_BIOTA_SLOTS} slot each)`;
+    case "vivarium": return step.researched
+      ? `Or build a ${vivariumLink} on this town's support tiles (+${VIVARIUM_BIOTA_SLOTS} slot each)`
+      : `Or research Census Office for a ${vivariumLink} (+${VIVARIUM_BIOTA_SLOTS} slot each)`;
   }
 };
 
