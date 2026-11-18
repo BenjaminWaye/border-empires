@@ -8,7 +8,7 @@
 // runtime-lock-resolution.ts's resolveLock).
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { DEV_QUEUE_SERVER_CAP, isChosenStructureTier, structureRequiresClientPlacement, structureSkipsSettledRequirement, type ChosenStructureTier } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, garrisonBlockedByReach, isChosenStructureTier, type SettleReachExemptionTile, structureRequiresClientPlacement, structureSkipsSettledRequirement, type ChosenStructureTier } from "@border-empires/shared";
 import { devQueueCancel, devQueueEnqueue, devQueueEntryForTileKey } from "./runtime-dev-queue.js";
 import { tryDrainDevQueue, type RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
 import type { ClaimContinuation, PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
@@ -16,17 +16,24 @@ import type { ClaimContinuation, PlayerRuntimeSummary, ServerDevQueueEntry } fro
 export type RuntimeClaimContinuationCommandContext = RuntimeDevQueueCommandContext & {
   /** True if the tile is right now owned + FRONTIER by this player (no EXPAND in flight). */
   isOwnedFrontierTile: (playerId: string, x: number, y: number) => boolean;
+  /** True if a SETTLE on this tile would be refused OUT_OF_REACH (shared garrisonBlockedByReach). */
+  isGarrisonBlockedByReach: (playerId: string, x: number, y: number) => boolean;
 };
 
 /** Builds the full context from a devQueue context + the tiles map -- keeps runtime.ts's own wiring to one line (that file is already oversized). */
 export const claimContinuationContextFromDevQueueContext = (
   devQueueContext: RuntimeDevQueueCommandContext,
-  tiles: Map<string, { ownerId?: string | undefined; ownershipState?: string | undefined }>
+  tiles: Map<string, SettleReachExemptionTile & { ownerId?: string | undefined; ownershipState?: string | undefined }>,
+  isPlayerTileInReach: (playerId: string, x: number, y: number) => boolean
 ): RuntimeClaimContinuationCommandContext => ({
   ...devQueueContext,
   isOwnedFrontierTile: (playerId, x, y) => {
     const tile = tiles.get(`${x},${y}`);
     return tile !== undefined && tile.ownerId === playerId && tile.ownershipState === "FRONTIER";
+  },
+  isGarrisonBlockedByReach: (playerId, x, y) => {
+    const tile = tiles.get(`${x},${y}`);
+    return tile !== undefined && garrisonBlockedByReach(tile, isPlayerTileInReach(playerId, x, y));
   }
 });
 
@@ -124,6 +131,21 @@ export const dropTileClaimContinuation = (
   summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };
 
+/**
+ * SETTLE refused as OUT_OF_REACH (runtime.ts handleSettleCommand). A "garrison +
+ * build" continuation queued behind it can never run, so it is dropped with
+ * its devQueue entry: left registered it would fire an unasked-for build if the
+ * tile is ever garrisoned later, and its entry keeps the tile blocked.
+ */
+export const rejectOutOfReachSettle = (
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation" | "rejectCommand">,
+  command: Pick<CommandEnvelope, "commandId" | "playerId">,
+  tileKey: string
+): void => {
+  dropTileClaimContinuation(context, command.playerId, tileKey);
+  context.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach");
+};
+
 // The siege ladder (structureSkipsSettledRequirement) never needs a SETTLE
 // step at all -- it's buildable directly on FRONTIER ground -- so a claim
 // continuation for one of those structure types enqueues its BUILD directly
@@ -157,6 +179,11 @@ export const handleClaimContinuationSetCommand = (
       const buildEnqueued = enqueueBuildStep(summary, payload.x, payload.y, payload.tileKey, { ...continuation, structureType: payload.structureType }, context.now());
       if (buildEnqueued) summary.claimContinuations.delete(payload.tileKey);
       else summary.claimContinuations.set(payload.tileKey, continuation);
+    } else if (context.isGarrisonBlockedByReach(command.playerId, payload.x, payload.y)) {
+      // The garrison step would be refused OUT_OF_REACH (the client's own SETTLE,
+      // possibly handled first on its faster lane, is what tells the player), so
+      // register nothing: a continuation here would only fire an unasked-for build later.
+      summary.claimContinuations.delete(payload.tileKey);
     } else {
       // Drive the SETTLE step immediately instead of waiting on a lock
       // resolution that will never come for this tile. If a build should
@@ -185,7 +212,7 @@ export const handleClaimContinuationSetCommand = (
  * a build should follow -- see tryDrainClaimContinuationBuildTail.
  */
 export const tryDrainClaimContinuation = (
-  context: RuntimeDevQueueCommandContext,
+  context: RuntimeDevQueueCommandContext & Pick<RuntimeClaimContinuationCommandContext, "isGarrisonBlockedByReach">,
   playerId: string,
   tileKey: string,
   x: number,
@@ -194,6 +221,14 @@ export const tryDrainClaimContinuation = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
+  // EXPAND is not reach-gated, so a claim can land outside reach. Its garrison
+  // step would be refused OUT_OF_REACH, so drop the continuation instead of
+  // queueing a SETTLE that blocks the tile and fires an unasked-for build later.
+  const needsGarrison = !continuation.structureType || !structureSkipsSettledRequirement(continuation.structureType);
+  if (needsGarrison && context.isGarrisonBlockedByReach(playerId, x, y)) {
+    summary.claimContinuations.delete(tileKey);
+    return;
+  }
   if (continuation.structureType && structureSkipsSettledRequirement(continuation.structureType)) {
     const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, { ...continuation, structureType: continuation.structureType }, context.now());
     if (buildEnqueued) summary.claimContinuations.delete(tileKey);
