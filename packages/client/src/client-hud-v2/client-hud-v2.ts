@@ -33,6 +33,7 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { scanNextStepSources, type NextStepSources } from "./client-hud-v2-next-step-sources.js";
 import { nextStepsForState } from "./client-hud-v2-next-step.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { retryHouseChargeChoice } from "../client-house-charges/client-house-charges-alerts.js";
@@ -290,10 +291,10 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay), lensMenu.open, mapOverview.open));
 
-/** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
+/** The tracker's tile scans (four passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
 type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
-let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"] } | undefined;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"]; sources: NextStepSources } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -311,7 +312,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile, (x, y) => state.tiles.get(`${x},${y}`)),
       building: development.activeSlots,
-      queue: development.queue
+      queue: development.queue,
+      sources: scanNextStepSources(state)
     };
   }
   const elapsed = nowMs - trackerScan.at;
@@ -333,7 +335,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
-    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs),
+    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs, trackerScan.sources),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));
