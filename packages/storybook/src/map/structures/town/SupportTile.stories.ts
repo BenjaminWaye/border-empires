@@ -67,10 +67,10 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const FullRing: Story = {};
-export const FullRingUnhighlighted: Story = { args: { highlighted: true } };
+export const FullRingHighlighted: Story = { args: { highlighted: true } };
 export const NorthTile: Story = { args: { showSingle: "north", cameraDistance: 3 } };
 export const NortheastTile: Story = { args: { showSingle: "northeast", cameraDistance: 3 } };
 export const EastTile: Story = { args: { showSingle: "east", cameraDistance: 3 } };
 export const SouthTile: Story = { args: { showSingle: "south", cameraDistance: 3 } };
 export const SouthwestTile: Story = { args: { showSingle: "southwest", cameraDistance: 3 } };
-export const NorthTileUnhighlighted: Story = { args: { showSingle: "north", cameraDistance: 3, highlighted: true } };
+export const NorthTileHighlighted: Story = { args: { showSingle: "north", cameraDistance: 3, highlighted: true } };

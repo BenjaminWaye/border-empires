@@ -69,7 +69,7 @@ type Story = StoryObj<Args>;
 
 export const SettlementRing: Story = { args: { tier: "SETTLEMENT" } };
 export const TownRing: Story = { args: { tier: "TOWN" } };
-export const TownRingUnhighlighted: Story = { args: { tier: "TOWN", highlighted: true } };
+export const TownRingHighlighted: Story = { args: { tier: "TOWN", highlighted: true } };
 export const CityRing: Story = { args: { tier: "CITY" } };
 export const GreatCityRing: Story = { args: { tier: "GREAT_CITY" } };
 export const MetropolisRing: Story = { args: { tier: "METROPOLIS", orthoHalfHeight: 3.6 } };
