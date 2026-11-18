@@ -6,10 +6,9 @@ import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.j
 import { manpowerPerBatch, isNetworkResource, isDepletedReclamationWorks } from "@border-empires/shared";
 import { depletedReclamationWorksLine } from "../client-salvage-tribute/client-salvage-tribute.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
-import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
+import { fortCaptureMenuLines } from "./client-tile-menu-fort-capture-lines.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
-  isFortDefending,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
   type SlotResource
@@ -321,17 +320,7 @@ export const menuOverviewForTile = (
   for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), ownMaxShots: ownObservatoryMaxShots(deps.state), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
-    pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
-  }
   for (const line of captureAftermathMenuLines(tile)) pushLine(line);
-  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
-    // Same helper the client's own attack gate uses (findClosestMuster in
-    // client-muster-attack-gate.ts), so the number shown here always matches
-    // the muster the client will actually demand.
-    const required = attackFloorForPlayer(deps.state, tile);
-    pushLine(`Capturing requires ${required} mustered manpower.`);
-  }
   if (tile.fort?.status === "active") {
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);
@@ -395,6 +384,8 @@ export const menuOverviewForTile = (
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);
   for (const historyLine of deps.tileHistoryLines(tile)) pushLine(historyLine);
+  // Last, so its "Defense" heading never adopts lines from unrelated sections.
+  lines.push(...fortCaptureMenuLines(deps.state, tile));
   return lines;
 };
 
