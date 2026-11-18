@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { feedEntryForEventLogEntry } from "./client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "./client-event-log-html.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { manifestFit } from "./client-manifest-detail/client-manifest-fit.js";
 
@@ -157,14 +157,33 @@ describe("occupation survey presentation", () => {
     expect(occupationSurveyController.currentReports()).toHaveLength(1);
   });
 
-  it("restores standing reports directly, but skips resources whose reveal tech is researched", () => {
+  // Logging back in popped a survey card for a clue found while away. The login
+  // backfill keeps the clue (Manifest card, Chronicles) without a card; new clues still pop.
+  it("restores standing reports quietly on login, skipping resources whose reveal tech is researched", () => {
     const report = entry();
-    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1");
+    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1", false);
     sync(true);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    occupationSurveyController.reconcile([report], [], "new-player:season-1");
+    expect(occupationSurveyController.currentForResource("TITANIUM")).toBeUndefined();
+    occupationSurveyController.reconcile([report], [], "new-player:season-1", false);
     sync(true);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(occupationSurveyController.currentForResource("TITANIUM")?.id).toBe(report.id);
+    occupationSurveyController.reconcile([report]);
+    sync(true);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    const live = { ...entry(), surveyResource: "GEMS" as const, surveySignature: "REFRACTIVE_GROUND" as const };
+    occupationSurveyController.reconcile([report, live]);
+    sync(true);
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Crystal nearby");
+  });
+
+  it("does not pop a survey card from the first-sync feed backfill, even one older than the feed window", () => {
+    const old = { ...entry(), occurredAt: 1_000 };
+    seedFeedFromEventLog({ feed: [] } as never, [old], 1_000 + 3 * 24 * 60 * 60 * 1000);
+    occupationSurveyController.reconcile([old]);
+    sync(true);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("does not reopen dismissed history after a later town panel closes", () => {
