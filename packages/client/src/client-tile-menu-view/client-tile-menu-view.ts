@@ -33,7 +33,7 @@ import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { townModifierGroupsOutsideStatCards, townStatGridModifiers } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
+import { townModifierGroupsOutsideStatCards, townStatGridModifiersWithZeroCoinReason } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
@@ -173,7 +173,6 @@ export const menuOverviewForTile = (
     // Foreign towns under satellite reveal carry only public fields; absent owner-only economy
     // fields hide private-info lines instead of rendering misleading defaults like "Town is unfed" or "Support 0/0".
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
-    const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and garrison this tile to start its economy.");
     } else if (!isSettled) {
@@ -183,7 +182,6 @@ export const menuOverviewForTile = (
     } else if (
       hasOwnerEconomyData &&
       !tile.town.isFed &&
-      !hasFullFoodCoverage &&
       (tile.town.goldPerMinute ?? 0) <= 0.001 &&
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
@@ -202,7 +200,9 @@ export const menuOverviewForTile = (
       // (fed) or 0 (unfed), never a partial count. The simulation stamps it
       // after upgrade waivers and the Ministry Hall reduction.
       const foodDemand = townFoodSlotDemand(tile.town);
-      const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
+      // The sim's own isFed, as HUD v2's tile facts and town screen read it. Fed is a FOOD *slot* allocation, not the
+      // empire's food-stock coverage: overriding it to fed at full coverage hid a real Unfed town (0 coin, no reason).
+      const townForGrowth = tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
@@ -227,7 +227,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
-          ...townStatGridModifiers(townForGrowth, terrainProfile, coastal),
+          ...townStatGridModifiersWithZeroCoinReason(tile, townForGrowth, goldPerDay, terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })

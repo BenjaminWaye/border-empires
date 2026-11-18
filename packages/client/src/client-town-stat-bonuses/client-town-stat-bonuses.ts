@@ -10,6 +10,7 @@ import { townPopulationMultiplier } from "@border-empires/game-domain";
 import type { TownTerrainProfileId } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
 
 export type TownStatBonus = {
   label: string;
@@ -91,6 +92,23 @@ export const townStatGridModifiers = (town: Town, terrainProfile: TownTerrainPro
   goldBonuses: townGoldBonuses(town),
   manpowerBonuses: townManpowerBonuses(town)
 });
+
+/**
+ * The same, plus why a town earning nothing earns nothing (townZeroCoinReason, shared with HUD v2's tile facts and
+ * town screen) when the bonus lines don't already say it, e.g. a sabotaged town.
+ */
+export const townStatGridModifiersWithZeroCoinReason = (
+  tile: Pick<Tile, "ownershipState" | "sabotage" | "town">,
+  town: Town,
+  goldPerDay: number,
+  terrainProfile: TownTerrainProfileId,
+  coastal: boolean
+): ReturnType<typeof townStatGridModifiers> => {
+  const modifiers = townStatGridModifiers(town, terrainProfile, coastal);
+  const why = goldPerDay < 0.0001 ? townZeroCoinReason(tile) : undefined;
+  if (!why || modifiers.goldBonuses.some((bonus) => bonus.label === why || bonus.label.startsWith("Support "))) return modifiers;
+  return { ...modifiers, goldBonuses: [{ label: why, effect: "no coin", tone: "negative" }, ...modifiers.goldBonuses] };
+};
 
 // Building groups still worth their own "<count> <Building>" heading below
 // the stat grid: coin/manpower lines already appear inside the cards, so

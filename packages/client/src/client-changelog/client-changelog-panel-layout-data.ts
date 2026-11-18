@@ -11,6 +11,7 @@ export const PANEL_LAYOUT_DATA_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
     "The map's Build list closes under any open screen instead of covering the town screen",
     "Food says to garrison grain or fish sites (with Find on map) instead of \"No tiles yet\", and never shows no sources beside a Food supply",
     "A town earning 0 coin says why: unfed, no plots garrisoned, sabotaged or not garrisoned",
+    "A town's details no longer show it as fed just because your food stores are full",
     "Opening the Chronicle clears its button badge; the Updates tab keeps its own count",
     "The Empire Integrity panel leads with the score and its income effect",
     "Waystation Discovered never shows after the same Waystation's Activated card"

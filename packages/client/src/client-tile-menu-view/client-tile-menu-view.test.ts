@@ -408,11 +408,14 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
     const statGrid = lines.find((line) => line.kind === "statgrid");
     expect(statGrid?.html).toContain("17,532");
-    expect(statGrid?.html).not.toContain("Growth paused");
-    expect(statGrid?.html).toContain("+5.6/m");
+    // The grid shows the sim's isFed as HUD v2 does (no client-side fed override, playtest 2026-11-18); only the
+    // prose warning above keeps its produced-coin guard.
+    expect(statGrid?.html).toContain("2,880.0");
   });
 
-  it("hides stale unfed town copy when global food coverage is full", () => {
+  // Playtest 2026-11-18: an Unfed town earning 0 coin read as fed with no reason, because full food-stock coverage
+  // overrode the sim's isFed. Fed is a FOOD slot allocation; coverage says nothing about it. HUD v2 trusts isFed.
+  it("shows an unfed town as unfed even when global food coverage is full", () => {
     const nextGrowthLabel = vi.fn(() => "City growth paused");
     const lines = menuOverviewForTile(
       {
@@ -452,9 +455,11 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
-    expect(lines.some((line) => line.html.includes("town is unfed"))).toBe(false);
-    expect(nextGrowthLabel).toHaveBeenCalledWith(expect.objectContaining({ isFed: true }), { explainUnfed: true });
+    expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(true);
+    const grid = lines.find((line) => line.kind === "statgrid")?.html ?? "";
+    expect(grid).toContain("Growth paused — town is unfed");
+    expect(grid).toContain("<strong>Unfed</strong> · coin production stopped");
+    expect(nextGrowthLabel).not.toHaveBeenCalledWith(expect.objectContaining({ isFed: true }), expect.anything());
   });
 
   it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
