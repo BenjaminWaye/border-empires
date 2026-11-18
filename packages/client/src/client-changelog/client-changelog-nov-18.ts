@@ -14,6 +14,7 @@ import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js
 import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
 import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
+import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
@@ -31,5 +32,6 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
+  { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
 ];
