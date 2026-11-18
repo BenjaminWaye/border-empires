@@ -109,7 +109,7 @@ export const houseChargeCardHtml = (card: HouseChargeCardView): string => {
 
 /** The shared card back (brass cog seal over a starfield); `mini` is the icon size. */
 export const houseChargeCardBackHtml = (options: { mini?: boolean } = {}): string =>
-  `<div class="hc-card is-back${options.mini ? " is-mini" : ""}" aria-hidden="true"><div class="hc-frame"><div class="hc-back-face"><span class="sp-cog"></span></div></div></div>`;
+  `<div class="hc-card is-back${options.mini ? " is-mini" : ""}" aria-hidden="true"><div class="hc-frame"><div class="hc-back-face"><span class="hc-back-beads"></span><span class="sp-cog"></span><span class="hc-back-title">House Charge</span></div></div></div>`;
 
 /** A player's card collection for their profile; `undefined`/"loading" while fetching. */
 export const houseChargeCollectionHtml = (cards: HouseChargeCardView[] | "loading" | undefined, isSelf: boolean): string => {

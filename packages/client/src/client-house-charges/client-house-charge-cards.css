@@ -60,31 +60,129 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
-/* Card back: one shared back for every charge (docs/house-charges-plan.md), the brass cog seal
-   (.sp-cog) over a starfield, in a brass frame rather than a kind colour. */
+/* Card back: one shared back for every charge (docs/house-charges-plan.md). A gold-leaf frame, a
+   nebula starfield, gold corner brackets and a medallion ring round the brass cog seal (.sp-cog),
+   with a slow gold sheen. Exclusive by design: it is the face of a sealed, private charge. */
 .hc-card.is-back {
-  --hc-frame: var(--sp-brass-500, #b8862f);
-  --hc-frame-hi: var(--sp-brass-300, #d9ad52);
+  --hc-frame: var(--sp-brass-300, #d9ad52);
+  --hc-frame-hi: var(--sp-brass-100, #f4dfa6);
   --hc-frame-lo: var(--sp-brass-700, #8a611f);
+  --hc-gold: var(--sp-brass-300, #d9ad52);
 }
 .hc-card.is-back .hc-frame { grid-template-rows: 1fr; }
 .hc-back-face {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 0;
+  overflow: hidden;
   border-radius: 4px;
   background:
-    radial-gradient(circle at 18% 22%, #fff9 0 1px, transparent 1.5px),
-    radial-gradient(circle at 76% 14%, #fff7 0 1px, transparent 1.5px),
-    radial-gradient(circle at 64% 80%, #fff8 0 1px, transparent 1.5px),
-    radial-gradient(circle at 28% 70%, #fff6 0 0.8px, transparent 1.3px),
-    radial-gradient(circle at 86% 56%, #fff6 0 0.8px, transparent 1.3px),
-    radial-gradient(ellipse at 50% 40%, #1d2a3a, #0a0e16 75%);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(217, 173, 82, 0.25);
+    radial-gradient(circle at 18% 22%, #fffc 0 1px, transparent 1.6px),
+    radial-gradient(circle at 76% 14%, #fff9 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 70% 68%, #fffa 0 1px, transparent 1.6px),
+    radial-gradient(circle at 30% 74%, #fff8 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 86% 58%, #fff8 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 12% 48%, #fff7 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 52% 10%, #fff7 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 44% 92%, #fff7 0 0.7px, transparent 1.2px),
+    radial-gradient(ellipse 70% 45% at 30% 30%, rgba(122, 76, 160, 0.35), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 75% 75%, rgba(52, 110, 150, 0.3), transparent 70%),
+    radial-gradient(ellipse at 50% 45%, #1a2436, #070910 80%);
+  /* Double gold hairline inside the frame. */
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(244, 223, 166, 0.55),
+    inset 0 0 0 3px rgba(7, 9, 16, 0.9),
+    inset 0 0 0 4px rgba(217, 173, 82, 0.35),
+    inset 0 0 24px rgba(0, 0, 0, 0.6);
 }
-.hc-back-face .sp-cog { width: 52%; aspect-ratio: 1; }
+/* Gold corner brackets. */
+.hc-back-face::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  pointer-events: none;
+  --hc-arm: 16%;
+  background:
+    linear-gradient(var(--hc-gold), var(--hc-gold)) top left / var(--hc-arm) 1.5px,
+    linear-gradient(var(--hc-gold), var(--hc-gold)) top left / 1.5px var(--hc-arm),
+    linear-gradient(var(--hc-gold), var(--hc-gold)) top right / var(--hc-arm) 1.5px,
+    linear-gradient(var(--hc-gold), var(--hc-gold)) top right / 1.5px var(--hc-arm),
+    linear-gradient(var(--hc-gold), var(--hc-gold)) bottom left / var(--hc-arm) 1.5px,
+    linear-gradient(var(--hc-gold), var(--hc-gold)) bottom left / 1.5px var(--hc-arm),
+    linear-gradient(var(--hc-gold), var(--hc-gold)) bottom right / var(--hc-arm) 1.5px,
+    linear-gradient(var(--hc-gold), var(--hc-gold)) bottom right / 1.5px var(--hc-arm);
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+/* Medallion behind the cog: a fine gold ring and a ring of beads. */
+.hc-back-face::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, transparent 0 46.5%, rgba(244, 223, 166, 0.75) 47% 48%, transparent 48.5%),
+    radial-gradient(circle, transparent 0 41%, rgba(217, 173, 82, 0.35) 41.5% 42%, transparent 42.5%),
+    radial-gradient(circle, rgba(217, 173, 82, 0.16), transparent 62%);
+}
+.hc-back-face .hc-back-beads {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(244, 223, 166, 0.8) 0deg 3deg, transparent 3deg 15deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 47%, #000 47.5% 50%, transparent 50.5%);
+  mask: radial-gradient(circle, transparent 0 47%, #000 47.5% 50%, transparent 50.5%);
+}
+.hc-back-face .sp-cog {
+  position: relative;
+  z-index: 1;
+  width: 46%;
+  aspect-ratio: 1;
+  --sp-cog-color: var(--sp-brass-300, #d9ad52);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.7)) drop-shadow(0 0 2px rgba(255, 214, 120, 0.55));
+}
+/* Engraved wordmark along the bottom, between the brackets. */
+.hc-back-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12%;
+  text-align: center;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(7px, 6cqi, 12px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sp-brass-300, #d9ad52);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+}
+/* A slow gold sweep across the whole back (the foil card's sheen, in gold). */
+.hc-card.is-back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 236, 170, 0.22) 45%, rgba(255, 250, 220, 0.32) 50%, rgba(255, 236, 170, 0.22) 55%, transparent 70%);
+  background-size: 250% 250%;
+  mix-blend-mode: screen;
+  animation: hc-sheen 7s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .hc-card.is-back::after { animation: none; background-position: 45% 55%; } }
 
-/* Icon-size card (the House Charges bubble): the same rim and frame, scaled down. */
+/* Icon-size card (the House Charges bubble): the same rim and frame, scaled down; brackets and beads
+   are too fine to read at this size. */
 .hc-card.is-mini {
   width: 20px;
   max-width: none;
@@ -93,8 +191,11 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 .hc-card.is-mini .hc-frame { padding: 1.5px; border-radius: 2px; }
-.hc-card.is-mini .hc-back-face { border-radius: 1px; }
-.hc-card.is-mini .hc-back-face .sp-cog { width: 70%; }
+.hc-card.is-mini .hc-back-face { border-radius: 1px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.7), inset 0 0 0 0.5px rgba(244, 223, 166, 0.6); }
+.hc-card.is-mini .hc-back-face::before,
+.hc-card.is-mini .hc-back-face .hc-back-beads,
+.hc-card.is-mini .hc-back-title { display: none; }
+.hc-card.is-mini .hc-back-face .sp-cog { width: 66%; filter: drop-shadow(0 0 1.5px rgba(244, 223, 166, 0.6)); }
 
 .hc-name {
   min-width: 0;
