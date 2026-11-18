@@ -14,9 +14,11 @@ import { LOGIN_LORE_QUOTES_ENTRY } from "./client-changelog-login-lore-quotes.js
 import { CHARGE_SEARCH_CIRCLES_ENTRY } from "./client-changelog-charge-search-circles.js";
 import { CORRECTION_CHARGES_ENTRY } from "./client-changelog-correction-charges.js";
 import { AFC_SUPPORT_TILE_TAP_ENTRY } from "./client-changelog-afc-support-tile-tap.js";
+import { THREE_D_TAB_SWITCH_ENTRY } from "./client-changelog-3d-tab-switch.js";
 import { TOWN_BAR_BUTTONS_ENTRY } from "./client-changelog-town-bar-buttons.js";
 import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
+import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
 
 export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...HILL_FOG_SEAMS_ENTRY, createdAt: 1794989604778, },
@@ -33,7 +35,9 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...CHARGE_SEARCH_CIRCLES_ENTRY, createdAt: 1794988683730, },
   { ...CORRECTION_CHARGES_ENTRY, createdAt: 1795020091328, },
   { ...AFC_SUPPORT_TILE_TAP_ENTRY, createdAt: 1795033573064, },
+  { ...THREE_D_TAB_SWITCH_ENTRY, createdAt: 1795033764700, },
   { ...TOWN_BAR_BUTTONS_ENTRY, createdAt: 1795035149737, },
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
   { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
+  { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
 ];
