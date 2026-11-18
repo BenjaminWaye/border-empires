@@ -79,7 +79,9 @@ Updates in one Activity modal; added a bounded, player-safe World Pulse
 projection; moved release notes out of their standalone overlay; and made the
 dashboard reliably sit above the new-player checklist.
 
-**Resource surveys** open a centered, explicit-dismissal popup when received;
+**Resource surveys** open a centered, explicit-dismissal popup when received
+during a session (a login's backfill records them quietly, as it does
+waystation activations);
 View survey locates the clue, and Got it dismisses the popup. The popup is
 independent of map visibility and queues multiple discoveries. They also have
 a standing section in Activity → Yours
@@ -867,8 +869,8 @@ Add tests beside each new module. At minimum cover:
 - 2D and 3D Center navigation, plus both branches if a visual overlay is
   introduced;
 - migration idempotence for new profile columns;
-- existing waystation popup catch-up continues to work until intentionally
-  replaced.
+- waystation popup catch-up still works for activations that land during a
+  session (in-place reconnects); a login's backfill is quiet by design.
 
 Every user-visible implementation phase adds a `CLIENT_CHANGELOG_ENTRIES`
 entry with `createdAt: Date.now()`. Before opening the implementation PR,
