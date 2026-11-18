@@ -1,4 +1,4 @@
-import { AFC_MODULE_SLOTS } from "@border-empires/shared";
+import { AFC_MODULE_SLOTS, houseStyledName } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import type { TechInfo, Tile, TileActionDef } from "../client-types.js";
@@ -12,14 +12,21 @@ export type AfcModuleTabView = {
   focusSocket?: number | undefined;
 };
 
-export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], actions: readonly TileActionDef[], me: string, nowMs = Date.now(), focusSocket?: number): AfcModuleTabView | undefined => {
+/** A captured copy names the House it was taken from; your own modules carry no label. */
+const capturedModuleDetail = (houseId: string | undefined, me: string, playerNameForOwner?: (ownerId?: string | null) => string | undefined): string => {
+  if (houseId === me) return "Recaptured";
+  const name = houseId ? playerNameForOwner?.(houseId) : undefined;
+  return name ? `Captured from ${houseStyledName(name)}` : "Captured";
+};
+
+export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], actions: readonly TileActionDef[], me: string, nowMs = Date.now(), focusSocket?: number, playerNameForOwner?: (ownerId?: string | null) => string | undefined): AfcModuleTabView | undefined => {
   if (!tile.afc) return undefined;
   const afc = tile.afc;
   const houseCopies = new Set(afc.houseModules ?? []);
   const installed = (afc.modules ?? []).map((id) => {
     const tech = catalog.find((entry) => entry.id === id);
     const house = houseCopies.delete(id);
-    return { name: tech?.name ?? id, branch: tech?.branch, description: tech?.description, state: house ? "house" as const : "captured" as const, detail: house ? "House · movable" : "Captured · fixed" };
+    return { name: tech?.name ?? id, branch: tech?.branch, description: tech?.description, state: house ? "house" as const : "captured" as const, detail: house ? "" : capturedModuleDetail(afc.capturedModuleHouses?.[id], me, playerNameForOwner) };
   });
   const incoming = (afc.incomingModules ?? []).map((entry) => {
     const tech = catalog.find((candidate) => candidate.id === entry.techId);
@@ -45,7 +52,7 @@ const branchIcon = (branch?: string): string => branch === "economy" ? "⚙" : b
 const socketContentHtml = (slot: AfcModuleTabView["slots"][number], number: number): string =>
   slot.state === "empty"
     ? `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">+</span>`
-    : `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">${branchIcon(slot.branch)}</span><span class="afc-socket-name">${escapeHtml(slot.name ?? "")}</span><small>${escapeHtml(slot.detail)}</small>`;
+    : `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">${branchIcon(slot.branch)}</span><span class="afc-socket-name">${escapeHtml(slot.name ?? "")}</span>${slot.detail ? `<small>${escapeHtml(slot.detail)}</small>` : ""}`;
 
 const ARM_DIRECTIONS = ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"] as const;
 
@@ -60,7 +67,7 @@ const afcArmFocusHtml = (view: AfcModuleTabView, canCallDown: boolean): string =
     return `<section class="afc-arm-focus is-empty" aria-label="${escapeHtml(where)}"><small>${escapeHtml(where)}</small><strong>Empty socket</strong><p>${escapeHtml(hint)}</p></section>`;
   }
   const description = slot.description?.trim();
-  return `<section class="afc-arm-focus" aria-label="${escapeHtml(where)}"><small>${escapeHtml(where)}</small><strong><span aria-hidden="true">${branchIcon(slot.branch)}</span> ${escapeHtml(slot.name ?? "")}</strong><span class="afc-arm-focus-state">${escapeHtml(slot.detail)}</span>${description ? `<p>${escapeHtml(description)}</p>` : ""}</section>`;
+  return `<section class="afc-arm-focus" aria-label="${escapeHtml(where)}"><small>${escapeHtml(where)}</small><strong><span aria-hidden="true">${branchIcon(slot.branch)}</span> ${escapeHtml(slot.name ?? "")}</strong>${slot.detail ? `<span class="afc-arm-focus-state">${escapeHtml(slot.detail)}</span>` : ""}${description ? `<p>${escapeHtml(description)}</p>` : ""}</section>`;
 };
 
 // Upgrades are the AFC's most-used control, so they lead the tab. The ready

@@ -7,6 +7,7 @@ export const AFC_SUPPORT_TILE_TAP_ENTRY: Omit<ClientChangelogEntry, "createdAt">
   changes: [
     "Tapping any arm tile around your own AFC now opens the AFC's Modules view",
     "The module docked on that arm is shown at the top with what it does, and its socket is highlighted. An empty arm says so",
+    "Modules no longer say House · movable. A module you captured says which House it was captured from; your own modules have no label",
     "Tiles around the AFC with their own building, and other players' AFCs, still open the tile you tapped"
   ]
 };

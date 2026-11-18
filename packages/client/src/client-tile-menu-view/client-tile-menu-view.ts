@@ -439,7 +439,7 @@ export const tileMenuViewForTile = (
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
   // Only the open menu's own tile spotlights the arm the player tapped to open it.
   const armFocus = deps.state.tileActionMenu?.currentTileKey === `${tile.x},${tile.y}` ? deps.state.tileActionMenu.afcArmFocus?.socket : undefined;
-  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me, Date.now(), armFocus);
+  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me, Date.now(), armFocus, deps.playerNameForOwner);
   if (modules) actionTabs.actions = actionTabs.actions.filter((action) => !action.id.startsWith("redeploy_afc_module:"));
   const canShowBuildingsTab =
     !buildBlockedByQueue &&

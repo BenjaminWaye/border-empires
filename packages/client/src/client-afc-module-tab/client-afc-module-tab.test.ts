@@ -246,4 +246,18 @@ describe("graphical AFC modules tab", () => {
     expect(root.querySelector(".afc-arm-focus")).toBeNull();
     expect(root.querySelector(".is-arm-focus")).toBeNull();
   });
+
+  it("names the House a captured module came from and leaves your own modules unlabelled", () => {
+    const tile = { ...target, afc: { ownerId: "me", status: "active", modules: ["masonry", "workshops", "radar"], houseModules: ["masonry"], capturedModuleHouses: { workshops: "varn" } } } as Tile;
+    const names = (id?: string | null): string | undefined => (id === "varn" ? "Varn" : undefined);
+    const view = afcModuleTabForTile(tile, catalog, [], "me", 1000, 1, names)!;
+    expect(view.slots.map((slot) => slot.detail).slice(0, 3)).toEqual(["", "Captured from House Varn", "Captured"]);
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: view }, "modules");
+    expect(root.textContent).not.toContain("movable");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Captured from House Varn");
+    const own = afcModuleTabForTile(tile, catalog, [], "me", 1000, 0, names)!;
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: own }, "modules");
+    expect(root.querySelector(".afc-arm-focus-state")).toBeNull();
+  });
 });

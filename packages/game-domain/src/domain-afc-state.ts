@@ -16,5 +16,7 @@ export type DomainAfcState = {
   foundedBy?: string | undefined;
   modules?: string[] | undefined;
   houseModules?: string[] | undefined;
+  /** Captured copies only: module tech id -> the House whose copy it was when this AFC was taken (capturedAfc). */
+  capturedModuleHouses?: Record<string, string> | undefined;
   incomingModules?: Array<{ techId: string; arrivesAt: number }> | undefined;
 };
