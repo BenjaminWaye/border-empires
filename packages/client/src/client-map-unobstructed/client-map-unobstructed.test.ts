@@ -35,6 +35,22 @@ describe("isMapUnobstructed", () => {
     expect(isMapUnobstructed(state)).toBe(false);
   });
 
+  it("is false while the 3D map is still being built after sign-in, and true once it is drawn", () => {
+    // Playtest: the guide card sat on top of the "Drawing your map..." loading overlay.
+    const state = clearState();
+    state.mapPrep = { stage: "firstFrame", index: 4, startedAt: 1, stageStartedAt: 1 };
+    expect(isMapUnobstructed(state)).toBe(false);
+    state.mapPrep = null;
+    expect(isMapUnobstructed(state)).toBe(true);
+  });
+
+  it("does not wait on a map build that failed (the overlay shows the auth error instead)", () => {
+    const state = clearState();
+    state.mapPrep = { stage: "shaders", index: 3, startedAt: 1, stageStartedAt: 1 };
+    state.authError = "WebGL context lost";
+    expect(isMapUnobstructed(state)).toBe(true);
+  });
+
   it("is false while the season-end overlay is showing, and true once dismissed", () => {
     const state = clearState();
     state.seasonWinner = { playerId: "p2" } as NonNullable<typeof state.seasonWinner>;
