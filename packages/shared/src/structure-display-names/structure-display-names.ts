@@ -19,6 +19,8 @@ export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, strin
   DREAD_TOWER: "Dread Tower",
   HYDROGARDEN: "Hydrogarden",
   HYDROWORKS: "Hydroworks",
+  FARM_PLOT: "Farm Plot",
+  HYDROGARDEN_PLOT: "Hydrogarden Plot",
   TITANIUM_REFINERY: "Titanium Refinery",
   UMBRITE_REFINERY: "Umbrite Refinery",
   CRYSTAL_REFINERY: "Crystal Refinery",
