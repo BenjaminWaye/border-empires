@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ScoutDroneFlight } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { afcScoutDroneAction, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
+import { afcScoutDroneActions, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { SCOUT_DRONE_PICKING_CARD_HTML } from "../client-hud/client-hud-targeting-overlay.js";
 
 const flight = (landsAt: number): ScoutDroneFlight => ({
@@ -33,19 +33,25 @@ const pickingState = (scoutDroneFlight?: ScoutDroneFlight) => ({
 
 const deps = () => ({ pushFeed: vi.fn(), sendGameMessage: vi.fn(() => true), renderHud: vi.fn() });
 
-describe("afcScoutDroneAction", () => {
+describe("afcScoutDroneActions", () => {
   const afc = (ownerId: string, status: "active" | "inactive"): Tile => ({ ...tile(1, 1, ownerId), afc: { ownerId, status } }) as Tile;
 
   it("is offered only on your own active AFC", () => {
-    expect(afcScoutDroneAction({ me: "me", scoutDroneFlight: undefined }, afc("me", "active"), 0)).toMatchObject({ id: "afc_scout_drone", label: "Send scout drone" });
-    expect(afcScoutDroneAction({ me: "me", scoutDroneFlight: undefined }, afc("me", "inactive"), 0)).toBeUndefined();
-    expect(afcScoutDroneAction({ me: "me", scoutDroneFlight: undefined }, afc("rival", "active"), 0)).toBeUndefined();
-    expect(afcScoutDroneAction({ me: "me", scoutDroneFlight: undefined }, tile(1, 1, "me"), 0)).toBeUndefined();
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: undefined }, afc("me", "active"), 0)).toEqual([expect.objectContaining({ id: "afc_scout_drone", label: "Send scout drone" })]);
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: undefined }, afc("me", "inactive"), 0)).toEqual([]);
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: undefined }, afc("rival", "active"), 0)).toEqual([]);
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: undefined }, tile(1, 1, "me"), 0)).toEqual([]);
   });
 
   it("is disabled with the time left while the drone is out", () => {
-    const action = afcScoutDroneAction({ me: "me", scoutDroneFlight: flight(31_000) }, afc("me", "active"), 1_000);
-    expect(action).toMatchObject({ disabled: true, disabledReason: "Scout drone is out, back in 30s" });
+    const [send] = afcScoutDroneActions({ me: "me", scoutDroneFlight: flight(31_000) }, afc("me", "active"), 1_000);
+    expect(send).toMatchObject({ id: "afc_scout_drone", disabled: true, disabledReason: "Scout drone is out, back in 30s" });
+  });
+
+  it("offers Recall drone first while the drone is still flying out, and not once it is heading home", () => {
+    const outbound: ScoutDroneFlight = { ...flight(40_000), steps: [{ x: 1, y: 1, at: 0 }, { x: 2, y: 1, at: 10_000 }, { x: 1, y: 1, at: 20_000 }], turnIndex: 1 };
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: outbound }, afc("me", "active"), 5_000).map((a) => a.id)).toEqual(["recall_scout", "afc_scout_drone"]);
+    expect(afcScoutDroneActions({ me: "me", scoutDroneFlight: outbound }, afc("me", "active"), 15_000).map((a) => a.id)).toEqual(["afc_scout_drone"]);
   });
 });
 
