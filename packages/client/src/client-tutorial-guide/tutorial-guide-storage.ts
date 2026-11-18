@@ -144,17 +144,21 @@ export const hydrateTutorialGuideFromInit = (
 ): void => {
   const local = readGuideProgress(authEmail);
   const serverSeason = sanitizeSeason(player.guideSeasonId);
-  if (isGuideStatus(player.guideStatus)) {
-    // Unstamped server progress belongs to whatever season is current (first guide release).
-    if (!seasonId || (serverSeason || seasonId) === seasonId) {
-      if (local.seasonId && seasonId && local.seasonId !== seasonId) writeLocal({ ...EMPTY }, authEmail);
-      hydrateGuideFromServer(player.guideStatus, player.guideSteps, authEmail, seasonId || serverSeason);
-      // Stamp unstamped server progress with this season (once per INIT, never from the echo: no resend loop).
-      if (seasonId && serverSeason !== seasonId) sendProgress(readGuideProgress(authEmail));
-      return;
-    }
-  } else if (local.status && (!seasonId || (local.seasonId || seasonId) === seasonId)) {
-    // Started on this device but the server never got it (socket dropped): stamp and resend.
+  const serverHasStatus = isGuideStatus(player.guideStatus);
+  // Unstamped server progress belongs to whatever season is current (first guide release).
+  if (serverHasStatus && (!seasonId || (serverSeason || seasonId) === seasonId)) {
+    if (local.seasonId && seasonId && local.seasonId !== seasonId) writeLocal({ ...EMPTY }, authEmail);
+    hydrateGuideFromServer(player.guideStatus, player.guideSteps, authEmail, seasonId || serverSeason);
+    // Stamp unstamped server progress with this season (once per INIT, never from the echo: no resend loop).
+    if (seasonId && serverSeason !== seasonId) sendProgress(readGuideProgress(authEmail));
+    return;
+  }
+  // Started (or skipped) on this device but the server never got it (socket dropped): stamp and resend.
+  // When the server holds an earlier season's status, only local progress stamped with this season counts.
+  const localIsCurrent = serverHasStatus
+    ? local.seasonId === seasonId
+    : !seasonId || (local.seasonId || seasonId) === seasonId;
+  if (local.status && localIsCurrent) {
     persist({ ...local, seasonId: seasonId || local.seasonId }, authEmail);
     return;
   }

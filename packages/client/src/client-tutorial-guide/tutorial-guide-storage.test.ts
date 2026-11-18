@@ -104,6 +104,16 @@ describe("tutorial guide per season (every player, every season)", () => {
     expect(sent.at(-1)).toEqual({ guideStatus: "active", guideSteps: [], guideSeasonId: S2 });
   });
 
+  it("keeps a Skip guide the server never got when the server still holds last season's status (review: rollover wiped it)", () => {
+    hydrateTutorialGuideFromInit({ guideStatus: "done", guideSteps: ["look-pan"], guideSeasonId: S1 }, EMAIL, S2);
+    setGuideStatus("dismissed", EMAIL);
+    sent = [];
+    // Both sends were dropped: the server row is still last season's.
+    hydrateTutorialGuideFromInit({ guideStatus: "done", guideSteps: ["look-pan"], guideSeasonId: S1 }, EMAIL, S2);
+    expect(readGuideProgress(EMAIL)).toEqual({ status: "dismissed", steps: [], seasonId: S2 });
+    expect(sent).toEqual([{ guideStatus: "dismissed", guideSteps: [], guideSeasonId: S2 }]);
+  });
+
   it("keeps this season's progress, including Skip guide, across logins", () => {
     hydrateTutorialGuideFromInit({ guideStatus: "dismissed", guideSteps: ["look-pan"], guideSeasonId: S2 }, EMAIL, S2);
     expect(readGuideProgress(EMAIL)).toEqual({ status: "dismissed", steps: ["look-pan"], seasonId: S2 });
