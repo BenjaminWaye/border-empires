@@ -7,6 +7,8 @@ import { formatCoinPerDay, spendableCoin } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { formatRefillCountdown, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
+import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { REACH_HINT } from "./client-hud-v2-hints.js";
 
@@ -16,6 +18,11 @@ export type NextStepInput = {
   manpower: number;
   /** Manpower for the player's next Relay Beacon (relayBeaconManpowerCostForState). */
   beaconCost: number;
+  /**
+   * A beacon can be built now: some tile passes the build path's rule (isRelayBeaconBuildTile) and a FOOD
+   * slot is free when the beacon needs one. False drops the beacon row rather than suggest a build that fails.
+   */
+  beaconBuildable: boolean;
   /** Ms until the next manpower batch, or undefined when unknown. */
   nextBatchInMs: number | undefined;
   gold: number;
@@ -52,10 +59,11 @@ export const coinShortText = (gold: number, cost: number, netPerMinute: number):
     : `Need ${short.toLocaleString("en-US")} more · ${rate} · ready in ${formatRefillCountdown(eta)}`;
 };
 
-const manpowerStep = (input: NextStepInput): NextStep => {
+const manpowerStep = (input: NextStepInput): NextStep | undefined => {
+  if (!input.beaconBuildable) return undefined;
   const cost = Math.max(0, Math.ceil(input.beaconCost));
   if (input.manpower >= cost) {
-    return { title: "Build a Relay Beacon", sub: `${cost} MP · garrisoned edge tile · grows reach`, hint: REACH_HINT };
+    return { title: "Build a Relay Beacon", sub: `${cost} MP · on garrisoned land · grows reach`, hint: REACH_HINT };
   }
   const batch = input.nextBatchInMs === undefined ? "" : ` · next batch ${formatRefillCountdown(input.nextBatchInMs)}`;
   return { title: "Saving manpower", sub: `Relay Beacon ${cost} MP${batch}`, open: { kind: "open", key: "manpower" } };
@@ -74,10 +82,8 @@ const coinStep = (input: NextStepInput): NextStep | undefined => {
 /** Next steps while nothing is building or queued; empty while the slots are busy. */
 export const nextSteps = (input: NextStepInput): NextStep[] => {
   if (input.devBusy > 0 || input.queued > 0) return [];
-  const steps = [manpowerStep(input)];
-  const coin = coinStep(input);
-  if (coin) steps.push(coin);
-  return steps;
+  // No buildable beacon: the coin row is the next most useful step.
+  return [manpowerStep(input), coinStep(input)].filter((step): step is NextStep => step !== undefined);
 };
 
 const esc = (text: string): string =>
@@ -108,6 +114,7 @@ export const nextStepsForState = (state: ClientState, slots: { busy: number; que
     queued: slots.queued,
     manpower: state.manpower,
     beaconCost: relayBeaconManpowerCostForState(state),
+    beaconBuildable: hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me),
     nextBatchInMs: refillAt === undefined ? undefined : refillAt - nowMs,
     gold: state.gold,
     netPerMinute: empireCoinIncome(state).netPerMinute,

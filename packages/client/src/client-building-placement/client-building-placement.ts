@@ -3,7 +3,7 @@ import { canBuildPlacementStructure } from "../client-structure-effects/client-s
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
-import { isRelayBeaconPlacementTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import { isRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 
 type PlacedStructureType = "HYDROWORKS" | "RELAY_BEACON";
 
@@ -34,8 +34,8 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       afcReplacement ??= ownedAfcCount(state) === 0;
       return isValidAfcLandingTile(state, tile, afcReplacement);
     }
+    if (st === "RELAY_BEACON") return isRelayBeaconBuildTile(state.tiles, tile, state.me);
     if (landmarkConstructionBlocker(state.tiles, tile.x, tile.y)) return false;
-    if (st === "RELAY_BEACON") return isRelayBeaconPlacementTile(tile, state.me);
     if (st !== "HYDROWORKS") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
