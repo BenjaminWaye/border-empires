@@ -9,6 +9,7 @@ import type { Tile } from "../client-types.js";
 import type { TileTapInput } from "../client-tile-interaction/client-tile-interaction.js";
 import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
 import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
+import { cancelScoutDronePicking } from "../client-scout-drone/client-scout-drone-picking.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -200,6 +201,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.clearCrystalTargeting();
       deps.cancelBuildingPlacement();
       if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
+      cancelScoutDronePicking(state);
       return;
     }
 

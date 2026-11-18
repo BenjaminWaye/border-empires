@@ -264,6 +264,22 @@ export const beginCrystalTargeting = (
   deps.renderHud();
 };
 
+/** Map tap while a Crystal ability other than Aether Wall is armed: casts on a highlighted tile, else says why (visible tiles only). */
+export const handleCrystalTargetingClick = (
+  state: ClientState,
+  clicked: Tile | undefined,
+  wx: number,
+  wy: number,
+  vis: "visible" | "fogged" | "unexplored",
+  execute: (tile: Tile) => boolean,
+  pushFeed: (message: string, type?: string, severity?: string) => void
+): void => {
+  if (vis === "unexplored" || !clicked) return;
+  state.selected = { x: wx, y: wy };
+  if (execute(clicked)) return;
+  if (vis === "visible") pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
+};
+
 export const executeCrystalTargeting = (
   state: ClientState,
   tile: Tile,
