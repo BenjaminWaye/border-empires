@@ -1,9 +1,9 @@
 import type { Terrain } from "@border-empires/shared";
-import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier, landmarkConstructionBlocker } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 // Shared eligibility/anchor logic for a town's support ring, used by both
-// renderers: the 3D hatch-tile overlay (client-map-3d/client-map-3d.ts) and
+// renderers: the 3D corner-marker overlay (client-map-3d/client-map-3d.ts) and
 // the 2D canvas equivalent (client-map-2d-town-support-tile-overlay.ts).
 // Pulled out so the two renderers can't silently drift on what counts as a
 // "support plot" -- see AGENTS.md's renderer-parity rule. This mirrors the
@@ -30,7 +30,9 @@ export const isTownSupportHighlightableAt = (wx: number, wy: number, deps: TownS
   const tile = deps.tiles.get(deps.keyFor(wx, wy));
   const terrain = tile?.terrain ?? deps.terrainAt(wx, wy);
   if (terrain !== "LAND") return false;
-  if (tile?.dockId) return false;
+  if (tile?.dockId || tile?.afc || tile?.town || tile?.economicStructure || tile?.observatory || tile?.siegeBattery) return false;
+  if (tile?.ownerId && tile.ownerId !== deps.me) return false;
+  if (landmarkConstructionBlocker(deps.tiles, wx, wy)) return false;
   return true;
 };
 

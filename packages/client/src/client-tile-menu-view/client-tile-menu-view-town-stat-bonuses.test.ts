@@ -57,7 +57,7 @@ describe("menuOverviewForTile — town stat bonuses", () => {
   it("treats a stale unfed flag with full food coverage as fed", () => {
     const lines = townTile({ isFed: false }, { upkeepLastTick: { foodCoverage: 1 } });
     const grid = lines.find((line) => line.kind === "statgrid")?.html ?? "";
-    expect(grid).not.toContain("coin production stopped");
+    expect(grid).not.toContain("Unfed");
     expect(grid).toContain("Trade Nexus in Avalon");
   });
 });
