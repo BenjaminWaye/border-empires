@@ -7,6 +7,7 @@ import {
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
   planScoutDroneFlight,
+  recallScoutDroneFlight,
   scoutDroneBlockAt,
   scoutDroneStepIndexAt,
   turnScoutDroneFlightBack,
@@ -65,6 +66,8 @@ export type ScoutDroneGauge = { activeFlights: number; alertCooldownEntries: num
 
 export type ScoutDroneRuntime = {
   readonly handleExplore: (command: CommandEnvelope) => void;
+  /** RECALL_SCOUT: turn the drone back over the outbound tile it is over now. */
+  readonly handleRecall: (command: CommandEnvelope) => void;
   readonly tick: (nowMs: number) => void;
   /**
    * Push the player their drone in the air (live subscribe / reconnect). Nothing is
@@ -260,6 +263,22 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       flights.set(actor.id, active);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+      deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    },
+    handleRecall: (command) => {
+      const active = flights.get(command.playerId);
+      if (!active) return reject(command, "SCOUT_DRONE_DOCKED", "your scout drone is not out");
+      const now = deps.now();
+      // Catch up first: outbound tiles passed since the last tick still count toward the
+      // report, and a border on the path may already have turned it back (or it landed).
+      advance(active, now);
+      if (!flights.has(command.playerId) || active.lastStepIndex >= active.flight.turnIndex) {
+        return reject(command, "SCOUT_DRONE_RETURNING", "your scout drone is already flying home");
+      }
+      active.flight = recallScoutDroneFlight(active.flight, active.lastStepIndex, now);
+      const turn = active.flight.steps[active.flight.turnIndex]!;
+      moveReveal(active, { x: turn.x, y: turn.y });
+      send(command.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
     tick: (nowMs) => {

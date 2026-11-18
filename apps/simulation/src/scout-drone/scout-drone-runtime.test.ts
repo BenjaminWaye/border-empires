@@ -52,12 +52,17 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
   });
   const explore = (x: number, y: number, playerId = "me", commandId = `cmd-${events.length}`): void =>
     runtime.handleExplore({ commandId, playerId, sessionId: "s", type: "EXPLORE", payloadJson: JSON.stringify({ x, y }) } as unknown as CommandEnvelope);
+  const recall = (playerId = "me", commandId = `recall-${events.length}`): void =>
+    runtime.handleRecall({ commandId, playerId, sessionId: "s", type: "RECALL_SCOUT", payloadJson: "{}" } as unknown as CommandEnvelope);
   const advanceTo = (ms: number): void => {
     now = ms;
     runtime.tick(ms);
   };
+  const setNow = (ms: number): void => {
+    now = ms;
+  };
   const liveReveals = (): number => [...live.values()].reduce((sum, n) => sum + n, 0);
-  return { runtime, tiles, events, messages, impacts, reveals, explore, advanceTo, liveReveals, now: () => now };
+  return { runtime, tiles, events, messages, impacts, reveals, explore, recall, advanceTo, setNow, liveReveals, now: () => now };
 };
 
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
@@ -211,5 +216,60 @@ describe("scout drone runtime", () => {
     empty.explore(6, 10, "me", "e");
     empty.advanceTo(empty.runtime.flightFor("me")!.landsAt);
     expect(empty.impacts).toHaveLength(0);
+  });
+
+  describe("recall", () => {
+    // Launch at 1000 from (2,10): home tiles 3,4 at 1s each, then 7.5s per tile past x=4.
+    const outAtX6 = 1_000 + 2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS;
+
+    it("turns the drone back over the tile it is over and flies it home along the same tiles", () => {
+      const h = harness(homeRow());
+      h.explore(9, 10);
+      h.advanceTo(outAtX6 + 500);
+      h.recall("me", "r1");
+      expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "r1" });
+      const flight = lastPayload(h).flight!;
+      expect(flight.endReason).toBe("RECALLED");
+      expect(flight.blockedByPlayerId).toBeUndefined();
+      expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 6, y: 10 });
+      expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 4, 5, 6, 5, 4, 3, 2]);
+      // Home at the outbound pace, timed from the recall: 2 open tiles, then 2 home tiles.
+      expect(flight.landsAt).toBe(outAtX6 + 500 + 2 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
+      expect(h.runtime.flightFor("me")?.endReason).toBe("RECALLED");
+      h.advanceTo(flight.landsAt);
+      expect(h.runtime.flightFor("me")).toBeUndefined();
+      expect(lastPayload(h).report).toMatchObject({ targetX: 9, targetY: 10 });
+      expect(lastPayload(h).report?.blockedByPlayerId).toBeUndefined();
+      expect(h.liveReveals()).toBe(0);
+    });
+
+    it("refuses when no drone is out", () => {
+      const h = harness(homeRow());
+      h.recall("me", "r1");
+      expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "r1", code: "SCOUT_DRONE_DOCKED" });
+    });
+
+    it("refuses once the drone is already flying home, leaving its flight unchanged", () => {
+      const h = harness(homeRow());
+      h.explore(9, 10);
+      h.advanceTo(outAtX6 + 500);
+      h.recall();
+      const before = h.runtime.flightFor("me");
+      h.recall("me", "r2");
+      expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "r2", code: "SCOUT_DRONE_RETURNING" });
+      expect(h.runtime.flightFor("me")).toBe(before);
+    });
+
+    it("counts outbound tiles passed since the last tick toward the report before turning", () => {
+      const h = harness([...homeRow(), land(9, 10, { town: { type: "MARKET", populationTier: "TOWN" } as DomainTileState["town"] })]);
+      h.explore(9, 10);
+      // No tick since launch: the recall itself must catch up to x=6 (the town is within radius 3).
+      h.setNow(outAtX6 + 500);
+      h.recall();
+      const turned = h.runtime.flightFor("me")!;
+      expect(turned.steps[turned.turnIndex]).toMatchObject({ x: 6, y: 10 });
+      h.advanceTo(turned.landsAt);
+      expect(lastPayload(h).report).toMatchObject({ towns: 1 });
+    });
   });
 });

@@ -40,7 +40,8 @@ export type ScoutDroneTileClass =
 
 export type ScoutDroneStep = { x: number; y: number; at: number };
 
-export type ScoutDroneEndReason = "TARGET" | "RANGE" | "BLOCKED";
+/** RECALLED: the owner called it home early (RECALL_SCOUT). */
+export type ScoutDroneEndReason = "TARGET" | "RANGE" | "BLOCKED" | "RECALLED";
 
 export type ScoutDroneFlight = {
   launchedAt: number;
@@ -230,6 +231,16 @@ export const turnScoutDroneFlightBack = (
     endReason: "BLOCKED",
     ...(blocked.ownerId ? { blockedByPlayerId: blocked.ownerId, blockedAtX: blocked.x, blockedAtY: blocked.y } : {})
   };
+};
+
+/**
+ * The owner calls the drone home early: it turns back over `turnIndex` (the
+ * outbound tile it is over now) and flies the same tiles home at the same pace,
+ * like a border turn-back but with no rival to blame.
+ */
+export const recallScoutDroneFlight = (flight: ScoutDroneFlight, turnIndex: number, nowMs: number): ScoutDroneFlight => {
+  const turned = turnScoutDroneFlightBack(flight, turnIndex, nowMs, { x: flight.targetX, y: flight.targetY });
+  return { ...turned, endReason: "RECALLED" };
 };
 
 /** Index of the step the drone is over at `nowMs` (the last step whose time has come), or -1 before the first. */

@@ -3186,6 +3186,7 @@ export class SimulationRuntime {
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleActivateWaystationCommand: (command) => handleActivateWaystationCommand({ ...this.watchtowerRevealContext(), visibilityCoverage: this.state.visibilityCoverage, emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd) }, command, (key, x, y, playerId, commandId) => this.activateWaystationAt(key, x, y, playerId, commandId, false)),
       handleExploreCommand: (command) => this.scoutDrones.handleExplore(command),
+      handleRecallScoutCommand: (command) => this.scoutDrones.handleRecall(command),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
