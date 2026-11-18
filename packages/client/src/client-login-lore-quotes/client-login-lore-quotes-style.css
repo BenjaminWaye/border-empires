@@ -1,0 +1,36 @@
+#map-loading-quote {
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(190, 216, 255, 0.16);
+}
+
+#map-loading-quote[hidden] {
+  display: none;
+}
+
+#map-loading-quote-text {
+  margin: 0;
+  color: rgba(232, 242, 255, 0.9);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#map-loading-quote-text::before {
+  content: "\201C";
+}
+
+#map-loading-quote-text::after {
+  content: "\201D";
+}
+
+#map-loading-quote-source {
+  margin-top: 3px;
+  color: rgba(216, 234, 255, 0.55);
+  font-size: 11px;
+  text-align: right;
+}
+
+#map-loading-quote-source::before {
+  content: "\2014\00a0";
+}
