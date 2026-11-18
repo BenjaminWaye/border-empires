@@ -9,6 +9,7 @@ import type { DailyStoryEvent, LeaderboardOverallEntry, PlayerGrowthDelta } from
 
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import { normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
+import { formatCount, story } from "./daily-story-text.js";
 
 export const GROWTH_BASELINE_ROLL_INTERVAL_MS = 24 * 60 * 60_000;
 
@@ -44,10 +45,7 @@ export const computePlayerGrowth = async (
 const GOLD_PER_MINUTE_TO_PER_DAY = 24 * 60;
 
 const growthStory = (event: Omit<DailyStoryEvent, "participantIds" | "dashboardText">, playerId: string): DailyStoryEvent =>
-  Object.defineProperties(event, {
-    participantIds: { value: [playerId], enumerable: false },
-    dashboardText: { value: event.text, enumerable: false }
-  }) as DailyStoryEvent;
+  story(event, [playerId]);
 
 export const buildEconomyBoom = (growth: PlayerGrowthDelta[]): DailyStoryEvent | undefined => {
   if (growth.length === 0) return undefined;
@@ -57,7 +55,7 @@ export const buildEconomyBoom = (growth: PlayerGrowthDelta[]): DailyStoryEvent |
   return growthStory({
     type: "ECONOMY_BOOM",
     headline: "Economy Boom",
-    text: `${top.playerName}'s economy is booming — coin income is up ${perDay} per day since yesterday.`,
+    text: `${top.playerName}'s treasury is swelling — coin income is up ${formatCount(perDay)} a day since yesterday.`,
     significance: normalizeSignificance(perDay, SIGNIFICANCE_SCALE.goldPerDay),
     players: [top.playerName]
   }, top.playerId);
@@ -71,7 +69,7 @@ export const buildManpowerSurge = (growth: PlayerGrowthDelta[]): DailyStoryEvent
   return growthStory({
     type: "MANPOWER_SURGE",
     headline: "Manpower Surge",
-    text: `${top.playerName}'s manpower cap has grown by ${gained} since yesterday.`,
+    text: `${top.playerName} is raising an army — their manpower cap is up ${formatCount(gained)} since yesterday.`,
     significance: normalizeSignificance(gained, SIGNIFICANCE_SCALE.manpowerCapDelta),
     players: [top.playerName]
   }, top.playerId);

@@ -1,4 +1,5 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
+import { clearTownPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 import { pushFeed } from "../client-alerts/client-alerts.js";
 import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
 import { RESOURCE_NETWORKS, structureRequiresTownOrSupportTile } from "@border-empires/shared";
@@ -216,7 +217,12 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
 let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** The open town screen's town and selected tile, if it is open. */
+export const townScreenKeys = (): { townKey: string; focusKey: string } | undefined =>
+  current && { townKey: current.townKey, focusKey: current.focusKey };
+
 export const closeTownScreen = (keepPosition = false): void => {
+  clearTownPlotPlacement();
   current = undefined;
   placeFlash = undefined;
   screen.townBuildSelection = undefined;
