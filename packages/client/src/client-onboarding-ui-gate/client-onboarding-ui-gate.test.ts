@@ -28,6 +28,12 @@ describe("isOnboardingUiDeferred", () => {
     expect(isOnboardingUiDeferred(state)).toBe(true);
   });
 
+  it("is true while the 3D map is still being drawn after sign-in", () => {
+    const state = clearState();
+    state.mapPrep = { stage: "terrain", index: 1, startedAt: 1, stageStartedAt: 1 };
+    expect(isOnboardingUiDeferred(state)).toBe(true);
+  });
+
   it.each<[AfcJoinDropPhase, boolean]>([
     ["idle", false],
     ["waiting", true],

@@ -44,10 +44,10 @@ describe("isMapUnobstructed", () => {
     expect(isMapUnobstructed(state)).toBe(true);
   });
 
-  it("does not wait on a map build that failed (the overlay shows the auth error instead)", () => {
+  it("does not wait on a map build once an auth error is set (client-auth-ui.ts stops showing the build stages then)", () => {
     const state = clearState();
     state.mapPrep = { stage: "shaders", index: 3, startedAt: 1, stageStartedAt: 1 };
-    state.authError = "WebGL context lost";
+    state.authError = "Something went wrong";
     expect(isMapUnobstructed(state)).toBe(true);
   });
 
