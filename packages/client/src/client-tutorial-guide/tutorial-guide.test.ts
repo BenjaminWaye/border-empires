@@ -230,7 +230,7 @@ describe("tutorial guide in the onboarding corner", () => {
     document.body.className = "";
   });
 
-  it("clears the map rings on the next frame after Hide guide", () => {
+  it("clears the map rings on the next frame after Skip guide", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
@@ -286,9 +286,11 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
     click("finish");
     expect(readGuideProgress(EMAIL).status).toBe("done");
-    // Only the Guide complete acknowledgement is left, honest about the steps it never reached.
+    // Only the Guide complete acknowledgement is left. Playtest: it said "Guide complete" over a 14/16 bar;
+    // the waiting steps are handed to the First Contact tip, so the bar is full and the note says so.
     expect(card()?.querySelector("[data-guide-action]")).toBeNull();
-    expect(card()?.textContent).toContain(`${GUIDE_STEPS.length - 2}/${GUIDE_STEPS.length}`);
+    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
+    expect(card()?.querySelector(".tg-progress")?.getAttribute("aria-valuenow")).toBe(String(GUIDE_STEPS.length));
     expect(card()?.textContent).toContain("Contest and Diplomacy are explained");
     state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
     state.tilesRevision += 1;
@@ -296,10 +298,13 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector("[data-guide-action]")).toBeNull(); // contact after Finish doesn't bring the guide back
   });
 
-  it("Hide guide turns it off for good and removes the card", () => {
+  it("Skip guide is a visible button that turns it off and removes the card", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
+    const skipGuide = card()?.querySelector('[data-guide-action="hide"]');
+    expect(skipGuide?.textContent).toBe("Skip guide");
+    expect(skipGuide?.classList.contains("tg-btn")).toBe(true); // a button, not the old faint underlined link
     click("hide");
     expect(card()).toBeNull();
     expect(readGuideProgress(EMAIL).status).toBe("dismissed");

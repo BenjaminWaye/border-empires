@@ -25,6 +25,12 @@
 // Beacon, which is what brings such a tile into reach. Towns are exempt
 // (settleIgnoresReach), so a town outside reach still counts.
 //
+// A neutral town with no overland route from the player's land (across water
+// they have seen; client-only check, tutorial-guide-town-route.ts) is not an
+// Expand To target: its menu has no Expand To. The step then falls through to
+// Explore, since finding land across the water is what the scout drone is for.
+// Only the nearest few towns are checked, to bound the cost.
+//
 // SETTLEMENT-tier towns are skipped: only a player's own free spawn has that
 // tier, and it never counts as the town goal (client-onboarding-checklist.ts).
 
@@ -42,6 +48,8 @@ export type GuideTargetSet = {
   expand: Array<{ x: number; y: number }>;
   /** Known tiles of this kind that only a Relay Beacon can help with: food outside reach (Garrison is reach-gated). */
   outOfReach: number;
+  /** Neutral towns seen but with no overland route (across water): no Expand To in their menu, so the scout drone goes out instead. */
+  unreachable: number;
 };
 
 export type GuideFootholdTargets = { town: GuideTargetSet; food: GuideTargetSet };
@@ -49,6 +57,8 @@ export type GuideFootholdTargets = { town: GuideTargetSet; food: GuideTargetSet 
 export type GuideTargetAction = "pending" | "garrison" | "expand" | "explore" | "scouting" | "beacon";
 
 const MAX_TARGETS = 3;
+/** Nearest neutral towns checked for an overland route per scan. */
+export const MAX_TOWN_ROUTE_CHECKS = 8;
 /**
  * Known food outside reach asks for a Relay Beacon only this close to home
  * (Manhattan): a beacon reaches 5 tiles and goes near the edge of reach, so food
@@ -69,9 +79,13 @@ export const scanGuideFootholdTargets = (
   tiles: Iterable<Tile>,
   me: string,
   byDistance: (t: { x: number; y: number }) => number,
-  inReach: (x: number, y: number) => boolean
+  inReach: (x: number, y: number) => boolean,
+  hasRoute: (town: { x: number; y: number }) => boolean = () => true
 ): GuideFootholdTargets => {
-  const result: GuideFootholdTargets = { town: { pending: [], garrison: [], expand: [], outOfReach: 0 }, food: { pending: [], garrison: [], expand: [], outOfReach: 0 } };
+  const result: GuideFootholdTargets = {
+    town: { pending: [], garrison: [], expand: [], outOfReach: 0, unreachable: 0 },
+    food: { pending: [], garrison: [], expand: [], outOfReach: 0, unreachable: 0 }
+  };
   for (const tile of tiles) {
     const kind = isTownTarget(tile) ? result.town : isFoodTarget(tile) ? result.food : undefined;
     if (!kind) continue;
@@ -90,8 +104,16 @@ export const scanGuideFootholdTargets = (
   for (const set of [result.town, result.food]) {
     set.pending = nearest(set.pending);
     set.garrison = nearest(set.garrison);
-    set.expand = nearest(set.expand);
   }
+  result.food.expand = nearest(result.food.expand);
+  const towns = result.town.expand.sort((a, b) => byDistance(a) - byDistance(b));
+  const routed: Array<{ x: number; y: number }> = [];
+  for (const town of towns.slice(0, MAX_TOWN_ROUTE_CHECKS)) {
+    if (routed.length >= MAX_TARGETS) break;
+    if (hasRoute(town)) routed.push(town);
+    else result.town.unreachable += 1;
+  }
+  result.town.expand = routed;
   return result;
 };
 
