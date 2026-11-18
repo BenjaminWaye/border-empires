@@ -17,7 +17,7 @@ import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-sup
 import { findMarchOriginsForTarget } from "../client-muster-march-targeting.js";
 import { musterSiegeReason, ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
-type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile"> &
+type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "scoutDronePicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile"> &
   SupplyWarningState;
 type Point = { x: number; y: number };
 
@@ -127,7 +127,8 @@ export const syncMarchInteraction = (nowMs: number): void => {
 const beginDrag = (x: number, y: number, clientX: number, clientY: number): boolean => {
   if (!deps) return false;
   const { state } = deps;
-  if (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.pendingArrowGestureConfirm) return false;
+  // A press while picking where to send the scout drone is a pan or a pick, never a march re-target.
+  if (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.scoutDronePicking.active || state.pendingArrowGestureConfirm) return false;
   const origin = findMarchOriginsForTarget(state, x, y)[0];
   if (!origin) return false;
   drag = { origin: { x: origin.originX, y: origin.originY }, from: { x, y }, current: { x, y }, pressAt: { x: clientX, y: clientY }, dragging: false };
