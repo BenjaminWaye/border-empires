@@ -67,7 +67,8 @@ describe("graphical AFC modules tab", () => {
     expect(view.tabs).toContain("modules");
     // The Modules tab replaces Overview for AFCs, like a town's stat grid.
     expect(view.tabs).not.toContain("overview");
-    expect(view.actions).toEqual([]);
+    // Only Send scout drone: every researched module is already docked here.
+    expect(view.actions.map((action) => action.id)).toEqual(["afc_scout_drone"]);
     expect(view.modules?.slots[0]?.name).toBe("Titanium Forge");
   });
 

@@ -21,6 +21,8 @@ const stateWith = (techIds: string[]): ClientState =>
     ]
   }) as unknown as ClientState;
 
+const moduleRows = (actions: ReturnType<typeof afcModuleActionsForTile>) => actions.filter((action) => action.id.startsWith("redeploy_afc_module:"));
+
 const afcTile = (afc: Partial<NonNullable<Tile["afc"]>>): Tile =>
   ({ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", ...afc } }) as Tile;
 
@@ -28,7 +30,7 @@ describe("afcModuleActionsForTile", () => {
   it("offers Call down for researched modules not docked here, and shows incoming ones with time left", () => {
     const tile = afcTile({ houseModules: ["masonry"], modules: ["masonry"], incomingModules: [{ techId: "workshops", arrivesAt: 31_000 }] });
 
-    const actions = afcModuleActionsForTile(stateWith(["masonry", "workshops", "crystal-lattices", "agriculture"]), tile, availability, 1_000);
+    const actions = moduleRows(afcModuleActionsForTile(stateWith(["masonry", "workshops", "crystal-lattices", "agriculture"]), tile, availability, 1_000));
 
     expect(actions).toEqual([
       { id: "redeploy_afc_module:workshops", label: "Workshops incoming", disabled: true, disabledReason: "Lands in 30s" },
@@ -43,10 +45,16 @@ describe("afcModuleActionsForTile", () => {
 
   it("disables Call down onto an AFC that already holds 8 modules", () => {
     const eight = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    const actions = afcModuleActionsForTile(stateWith(["crystal-lattices"]), afcTile({ modules: eight }), availability, 1_000);
+    const actions = moduleRows(afcModuleActionsForTile(stateWith(["crystal-lattices"]), afcTile({ modules: eight }), availability, 1_000));
     expect(actions).toEqual([
       { id: "redeploy_afc_module:crystal-lattices", label: "Call down Aether Resonance Core", disabled: true, disabledReason: "AFC full (8/8): build another AFC" }
     ]);
+  });
+
+  it("leads with Send scout drone on your own active AFC", () => {
+    const actions = afcModuleActionsForTile(stateWith([]), afcTile({}), availability, 1_000);
+    expect(actions.map((action) => action.id)).toEqual(["afc_scout_drone"]);
+    expect(afcModuleActionsForTile(stateWith([]), afcTile({ status: "inactive" }), availability, 1_000)).toEqual([]);
   });
 
   it("offers nothing on someone else's AFC", () => {
