@@ -1500,7 +1500,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    tapConfirm.arm(to.x, to.y);
+    tapConfirm.arm(wx, wy);
     confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to)))), reTap); // live: an attack's cost lands with its preview
     openSingleTileActionMenu(to, clientX, clientY, to === clicked ? undefined : afcArmTapMenuOptions(to, wx, wy)); // an arm tap spotlights that arm's module
     requestAttackPreviewForHover();
