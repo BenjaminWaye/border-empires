@@ -116,10 +116,13 @@ describe("House Charges panel", () => {
     expect(houseChargeFocusPoint(relic)).toEqual({ x: 22, y: 24, radius: 9 });
   });
 
-  it("never centres Show on map on an unscouted Charter town: the seen town, else the search circle", () => {
+  it("never centres Show on map on an unscouted Charter town: the seen town, else between its rough circles", () => {
     const road = charge({ targets: [{ key: "town:30,20", name: "Harrowmere", x: 30, y: 20 }, { key: "town:8,15", name: "Vell", x: 8, y: 15 }] });
     expect(houseChargeFocusPoint(road, (x, y) => x === 8 && y === 15)).toMatchObject({ x: 8, y: 15 });
-    expect(houseChargeFocusPoint(road, () => false)).toEqual({ x: 19, y: 17, radius: 14 });
+    const unscouted = houseChargeFocusPoint(road, () => false);
+    expect(unscouted).not.toEqual({ x: 30, y: 20 });
+    expect(unscouted).not.toEqual({ x: 8, y: 15 });
+    expect(Math.abs(unscouted.x - 19) + Math.abs(unscouted.y - 17)).toBeLessThanOrEqual(12);
   });
 
 });

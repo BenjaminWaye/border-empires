@@ -68,12 +68,15 @@ const linkDots = (from: ChargeSearchCircle, to: ChargeSearchCircle, worldWidth: 
   const dx = wrappedDelta(from.x, to.x, worldWidth);
   const dy = wrappedDelta(from.y, to.y, worldHeight);
   const length = Math.hypot(dx, dy);
-  const gap = length - from.radius - to.radius;
+  // Close towns' circles overlap: run the line centre to centre through the overlap instead, so the pair still reads as two places.
+  const overlap = length - from.radius - to.radius <= LINK_DOT_SPACING;
+  const start = overlap ? 0 : from.radius;
+  const gap = overlap ? length : length - from.radius - to.radius;
   if (gap <= LINK_DOT_SPACING) return [];
   const count = Math.floor(gap / LINK_DOT_SPACING);
   const step = gap / count;
   return Array.from({ length: count + 1 }, (_, index) => {
-    const along = (from.radius + index * step) / length;
+    const along = (start + index * step) / length;
     return { x: wrap(from.x + dx * along, worldWidth), y: wrap(from.y + dy * along, worldHeight) };
   });
 };
@@ -107,6 +110,27 @@ const guideFor = (charge: HouseChargeView, isExploredKey: (key: string) => boole
     ringDots: circles.flatMap((circle) => ringDots(circle, worldWidth, worldHeight)),
     linkDots: charge.kind === "CHARTER" && first && second ? linkDots(first.end, second.end, worldWidth, worldHeight) : []
   };
+};
+
+/**
+ * Where "Show on map" centres a point charge with no target scouted: the
+ * middle of its drawn rough circles (the shorter way round the wrapped world),
+ * so the camera lands on what the map shows. Undefined when a target has been
+ * scouted or the charge has no point targets.
+ */
+export const houseChargeGuideCentre = (
+  charge: HouseChargeView,
+  isExplored: (x: number, y: number) => boolean,
+  worldWidth: number,
+  worldHeight: number
+): ChargeMapPoint | undefined => {
+  if (charge.areaTileKeys || charge.targets.length === 0 || charge.targets.some((target) => isExplored(target.x, target.y))) return undefined;
+  const circles = charge.targets.map((target) => roughCircleFor(charge.id, target, worldWidth, worldHeight));
+  const [first] = circles;
+  if (!first) return undefined;
+  const dx = circles.reduce((sum, circle) => sum + wrappedDelta(first.x, circle.x, worldWidth), 0) / circles.length;
+  const dy = circles.reduce((sum, circle) => sum + wrappedDelta(first.y, circle.y, worldHeight), 0) / circles.length;
+  return { x: wrap(Math.round(first.x + dx), worldWidth), y: wrap(Math.round(first.y + dy), worldHeight) };
 };
 
 /** The focused charge's rough circles and dotted link; empty without a focus. */

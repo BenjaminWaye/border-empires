@@ -53,10 +53,11 @@ const createTintMesh = (geometry: PlaneGeometry, material: MeshBasicMaterial, na
   return mesh;
 };
 
+/** Dots sit at fractional positions with the nearest tile's height, so they skip the depth test rather than sink into hills between tiles. */
 const createDotMesh = (radius: number, color: string, name: string): InstancedMesh => {
   const geometry = new CircleGeometry(radius, 10);
   geometry.rotateX(-Math.PI * 0.5);
-  const mesh = new InstancedMesh(geometry, new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity: 0.92, depthWrite: false }), MAX_GUIDE_DOTS);
+  const mesh = new InstancedMesh(geometry, new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity: 0.92, depthWrite: false, depthTest: false }), MAX_GUIDE_DOTS);
   mesh.name = name;
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.count = 0;
