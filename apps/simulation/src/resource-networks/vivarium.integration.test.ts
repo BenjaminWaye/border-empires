@@ -11,7 +11,7 @@ const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const BIOTA_TECH = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
 const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
 
-type Fixture = { tier: "CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number };
+type Fixture = { tier: "CITY" | "GREAT_CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number };
 function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary }: Fixture): SimulationRuntime {
   const tiles: DomainTileState[] = [];
   for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x, y));
@@ -37,17 +37,21 @@ const player = (runtime: SimulationRuntime) => runtime.exportState().players.fin
 const unrulyRow = (runtime: SimulationRuntime) => player(runtime).manpowerBreakdown?.cap.find(row => row.label.startsWith("Unruly town"));
 
 describe("Vivarium in the real runtime", () => {
-  it("covers the slot a Metropolis is missing after one biota site (2 slots)", () => {
-    const short = fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: true });
-    const covered = fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true });
-    expect(unrulyRow(short)?.amount).toBe(-(1350 - 750));
+  it("tops up a Great City's one biota site (2 of 3 slots) to full manpower", () => {
+    const short = fixture({ tier: "GREAT_CITY", vivaria: 0, biotaSite: true });
+    const covered = fixture({ tier: "GREAT_CITY", vivaria: 1, biotaSite: true });
+    expect(unrulyRow(short)?.amount).toBe(-(750 - 450));
     expect(unrulyRow(covered)).toBeUndefined();
-    expect(player(covered).manpowerCap! - player(short).manpowerCap!).toBe(1350 - 750);
-    expect(player(covered).manpowerBreakdown?.biotaTowns).toEqual([{ tileKey: "10,10", received: 3, needed: 3, manpowerTier: "METROPOLIS", local: 1 }]);
+    expect(player(covered).manpowerCap! - player(short).manpowerCap!).toBe(750 - 450);
+    expect(player(covered).manpowerBreakdown?.biotaTowns).toEqual([{ tileKey: "10,10", received: 3, needed: 3, manpowerTier: "GREAT_CITY", local: 1 }]);
   });
-  it("lifts a Metropolis with no biota at all one tier per Vivarium", () => {
+  it("lifts a Metropolis (needs 6) from City to Great City manpower once a Vivarium joins its biota site", () => {
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: true }))?.amount).toBe(-(1350 - 450));
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true }))?.amount).toBe(-(1350 - 750));
+  });
+  it("keeps a town with no biota at all working at the tier its Vivaria cover", () => {
     expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: false }))?.amount).toBe(-(1350 - 450));
-    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 3, biotaSite: false }))).toBeUndefined();
+    expect(unrulyRow(fixture({ tier: "GREAT_CITY", vivaria: 3, biotaSite: false }))).toBeUndefined();
   });
   it("frees the biota site a City no longer needs in the economy panel", () => {
     const used = (vivaria: number) =>

@@ -270,10 +270,13 @@ buildings and no per-building slot caps. Formulas live in
 `packages/shared/src/resource-networks/frontier-resource-effects.ts`.
 
 **Luxury biota (large towns' manpower).** Each developed biota site supplies 2
-biota slots. A City needs 1 slot, a Great City 2, a Metropolis 3; Settlements
-and Towns need none. A town above Town tier gives Town-level manpower with no
-biota, and each slot it receives raises its manpower by one tier, up to its
-real tier (so a Metropolis with 1 slot gives City manpower). A town's own
+biota slots. Each tier needs more than the one before (`BIOTA_SLOTS_BY_TIER`):
+a City needs 1 slot, a Great City 3, a Metropolis 6; Settlements and Towns need
+none. A town above Town tier gives Town-level manpower with no biota, and
+otherwise the manpower of the highest tier, up to its real tier, whose need its
+slots meet (so a Metropolis with 3 slots gives Great City manpower, and with 2
+still City manpower). Slots are handed out in full to each town in turn, so a
+town part-way between tiers holds slots that do not yet raise its manpower. A town's own
 Vivaria cover slots before biota sites do: each active Vivarium on the town
 tile or its support ring (`countSupportedStructures`) covers
 `VIVARIUM_BIOTA_SLOTS` (1) slot, so the town draws only the rest from biota
