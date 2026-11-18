@@ -21,7 +21,7 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 67 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
   // covers Bank's former unlock slot on the coinage tech), minus
   // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
@@ -31,8 +31,8 @@ test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
   // components = 62, minus QUARTERMASTERS_OFFICE (removed) = 61, minus SEED_INCUBATION_ENGINE (removed from the
   // game, Manifest/Coin rework) = 60, plus the five frontier installations =
   // 65, minus Resin Extractor, Implant Foundry and Catalyst Refinery (cut with
-  // their materials) = 62.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(65);
+  // their materials) = 62 (the count reads 65), plus Farm Plot and Hydrogarden Plot = 67.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(67);
 });
 
 test("all registered types are unique", () => {
@@ -364,7 +364,7 @@ describe("upkeep parity", () => {
     "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
     "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
     "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "HYDROGARDEN", "MANUFACTORY", "INCUBATION_ENGINE",
+    "HYDROGARDEN", "FARM_PLOT", "HYDROGARDEN_PLOT", "MANUFACTORY", "INCUBATION_ENGINE",
     "TITANIUM_REFINERY", "UMBRITE_REFINERY", "CRYSTAL_REFINERY",
     "TITANIUM_SMELTER", "UMBRITE_DISTILLERY", "CRYSTAL_CUTTER",
     "TRADE_NEXUS",
