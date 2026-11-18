@@ -402,7 +402,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; tiles?: ReadonlyMap<string, Tile>; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
+    state: { me: string; tiles?: ReadonlyMap<string, Tile>; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[]; tileActionMenu?: { currentTileKey: string; afcArmFocus?: { socket: number } | undefined } } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -437,7 +437,9 @@ export const tileMenuViewForTile = (
   const progress = primaryProgress && queuedNext ? { ...primaryProgress, queuedNext } : primaryProgress;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
-  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me);
+  // Only the open menu's own tile spotlights the arm the player tapped to open it.
+  const armFocus = deps.state.tileActionMenu?.currentTileKey === `${tile.x},${tile.y}` ? deps.state.tileActionMenu.afcArmFocus?.socket : undefined;
+  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me, Date.now(), armFocus);
   if (modules) actionTabs.actions = actionTabs.actions.filter((action) => !action.id.startsWith("redeploy_afc_module:"));
   const canShowBuildingsTab =
     !buildBlockedByQueue &&

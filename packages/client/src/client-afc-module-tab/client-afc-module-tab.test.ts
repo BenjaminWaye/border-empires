@@ -219,4 +219,31 @@ describe("graphical AFC modules tab", () => {
     expect(html).toContain("inactive until this AFC is reclaimed");
     expect(tileActionMenuHtml(viewFor(), "modules")).not.toContain("tile-overview-dormant");
   });
+
+  it("spotlights the module on the arm the player tapped, with what it does", () => {
+    const described = catalog.map((entry) => entry.id === "masonry" ? { ...entry, description: "Forges titanium <fast>." } : entry);
+    const view = afcModuleTabForTile(target, described, [], "me", 1000, 0)!;
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: view }, "modules");
+    const focus = root.querySelector(".afc-arm-focus")!;
+    expect(focus.textContent).toContain("Socket 1 · east arm");
+    expect(focus.textContent).toContain("Titanium Forge");
+    expect(focus.innerHTML).toContain("Forges titanium &lt;fast&gt;.");
+    expect(root.querySelectorAll(".afc-socket-cell.is-arm-focus")).toHaveLength(1);
+    expect(root.querySelector(".afc-socket-cell.is-arm-focus")?.textContent).toContain("Titanium Forge");
+  });
+
+  it("says an arm with no module docked is an empty socket", () => {
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: afcModuleTabForTile(target, catalog, [], "me", 1000, 6)! }, "modules");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Socket 7 · north arm");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Empty socket");
+  });
+
+  it("shows no spotlight when the AFC was opened directly", () => {
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
+    expect(root.querySelector(".afc-arm-focus")).toBeNull();
+    expect(root.querySelector(".is-arm-focus")).toBeNull();
+  });
 });

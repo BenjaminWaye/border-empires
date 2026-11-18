@@ -126,7 +126,7 @@ import {
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { handleGenericBuildAction } from "./client-generic-build-action.js";
-import { handleAfcTileAction, ownAfcFootprintTapTarget } from "./client-afc-tile-action.js";
+import { afcArmTapMenuOptions, handleAfcTileAction, ownAfcFootprintTapTarget } from "./client-afc-tile-action.js";
 import {
   areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
@@ -1084,7 +1084,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab }): void => {
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab; afcArmSocket?: number }): void => {
     if (tile.muster?.ownerId === state.me) {
       musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
@@ -1502,7 +1502,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     tapConfirm.arm(to.x, to.y);
     confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to)))), reTap); // live: an attack's cost lands with its preview
-    openSingleTileActionMenu(to, clientX, clientY);
+    openSingleTileActionMenu(to, clientX, clientY, to === clicked ? undefined : afcArmTapMenuOptions(to, wx, wy)); // an arm tap spotlights that arm's module
     requestAttackPreviewForHover();
     renderHud();
   };
