@@ -34,3 +34,40 @@
 #map-loading-quote-source::before {
   content: "\2014\00a0";
 }
+
+#auth-busy-quote {
+  margin: 4px 0 0;
+  max-width: 34ch;
+  text-align: center;
+}
+
+#auth-busy-quote[hidden] {
+  display: none;
+}
+
+#auth-busy-quote [data-lore-quote-text] {
+  margin: 0;
+  color: rgba(240, 228, 204, 0.88);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+#auth-busy-quote [data-lore-quote-text]::before {
+  content: "\201C";
+}
+
+#auth-busy-quote [data-lore-quote-text]::after {
+  content: "\201D";
+}
+
+#auth-busy-quote [data-lore-quote-source] {
+  margin-top: 6px;
+  color: rgba(233, 177, 90, 0.75);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+#auth-busy-quote [data-lore-quote-source]::before {
+  content: "\2014\00a0";
+}
