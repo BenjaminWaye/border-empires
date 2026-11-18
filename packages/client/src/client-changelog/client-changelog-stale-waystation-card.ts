@@ -5,7 +5,7 @@ export const STALE_WAYSTATION_CARD_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   title: "No old waystation cards on a new empire",
   why: "Landing a new empire could show a waystation card from your previous empire, such as a population boost for a town you no longer hold.",
   changes: [
-    "Waystation cards now only appear when you collect a waystation. Old rewards are no longer shown again.",
+    "Rewards from waystations you collected earlier are no longer shown again as a new card.",
     "Nothing was granted by those repeat cards. Your past rewards are still in your Chronicle."
   ]
 };
