@@ -43,9 +43,10 @@ export const assertWebGLRendererSupported = (): void => {
 
 /**
  * Subscribes to context loss on the renderer's canvas. `onContextLost` fires
- * at most once; the host is expected to tear the renderer down and fall back
- * to 2D rather than attempt a restore (every buffer is gone, and rebuilding
- * them is what caused the pressure in the first place).
+ * at most once; the host is expected to tear the renderer down rather than
+ * attempt an in-place restore (every buffer is gone). It falls back to 2D, or
+ * builds a fresh renderer when the loss looks like the tab being backgrounded
+ * (see client-three-renderer-host.ts for that heuristic).
  */
 export const installWebGLContextGuard = (
   glCanvas: HTMLCanvasElement,

@@ -9,6 +9,7 @@ import type { Tile } from "../client-types.js";
 import type { TileTapInput } from "../client-tile-interaction/client-tile-interaction.js";
 import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
 import { cancelArmedModesOnEscape } from "./client-map-input-escape.js";
+import { handleTownPlotPlacementTap, townPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -109,10 +110,21 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return true;
   };
 
+  // While a town plot pick runs (client-town-plot-placement.ts) a tap moves the chosen plot, never selects a tile.
+  const pickTownPlotAtPointer = (offsetX: number, offsetY: number): boolean => {
+    if (!townPlotPlacement()) return false;
+    const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+    return handleTownPlotPlacementTap(wx, wy);
+  };
+
   // Mouse-up and touch-end commit once, giving alert locators priority over
   // the world tile underneath. Arm suppression only for the follow-up click.
   const commitPointerSelection = (offsetX: number, offsetY: number, clientX: number, clientY: number, tapInput: TileTapInput): boolean => {
     deps.interactionFlags.suppressNextClick = false;
+    if (pickTownPlotAtPointer(offsetX, offsetY)) {
+      deps.interactionFlags.suppressNextClick = true;
+      return false;
+    }
     const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY, tapInput);
     if (!focusedAlert) {
       const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
@@ -135,6 +147,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.interactionFlags.suppressNextClick = false;
       return;
     }
+    if (pickTownPlotAtPointer(ev.offsetX, ev.offsetY)) return;
     if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY, "mouse")) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY, "mouse");

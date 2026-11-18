@@ -61,6 +61,19 @@ describe("activateWaystationAt", () => {
     expect(batches).toHaveLength(1);
   });
 
+  // The client only pops the live reward card for a freshly stamped record; the tile re-sends its
+  // consumed record forever (e.g. released on withdrawal), which must not replay the old card.
+  it("stamps the activation time on the consumed record", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+    input.now = () => 1_800_000_000_000;
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-1");
+
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.activatedAt).toBe(1_800_000_000_000);
+  });
+
   it("VISION effect reveals around the nearest town (any owner) within range, not the waystation's own tile", () => {
     const tiles = new Map<string, DomainTileState>([
       [WAYSTATION_KEY, waystationTile()],

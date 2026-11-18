@@ -54,7 +54,7 @@ describe("buildEconomyBoom", () => {
     expect(event).toEqual({
       type: "ECONOMY_BOOM",
       headline: "Economy Boom",
-      text: "Alice's economy is booming — coin income is up 144 per day since yesterday.",
+      text: "Alice's treasury is swelling — coin income is up 144 a day since yesterday.",
       significance: 48, // normalizeSignificance(144, SIGNIFICANCE_SCALE.goldPerDay=300)
       players: ["Alice"]
     });
@@ -76,7 +76,7 @@ describe("buildManpowerSurge", () => {
     expect(event).toEqual({
       type: "MANPOWER_SURGE",
       headline: "Manpower Surge",
-      text: "Alice's manpower cap has grown by 320 since yesterday.",
+      text: "Alice is raising an army — their manpower cap is up 320 since yesterday.",
       significance: 6, // normalizeSignificance(320, SIGNIFICANCE_SCALE.manpowerCapDelta=5000)
       players: ["Alice"]
     });

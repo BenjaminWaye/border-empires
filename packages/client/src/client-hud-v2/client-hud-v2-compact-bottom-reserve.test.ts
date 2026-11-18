@@ -34,6 +34,7 @@ const VERDICTS: Record<string, Verdict> = {
   "client-hud-v2/client-hud-v2-screens.css :: .v2c-drawer": { kind: "lifted", token: ".v2c-drawer" },
   "client-hud-v2/client-hud-v2-town-battle.css :: .v2t-left": { kind: "exempt", why: "town screen hides the tab bar" },
   "client-hud-v2/client-hud-v2-town-battle.css :: #v2t-bar.v2t-bar": { kind: "exempt", why: "town screen hides the tab bar; its bar takes the foot" },
+  "client-hud-v2/client-hud-v2-town-plot-pick.css :: body.hud-v2-town-plot-picking .v2t-pick:not(:empty)": { kind: "exempt", why: "town screen hides the tab bar; the pick bar takes the foot" },
   "client-hud-v2/client-hud-v2-town-battle.css :: .v2b-panel": { kind: "exempt", why: "battle screen hides .hud-v2-top, tab bar included" },
   "client-hud-v2/client-hud-v2.css :: .hud-v2-tile": { kind: "lifted", token: ".hud-v2-tile" },
   "client-hud-v2/client-hud-v2.css :: .hud-v2-orb-slot": { kind: "lifted", token: ".hud-v2-orb-slot" },
