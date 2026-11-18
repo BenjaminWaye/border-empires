@@ -293,7 +293,7 @@ export const activateWaystationAt = (
   const effectIndex = Math.floor(random() * WAYSTATION_EFFECTS.length) % WAYSTATION_EFFECTS.length;
   const rolledEffect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
 
-  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: rolledEffect };
+  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, activatedAt: input.now(), grantedEffect: rolledEffect };
   let populationBurst: number | undefined;
   let resource: ResourceType | undefined;
 
