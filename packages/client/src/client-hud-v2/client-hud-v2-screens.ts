@@ -52,12 +52,16 @@ const nameOf = (deps: HudV2Deps, id: string): string => deps.state.playerNames.g
 /** Screens a profile can be opened from and returns to when closed. */
 const PROFILE_RETURNS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "chronicle"]);
 let profileReturn: HudV2ScreenId | undefined;
+/** The deal a profile was opened from (its header's Profile link), reopened when the profile closes. */
+let profileReturnDeal: string | undefined;
 
 export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplomacyTarget?: string } = {}): void => {
   if (screen.id === "town") deps.actionFlow.hideTileActionMenu();
   const from = screen.id;
+  const fromDeal = screen.diplomacyTargetId;
   if (screen.id && screen.id !== id) closeScreen(deps, { toMap: true });
   if (id === "profile") profileReturn = deps.state.activePlayerProfileId !== deps.state.me && from && PROFILE_RETURNS.has(from) ? from : undefined;
+  if (id === "profile") profileReturnDeal = profileReturn === "diplomacy" ? fromDeal : undefined;
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
     screen.chronicleUpdatesBaseline = undefined;
@@ -95,15 +99,17 @@ export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}):
   }
   if (id === "afc" && deps.state.activePanel === "domains") deps.state.activePanel = null;
   const back = id === "profile" && deps.state.activePlayerProfileId !== deps.state.me && !options.toMap ? profileReturn : undefined;
+  const backDeal = back === "diplomacy" ? profileReturnDeal : undefined;
   if (id === "profile") {
     deps.state.activePlayerProfileId = undefined;
     profileReturn = undefined;
+    profileReturnDeal = undefined;
   }
   document.querySelector(".diplomacy-trade-overlay")?.remove();
   screen.diplomacyTargetId = undefined;
   bodyMode = "";
   clearScreen();
-  if (back) openScreen(deps, back);
+  if (back) openScreen(deps, back, backDeal ? { diplomacyTarget: backDeal } : {});
   else deps.renderHud();
 };
 
@@ -201,7 +207,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     return;
   }
   if (bodyMode !== `deal:${target}`) {
-    writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire", dealFacts(deps, target)));
+    writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire", dealFacts(deps, target), target));
     bodyMode = `deal:${target}`;
     forgetWritten("v2d-pact");
     hostTradeView(deps, target);
@@ -391,6 +397,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       state: deps.state
     });
     if (!input) return true;
+    // No profile link on a counter: the round trip would reopen it as a plain new offer, not a counter.
     rememberDiplomacyListScroll();
     screen.diplomacyTargetId = input.targetPlayerId;
     writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : ""));
