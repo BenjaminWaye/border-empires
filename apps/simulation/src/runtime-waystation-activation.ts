@@ -293,7 +293,9 @@ export const activateWaystationAt = (
   const effectIndex = Math.floor(random() * WAYSTATION_EFFECTS.length) % WAYSTATION_EFFECTS.length;
   const rolledEffect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
 
-  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: rolledEffect };
+  // One timestamp for the tile stamp and the eventLog/Chronicle entry below.
+  const occurredAt = input.now();
+  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, activatedAt: occurredAt, grantedEffect: rolledEffect };
   let populationBurst: number | undefined;
   let resource: ResourceType | undefined;
 
@@ -356,7 +358,6 @@ export const activateWaystationAt = (
   // TILE_DELTA_BATCH just emitted only reaches an already-subscribed client.
   // This is what lets the client show the activation popup on the player's
   // *next* connection, from any device, instead of only live.
-  const occurredAt = input.now();
   const effect = waystationResult.grantedEffect ?? rolledEffect;
   const detailFields = waystationResultDetailFields(waystationResult);
   appendPlayerEventLogEntry(player, {

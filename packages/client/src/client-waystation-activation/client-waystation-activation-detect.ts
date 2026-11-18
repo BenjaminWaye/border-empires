@@ -1,5 +1,23 @@
 import { parseGatewayStructureJson } from "../client-gateway-sync/client-gateway-sync-town-summary.js";
+import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { showWaystationActivationOverlay, type WaystationActivationInfo } from "./client-waystation-activation.js";
+
+/**
+ * How old (server clock) an activation record may be and still pop the live
+ * card. The collect's own TILE_DELTA_BATCH arrives within moments; anything
+ * older is the tile re-sending its permanent consumed record.
+ */
+export const WAYSTATION_LIVE_POPUP_MAX_AGE_MS = 5 * 60_000;
+
+/**
+ * A consumed waystation keeps its activation record forever, so any later
+ * delta of that tile carries it again -- e.g. withdrawing releases every old
+ * territory tile, and a new empire's landing then popped a reward from the
+ * previous empire. Only a freshly stamped record is a live activation;
+ * unstamped (legacy) records never are.
+ */
+export const isFreshWaystationActivation = (activatedAt: number | undefined, serverNow: number): boolean =>
+  typeof activatedAt === "number" && serverNow - activatedAt <= WAYSTATION_LIVE_POPUP_MAX_AGE_MS;
 
 export type WaystationActivationUpdate = { x: number; y: number; waystationJson?: string };
 
@@ -7,6 +25,7 @@ export type WaystationActivationUpdate = { x: number; y: number; waystationJson?
 export type WaystationActivationDetail = {
   activated?: boolean;
   activatedByPlayerId?: string;
+  activatedAt?: number;
   grantedEffect?: WaystationActivationInfo["grantedEffect"];
   revealedAtX?: number;
   revealedAtY?: number;
@@ -88,6 +107,8 @@ export const emitWaystationActivationIfActivated = (
     markSeen?: (x: number, y: number) => void;
     /** Checks the same persisted "already shown" set the reconnect catch-up path uses (client-waystation-activation-catchup.ts), so an eventLog sync that raced ahead of this TILE_DELTA_BATCH and already popped the popup doesn't cause a second one here. */
     isSeen?: (x: number, y: number) => boolean;
+    /** Current server time (ms); defaults to the local clock corrected by the server clock offset. */
+    serverNow?: () => number;
   } = {
     showOverlay: showWaystationActivationOverlay
   }
@@ -95,6 +116,8 @@ export const emitWaystationActivationIfActivated = (
   for (const update of input.tileUpdates) {
     const waystation = parseGatewayStructureJson<WaystationActivationDetail>(update.waystationJson);
     if (!waystation?.activated) continue;
+    const serverNow = deps.serverNow?.() ?? Date.now() + serverClock.offsetMs();
+    if (!isFreshWaystationActivation(waystation.activatedAt, serverNow)) continue;
     // Jump target depends on the effect: VISION jumps to the revealed town,
     // POPULATION jumps to the town that got the burst, and a resource
     // site is at the former waystation.
