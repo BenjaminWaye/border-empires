@@ -3,7 +3,7 @@ import { assignedTownForSupportTile } from "../client-support-structures/client-
 import type { Tile, TileActionDef } from "../client-types.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 
-/** Every open plot in the town's support ring that can take `action` now, in the ring's own order (best first). */
+/** Every open plot in the town's support ring that can take `action` now, in the ring's row order (no ranking). */
 export const townPlotCandidates = (deps: Pick<HudV2Deps, "state" | "actionFlow">, town: Tile, action: TileActionDef["id"]): Tile[] => {
   const { state } = deps;
   const radius = supportRingRadiusForTier(town.town?.populationTier);

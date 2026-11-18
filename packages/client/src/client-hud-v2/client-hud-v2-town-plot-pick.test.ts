@@ -4,8 +4,8 @@ import { queueDevelopmentAction } from "../client-development-queue/client-devel
 import { refineryPickerHighlight } from "../client-refineries/refinery-picker-highlight.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { handleTownPlotPlacementTap, TOWN_PLOT_PICK_BODY_CLASS, townPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
-import type { Tile, TileMenuView } from "../client-types.js";
-import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
+import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import { screen, SCREEN_HOST_ID, setScreen, type HudV2Deps } from "./client-hud-v2-context.js";
 import { screenClick, screenEscape } from "./client-hud-v2-screens.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 
@@ -28,7 +28,8 @@ const setup = (compact: boolean) => {
   const state = createInitialState();
   state.me = "me";
   for (const tile of [hub, plot(6, 5), plot(6, 6), plot(4, 5)]) state.tiles.set(`${tile.x},${tile.y}`, tile);
-  const buildView: TileMenuView = { ...view, buildings: [{ id: "build_manufactory", label: "Build Manufactory", cost: "300 coin" }] };
+  const manufactory: TileActionDef = { id: "build_manufactory", label: "Build Manufactory", cost: "300 coin" };
+  const buildView: TileMenuView = { ...view, buildings: [manufactory] };
   const sent: string[] = [];
   const deps: HudV2Deps = {
     state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
@@ -55,7 +56,7 @@ const setup = (compact: boolean) => {
   };
   deps.actionFlow.openSingleTileActionMenu(hub, 0, 0);
   const click = (selector: string) => screenClick(deps, document.querySelector<HTMLElement>(selector)!);
-  return { deps, state, sent, click };
+  return { deps, state, sent, click, manufactory };
 };
 
 const ROW = '[data-v2-build-pick="build_manufactory"]';
@@ -131,5 +132,47 @@ describe("phone town plot pick", () => {
     expect(screen.townBuildSelection).toBe("build_manufactory");
     click('#v2t-build [data-hud-v2-action="build_manufactory"]');
     expect(sent).toHaveLength(1);
+  });
+
+  // Regression (review of #2864): when the building stopped being buildable mid-pick (coin spent elsewhere),
+  // the bar went empty but the pick stayed, so the panels stayed hidden, nothing could be pressed and every
+  // map tap was swallowed.
+  it("ends the pick and brings the town screen back when the building can no longer be built", () => {
+    const { click, manufactory } = setup(true);
+    click(ROW);
+    manufactory.disabled = true;
+    manufactory.disabledReason = "Need 300 coin";
+    expect(handleTownPlotPlacementTap(6, 6)).toBe(true);
+    expect(townPlotPlacement()).toBeUndefined();
+    expect(picking()).toBe(false);
+    expect(screen.id).toBe("town");
+    expect(handleTownPlotPlacementTap(6, 6)).toBe(false);
+  });
+
+  // Regression (review of #2864): a screen opened over the town screen (a live battle) kept the glow and the
+  // hidden-panel class, and its first Esc went to the stale pick instead of closing that screen.
+  it("drops the pick when another screen replaces the town screen", () => {
+    const { deps, click } = setup(true);
+    click(ROW);
+    setScreen("battle", "<div></div>");
+    expect(townPlotPlacement()).toBeUndefined();
+    expect(picking()).toBe(false);
+    expect(refineryPickerHighlight()).toBeUndefined();
+    expect(screenEscape(deps)).toBe(true);
+    expect(screen.id).toBeNull();
+  });
+
+  it("moves Build here to another open plot when the chosen one was taken meanwhile", () => {
+    const { state, sent, click } = setup(true);
+    click(ROW);
+    expect(handleTownPlotPlacementTap(6, 6)).toBe(true);
+    state.tiles.set("6,6", { ...state.tiles.get("6,6")!, ownerId: "rival" });
+    click('[data-v2-plot-pick="confirm"]');
+    expect(sent).toEqual([]);
+    expect(townPlotPlacement()?.chosenKey).not.toBe("6,6");
+    expect(townPlotPlacement()?.candidates).not.toContain("6,6");
+    click('[data-v2-plot-pick="confirm"]');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).not.toBe("6,6");
   });
 });

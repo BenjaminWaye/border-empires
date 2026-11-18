@@ -277,7 +277,7 @@ Placing a plot building (shipped 2026-11-18): with the town itself selected,
 tapping a building that goes on a town plot, or its Place, hides the town
 screen's panels and starts a map pick (`client-hud-v2-town-plot-pick.ts`,
 slot in `client-town-plot-placement/`). The open plots glow (both renderers,
-through the shared picker highlight), the best is chosen, a map tap on another
+through the shared picker highlight), the plot Place would have auto-picked is chosen, a map tap on another
 glowing plot moves it, and a foot bar offers Cancel / Build here. Desktop keeps
 the list and Place.
 

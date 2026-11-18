@@ -10,10 +10,10 @@ import { buildRefineryHighlight, setRefineryPickerHighlight } from "../client-re
 export type TownPlotPlacement = {
   readonly townKey: string;
   readonly actionId: string;
-  /** Open plots that can take the building, best first; never empty while a pick runs. */
+  /** Open plots that can take the building, in support-ring order; never empty while a pick runs. */
   readonly candidates: readonly string[];
   readonly chosenKey: string;
-  /** Set for a moment after a tap off the glowing plots, so the bar can say where to tap. */
+  /** Set by a tap off the glowing plots until the next tap, so the bar can say where to tap. */
   readonly missed?: boolean;
 };
 
@@ -34,7 +34,7 @@ const syncView = (): void => {
   if (typeof document !== "undefined") document.body?.classList.toggle(TOWN_PLOT_PICK_BODY_CLASS, Boolean(active));
 };
 
-/** Starts or updates the pick; `tap` receives map taps while it runs. */
+/** Starts or updates the pick. Without a `tap` handler the pick lets map taps through, so it can never trap them. */
 export const setTownPlotPlacement = (next: TownPlotPlacement, tap?: PlotTapHandler): void => {
   active = next;
   if (tap) onTap = tap;
@@ -52,7 +52,7 @@ export const clearTownPlotPlacement = (): void => {
 /** Map input: true when a pick took this tap, so it must not select the tile. */
 export const handleTownPlotPlacementTap = (x: number, y: number): boolean => {
   if (!active) return false;
-  if (onTap?.(x, y) ?? true) return true;
+  if (onTap?.(x, y)) return true;
   clearTownPlotPlacement();
   return false;
 };

@@ -3,8 +3,9 @@
 // named a building scrolled out of view, and the plot was picked for you,
 // out of sight). Tapping a plot building on the town screen, or its Place,
 // hides the town screen; the town's open plots glow on the map (2D and
-// true-3D, via client-town-plot-placement.ts), the best one is chosen, a tap
-// on another glowing plot moves it, and the bar at the foot builds or cancels.
+// true-3D, via client-town-plot-placement.ts), the plot Place would have
+// auto-picked is chosen, a tap on another glowing plot moves it, and the bar
+// at the foot builds or cancels.
 // Desktop keeps the list and Place: its map stays visible beside the panels.
 import { structureRequiresTownOrSupportTile } from "@border-empires/shared";
 import { pushFeed } from "../client-alerts/client-alerts.js";
@@ -52,16 +53,26 @@ export const townPlotPickBarHtml = (pick: TownPlotPlacement, action: Pick<TileAc
   </div>`;
 };
 
+const stop = (): void => {
+  clearTownPlotPlacement();
+  writeHtml(TOWN_PLOT_PICK_HOST_ID, "");
+};
+
+/**
+ * Draws the bar; when the building can no longer go up here (coin spent elsewhere, town lost, view changed)
+ * the pick ends and the town screen comes back, rather than leave hidden panels, no bar and dead map taps.
+ */
 const renderBar = (deps: HudV2Deps): void => {
   const pick = townPlotPlacement();
   const town = pick && deps.state.tiles.get(pick.townKey);
   const action = town && plotAction(deps, town, pick.actionId);
-  writeHtml(TOWN_PLOT_PICK_HOST_ID, pick && action ? townPlotPickBarHtml(pick, action) : "");
-};
-
-const stop = (): void => {
-  clearTownPlotPlacement();
-  writeHtml(TOWN_PLOT_PICK_HOST_ID, "");
+  if (pick && action) {
+    writeHtml(TOWN_PLOT_PICK_HOST_ID, townPlotPickBarHtml(pick, action));
+    return;
+  }
+  stop();
+  renderTownScreen(deps);
+  deps.renderHud();
 };
 
 /** No plot can take it: say why, as the auto-placing Place does, rather than open an empty pick. */
@@ -125,6 +136,11 @@ const confirm = (deps: HudV2Deps): void => {
 /** Cancel (or Esc): back to the town screen, nothing built. */
 export const cancelTownPlotPick = (deps: HudV2Deps): boolean => {
   if (!townPlotPlacement()) return false;
+  if (screen.id !== "town") {
+    // Left behind by a screen that replaced the town screen: drop it, and let Esc act on that screen.
+    stop();
+    return false;
+  }
   stop();
   renderTownScreen(deps);
   deps.renderHud();
