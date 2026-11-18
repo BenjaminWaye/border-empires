@@ -86,13 +86,18 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
   const { incomingModules: _inTransit, landedAt: _landedAt, ...afc } = tile.afc;
   // The founder survives every capture, so a Writ of Correction can still name whose AFC it was.
   const foundedBy = afcFoundedBy(tile.afc);
+  // The loser's House copies become captured copies here: remember whose they were
+  // so the module panel can say "Captured from House X". Earlier entries stay.
+  const capturedModuleHouses = { ...afc.capturedModuleHouses };
+  for (const techId of afc.houseModules ?? []) capturedModuleHouses[techId] = afc.ownerId;
   return {
     ...afc,
     ...(foundedBy ? { foundedBy } : {}),
     ownerId: nextOwnerId,
     activatedAt: now,
     capturedAt: now,
-    ...(afc.houseModules ? { houseModules: [] } : {})
+    ...(afc.houseModules ? { houseModules: [] } : {}),
+    ...(Object.keys(capturedModuleHouses).length > 0 ? { capturedModuleHouses } : {})
   };
 };
 
