@@ -197,11 +197,11 @@ export const hudMarkup = `
           <div class="auth-busy-eyebrow">Securing session</div>
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
-          <figure id="auth-busy-quote" hidden>
+          <div id="auth-busy-progress" class="auth-busy-progress" role="progressbar" aria-label="World download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="auth-busy-progress-fill"></div></div>
+          <figure id="auth-busy-quote" aria-hidden="true" hidden>
             <blockquote data-lore-quote-text></blockquote>
             <figcaption data-lore-quote-source></figcaption>
           </figure>
-          <div id="auth-busy-progress" class="auth-busy-progress" role="progressbar" aria-label="World download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="auth-busy-progress-fill"></div></div>
           <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
           <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Join the waitlist for the next Sector</button>
         </div>

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { loadingLoreQuote } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { syncAuthOverlay } from "./client-auth-ui.js";
@@ -32,6 +32,8 @@ const el = <T extends HTMLElement = HTMLElement>(tag = "div"): T => document.cre
 const renderCard = (state: Partial<OverlayState>) => {
   document.body.innerHTML = `<figure id="auth-busy-quote" hidden><blockquote data-lore-quote-text></blockquote><figcaption data-lore-quote-source></figcaption></figure>`;
   const authBusyQuoteEl = document.querySelector<HTMLElement>("#auth-busy-quote")!;
+  const authBusyDiagnosticsBtn = el<HTMLButtonElement>("button");
+  authBusyDiagnosticsBtn.style.display = "none";
   syncAuthOverlay(
     { ...baseState, ...state },
     {
@@ -54,7 +56,7 @@ const renderCard = (state: Partial<OverlayState>) => {
       authBusyTitleEl: el(),
       authBusyCopyEl: el(),
       authBusyQuoteEl,
-      authBusyDiagnosticsBtn: el("button"),
+      authBusyDiagnosticsBtn,
       authBusySeasonFullNotifyBtn: el("button"),
       authStatusEl: el(),
       authDebugRouteEl: el(),
@@ -63,13 +65,17 @@ const renderCard = (state: Partial<OverlayState>) => {
       setAuthStatus: vi.fn()
     }
   );
-  return authBusyQuoteEl;
+  return { quote: authBusyQuoteEl, diagnosticsBtn: authBusyDiagnosticsBtn };
 };
 
 describe("Securing session card lore quote", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows the page's loading quote while sign-in and the world load run", () => {
     const quote = loadingLoreQuote();
-    const figure = renderCard({});
+    const { quote: figure } = renderCard({});
     expect(figure.hidden).toBe(false);
     expect(figure.querySelector("[data-lore-quote-text]")!.textContent).toBe(quote.text);
     expect(figure.querySelector("[data-lore-quote-source]")!.textContent).toBe(quote.source);
@@ -77,13 +83,25 @@ describe("Securing session card lore quote", () => {
 
   it("keeps the quote once the slow-login diagnostics button appears", () => {
     vi.spyOn(Date, "now").mockReturnValue(60_000);
-    expect(renderCard({ authBusyStartedAt: 1_000 }).hidden).toBe(false);
-    vi.restoreAllMocks();
+    const card = renderCard({ authBusyStartedAt: 1_000 });
+    expect(card.diagnosticsBtn.style.display).toBe("");
+    expect(card.quote.hidden).toBe(false);
+  });
+
+  it("keeps the quote while the 3D map is built after sign-in", () => {
+    const now = 100_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const card = renderCard({
+      authBusy: false,
+      authSessionReady: true,
+      mapPrep: { stage: "terrain", index: 1, startedAt: now - 2_000, stageStartedAt: now - 500 }
+    });
+    expect(card.quote.hidden).toBe(false);
   });
 
   it("hides the quote when the card is no longer a wait", () => {
-    expect(renderCard({ authBusy: false }).hidden).toBe(true);
-    expect(renderCard({ authError: "Sign-in failed." }).hidden).toBe(true);
-    expect(renderCard({ seasonFull: true }).hidden).toBe(true);
+    expect(renderCard({ authBusy: false }).quote.hidden).toBe(true);
+    expect(renderCard({ authError: "Sign-in failed." }).quote.hidden).toBe(true);
+    expect(renderCard({ seasonFull: true }).quote.hidden).toBe(true);
   });
 });
