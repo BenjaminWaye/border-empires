@@ -104,3 +104,25 @@ export const announceHouseChargeChoice = (state: FeedMutableState, payload: Hous
   });
   return true;
 };
+
+/** Deal already announced this session: skips the per-second localStorage read once shown. */
+let announcedDealtAt: number | undefined;
+
+/**
+ * Retries the "House charges arrived" alert from the client's own clock. The simulation re-sends
+ * HOUSE_CHARGES only when the charges change or on reconnect (runtime-side-tickers.ts), and charges are
+ * dealt at landing, when other alert cards are usually up; announceHouseChargeChoice then waits for a clear
+ * card, which without this retry never came (owner, 2026-11-18: "I never got a manage charges alert").
+ * Called about once a second; returns true when the alert was shown.
+ */
+export const retryHouseChargeChoice = (state: FeedMutableState & { houseCharges?: HouseChargesPayload | null | undefined }, nowMs: number): boolean => {
+  const payload = state.houseCharges ?? undefined;
+  if (!payload || payload.dealtAt === announcedDealtAt || nowMs >= payload.choiceClosesAt) return false;
+  if (choiceAnnounced(payload.dealtAt)) {
+    announcedDealtAt = payload.dealtAt;
+    return false;
+  }
+  const shown = announceHouseChargeChoice(state, payload, nowMs);
+  if (shown) announcedDealtAt = payload.dealtAt;
+  return shown;
+};

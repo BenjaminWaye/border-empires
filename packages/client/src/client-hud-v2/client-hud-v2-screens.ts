@@ -25,6 +25,7 @@ import {
 import { dealPactClick, dealPactHtml } from "./client-hud-v2-diplomacy-pact.js";
 import { dealFactsText, dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, empireStance } from "./client-hud-v2-diplomacy.js";
 import { coinShortText } from "./client-hud-v2-next-step.js";
+import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { manifestClick } from "./client-hud-v2-manifest-click.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
@@ -68,6 +69,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
     setScreen(id, FRAME_SKELETON);
     bodyMode = "";
     writeHtml("v2s-title", TITLES[id] ?? "");
+    writeHtml("v2s-hint", SCREEN_HINTS[id] ?? "");
   }
   if (id === "afc") {
     deps.state.activePanel = "domains";
@@ -277,6 +279,7 @@ const renderProfile = (deps: HudV2Deps): void => {
   const social = state.socialViewByPlayerId.get(id);
   const name = nameOf(deps, id) || "Empire";
   writeHtml("v2s-title", self ? "Your Empire" : "Profile");
+  writeHtml("v2s-hint", self ? SCREEN_HINTS.profile ?? "" : "");
   writeHtml("v2s-back-label", profileReturn ? TITLES[profileReturn] ?? "Chronicle" : "Map");
   bodyMode = "profile";
   writeHtml("v2s-body", profileHtml({

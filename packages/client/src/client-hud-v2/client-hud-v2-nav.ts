@@ -2,7 +2,7 @@
 // Each bubble opens its screen; the crest opens your own profile.
 
 import { navTabIconHtml } from "../client-nav-icons/client-nav-icons.js";
-import { CREST_HINT, NAV_HINTS } from "./client-hud-v2-hints.js";
+import { CREST_HINT, navHint } from "./client-hud-v2-hints.js";
 
 export type NavInput = {
   name: string;
@@ -34,7 +34,7 @@ export const navHtml = (input: NavInput): string => {
   const items = bubbles.map((b) => {
     const active = b.open === input.active;
     const badge = b.badge && b.badge > 0 ? `<span class="hud-v2-bubble-badge${b.open === "chronicle" ? " hud-v2-bubble-badge-info" : ""}">${b.badge}</span>` : "";
-    return `<button type="button" class="hud-v2-bubble${active ? " hud-v2-bubble-active" : ""}" data-hud-v2-open="${b.open}" aria-pressed="${active}" aria-label="${b.label}" title="${NAV_HINTS[b.open] ?? b.label}">${navTabIconHtml(b.icon)}${badge}<span class="hud-v2-bubble-label">${b.label}</span></button>`;
+    return `<button type="button" class="hud-v2-bubble${active ? " hud-v2-bubble-active" : ""}" data-hud-v2-open="${b.open}" aria-pressed="${active}" aria-label="${b.label}" title="${navHint(b.open, b.label)}">${navTabIconHtml(b.icon)}${badge}<span class="hud-v2-bubble-label">${b.label}</span></button>`;
   }).join("");
   return `${crest}<span class="hud-v2-bubbles">${items}</span>`;
 };

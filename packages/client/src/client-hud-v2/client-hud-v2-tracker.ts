@@ -143,7 +143,8 @@ export const waypointsHtml = (waypoints: TrackerInput["waypoints"]): string => {
     `<button type="button" class="hud-v2-tracker-row"${focusAttrs(w.x, w.y)}><span class="hud-v2-tracker-title">→ (${w.x}, ${w.y})</span><span class="hud-v2-tracker-sub">${w.paused ? "Paused · needs manpower" : "Spends manpower per tile"}</span></button>`);
 };
 
-export const trackerHtml = (input: TrackerInput): string => {
+/** `slotsHint`: the phone's unfolded tracker (opened by a tap) explains Dev slots; the always-visible desktop tracker keeps it to the hover title. */
+export const trackerHtml = (input: TrackerInput, slotsHint = false): string => {
   const needs = trackerNeeds(input);
   const parts: string[] = [];
   // Needs you leads, so an unfolded slot list can never push it below the tracker's scroll fold.
@@ -155,6 +156,7 @@ export const trackerHtml = (input: TrackerInput): string => {
     }));
   }
   parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse));
+  if (slotsHint) parts.push(`<div class="hud-v2-tracker-sub hud-v2-slots-hint">${DEV_SLOTS_HINT}</div>`);
   if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
   if (needs.length === 0 && input.nextSteps && input.nextSteps.length > 0) parts.push(nextStepsHtml(input.nextSteps));
   if (input.flags.length > 0) {

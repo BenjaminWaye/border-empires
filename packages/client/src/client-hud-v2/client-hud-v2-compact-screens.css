@@ -9,6 +9,8 @@ body.hud-v2-compact .v2s-head {
   top: var(--v2c-top); left: calc(var(--v2c-safe-left) + 8px); right: calc(var(--v2c-safe-right) + 8px); gap: 10px; flex-wrap: wrap;
 }
 body.hud-v2-compact .v2s-title { font-size: 17px; letter-spacing: 0.08em; }
+/* Keep the line on the title row so the screen body below never moves. */
+body.hud-v2-compact .v2s-hint { flex: 1 1 0; font-size: 11px; }
 body.hud-v2-compact .v2s-back { height: var(--v2c-touch); }
 /* No Esc key on a phone: back is the button or the back gesture. */
 body.hud-v2-compact .v2s-back kbd,

@@ -3,7 +3,7 @@ import type { Tile } from "../client-types.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { coinShortText, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
 import { trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
-import { trackerSummaryHtml } from "./client-hud-v2-compact.js";
+import { compactTracker, compactTrackerHtml, trackerSummaryHtml } from "./client-hud-v2-compact.js";
 
 const PER_DAY = 1 / 1440; // coin per minute that makes 1 coin per day
 const idle: NextStepInput = { devBusy: 0, queued: 0, manpower: 120, beaconCost: 50, beaconBuildable: true, nextBatchInMs: 75 * 60_000, gold: 10, netPerMinute: 24 * PER_DAY, nextManifestCost: 40 };
@@ -84,15 +84,29 @@ describe("tracker wiring", () => {
     slotsOpen: true, waypoints: [], nowMs: 0, nextSteps: nextSteps(idle)
   };
 
-  it("shows the next step under Dev slots and explains Dev slots on hover", () => {
+  it("shows the next step under Dev slots; the desktop tracker keeps the Dev slots line to its hover title", () => {
     const html = trackerHtml(input);
     expect(html).toContain("Build a Relay Beacon");
-    expect(html).toContain('title="Dev slots: garrisons and builds');
+    expect(html).toContain('title="Garrisons and builds running at once"');
+    expect(html).not.toContain("hud-v2-slots-hint");
   });
 
-  it("flags a next step in the folded phone tracker", () => {
-    expect(trackerSummaryHtml(input)).toContain("Next step");
-    expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("Next step");
+  it("explains Dev slots as visible text in the phone's unfolded tracker (opened by a tap)", () => {
+    compactTracker.open = true;
+    try {
+      expect(compactTrackerHtml(input)).toContain('<div class="hud-v2-tracker-sub hud-v2-slots-hint">Garrisons and builds running at once</div>');
+    } finally {
+      compactTracker.open = false;
+    }
+  });
+
+  // Owner: the phone HUD is crowded; the next step replaces Dev on the one folded line instead of adding a row.
+  it("puts the next step on the folded phone line in place of Dev slots", () => {
+    const line = trackerSummaryHtml(input);
+    expect(line).toContain('<b class="v2c-track-next" title="Build a Relay Beacon">Next</b>');
+    expect(line).not.toContain("Dev 0/3");
+    expect(trackerSummaryHtml({ ...input, nextSteps: [] })).toContain("Dev 0/3");
+    expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("v2c-track-next");
   });
 
   it("lets a decision that needs you lead instead", () => {

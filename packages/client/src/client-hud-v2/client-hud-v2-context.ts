@@ -123,7 +123,7 @@ export const clearScreen = (): void => {
 };
 
 export const FRAME_SKELETON = `<div class="v2s-backdrop" aria-hidden="true"></div>
-  <header class="v2s-head"><h1 class="v2s-title" id="v2s-title"></h1><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><div class="v2s-head-right" id="v2s-head-right"></div></header>
+  <header class="v2s-head"><h1 class="v2s-title" id="v2s-title"></h1><span class="v2s-hint" id="v2s-hint"></span><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><div class="v2s-head-right" id="v2s-head-right"></div></header>
   <div class="v2s-body" id="v2s-body"></div>`;
 
 /** Centres the map on (x, y) and selects it; on a phone, centred in the map left visible above the bottom panels. */

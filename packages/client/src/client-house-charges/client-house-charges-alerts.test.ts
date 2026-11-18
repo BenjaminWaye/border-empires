@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
 import type { FeedEntry } from "../client-types.js";
-import { announceHouseChargeChoice, announceHouseChargeLosses } from "./client-house-charges-alerts.js";
+import { announceHouseChargeChoice, announceHouseChargeLosses, retryHouseChargeChoice } from "./client-house-charges-alerts.js";
 import { houseChargesPanelHtml } from "./client-house-charges-panel.js";
 
 const road: HouseChargeView = {
@@ -72,6 +72,19 @@ describe("House Charge keep-choice reminder", () => {
     expect(announceHouseChargeChoice(state as never, three, 1_700)).toBe(false);
     state.captureAlert.until = 1_000;
     expect(announceHouseChargeChoice(state as never, three, 1_800)).toBe(true);
+  });
+
+  // Owner 2026-11-18: "I never got a manage charges alert". Charges are pushed once at landing, while other
+  // alert cards are up; the sim does not push again unless the charges change, so the client must retry.
+  it("shows once the other alert card clears, with no further HOUSE_CHARGES push", () => {
+    const deal = { ...three, dealtAt: 70_000, choiceClosesAt: 90_000 };
+    const state = { ...feedState(), houseCharges: deal, captureAlert: { title: "Captured", detail: "", until: 72_000, tone: "success" as const } };
+    expect(announceHouseChargeChoice(state as never, deal, 71_000)).toBe(false); // the push, under another card
+    expect(retryHouseChargeChoice(state as never, 71_500)).toBe(false); // card still up
+    expect(retryHouseChargeChoice(state as never, 73_000)).toBe(true); // card cleared: shown without a push
+    expect(state.feed[0]).toMatchObject({ title: "House charges arrived", openPanel: "charges" });
+    expect(retryHouseChargeChoice(state as never, 74_000)).toBe(false); // once only
+    expect(retryHouseChargeChoice({ ...feedState(), houseCharges: { ...deal, dealtAt: 80_000 } } as never, 95_000)).toBe(false); // window closed
   });
 
   it("stays quiet once the choice has closed or there is nothing to choose", () => {

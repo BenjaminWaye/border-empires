@@ -34,7 +34,7 @@ describe("manpower orb next batch", () => {
   });
 
   it("formats the tooltip like the visible text", () => {
-    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m. Manpower: spent to expand');
+    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m. Spent to expand');
     expect(orbHtml({ ...base })).toContain('title="Manpower 1975 of 5622, next batch in 45m. ');
   });
 

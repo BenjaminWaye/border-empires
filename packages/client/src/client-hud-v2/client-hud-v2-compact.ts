@@ -10,6 +10,8 @@ import { createHudV2Sheet, type HudV2Sheet } from "./client-hud-v2-sheet.js";
 import { buildSlotsHtml, formatRemaining, trackerHtml, trackerNeeds, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
 
+const esc = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 // ---- Treasury: every resource with its breakdown, from one tap on the bar ----
 
 let treasury: HudV2Sheet | undefined;
@@ -67,8 +69,9 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
   const busy = Math.min(limit, Math.max(0, input.buildSlots.busy));
   const parts = [
     needs > 0 ? `<b class="v2c-track-needs">${needs} need${needs === 1 ? "s" : ""} you</b>` : "",
-    `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
-    needs === 0 && input.nextSteps && input.nextSteps.length > 0 ? `<b class="v2c-track-next">Next step</b>` : "",
+    // Idle: "Next" takes Dev's place on the one folded line (shorter than "Dev 0/3", so the phone HUD never
+    // grows); the steps themselves are behind the tap that unfolds the tracker.
+    needs === 0 && input.nextSteps?.[0] ? `<b class="v2c-track-next" title="${esc(input.nextSteps[0].title)}">Next</b>` : `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
     input.waypoints.length > 0 ? `→ ${input.waypoints.length} queued` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""
@@ -80,7 +83,7 @@ export const compactTrackerHtml = (input: TrackerInput): string => {
   if (!compactTracker.open) return trackerSummaryHtml(input);
   const fold = `<button type="button" class="v2c-track-line v2c-track-line-open" data-v2c-tracker-toggle aria-expanded="true" aria-label="Fold the tracker"><span class="v2c-track-caret" aria-hidden="true">▾</span>Tracker</button>`;
   // The full tracker repeats the slot pips; keep them, they fold the slot list.
-  return `${fold}${trackerHtml(input) || buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse)}`;
+  return `${fold}${trackerHtml(input, true) || buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse)}`;
 };
 
 // ---- Taps ----
