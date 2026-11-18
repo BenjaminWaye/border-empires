@@ -138,6 +138,7 @@ body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
 .v2c-track-line-open { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); border-bottom: 1px solid var(--v2-line); }
 .v2c-track-caret { color: var(--v2-gold); }
 .v2c-track-needs { color: var(--v2-amber); font-weight: 700; }
+.v2c-track-next { font-weight: 700; }
 body.hud-v2-compact .hud-v2-tracker-row { min-height: var(--v2c-touch); }
 
 /* ---- Bottom corners: lens button left, manpower orb right, above the tab bar ---- */

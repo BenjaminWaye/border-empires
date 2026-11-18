@@ -56,6 +56,10 @@ describe("House Charge keep-choice reminder", () => {
     expect(announceHouseChargeChoice(state as never, three, 1_500)).toBe(true);
     expect(state.feed[0]).toMatchObject({ title: "House charges arrived", severity: "warn" });
     expect(state.feed[0]!.text).toContain("Keep 2 of 3");
+    // Playtest 2026-11-18: "Tap your crest → Manage charges" pointed at a button players couldn't find.
+    expect(state.feed[0]).toMatchObject({ openPanel: "charges", actionLabel: "Manage charges" });
+    expect(state.feed[0]!.text).not.toContain("crest");
+    expect((state as { captureAlert?: { openPanel?: string; actionLabel?: string } }).captureAlert).toMatchObject({ openPanel: "charges", actionLabel: "Manage charges" });
     expect(announceHouseChargeChoice(state as never, three, 1_600)).toBe(false);
     delete (state as { captureAlert?: unknown }).captureAlert;
     expect(announceHouseChargeChoice(state as never, { ...three, dealtAt: 5_000, choiceClosesAt: 9_000 }, 6_000)).toBe(true);

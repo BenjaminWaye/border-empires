@@ -93,10 +93,14 @@ export const announceHouseChargeChoice = (state: FeedMutableState, payload: Hous
   markChoiceAnnounced(payload.dealtAt);
   pushFeedEntry(state, {
     title: "House charges arrived",
-    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}. Tap your crest → Manage charges.`,
+    // The card's button opens the Charges panel itself: "tap your crest" sent players hunting for a
+    // button at the bottom of a long profile (playtest 2026-11-18).
+    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}.`,
     type: "mission",
     severity: "warn",
-    at: nowMs
+    at: nowMs,
+    openPanel: "charges",
+    actionLabel: "Manage charges"
   });
   return true;
 };

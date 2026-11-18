@@ -8,6 +8,7 @@
 import { pushBackEntry, type BackHandle } from "./client-hud-v2-back.js";
 import { createHudV2Sheet, type HudV2Sheet } from "./client-hud-v2-sheet.js";
 import { buildSlotsHtml, formatRemaining, trackerHtml, trackerNeeds, type TrackerInput } from "./client-hud-v2-tracker.js";
+import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
 
 // ---- Treasury: every resource with its breakdown, from one tap on the bar ----
 
@@ -66,7 +67,8 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
   const busy = Math.min(limit, Math.max(0, input.buildSlots.busy));
   const parts = [
     needs > 0 ? `<b class="v2c-track-needs">${needs} need${needs === 1 ? "s" : ""} you</b>` : "",
-    `Dev ${busy}/${limit}`,
+    `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
+    needs === 0 && input.nextSteps && input.nextSteps.length > 0 ? `<b class="v2c-track-next">Next step</b>` : "",
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
     input.waypoints.length > 0 ? `→ ${input.waypoints.length} queued` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""

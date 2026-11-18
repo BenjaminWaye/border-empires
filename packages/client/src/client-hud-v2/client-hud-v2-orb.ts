@@ -2,6 +2,7 @@
 // under the number is the next batch: its size and when it lands. Clicking opens the manpower panel.
 
 import type { ClientState } from "../client-state/client-state.js";
+import { MANPOWER_HINT } from "./client-hud-v2-hints.js";
 import { formatRefillCountdown, freshNextBatchAmount, nextBatchGain, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 
 export type OrbInput = {
@@ -95,7 +96,11 @@ export const orbInputForState = (state: OrbState, nowMs: number, color: string |
 
 const orbRefillLine = (input: OrbInput): { text: string; label: string } => {
   const { nextRefillAt } = input;
-  if (nextRefillAt === undefined || input.manpower >= input.manpowerCap) return { text: "", label: "" };
+  // Nothing accrues at or above the cap (runtime-manpower.ts), so there is no batch to count down to:
+  // say so instead of dropping the line (playtest 2026-11-18). Same words as the Manpower panel.
+  if (input.manpower > input.manpowerCap) return { text: "over cap · spend to refill", label: ", over capacity: no batch until you spend below it" };
+  if (input.manpower >= input.manpowerCap && input.manpowerCap > 0) return { text: "full", label: ", full: no batch until you spend" };
+  if (nextRefillAt === undefined) return { text: "", label: "" };
   const batch = orbBatchAmount(input);
   if (batch === undefined && input.regenPerMinute !== undefined && input.regenPerMinute <= 0) return { text: "paused", label: ", regen paused" };
   const eta = formatRefillCountdown(nextRefillAt - input.nowMs);
@@ -117,7 +122,7 @@ export const orbHtml = (input: OrbInput): string => {
   const overflow = orbOverflowHtml(input);
   const capPrefix = overCapacity ? "Capacity " : "/ ";
   const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${overCapacity ? `, ${excess} above capacity` : ""}`;
-  return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}">
+  return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}. ${MANPOWER_HINT}">
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <defs>
         <clipPath id="hud-v2-orb-clip"><circle cx="90" cy="90" r="74"/></clipPath>

@@ -11,7 +11,14 @@ describe("manpower orb next batch", () => {
     expect(orbHtml({ ...base, manpower: 5000, nextBatchAmount: 1200 })).toContain(">+622 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: 1200.9 })).toContain(">+1,200 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: -50 })).toContain(">next batch 45m<");
-    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toContain("hud-v2-orb-refill");
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toContain(">+");
+  });
+
+  // Playtest 2026-11-18: over the cap the orb's refill line vanished, with no countdown and no reason why.
+  it("says why there is no countdown at or over the cap", () => {
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).toContain('<span class="hud-v2-orb-refill">over cap · spend to refill</span>');
+    expect(orbHtml({ ...base, manpower: 6000 })).toContain("over capacity: no batch until you spend below it");
+    expect(orbHtml({ ...base, manpower: 5622 })).toContain('<span class="hud-v2-orb-refill">full</span>');
   });
 
   it("explains overflow without presenting the cap as a maximum holding", () => {
@@ -27,8 +34,8 @@ describe("manpower orb next batch", () => {
   });
 
   it("formats the tooltip like the visible text", () => {
-    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m"');
-    expect(orbHtml({ ...base })).toContain('title="Manpower 1975 of 5622, next batch in 45m"');
+    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m. Manpower: spent to expand');
+    expect(orbHtml({ ...base })).toContain('title="Manpower 1975 of 5622, next batch in 45m. ');
   });
 
   it("says paused when regen is zero and no batch is coming, instead of counting down to nothing", () => {

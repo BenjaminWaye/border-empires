@@ -45,6 +45,6 @@ export const surfaceFeedEntryAsAlert = (state: FeedAlertSurfaceState, entry: Fee
     until: nowMs + CAPTURE_ALERT_MS,
     ...(typeof entry.focusX === "number" && typeof entry.focusY === "number"
       ? { focusX: entry.focusX, focusY: entry.focusY, actionLabel: entry.actionLabel ?? "Center" }
-      : {})
+      : entry.openPanel ? { openPanel: entry.openPanel, actionLabel: entry.actionLabel ?? "Open" } : {})
   };
 };
