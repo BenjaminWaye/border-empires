@@ -43,10 +43,10 @@ type PlayerNameResolver = (playerId: string) => string;
 
 const buildBiggestDefeat = (
   swing: DailyStoryInput["biggestSwing24h"],
-  powerScore: DailyStoryInput["powerScore"]
+  territoryMomentum: DailyStoryInput["territoryMomentum"]
 ): DailyStoryEvent | undefined => {
   if (!swing || swing.tilesLost <= 0) return undefined;
-  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, powerScore));
+  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, territoryMomentum));
   return story({
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
@@ -87,14 +87,14 @@ const mergeDefeatIntoWar = (
   defeat: DailyStoryEvent | undefined,
   swing: DailyStoryInput["biggestSwing24h"],
   wars: DailyStoryInput["wars"],
-  powerScore: DailyStoryInput["powerScore"]
+  territoryMomentum: DailyStoryInput["territoryMomentum"]
 ): { events: DailyStoryEvent[]; folded: boolean } => {
   const topWarTiles = Math.max(0, ...wars.map((entry) => entry.tilesContested24h));
   const warExplainsLoss = !!swing && topWarTiles >= swing.tilesLost * WAR_SHARE_OF_LOSS_TO_MERGE;
   if (!war || !defeat || !swing || !warExplainsLoss || !war.participantIds.includes(swing.playerId)) {
     return { events: [war, defeat].filter((event): event is DailyStoryEvent => event !== undefined), folded: false };
   }
-  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, powerScore));
+  const share = lossShareClause(territoryLossShare(swing.playerId, swing.tilesLost, territoryMomentum));
   const text = `${war.text} ${swing.playerName} is bleeding worst: ${pluralize(swing.tilesLost, "tile")} lost${share}, more than any empire.`;
   return { events: [story({ ...war, text, significance: Math.max(war.significance, defeat.significance) }, war.participantIds)], folded: true };
 };
@@ -196,13 +196,13 @@ const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[
 /** Builds the day's narrated highlights, ranked most-significant first. */
 export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResolver): DailyStoryEvent[] => {
   const heaviestLoserId = input.biggestSwing24h && input.biggestSwing24h.tilesLost > 0 ? input.biggestSwing24h.playerId : undefined;
-  const toughestTarget = buildToughestTarget(input.toughestTarget24h, input.territoryMomentum, input.powerScore, heaviestLoserId);
+  const toughestTarget = buildToughestTarget(input.toughestTarget24h, input.territoryMomentum, heaviestLoserId);
   const warAndDefeat = mergeDefeatIntoWar(
     buildOpenWar(input.wars),
-    buildBiggestDefeat(input.biggestSwing24h, input.powerScore),
+    buildBiggestDefeat(input.biggestSwing24h, input.territoryMomentum),
     input.biggestSwing24h,
     input.wars,
-    input.powerScore
+    input.territoryMomentum
   );
   // Once the war line reports the heaviest loser's losses, an "Under Siege"
   // story about that same player would tell them twice (and, being a subset

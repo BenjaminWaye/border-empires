@@ -1,7 +1,7 @@
 // Small wording helpers shared by the daily-story builders (daily-story.ts,
 // daily-story-combat.ts, player-growth.ts). Kept separate so every headline
 // formats numbers and counts the same way.
-import type { DailyStoryEvent, LeaderboardOverallEntry } from "@border-empires/game-domain";
+import type { DailyStoryEvent, TerritoryMomentumEntry } from "@border-empires/game-domain";
 
 /** "18730" reads as a code, not a number: group thousands like "18,730". */
 export const formatCount = (value: number): string => value.toLocaleString("en-US");
@@ -16,18 +16,21 @@ export const timesPhrase = (count: number): string =>
 
 /**
  * Share of the territory a player held at the start of the window that they
- * lost, or undefined when their current size is unknown (not on the
- * leaderboard). Start size = current tiles + tiles lost; tiles gained back
- * in the same window make this a slight under-estimate, never an over-one.
+ * lost, or undefined when their current size is unknown (an older sim that
+ * doesn't send tilesOwned yet). Uses every owned tile (frontier and settled),
+ * the same tiles tilesLost counts -- the leaderboard's settled-only `tiles`
+ * would overstate the share. Start size = owned now + tiles lost; tiles
+ * gained back in the same window make this a slight under-estimate, never an
+ * over-one.
  */
 export const territoryLossShare = (
   playerId: string,
   tilesLost: number,
-  powerScore: readonly Pick<LeaderboardOverallEntry, "id" | "tiles">[]
+  territoryMomentum: readonly Pick<TerritoryMomentumEntry, "playerId" | "tilesOwned">[]
 ): number | undefined => {
-  const current = powerScore.find((entry) => entry.id === playerId)?.tiles;
-  if (current === undefined || tilesLost <= 0) return undefined;
-  return tilesLost / (current + tilesLost);
+  const owned = territoryMomentum.find((entry) => entry.playerId === playerId)?.tilesOwned;
+  if (owned === undefined || tilesLost <= 0) return undefined;
+  return tilesLost / (owned + tilesLost);
 };
 
 /** " — 38% of their realm" style clause, only when the share is big enough to be news. */

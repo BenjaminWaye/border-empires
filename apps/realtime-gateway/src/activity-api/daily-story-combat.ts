@@ -14,7 +14,7 @@ import { formatCount, lossShareClause, MEANINGFUL_LOSS_SHARE, pluralize, story, 
 
 type CombatInput = Pick<
   ActivityApiResponse,
-  "frontlineHotspots" | "biggestBattle24h" | "fiercestAttacker24h" | "toughestTarget24h" | "territoryMomentum" | "powerScore"
+  "frontlineHotspots" | "biggestBattle24h" | "fiercestAttacker24h" | "toughestTarget24h" | "territoryMomentum"
 >;
 
 // "manpower" is uncountable (like "gold") -- never pluralize it.
@@ -108,12 +108,11 @@ const HELD_ABSOLUTE_TILE_LIMIT = 10;
 export const buildToughestTarget = (
   target: CombatInput["toughestTarget24h"],
   territoryMomentum: CombatInput["territoryMomentum"],
-  powerScore: CombatInput["powerScore"],
   heaviestLoserId: string | undefined
 ): DailyStoryEvent | undefined => {
   if (!target || target.manpowerSpentAgainst <= 0) return undefined;
   const tilesLost = territoryMomentum.find((entry) => entry.playerId === target.defenderId)?.tilesLost24h ?? 0;
-  const share = territoryLossShare(target.defenderId, tilesLost, powerScore);
+  const share = territoryLossShare(target.defenderId, tilesLost, territoryMomentum);
   const isHeaviestLoser = tilesLost > 0 && target.defenderId === heaviestLoserId;
   const smallLoss = share === undefined ? tilesLost <= HELD_ABSOLUTE_TILE_LIMIT : share < MEANINGFUL_LOSS_SHARE;
   const held = tilesLost === 0 || (smallLoss && !isHeaviestLoser);

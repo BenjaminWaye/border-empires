@@ -32,8 +32,7 @@ describe("buildDailyStory outcomes", () => {
       {
         ...emptyInput,
         toughestTarget24h: { defenderId: "sigrid", defenderName: "Sigrid", manpowerSpentAgainst: 18730 },
-        territoryMomentum: [{ playerId: "sigrid", playerName: "Sigrid", tilesGained24h: 20, tilesLost24h: 405, net24h: -385 }],
-        powerScore: [{ id: "sigrid", name: "Sigrid", tiles: 600, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 4 }]
+        territoryMomentum: [{ playerId: "sigrid", playerName: "Sigrid", tilesGained24h: 20, tilesLost24h: 405, net24h: -385, tilesOwned: 600 }]
       },
       nameFor
     );
@@ -50,8 +49,7 @@ describe("buildDailyStory outcomes", () => {
       {
         ...emptyInput,
         toughestTarget24h: { defenderId: "p1", defenderName: "Wall", manpowerSpentAgainst: 9000 },
-        territoryMomentum: [{ playerId: "p1", playerName: "Wall", tilesGained24h: 0, tilesLost24h: 40, net24h: -40 }],
-        powerScore: [{ id: "p1", name: "Wall", tiles: 2000, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 1 }]
+        territoryMomentum: [{ playerId: "p1", playerName: "Wall", tilesGained24h: 0, tilesLost24h: 40, net24h: -40, tilesOwned: 2000 }]
       },
       nameFor
     );
@@ -104,7 +102,7 @@ describe("buildDailyStory outcomes", () => {
         ...emptyInput,
         biggestSwing24h: { playerId: "alden", playerName: "Alden", tilesLost: 475, windowStart: 0, windowEnd: 1000 },
         wars: [{ playerA: "alden", playerB: "freja", playerAName: "Alden", playerBName: "Freja", tileFlips24h: 600, tilesContested24h: 476, lastFlipAt: 0 }],
-        powerScore: [{ id: "alden", name: "Alden", tiles: 525, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 6 }]
+        territoryMomentum: [{ playerId: "alden", playerName: "Alden", tilesGained24h: 0, tilesLost24h: 475, net24h: -475, tilesOwned: 525 }]
       },
       nameFor
     );
@@ -135,8 +133,7 @@ describe("buildDailyStory outcomes", () => {
         wars: [{ playerA: "alden", playerB: "freja", playerAName: "Alden", playerBName: "Freja", tileFlips24h: 600, tilesContested24h: 476, lastFlipAt: 0 }],
         toughestTarget24h: { defenderId: "sigrid", defenderName: "Sigrid", manpowerSpentAgainst: 18730 },
         fiercestAttacker24h: { attackerId: "ivar", attackerName: "Ivar", manpowerSpent: 11755 },
-        territoryMomentum: [{ playerId: "sigrid", playerName: "Sigrid", tilesGained24h: 0, tilesLost24h: 405, net24h: -405 }],
-        powerScore: [{ id: "sigrid", name: "Sigrid", tiles: 600, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 4 }]
+        territoryMomentum: [{ playerId: "sigrid", playerName: "Sigrid", tilesGained24h: 0, tilesLost24h: 405, net24h: -405, tilesOwned: 600 }]
       },
       nameFor
     );
@@ -152,8 +149,7 @@ describe("buildDailyStory outcomes", () => {
         biggestSwing24h: { playerId: "alden", playerName: "Alden", tilesLost: 475, windowStart: 0, windowEnd: 1000 },
         wars: [{ playerA: "alden", playerB: "freja", playerAName: "Alden", playerBName: "Freja", tileFlips24h: 600, tilesContested24h: 476, lastFlipAt: 0 }],
         toughestTarget24h: { defenderId: "alden", defenderName: "Alden", manpowerSpentAgainst: 18730 },
-        territoryMomentum: [{ playerId: "alden", playerName: "Alden", tilesGained24h: 0, tilesLost24h: 475, net24h: -475 }],
-        powerScore: [{ id: "alden", name: "Alden", tiles: 525, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 6 }]
+        territoryMomentum: [{ playerId: "alden", playerName: "Alden", tilesGained24h: 0, tilesLost24h: 475, net24h: -475, tilesOwned: 525 }]
       },
       nameFor
     );
@@ -162,13 +158,12 @@ describe("buildDailyStory outcomes", () => {
   });
 
   it("never says the day's heaviest loser held the line, however large their realm", () => {
-    const momentum = [{ playerId: "big", playerName: "Big", tilesGained24h: 0, tilesLost24h: 450, net24h: -450 }];
-    const powers = [{ id: "big", name: "Big", tiles: 5000, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 1 }];
+    const momentum = [{ playerId: "big", playerName: "Big", tilesGained24h: 0, tilesLost24h: 450, net24h: -450, tilesOwned: 5000 }];
     const target = { defenderId: "big", defenderName: "Big", manpowerSpentAgainst: 9000 };
     // 450 of 5,450 tiles is under the 10% "held" share on its own...
-    expect(buildToughestTarget(target, momentum, powers, undefined)?.headline).toBe("Held the Line");
+    expect(buildToughestTarget(target, momentum, undefined)?.headline).toBe("Held the Line");
     // ...but not when it is also the worst losses of the day.
-    expect(buildToughestTarget(target, momentum, powers, "big")?.headline).toBe("Under Siege");
+    expect(buildToughestTarget(target, momentum, "big")?.headline).toBe("Under Siege");
   });
 
   // Reviewer-found: tilesLost is the total from every front, so a 3-tile
@@ -195,5 +190,24 @@ describe("buildDailyStory outcomes", () => {
       nameFor
     );
     expect(events).toEqual([]);
+  });
+
+  // Regression: the share used the leaderboard's settled-only tile count
+  // while tilesLost counts frontier tiles too, so an empire with 600 settled
+  // but 3,000 owned tiles that lost 405 read as "40% of their realm" and
+  // "Under Siege" instead of ~12%.
+  it("measures the lost share against every owned tile, not the settled-only leaderboard count", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        toughestTarget24h: { defenderId: "sigrid", defenderName: "Sigrid", manpowerSpentAgainst: 18730 },
+        territoryMomentum: [{ playerId: "sigrid", playerName: "Sigrid", tilesGained24h: 0, tilesLost24h: 405, net24h: -405, tilesOwned: 3000 }],
+        powerScore: [{ id: "sigrid", name: "Sigrid", tiles: 600, incomePerMinute: 1, techs: 5, manpowerCap: 9000, score: 500, rank: 4 }]
+      },
+      nameFor
+    );
+    expect(events[0]!.text).toBe(
+      "Sigrid was the most attacked empire today — rivals hurled 18,730 manpower at them, and Sigrid lost 405 tiles, 12% of their realm."
+    );
   });
 });
