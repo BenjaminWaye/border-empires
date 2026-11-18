@@ -14,10 +14,11 @@ export const houseChargesProfileSectionHtml = (payload: HouseChargesPayload | nu
   if (payload.charges.length === 0) return `<section class="v2p-panel"><h3>House Charges</h3><p class="v2p-none">No charges for this world.</p></section>`;
   const kept = payload.charges.filter((charge) => charge.kept);
   const choosing = nowMs < payload.choiceClosesAt && payload.charges.length > Math.min(HOUSE_CHARGES_KEPT, payload.charges.length);
-  const rows = kept
+  // Before a keep is recorded there may be no kept rows; say so rather than an empty list.
+  const rows = kept.length === 0 ? `<div><dt>None kept yet</dt><dd></dd></div>` : kept
     .map((charge) => `<div><dt>${esc(charge.title)}</dt><dd>${charge.held ? "Held" : "Not held"}</dd></div>`)
     .join("");
-  const note = choosing ? `<p class="v2p-none">You can still change which ${kept.length} you keep.</p>` : "";
+  const note = choosing ? `<p class="v2p-none">You can still change which ${HOUSE_CHARGES_KEPT} you keep.</p>` : "";
   // Manage charges leads, so the button the "House charges arrived" alert names is never below the fold.
   return `<section class="v2p-panel"><h3>House Charges</h3>${manage}<p class="v2p-none">${HOUSE_CHARGES_HINT}</p><dl class="v2p-rows">${rows}</dl>${note}</section>`;
 };

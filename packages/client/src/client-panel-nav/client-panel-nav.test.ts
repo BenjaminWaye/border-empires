@@ -94,11 +94,11 @@ describe("renderSidePanel", () => {
     const base = { techTreeExpanded: false, domainDetailOpen: false };
     renderSidePanel({ ...base, activePanel: "manpower" }, deps);
     expect(hint.hidden).toBe(false);
-    expect(hint.textContent).toBe("Spent to expand, garrison, build and attack · refills every 4h");
+    expect(hint.textContent).toBe("Expand, garrison, build, attack · refills every 4h");
     renderSidePanel({ ...base, activePanel: "defensibility" }, deps);
     expect(hint.textContent).toContain("Compact garrisoned land");
     renderSidePanel({ ...base, activePanel: "charges" }, deps);
-    expect(hint.textContent).toContain("Secret objectives");
+    expect(hint.textContent).toContain("Secret goals");
     renderSidePanel({ ...base, activePanel: "settings" }, deps);
     expect(hint.hidden).toBe(true);
   });

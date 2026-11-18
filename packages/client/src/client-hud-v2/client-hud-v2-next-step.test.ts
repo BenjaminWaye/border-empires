@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
-import { coinShortText, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
+import { coinShortText, formatEta, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
 import { trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { compactTracker, compactTrackerHtml, trackerSummaryHtml } from "./client-hud-v2-compact.js";
 
@@ -12,7 +12,7 @@ const idle: NextStepInput = { devBusy: 0, queued: 0, manpower: 120, beaconCost: 
 describe("tracker next step while the slots are idle", () => {
   it("points spare manpower at a Relay Beacon", () => {
     const [manpower] = nextSteps(idle);
-    expect(manpower).toMatchObject({ title: "Build a Relay Beacon", sub: "50 MP · on garrisoned land · grows reach" });
+    expect(manpower).toMatchObject({ title: "Build a Relay Beacon", sub: "50 MP · garrisoned land · more land to build on", open: { kind: "beacon", key: "RELAY_BEACON" } });
     expect(manpower?.hint).toContain("Reach:");
   });
 
@@ -20,7 +20,7 @@ describe("tracker next step while the slots are idle", () => {
   it("drops the beacon row when no tile can take one, falling through to the coin row", () => {
     const steps = nextSteps({ ...idle, beaconBuildable: false });
     expect(steps.map((s) => s.title)).toEqual(["Next Manifest 40 Coin"]);
-    expect(nextSteps({ ...idle, beaconBuildable: false, manpower: 0 }).some((s) => s.title === "Saving manpower")).toBe(false);
+    expect(nextSteps({ ...idle, beaconBuildable: false, manpower: 0 }).some((s) => s.title === "Saving MP")).toBe(false);
   });
 
   it("only offers a beacon where the build path's rule allows one", () => {
@@ -35,7 +35,7 @@ describe("tracker next step while the slots are idle", () => {
 
   it("says when the next manpower batch lands when the beacon is out of reach", () => {
     const [manpower] = nextSteps({ ...idle, manpower: 30 });
-    expect(manpower).toMatchObject({ title: "Saving manpower", sub: "Relay Beacon 50 MP · next batch 1h 15m" });
+    expect(manpower).toMatchObject({ title: "Saving MP", sub: "Relay Beacon 50 MP · next batch 1h 15m" });
   });
 
   it("says when coin covers the next Manifest, in coin per day", () => {
@@ -45,7 +45,7 @@ describe("tracker next step while the slots are idle", () => {
   });
 
   it("names the fix when coin income is zero instead of an endless wait", () => {
-    expect(nextSteps({ ...idle, netPerMinute: 0 })[1]).toMatchObject({ sub: "+0.0/day · feed a town for coin", open: { kind: "chip", key: "coin" } });
+    expect(nextSteps({ ...idle, netPerMinute: 0 })[1]).toMatchObject({ sub: "+0.0/day · feed a town for Coin", open: { kind: "chip", key: "coin" } });
   });
 
   it("offers the Manifest once it is affordable", () => {
@@ -63,6 +63,11 @@ describe("tracker next step while the slots are idle", () => {
     expect(html).toContain('data-hud-v2-open="manpower"');
     expect(html).toContain('data-hud-v2-open="manifest"');
   });
+
+  // UX review: the beacon row looked tappable but did nothing.
+  it("renders the beacon step as a button that starts placement", () => {
+    expect(nextStepsHtml(nextSteps(idle))).toContain('<button type="button" class="hud-v2-tracker-row hud-v2-next-step" data-hud-v2-beacon="RELAY_BEACON"');
+  });
 });
 
 describe("coin shortfall copy", () => {
@@ -74,7 +79,14 @@ describe("coin shortfall copy", () => {
 
   it("is undefined when affordable and names the gap otherwise", () => {
     expect(coinShortText(50, 40, 0)).toBeUndefined();
-    expect(coinShortText(10, 40, 1)).toBe("Need 30 more · +1440.0/day · ready in 30m");
+    expect(coinShortText(10, 40, 1)).toBe("Need 30 more Coin · +1440.0/day · ready in 30m");
+  });
+
+  // UX review: "ready in 138h" read badly; past two days the wait is in days.
+  it("switches long waits to days past 48h", () => {
+    expect(formatEta(47 * 3_600_000)).toBe("47h");
+    expect(formatEta(138 * 3_600_000)).toBe("5d 18h");
+    expect(coinShortText(0, 138, 1 / 60)).toContain("ready in 5d 18h");
   });
 });
 
@@ -103,7 +115,7 @@ describe("tracker wiring", () => {
   // Owner: the phone HUD is crowded; the next step replaces Dev on the one folded line instead of adding a row.
   it("puts the next step on the folded phone line in place of Dev slots", () => {
     const line = trackerSummaryHtml(input);
-    expect(line).toContain('<b class="v2c-track-next" title="Build a Relay Beacon">Next</b>');
+    expect(line).toContain('<b class="v2c-track-next" title="Build a Relay Beacon">Next ›</b>');
     expect(line).not.toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("v2c-track-next");

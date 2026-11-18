@@ -10,7 +10,9 @@ import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js
 export type HudV2ActionFlow = Pick<
   ReturnType<typeof createClientActionFlow>,
   "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile" | "requestTileDetailIfNeeded"
->;
+> &
+  /** Shows the build placement bar after the HUD arms a placement (the tracker's Relay Beacon step). */
+  Partial<Pick<ReturnType<typeof createClientActionFlow>, "renderPlacementOverlay">>;
 
 export type HudV2Deps = {
   state: ClientState;

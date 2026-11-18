@@ -6,6 +6,7 @@
 import { formatCoinPerDay, spendableCoin } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { formatDuration } from "../client-duke-panel/client-duke-format.js";
 import { formatRefillCountdown, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
@@ -35,10 +36,13 @@ export type NextStepInput = {
 export type NextStep = {
   title: string;
   sub: string;
-  /** A HUD target (data-hud-v2-open) or a resource chip (data-hud-v2-chip) the row opens. */
-  open?: { kind: "open" | "chip"; key: string };
+  /** A HUD target (data-hud-v2-open), a resource chip (data-hud-v2-chip), or Relay Beacon placement (data-hud-v2-beacon). */
+  open?: { kind: "open" | "chip" | "beacon"; key: string };
   hint?: string;
 };
+
+/** "45m", "30h", then "5d 18h" past two days (long coin waits read badly in hours). */
+export const formatEta = (ms: number): string => (ms < 48 * 3_600_000 ? formatRefillCountdown(ms) : formatDuration(ms));
 
 /** Ms until `gold` reaches `cost` at the net rate, 0 when already there, undefined when income is not positive. */
 export const msUntilCoin = (gold: number, cost: number, netPerMinute: number): number | undefined => {
@@ -55,18 +59,18 @@ export const coinShortText = (gold: number, cost: number, netPerMinute: number):
   const eta = msUntilCoin(gold, cost, netPerMinute);
   const rate = formatCoinPerDay(netPerMinute);
   return eta === undefined
-    ? `Need ${short.toLocaleString("en-US")} more · ${rate} · feed a town for coin`
-    : `Need ${short.toLocaleString("en-US")} more · ${rate} · ready in ${formatRefillCountdown(eta)}`;
+    ? `Need ${short.toLocaleString("en-US")} more Coin · ${rate} · feed a town for Coin`
+    : `Need ${short.toLocaleString("en-US")} more Coin · ${rate} · ready in ${formatEta(eta)}`;
 };
 
 const manpowerStep = (input: NextStepInput): NextStep | undefined => {
   if (!input.beaconBuildable) return undefined;
   const cost = Math.max(0, Math.ceil(input.beaconCost));
   if (input.manpower >= cost) {
-    return { title: "Build a Relay Beacon", sub: `${cost} MP · on garrisoned land · grows reach`, hint: REACH_HINT };
+    return { title: "Build a Relay Beacon", sub: `${cost} MP · garrisoned land · more land to build on`, hint: REACH_HINT, open: { kind: "beacon", key: "RELAY_BEACON" } };
   }
-  const batch = input.nextBatchInMs === undefined ? "" : ` · next batch ${formatRefillCountdown(input.nextBatchInMs)}`;
-  return { title: "Saving manpower", sub: `Relay Beacon ${cost} MP${batch}`, open: { kind: "open", key: "manpower" } };
+  const batch = input.nextBatchInMs === undefined ? "" : ` · next batch ${formatEta(input.nextBatchInMs)}`;
+  return { title: "Saving MP", sub: `Relay Beacon ${cost} MP${batch}`, open: { kind: "open", key: "manpower" } };
 };
 
 const coinStep = (input: NextStepInput): NextStep | undefined => {
@@ -75,8 +79,8 @@ const coinStep = (input: NextStepInput): NextStep | undefined => {
   const title = `Next Manifest ${cost.toLocaleString("en-US")} Coin`;
   if (spendableCoin(input.gold) >= cost) return { title: "Manifest affordable", sub: `${cost.toLocaleString("en-US")} Coin · commission one`, open: { kind: "open", key: "manifest" } };
   const eta = msUntilCoin(input.gold, cost, input.netPerMinute);
-  if (eta === undefined) return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · feed a town for coin`, open: { kind: "chip", key: "coin" } };
-  return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · ready in ${formatRefillCountdown(eta)}`, open: { kind: "open", key: "manifest" } };
+  if (eta === undefined) return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · feed a town for Coin`, open: { kind: "chip", key: "coin" } };
+  return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · ready in ${formatEta(eta)}`, open: { kind: "open", key: "manifest" } };
 };
 
 /** Next steps while nothing is building or queued; empty while the slots are busy. */
@@ -92,7 +96,7 @@ const esc = (text: string): string =>
 export const nextStepsHtml = (steps: readonly NextStep[]): string => {
   if (steps.length === 0) return "";
   const rows = steps.map((s) => {
-    const attr = s.open ? (s.open.kind === "open" ? ` data-hud-v2-open="${esc(s.open.key)}"` : ` data-hud-v2-chip="${esc(s.open.key)}"`) : "";
+    const attr = !s.open ? "" : s.open.kind === "open" ? ` data-hud-v2-open="${esc(s.open.key)}"` : s.open.kind === "chip" ? ` data-hud-v2-chip="${esc(s.open.key)}"` : ` data-hud-v2-beacon="${esc(s.open.key)}"`;
     const title = s.hint ? ` title="${esc(s.hint)}"` : "";
     const tag = s.open ? "button" : "div";
     const type = s.open ? ` type="button"` : "";

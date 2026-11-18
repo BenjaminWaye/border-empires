@@ -94,12 +94,13 @@ export const orbInputForState = (state: OrbState, nowMs: number, color: string |
   color
 });
 
-const orbRefillLine = (input: OrbInput): { text: string; label: string } => {
+/** `state`: full / over cap, the one line phones keep inside the orb (no countdown to show there). */
+const orbRefillLine = (input: OrbInput): { text: string; label: string; state?: boolean } => {
   const { nextRefillAt } = input;
   // Nothing accrues at or above the cap (runtime-manpower.ts), so there is no batch to count down to:
   // say so instead of dropping the line (playtest 2026-11-18). Same words as the Manpower panel.
-  if (input.manpower > input.manpowerCap) return { text: "over cap · spend to refill", label: ", over capacity: no batch until you spend below it" };
-  if (input.manpower >= input.manpowerCap && input.manpowerCap > 0) return { text: "full", label: ", full: no batch until you spend" };
+  if (input.manpower > input.manpowerCap) return { text: "over cap", label: ", over capacity: no batch until you spend below it", state: true };
+  if (input.manpower >= input.manpowerCap && input.manpowerCap > 0) return { text: "full", label: ", full: no batch until you spend", state: true };
   if (nextRefillAt === undefined) return { text: "", label: "" };
   const batch = orbBatchAmount(input);
   if (batch === undefined && input.regenPerMinute !== undefined && input.regenPerMinute <= 0) return { text: "paused", label: ", regen paused" };
@@ -116,7 +117,7 @@ export const orbHtml = (input: OrbInput): string => {
   const liquidPath = fill === 1 ? "M0 0 H180 V180 H0 Z"
     : `M0 ${level} C 45 ${level - 8}, 70 ${level + 8}, 90 ${level} S 140 ${level - 8}, 180 ${level} V 180 H 0 Z`;
   const line = orbRefillLine(input);
-  const refill = line.text ? `<span class="hud-v2-orb-refill">${line.text}</span>` : "";
+  const refill = line.text ? `<span class="hud-v2-orb-refill${line.state ? " hud-v2-orb-refill-state" : ""}">${line.text}</span>` : "";
   const overCapacity = input.manpower > input.manpowerCap;
   const excess = Math.floor(Math.max(0, input.manpower - input.manpowerCap)).toLocaleString("en-US");
   const overflow = orbOverflowHtml(input);

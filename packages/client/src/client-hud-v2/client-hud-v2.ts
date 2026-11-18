@@ -34,6 +34,7 @@ import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-ch
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { nextStepsForState } from "./client-hud-v2-next-step.js";
+import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { retryHouseChargeChoice } from "../client-house-charges/client-house-charges-alerts.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
@@ -152,6 +153,11 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
     if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
     deps.renderHud();
+    return;
+  }
+  // Tracker next step "Build a Relay Beacon": straight into beacon placement.
+  if (target.closest("[data-hud-v2-beacon]")) {
+    startRelayBeaconPlacement(deps);
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
