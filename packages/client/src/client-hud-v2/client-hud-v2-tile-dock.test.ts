@@ -148,5 +148,12 @@ describe("docked tile panel", () => {
     state.tileActionMenu.afcArmFocus = { socket: 2, seq: 2 }; // the same arm tapped again
     dockTileActionMenuForHudV2(state, afcView, deps, () => undefined);
     expect(side().hidden).toBe(false);
+    document.querySelector<HTMLButtonElement>("#hud-v2-build [data-hud-v2-panel-close]")!.click();
+    // A paint before the Modules tab exists (detail still loading) must not use up the tap.
+    state.tileActionMenu.afcArmFocus = { socket: 3, seq: 3 };
+    dockTileActionMenuForHudV2(state, { ...afcView, tabs: [] } as TileMenuView, deps, () => undefined);
+    expect(side().hidden).toBe(true);
+    dockTileActionMenuForHudV2(state, afcView, deps, () => undefined);
+    expect(side().hidden).toBe(false);
   });
 });

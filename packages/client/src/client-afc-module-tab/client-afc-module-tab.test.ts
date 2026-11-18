@@ -260,4 +260,10 @@ describe("graphical AFC modules tab", () => {
     root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: own }, "modules");
     expect(root.querySelector(".afc-arm-focus-state")).toBeNull();
   });
+
+  it("tells a viewer when another House's AFC holds a module captured from them", () => {
+    const theirs = { ...target, ownerId: "sigrid", afc: { ownerId: "sigrid", status: "active", modules: ["masonry", "workshops"], houseModules: [], capturedModuleHouses: { masonry: "me", workshops: "sigrid" } } } as Tile;
+    const view = afcModuleTabForTile(theirs, catalog, [], "me", 1000, undefined, () => "Varn")!;
+    expect(view.slots.map((slot) => slot.detail).slice(0, 2)).toEqual(["Captured from your House", ""]);
+  });
 });

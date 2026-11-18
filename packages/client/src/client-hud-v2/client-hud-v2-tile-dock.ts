@@ -358,8 +358,10 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   }
   // A tap on an own AFC's arm tile opens straight onto Modules, spotlighting that arm's module.
   const arm = state.tileActionMenu.afcArmFocus;
-  if (arm && arm.seq !== dock.lastArmSeq && view.tabs.includes("modules")) dock.panel = "modules";
-  dock.lastArmSeq = arm?.seq;
+  if (arm && arm.seq !== dock.lastArmSeq && view.tabs.includes("modules")) {
+    dock.panel = "modules";
+    dock.lastArmSeq = arm.seq;
+  }
   menuEl.classList.add(DOCKED);
   const fromMapClick = Date.now() - lastMapClickAt < MAP_CLICK_WINDOW_MS;
   if (fresh && key && fromMapClick && Date.now() > suppressAutoExpandUntil && shouldAutoExpand(state, state.tiles.get(key), view)) {

@@ -12,9 +12,14 @@ export type AfcModuleTabView = {
   focusSocket?: number | undefined;
 };
 
-/** A captured copy names the House it was taken from; your own modules (including one you won back) carry no label. */
-const capturedModuleDetail = (houseId: string | undefined, me: string, playerNameForOwner?: (ownerId?: string | null) => string | undefined): string => {
-  if (houseId === me) return "";
+/**
+ * A captured copy names the House it was taken from. A copy the AFC's owner won
+ * back carries no label, like their own modules; a copy taken from the viewer
+ * says so when they look at someone else's AFC.
+ */
+const capturedModuleDetail = (houseId: string | undefined, afcOwnerId: string, me: string, playerNameForOwner?: (ownerId?: string | null) => string | undefined): string => {
+  if (houseId === afcOwnerId) return "";
+  if (houseId === me) return "Captured from your House";
   const name = houseId ? playerNameForOwner?.(houseId) : undefined;
   return name ? `Captured from ${houseStyledName(name)}` : "Captured";
 };
@@ -26,7 +31,7 @@ export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], ac
   const installed = (afc.modules ?? []).map((id) => {
     const tech = catalog.find((entry) => entry.id === id);
     const house = houseCopies.delete(id);
-    return { name: tech?.name ?? id, branch: tech?.branch, description: tech?.description, state: house ? "house" as const : "captured" as const, detail: house ? "" : capturedModuleDetail(afc.capturedModuleHouses?.[id], me, playerNameForOwner) };
+    return { name: tech?.name ?? id, branch: tech?.branch, description: tech?.description, state: house ? "house" as const : "captured" as const, detail: house ? "" : capturedModuleDetail(afc.capturedModuleHouses?.[id], afc.ownerId, me, playerNameForOwner) };
   });
   const incoming = (afc.incomingModules ?? []).map((entry) => {
     const tech = catalog.find((candidate) => candidate.id === entry.techId);

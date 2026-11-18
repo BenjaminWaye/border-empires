@@ -86,8 +86,9 @@ export type TileAfcState = {
   // this one between their AFCs; captured copies deliberately stay put.
   houseModules?: string[];
   // Captured copies only: module tech id -> the House whose copy it was when
-  // this AFC was taken. At most one entry per installed module. Copies
-  // captured before this field existed have no entry.
+  // this AFC was taken. Bounded by the installed module ids (at most
+  // AFC_MODULE_SLOTS keys); two copies of one module share the latest entry.
+  // Copies captured before this field existed have no entry.
   capturedModuleHouses?: Record<string, PlayerId>;
   // House modules called down to this AFC and still in transit; each moves
   // into modules/houseModules once arrivesAt passes (AFC_MODULE_CALL_DOWN_MS).
