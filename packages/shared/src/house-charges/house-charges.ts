@@ -33,8 +33,6 @@ export const HOUSE_CHARGE_CHARTER_TOWN_MIN_DISTANCE = 8;
 export const HOUSE_CHARGE_CHARTER_TOWN_MAX_DISTANCE = 50;
 export const HOUSE_CHARGE_CHARTER_PAIR_MIN_DISTANCE = 12;
 export const HOUSE_CHARGE_CHARTER_PAIR_MAX_DISTANCE = 35;
-export const HOUSE_CHARGE_SEAT_MIN_DISTANCE = 6;
-export const HOUSE_CHARGE_SEAT_MAX_DISTANCE = 45;
 export const HOUSE_CHARGE_REGION_MAX_DISTANCE = 35;
 /** Writ of Correction: the named rival's landing site lies in this band. */
 export const HOUSE_CHARGE_CORRECTION_MIN_DISTANCE = 12;

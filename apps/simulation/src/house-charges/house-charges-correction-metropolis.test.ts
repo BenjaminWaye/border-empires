@@ -125,3 +125,38 @@ describe("ticker pass", () => {
     expect(players.get("p1")!.houseCharges!.completeSince).toEqual({ [correction.id]: 2_000 });
   });
 });
+
+describe("review regressions (Writ of Correction)", () => {
+  it("never names barbarians, or a House standing only on a captured AFC, as the rival", () => {
+    const tiles = world();
+    // Barbarians hold an AFC they captured from p3; p3 itself is left with nothing it founded.
+    tiles.set("4,4", { ...tiles.get("4,4")!, ownerId: "barbarian-1", ownershipState: "SETTLED", afc: { ownerId: "barbarian-1", status: "active", capturedAt: 5, foundedBy: "p3" } });
+    tiles.set("4,26", { ...tiles.get("4,26")!, ownerId: "p3", ownershipState: "SETTLED", afc: { ownerId: "p3", status: "active", capturedAt: 5, foundedBy: "p4" } });
+    const players = new Map(["p1", "p2", "p3", "p4", "barbarian-1"].map((id) => [id, makeChargePlayer(id, { name: id })]));
+    for (const id of ["p2", "p3", "p4", "barbarian-1"]) players.get(id)!.houseCharges = { dealtAt: 0, offered: [], keptIds: [] };
+    runHouseChargesPass(tiles, players, 1_000);
+    const named = (players.get("p1")!.houseCharges?.offered ?? []).filter((charge) => charge.kind === "CORRECTION").map((charge) => charge.targets[0]!.key);
+    expect(named.every((key) => key === "house:p2")).toBe(true);
+  });
+
+  it("has an AI House keep a Writ of Correction last, so its idle expansion is not aimed at a rival's capital", () => {
+    const tiles = world();
+    const players = new Map([["p1", makeChargePlayer("p1", { isAi: true })], ["p2", makeChargePlayer("p2", { name: "Varn" })]]);
+    players.get("p2")!.houseCharges = { dealtAt: 0, offered: [], keptIds: [] };
+    runHouseChargesPass(tiles, players, 1_000);
+    const state = players.get("p1")!.houseCharges!;
+    const kept = state.keptIds.map((id) => state.offered.find((charge) => charge.id === id)!.kind);
+    if (state.offered.filter((charge) => charge.kind !== "CORRECTION" && charge.kind !== "SURVEY").length >= 2) expect(kept).not.toContain("CORRECTION");
+  });
+
+  it("never sends the rival's exact landing site to the client", async () => {
+    const { houseChargesPayloadFor } = await import("./house-charges-view.js");
+    const tiles = world();
+    const player = makeChargePlayer("p1", { houseCharges: { dealtAt: 0, offered: [correction], keptIds: [correction.id] } });
+    const [view] = houseChargesPayloadFor(player, tiles)!.charges;
+    expect(view!.targets[0]).toMatchObject({ key: "house:p2", name: "Varn", x: correction.searchCircle.x, y: correction.searchCircle.y });
+    const masked: HouseCharge = { ...correction, searchCircle: { x: 33, y: 24, radius: 9 } };
+    const [maskedView] = houseChargesPayloadFor(makeChargePlayer("p1", { houseCharges: { dealtAt: 0, offered: [masked], keptIds: [masked.id] } }), tiles)!.charges;
+    expect(maskedView!.targets[0]).toMatchObject({ x: 33, y: 24 });
+  });
+});

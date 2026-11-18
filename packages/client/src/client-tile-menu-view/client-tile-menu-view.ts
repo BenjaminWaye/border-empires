@@ -1,5 +1,5 @@
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
-import { afcFounderOverviewLine } from "../client-afc-founder/client-afc-founder-line.js";
+import { afcFounderOverviewLines } from "../client-afc-founder/client-afc-founder-line.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
@@ -94,12 +94,9 @@ export const menuOverviewForTile = (
     observatoryCrystalSlotCountForTile?: (tile: Tile) => number;
     // Opens the shared structure detail overlay (tech tree, HUD economy panel) — see client-hud.ts's [data-structure-info] delegate.
     structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
-    playerNameForOwner?: (ownerId?: string | null) => string | undefined;
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
-  const founderLine = afcFounderOverviewLine(tile, deps.playerNameForOwner, deps.state.me);
-  if (founderLine) lines.push(founderLine);
   const modifierLines: TileOverviewLine[] = [];
   const hasOwnedLandState = Boolean(tile.ownerId) && tile.terrain === "LAND";
   const pushLine = (html: string): void => {
@@ -476,7 +473,7 @@ export const tileMenuViewForTile = (
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),
     tabs,
     ...(modules ? { modules } : {}),
-    overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
+    overviewLines: [...afcFounderOverviewLines(tile, deps.playerNameForOwner, deps.state.me), ...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,

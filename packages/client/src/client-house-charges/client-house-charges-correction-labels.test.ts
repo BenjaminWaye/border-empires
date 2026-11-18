@@ -20,10 +20,10 @@ describe("Writ of Correction text", () => {
     expect(houseChargeLetter(writ)).toBe(letter);
   });
 
-  it("tracks taken, retaken and not taken", () => {
+  it("tracks taken, lost and not taken", () => {
     expect(houseChargeProgress(writ)).toBe("House Varn's AFC: not taken");
     expect(houseChargeProgress({ ...writ, held: true, size: 1 })).toBe("House Varn's AFC taken");
-    expect(houseChargeProgress({ ...writ, lostAt: 5 })).toBe("House Varn has retaken its AFC");
+    expect(houseChargeProgress({ ...writ, lostAt: 5 })).toBe("House Varn's AFC lost");
     expect(houseChargeCardRule({ kind: "CORRECTION", places: ["Varn"] })).toBe("Pressed a grievance against House Varn, took an AFC it founded and held it to the end of the contest.");
   });
 });

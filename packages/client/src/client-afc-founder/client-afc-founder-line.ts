@@ -6,14 +6,20 @@ import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import type { Tile } from "../client-types.js";
 
-export const afcFounderOverviewLine = (
+/**
+ * One line naming the founder, or none: not for the viewer's own AFC still in
+ * its hands (nothing to tell), nor when the founder or their name is unknown.
+ */
+export const afcFounderOverviewLines = (
   tile: Pick<Tile, "afc">,
   playerNameForOwner: ((ownerId?: string | null) => string | undefined) | undefined,
-  me: string
-): TileOverviewLine | undefined => {
+  me: string | undefined
+): TileOverviewLine[] => {
   const founderId = afcFoundedBy(tile.afc);
-  if (!tile.afc || !founderId) return undefined;
-  const founder = founderId === me ? "your House" : houseStyledName(playerNameForOwner?.(founderId) ?? "Unknown");
+  if (!tile.afc || !founderId || (founderId === me && tile.afc.ownerId === me)) return [];
+  const name = founderId === me ? "your House" : playerNameForOwner?.(founderId);
+  if (!name) return [];
+  const founder = founderId === me ? name : houseStyledName(name);
   const captured = founderId !== tile.afc.ownerId;
-  return { html: escapeHtml(`Founded by ${founder}${captured ? " · captured" : ""}`) };
+  return [{ html: escapeHtml(`Founded by ${founder}${captured ? " · captured" : ""}`) }];
 };

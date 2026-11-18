@@ -106,7 +106,7 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
       return charge.held ? "Garrisoned" : charge.targets.length > 0 ? "Beacon found" : "Beacon not found yet";
     case "CORRECTION": {
       const house = houseStyledName(charge.targets[0]?.name ?? "the rival");
-      return charge.held ? `${house}'s AFC taken` : charge.lostAt !== undefined ? `${house} has retaken its AFC` : `${house}'s AFC: not taken`;
+      return charge.held ? `${house}'s AFC taken` : charge.lostAt !== undefined ? `${house}'s AFC lost` : `${house}'s AFC: not taken`;
     }
     case "METROPOLIS":
       return `${charge.size} of ${HOUSE_CHARGE_METROPOLIS_COUNT} Metropolises held`;

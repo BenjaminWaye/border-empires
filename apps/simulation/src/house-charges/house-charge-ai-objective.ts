@@ -7,7 +7,7 @@
 // hundred), never the map.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { HOUSE_CHARGE_METROPOLIS_COUNT, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
-import { houseChargesWorldFor } from "./house-charges-world.js";
+import { chargeDistance, houseChargesWorldFor } from "./house-charges-world.js";
 
 export type HouseChargeExpansionObjective = { x: number; y: number; kind: "neutral_value" | "enemy" };
 
@@ -53,7 +53,7 @@ const chargeTarget = (charge: HouseCharge, tiles: ReadonlyMap<string, DomainTile
         held += 1;
         continue;
       }
-      const distance = Math.abs(town.x - first.x) + Math.abs(town.y - first.y);
+      const distance = chargeDistance(world, town, first);
       if (!best || distance < best.distance) best = { x: town.x, y: town.y, distance };
     }
     return held < HOUSE_CHARGE_METROPOLIS_COUNT && best ? { x: best.x, y: best.y } : undefined;

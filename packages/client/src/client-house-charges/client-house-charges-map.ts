@@ -37,8 +37,9 @@ export const houseChargeMarkerTiles = (state: ChargeMapState, worldWidth: number
   if (!charge) return [];
   const areaSeen = charge.areaTileKeys?.some((key) => state.tiles.has(key)) ?? false;
   if (areaSeen) return [];
-  // A Three Metropolises target is only the middle of the landmass's nearest towns, never a spot to mark.
-  const seenTargets = charge.areaTileKeys || charge.kind === "METROPOLIS" ? [] : charge.targets.filter((target) => explored(state, target.x, target.y));
+  // A Three Metropolises target is only the middle of the landmass's nearest towns, and a Correction's is the
+  // centre of its search circle (the server never sends the rival's landing site): neither is a spot to mark.
+  const seenTargets = charge.areaTileKeys || charge.kind === "METROPOLIS" || charge.kind === "CORRECTION" ? [] : charge.targets.filter((target) => explored(state, target.x, target.y));
   if (seenTargets.length === 0) return searchCircleMarkers(charge, worldWidth, worldHeight);
   const marked = seenTargets.map(({ x, y }) => ({ x, y }));
   // A Charter whose second town is still unscouted: keep the search circle so the player knows where to look.

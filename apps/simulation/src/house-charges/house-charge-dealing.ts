@@ -203,6 +203,19 @@ const correctionCandidate = (input: DealHouseChargesInput, random: () => number)
  * share a large landmass: the holder cap is metropolisHolderCap. The target
  * point is the middle of the three towns nearest the House.
  */
+/** The middle of some points, the short way round the wrapped world (towns either side of the seam stay together). */
+const wrappedCentre = (world: Pick<HouseChargesWorld, "width" | "height">, points: readonly HouseChargePoint[]): HouseChargePoint => {
+  const [first] = points;
+  if (!first) return { x: 0, y: 0 };
+  const delta = (from: number, to: number, size: number): number => {
+    const raw = (((to - from) % size) + size) % size;
+    return raw > size / 2 ? raw - size : raw;
+  };
+  const dx = points.reduce((sum, point) => sum + delta(first.x, point.x, world.width), 0) / points.length;
+  const dy = points.reduce((sum, point) => sum + delta(first.y, point.y, world.height), 0) / points.length;
+  return { x: (((Math.round(first.x + dx)) % world.width) + world.width) % world.width, y: (((Math.round(first.y + dy)) % world.height) + world.height) % world.height };
+};
+
 /** Houses that may share one landmass's Three Metropolises charge: one per three of its towns. */
 export const metropolisHolderCap = (townCount: number): number => Math.max(1, Math.floor(townCount / HOUSE_CHARGE_METROPOLIS_COUNT));
 
@@ -222,9 +235,10 @@ const metropolisCandidate = (input: DealHouseChargesInput, random: () => number)
     if (towns.length < HOUSE_CHARGE_METROPOLIS_COUNT) continue;
     const key = `metropolis:${island.id}`;
     if (input.holders(key) >= metropolisHolderCap(towns.length)) continue;
-    if (nearestCell(world, island.cells, home).distance > HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE * reach(input)) continue;
+    // Distance to the landmass's towns, not every cell: a continent has tens of thousands of cells and dealing runs for every House.
     const nearest = [...towns].sort((a, b) => chargeDistance(world, home, a) - chargeDistance(world, home, b)).slice(0, HOUSE_CHARGE_METROPOLIS_COUNT);
-    const centre = { x: Math.round(nearest.reduce((sum, town) => sum + town.x, 0) / nearest.length), y: Math.round(nearest.reduce((sum, town) => sum + town.y, 0) / nearest.length) };
+    if (chargeDistance(world, home, nearest[0]!) > HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE * reach(input)) continue;
+    const centre = wrappedCentre(world, nearest);
     const renown = island.id === homeIsland ? 2 : 3;
     options.push({
       id: chargeIdFor(input.playerId, "METROPOLIS", [{ key }]),

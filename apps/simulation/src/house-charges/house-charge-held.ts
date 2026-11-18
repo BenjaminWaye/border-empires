@@ -105,8 +105,8 @@ export const houseChargeStanding = (
     readonly tiles: ReadonlyMap<string, DomainTileState>;
     readonly players: ReadonlyMap<string, DomainPlayer>;
     readonly playerId: string;
-    /** Every AFC tile on the map (Writ of Correction); scanned from `tiles` when absent. */
-    readonly afcTiles?: () => readonly DomainTileState[];
+    /** The House's own AFC tiles (Writ of Correction); found by scanning `tiles` when absent. */
+    readonly ownAfcTiles?: () => readonly DomainTileState[];
   }
 ): HouseChargeStanding => {
   const { world, tiles, playerId } = context;
@@ -150,7 +150,7 @@ export const houseChargeStanding = (
     case "CORRECTION": {
       // Any AFC the named House founded, wherever it stands, owned and garrisoned by this House.
       const rivalId = targetTileKey(first.key);
-      const afcs = context.afcTiles ? context.afcTiles() : [...tiles.values()].filter((tile) => tile.afc);
+      const afcs = context.ownAfcTiles ? context.ownAfcTiles() : [...tiles.values()].filter((tile) => tile.afc?.ownerId === playerId);
       const held = afcs.filter((tile) => tile.afc?.ownerId === playerId && isGarrisonedBy(tile, playerId) && afcFoundedBy(tile.afc) === rivalId);
       return held.length > 0 ? { complete: true, size: held.length, shape: held.map(({ x, y }) => ({ x, y })) } : { complete: false, size: 0 };
     }
