@@ -84,7 +84,10 @@ body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
      guide docked): the tree keeps a floor and the card shrinks and scrolls. */
   body.hud-v2-compact .v2m-scroll { flex: 1 1 0; min-height: max(96px, 34%); }
   body.hud-v2-compact .v2m-detail { flex: 0 1 auto; min-height: 0; max-height: 30dvh; }
-  body.hud-v2-compact .v2m-detail > .v2s-btn { position: sticky; bottom: 0; box-shadow: 0 10px 0 rgb(15, 13, 10); }
+  /* Pinned over the scrolling text, so it must be opaque: a disabled button's 0.55 opacity let the lines scrolling
+     under it show through its label. A strip of the card colour above it keeps text from touching its edge. */
+  body.hud-v2-compact .v2m-detail > .v2s-btn { position: sticky; bottom: 0; box-shadow: 0 10px 0 rgb(15, 13, 10), 0 -8px 0 rgb(15, 13, 10); }
+  body.hud-v2-compact .v2m-detail > .v2s-btn:disabled { opacity: 1; background: rgb(45, 39, 29); border-color: rgb(74, 63, 44); color: rgb(150, 138, 112); }
 }
 
 /* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
