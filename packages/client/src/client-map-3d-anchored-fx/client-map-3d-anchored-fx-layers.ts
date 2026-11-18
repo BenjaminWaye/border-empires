@@ -79,6 +79,6 @@ export const createAnchoredFxLayers = (scene: Object3D, buildingEnvironmentTextu
     afcModuleDeliveryFx: anchored(createAfcModuleDeliveryFxLayer(root.group)),
     afcDropFx: anchored(createAfcDropFxLayer(root.group, buildingEnvironmentTexture)),
     townTierUpgradeFx: anchored(createTownTierUpgradeFxLayer(root.group)),
-    salvageDeliveryFx: anchored(createSalvageDeliveryFxLayer(root.group))
+    salvageDeliveryFx: anchored(createSalvageDeliveryFxLayer(root.group, buildingEnvironmentTexture))
   };
 };

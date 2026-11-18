@@ -1,58 +1,61 @@
 import {
   AdditiveBlending,
-  BoxGeometry,
+  CanvasTexture,
   CircleGeometry,
   CylinderGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   NormalBlending,
-  SphereGeometry,
+  RingGeometry,
   Sprite,
   SpriteMaterial,
-  type Blending,
+  SRGBColorSpace,
   type Material,
-  type Object3D
+  type Object3D,
+  type Texture
 } from "three";
-import { makeGlowTexture } from "../client-map-3d-afc-module-delivery-fx.js";
+import { makeGlowTexture, makeStreakTexture } from "../client-map-3d-afc-module-delivery-fx.js";
+import { loadPopupMarineTemplate, type PopupMarineTemplate } from "../client-map-3d-popup-marine/popup-marine-asset.js";
+import { createSalvageAncillaryColumn, type SalvageAncillaryColumn } from "./client-map-3d-salvage-ancillaries.js";
+import { createSalvageDropship, type SalvageDropship } from "./client-map-3d-salvage-dropship.js";
 import {
   SALVAGE_DELIVERY_TOTAL_MS,
-  SALVAGE_RAMP_HINGE_DY,
-  SALVAGE_RAMP_LENGTH,
-  SALVAGE_RAMP_OPEN_ANGLE,
-  salvageMarcherAt,
+  SALVAGE_SHIP_APPROACH_DY,
+  SALVAGE_SHIP_HOVER_HEIGHT,
+  SALVAGE_SHIP_ORBIT_HEIGHT,
   salvageShipAt,
   type SalvageDeliveryFxEntry
 } from "./client-salvage-delivery-fx.js";
 
 // True-3D Imperial delivery for a load of salvage shipped to the Court
 // (timeline: client-salvage-delivery-fx.ts; 2D companion:
-// client-map-2d-salvage-delivery.ts). An ivory-and-gold dropship, built from
-// a few primitives, fires down out of orbit on a downward retro-burn, settles
-// over the Reclamation Works in a ring of dust, runs its ramp out to the
-// ground, and the Ancillaries -- in the House's colour -- file down it and
-// march away across the House's land, shrinking and fading as they disappear
-// into the territory. The ramp draws in and the ship climbs back to orbit.
+// client-map-2d-salvage-delivery.ts). The Court's dropship
+// (client-map-3d-salvage-dropship.ts) dives in on a slant wrapped in a
+// re-entry streak, levels out, brakes on its lift thrusters, drops its legs
+// and settles over the Reclamation Works in a billowing smoke bank. Its ramp
+// runs out and the Ancillaries -- the game's own marine, in the House's
+// colour (client-map-3d-salvage-ancillaries.ts) -- march down it and off
+// across the House's land, fading as they disappear into the territory. The
+// ramp draws in and the ship climbs back out the way it came.
 
-type Marcher = { readonly group: Group; readonly materials: readonly MeshStandardMaterial[] };
+type SmokePuff = { readonly sprite: Sprite; readonly angle: number; readonly radius: number; readonly rise: number; readonly delay: number };
 
 type Entry = {
   readonly group: Group;
-  readonly ship: Group;
-  readonly ramp: Mesh;
-  readonly rampPivot: Group;
-  readonly burnCone: Mesh;
-  readonly burnGlow: Sprite;
-  readonly holdGlow: Sprite;
+  readonly shipRoot: Group;
+  readonly ship: SalvageDropship;
+  readonly streak: Mesh;
+  readonly streakCore: Mesh;
+  readonly heatGlow: Sprite;
   readonly shadow: Mesh;
-  readonly dust: readonly Sprite[];
-  readonly marchers: readonly Marcher[];
-  readonly marcherSurfaceDeltas: readonly number[];
+  readonly blast: Mesh;
+  readonly ring: Mesh;
+  readonly smoke: readonly SmokePuff[];
+  readonly materials: readonly Material[];
   readonly entry: SalvageDeliveryFxEntry;
-  /** Opaque-when-solid ship materials, faded together. */
-  readonly shipMaterials: readonly (MeshStandardMaterial | MeshBasicMaterial)[];
-  readonly ownedMaterials: readonly Material[];
+  readonly surfaceDeltas: readonly number[];
+  column: SalvageAncillaryColumn | undefined;
   readonly startedAt: number;
 };
 
@@ -70,138 +73,182 @@ export type SalvageDeliveryFxLayer = {
 };
 
 const MAX_ACTIVE = 4;
-const DUST_PUFFS = 10;
-/** Ancillaries are drawn larger than life so the column reads at map zoom. */
-const MARCHER_SIZE = 1.6;
-const HULL_COLOR = "#ece5d2";
-const GOLD = "#c9a64a";
+const SMOKE_PUFFS = 22;
+const STREAK_LENGTH = 3.2;
+/** The dive's slope: the streak trails back up along it. */
+const APPROACH_TILT = Math.atan2(-SALVAGE_SHIP_APPROACH_DY, SALVAGE_SHIP_ORBIT_HEIGHT - SALVAGE_SHIP_HOVER_HEIGHT);
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 
-export const createSalvageDeliveryFxLayer = (scene: Object3D): SalvageDeliveryFxLayer => {
+/** Soft warm-grey puff; overlapping puffs blend into a bank rather than a stack of discs. */
+const makeSmokeTexture = (): CanvasTexture | null => {
+  if (typeof document === "undefined") return null;
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, "rgba(188,172,150,0.9)");
+  grad.addColorStop(0.55, "rgba(170,156,138,0.45)");
+  grad.addColorStop(1, "rgba(160,146,130,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+};
+
+export const createSalvageDeliveryFxLayer = (
+  scene: Object3D,
+  envMap?: Texture,
+  loadTemplate: () => Promise<PopupMarineTemplate> = () => loadPopupMarineTemplate("standard")
+): SalvageDeliveryFxLayer => {
   const group = new Group();
   group.name = "salvage-delivery-fx";
   scene.add(group);
 
   const glowTexture = makeGlowTexture();
-  const hullGeometry = new BoxGeometry(0.34, 0.16, 0.8);
-  const wingGeometry = new BoxGeometry(1.0, 0.04, 0.3);
-  const spineGeometry = new BoxGeometry(0.08, 0.03, 0.72);
-  const cockpitGeometry = new SphereGeometry(0.1, 12, 8);
-  const podGeometry = new CylinderGeometry(0.07, 0.08, 0.1, 12);
-  const burnGeometry = new CylinderGeometry(0.2, 0.02, 1, 16, 1, true);
-  const rampGeometry = new BoxGeometry(0.24, 0.02, 1);
-  const shadowGeometry = new CircleGeometry(0.5, 24);
-  const bodyGeometry = new CylinderGeometry(0.028, 0.034, 0.09, 8);
-  const headGeometry = new SphereGeometry(0.026, 8, 6);
-  const sharedGeometries = [hullGeometry, wingGeometry, spineGeometry, cockpitGeometry, podGeometry, burnGeometry, rampGeometry, shadowGeometry, bodyGeometry, headGeometry];
+  const streakTexture = makeStreakTexture();
+  const smokeTexture = makeSmokeTexture();
+  const streakGeometry = new CylinderGeometry(0.55, 0.55, 1, 18, 1, true);
+  const streakCoreGeometry = new CylinderGeometry(0.22, 0.22, 1, 12, 1, true);
+  const shadowGeometry = new CircleGeometry(0.6, 32);
+  const blastGeometry = new CircleGeometry(1, 32);
+  const ringGeometry = new RingGeometry(0.8, 0.95, 48);
   const entries: Entry[] = [];
 
-  const glowSprite = (color: string, blending: Blending = AdditiveBlending): Sprite =>
-    new Sprite(new SpriteMaterial({ toneMapped: false, map: glowTexture, color, transparent: true, opacity: 0, blending, depthWrite: false }));
+  // The marine model loads on the first delivery (cached and shared with the
+  // battle overlay); a delivery spawned before it arrives gets its column when
+  // it does -- the Ancillaries only step out a couple of seconds in.
+  let template: PopupMarineTemplate | undefined;
+  let requested = false;
+  let disposed = false;
+  const requestTemplate = (): void => {
+    if (requested) return;
+    requested = true;
+    loadTemplate()
+      .then((loaded) => {
+        if (disposed) return;
+        template = loaded;
+        for (const e of entries) attachColumn(e);
+      })
+      .catch((err: unknown) => console.error("salvage delivery: marine model failed to load; the Ancillaries will not render", err));
+  };
 
-  const disposeEntry = (entry: Entry): void => {
-    group.remove(entry.group);
-    for (const material of entry.ownedMaterials) material.dispose();
+  const attachColumn = (e: Entry): void => {
+    if (!template || e.column) return;
+    e.column = createSalvageAncillaryColumn(e.group, template, e.entry.color, e.entry.marchers, e.surfaceDeltas);
+  };
+
+  const disposeEntry = (e: Entry): void => {
+    e.column?.dispose();
+    e.ship.dispose();
+    group.remove(e.group);
+    for (const material of e.materials) material.dispose();
   };
 
   const spawn = (sceneX: number, sceneZ: number, surfaceY: number, delivery: SalvageDeliveryFxEntry, startedAt: number, marcherSurfaceY: readonly number[]): void => {
     const entryGroup = new Group();
     entryGroup.position.set(sceneX, surfaceY, sceneZ);
-    const owned: Material[] = [];
-    const own = <M extends Material>(m: M): M => { owned.push(m); return m; };
+    const materials: Material[] = [];
+    const additive = (color: string, map?: Texture | null): MeshBasicMaterial => {
+      const m = new MeshBasicMaterial({ toneMapped: false, color, ...(map ? { map } : {}), transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false });
+      materials.push(m);
+      return m;
+    };
+    const sprite = (color: string, map: Texture | null, blending = AdditiveBlending as typeof AdditiveBlending | typeof NormalBlending): Sprite => {
+      const m = new SpriteMaterial({ toneMapped: false, map, color, transparent: true, opacity: 0, blending, depthWrite: false });
+      materials.push(m);
+      return new Sprite(m);
+    };
 
-    const hullMat = own(new MeshStandardMaterial({ color: HULL_COLOR, roughness: 0.45, metalness: 0.35, transparent: true }));
-    const goldMat = own(new MeshStandardMaterial({ color: GOLD, roughness: 0.3, metalness: 0.8, transparent: true }));
-    const glassMat = own(new MeshStandardMaterial({ color: "#24364a", roughness: 0.15, metalness: 0.6, transparent: true }));
-    const rampMat = own(new MeshStandardMaterial({ color: "#a9a08a", roughness: 0.7, metalness: 0.3, transparent: true }));
-
-    const ship = new Group();
-    const hull = new Mesh(hullGeometry, hullMat); hull.position.y = 0.08;
-    const wings = new Mesh(wingGeometry, hullMat); wings.position.set(0, 0.07, -0.08);
-    const spine = new Mesh(spineGeometry, goldMat); spine.position.set(0, 0.175, -0.02);
-    const cockpit = new Mesh(cockpitGeometry, glassMat); cockpit.position.set(0, 0.15, 0.24); cockpit.scale.set(0.8, 0.6, 1.2);
-    const podL = new Mesh(podGeometry, goldMat); podL.position.set(-0.36, 0.03, -0.1);
-    const podR = new Mesh(podGeometry, goldMat); podR.position.set(0.36, 0.03, -0.1);
-    const burnCone = new Mesh(burnGeometry, own(new MeshBasicMaterial({ toneMapped: false, color: "#ffa64d", transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false })));
-    const burnGlow = glowSprite("#ffc27a"); owned.push(burnGlow.material);
-    const holdGlow = glowSprite("#ffe2a0"); owned.push(holdGlow.material);
-    holdGlow.position.set(0, 0.06, SALVAGE_RAMP_HINGE_DY); holdGlow.scale.set(0.5, 0.5, 0.5);
-    // The ramp runs out of the nose at its open slope (telescoping, so it never swings through the ground).
-    const rampPivot = new Group();
-    rampPivot.position.set(0, 0.0, SALVAGE_RAMP_HINGE_DY);
-    rampPivot.rotation.x = SALVAGE_RAMP_OPEN_ANGLE;
-    const ramp = new Mesh(rampGeometry, rampMat);
-    rampPivot.add(ramp);
-    ship.add(hull, wings, spine, cockpit, podL, podR, burnCone, burnGlow, holdGlow, rampPivot);
-
-    const shadow = new Mesh(shadowGeometry, own(new MeshBasicMaterial({ toneMapped: false, color: "#000000", transparent: true, opacity: 0, depthWrite: false })));
+    const ship = createSalvageDropship(glowTexture, envMap);
+    const shipRoot = new Group();
+    shipRoot.add(ship.group);
+    const streak = new Mesh(streakGeometry, additive("#ffb066", streakTexture));
+    const streakCore = new Mesh(streakCoreGeometry, additive("#fff0d0", streakTexture));
+    const heatGlow = sprite("#ffd6a0", glowTexture);
+    heatGlow.scale.setScalar(2.4);
+    const shadow = new Mesh(shadowGeometry, (() => {
+      const m = new MeshBasicMaterial({ toneMapped: false, color: "#000000", transparent: true, opacity: 0, depthWrite: false });
+      materials.push(m);
+      return m;
+    })());
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.01;
-    const dust: Sprite[] = [];
-    for (let i = 0; i < DUST_PUFFS; i += 1) {
-      const puff = glowSprite("#c9b28f", NormalBlending); owned.push(puff.material);
-      dust.push(puff);
+    shadow.position.y = 0.012;
+    const blast = new Mesh(blastGeometry, additive("#ffb266", glowTexture));
+    blast.rotation.x = -Math.PI / 2;
+    blast.position.y = 0.014;
+    const ring = new Mesh(ringGeometry, additive("#e7c08a"));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.016;
+    const smoke: SmokePuff[] = [];
+    for (let i = 0; i < SMOKE_PUFFS; i += 1) {
+      const puff = sprite("#ffffff", smokeTexture, NormalBlending);
+      entryGroup.add(puff);
+      const noise = Math.abs(Math.sin((delivery.x * 131 + delivery.y * 17 + i) * 12.9898) * 43758.5453) % 1;
+      smoke.push({ sprite: puff, angle: (i / SMOKE_PUFFS) * Math.PI * 2 + noise * 0.6, radius: 0.7 + noise * 1.0, rise: 0.25 + noise * 0.45, delay: noise * 260 });
     }
-    entryGroup.add(ship, shadow, ...dust);
-
-    const marchers: Marcher[] = delivery.marchers.map(() => {
-      const body = own(new MeshStandardMaterial({ color: delivery.color, roughness: 0.6, metalness: 0.2, transparent: true }));
-      const helm = own(new MeshStandardMaterial({ color: GOLD, roughness: 0.3, metalness: 0.8, transparent: true }));
-      const marcher = new Group();
-      const torso = new Mesh(bodyGeometry, body); torso.position.y = 0.045;
-      const head = new Mesh(headGeometry, helm); head.position.y = 0.115;
-      marcher.add(torso, head);
-      marcher.visible = false;
-      entryGroup.add(marcher);
-      return { group: marcher, materials: [body, helm] };
-    });
-
+    entryGroup.add(shipRoot, streak, streakCore, heatGlow, shadow, blast, ring);
     group.add(entryGroup);
-    entries.push({
-      group: entryGroup, ship, ramp, rampPivot, burnCone, burnGlow, holdGlow, shadow, dust, marchers,
-      marcherSurfaceDeltas: delivery.marchers.map((_, i) => (marcherSurfaceY[i] ?? surfaceY) - surfaceY),
-      entry: delivery, shipMaterials: [hullMat, goldMat, glassMat, rampMat], ownedMaterials: owned, startedAt
-    });
+
+    const e: Entry = {
+      group: entryGroup, shipRoot, ship, streak, streakCore, heatGlow, shadow, blast, ring, smoke, materials,
+      entry: delivery, surfaceDeltas: delivery.marchers.map((_, i) => (marcherSurfaceY[i] ?? surfaceY) - surfaceY),
+      column: undefined, startedAt
+    };
+    entries.push(e);
+    requestTemplate();
+    attachColumn(e);
     while (entries.length > MAX_ACTIVE) disposeEntry(entries.shift()!);
   };
 
   const updateEntry = (e: Entry, age: number): void => {
-    const ship = salvageShipAt(age);
-    e.ship.visible = ship.visible;
-    e.ship.position.y = ship.height;
-    for (const material of e.shipMaterials) material.opacity = ship.alpha;
-    const flicker = 0.9 + 0.1 * Math.sin(age / 37);
-    const burnLength = (0.2 + 1.4 * ship.burn) * flicker;
-    e.burnCone.scale.set(1, burnLength, 1);
-    e.burnCone.position.y = -burnLength / 2;
-    (e.burnCone.material as MeshBasicMaterial).opacity = 0.75 * ship.burn * ship.alpha;
-    e.burnGlow.position.y = -0.08;
-    e.burnGlow.scale.setScalar(0.5 + 0.9 * ship.burn);
-    e.burnGlow.material.opacity = 0.9 * ship.burn * ship.alpha;
-    e.ramp.visible = ship.rampOpen > 0.02;
-    e.ramp.scale.z = SALVAGE_RAMP_LENGTH * Math.max(0.02, ship.rampOpen);
-    e.ramp.position.z = e.ramp.scale.z / 2;
-    e.holdGlow.material.opacity = 0.7 * ship.rampOpen;
-    const near = clamp01(1 - ship.height / 5);
-    e.shadow.scale.setScalar(0.6 + 0.6 * near);
-    (e.shadow.material as MeshBasicMaterial).opacity = ship.visible ? ship.alpha * (0.1 + 0.3 * near) : 0;
-    e.dust.forEach((puff, i) => {
-      const a = (i / e.dust.length) * Math.PI * 2;
-      const r = 0.35 + 0.45 * ship.dust;
-      puff.position.set(Math.cos(a) * r, 0.08 + 0.1 * ship.dust, Math.sin(a) * r);
-      puff.scale.setScalar(0.35 + 0.35 * ship.dust);
-      puff.material.opacity = 0.45 * ship.dust;
-    });
-    e.marchers.forEach((marcher, i) => {
-      const target = e.entry.marchers[i]!;
-      const m = salvageMarcherAt(target, i, age);
-      marcher.group.visible = m.visible && m.alpha > 0.01;
-      if (!marcher.group.visible) return;
-      marcher.group.position.set(m.dx, m.lift + (e.marcherSurfaceDeltas[i] ?? 0) * m.groundProgress, m.dy);
-      marcher.group.scale.setScalar(MARCHER_SIZE * m.scale);
-      for (const material of marcher.materials) material.opacity = m.alpha;
-    });
+    const frame = salvageShipAt(age);
+    e.shipRoot.position.set(0, frame.height, frame.offsetDy);
+    e.shipRoot.rotation.x = frame.pitch;
+    e.ship.update(frame, age);
+
+    // Re-entry: a white-hot streak trailing back up the dive line, wrapped round the hull.
+    const heat = frame.heat * frame.alpha;
+    for (const s of [e.streak, e.streakCore]) {
+      s.visible = heat > 0.01;
+      s.scale.set(1, STREAK_LENGTH * (0.4 + 0.6 * frame.heat), 1);
+      s.rotation.x = -APPROACH_TILT;
+      const half = s.scale.y / 2;
+      s.position.set(0, frame.height + 0.1 + Math.cos(APPROACH_TILT) * half, frame.offsetDy - Math.sin(APPROACH_TILT) * half);
+    }
+    (e.streak.material as MeshBasicMaterial).opacity = 0.6 * heat;
+    (e.streakCore.material as MeshBasicMaterial).opacity = 0.8 * heat;
+    e.heatGlow.position.set(0, frame.height + 0.1, frame.offsetDy);
+    e.heatGlow.material.opacity = 0.9 * heat;
+
+    // Shadow sharpens under the ship as it comes down.
+    const near = clamp01(1 - frame.height / SALVAGE_SHIP_ORBIT_HEIGHT);
+    e.shadow.position.z = frame.offsetDy;
+    e.shadow.scale.setScalar(0.5 + 0.7 * near);
+    (e.shadow.material as MeshBasicMaterial).opacity = frame.visible ? frame.alpha * (0.08 + 0.32 * near * near) : 0;
+
+    // Thruster wash on the ground, the touchdown shockwave ring, and the smoke bank.
+    const wash = frame.burn * clamp01(1 - (frame.height - SALVAGE_SHIP_HOVER_HEIGHT) / 1.6) * frame.alpha;
+    e.blast.scale.setScalar(0.5 + 0.5 * wash);
+    (e.blast.material as MeshBasicMaterial).opacity = 0.55 * wash;
+    const ringT = (age - 1700) / 900;
+    e.ring.visible = ringT > 0 && ringT < 1;
+    e.ring.scale.setScalar(0.4 + 2.2 * clamp01(ringT));
+    (e.ring.material as MeshBasicMaterial).opacity = 0.5 * (1 - clamp01(ringT));
+    for (const puff of e.smoke) {
+      const d = frame.dust * clamp01((age - 1500 - puff.delay) / 400 + 0.4);
+      const r = puff.radius * (0.45 + 0.55 * frame.dust);
+      puff.sprite.position.set(Math.cos(puff.angle) * r, 0.1 + puff.rise * frame.dust, Math.sin(puff.angle) * r * 0.85);
+      puff.sprite.scale.setScalar(0.7 + 0.9 * frame.dust);
+      puff.sprite.material.opacity = 0.32 * d;
+    }
+
+    e.column?.update(age);
   };
 
   const update = (nowMs: number): void => {
@@ -223,9 +270,10 @@ export const createSalvageDeliveryFxLayer = (scene: Object3D): SalvageDeliveryFx
   };
 
   const dispose = (): void => {
+    disposed = true;
     clear();
-    for (const geometry of sharedGeometries) geometry.dispose();
-    glowTexture?.dispose();
+    for (const g of [streakGeometry, streakCoreGeometry, shadowGeometry, blastGeometry, ringGeometry]) g.dispose();
+    for (const t of [glowTexture, streakTexture, smokeTexture]) t?.dispose();
     scene.remove(group);
   };
 

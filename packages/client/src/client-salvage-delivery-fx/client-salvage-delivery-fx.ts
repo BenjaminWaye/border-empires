@@ -43,7 +43,7 @@ export const createInitialSalvageDeliveryFxState = (): SalvageDeliveryFxState =>
 // ---- Shared timeline (ms from startedAt) ----
 
 /** The ship falls from orbit to its hover over the Works. */
-export const SALVAGE_SHIP_DESCENT_MS = 1800;
+export const SALVAGE_SHIP_DESCENT_MS = 2200;
 /** The ramp swings down once the ship has settled. */
 export const SALVAGE_RAMP_OPEN_MS = 450;
 export const SALVAGE_MARCH_START_MS = SALVAGE_SHIP_DESCENT_MS + SALVAGE_RAMP_OPEN_MS;
@@ -66,7 +66,7 @@ export const SALVAGE_DELIVERY_TOTAL_MS = SALVAGE_DEPART_START_MS + SALVAGE_DEPAR
 // ---- Shared geometry (tiles) ----
 
 /** Height the ship falls from and climbs back to. */
-export const SALVAGE_SHIP_ORBIT_HEIGHT = 5;
+export const SALVAGE_SHIP_ORBIT_HEIGHT = 5.5;
 /** Hover height above the ground while unloading (clears the Works' yard). */
 export const SALVAGE_SHIP_HOVER_HEIGHT = 0.42;
 /** The ramp hinges at the ship's nose, this far south of the tile centre. */
@@ -87,35 +87,62 @@ export type SalvageShipFrame = {
   readonly visible: boolean;
   /** Height of the hull's belly above the ground, in tiles. */
   readonly height: number;
+  /** Ground offset south of the Works, in tiles: the ship comes in on a slant from the north and leaves the same way. */
+  readonly offsetDy: number;
+  /** Nose-down pitch while it dives in, nose-up as it climbs out (radians; positive = nose down). */
+  readonly pitch: number;
   readonly alpha: number;
   /** 0 closed (folded up against the nose) .. 1 open (resting on the ground). */
   readonly rampOpen: number;
   /** Engine burn, 0..1: hard on the way down, idling while unloading, full on lift-off. */
   readonly burn: number;
+  /** Re-entry heat, 0..1: the fiery streak wrapping the ship high in the dive. */
+  readonly heat: number;
+  /** Landing legs, 0 stowed .. 1 down. */
+  readonly legs: number;
   /** Ground dust kicked up by the landing, 0..1 (0 when none). */
   readonly dust: number;
 };
 
+/** How far north of the Works the ship starts its dive, and ends its climb, in tiles. */
+export const SALVAGE_SHIP_APPROACH_DY = -2.6;
+const DIVE_PITCH = 0.42;
+
 export const salvageShipAt = (ageMs: number): SalvageShipFrame => {
-  if (ageMs < 0 || ageMs >= SALVAGE_DELIVERY_TOTAL_MS) return { visible: false, height: 0, alpha: 0, rampOpen: 0, burn: 0, dust: 0 };
+  if (ageMs < 0 || ageMs >= SALVAGE_DELIVERY_TOTAL_MS) {
+    return { visible: false, height: 0, offsetDy: 0, pitch: 0, alpha: 0, rampOpen: 0, burn: 0, heat: 0, legs: 0, dust: 0 };
+  }
   const hover = SALVAGE_SHIP_HOVER_HEIGHT;
   const fall = clamp01(ageMs / SALVAGE_SHIP_DESCENT_MS);
   const rise = clamp01((ageMs - SALVAGE_DEPART_START_MS) / SALVAGE_DEPART_MS);
-  const height = ageMs < SALVAGE_DEPART_START_MS
-    ? lerp(SALVAGE_SHIP_ORBIT_HEIGHT, hover, easeOut(fall))
-    : lerp(hover, SALVAGE_SHIP_ORBIT_HEIGHT, easeIn(rise));
+  const departing = ageMs >= SALVAGE_DEPART_START_MS;
+  // Height eases out on the way down (brakes hard over the Works); the slant
+  // closes a little faster, so the last stretch is a near-vertical settle.
+  const height = departing ? lerp(hover, SALVAGE_SHIP_ORBIT_HEIGHT, easeIn(rise)) : lerp(SALVAGE_SHIP_ORBIT_HEIGHT, hover, easeOut(fall));
+  const slant = departing ? easeIn(clamp01((rise - 0.15) / 0.85)) : 1 - easeOut(clamp01(fall / 0.8));
+  const offsetDy = SALVAGE_SHIP_APPROACH_DY * slant;
+  const pitch = departing ? -DIVE_PITCH * 0.8 * easeOut(clamp01(rise / 0.5)) : DIVE_PITCH * (1 - easeOut(clamp01(fall / 0.85)));
   const opening = clamp01((ageMs - SALVAGE_SHIP_DESCENT_MS) / SALVAGE_RAMP_OPEN_MS);
   const closing = clamp01((ageMs - SALVAGE_RAMP_CLOSE_START_MS) / SALVAGE_RAMP_CLOSE_MS);
   const rampOpen = easeOut(opening) * (1 - easeIn(closing));
-  const burn = ageMs < SALVAGE_SHIP_DESCENT_MS
-    ? 0.55 + 0.45 * fall
-    : ageMs < SALVAGE_DEPART_START_MS ? 0.25 : 0.7 + 0.3 * (1 - rise);
+  const burn = !departing && ageMs < SALVAGE_SHIP_DESCENT_MS ? 0.45 + 0.55 * fall : departing ? 0.7 + 0.3 * (1 - rise) : 0.25;
+  const heat = departing ? 0 : clamp01(ageMs / 180) * (1 - clamp01(fall / 0.55));
+  const legs = departing ? 1 - clamp01(rise / 0.25) : clamp01((fall - 0.65) / 0.3);
   const fadeIn = clamp01(ageMs / 250);
   const fadeOut = 1 - clamp01((rise - 0.6) / 0.4);
-  const landing = (ageMs - SALVAGE_SHIP_DESCENT_MS * 0.7) / 1300;
-  const liftoff = (ageMs - SALVAGE_DEPART_START_MS) / 900;
+  const landing = (ageMs - SALVAGE_SHIP_DESCENT_MS * 0.7) / 1500;
+  const liftoff = (ageMs - SALVAGE_DEPART_START_MS) / 1000;
   const pulse = (p: number): number => (p <= 0 || p >= 1 ? 0 : Math.sin(Math.PI * p));
-  return { visible: true, height, alpha: fadeIn * fadeOut, rampOpen, burn, dust: Math.max(pulse(landing), pulse(liftoff) * 0.7) };
+  return {
+    visible: true, height, offsetDy, pitch, alpha: fadeIn * fadeOut, rampOpen, burn, heat, legs,
+    dust: Math.max(pulse(landing), pulse(liftoff) * 0.7)
+  };
+};
+
+/** Navigation-light blink, 0..1, for light `index` (0 port, 1 starboard, 2 strobe). Shared so both maps blink alike. */
+export const salvageNavLight = (ageMs: number, index: number): number => {
+  if (index === 2) return (ageMs % 900) < 70 ? 1 : 0;
+  return 0.35 + 0.65 * ((ageMs + index * 450) % 1200 < 600 ? 1 : 0);
 };
 
 export type SalvageMarcherFrame = {

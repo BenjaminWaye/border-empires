@@ -1,4 +1,5 @@
-import { Group } from "three";
+import { AnimationClip, Bone, BoxGeometry, Group, MeshStandardMaterial, Skeleton, SkinnedMesh, type Object3D } from "three";
+import type { PopupMarineTemplate } from "../client-map-3d-popup-marine/popup-marine-asset.js";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import { emitSalvageDeliveries } from "./client-salvage-delivery-detect.js";
@@ -64,8 +65,13 @@ describe("salvage delivery detection", () => {
 });
 
 describe("salvage delivery timeline", () => {
-  it("drops the ship from orbit, hovers while unloading, then climbs away", () => {
+  it("drops the ship from orbit on a slant, hovers while unloading, then climbs away", () => {
     expect(salvageShipAt(0).height).toBeCloseTo(SALVAGE_SHIP_ORBIT_HEIGHT);
+    expect(salvageShipAt(0).offsetDy).toBeLessThan(-2);
+    expect(salvageShipAt(100).heat).toBeGreaterThan(0.3);
+    expect(salvageShipAt(SALVAGE_SHIP_DESCENT_MS).offsetDy).toBeCloseTo(0);
+    expect(salvageShipAt(SALVAGE_SHIP_DESCENT_MS).legs).toBeCloseTo(1);
+    expect(salvageShipAt(SALVAGE_SHIP_DESCENT_MS).heat).toBe(0);
     expect(salvageShipAt(SALVAGE_SHIP_DESCENT_MS).height).toBeCloseTo(SALVAGE_SHIP_HOVER_HEIGHT);
     expect(salvageShipAt(SALVAGE_MARCH_START_MS).rampOpen).toBeCloseTo(1);
     expect(salvageShipAt(SALVAGE_DEPART_START_MS).rampOpen).toBeCloseTo(0);
@@ -87,19 +93,44 @@ describe("salvage delivery timeline", () => {
   });
 });
 
+const fakeMarineTemplate = (): PopupMarineTemplate => {
+  const bone = new Bone();
+  const mesh = new SkinnedMesh(new BoxGeometry(0.1, 0.1, 0.1), new MeshStandardMaterial());
+  mesh.add(bone);
+  mesh.bind(new Skeleton([bone]));
+  const root = new Group();
+  root.add(mesh);
+  return { root, clips: new Map([["PistolWalk", new AnimationClip("PistolWalk", 1, [])]]) };
+};
+
 describe("createSalvageDeliveryFxLayer", () => {
-  it("builds the ship and the column, plays them out and clears up", () => {
+  const entry = { x: 1, y: 1, startedAt: 0, color: "#3366ff", marchers: salvageMarcherTargets({ x: 1, y: 1 }, () => false, { width: 50, height: 50 }) };
+
+  it("lands the dropship, marches the game's marine down the ramp in the House's colour, and clears up", async () => {
     const scene = new Group();
-    const layer = createSalvageDeliveryFxLayer(scene);
-    const entry = { x: 1, y: 1, startedAt: 0, color: "#3366ff", marchers: salvageMarcherTargets({ x: 1, y: 1 }, () => false, { width: 50, height: 50 }) };
+    const layer = createSalvageDeliveryFxLayer(scene, undefined, () => Promise.resolve(fakeMarineTemplate()));
     layer.spawn(0, 0, 0, entry, 1_000, entry.marchers.map(() => 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     layer.update(1_000 + SALVAGE_MARCH_START_MS + 300);
-    expect(layer.group.children).toHaveLength(1);
-    const visibleMarchers = layer.group.children[0]!.children.filter((c) => c.type === "Group" && c.visible && c.children.length === 2);
-    expect(visibleMarchers.length).toBeGreaterThan(0);
+    const deliveryGroup = layer.group.children[0]!;
+    const marines: Object3D[] = [];
+    deliveryGroup.traverse((o) => { if (o instanceof SkinnedMesh) marines.push(o); });
+    expect(marines).toHaveLength(SALVAGE_MARCHER_COUNT);
+    const walking = marines.filter((m) => m.parent!.parent!.visible);
+    expect(walking.length).toBeGreaterThan(0);
+    expect(((walking[0] as SkinnedMesh).material as MeshStandardMaterial).color.getHexString()).toBe("3366ff");
+    expect(deliveryGroup.getObjectByName("salvage-dropship")?.visible).toBe(true);
     layer.update(1_000 + SALVAGE_DELIVERY_TOTAL_MS);
     expect(layer.group.children).toHaveLength(0);
     layer.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+
+  it("still flies the ship when the marine model has not loaded", () => {
+    const layer = createSalvageDeliveryFxLayer(new Group(), undefined, () => new Promise(() => {}));
+    layer.spawn(0, 0, 0, entry, 0, entry.marchers.map(() => 0));
+    layer.update(SALVAGE_SHIP_DESCENT_MS / 2);
+    expect(layer.group.getObjectByName("salvage-dropship")?.visible).toBe(true);
+    layer.dispose();
   });
 });
