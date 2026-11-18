@@ -1,4 +1,4 @@
-import { networkSupplyStatus } from "../resource-networks/resource-network-status.js";
+import { biotaDemandTowns, networkSupplyStatus } from "../resource-networks/resource-network-status.js";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
@@ -423,7 +423,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   return {
     incomePerMinute,
     integrityEconMult,
-    networkSupply: networkSupplyStatus(sites, summary.ownedTownTierByTile.values()),
+    networkSupply: networkSupplyStatus(sites, biotaDemandTowns(player.id, orderedTownTiles, tiles, dormantEconomicStructureKeys)),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),

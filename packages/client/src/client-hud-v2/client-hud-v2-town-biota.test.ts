@@ -17,7 +17,7 @@ const city = {
     hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
   }
 } as unknown as Tile;
-const left = (biota?: { received: number; needed: number; manpowerTier: "TOWN" | "CITY" }, biotaSteps: BiotaStep[] = []) =>
+const left = (biota?: { received: number; needed: number; manpowerTier: "TOWN" | "CITY"; local?: number }, biotaSteps: BiotaStep[] = []) =>
   townScreenRegions({
     town: city, focus: city, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined,
     ...(biota ? { biota: { tileKey: "4,4", ...biota } } : {}), biotaSteps
@@ -31,6 +31,14 @@ describe("HUD v2 town screen luxury biota", () => {
   afterEach(() => {
     screen.id = null;
     document.body.innerHTML = "";
+  });
+
+  it("says how many of a town's biota slots its own Vivaria cover, and offers a Vivarium when short", () => {
+    const html = left({ received: 1, needed: 1, manpowerTier: "CITY", local: 1 });
+    expect(html).toContain("● 1 of 1 (1 from Vivaria) · Full manpower");
+    const short = left(unruly, [{ kind: "vivarium" }]);
+    expect(short).toContain('data-v2-info-structure="VIVARIUM"');
+    expect(short).toContain("+1 slot each");
   });
 
   it("shows an unruly town's biota shortfall and the manpower it actually gives", () => {

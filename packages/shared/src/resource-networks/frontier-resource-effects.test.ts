@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  allocateBiotaSlots, biotaManpowerTier, biotaSlotsNeededForTier, frontierSiteCaptureValue,
+  allocateBiotaSlots, biotaManpowerTier, biotaSlotsNeededForTier, biotaSlotsNeededFromSites, frontierSiteCaptureValue,
   salvageArmsMultiplier, salvageLoadsRemaining, salvageTributeManpower
 } from "./frontier-resource-effects.js";
 
@@ -25,6 +25,24 @@ describe("luxury biota", () => {
     expect(allocation.get("home-city-b")).toEqual({ received: 1, needed: 1, manpowerTier: "CITY" });
     expect(allocation.get("captured-metro")).toEqual({ received: 1, needed: 3, manpowerTier: "CITY" });
     expect(allocation.has("small")).toBe(false);
+  });
+  it("lets each Vivarium cover one of its own town's slots so it draws less from biota sites", () => {
+    expect(biotaSlotsNeededFromSites("METROPOLIS", 0)).toBe(3);
+    expect(biotaSlotsNeededFromSites("METROPOLIS", 2)).toBe(1);
+    expect(biotaSlotsNeededFromSites("CITY", 4)).toBe(0);
+    expect(biotaSlotsNeededFromSites("TOWN", 1)).toBe(0);
+    const allocation = allocateBiotaSlots([
+      { key: "old-metro", tier: "METROPOLIS", heldSince: 100, vivaria: 2 },
+      { key: "new-city", tier: "CITY", heldSince: 200 },
+      { key: "self-sufficient-city", tier: "CITY", heldSince: 300, vivaria: 3 }
+    ], 2);
+    expect(allocation.get("old-metro")).toEqual({ received: 3, needed: 3, manpowerTier: "METROPOLIS", local: 2 });
+    expect(allocation.get("new-city")).toEqual({ received: 1, needed: 1, manpowerTier: "CITY" });
+    expect(allocation.get("self-sufficient-city")).toEqual({ received: 1, needed: 1, manpowerTier: "CITY", local: 1 });
+  });
+  it("keeps a town with Vivaria but no biota working above Town tier", () => {
+    expect(allocateBiotaSlots([{ key: "metro", tier: "METROPOLIS", heldSince: 0, vivaria: 1 }], 0).get("metro"))
+      .toEqual({ received: 1, needed: 3, manpowerTier: "CITY", local: 1 });
   });
 });
 

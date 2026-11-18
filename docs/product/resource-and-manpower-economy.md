@@ -273,7 +273,17 @@ buildings and no per-building slot caps. Formulas live in
 biota slots. A City needs 1 slot, a Great City 2, a Metropolis 3; Settlements
 and Towns need none. A town above Town tier gives Town-level manpower with no
 biota, and each slot it receives raises its manpower by one tier, up to its
-real tier (so a Metropolis with 1 slot gives City manpower). The town keeps its
+real tier (so a Metropolis with 1 slot gives City manpower). A town's own
+Vivaria cover slots before biota sites do: each active Vivarium on the town
+tile or its support ring (`countSupportedStructures`) covers
+`VIVARIUM_BIOTA_SLOTS` (1) slot, so the town draws only the rest from biota
+sites and the freed slots go to other towns. The Vivarium is a Manpower-branch
+building unlocked by Census Office (`census-records`): 200 manpower, 1 FOOD
+slot upkeep, `same_tile` placement with no per-town limit, and it goes dormant
+like any building whose upkeep slot is missing. `BiotaTownSupply.received`
+counts Vivarium slots too, and `local` reports how many came from Vivaria. The
+economy panel's "biota sites in use" counts only what towns still need after
+their Vivaria (`biotaDemandTowns`). The town keeps its
 real tier, population, Coin and growth. Ancillary Depot capacity bonuses scale
 with the tier the town is working as. Slots go to towns in the order they were
 acquired, oldest first (`Runtime.tileSettledAtByKey`, which resets on capture),

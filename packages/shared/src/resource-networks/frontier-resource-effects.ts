@@ -17,13 +17,23 @@ export const biotaManpowerTier = (tier: PopulationTier, slotsReceived: number): 
   return TIER_ORDER[TIER_RANK("TOWN") + Math.min(needed, Math.max(0, Math.floor(slotsReceived)))]!;
 };
 
-export type BiotaTown = { readonly key: string; readonly tier: PopulationTier; readonly heldSince: number };
-export type BiotaTownSupply = { readonly received: number; readonly needed: number; readonly manpowerTier: PopulationTier };
+/** Biota slots each active Vivarium covers for the town it supports. */
+export const VIVARIUM_BIOTA_SLOTS = 1;
+
+/** Slots a town still needs from biota sites once its Vivaria are counted. */
+export const biotaSlotsNeededFromSites = (tier: PopulationTier, vivaria = 0): number =>
+  Math.max(0, biotaSlotsNeededForTier(tier) - Math.max(0, Math.floor(vivaria)) * VIVARIUM_BIOTA_SLOTS);
+
+/** `vivaria`: active Vivaria supporting the town; each covers one slot without drawing on biota sites. */
+export type BiotaTown = { readonly key: string; readonly tier: PopulationTier; readonly heldSince: number; readonly vivaria?: number };
+/** `received` counts every covered slot; `local` is the part the town's own Vivaria cover (omitted when 0). */
+export type BiotaTownSupply = { readonly received: number; readonly needed: number; readonly manpowerTier: PopulationTier; readonly local?: number };
 
 /**
  * Hands biota slots to towns in the order they were acquired, oldest first
  * (ties by tile key), so a new conquest never takes biota from towns already
- * held. Only towns above Town tier appear in the result.
+ * held. A town's own Vivaria cover their slots first, so it draws only the
+ * rest from biota sites. Only towns above Town tier appear in the result.
  */
 export const allocateBiotaSlots = (towns: Iterable<BiotaTown>, slots: number): Map<string, BiotaTownSupply> => {
   const result = new Map<string, BiotaTownSupply>();
@@ -32,9 +42,11 @@ export const allocateBiotaSlots = (towns: Iterable<BiotaTown>, slots: number): M
     .sort((a, b) => a.heldSince - b.heldSince || a.key.localeCompare(b.key));
   for (const town of ordered) {
     const needed = biotaSlotsNeededForTier(town.tier);
-    const received = Math.min(needed, remaining);
-    remaining -= received;
-    result.set(town.key, { received, needed, manpowerTier: biotaManpowerTier(town.tier, received) });
+    const local = needed - biotaSlotsNeededFromSites(town.tier, town.vivaria);
+    const fromSites = Math.min(needed - local, remaining);
+    remaining -= fromSites;
+    const received = local + fromSites;
+    result.set(town.key, { received, needed, manpowerTier: biotaManpowerTier(town.tier, received), ...(local > 0 ? { local } : {}) });
   }
   return result;
 };

@@ -17,7 +17,8 @@ export function townBiotaLineHtml(
 ): string | undefined {
   const status = biotaTowns?.find(entry => entry.tileKey === tileKey);
   if (!status || status.needed <= 0) return undefined;
-  const head = `Biota ${pips(status.received, status.needed)} ${status.received} of ${status.needed}`;
+  const local = status.local ? ` (${status.local} from Vivaria)` : "";
+  const head = `Biota ${pips(status.received, status.needed)} ${status.received} of ${status.needed}${local}`;
   if (status.received >= status.needed) return `${escapeHtml(head)} · full manpower`;
   const full = terrainAdjustedTownManpower(tier, terrain.terrainProfile, terrain.coastal);
   const reduced = terrainAdjustedTownManpower(status.manpowerTier, terrain.terrainProfile, terrain.coastal);

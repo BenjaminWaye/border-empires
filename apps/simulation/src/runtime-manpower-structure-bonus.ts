@@ -1,6 +1,6 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
 import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier,
-  type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
+  type BiotaTown, type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -157,7 +157,11 @@ export const cachedManpowerStructureBonusForPlayer = (
   const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
   const sites = ctx.networkSitesForPlayer?.(player.id) ??
     developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds);
-  const biotaTownSupply = biotaSupplyForTowns(summary.ownedTownTierByTile, sites.LUXURY_BIOTA, ctx.townHeldSince);
+  const vivariaAt = (townKey: string): number => {
+    const townTile = ctx.tiles.get(townKey);
+    return townTile ? countSupportedStructures(player.id, townTile, "VIVARIUM", ctx.tiles, dormantEconomicStructureKeys ?? new Set()) : 0;
+  };
+  const biotaTownSupply = biotaSupplyForTowns(summary.ownedTownTierByTile, sites.LUXURY_BIOTA, ctx.townHeldSince, vivariaAt);
   const ancillaryFactoryCapacityBonusByTown = new Map<string, number>();
   for (const townKey of summary.ownedTownTierByTile.keys()) {
     const townTile = ctx.tiles.get(townKey);
@@ -195,11 +199,19 @@ export const cachedManpowerStructureBonusForPlayer = (
   return result;
 };
 
-/** Biota allocation for towns above Town tier; undefined when no owned town needs biota. Bounded by owned towns. */
+/**
+ * Biota allocation for towns above Town tier; undefined when no owned town needs biota.
+ * Each town's own Vivaria cover slots first. Bounded by owned towns × support ring.
+ */
 const biotaSupplyForTowns = (
-  townTiers: ReadonlyMap<string, PopulationTier>, biotaSites: number, heldSince: ((key: string) => number | undefined) | undefined
+  townTiers: ReadonlyMap<string, PopulationTier>, biotaSites: number, heldSince: ((key: string) => number | undefined) | undefined,
+  vivariaAt: (townKey: string) => number
 ): ReadonlyMap<string, BiotaTownSupply> | undefined => {
-  const towns: { key: string; tier: PopulationTier; heldSince: number }[] = [];
-  for (const [key, tier] of townTiers) if (biotaSlotsNeededForTier(tier) > 0) towns.push({ key, tier, heldSince: heldSince?.(key) ?? 0 });
+  const towns: BiotaTown[] = [];
+  for (const [key, tier] of townTiers) {
+    if (biotaSlotsNeededForTier(tier) <= 0) continue;
+    const vivaria = vivariaAt(key);
+    towns.push({ key, tier, heldSince: heldSince?.(key) ?? 0, ...(vivaria > 0 ? { vivaria } : {}) });
+  }
   return towns.length > 0 ? allocateBiotaSlots(towns, biotaSites * BIOTA_SLOTS_PER_SITE) : undefined;
 };

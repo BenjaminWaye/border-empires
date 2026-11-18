@@ -69,6 +69,8 @@ export type BiotaTownStatus = {
   needed: number;
   /** The tier whose manpower the town gives right now. */
   manpowerTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  /** Slots of `received` covered by the town's own Vivaria (omitted when none). */
+  local?: number;
 };
 
 export type FrontierCombatResultChange = {

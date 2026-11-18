@@ -3,7 +3,7 @@
 // manpower (ManpowerBreakdown.biotaTowns). The screen shows how many slots it
 // gets and works the manpower card out from the tier it is actually giving.
 
-import { BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, type PopulationTier } from "@border-empires/shared";
+import { BIOTA_SLOTS_PER_SITE, RESOURCE_NETWORKS, STRUCTURE_DISPLAY_NAMES, VIVARIUM_BIOTA_SLOTS, type PopulationTier } from "@border-empires/shared";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
@@ -25,6 +25,7 @@ const pips = (received: number, needed: number): string => "●".repeat(received
 const { building, buildingName } = RESOURCE_NETWORKS.LUXURY_BIOTA;
 // The building name opens its info card (what it is, where it goes, which tech unlocks it); see manifestClick.
 const estateLink = `<button type="button" class="inline-info-link" data-v2-info-structure="${building}" title="About ${esc(buildingName)}">${esc(buildingName)}</button>`;
+const vivariumLink = `<button type="button" class="inline-info-link" data-v2-info-structure="VIVARIUM" title="About ${esc(STRUCTURE_DISPLAY_NAMES.VIVARIUM)}">${esc(STRUCTURE_DISPLAY_NAMES.VIVARIUM)}</button>`;
 const gotoLink = (x: number, y: number): string => `<button type="button" class="inline-info-link" data-v2-town-goto="${x},${y}" title="Show on map">(${x}, ${y})</button>`;
 
 // Matches networkBiomePriority (resource-network-biomes.ts): grass-family biomes, jungle and marsh preferred.
@@ -43,13 +44,15 @@ const stepHtml = (step: BiotaStep): string => {
     case "capture": return `Nearest biota ${gotoLink(step.x, step.y)}`;
     case "search": return `No biota seen yet · ${HABITAT}`;
     case "more": return `Capture more biota · ${HABITAT}`;
+    case "vivarium": return `Or build a ${vivariumLink} on this town's support tiles (+${VIVARIUM_BIOTA_SLOTS} slot each)`;
   }
 };
 
 export const townBiota = (tier: PopulationTier, status: BiotaTownStatus | undefined, steps: readonly BiotaStep[] = []): TownBiota => {
   if (!status || status.needed <= 0) return { manpowerTier: tier, rowHtml: "" };
   const short = status.received < status.needed;
-  const head = `${pips(status.received, status.needed)} ${status.received} of ${status.needed}`;
+  const local = status.local ? ` (${status.local} from Vivaria)` : "";
+  const head = `${pips(status.received, status.needed)} ${status.received} of ${status.needed}${local}`;
   const detail = short ? head : `${head} · Full manpower`;
   const stepLines = short ? steps.map((step) => `<span class="v2t-built-mods">${stepHtml(step)}</span>`).join("") : "";
   const rowHtml = `<div class="v2t-built"><span><span class="v2t-built-name">${short ? "Unruly · luxury biota" : "Luxury biota"}</span><span class="v2t-built-mods"><span class="v2t-mod-${short ? "negative" : "positive"}">${esc(detail)}</span></span>${stepLines}</span></div>`;

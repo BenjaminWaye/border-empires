@@ -100,6 +100,11 @@ describe("ClientMessageSchema", () => {
     ).toThrow();
   });
 
+  it("accepts BUILD_ECONOMIC_STRUCTURE for the Vivarium", () => {
+    expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "VIVARIUM" }))
+      .toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "VIVARIUM" });
+  });
+
   it("accepts BUILD_ECONOMIC_STRUCTURE for both Weapons Factories", () => {
     // Regression: the two Weapons Factories were never added to this
     // message's structureType enum, so once the client-side dispatch bug

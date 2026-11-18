@@ -6,8 +6,12 @@ import { biotaSteps } from "./client-hud-v2-town-biota-steps.js";
 const CHARTER = "frontier-concessions";
 const site = (x: number, y: number, extra: Partial<Tile> = {}): Tile =>
   ({ x, y, terrain: "LAND", resource: "LUXURY_BIOTA", ...extra }) as Tile;
-const steps = (tiles: Tile[], opts: { charter?: boolean; otherTownsSlots?: number; from?: { x: number; y: number } } = {}) =>
-  biotaSteps({ me: "me", tiles, techIds: opts.charter ? [CHARTER] : [], techName: "Frontier Export Charter", otherTownsSlots: opts.otherTownsSlots ?? 0, from: opts.from ?? { x: 10, y: 10 } });
+// Every list ends with the local Vivarium alternative; the cases below check what comes before it.
+const steps = (tiles: Tile[], opts: { charter?: boolean; otherTownsSlots?: number; from?: { x: number; y: number } } = {}) => {
+  const all = biotaSteps({ me: "me", tiles, techIds: opts.charter ? [CHARTER] : [], techName: "Frontier Export Charter", otherTownsSlots: opts.otherTownsSlots ?? 0, from: opts.from ?? { x: 10, y: 10 } });
+  expect(all.at(-1)).toEqual({ kind: "vivarium" });
+  return all.slice(0, -1);
+};
 
 // Playtest 2026-11-17: the town screen said "Cultivation Estate supplies 2" without saying
 // whether you could build one, or where any biota was.

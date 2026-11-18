@@ -1,0 +1,76 @@
+import { describe, expect, it, vi } from "vitest";
+import { MANPOWER_REFILL_WINDOW_MS, RESOURCE_NETWORKS, lastManpowerRefillAtMs, structureBuildDurationMs } from "@border-empires/shared";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
+import { SimulationRuntime } from "../runtime/runtime.js";
+import { afcModuleFixtureTile, buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
+
+// Vivarium: each active copy in a town's support ring covers one of that
+// town's luxury biota slots, so it draws one fewer from biota sites.
+const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
+const BIOTA_TECH = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
+const land = (x: number, y: number): DomainTileState => ({ x, y, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
+
+type Fixture = { tier: "CITY" | "METROPOLIS"; vivaria: number; biotaSite: boolean; techs?: string[]; manpower?: number; now?: () => number };
+function fixture({ tier, vivaria, biotaSite, techs = [BIOTA_TECH, "census-records"], manpower = 0, now = () => boundary }: Fixture): SimulationRuntime {
+  const tiles: DomainTileState[] = [];
+  for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x, y));
+  tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name: "Heartland", type: "MARKET", populationTier: tier, population: 50000, maxPopulation: 100000 };
+  for (const [x, y] of ([[9, 9], [10, 9], [11, 9]] as const).slice(0, vivaria)) {
+    tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId: "p", type: "VIVARIUM", status: "active" };
+  }
+  for (let i = 0; i < 24; i += 1) tiles.push({ ...land(40 + i, 40), resource: "FARM" });
+  tiles.push({
+    ...land(20, 20), resource: "LUXURY_BIOTA",
+    ...(biotaSite ? { economicStructure: { ownerId: "p", type: RESOURCE_NETWORKS.LUXURY_BIOTA.building, status: "active" as const } } : {})
+  });
+  return new SimulationRuntime({
+    now,
+    initialPlayers: new Map([["p", buildPlayer("p", {
+      points: 500, manpower, manpowerUpdatedAt: boundary, manpowerCapSnapshot: 10000, landingReserveGranted: true, techIds: new Set(techs)
+    })]]),
+    seedTiles: new Map(),
+    initialState: { tiles: [afcModuleFixtureTile("p"), ...tiles], activeLocks: [] }
+  });
+}
+const player = (runtime: SimulationRuntime) => runtime.exportState().players.find(entry => entry.id === "p")!;
+const unrulyRow = (runtime: SimulationRuntime) => player(runtime).manpowerBreakdown?.cap.find(row => row.label.startsWith("Unruly town"));
+
+describe("Vivarium in the real runtime", () => {
+  it("covers the slot a Metropolis is missing after one biota site (2 slots)", () => {
+    const short = fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: true });
+    const covered = fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: true });
+    expect(unrulyRow(short)?.amount).toBe(-(1350 - 750));
+    expect(unrulyRow(covered)).toBeUndefined();
+    expect(player(covered).manpowerCap! - player(short).manpowerCap!).toBe(1350 - 750);
+    expect(player(covered).manpowerBreakdown?.biotaTowns).toEqual([{ tileKey: "10,10", received: 3, needed: 3, manpowerTier: "METROPOLIS", local: 1 }]);
+  });
+  it("lifts a Metropolis with no biota at all one tier per Vivarium", () => {
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 1, biotaSite: false }))?.amount).toBe(-(1350 - 450));
+    expect(unrulyRow(fixture({ tier: "METROPOLIS", vivaria: 3, biotaSite: false }))).toBeUndefined();
+  });
+  it("frees the biota site a City no longer needs in the economy panel", () => {
+    const used = (vivaria: number) =>
+      buildLivePlayerEconomySnapshot("p", fixture({ tier: "CITY", vivaria, biotaSite: true }).exportState()).resourceSlots.bonusSupply!.used.LUXURY_BIOTA;
+    expect(used(0)).toBe(1);
+    expect(used(1)).toBe(0);
+  });
+  it("builds through the real command once Census Office is researched, and is refused without it", async () => {
+    let now = boundary;
+    vi.useFakeTimers();
+    const runtime = fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: false, manpower: 500, now: () => now });
+    const seen = collectEvents(runtime);
+    runtime.submitCommand({ commandId: "build-vivarium", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: now, type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 11, y: 10, structureType: "VIVARIUM" }) });
+    await Promise.resolve();
+    expect(seen.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
+    now += structureBuildDurationMs("VIVARIUM");
+    await vi.advanceTimersByTimeAsync(structureBuildDurationMs("VIVARIUM"));
+    expect(player(runtime).manpowerBreakdown?.biotaTowns?.[0]).toMatchObject({ received: 1, local: 1, manpowerTier: "CITY" });
+    vi.useRealTimers();
+    const locked = fixture({ tier: "METROPOLIS", vivaria: 0, biotaSite: false, manpower: 500, techs: [BIOTA_TECH] });
+    const rejected = collectEvents(locked);
+    locked.submitCommand({ commandId: "locked-vivarium", sessionId: "s", playerId: "p", clientSeq: 1, issuedAt: now, type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 11, y: 10, structureType: "VIVARIUM" }) });
+    await Promise.resolve();
+    expect(rejected.some(event => event.eventType === "COMMAND_REJECTED")).toBe(true);
+  });
+});
