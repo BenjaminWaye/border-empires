@@ -135,7 +135,7 @@ export const createSalvageDeliveryFxLayer = (scene: Object3D): SalvageDeliveryFx
     rampPivot.add(ramp);
     ship.add(hull, wings, spine, cockpit, podL, podR, burnCone, burnGlow, holdGlow, rampPivot);
 
-    const shadow = new Mesh(shadowGeometry, own(new MeshBasicMaterial({ color: "#000000", transparent: true, opacity: 0, depthWrite: false })));
+    const shadow = new Mesh(shadowGeometry, own(new MeshBasicMaterial({ toneMapped: false, color: "#000000", transparent: true, opacity: 0, depthWrite: false })));
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.01;
     const dust: Sprite[] = [];
