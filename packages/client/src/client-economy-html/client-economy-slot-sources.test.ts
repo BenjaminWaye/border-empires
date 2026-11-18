@@ -80,4 +80,10 @@ describe("Economy Slot Sources", () => {
     expect(slotSourcesForResource(titaniumArgs(3, undefined), "TITANIUM")).toEqual([{ label: "Slots", amountPerMinute: 3, count: 1 }]);
     expect(slotSourcesForResource(titaniumArgs(0, undefined), "TITANIUM")).toEqual([]);
   });
+
+  // Playtest 2026-11-18: Food said "No tiles yet" while the header counted the farms' slots.
+  it("shows the supply total when a resource with supply has no rows", () => {
+    expect(slotSourcesForResource(titaniumArgs(12, emptyResourceSlotSources()), "TITANIUM")).toEqual([{ label: "Slots", amountPerMinute: 12, count: 1 }]);
+    expect(slotSourcesForResource(titaniumArgs(0, emptyResourceSlotSources()), "TITANIUM")).toEqual([]);
+  });
 });

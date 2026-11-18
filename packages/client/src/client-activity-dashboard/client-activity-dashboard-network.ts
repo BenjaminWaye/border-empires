@@ -195,6 +195,8 @@ export const handleActivityDashboardMessage = (msg: Record<string, unknown>, sta
   }
   if (msg.type === "ACTIVITY_SEEN_ACKNOWLEDGED") {
     applyActivitySeenAcknowledgedMessage(msg, state);
+    // The Chronicle button's unread count reads the new watermark: redraw it now, not on the next unrelated refresh.
+    deps.renderHud();
     return true;
   }
   if (msg.type === "WORLD_PULSE") {

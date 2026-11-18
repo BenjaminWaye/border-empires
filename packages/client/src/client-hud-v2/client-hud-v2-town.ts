@@ -6,7 +6,7 @@
 // at the bottom. All actions reuse the tile menu's own definitions.
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
-import { townCoinNote, townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
+import { townCoinNote, townPlotIncomeNote, townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
@@ -90,7 +90,10 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const growth = townGrowth(town);
   // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
-  const fed = townCoinNote(town);
+  const coinNote = townCoinNote(town);
+  // Sabotage (or a lost garrison) is the one zero-coin cause the Fed/plots note doesn't already name.
+  const zeroWhy = known(town.goldPerMinute) && tileCoinPerMinute(input.town) < 0.0001 ? townZeroCoinReason(input.town) : undefined;
+  const fed = zeroWhy && !coinNote.includes(zeroWhy) ? [coinNote, zeroWhy].filter(Boolean).join(" · ") : coinNote;
   // Match the town overview's base contribution; optional manpowerCap is
   // not the town's tier-and-terrain contribution. Building bonuses stay below.
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
@@ -109,7 +112,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const foodBase = townFoodSlotDemandForTier(town.populationTier);
   const stats = [
     // A town with its fed state but no coin figure is mid-refresh (the tile-detail request is in flight), not coinless.
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) || zeroWhy ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
