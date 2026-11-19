@@ -9,7 +9,8 @@ import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
-import { houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { HOUSE_CHARGE_RARITY_LABEL } from "./client-house-charges-labels.js";
@@ -171,9 +172,16 @@ export const renderHouseChargesPanel = (
   const html = houseChargesPanelHtml(state, deps.now());
   // Compared with what was last written, not innerHTML: the browser rewrites the card art's `<rect/>` as
   // `<rect></rect>`, so an innerHTML check re-rendered every frame (restarting the deal, dropping taps).
+  const opening = !writtenHtml.has(deps.panelEl);
   if (writtenHtml.get(deps.panelEl) !== html || !deps.panelEl.firstChild) {
     deps.panelEl.innerHTML = html;
     writtenHtml.set(deps.panelEl, html);
+  }
+  // Each time the panel opens, the cards are drawn from the deck and turn over (a first deal has its own, slower draw).
+  const deck = deps.panelEl.querySelector<HTMLElement>(".hcd-deck");
+  if (opening && deck && !deck.classList.contains("is-dealing")) {
+    deck.classList.add("is-drawing");
+    window.setTimeout(() => deck.classList.remove("is-drawing"), HOUSE_CHARGES_DRAW_MS);
   }
   const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
   if (more) {
@@ -210,6 +218,7 @@ export const renderHouseChargesPanel = (
         deps.rerender();
         return;
       }
+      foldHouseChargeCards(deps.panelEl, charge.id);
       showHouseChargeOnMap(state, charge, deps);
       deps.rerender();
     };

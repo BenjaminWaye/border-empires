@@ -1,0 +1,91 @@
+/* House Charges cards in motion (client-house-charges-deck.ts, -fold.ts), owner 2026-11-19:
+   - drawn from a deck and turned over: on a first deal (.is-dealing, slower) and each time the panel opens (.is-drawing);
+   - on desktop, floating freely over the dimmed map instead of sitting in a side panel;
+   - Show on map folds copies of the cards into the dock at the edge of the map (.hcd-fold-layer). */
+
+/* Card back for the turn: the shared card back, on the card's reverse side. */
+.hcd-card { position: relative; }
+.hcd-back {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+  backface-visibility: hidden;
+  transform: rotateY(180deg) translateZ(1px);
+}
+.hcd-back .hc-card { max-width: none; width: 100%; height: 100%; aspect-ratio: auto; box-sizing: border-box; }
+/* isolation (set on every .hc-card) would flatten the turn, so it is lifted while the card turns over. */
+.hcd-deck.is-dealing .hcd-card,
+.hcd-deck.is-drawing .hcd-card { transform-style: preserve-3d; isolation: auto; }
+.hcd-deck.is-dealing .hcd-card > .hc-frame,
+.hcd-deck.is-drawing .hcd-card > .hc-frame { backface-visibility: hidden; }
+.hcd-deck.is-dealing .hcd-back,
+.hcd-deck.is-drawing .hcd-back { visibility: visible; }
+
+/* Drawn from a deck below the middle card, face down, then turned over in place. */
+.hcd-deck.is-dealing .hcd-card { animation: hcd-draw 1s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+.hcd-deck.is-drawing .hcd-card { animation: hcd-draw 0.7s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+.hcd-deck.is-dealing .hcd-card:nth-child(2) { animation-delay: 0.3s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(3) { animation-delay: 0.6s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(4) { animation-delay: 0.9s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(2) { animation-delay: 0.15s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(3) { animation-delay: 0.3s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(4) { animation-delay: 0.45s; }
+/* No opacity here: an animated opacity flattens the card, and the turn would show the face mirrored. */
+@keyframes hcd-draw {
+  0% { transform: translate(var(--hcd-deck-x, 0px), 60vh) rotateY(180deg) scale(0.55); }
+  55% { transform: translate(0, 0) rotateY(180deg) scale(1); }
+  100% { transform: none; }
+}
+
+/* The folding copies: fixed over everything while they fly into the dock. */
+.hcd-fold-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.hcd-fold-layer .hcd-card { position: fixed; margin: 0; max-width: none; animation: none; transform-origin: 50% 50%; }
+
+/* Desktop ("show the cards hovering freely"): no panel frame. The map dims and the cards float side by side in
+   the middle of the screen, bobbing gently and lifting under the pointer. #hud raises specificity over the side
+   panel's own placement rules (#hud.desktop-side-panel-open #side-panel). */
+@media (min-width: 901px) {
+  #hud #side-panel.charges-panel-active {
+    left: 50%;
+    right: auto;
+    width: min(1040px, calc(100vw - 40px));
+    transform: translateX(-50%);
+    border: 0;
+    border-radius: 0;
+    /* The same dim inside and around the panel, so no frame shows. */
+    background: rgba(4, 3, 2, 0.62);
+    backdrop-filter: none;
+    box-shadow: 0 0 0 100vmax rgba(4, 3, 2, 0.62);
+  }
+  #hud #side-panel.charges-panel-active #side-panel-head { border-bottom: 0; background: transparent; text-shadow: 0 2px 6px #000; }
+  #hud #side-panel.charges-panel-active .house-charges-card { border: 0; background: transparent; box-shadow: none; }
+  #hud #side-panel.charges-panel-active .house-charges-intro,
+  #hud #side-panel.charges-panel-active .house-charges-more { max-width: 640px; text-shadow: 0 1px 4px #000; }
+  #hud #side-panel.charges-panel-active .hcd-deck { gap: 28px; padding: 18px 8px 24px; perspective: 1400px; }
+  /* Three columns: the outer cards are drawn from the deck under the middle one. */
+  #hud #side-panel.charges-panel-active .hcd-card:nth-child(3n + 1) { --hcd-deck-x: calc(100% + 28px); }
+  #hud #side-panel.charges-panel-active .hcd-card:nth-child(3n) { --hcd-deck-x: calc(-100% - 28px); }
+  #hud #side-panel.charges-panel-active .hcd-card { box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.85); }
+  #hud #side-panel.charges-panel-active .hcd-card.is-kept { box-shadow: 0 0 0 2px var(--sp-brass-300, #d9ad52), 0 24px 44px -14px rgba(217, 173, 82, 0.55); }
+  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: hcd-float 5s ease-in-out infinite; }
+  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n + 2) { animation-delay: 0.6s; }
+  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n) { animation-delay: 1.2s; }
+  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:hover {
+    animation: none;
+    transform: translateY(-12px) scale(1.02);
+    transition: transform 0.2s ease-out;
+  }
+  #hud:has(#side-panel.charges-panel-active) #mini-map-wrap { visibility: hidden; }
+}
+@keyframes hcd-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hcd-deck.is-dealing .hcd-card,
+  .hcd-deck.is-drawing .hcd-card { animation: none; }
+  .hcd-deck .hcd-back { visibility: hidden; }
+  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: none; }
+}
