@@ -1962,7 +1962,7 @@ export class SimulationRuntime {
 
   /** GetPlayerTradeHoldings: coin and spare supply without a full subscribe (player-trade-holdings.ts). */
   getPlayerTradeHoldings(playerId: string): PlayerTradeHoldings | undefined {
-    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now() }, playerId);
+    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now(), townReturn: this.mapCommandContext() }, playerId);
   }
 
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
@@ -2751,15 +2751,14 @@ export class SimulationRuntime {
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
-      setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
+      setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs),
+      personalImpactEntries: () => this.activityLogs.personalImpactEntries(),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
       onAutoSettlePrefsChanged: (playerId, switchedOn) => { this.autoSettleEligibilityRuntime().refillForOwner(playerId, switchedOn); }
     });
   }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number { return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey); }
-
-  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void { setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs); }
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.state.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 

@@ -4,11 +4,17 @@ import type { ResourceTradeJournalCursor } from "./resource-supply-trades/runtim
 import type { SupplyLedgerResult } from "./resource-supply-trades/resource-supply-ledger.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { townReturnProblem, type TownReturnReadContext } from "./diplomacy-town-return/returnable-towns.js";
+import { applyTownReturn, type TownReturnWriteContext } from "./diplomacy-town-return/town-return-transfer.js";
+import type { PersonalImpactEvent } from "./personal-impact-log/personal-impact-log.js";
 
 // SETTLE_DIPLOMACY_TERMS: moves the coin a truce or alliance deal
 // promised, in one step, before the gateway records the agreement. The
 // gateway waits for this command's COMMAND_RESOLVED / COMMAND_REJECTED, so
 // the simulation stays the authority on whether both sides could pay.
+// Returned towns (the "return a town" term) move in the same step, after the
+// same all-or-nothing check (diplomacy-town-return/).
 
 export type RuntimeDiplomacySettlementContext = {
   players: Map<string, DomainPlayer>;
@@ -24,6 +30,17 @@ export type RuntimeDiplomacySettlementContext = {
   };
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
+  /** Needed only by deals that return towns; a context without them rejects such deals. */
+  tiles?: ReadonlyMap<string, DomainTileState>;
+  replaceTileState?: TownReturnWriteContext["replaceTileState"];
+  tileDeltaFromState?: TownReturnWriteContext["tileDeltaFromState"];
+  personalImpactEntries?: () => readonly PersonalImpactEvent[];
+};
+
+const townReturnContext = (context: RuntimeDiplomacySettlementContext): (TownReturnReadContext & TownReturnWriteContext) | undefined => {
+  const { tiles, replaceTileState, tileDeltaFromState, personalImpactEntries } = context;
+  if (!tiles || !replaceTileState || !tileDeltaFromState || !personalImpactEntries) return undefined;
+  return { tiles, replaceTileState, tileDeltaFromState, personalImpactEntries, emitEvent: context.emitEvent, now: () => context.now?.() ?? Date.now() };
 };
 
 type Goods = DiplomacyGoods;
@@ -63,7 +80,16 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   }
   const agreement = supplies || recurring;
   if (agreement && !context.resourceSupply) return reject("RESOURCE_TRADING_UNAVAILABLE", "Resource trading is unavailable in this world.");
-  const missing = missingFor(proposer, payload.proposerPays) ?? missingFor(target, payload.targetPays);
+  const proposerTowns = payload.proposerPays.towns ?? [];
+  const targetTowns = payload.targetPays.towns ?? [];
+  const towns = proposerTowns.length > 0 || targetTowns.length > 0 ? townReturnContext(context) : undefined;
+  if ((proposerTowns.length > 0 || targetTowns.length > 0) && !towns) return reject("TOWN_RETURN_UNAVAILABLE", "Town returns are unavailable in this world.");
+  // A refund hands back what the deal just moved, so it only needs the towns still held.
+  const refund = Boolean(payload.refund || payload.refundOf);
+  const townProblem = towns
+    ? townReturnProblem(towns, proposer, target.id, proposerTowns, refund) ?? townReturnProblem(towns, target, proposer.id, targetTowns, refund)
+    : undefined;
+  const missing = missingFor(proposer, payload.proposerPays) ?? missingFor(target, payload.targetPays) ?? townProblem;
   const targetCoinDelta = payload.proposerPays.gold - payload.targetPays.gold;
   // A failed gateway agreement releases its supply even when the refund cannot be paid.
   const refundedSupply = payload.refundOf && agreement
@@ -83,6 +109,10 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   }
   transfer(proposer, target, payload.proposerPays);
   transfer(target, proposer, payload.targetPays);
+  if (towns) {
+    applyTownReturn(towns, proposer.id, target.id, proposerTowns, command.commandId);
+    applyTownReturn(towns, target.id, proposer.id, targetTowns, command.commandId);
+  }
   if (payload.refundOf && agreement && !refundedSupply && targetCoinDelta) {
     context.emitEvent({
       eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_COIN_REFUNDED", commandId: command.commandId, playerId: proposer.id,
