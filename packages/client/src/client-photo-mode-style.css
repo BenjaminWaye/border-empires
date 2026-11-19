@@ -4,7 +4,8 @@
    covers overlays appended later (tips, the checklist launcher, modals).
    #photo-mode-exit-control is carved out: it's the only way back to the HUD
    when photo mode was started from the Settings toggle (the button that
-   started it lives inside #hud, which this same rule just hid). */
+   started it lives inside #hud, which this same rule just hid). It fades
+   out while idle but stays clickable. */
 body.photo-mode > *:not(#game-surface):not(script):not(#photo-mode-exit-control) {
   display: none !important;
 }
@@ -23,9 +24,8 @@ body.photo-mode .salvage-toast-layer {
 
 #photo-mode-exit-control {
   position: fixed;
-  /* Clear of the iPhone home-indicator strip, where a tap starts the system swipe instead. */
-  left: calc(16px + env(safe-area-inset-left, 0px));
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  bottom: 16px;
   z-index: 1000;
   padding: 8px 14px;
   border: 1px solid rgba(255, 255, 255, 0.3);

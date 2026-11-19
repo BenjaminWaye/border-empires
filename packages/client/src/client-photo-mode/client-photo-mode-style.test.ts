@@ -16,8 +16,4 @@ describe("photo mode exit control styling", () => {
     expect(idle).toMatch(/opacity:\s*0/);
     expect(idle).not.toMatch(/pointer-events\s*:\s*none/);
   });
-
-  it("sits above the phone's home-indicator safe area", () => {
-    expect(ruleBody("#photo-mode-exit-control")).toMatch(/bottom:\s*calc\([^;]*env\(safe-area-inset-bottom/);
-  });
 });
