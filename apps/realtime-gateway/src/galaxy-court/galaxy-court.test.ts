@@ -33,6 +33,10 @@ describe("computeDomainWeight", () => {
     const base = computeDomainWeight({ holdings: [planet("INDUSTRIAL")], totalStability: 100, committedInfluence: 0 });
     expect(computeDomainWeight({ holdings: [planet("INDUSTRIAL")], totalStability: 100, committedInfluence: 20 })).toBe(base + 4);
   });
+  it("adds the Domain score banked from House Charges, so charges count in the race for the throne", () => {
+    const base = computeDomainWeight({ holdings: [planet("INDUSTRIAL")], totalStability: 0, committedInfluence: 0 });
+    expect(computeDomainWeight({ holdings: [planet("INDUSTRIAL")], totalStability: 0, committedInfluence: 0, houseCharges: 5 })).toBe(base + 5);
+  });
 });
 
 describe("rankDomainWeights", () => {

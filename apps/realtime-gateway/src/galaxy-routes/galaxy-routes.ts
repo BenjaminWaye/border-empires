@@ -16,6 +16,7 @@ import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js"
 import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { isAiWinner, resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid, type WonSeason } from "../galaxy-holdings/galaxy-holdings.js";
 import { stipendPayoutAmounts } from "../galaxy-stipend-payout/galaxy-stipend-payout.js";
+import { chargeDomainWeightByAuthUid } from "../galaxy-house-charge-rewards/galaxy-house-charge-rewards.js";
 import { aiNameFromStored } from "@border-empires/shared";
 import type { SectorCampaign } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
@@ -204,7 +205,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         } else if (tier.tier === "STIPEND") {
           // Same whole-number amount the payout uses; one that rounds to 0
           // pays nothing, so it isn't listed either.
-          const amounts = stipendPayoutAmounts(tier, season.heldChargesByPlayerId?.[tier.playerId] ?? 0);
+          const amounts = stipendPayoutAmounts(tier);
           if (amounts.influence === 0) continue;
           stipends.push({
             seasonId: season.seasonId,
@@ -227,7 +228,14 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       economy = { influence: balance?.influence ?? 0, production: balance?.production ?? 0 };
     }
 
-    return { planets, outposts, stipends, ...(economy ? { economy } : {}) };
+    // Domain score banked from House Charges (by rarity), held with or without territory in space.
+    const chargeDomain = (await chargeDomainWeightByAuthUid({
+      listSeasonArchives: deps.listSeasonArchives,
+      ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
+      authBindingStore
+    })).get(authUid) ?? 0;
+
+    return { planets, outposts, stipends, chargeDomain, ...(economy ? { economy } : {}) };
   });
 
   app.post("/hq/galaxy/planets/:seasonId/name", async (request, reply) => {

@@ -211,17 +211,24 @@ export const houseChargeChoiceError = (
   return undefined;
 };
 
-/** Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain Weight per fulfilled charge, for empires that hold territory. */
-export const HOUSE_CHARGE_DOMAIN_WEIGHT = 1;
-/** Extra Stipend Influence per charge held at the crowning, for players paid a Stipend (no territory). */
-export const HOUSE_CHARGE_STIPEND_INFLUENCE = 3;
+/**
+ * Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain score banked on
+ * the account for each charge held at a crowning, by card rarity. Every
+ * account banks it, with or without territory in space; it is the charge's
+ * only galaxy reward (no Stipend Influence).
+ */
+export const HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY: Readonly<Record<HouseChargeRarity, number>> = { COMMON: 1, RARE: 2, MYTHIC: 4 };
 
-/** How many charges each House held at the crowning. */
-export const heldHouseChargeCounts = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
-  const counts: Record<string, number> = {};
+/** Domain score one charge result banks: its rarity's weight when held at the crowning, otherwise 0. */
+export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "rarity">): number =>
+  charge.held ? (HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[charge.rarity] ?? 0) : 0;
+
+/** Domain score each House banked from the charges it held at one crowning (Houses with none are omitted). */
+export const heldHouseChargeDomainWeights = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
+  const weights: Record<string, number> = {};
   for (const house of houses ?? []) {
-    const held = house.charges.filter((charge) => charge.held).length;
-    if (held > 0) counts[house.playerId] = held;
+    const weight = house.charges.reduce((sum, charge) => sum + houseChargeDomainWeight(charge), 0);
+    if (weight > 0) weights[house.playerId] = weight;
   }
-  return counts;
+  return weights;
 };

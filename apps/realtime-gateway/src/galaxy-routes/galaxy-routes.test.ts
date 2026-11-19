@@ -89,7 +89,8 @@ describe("galaxy routes", () => {
         }
       ],
       outposts: [],
-      stipends: []
+      stipends: [],
+      chargeDomain: 0
     });
   });
 
@@ -180,7 +181,7 @@ describe("galaxy routes", () => {
       url: "/hq/galaxy/me",
       headers: { authorization: "Bearer good-token" }
     });
-    expect(meResponse.json()).toEqual({ planets: [], outposts: [], stipends: [] });
+    expect(meResponse.json()).toEqual({ planets: [], outposts: [], stipends: [], chargeDomain: 0 });
 
     const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
     expect(publicResponse.json()).toEqual({
@@ -245,7 +246,8 @@ describe("galaxy routes", () => {
         }
       ],
       outposts: [],
-      stipends: []
+      stipends: [],
+      chargeDomain: 0
     });
   });
 
