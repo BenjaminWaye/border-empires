@@ -6,6 +6,7 @@ import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } f
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
+import { houseChargesDealing, houseChargesPickHtml, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 
@@ -47,7 +48,7 @@ const letterHtml = (charge: HouseChargeView): string => {
 
 const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
   const progress = houseChargeProgress(charge);
-  // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
+  // While choosing, the card follows the card table above so a swap reads at a glance before it is saved.
   const pending = choosing && ticked !== charge.kept;
   const status = pending
     ? `<span class="house-charge-status is-pending">${ticked ? "Will be kept" : "Will be dropped"}</span>`
@@ -63,9 +64,6 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
   // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
   const difficulty = Math.max(1, Math.min(4, charge.renown));
   const pips = `<span class="house-charge-pips" title="Difficulty ${difficulty} of 4" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span>`;
-  const keep = choosing
-    ? `<label class="house-charge-keep"><input type="checkbox" data-house-charge-keep="${escapeHtml(charge.id)}"${ticked ? " checked" : ""}> Keep</label>`
-    : "";
   const dimmed = choosing ? !ticked : !charge.kept;
   return `<article class="house-charge-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}${dimmed ? " is-unkept" : ""}">
     <header class="house-charge-head"><strong class="house-charge-title">${escapeHtml(charge.title)}</strong>${pips}</header>
@@ -74,17 +72,13 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
     ${letterHtml(charge)}
     ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
     ${scoutHint ? `<p class="house-charge-progress is-scout">${escapeHtml(scoutHint)}</p>` : ""}
-    <footer class="house-charge-foot">${status}${keep}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
+    <footer class="house-charge-foot">${status}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
   </article>`;
 };
 
 /** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
 const choiceHintHtml = (ticked: number, wanted: number): string => {
-  const text = ticked > wanted
-    ? `You have ${ticked} ticked. Untick one: you can keep only ${wanted}.`
-    : ticked < wanted
-      ? `Tick ${wanted - ticked} more to keep ${wanted}.`
-      : `Press Keep these ${wanted} to confirm your new choice.`;
+  const text = ticked < wanted ? `Tap ${wanted - ticked} more ${wanted - ticked === 1 ? "card" : "cards"} to keep ${wanted}.` : `Press Keep these ${wanted} to confirm your new choice.`;
   return `<p class="house-charges-hint${ticked === wanted ? "" : " is-warning"}" role="status">${text}</p>`;
 };
 
@@ -105,16 +99,17 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   // With nothing to save (the ticks match what the server keeps, which may be the default pair), say what is
   // kept and how to swap instead of a disabled button that reads as an unsaved choice. Deliberately no "saved"
   // tick: the default pair is kept without the player ever choosing.
+  const table = choosing ? houseChargesPickHtml(payload.charges, draft, wanted, houseChargesDealing(payload.dealtAt, nowMs)) : "";
   const choice = !choosing
     ? ""
     : changed
-      ? `<div class="house-charges-choice">
+      ? `<div class="house-charges-choice">${table}
         <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
         ${choiceHintHtml(draft.length, wanted)}
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-      : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">Keeping the ${wanted} ticked of these ${payload.charges.length}. Tick another to swap, until ${until}.</p>
+      : `<div class="house-charges-choice is-saved">${table}
+        <p class="house-charges-saved" role="status">Keeping the ${wanted} raised cards of these ${payload.charges.length}. Tap another card to swap, until ${until}.</p>
       </div>`;
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
@@ -127,23 +122,31 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   </section>`;
 };
 
+/** The HTML last written into each panel element. */
+const writtenHtml = new WeakMap<HTMLElement, string>();
+
 export const renderHouseChargesPanel = (
   state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "houseChargeFocusId">,
   deps: HouseChargesPanelDeps
 ): void => {
   if (state.activePanel !== "charges") {
     if (deps.panelEl.innerHTML !== "") deps.panelEl.innerHTML = "";
+    writtenHtml.delete(deps.panelEl);
     return;
   }
   const html = houseChargesPanelHtml(state, deps.now());
-  if (deps.panelEl.innerHTML !== html) deps.panelEl.innerHTML = html;
+  // Compared with what was last written, not innerHTML: the browser rewrites the card art's `<rect/>` as
+  // `<rect></rect>`, so an innerHTML check re-rendered every frame (restarting the deal, dropping taps).
+  if (writtenHtml.get(deps.panelEl) !== html || !deps.panelEl.firstChild) {
+    deps.panelEl.innerHTML = html;
+    writtenHtml.set(deps.panelEl, html);
+  }
   const payload = state.houseCharges;
   if (!payload) return;
-  deps.panelEl.querySelectorAll<HTMLInputElement>("[data-house-charge-keep]").forEach((input) => {
-    input.onchange = () => {
-      const id = input.dataset.houseChargeKeep ?? "";
+  deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
+    card.onclick = () => {
       const current = state.houseChargesDraftKeep ?? payload.charges.filter((charge) => charge.kept).map((charge) => charge.id);
-      state.houseChargesDraftKeep = input.checked ? [...current.filter((entry) => entry !== id), id] : current.filter((entry) => entry !== id);
+      state.houseChargesDraftKeep = toggleHouseChargePick(current, card.dataset.houseChargePick ?? "", Math.min(HOUSE_CHARGES_KEPT, payload.charges.length));
       deps.rerender();
     };
   });

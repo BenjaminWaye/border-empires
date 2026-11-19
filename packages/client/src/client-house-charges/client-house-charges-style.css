@@ -6,7 +6,7 @@
 }
 
 .house-charges-intro,
-.house-charges-choice p {
+.house-charges-choice > p {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
@@ -117,14 +117,6 @@
   color: rgba(214, 226, 240, 0.5);
 }
 
-.house-charge-keep {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
 .house-charges-hint {
   margin: 0;
   min-height: 1.2em;
@@ -149,7 +141,7 @@
   color: #f08a6c;
 }
 
-.house-charges-choice p.house-charges-saved {
+.house-charges-choice > p.house-charges-saved {
   color: #8fd18a;
 }
 

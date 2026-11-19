@@ -54,31 +54,29 @@ describe("House Charges panel", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
     // Nothing to save (possibly the default pair): say what is kept and how to swap, with no false "saved" tick.
-    expect(open).toContain("Keeping the 2 ticked of these 3. Tick another to swap");
+    expect(open).toContain("Keeping the 2 raised cards of these 3. Tap another card to swap");
     expect(open).not.toContain("✓");
     expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
     expect(changed).not.toMatch(/data-house-charges-save disabled/);
     const closed = houseChargesPanelHtml(panelState(charges), 20_000);
-    expect(closed).not.toContain("data-house-charge-keep");
+    expect(closed).not.toContain("data-house-charge-pick");
     expect(closed).toContain("Not kept");
   });
 
-  it("follows the tick boxes while choosing: a newly ticked charge is undimmed and marked, and the hint explains the button", () => {
+  it("follows the card table while choosing: a newly kept charge is undimmed and marked, and the hint explains the button", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const swapped = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id, desert.id]), 5_000);
-    const desertCard = swapped.slice(swapped.indexOf("The Ashen Reach") - 400, swapped.indexOf("The Ashen Reach"));
+    const list = swapped.slice(swapped.indexOf("house-charges-list"));
+    const desertCard = list.slice(list.indexOf("The Ashen Reach") - 400, list.indexOf("The Ashen Reach"));
     expect(desertCard).not.toContain("is-unkept");
     expect(swapped).toContain("Will be kept");
     expect(swapped).toContain("Will be dropped");
     expect(swapped).toContain("Press Keep these 2 to confirm your new choice.");
 
-    const three = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, relic.id, desert.id]), 5_000);
-    expect(three).toContain("You have 3 ticked. Untick one: you can keep only 2.");
-    expect(three).toMatch(/data-house-charges-save disabled/);
-
     const one = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id]), 5_000);
-    expect(one).toContain("Tick 1 more to keep 2.");
+    expect(one).toContain("Tap 1 more card to keep 2.");
+    expect(one).toMatch(/data-house-charges-save disabled/);
   });
 
   it("shows held charges and an undiscovered relic without naming its place", () => {

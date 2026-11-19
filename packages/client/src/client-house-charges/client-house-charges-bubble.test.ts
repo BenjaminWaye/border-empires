@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
-import { houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
+import { HOUSE_CHARGES_DOCK_NOTE_MS, houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
 
 const charge = (id: string): HouseChargeView => ({
   id,
@@ -45,13 +45,16 @@ describe("sealed charges bubble", () => {
     expect(root()?.querySelector(".hcb-orb")).not.toBeNull();
   });
 
-  it("tapping the cards opens the Charges panel and the bubble does not come back", () => {
+  it("tapping the cards opens the Charges panel and the bubble does not come back; the cards dock instead", () => {
     const open = vi.fn();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, open);
     root()!.querySelector<HTMLButtonElement>(".hcb-orb")!.click();
     expect(open).toHaveBeenCalledOnce();
-    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000, false, open);
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_500, false, open);
     expect(root()).toBeNull();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000, false, open);
+    expect(root()?.classList.contains("is-docked")).toBe(true);
+    expect(root()?.textContent).not.toContain("sealed charges");
   });
 
   // Owner 2026-11-19: a player tapped the note twice and it vanished both times, so he never saw his charges.
@@ -64,8 +67,33 @@ describe("sealed charges bubble", () => {
     expect(message?.contains(root()!.querySelector(".hcb-speech-close"))).toBe(false);
     message!.click();
     expect(open).toHaveBeenCalledOnce();
+    expect(houseChargesUnhandled(deal, 3_000)).toBe(false);
+  });
+
+  // Owner 2026-11-19: after the charges have been viewed it was too hard to find them again (crest, profile,
+  // Manage charges). The cards stay docked at the map edge as the way back, with a held count.
+  it("once opened, the cards stay docked with the held count, and tapping them opens the charges again", () => {
+    const open = vi.fn();
+    const held = { ...deal, charges: [{ ...charge("a"), held: true }, charge("b"), charge("c")] };
+    syncHouseChargesBubble({ houseCharges: held, activePanel: "charges" }, 2_000, false, open);
+    syncHouseChargesBubble({ houseCharges: held, activePanel: null }, 3_000, false, open);
+    expect(root()?.querySelector(".hcb-badge")?.textContent).toBe("1/2");
+    expect(root()?.querySelector(".hcb-orb")?.getAttribute("aria-label")).toBe("Your House charges: 1 of 2 held");
+    root()!.querySelector<HTMLButtonElement>(".hcb-orb")!.click();
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it("the first time the cards dock, a note says the charges stay there, then it goes for good", () => {
+    const open = vi.fn();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, open);
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000, false, open);
-    expect(root()).toBeNull();
+    expect(root()?.textContent).toContain("Your charges stay here. Tap the cards any time.");
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000 + HOUSE_CHARGES_DOCK_NOTE_MS, false, open);
+    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    resetHouseChargesBubbleForTests();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 99_000, false, open);
+    expect(root()?.querySelector(".hcb-orb.is-docked")).not.toBeNull();
+    expect(root()?.querySelector(".hcb-speech")).toBeNull();
   });
 
   it("opening the Charges panel another way also handles the deal", () => {
@@ -73,12 +101,18 @@ describe("sealed charges bubble", () => {
     expect(houseChargesUnhandled(deal, 2_000)).toBe(false);
   });
 
-  it("hides over screens, after the choice closes, and when there is nothing to choose", () => {
+  it("hides over screens and panels, and only docks after the choice closes or with nothing to choose", () => {
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, true, () => {});
     expect(root()).toBeNull();
-    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 90_000, false, () => {});
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: "economy" }, 2_000, false, () => {});
     expect(root()).toBeNull();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 90_000, false, () => {});
+    expect(root()?.classList.contains("is-docked")).toBe(true);
     syncHouseChargesBubble({ houseCharges: { ...deal, charges: [charge("a"), charge("b")] }, activePanel: null }, 2_000, false, () => {});
+    expect(root()?.classList.contains("is-docked")).toBe(true);
+    syncHouseChargesBubble({ houseCharges: { ...deal, charges: [] }, activePanel: null }, 2_000, false, () => {});
+    expect(root()).toBeNull();
+    syncHouseChargesBubble({ houseCharges: null, activePanel: null }, 2_000, false, () => {});
     expect(root()).toBeNull();
     // Still unhandled: it comes back once the screen closes.
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, () => {});
@@ -100,12 +134,12 @@ describe("sealed charges bubble", () => {
     expect(root()?.querySelector(".hcb-speech")).toBeNull();
     root()!.querySelector<HTMLButtonElement>(".hcb-orb")!.click();
     syncHouseChargesBubble(state, 3_000, false, () => {});
-    expect(root()).toBeNull();
+    expect(root()?.classList.contains("is-docked")).toBe(true);
   });
 
   it("reads storage once per deal, not on every frame", () => {
     const getItem = vi.spyOn(Storage.prototype, "getItem");
     for (let t = 2_000; t < 4_000; t += 250) syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, t, false, () => {});
-    expect(getItem.mock.calls.length).toBeLessThanOrEqual(2);
+    expect(getItem.mock.calls.length).toBeLessThanOrEqual(3);
   });
 });
