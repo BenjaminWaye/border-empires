@@ -1,7 +1,7 @@
 // The House Charges side panel (docs/house-charges-plan.md, "Player guidance"):
-// the House's sealed charges, whether each is held now, the keep-two choice
-// while it is open (a card table, client-house-charges-pick.ts), and "Show on
-// map". Opened from the sealed-cards bubble or its docked cards
+// the House's sealed charges as full-width cards (client-house-charges-deck.ts)
+// with whether each is held now, the keep-two choice while it is open
+// (client-house-charges-pick.ts), and "Show on map". Opened from the sealed-cards bubble or its docked cards
 // (client-house-charges-bubble.ts) and from your own profile's House Charges
 // section (client-house-charges-profile.ts).
 import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
@@ -9,9 +9,10 @@ import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
-import { houseChargesDealing, houseChargesPickHtml, toggleHouseChargePick } from "./client-house-charges-pick.js";
+import { houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
-import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+import { HOUSE_CHARGE_RARITY_LABEL } from "./client-house-charges-labels.js";
 
 /** "Common +1, Rare +2, Mythic +4": the Domain score a held charge banks, by rarity. */
 const CHARGE_DOMAIN_BY_RARITY = (["COMMON", "RARE", "MYTHIC"] as const)
@@ -34,6 +35,12 @@ export type HouseChargesPanelDeps = {
   /** Which map renderer is drawing; true-3D shows a different amount of map at one zoom. Defaults to the live renderer. */
   readonly renderer?: () => "2d" | "3d";
 };
+
+/**
+ * Whether "How charges work" is expanded. It is left out of the panel's HTML, so opening it never rewrites the
+ * panel (which would drop keyboard focus and restart a deal), and reapplied after any rewrite.
+ */
+let rewardsOpen = false;
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
 type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
@@ -91,41 +98,6 @@ export const houseChargeFocusPoint = (charge: HouseChargeView, isExplored?: (x: 
   return charge.targets.find((target) => isExplored(target.x, target.y)) ?? houseChargeGuideCentre(charge, isExplored, WORLD_WIDTH, WORLD_HEIGHT) ?? charge.searchCircle;
 };
 
-const letterHtml = (charge: HouseChargeView): string => {
-  const letter = houseChargeLetter(charge);
-  return letter ? `<p class="house-charge-letter">${escapeHtml(letter)}</p>` : "";
-};
-
-const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
-  const progress = houseChargeProgress(charge);
-  // While choosing, the card follows the card table above so a swap reads at a glance before it is saved.
-  const pending = choosing && ticked !== charge.kept;
-  const status = pending
-    ? `<span class="house-charge-status is-pending">${ticked ? "Will be kept" : "Will be dropped"}</span>`
-    : !charge.kept && !choosing
-    ? '<span class="house-charge-status is-dropped">Not kept</span>'
-    : charge.held
-      ? `<span class="house-charge-status is-held">Held${charge.completeSince ? ` since ${escapeHtml(formatWhen(charge.completeSince))}` : ""}</span>`
-      : charge.kept
-        ? charge.lostAt !== undefined
-          ? `<span class="house-charge-status is-lost">Lost ${escapeHtml(formatWhen(charge.lostAt))}</span>`
-          : '<span class="house-charge-status">Not held</span>'
-        : "";
-  // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
-  const difficulty = Math.max(1, Math.min(4, charge.renown));
-  const pips = `<span class="house-charge-pips" title="Difficulty ${difficulty} of 4" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span>`;
-  const dimmed = choosing ? !ticked : !charge.kept;
-  return `<article class="house-charge-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}${dimmed ? " is-unkept" : ""}">
-    <header class="house-charge-head"><strong class="house-charge-title">${escapeHtml(charge.title)}</strong>${pips}</header>
-    <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
-    <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
-    ${letterHtml(charge)}
-    ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
-    ${scoutHint ? `<p class="house-charge-progress is-scout">${escapeHtml(scoutHint)}</p>` : ""}
-    <footer class="house-charge-foot">${status}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
-  </article>`;
-};
-
 /** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
 const choiceHintHtml = (ticked: number, wanted: number): string => {
   const text = ticked > wanted
@@ -150,29 +122,37 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // With nothing to save (the ticks match what the server keeps, which may be the default pair), say what is
+  // With nothing to save (the draft matches what the server keeps, which may be the default pair), say what is
   // kept and how to swap instead of a disabled button that reads as an unsaved choice. Deliberately no "saved"
   // tick: the default pair is kept without the player ever choosing.
-  const table = choosing ? houseChargesPickHtml(payload.charges, draft, wanted, houseChargesDealing(payload.dealtAt, nowMs)) : "";
   const choice = !choosing
     ? ""
     : changed
-      ? `<div class="house-charges-choice">${table}
-        <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
+      ? `<div class="house-charges-choice">
+        <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
         ${choiceHintHtml(draft.length, wanted)}
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-      : `<div class="house-charges-choice is-saved">${table}
-        <p class="house-charges-saved" role="status">Keeping the ${wanted} raised cards of these ${payload.charges.length}. Tap another card to swap, until ${until}.</p>
+      : `<div class="house-charges-choice is-saved">
+        <p class="house-charges-saved" role="status">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>
       </div>`;
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
     !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
-  const ordered = [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
+  // While choosing, the cards stay in dealt order so a card does not jump when it is kept or set aside.
+  const ordered = choosing ? payload.charges : [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
+  const cards = ordered.map((charge) =>
+    houseChargeDeckCardHtml(charge, { choosing, ticked: draft.includes(charge.id), focused: state.houseChargeFocusId === charge.id, scoutHint: scoutHintFor(charge), formatWhen })
+  );
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and Domain score for your House (${CHARGE_DOMAIN_BY_RARITY}). ◆ is difficulty. Nobody else can see your charges until then.</p>
+    <p class="house-charges-intro">Hold your kept charges when the winner is crowned to bank Domain score.</p>
+    <details class="house-charges-more" data-house-charges-more><summary>How charges work</summary>
+      <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
+      <p>Each kept charge you still hold then earns its charge card and banks Domain score by rarity: ${CHARGE_DOMAIN_BY_RARITY}. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
+      <p>◆ is difficulty: how far, how large or how contested a charge is. It does not change the reward.</p>
+    </details>
     ${choice}
-    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id, scoutHintFor(charge))).join("")}</div>
+    ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}
   </section>`;
 };
 
@@ -194,6 +174,13 @@ export const renderHouseChargesPanel = (
   if (writtenHtml.get(deps.panelEl) !== html || !deps.panelEl.firstChild) {
     deps.panelEl.innerHTML = html;
     writtenHtml.set(deps.panelEl, html);
+  }
+  const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
+  if (more) {
+    if (more.open !== rewardsOpen) more.open = rewardsOpen;
+    more.ontoggle = () => {
+      rewardsOpen = more.open;
+    };
   }
   const payload = state.houseCharges;
   if (!payload) return;
