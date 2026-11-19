@@ -3,7 +3,7 @@
 // Rows and sort order come from the shared town list (client-town-list.ts).
 
 import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
-import { formatOpenSlots, formatTownCoinPerDay, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
+import { formatOpenSlots, formatTownCoinPerDay, townRowWarning, type TownListRow, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
   { key: "gold", label: "Coin/day", title: "Coin per day" },
@@ -31,12 +31,16 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort):
     const arrow = active ? (sort.descending ? " ▼" : " ▲") : "";
     return `<button type="button" class="v2l-sort${active ? " v2l-sort-on" : ""}" data-v2-towns-sort="${key}" title="${title}" aria-pressed="${active}">${label}${arrow}</button>`;
   }).join("");
-  const body = rows.map((row) => `<button type="button" class="v2l-row${row.isFed ? "" : " v2l-unfed"}" data-v2-towns-open="${row.x},${row.y}">
-      <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${row.isFed ? (row.plotsNote ? ` · ${esc(row.plotsNote)}` : "") : " · Unfed"}</small></span>
+  const body = rows.map((row) => {
+    const warning = townRowWarning(row);
+    const note = warning ?? row.plotsNote;
+    return `<button type="button" class="v2l-row${warning ? " v2l-unfed" : ""}" data-v2-towns-open="${row.x},${row.y}">
+      <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${note ? ` · ${esc(note)}` : ""}</small></span>
       <span class="v2l-num">${formatTownCoinPerDay(row)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
       <span class="v2l-num">${growth(row.growthPerMinute)}<small>/min</small></span>
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
-    </button>`).join("");
+    </button>`;
+  }).join("");
   return `<section class="v2l-table" data-v2-scroll="towns"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
 };

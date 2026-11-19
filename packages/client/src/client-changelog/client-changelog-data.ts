@@ -4,6 +4,7 @@ import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-wo
 import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
 import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
 import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
+import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
   { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
   { ...FAIR_DIPLOMACY_ENTRY, createdAt: 1795121188927, },
+  { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

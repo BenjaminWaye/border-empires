@@ -121,6 +121,26 @@ describe("town list", () => {
     expect(nextTownListSort({ key: "gold", descending: false }, "population")).toEqual({ key: "population", descending: true });
   });
 
+  // Playtest 2026-11-19: a player's only town sat ungarrisoned for a day at 0 coin and the list just said 0.0.
+  it("marks a town you hold but haven't garrisoned, ahead of unfed", () => {
+    const frontier = townTile(1, "Ashford", 0, 4000, { ownershipState: "FRONTIER" });
+    const [row] = rowsOf(mapOf([frontier]));
+    expect(row).toMatchObject({ garrisoned: false });
+    const html = townListCardHtml(mapOf([frontier]), "me");
+    expect(html).toContain("Town · Not garrisoned");
+    expect(html).toContain("is-unfed");
+    expect(townListCardHtml(mapOf([townTile(1, "Ashford", 2, 4000)]), "me")).not.toContain("Not garrisoned");
+  });
+
+  it("doesn't mark a town not garrisoned when its garrison is on its way or its ownership state is missing", () => {
+    const frontier = townTile(1, "Ashford", 0, 4000, { ownershipState: "FRONTIER" });
+    const map = mapOf([frontier]);
+    expect(deriveTownListRows(map.values(), "me", map, new Set(["1,0"]))[0]).toMatchObject({ garrisoned: true });
+    expect(townListCardHtml(map, "me", undefined, new Set(["1,0"]))).not.toContain("Not garrisoned");
+    const { ownershipState: _missing, ...partial } = townTile(2, "Brimvale", 1, 4000);
+    expect(rowsOf(mapOf([partial as Tile]))[0]).toMatchObject({ garrisoned: true });
+  });
+
   it("renders rows in sort order with gold per day and jump targets", () => {
     const html = townListCardHtml(tiles, "me", { key: "gold", descending: false });
     expect(html).toContain("3 towns");

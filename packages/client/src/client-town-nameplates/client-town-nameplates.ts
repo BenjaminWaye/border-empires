@@ -1,6 +1,7 @@
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-color-separation.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growth.js";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 import type { Tile } from "../client-types.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
@@ -15,6 +16,10 @@ export interface TownNameplatesState {
   readonly profileSetupRequired: boolean;
   readonly playerColors: ReadonlyMap<string, string>;
   readonly manpowerBreakdown?: { readonly biotaTowns?: readonly BiotaTownStatus[] | undefined } | undefined;
+  /** Garrisons under way, queued or planned (garrisonPlannedTileKeys): their town doesn't show as not garrisoned. */
+  readonly settleProgressByTile?: { has(key: string): boolean } | undefined;
+  readonly developmentQueue?: ReadonlyArray<{ kind: string; tileKey: string }> | undefined;
+  readonly autoSettleTargets?: { has(key: string): boolean } | undefined;
 }
 
 /** Your large towns that get less biota than they need: they show as unruly. */
@@ -27,6 +32,7 @@ const NEUTRAL_PLATE_LINE = "#5a4828";
 // The game's own simple icons, so unfed is the same food icon as the resource bar.
 // The bubble names the cause; whether the town grows rides on its population (GROWTH_MARK).
 const STATUS_ICON: Record<TownNameplateStatus, string> = {
+  ungarrisoned: resourceSimpleIconUrl("GOLD"),
   unfed: resourceSimpleIconUrl("FOOD"),
   unruly: resourceSimpleIconUrl("LUXURY_BIOTA"),
   upgrade: "/icons/simple/town-upgrade.svg",
@@ -34,7 +40,7 @@ const STATUS_ICON: Record<TownNameplateStatus, string> = {
   captured: "/icons/simple/town-captured.svg"
 };
 // Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
-// Unruly is the biota icon struck through the same way.
+// Unruly is the biota icon struck through the same way; not garrisoned is the coin icon struck through.
 const STATUS_STRIKE =
   '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
 // Inline SVG, not ▲/❚❚ glyphs: those render inconsistently across system fonts.
@@ -71,7 +77,7 @@ export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
 
 const plateHtml = (plate: TownNameplate): string => {
   const badge = plate.status
-    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "unfed" || plate.status === "unruly" ? STATUS_STRIKE : ""}</span>`
+    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "ungarrisoned" || plate.status === "unfed" || plate.status === "unruly" ? STATUS_STRIKE : ""}</span>`
     : "";
   const growth = plate.growth ? GROWTH_MARK[plate.growth] : "";
   const population = plate.population === undefined
@@ -99,10 +105,11 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
       const unruly = unrulyTownKeys(state.manpowerBreakdown?.biotaTowns);
+      const garrisoning = garrisonPlannedTileKeys(state);
       const candidates: Placed[] = [];
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible") continue;
-        const plate = townNameplateFor(t, state.me, nowMs, unruly);
+        const plate = townNameplateFor(t, state.me, nowMs, unruly, garrisoning);
         if (!plate) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
         // 3D: the tile's on-screen width comes from the camera (zoom alone doesn't say it);
