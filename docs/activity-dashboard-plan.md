@@ -84,13 +84,13 @@ during a session (a login's backfill records them quietly, as it does
 waystation activations);
 View survey locates the clue, and Got it dismisses the popup. The popup is
 independent of map visibility and queues multiple discoveries. They also have
-a standing section in Activity → Yours
-(`client-activity-dashboard-surveys.ts`). It reads unresolved
-`OCCUPATION_SURVEY` records directly from the authoritative `ClientState.eventLog`,
-independently of the retiring Alerts feed. These are standing clues rather than
-24-hour timeline cards: they remain available until their reveal tech is
-researched or the server removes the report. View survey closes the dashboard
-and focuses the clue through the shared camera state in both map renderers.
+a standing Resource surveys section in Chronicle → Yours
+(`client-hud-v2/client-hud-v2-chronicle-surveys.ts`). It lists the clues the
+client keeps from `OCCUPATION_SURVEY` records in `ClientState.eventLog`
+(`occupationSurveyController.currentReports`). These are standing clues rather
+than 24-hour timeline cards: they remain available until their reveal tech is
+researched or the server removes the report. View focuses the clue's area
+through the shared camera state in both map renderers, without opening a tile menu.
 
 **Siege reports** fold repeated assaults on one of the player's tiles into a
 single `SIEGE` card (`personal-activity-siege-cards.ts`): consecutive logged

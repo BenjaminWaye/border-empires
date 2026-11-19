@@ -8,6 +8,8 @@ import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
 import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
+import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
+import type { OccupationSurveyReport } from "../client-occupation-survey.js";
 
 export type ChronicleInput = {
   me: string;
@@ -24,6 +26,8 @@ export type ChronicleInput = {
   awaySince?: number | undefined;
   /** The latest respawn notice, so the headline can say the empire was wiped out and restarted. */
   respawn?: ChronicleRespawn | undefined;
+  /** Open resource survey clues (not yet researched); they outlive the 24h timeline. */
+  surveys?: readonly OccupationSurveyReport[];
 };
 
 const esc = (text: string): string =>
@@ -156,10 +160,12 @@ export const chronicleHeadHtml = (tabs = ""): string =>
 
 export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const head = chronicleHeadHtml(tabs);
+  // Clues are not about rivals: a rival filter hides them.
+  const openSurveys = input.rivalFilter ? [] : input.surveys ?? [];
   const timeline = input.timeline;
   if (!timeline) {
     const msg = input.error ?? (input.loading ? "Loading…" : "No activity yet");
-    return `${head}<div class="v2s-empty">${esc(msg)}</div>`;
+    return `${head}${chronicleSurveysHtml(openSurveys)}<div class="v2s-empty">${esc(msg)}</div>`;
   }
   const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs, input.awaySince);
   const list = groups.length > 0
@@ -169,5 +175,5 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const headline = input.awaySince === undefined
     ? ""
     : chronicleHeadlineHtml({ me: input.me, timeline, awaySince: input.awaySince, respawn: input.respawn, nameOf: input.nameOf });
-  return `${head}${headline}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${list}</div>`;
+  return `${head}${headline}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${chronicleSurveysHtml(openSurveys)}${list}</div>`;
 };
