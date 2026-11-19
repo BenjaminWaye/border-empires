@@ -67,6 +67,9 @@ describe("tracker FOOD shortage", () => {
     expect(steps[0]?.focus).toEqual({ x: 20, y: 10 });
     const near = foodShortageSteps(shortage(state([town, ...ring(), tile(12, 10, { resource: "FARM" }), afc], short))!);
     expect(near.some((step) => step.title === "Scout for food")).toBe(false);
+    // An AFC that isn't active can't launch the drone (review of #2881).
+    const idleAfc = mine(20, 10, { afc: { ownerId: "me", status: "inactive" } });
+    expect(foodShortageSteps(shortage(state([town, ...ring(), far, idleAfc], short))!).some((step) => step.title === "Scout for food")).toBe(false);
   });
 
   it("counts only plots a Farm Plot can take, and caps the queue at the manpower on hand", () => {
@@ -78,8 +81,11 @@ describe("tracker FOOD shortage", () => {
     expect(shortage(state(tiles, short, 1000))?.plotTown?.free).toBe(5);
     expect(shortage(state(tiles, short, 1000))?.plotsToQueue).toBe(5);
     expect(shortage(state(tiles, short, 320))?.plotsToQueue).toBe(2);
-    // Short of one plot's manpower: still one (it waits for manpower in the queue).
-    expect(shortage(state(tiles, short, 10))?.plotsToQueue).toBe(1);
+    // Short of one plot's manpower: the build row is refused below its cost, so nothing to queue (review of #2881).
+    const poor = shortage(state(tiles, short, 10))!;
+    expect(poor.plotsToQueue).toBe(0);
+    expect(foodShortageSteps(poor).at(-1)).toEqual({ title: "Farm Plots (5 plots free)", sub: "Need 150 MP · +1 FOOD each" });
+    expect(foodShortageHtml(poor, true)).not.toContain("data-hud-v2-food-plots");
     // A queued build already holds its plot.
     const queued = state(tiles, short);
     queued.developmentQueue = [{ kind: "BUILD", x: 11, y: 10, tileKey: "11,10", label: "Build", optimisticKind: "FARM_PLOT", payload: { type: "BUILD_STRUCTURE", x: 11, y: 10, structureType: "FARM_PLOT" } }] as typeof queued.developmentQueue;
@@ -92,9 +98,11 @@ describe("tracker FOOD shortage", () => {
   });
 
   it("uses the yield the player can build once Hyperfeed is commissioned", () => {
-    const s = state([town, ...ring(), mine(12, 10, { resource: "FARM", ownershipState: "FRONTIER" })], short, 1000, [FARM_PLOT_UPGRADE_TECH_ID]);
+    const s = state([town, ...ring(), mine(12, 10, { resource: "FARM", ownershipState: "FRONTIER" }), tile(14, 10, { resource: "FISH" })], short, 1000, [FARM_PLOT_UPGRADE_TECH_ID]);
     const steps = foodShortageSteps(shortage(s)!);
     expect(steps[0]?.sub).toBe("+1 FOOD · 3 with Hydrogarden");
+    // Hyperfeed (agriculture) also adds +1 on every fish tile (review of #2881).
+    expect(steps[1]?.sub).toBe("+3 FOOD · 4 tiles out · or beacon");
     expect(steps.at(-1)?.sub).toBe("150 MP · +1 FOOD each, 3 upgraded · Bryn");
   });
 

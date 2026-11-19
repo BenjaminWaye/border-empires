@@ -4,6 +4,7 @@ import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { missingResourceSlotReason } from "./client-resource-slot-gate.js";
 import { resourceSlotReasonText } from "./client-resource-slot-reason.js";
+import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 
 const slots = (food: [number, number], umbrite: [number, number] = [0, 0]) => ({
@@ -28,6 +29,12 @@ describe("missing resource slot reason", () => {
       beacons.tiles.set(`${x},0`, { x, y: 0, terrain: "LAND", ownerId: "me", economicStructure: { type: "RELAY_BEACON", ownerId: "me", status: "active" } } as unknown as Tile);
     }
     expect(missingRelayBeaconSlotReason(beacons)).toBe("Need a free FOOD slot · 5 short");
+  });
+
+  it("words the town upgrade's FOOD gate the same way", () => {
+    const upgrade = { targetTier: "CITY" as const, requiredPopulation: 0, goldCost: 0, available: true };
+    expect(townGrowthActionForUpgrade(stateWith(slots([3, 8])), upgrade)?.disabledReason).toBe("Need a free FOOD slot · 5 short");
+    expect(townGrowthActionForUpgrade(stateWith(slots([3, 3])), upgrade)?.disabledReason).toBe("Need a free FOOD slot");
   });
 
   it("stays the plain requirement with no deficit", () => {

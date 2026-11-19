@@ -8,6 +8,7 @@
 // Guidance only: rows 1-3 focus a tile whose own menu has the action; row 4 queues through the normal
 // build path (client-hud-v2-food-plots.ts), which waits for a Dev slot and is checked again by the server.
 import {
+  AGRICULTURE_FISH_FOOD_SLOT_BONUS,
   BASE_SLOTS_BY_TILE_RESOURCE,
   FARM_PLOT_FOOD_SLOT_SUPPLY,
   FARM_PLOT_UPGRADE_TECH_ID,
@@ -31,7 +32,7 @@ export type FoodScan = {
   garrison?: FoodSite & { count: number };
   /** Nearest unowned grain or fish within FOOD_NEARBY_TILES of home. */
   expand?: FoodSite & { distance: number };
-  /** Your AFC nearest home: its menu sends the scout drone. */
+  /** Your active AFC nearest home: its menu sends the scout drone. */
   afc?: Site;
   /** Closest town of yours with free plots a Farm Plot can take. */
   plotTown?: Site & { name?: string; free: number };
@@ -42,7 +43,10 @@ export type FoodShortage = FoodScan & {
   short: number;
   /** Manpower per Farm Plot for this player. */
   plotCost: number;
-  /** Farm Plots one tap queues: the free plots, capped by the manpower on hand (at least one). */
+  /**
+   * Farm Plots one tap queues: the free plots, capped by the manpower on hand. 0 when one plot is out of reach:
+   * the tile action is disabled below its manpower cost, so nothing could be queued.
+   */
   plotsToQueue: number;
   /** Hyperfeed Seedstock commissioned: a Farm Plot upgrades to a Hydrogarden Plot, and grain takes a Hydrogarden. */
   hyperfeed: boolean;
@@ -82,7 +86,7 @@ export const scanFoodSources = (state: ClientState): FoodScan => {
         expand = nearer(expand, tile);
       }
     }
-    if (tile.afc?.ownerId === me) afc = nearer(afc, tile);
+    if (tile.afc?.ownerId === me && tile.afc.status === "active") afc = nearer(afc, tile);
     if (tile.ownerId === me && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT") towns.push(tile);
   }
   let plotTown: FoodScan["plotTown"];
@@ -116,7 +120,7 @@ export const foodShortageForState = (state: ClientState, scan: FoodScan | undefi
     ...(scan ?? {}),
     short,
     plotCost,
-    plotsToQueue: Math.min(free, Math.max(1, affordable)),
+    plotsToQueue: Math.min(free, affordable),
     hyperfeed: state.techIds.includes(FARM_PLOT_UPGRADE_TECH_ID)
   };
 };
@@ -131,11 +135,13 @@ export type FoodStep = {
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const FOOD_NAME = { FARM: "grain", FISH: "fish" } as const;
-const foodYield = (resource: FoodSite["resource"]): number => BASE_SLOTS_BY_TILE_RESOURCE[resource]?.baseSlots ?? 0;
+/** What the tile gives once garrisoned: Hyperfeed (the "agriculture" tech) adds a flat +1 to every fish tile. */
+const foodYield = (resource: FoodSite["resource"], hyperfeed: boolean): number =>
+  (BASE_SLOTS_BY_TILE_RESOURCE[resource]?.baseSlots ?? 0) + (resource === "FISH" && hyperfeed ? AGRICULTURE_FISH_FOOD_SLOT_BONUS : 0);
 const HYDROGARDEN_YIELD = FARM_PLOT_FOOD_SLOT_SUPPLY.HYDROGARDEN_PLOT ?? 0;
 
 const yieldText = (resource: FoodSite["resource"], hyperfeed: boolean): string =>
-  `+${foodYield(resource)} FOOD${resource === "FARM" && hyperfeed ? ` · ${HYDROGARDEN_YIELD} with Hydrogarden` : ""}`;
+  `+${foodYield(resource, hyperfeed)} FOOD${resource === "FARM" && hyperfeed ? ` · ${HYDROGARDEN_YIELD} with Hydrogarden` : ""}`;
 
 /** The fixes, cheapest first. */
 export const foodShortageSteps = (food: FoodShortage): FoodStep[] => {
@@ -149,9 +155,14 @@ export const foodShortageSteps = (food: FoodShortage): FoodStep[] => {
     steps.push({ title: `Expand to ${FOOD_NAME[expand.resource]}`, sub: `${yieldText(expand.resource, food.hyperfeed)} · ${plural(expand.distance, "tile")} out · or beacon`, focus: { x: expand.x, y: expand.y } });
   }
   if (!garrison && !expand && afc) steps.push({ title: "Scout for food", sub: "No grain or fish nearby · drone from AFC", focus: afc });
-  if (plotTown && food.plotsToQueue > 0) {
+  if (plotTown) {
     const n = food.plotsToQueue;
     const each = food.hyperfeed ? `+1 FOOD each, ${HYDROGARDEN_YIELD} upgraded` : "+1 FOOD each";
+    // Not even one plot's manpower: say what it costs, with nothing to tap (the build would be refused).
+    if (n <= 0) {
+      steps.push({ title: `Farm Plots (${plural(plotTown.free, "plot")} free)`, sub: `Need ${food.plotCost} MP · ${each}` });
+      return steps;
+    }
     steps.push({
       title: `Build ${plural(n, "Farm Plot")} (${plural(plotTown.free, "plot")} free)`,
       sub: `${food.plotCost} MP · ${each}${plotTown.name ? ` · ${plotTown.name}` : ""}`,
@@ -168,7 +179,9 @@ const stepHtml = (step: FoodStep): string => {
   const attr = step.plots
     ? ` data-hud-v2-food-plots="${step.plots.x},${step.plots.y}" data-hud-v2-food-plots-count="${step.plots.count}"`
     : step.focus ? ` data-hud-v2-focus-x="${step.focus.x}" data-hud-v2-focus-y="${step.focus.y}"` : "";
-  return `<button type="button" class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-step"${attr}><span class="hud-v2-tracker-title">${esc(step.title)}</span><span class="hud-v2-tracker-sub">${esc(step.sub)}</span></button>`;
+  const tag = attr ? "button" : "div";
+  const type = attr ? ` type="button"` : "";
+  return `<${tag}${type} class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-step"${attr}><span class="hud-v2-tracker-title">${esc(step.title)}</span><span class="hud-v2-tracker-sub">${esc(step.sub)}</span></${tag}>`;
 };
 
 /** The header ("Short 5 FOOD"), and under it the fixes while it is unfolded. */
