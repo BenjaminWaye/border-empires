@@ -82,6 +82,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // CRYSTAL slot removed per user decision (tech-tree redesign) — Ancillary
   // Factory is a Manpower-branch building, CRYSTAL doesn't fit its theme.
   ANCILLARY_DEPOT: [{ resource: "FOOD", count: 1 }],
+  // Vivarium: its cultured biota stock eats; see VIVARIUM_BIOTA_SLOTS.
+  VIVARIUM: [{ resource: "FOOD", count: 1 }],
   MINISTRY_HALL: [{ resource: "FOOD", count: 1 }],
   TRADE_NEXUS: [{ resource: "FOOD", count: 1 }],
   SKY_DOCK: [{ resource: "CRYSTAL", count: 3 }],

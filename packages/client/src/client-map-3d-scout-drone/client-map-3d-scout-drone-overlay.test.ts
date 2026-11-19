@@ -127,6 +127,19 @@ describe("createScoutDroneOverlay", () => {
     overlay.dispose();
   });
 
+  it("floats the \"Back in …\" pill over the drone while it flies, and hides it once landed", () => {
+    const scene = new Scene();
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
+    const drone = scene.getObjectByName("scout-drone")!;
+    const label = scene.getObjectByName("scout-drone-eta-label")!;
+    overlay.sync(flight, midFlight);
+    expect(label.visible).toBe(true);
+    expect(label.position.x).toBeCloseTo(drone.position.x);
+    expect(label.position.y).toBeGreaterThan(drone.position.y);
+    overlay.sync(flight, flight.landsAt);
+    expect(label.visible).toBe(false);
+  });
+
   it("removes everything it added on dispose", () => {
     const scene = new Scene();
     const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
@@ -158,6 +171,19 @@ describe("drawScoutDrone2D", () => {
     expect(calls.filter((c) => c.startsWith("arc")).length).toBeGreaterThan(10);
     expect(calls.filter((c) => c.startsWith("ellipse")).length).toBeGreaterThanOrEqual(8); // the four pods, rim and top
     expect(calls.filter((c) => c.startsWith("arc:")).length).toBeGreaterThanOrEqual(12); // rotor discs, sphere, eye, footprint
+  });
+
+  it("writes the time until the drone is back over it", () => {
+    const texts: string[] = [];
+    const ctx = new Proxy({ measureText: () => ({ width: 40 }), fillText: (text: string) => texts.push(text) } as Record<string, unknown>, {
+      get: (target, key) => (key in target ? target[key as string] : () => undefined),
+      set: (target, key, value) => {
+        target[key as string] = value;
+        return true;
+      }
+    }) as unknown as CanvasRenderingContext2D;
+    drawScoutDrone2D(ctx, flight, flight.landsAt - 30_000, world, toScreen, 10);
+    expect(texts).toEqual(["Back in 30s"]);
   });
 
   it("draws nothing once the drone has landed", () => {

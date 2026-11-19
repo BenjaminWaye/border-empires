@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
-import { diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
+import { dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
 
 const names: Record<string, string> = { me: "Lumen Accord", "ai-1": "Tove", "ai-2": "Astrid", "p-3": "Nordmark" };
 const rank = (id: string, tiles: number, position: number): LeaderboardOverallEntry => ({ id, name: names[id] ?? id, tiles, incomePerMinute: 0, techs: 0, manpowerCap: 0, score: tiles, rank: position });
@@ -109,5 +109,18 @@ describe("phone Diplomacy list: truces ending", () => {
 
   it("shows no section when no truce is ending", () => {
     expect(diplomacyListHtml(input({ activeTruces: [truce("ai-1", 3 * 3_600_000)] }))).not.toContain("Truces ending");
+  });
+});
+
+describe("Diplomacy deal header", () => {
+  it("links the empire's name and a Profile button to their profile", () => {
+    const html = dealSkeletonHtml("Rival <House>", "Truce 3h", "p2");
+    expect(html.match(/data-hud-v2-profile="p2"/g)).toHaveLength(2);
+    expect(html).toContain("Profile ▸");
+    expect(html).toContain("Rival &lt;House&gt;");
+  });
+
+  it("shows a plain name with no profile link when the empire is unknown", () => {
+    expect(dealSkeletonHtml("Empire")).not.toContain("data-hud-v2-profile");
   });
 });

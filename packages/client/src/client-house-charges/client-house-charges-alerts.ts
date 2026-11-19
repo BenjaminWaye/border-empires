@@ -3,7 +3,7 @@
 // The simulation records when it was lost (`lostAt`), so a House that was
 // offline still hears about it on its next connect. Warnings already shown are
 // remembered per deal in localStorage, so a reconnect does not repeat them.
-import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
+import type { HouseChargesPayload } from "@border-empires/shared";
 import { pushFeedEntry, type FeedMutableState } from "../client-alerts/client-alerts.js";
 import { houseChargeFocusPoint } from "./client-house-charges-panel.js";
 
@@ -55,74 +55,4 @@ export const announceHouseChargeLosses = (state: FeedMutableState, payload: Hous
   }
   if (announced > 0) writeSeen(payload.dealtAt, seen);
   return announced;
-};
-
-const CHOICE_STORAGE_KEY = "be.houseCharges.choiceAnnounced";
-
-const choiceAnnounced = (dealtAt: number): boolean => {
-  try {
-    return window.localStorage.getItem(CHOICE_STORAGE_KEY) === String(dealtAt);
-  } catch {
-    return false;
-  }
-};
-
-const markChoiceAnnounced = (dealtAt: number): void => {
-  try {
-    window.localStorage.setItem(CHOICE_STORAGE_KEY, String(dealtAt));
-  } catch {
-    // Storage blocked: the reminder may repeat on reconnect, which is harmless.
-  }
-};
-
-const formatWhen = (epochMs: number): string =>
-  new Date(epochMs).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
-
-/**
- * Once per deal, while the keep choice is still open, tells the House its
- * charges have arrived and how to choose. Two are kept by default, so without
- * this a player can miss that there was a choice at all. Returns true when shown.
- */
-export const announceHouseChargeChoice = (state: FeedMutableState, payload: HouseChargesPayload | undefined, nowMs: number): boolean => {
-  if (!payload || nowMs >= payload.choiceClosesAt || payload.charges.length <= HOUSE_CHARGES_KEPT) return false;
-  if (choiceAnnounced(payload.dealtAt)) return false;
-  // The feed is admin-only, so this reaches players only on the alert card, which never replaces an alert
-  // already showing (client-feed-alert-surface.ts). Wait for a clear card rather than marking it shown unseen;
-  // a later HOUSE_CHARGES push retries.
-  if (state.captureAlert && state.captureAlert.until > nowMs) return false;
-  markChoiceAnnounced(payload.dealtAt);
-  pushFeedEntry(state, {
-    title: "House charges arrived",
-    // The card's button opens the Charges panel itself: "tap your crest" sent players hunting for a
-    // button at the bottom of a long profile (playtest 2026-11-18).
-    text: `Keep ${HOUSE_CHARGES_KEPT} of ${payload.charges.length} by ${formatWhen(payload.choiceClosesAt)}.`,
-    type: "mission",
-    severity: "warn",
-    at: nowMs,
-    openPanel: "charges",
-    actionLabel: "Manage charges"
-  });
-  return true;
-};
-
-/** Deal already announced this session: skips the per-second localStorage read once shown. */
-let announcedDealtAt: number | undefined;
-
-/**
- * Retries the "House charges arrived" alert from the client's own clock. The simulation re-sends
- * HOUSE_CHARGES only when the charges change or on reconnect (runtime-side-tickers.ts), and charges are
- * dealt at landing, when other alert cards are usually up; announceHouseChargeChoice then waits for a clear
- * card, which without this retry never came (owner, 2026-11-18: "I never got a manage charges alert").
- * Called about once a second; returns true when the alert was shown.
- */
-export const retryHouseChargeChoice = (state: FeedMutableState & { houseCharges?: HouseChargesPayload | null | undefined }, nowMs: number): boolean => {
-  const payload = state.houseCharges ?? undefined;
-  if (!payload || payload.dealtAt === announcedDealtAt || nowMs >= payload.choiceClosesAt) return false;
-  if (choiceAnnounced(payload.dealtAt)) {
-    announcedDealtAt = payload.dealtAt;
-    return false;
-  }
-  const shown = announceHouseChargeChoice(state, payload, nowMs);
-  if (shown) announcedDealtAt = payload.dealtAt;
-  return shown;
 };

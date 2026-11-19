@@ -27,6 +27,8 @@ import { expireTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-to
 import type { TownTierUpgradeFxLayer } from "../client-town-tier-upgrade-fx/client-map-3d-town-tier-upgrade-fx.js";
 import type { WaystationOpenFxLayer } from "../client-waystation-holo-crates/holo-crate-open-fx-3d.js";
 import { expireWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import type { SalvageDeliveryFxLayer } from "../client-salvage-delivery-fx/client-map-3d-salvage-delivery-fx.js";
+import { salvageDeliveryFinished } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 import type { FloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { liveMusterCaptureLabels } from "../client-muster-capture/client-muster-capture.js";
@@ -56,6 +58,8 @@ export type FxCastOverlayLayers = {
   afcDropFx: AfcDropFxLayer;
   townTierUpgradeFx: TownTierUpgradeFxLayer;
   waystationOpenFx: WaystationOpenFxLayer;
+  /** Imperial dropship + marching Ancillaries for salvage shipped to the Court (client-salvage-delivery-fx/). */
+  salvageDeliveryFx: SalvageDeliveryFxLayer;
   /** "+N / −N manpower" over a captured muster flag (client-muster-capture/; 2D draws its own). */
   floatingText: FloatingTextLayer;
 };
@@ -310,6 +314,20 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     expireWaystationOpenings(state, Date.now());
   };
 
+  const syncSalvageDeliveryFxQueue = (): void => {
+    while (state.salvageDeliveryFxQueue.length > 0) {
+      const delivery = state.salvageDeliveryFxQueue.shift()!;
+      // Queued while 2D was showing (or the tab was hidden) and already over: don't build a ship just to drop it.
+      if (salvageDeliveryFinished(delivery.startedAt, Date.now())) continue;
+      const { sceneX, sceneZ } = fxXZ(delivery.x, delivery.y);
+      const surfaceY = aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD;
+      const marcherSurfaceY = delivery.marchers.map((m) =>
+        aetherBridgeTileSurfaceY(Math.round(delivery.x + m.dx), Math.round(delivery.y + m.dy)) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+      // startedAt is wall-clock (shared with the 2D painter); the layer ticks on performance.now().
+      layers.salvageDeliveryFx.spawn(sceneX, sceneZ, surfaceY, delivery, performance.now() - Math.max(0, Date.now() - delivery.startedAt), marcherSurfaceY);
+    }
+  };
+
   // Labels carry increasing ids: spawn each once, the floating-text layer animates it.
   let lastSpawnedMusterLabelId = 0;
   const syncMusterCaptureLabels = (epochMs: number): void => {
@@ -336,6 +354,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
     syncWaystationOpenFxQueue();
+    syncSalvageDeliveryFxQueue();
     syncMusterCaptureLabels(Date.now()); // epoch ms, like the labels' startedAt
   };
 

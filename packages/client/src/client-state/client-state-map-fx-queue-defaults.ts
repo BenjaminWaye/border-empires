@@ -1,5 +1,6 @@
 import { createInitialTownTierUpgradeFxState } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-fx.js";
 import { createInitialWaystationOpenFxState } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import { createInitialSalvageDeliveryFxState } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { createInitialMusterCaptureLabelState } from "../client-muster-capture/client-muster-capture.js";
 
@@ -20,6 +21,8 @@ export const createInitialMapFxQueueState = () => ({
   ...createInitialTownTierUpgradeFxState(),
   // A collected waystation's opening, drawn by both renderers; see client-waystation-holo-crates/.
   ...createInitialWaystationOpenFxState(),
+  // Imperial delivery for salvage shipped to the Court; see client-salvage-delivery-fx/.
+  ...createInitialSalvageDeliveryFxState(),
   // "+N / −N manpower" over a captured muster flag, drawn by both renderers; see client-muster-capture/.
   ...createInitialMusterCaptureLabelState()
 });

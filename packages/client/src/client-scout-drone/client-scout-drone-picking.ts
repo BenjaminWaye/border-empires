@@ -13,7 +13,7 @@ import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-
 import { clearCrystalTargeting } from "../client-tile-action-logic/client-crystal-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { activeScoutDroneFlight, dispatchExploreAction, EXPLORE_ACTION_ID, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
+import { activeScoutDroneFlight, buildRecallScoutAction, dispatchExploreAction, EXPLORE_ACTION_ID, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
 
 export const AFC_SCOUT_ACTION_ID = "afc_scout_drone" as const;
 
@@ -23,16 +23,21 @@ type PickingState = Pick<ClientState, "scoutDronePicking" | "scoutDroneFlight" |
 
 const droneOutReason = (landsAt: number, nowMs: number): string => `Scout drone is out, back in ${formatCooldownShort(landsAt - nowMs)}`;
 
-/** The AFC menu row: only on your own active AFC, disabled while the drone is out. */
-export const afcScoutDroneAction = (state: Pick<ClientState, "me" | "scoutDroneFlight">, tile: Tile, nowMs: number = Date.now()): TileActionDef | undefined => {
-  if (tile.afc?.ownerId !== state.me || tile.afc.status !== "active") return undefined;
+/**
+ * The AFC menu rows: only on your own active AFC. Send scout drone, disabled while the drone is
+ * out, preceded by Recall drone while it is still flying out.
+ */
+export const afcScoutDroneActions = (state: Pick<ClientState, "me" | "scoutDroneFlight">, tile: Tile, nowMs: number = Date.now()): TileActionDef[] => {
+  if (tile.afc?.ownerId !== state.me || tile.afc.status !== "active") return [];
   const active = activeScoutDroneFlight(state.scoutDroneFlight, nowMs);
-  return {
+  const recall = buildRecallScoutAction(state.scoutDroneFlight, nowMs);
+  const send: TileActionDef = {
     id: AFC_SCOUT_ACTION_ID,
     label: "Send scout drone",
     detail: AFC_SCOUT_ACTION_DETAIL,
     ...(active ? { disabled: true, disabledReason: droneOutReason(active.landsAt, nowMs) } : {})
   };
+  return recall ? [recall, send] : [send];
 };
 
 /** Handles the AFC menu row. Returns true when `actionId` was Send scout drone. */

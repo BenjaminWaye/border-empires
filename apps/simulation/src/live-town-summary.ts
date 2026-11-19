@@ -15,7 +15,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, biotaBlend, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -360,7 +360,8 @@ export const buildTownSummary = (
           : (
               TOWN_BASE_GOLD_PER_MIN * terrain.goldMultiplier *
               supportRatio *
-              townPopulationMultiplier(populationTier) *
+              // A short City+ earns part of its tier's coin (biota-town-output.ts), as the live path does.
+              biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(populationTier), biotaShareMet(player?.manpowerBreakdown?.biotaTowns?.find((entry) => entry.tileKey === tileKey))) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
               manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, economyPlayer ? multiplicativeEffectForPlayer(economyPlayer, "clearingHouseUpliftMult") : 1) *
               firstThreeTownMult *

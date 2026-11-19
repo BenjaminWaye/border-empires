@@ -7,7 +7,7 @@
 // product (factors multiply; empire-wide income multipliers aren't listed);
 // terrain and coastal modifiers are rendered separately by townStatGridHtml.
 import { townPopulationMultiplier } from "@border-empires/game-domain";
-import type { TownTerrainProfileId } from "@border-empires/shared";
+import { biotaBlend, biotaShareMet, type TownTerrainProfileId } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
@@ -56,13 +56,20 @@ const buildingBonuses = (town: Town, matches: RegExp): TownStatBonus[] =>
 
 // includeBuildings: false leaves out per-building lines for surfaces that
 // already list the town's buildings separately (HUD v2 "In this town").
-export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolean } = {}): TownStatBonus[] => {
+// biota: the town's luxury biota supply (ManpowerBreakdown.biotaTowns); a short
+// City+ earns between a Town's coin and its tier's (biota-town-output.ts).
+export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolean; biota?: { received: number; needed: number } | undefined } = {}): TownStatBonus[] => {
   if (town.populationTier === "SETTLEMENT") return [];
   if (!town.isFed) return [{ label: "Unfed", effect: "no coin · garrison grain or fish in reach", tone: "negative" }];
   const bonuses: TownStatBonus[] = [];
   const tierMult = townPopulationMultiplier(town.populationTier);
   if (tierMult !== 1) {
     bonuses.push({ label: TIER_LABELS[town.populationTier] ?? "Town tier", effect: percent((tierMult - 1) * 100), tone: toneFor(tierMult - 1) });
+  }
+  const biotaShare = biotaShareMet(options.biota);
+  if (options.biota && biotaShare < 1) {
+    const earned = biotaBlend(townPopulationMultiplier("TOWN"), tierMult, biotaShare);
+    bonuses.push({ label: `Short of biota ${options.biota.received}/${options.biota.needed}`, effect: percent((earned / tierMult - 1) * 100), tone: "negative" });
   }
   const connected = connectedTownBonus(town);
   if (connected) bonuses.push(connected);

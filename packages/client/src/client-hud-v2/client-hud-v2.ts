@@ -33,9 +33,9 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { nextStepsForState } from "./client-hud-v2-next-step.js";
+import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
-import { retryHouseChargeChoice } from "../client-house-charges/client-house-charges-alerts.js";
+import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -46,6 +46,7 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-town-plot-pick.css";
 import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
@@ -290,10 +291,10 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay), lensMenu.open, mapOverview.open));
 
-/** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
+/** The tracker's tile scans (four passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
 type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
-let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"] } | undefined;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"]; nextStep: NextStepScan } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -311,7 +312,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile, (x, y) => state.tiles.get(`${x},${y}`)),
       building: development.activeSlots,
-      queue: development.queue
+      queue: development.queue,
+      nextStep: nextStepScanForState(state)
     };
   }
   const elapsed = nowMs - trackerScan.at;
@@ -333,7 +335,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
-    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs),
+    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs, trackerScan.nextStep),
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));
@@ -381,12 +383,17 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-waiting", !onScreen);
     if (!onScreen) lensMenu.open = false;
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
+    const nowMs = Date.now();
+    // Before the off-screen return, so the bubble also goes away on sign-out, the lobby and other waits.
+    const bubbleHidden = !onScreen || !deps.state.me || screen.id !== null || Boolean(deps.state.activePlayerProfileId);
+    syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
+      deps.setActivePanel("charges");
+      deps.renderHud();
+    });
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
-    const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
-    if (tick % TRACKER_EVERY_TICKS === 0 && retryHouseChargeChoice(deps.state, nowMs)) deps.renderHud();
     // The login briefing and release notes open as the Chronicle on the matching tab.
     const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {

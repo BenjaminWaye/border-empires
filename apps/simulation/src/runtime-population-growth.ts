@@ -1,4 +1,6 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityGrowthMult, type BiotaTownSupply } from "@border-empires/shared";
+import { biotaCoinRefreshFor } from "./biota-coin-refresh/biota-coin-refresh.js";
 import {
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
@@ -29,6 +31,12 @@ export function incubationEngineGrowthMultForTile(input: {
   return incubationEngineGrowthMultiplier(hasIncubationEngine);
 }
 
+/** Empire-integrity growth multiplier per player, or undefined while the integrity system is off. Moved out of runtime.ts. */
+export const integrityGrowthMultSource = (
+  metricsFor: (playerId: string) => { Ts: number; Es: number }
+): ((playerId: string) => number) | undefined =>
+  EMPIRE_INTEGRITY_ENABLED ? (playerId) => { const metrics = metricsFor(playerId); return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es)); } : undefined;
+
 export function tickPopulationGrowth(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -53,6 +61,8 @@ export function tickPopulationGrowth(input: {
   // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Incubation Engine/Seed
   // Incubation Engine doesn't grant its growth bonus.
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  /** The player's luxury biota allocation; a town whose share changed is re-pushed so its Coin stays current. */
+  biotaTownSupplyForPlayer?: (playerId: string) => ReadonlyMap<string, BiotaTownSupply> | undefined;
 }): {
   growthStalledNoFood: number;
   townsGrown: number;
@@ -72,6 +82,7 @@ export function tickPopulationGrowth(input: {
   // player with a growing town, i.e. every minute for every large empire
   // (2026-09-17 prod CPU-throttle incident).
   const dirtyPlayerIds = new Set<string>();
+  const biotaRefresh = biotaCoinRefreshFor(input.townLastGrowthTickAtByKey);
   let growthStalledNoFood = 0;
   let townsGrown = 0;
   let townsSkippedWar = 0;
@@ -143,6 +154,8 @@ export function tickPopulationGrowth(input: {
       }
     };
 
+    const biota = input.biotaTownSupplyForPlayer?.(player.id);
+    let biotaShifted = false;
     const pDiag = { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: 0, logisticCap: 0, totalTowns: 0 };
     let pHadEligibleTown = false;
 
@@ -172,6 +185,12 @@ export function tickPopulationGrowth(input: {
         input.writeTile(tileKey, healedTile);
         recordTileDelta(tileKey, healedTile);
         dirtyPlayerIds.add(player.id);
+      }
+      if (biotaRefresh.changed(tileKey, biota?.get(tileKey))) {
+        // Re-stamped with the current share on emission; the cached tile-yield context must not hold the old one.
+        if (!biotaShifted) input.invalidateEconomyCachesForPlayer(player.id);
+        biotaShifted = true;
+        recordTileDelta(tileKey, { ...tile, town });
       }
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;

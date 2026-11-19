@@ -203,7 +203,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
   const { floatingText, aetherLanceFx, surveySweepFx, siphonFx, retortRecastFx, revealEmpireFx, revealEmpireStatsFx, bombardFx, siegeBombardFx } = anchoredFx;
-  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, waystationOpenFx } = anchoredFx;
+  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, salvageDeliveryFx, waystationOpenFx } = anchoredFx;
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const mapGuideOverlay = createMapGuideOverlay(scene);
   const sovereignSiegeEngineShakeFx = createCameraShakeFx(camera);
   const borderDustFx = createBorderDustFxLayer(scene);
@@ -517,7 +517,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       imperialExchangeLevyFx,
       astralDockLaunchFx,
       aegisLockFx,
-      unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, waystationOpenFx, floatingText
+      unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, salvageDeliveryFx, waystationOpenFx, floatingText
     }
   });
   const syncAetherBridgePylons = createAetherBridgePylonSync(aetherBridgePylonOverlay, { tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, tileSurfaceY: aetherBridgeTileSurfaceY, sceneOrigin });
@@ -1150,7 +1150,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); waystationOpenFx.update(nowMs); borderDustFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); salvageDeliveryFx.update(nowMs); waystationOpenFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs); nameDecal.tick(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
@@ -1235,7 +1235,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); townTierUpgradeFx.dispose(); waystationOpenFx.dispose(); borderDustFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); townTierUpgradeFx.dispose(); salvageDeliveryFx.dispose(); waystationOpenFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose(); afcOverlayGroup.dispose();

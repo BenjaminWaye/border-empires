@@ -10,7 +10,9 @@
 // Manpower engine: Ancillary Depot (stacks per town; +150 cap + 10% of the
 // town's base cap each, 35% with a Reserve Lattice in reach), Reserve Lattice,
 // Ancillary Factory (one per town; +0.05 manpower/min, +0.10 more inside a
-// Neural Works network) and Neural Works.
+// Neural Works network) and Neural Works. Vivarium (stacks per town; each
+// covers one of the town's luxury biota slots) is proposed only where the
+// town is short of biota, i.e. unruly and giving a smaller tier's manpower.
 //
 // Each candidate scores by what building it *now* would add, given what the
 // town and the towns it is connected to already have. Scores stay inside
@@ -25,7 +27,7 @@ import {
   MANUFACTORY_GOLD_PRODUCTION_BONUS,
   MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE
 } from "@border-empires/game-domain";
-import { ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, type EconomicStructureType } from "@border-empires/shared";
+import { ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, VIVARIUM_BIOTA_SLOTS, type EconomicStructureType } from "@border-empires/shared";
 import type { NeedVector } from "./build-need-vector.js";
 import type { TownEconomyEntry } from "./town-economy-view.js";
 
@@ -37,7 +39,8 @@ export const SYNERGY_SCORED_TYPES: ReadonlySet<EconomicStructureType> = new Set<
   "ANCILLARY_DEPOT",
   "RESERVE_LATTICE",
   "ANCILLARY_FACTORY",
-  "NEURAL_WORKS"
+  "NEURAL_WORKS",
+  "VIVARIUM"
 ]);
 
 export type SynergyCandidate = { type: EconomicStructureType; score: number; gain: number };
@@ -78,6 +81,11 @@ const NEURAL_WORKS_GAIN_REFERENCE = 0.3;
 const RESERVE_LATTICE_DEPOT_LIFT = 0.25;
 const DEPOT_BASE_CAP_SHARE = 0.1;
 const DEPOT_BASE_CAP_SHARE_WITH_LATTICE = 0.35;
+// An unruly town gives a smaller tier's manpower (a Metropolis with no biota
+// gives a Town's), so a Vivarium where it is short is a strong manpower move:
+// it ranks with the Depot, below the food-crisis Hydrogarden/Incubation Engine.
+const VIVARIUM_SCORE_FLOOR = 90;
+const VIVARIUM_SCORE_RANGE = 50;
 /** Amplifiers need something to amplify: at least this many in reach. */
 export const AMPLIFIER_MIN_TARGETS = 2;
 
@@ -135,6 +143,11 @@ const manpowerCandidates = (town: TownEconomyEntry, needVector: NeedVector): Syn
       const gain = RESERVE_LATTICE_DEPOT_LIFT * town.baseManpowerCap * depotsInReach;
       out.push({ type: "RESERVE_LATTICE", score: DEPOT_SCORE_MAX * ceiling * clamp01(gain / DEPOT_GAIN_REFERENCE), gain });
     }
+  }
+
+  if (town.biotaShortSlots > 0) {
+    const gain = Math.min(town.biotaShortSlots, VIVARIUM_BIOTA_SLOTS);
+    out.push({ type: "VIVARIUM", score: VIVARIUM_SCORE_FLOOR + VIVARIUM_SCORE_RANGE * Math.max(ceiling, throughput), gain });
   }
 
   if (throughput > 0) {

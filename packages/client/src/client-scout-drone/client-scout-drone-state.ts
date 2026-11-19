@@ -13,7 +13,6 @@ import {
   type ScoutReportFindings
 } from "@border-empires/shared";
 import { resourceLabel } from "../client-map-display.js";
-import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { FeedEntry } from "../client-types.js";
 
@@ -28,9 +27,8 @@ type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playe
 
 type ScoutReport = ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 
-const SCOUT_LAUNCH_FEED_WINDOW_MS = 10_000;
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const END_REASONS: readonly ScoutDroneEndReason[] = ["TARGET", "RANGE", "BLOCKED"];
+const END_REASONS: readonly ScoutDroneEndReason[] = ["TARGET", "RANGE", "BLOCKED", "RECALLED"];
 
 /** Parses a wire flight, converting its server-clock times with `toLocal`. Undefined when malformed. */
 export const parseScoutDroneFlight = (value: unknown, toLocal: (serverTime: number) => number): ScoutDroneFlight | undefined => {
@@ -142,12 +140,9 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
-    // Confirmed by the server, so a refused launch never shows as launched. A replay to a
-    // late-joining tab carries an older launchedAt and stays quiet.
-    if (next && previous?.launchedAt !== next.launchedAt && nowMs - next.launchedAt < SCOUT_LAUNCH_FEED_WINDOW_MS) {
-      const target = { x: next.targetX, y: next.targetY };
-      push("Scout drone launched", `Flying toward (${target.x}, ${target.y}). Report in ${formatCooldownShort(Math.max(0, next.landsAt - nowMs))}.`, "info", target);
-    } else if (next?.blockedByPlayerId && previous?.launchedAt === next.launchedAt && !previous.blockedByPlayerId) {
+    // No "launched" popup: it only repeated the tap. The drone on the map, with its "Back in …"
+    // pill (client-scout-drone-eta-label.ts), is the confirmation. A recall needs none either.
+    if (next?.blockedByPlayerId && previous?.launchedAt === next.launchedAt && !previous.blockedByPlayerId) {
       push("Scout drone turned back", `Turned back at ${nameOf(next.blockedByPlayerId)}'s border.`, "warn", { x: next.blockedAtX ?? next.targetX, y: next.blockedAtY ?? next.targetY });
     }
     const report = parseScoutReport(msg.report);

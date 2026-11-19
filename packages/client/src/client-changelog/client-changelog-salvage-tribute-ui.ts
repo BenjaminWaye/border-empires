@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { SALVAGE_DELIVERY_SHIP_ENTRY } from "./client-changelog-salvage-delivery-ship.js";
 
 export const SALVAGE_TRIBUTE_UI_CHANGELOG: ClientChangelogEntry[] = [
   {
@@ -26,5 +27,6 @@ export const SALVAGE_TRIBUTE_UI_CHANGELOG: ClientChangelogEntry[] = [
     title: "Old emptied salvage fields cleaned up",
     why: "Salvage fields emptied before the last fix came back after a server restart and could be stripped again.",
     changes: ["Salvage fields you emptied in the last few days are removed from the map, along with any Reclamation Works rebuilt on them"]
-  }
+  },
+  SALVAGE_DELIVERY_SHIP_ENTRY
 ];

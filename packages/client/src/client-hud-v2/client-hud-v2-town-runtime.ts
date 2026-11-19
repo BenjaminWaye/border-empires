@@ -1,4 +1,5 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
+import { clearTownPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 import { pushFeed } from "../client-alerts/client-alerts.js";
 import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
 import { RESOURCE_NETWORKS, structureRequiresTownOrSupportTile } from "@border-empires/shared";
@@ -16,7 +17,6 @@ import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
-import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
@@ -216,7 +216,12 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
 let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** The open town screen's town and selected tile, if it is open. */
+export const townScreenKeys = (): { townKey: string; focusKey: string } | undefined =>
+  current && { townKey: current.townKey, focusKey: current.focusKey };
+
 export const closeTownScreen = (keepPosition = false): void => {
+  clearTownPlotPlacement();
   current = undefined;
   placeFlash = undefined;
   screen.townBuildSelection = undefined;
@@ -257,7 +262,6 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
       deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
       return;
     }
-    suppressAutoExpand();
     deps.state.selected = { x: target.x, y: target.y };
     const centre = screenCentre();
     deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
@@ -308,7 +312,6 @@ export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
   // Match a map press: even a previously full tile can have stale economy
   // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
   deps.actionFlow.requestTileDetailIfNeeded(next, { force: true });
-  suppressAutoExpand();
   const centre = screenCentre();
   deps.actionFlow.openSingleTileActionMenu(next, centre.x, centre.y);
 };

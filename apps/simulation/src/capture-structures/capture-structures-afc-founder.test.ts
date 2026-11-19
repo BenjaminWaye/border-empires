@@ -24,3 +24,23 @@ describe("AFC founder through captures", () => {
     expect(afcFoundedBy(afc)).toBeUndefined();
   });
 });
+
+describe("captured AFC module provenance", () => {
+  it("records whose House copy each module was when the AFC is taken", () => {
+    const afc = capturedStructureFields(afcTile({ ownerId: "varn", status: "active", modules: ["alchemy", "radar"], houseModules: ["alchemy", "radar"] }), "sigrid", 10).afc;
+    expect(afc?.houseModules).toEqual([]);
+    expect(afc?.capturedModuleHouses).toEqual({ alchemy: "varn", radar: "varn" });
+  });
+
+  it("keeps earlier provenance and adds the next loser's own copies on a second capture", () => {
+    const once = capturedStructureFields(afcTile({ ownerId: "varn", status: "active", modules: ["alchemy"], houseModules: ["alchemy"] }), "sigrid", 10).afc!;
+    const withSigridModule = { ...once, modules: ["alchemy", "radar"], houseModules: ["radar"] };
+    const twice = capturedStructureFields(afcTile(withSigridModule), "alden", 20).afc;
+    expect(twice?.capturedModuleHouses).toEqual({ alchemy: "varn", radar: "sigrid" });
+  });
+
+  it("adds no provenance when the loser had no House copies installed", () => {
+    const afc = capturedStructureFields(afcTile({ ownerId: "varn", status: "active", modules: ["alchemy"] }), "sigrid", 10).afc;
+    expect(afc?.capturedModuleHouses).toBeUndefined();
+  });
+});

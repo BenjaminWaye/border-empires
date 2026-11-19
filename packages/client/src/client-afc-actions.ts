@@ -1,19 +1,18 @@
 import { AFC_BUILD_MIN_MODULES, AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost, afcReplacementCost, isAfcFootprintClear } from "@border-empires/shared";
 import { afcIsFull } from "./client-afc-slot-notices/client-afc-slot-notices.js";
 import { formatCooldownShort } from "./client-app-runtime-utils.js";
-import { afcScoutDroneAction } from "./client-scout-drone/client-scout-drone-picking.js";
+import { afcScoutDroneActions } from "./client-scout-drone/client-scout-drone-picking.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 type Availability = (enabled: boolean, reason: string, detail?: string) => Pick<TileActionDef, "disabled" | "disabledReason" | "detail">;
 
-/** Send scout drone first, then one "Call down" row per researched module not docked here; a module
+/** Send scout drone (and Recall drone while it flies out) first, then one "Call down" row per researched module not docked here; a module
  * already in transit to this AFC shows as a disabled row with its remaining time. */
 export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availability: Availability, nowMs: number = Date.now()): TileActionDef[] => {
   const afc = tile.afc;
   if (afc?.ownerId !== state.me || afc.status !== "active") return [];
-  const scout = afcScoutDroneAction(state, tile, nowMs);
-  return [...(scout ? [scout] : []), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
+  return [...afcScoutDroneActions(state, tile, nowMs), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
     if (tech.manifestCategory !== "AFC_MODULE" || !state.techIds.includes(tech.id) || afc.houseModules?.includes(tech.id)) return [];
     const incoming = afc.incomingModules?.find((entry) => entry.techId === tech.id);
     const id = `redeploy_afc_module:${tech.id}` as const;

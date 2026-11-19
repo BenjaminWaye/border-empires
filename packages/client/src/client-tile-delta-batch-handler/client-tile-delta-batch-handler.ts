@@ -18,6 +18,8 @@ import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModule
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 import { detectWaystationOpenings, recordWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import { emitSalvageDeliveries } from "../client-salvage-delivery-fx/client-salvage-delivery-detect.js";
+import { snapshotSalvageLoadsShipped } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string; waystationJson?: string };
 
@@ -64,6 +66,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; townPopulationTier?: Tile["townPopulationTier"]; defenderGarrison?: GarrisonFacing; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   const myAfcKeysBefore = new Set<string>();
+  const previousShippedByKey = new Map<string, number | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
@@ -71,6 +74,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       const garrison = update.combatJson && existing?.ownerId
         ? defenderGarrisonField(state, keyFor, updateKey, existing.ownerId, Date.now()).defenderGarrison : undefined;
       previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
+      previousShippedByKey.set(updateKey, snapshotSalvageLoadsShipped(existing));
       if (existing?.afc?.ownerId === state.me && existing.ownerId === state.me) myAfcKeysBefore.add(updateKey);
       previousTileByKey.set(
         updateKey,
@@ -179,6 +183,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
     emitTownTierUpgrades({ state, tileUpdates, previousTileByKey, keyFor, nowMs, pushFeed: deps.pushFeed });
     if (waystationOpenings.length) recordWaystationOpenings(state, waystationOpenings, keyFor, nowMs);
+    emitSalvageDeliveries({ state, tileUpdates, previousShippedByKey, keyFor, nowEpochMs: Date.now() });
     recordAfcModuleDeliveries(
       state,
       detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),

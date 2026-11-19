@@ -40,6 +40,7 @@ export type OptimisticStructureKind =
   | "HIGH_YIELD_AETHER_CONDENSER"
   | "TRADE_NEXUS"
   | "ANCILLARY_DEPOT"
+  | "VIVARIUM"
   | "HARBOR_EXCHANGE"
   | "NEURAL_WORKS"
   | "MINISTRY_HALL"
@@ -159,6 +160,7 @@ export type Tile = {
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
       | "ANCILLARY_DEPOT"
+      | "VIVARIUM"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
       | "MINISTRY_HALL"
@@ -196,6 +198,7 @@ export type Tile = {
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
       | "ANCILLARY_DEPOT"
+      | "VIVARIUM"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
       | "MINISTRY_HALL"
@@ -212,7 +215,7 @@ export type Tile = {
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; foundedBy?: string; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; foundedBy?: string; modules?: string[]; houseModules?: string[]; capturedModuleHouses?: Record<string, string>; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -376,6 +379,7 @@ export type StrategicReplayEvent = {
     | "AETHER_CONDENSER"
     | "TRADE_NEXUS"
     | "ANCILLARY_DEPOT"
+    | "VIVARIUM"
     | "HARBOR_EXCHANGE"
     | "MINISTRY_HALL"
     | "RESONANCE_GRID";
