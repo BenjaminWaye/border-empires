@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeFrontierAttackClaimTargetKeys, syncFrontierClaimPlates } from "./client-map-3d-frontier-claim-plates.js";
+import { activeFrontierAttackClaimTargetKeys, syncFrontierClaimPlates, type PlacedFrontierClaim } from "./client-map-3d-frontier-claim-plates.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
@@ -32,8 +32,8 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
 
 const neverHills = (): boolean => false;
 
-const sync = (state: ClientState, plates: FakePlate[]): void =>
-  syncFrontierClaimPlates(state, keyFor, heightfield, plates as never, 0, 0, 0, wrapX, wrapY, neverHills);
+const sync = (state: ClientState, plates: FakePlate[], animate = true): PlacedFrontierClaim[] =>
+  syncFrontierClaimPlates(state, keyFor, heightfield, plates as never, 0, 0, 0, wrapX, wrapY, neverHills, animate);
 
 describe("frontier claim plate sourcing", () => {
   // Regression: an enemy taking this player's own FRONTIER tile got no claim
@@ -329,5 +329,51 @@ describe("activeFrontierAttackClaimTargetKeys", () => {
     });
 
     expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now()).size).toBe(0);
+  });
+});
+
+describe("frontier claim plates with an expand crew", () => {
+  it("waits for a manual EXPAND's crew to walk in, then grows from their stake point", () => {
+    const now = Date.now();
+    const state = createState({
+      capture: { startAt: now - 200, resolvesAt: now + 7_300, target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, actionType: "EXPAND" }
+    });
+    const plates = createPool(1);
+    const scales: Array<[number, number, number]> = [];
+    plates[0]!.scale.set = (x: number, y: number, z: number): void => { scales.push([x, y, z]); };
+
+    const placed = sync(state, plates);
+
+    // Still walking in from the origin tile: no fill yet.
+    expect(scales[0]?.[0]).toBeLessThan(0.01);
+    expect(scales[0]?.[2]).toBeLessThan(0.01);
+    expect(placed).toHaveLength(1);
+    expect(placed[0]?.claim.crew).toBe(4);
+    expect(placed[0]?.claim.fromStep).toEqual({ dx: -1, dy: 0 });
+  });
+
+  it("fills over the whole claim when motion is off", () => {
+    const now = Date.now();
+    const state = createState({
+      capture: { startAt: now - 3_750, resolvesAt: now + 3_750, target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, actionType: "EXPAND" }
+    });
+    const plates = createPool(1);
+    const scales: Array<[number, number, number]> = [];
+    plates[0]!.scale.set = (x: number, y: number, z: number): void => { scales.push([x, y, z]); };
+
+    sync(state, plates, false);
+
+    expect(scales[0]?.[0]).toBeCloseTo(0.5, 1);
+  });
+
+  it("hands no crew to the layer for an ATTACK on frontier ground", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" }]])
+    });
+    const plates = createPool(1);
+
+    expect(sync(state, plates)).toEqual([]);
+    expect(plates[0]?.visible).toBe(true);
   });
 });
