@@ -1119,7 +1119,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     garrisonSelection.sync(deps.state.garrisonMany, tileHighlightDeps);
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    frontierClaimVisuals.sync(deps.state, deps.keyFor, heightfield, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
+    frontierClaimVisuals.sync(deps.state, deps.keyFor, heightfield, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN", deps.effectiveOverlayColor(deps.state.me));
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);

@@ -8,7 +8,7 @@ import { patrolPoseAt } from "../client-map-3d-planetary-defense-patrol.js";
 // Planetary Defense soldiers patrol their tiles
 // (client-map-3d-planetary-defense-patrol.ts) -- and kneel to plant the
 // claim as it completes. Shared by the 3D marine layer
-// (client-map-3d-expand-crew/) and the 2D canvas dots
+// (client-map-3d-expand-crew/) and the 2D canvas soldier glyphs
 // (client-expand-crew-2d/), so both renderers walk the same paths on the same
 // clock. Three-free on purpose, like the patrol module it builds on.
 //

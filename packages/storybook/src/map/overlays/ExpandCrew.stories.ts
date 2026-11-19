@@ -64,7 +64,7 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(...visuals.objects);
   let rafId = 0;
   const animate = (): void => {
-    visuals.sync(state, keyFor, flatHeightfield, CAM, CAM, 0.004, (x) => x, (y) => y, () => false);
+    visuals.sync(state, keyFor, flatHeightfield, CAM, CAM, 0.004, (x) => x, (y) => y, () => false, args.ownerColor);
     rafId = requestAnimationFrame(animate);
   };
   animate();

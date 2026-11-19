@@ -12,6 +12,7 @@ import { MARINE_MODEL_KEYS, type MarineModelKey } from "../client-map-3d-popup-m
 import { FRONTIER_CLAIM_PLATE_CAP } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 import type { PlacedFrontierClaim } from "../client-map-3d-frontier-claim-plates.js";
 import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from "../client-expand-crew/client-expand-crew.js";
+import { wanderHash01 } from "../client-ancillary-wander/client-ancillary-wander.js";
 
 // 3D expand crew: the two ancillary soldiers that walk out onto a neutral
 // tile, idly patrol it while its claim plate fills, and kneel to plant the
@@ -23,15 +24,22 @@ import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from ".
 // overlay.ts). Unarmed-looking it is not -- that's the point: the same
 // soldiers who fight the empire's battles also stake its new ground.
 //
-// Clip time comes from the wall clock, never accumulated deltas, so a pose
-// is a pure function of (claim, clock) like the paths themselves; slots are
-// simply handed out in claim order every frame. They wear whatever armour the
+// Clip time comes from the wall clock plus a phase hashed from the claim and
+// soldier (never the pool slot), so a pose is a pure function of (claim,
+// clock) like the paths themselves: slots are simply handed out in claim
+// order every frame, and a soldier moving to another slot when an earlier
+// claim resolves doesn't pop mid-stride. With motion off (the unit motion
+// gate: slow device or reduced motion) each soldier holds the clip's first
+// frame and is posed once, then skipped, like the Planetary Defense patrol's
+// standStill -- the gate exists to shed this per-frame skinning work. Models
+// load on the first expand, not at renderer start. They wear whatever armour the
 // empire's other soldiers wear (marineModelFor its weapons-factory gear, as
 // the muster transit overlay does): the heavy model's pool is only built the
 // first time it's needed, and until it has loaded they wear the standard one.
 const MAX_SOLDIERS = FRONTIER_CLAIM_PLATE_CAP * EXPAND_CREW_SIZE;
 const UP_AXIS = new Vector3(0, 1, 0);
-const CLIP_PHASE_STEP = 0.43;
+// Spread of the per-soldier clip phase, in seconds (covers every clip loop).
+const CLIP_PHASE_SPAN_S = 10;
 
 const CLIP_FOR_STANCE: Record<ExpandCrewStance, string> = {
   walk: "PistolWalk",
@@ -44,11 +52,16 @@ type Soldier = {
   readonly material: MeshStandardMaterial;
   readonly mixer: AnimationMixer;
   readonly actions: Partial<Record<ExpandCrewStance, AnimationAction>>;
-  readonly phase: number;
+  // Motion off: what this soldier was last posed as, so an unchanged still
+  // soldier is skipped. Undefined while animating.
+  stillKey: string | undefined;
 };
 
 export type ExpandCrewSoldiers = {
-  readonly update: (placed: readonly PlacedFrontierClaim[], nowEpochMs: number, animate: boolean, model: MarineModelKey) => void;
+  // ownerColor: this player's territory colour as the map draws it
+  // (effectiveOverlayColor, so the diplomacy lens recolour matches the
+  // marching companies and the 2D crew); crew claims are always its own.
+  readonly update: (placed: readonly PlacedFrontierClaim[], nowEpochMs: number, animate: boolean, model: MarineModelKey, ownerColor: string) => void;
   readonly dispose: () => void;
 };
 
@@ -62,7 +75,7 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
   const shown: Record<MarineModelKey, number> = { standard: 0, heavy: 0 };
   const tmpQuat = new Quaternion();
 
-  const makeSoldier = (template: PopupMarineTemplate, index: number, model: MarineModelKey): Soldier => {
+  const makeSoldier = (template: PopupMarineTemplate, model: MarineModelKey): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
     const material = createMarineMaterial(model === "heavy", envMap);
     // Drawn in the transparent pass after the claim plate (renderOrder 7, no
@@ -85,7 +98,7 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
       actions[stance] = action;
     }
     scene.add(root);
-    return { root, material, mixer, actions, phase: index * CLIP_PHASE_STEP };
+    return { root, material, mixer, actions, stillKey: undefined };
   };
 
   const request = (model: MarineModelKey): void => {
@@ -94,7 +107,7 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
     loadPopupMarineTemplate(model)
       .then((template) => {
         if (disposed) return;
-        pools[model] = Array.from({ length: MAX_SOLDIERS }, (_, i) => makeSoldier(template, i, model));
+        pools[model] = Array.from({ length: MAX_SOLDIERS }, () => makeSoldier(template, model));
       })
       .catch((err: unknown) => {
         // The claim plate still shows; a missing standard model leaves no
@@ -102,21 +115,24 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
         console.error(`popup-marine ${model} model failed to load; the expand crew falls back or will not render`, err);
       });
   };
-  request("standard");
 
-  const pose = (soldier: Soldier, stance: ExpandCrewStance, nowMs: number): void => {
+  // clipTimeS: seconds into every clip (the active one is weighted 1).
+  const pose = (soldier: Soldier, stance: ExpandCrewStance, clipTimeS: number): void => {
     // Fall back to standing if the asset lacks a clip (e.g. kneel).
     const active = soldier.actions[stance] ? stance : "stand";
     for (const [name, action] of Object.entries(soldier.actions) as Array<[ExpandCrewStance, AnimationAction]>) {
       action.setEffectiveWeight(name === active ? 1 : 0);
       const duration = action.getClip().duration;
-      action.time = duration > 0 ? (nowMs * 0.001 + soldier.phase) % duration : 0;
+      action.time = duration > 0 ? clipTimeS % duration : 0;
     }
     soldier.mixer.update(0);
   };
 
-  const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate, wanted) => {
-    if (wanted !== "standard") request(wanted);
+  const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate, wanted, ownerColor) => {
+    if (placed.some((p) => p.claim.crew > 0)) {
+      request("standard");
+      if (wanted !== "standard") request(wanted);
+    }
     const model: MarineModelKey = pools[wanted].length > 0 ? wanted : "standard";
     const pool = pools[model];
     for (const other of MARINE_MODEL_KEYS) {
@@ -135,13 +151,23 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
         // Still on (or stepping off) the origin tile: stand on its ground.
         const outside = Math.max(0, -crewPose.x, crewPose.x - 1, -crewPose.y, crewPose.y - 1);
         const groundY = surfaceY + (fromSurfaceY - surfaceY) * Math.min(1, outside * 2);
-        soldier.material.color.set(claim.color);
-        soldier.root.position.set(sceneX + crewPose.x, groundY, sceneZ + crewPose.y);
+        const x = sceneX + crewPose.x;
+        const z = sceneZ + crewPose.y;
+        if (!animate) {
+          const stillKey = `${x},${groundY},${z},${crewPose.yaw},${crewPose.stance},${ownerColor}`;
+          if (soldier.stillKey === stillKey && soldier.root.visible) continue;
+          soldier.stillKey = stillKey;
+        } else {
+          soldier.stillKey = undefined;
+        }
+        soldier.material.color.set(ownerColor);
+        soldier.root.position.set(x, groundY, z);
         tmpQuat.setFromAxisAngle(UP_AXIS, crewPose.yaw);
         soldier.root.quaternion.copy(tmpQuat);
         soldier.root.visible = true;
         // With motion off, hold the clip's first frame instead of looping.
-        pose(soldier, crewPose.stance, animate ? nowEpochMs : 0);
+        const phaseS = wanderHash01(claim.targetX, claim.targetY, i, 307) * CLIP_PHASE_SPAN_S;
+        pose(soldier, crewPose.stance, animate ? nowEpochMs * 0.001 + phaseS : 0);
         soldier.root.updateMatrixWorld(true);
       }
     }

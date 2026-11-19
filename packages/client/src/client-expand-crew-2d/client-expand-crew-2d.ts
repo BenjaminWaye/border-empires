@@ -73,7 +73,8 @@ export function drawExpandCrews2D(
       if (!pose) continue;
       const h = pose.stance === "kneel" ? glyphH * KNEEL_HEIGHT : glyphH;
       const stride = pose.stance === "walk" ? Math.sin(nowEpochMs * 0.012 + i * 1.7) : 0;
-      // Feet sit at the pose point; tile-local y is screen-down.
+      // Anchored like the Planetary Defense glyphs (feet drawn just below the
+      // pose point); tile-local y is screen-down.
       drawSoldierGlyph2D(ctx, left + pose.x * size, top + pose.y * size + glyphH * 0.45, h, Math.sin(pose.yaw) < 0, stride, ownerColor);
     }
   }

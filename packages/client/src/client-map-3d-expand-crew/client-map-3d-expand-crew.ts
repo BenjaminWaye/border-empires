@@ -28,7 +28,10 @@ type SyncArgs = [
   markerRise: number,
   wrapX: (x: number) => number,
   wrapY: (y: number) => number,
-  isHillsAt: (x: number, y: number) => boolean
+  isHillsAt: (x: number, y: number) => boolean,
+  // This player's territory colour as the map draws it (effectiveOverlayColor):
+  // the crew's tint, so the diplomacy lens matches its marching companies.
+  ownerColor: string
 ];
 
 // The armour this player's expand crew wears: the same as its marching and
@@ -41,13 +44,14 @@ export const expandCrewArmour = (state: Pick<ClientState, "tiles" | "me" | "tile
 export const createFrontierClaimVisuals = (scene: Scene, envMap?: Texture, motionGate: UnitMotionGate = createUnitMotionGate()): FrontierClaimVisuals => {
   const plates = createFrontierClaimPlatePool();
   const soldiers = createExpandCrewSoldiers(scene, envMap);
-  const sync: FrontierClaimVisuals["sync"] = (state, keyFor, heightfield, originX, originY, markerRise, wrapX, wrapY, isHillsAt) => {
+  const sync: FrontierClaimVisuals["sync"] = (state, keyFor, heightfield, originX, originY, markerRise, wrapX, wrapY, isHillsAt, ownerColor) => {
     motionGate.recordFrame(performance.now());
     const animate = motionGate.shouldAnimate();
     const nowEpochMs = Date.now();
     const placed = syncFrontierClaimPlates(state, keyFor, heightfield, plates, originX, originY, markerRise, wrapX, wrapY, isHillsAt, animate, nowEpochMs);
     // Gear is read (cached per tile revision) only when there is a crew to dress.
-    soldiers.update(placed, nowEpochMs, animate, placed.length === 0 ? "standard" : expandCrewArmour(state));
+    const hasCrew = placed.some((p) => p.claim.crew > 0);
+    soldiers.update(placed, nowEpochMs, animate, hasCrew ? expandCrewArmour(state) : "standard", ownerColor);
   };
   const dispose = (): void => {
     disposeFrontierClaimPlatePool(plates);
