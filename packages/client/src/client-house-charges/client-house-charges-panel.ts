@@ -4,13 +4,18 @@
 // map". Opened from the sealed-cards bubble or its docked cards
 // (client-house-charges-bubble.ts) and from your own profile's House Charges
 // section (client-house-charges-profile.ts).
-import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
+import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
 import { houseChargesDealing, houseChargesPickHtml, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+
+/** "Common +1, Rare +2, Mythic +4": the Domain score a held charge banks, by rarity. */
+const CHARGE_DOMAIN_BY_RARITY = (["COMMON", "RARE", "MYTHIC"] as const)
+  .map((rarity) => `${HOUSE_CHARGE_RARITY_LABEL[rarity]} +${HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[rarity]}`)
+  .join(", ");
 
 export type HouseChargesPanelDeps = {
   readonly root: ParentNode;
@@ -122,7 +127,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
   const ordered = [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and a galaxy reward. ◆ is difficulty. Nobody else can see your charges until then.</p>
+    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and Domain score for your House (${CHARGE_DOMAIN_BY_RARITY}). ◆ is difficulty. Nobody else can see your charges until then.</p>
     ${choice}
     <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id, scoutHintFor(charge))).join("")}</div>
   </section>`;
