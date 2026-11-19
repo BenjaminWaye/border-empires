@@ -117,18 +117,29 @@ describe("renderer parity", () => {
 });
 
 // Owner 2026-11-19: in true-3D the unexplored storm clouds hid the charge's dotted circles, which mark
-// exactly that unexplored ground. Three.js paints transparent meshes in renderOrder, so every charge
-// guide layer must come after the storm and the fogged mist.
+// exactly that unexplored ground. Three.js paints transparent meshes in renderOrder, so the circles and link
+// must come after the storm and the fogged mist; the explored-only shading sits over the ownership fill and
+// fog wash but under the inked names (it was at 0, under the ownership fill).
 describe("true-3D charge guide over the storm", () => {
-  it("draws the shaded area, its outline and the dotted circles after the unexplored storm", () => {
+  const layerOrder = (name: string): number => {
     const scene = new Scene();
     createMapGuideOverlay(scene);
-    const names = ["house-charge-area-garrisoned", "house-charge-area-open", "house-charge-area-outline", "house-charge-search-ring", "house-charge-search-link"];
-    for (const name of names) {
-      const layer = scene.children.find((child) => child.name === name);
-      expect(layer, name).toBeDefined();
-      expect(layer!.renderOrder, name).toBeGreaterThan(RENDER_ORDER.unexploredStorm);
-      expect(layer!.renderOrder, name).toBeGreaterThan(RENDER_ORDER.foggedMist);
+    const layer = scene.children.find((child) => child.name === name);
+    expect(layer, name).toBeDefined();
+    return layer!.renderOrder;
+  };
+
+  it("draws the dotted circles and link after the unexplored storm and the fogged mist", () => {
+    for (const name of ["house-charge-search-ring", "house-charge-search-link"]) {
+      expect(layerOrder(name), name).toBeGreaterThan(RENDER_ORDER.unexploredStorm);
+      expect(layerOrder(name), name).toBeGreaterThan(RENDER_ORDER.foggedMist);
+    }
+  });
+
+  it("draws the shaded area over the ownership fill and fog wash, under the map names", () => {
+    for (const name of ["house-charge-area-garrisoned", "house-charge-area-open", "house-charge-area-outline"]) {
+      expect(layerOrder(name), name).toBeGreaterThan(RENDER_ORDER.fogDarkenFrontier);
+      expect(layerOrder(name), name).toBeLessThan(RENDER_ORDER.groundNames);
     }
   });
 });

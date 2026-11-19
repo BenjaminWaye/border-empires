@@ -174,4 +174,14 @@ describe("sealed charges bubble", () => {
     expect(refresh).toHaveBeenCalledOnce();
     expect(root()?.querySelector(".hcb-focus")).toBeNull();
   });
+
+  // Review of #2876: the focus note hid the first-dock note while still marking it seen, so it never showed.
+  it("keeps the one-time dock note for later while a charge is shown on the map", () => {
+    const open = vi.fn();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, open);
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null, houseChargeFocusId: "a" }, 3_000, false, open);
+    expect(root()?.querySelector(".hcb-focus")).not.toBeNull();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 4_000, false, open);
+    expect(root()?.textContent).toContain("Your charges stay here.");
+  });
 });

@@ -109,16 +109,20 @@ const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** While a charge is shown on the map: its title and the way back to the cards. */
-const focusNoteHtml = (title: string): string => `<div class="hcb-speech hcb-focus sp-callout sp-callout-tail-left" role="status">
+const focusNoteHtml = (title: string): string => `<div class="hcb-speech hcb-focus sp-callout sp-callout-tail-left">
         <button type="button" class="hcb-speech-open" data-hcb-action="open"><span class="hcb-focus-title">Showing: ${escapeHtml(title)}</span><span class="hcb-focus-back">‹ Back to cards</span></button>
         <button type="button" class="hcb-speech-close" data-hcb-action="clear-focus" aria-label="Stop showing this charge">&times;</button>
       </div>`;
+
+/** Whether the docked cards show the Show on map note (the focused charge is in this deal). */
+const focusShown = (payload: HouseChargesPayload, focusId: string | undefined): boolean =>
+  focusId !== undefined && payload.charges.some((charge) => charge.id === focusId);
 
 /** The cards at rest once the charges have been opened: the way back to them, with how many kept charges are held. */
 export const houseChargesDockHtml = (payload: HouseChargesPayload, showNote: boolean, focusId?: string): string => {
   const kept = payload.charges.filter((charge) => charge.kept);
   const held = kept.filter((charge) => charge.held).length;
-  const focused = focusId ? payload.charges.find((charge) => charge.id === focusId) : undefined;
+  const focused = focusShown(payload, focusId) ? payload.charges.find((charge) => charge.id === focusId) : undefined;
   const note = focused
     ? focusNoteHtml(focused.title)
     : showNote
@@ -211,7 +215,8 @@ export const syncHouseChargesBubble = (
   const deal: HouseChargesPayload = payload;
   const html = unhandled
     ? houseChargesBubbleHtml(deal, !flagsFor(deal.dealtAt).speechDismissed)
-    : houseChargesDockHtml(deal, flagsFor(deal.dealtAt).handled && dockNoteShowing(deal.dealtAt, nowMs), state.houseChargeFocusId);
+    // The one-time dock note waits while the Show on map note takes its place, so it is not spent unseen.
+    : houseChargesDockHtml(deal, !focusShown(deal, state.houseChargeFocusId) && flagsFor(deal.dealtAt).handled && dockNoteShowing(deal.dealtAt, nowMs), state.houseChargeFocusId);
   if (html !== lastHtml) {
     root.innerHTML = html;
     lastHtml = html;

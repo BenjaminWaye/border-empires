@@ -77,3 +77,30 @@ export const endCloseUp = (deps: CameraDeps, keepPosition = false): void => {
 };
 
 export const isCloseUp = (): boolean => saved !== undefined;
+
+/**
+ * Forgets the close-up and stops any zoom glide, so closing its screen leaves the camera where something
+ * else just put it (House Charge Show on map, which frames its own view).
+ */
+export const dropCloseUp = (): void => {
+  saved = undefined;
+  if (frame !== undefined && typeof cancelAnimationFrame !== "undefined") cancelAnimationFrame(frame);
+  frame = undefined;
+  glideTarget = undefined;
+};
+
+/**
+ * After a House Charge's Show on map: closes the screen the charges panel sat over (`close`) without the
+ * close-up's glide back, then puts back the view Show on map framed, in case closing moved it.
+ */
+export const closeScreenKeepingView = (deps: CameraDeps, view: { x: number; y: number; zoom: number }, close: () => void): void => {
+  dropCloseUp();
+  close();
+  dropCloseUp();
+  deps.state.camX = deps.wrapX(view.x);
+  deps.state.camY = deps.wrapY(view.y);
+  deps.state.camSubX = 0;
+  deps.state.camSubY = 0;
+  deps.state.zoom = view.zoom;
+  deps.requestViewRefresh();
+};
