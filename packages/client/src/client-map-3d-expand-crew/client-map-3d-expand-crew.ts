@@ -96,8 +96,9 @@ export const createFrontierClaimVisuals = (motionGate: UnitMotionGate = createUn
   const sync: FrontierClaimVisuals["sync"] = (state, keyFor, heightfield, originX, originY, markerRise, wrapX, wrapY, isHillsAt) => {
     motionGate.recordFrame(performance.now());
     const animate = motionGate.shouldAnimate();
-    const placed = syncFrontierClaimPlates(state, keyFor, heightfield, plates, originX, originY, markerRise, wrapX, wrapY, isHillsAt, animate);
-    crew.update(placed, Date.now(), animate);
+    const nowEpochMs = Date.now();
+    const placed = syncFrontierClaimPlates(state, keyFor, heightfield, plates, originX, originY, markerRise, wrapX, wrapY, isHillsAt, animate, nowEpochMs);
+    crew.update(placed, nowEpochMs, animate);
   };
   const dispose = (): void => {
     disposeFrontierClaimPlatePool(plates);

@@ -54,9 +54,13 @@ type Timeline = { readonly walkEndsAt: number; readonly sinkStartsAt: number; re
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
-const timeline = (claim: ExpandCrewClaim, animate: boolean): Timeline => {
+// Deliberately independent of `animate`: it is re-read every frame (the
+// slow-device latch can trip mid-claim, reduced motion can be toggled), so a
+// timeline keyed on it would make the plate jump. With motion off the crew
+// simply stands on its stakes through the walk window.
+const timeline = (claim: ExpandCrewClaim): Timeline => {
   const total = Math.max(1, claim.resolvesAt - claim.startAt);
-  const walkMs = animate && claim.fromStep && claim.crew > 0 ? Math.min(EXPAND_CREW_WALK_MS, total * WALK_MAX_SHARE) : 0;
+  const walkMs = claim.fromStep && claim.crew > 0 ? Math.min(EXPAND_CREW_WALK_MS, total * WALK_MAX_SHARE) : 0;
   const sinkMs = Math.max(1, Math.min(EXPAND_CREW_SINK_MS, total * SINK_MAX_SHARE));
   return { walkEndsAt: claim.startAt + walkMs, sinkStartsAt: claim.resolvesAt - sinkMs, sinkMs };
 };
@@ -80,16 +84,17 @@ export const expandCrewAnchor = (claim: ExpandCrewClaim): { x: number; y: number
   return { x: x / claim.crew, y: y / claim.crew };
 };
 
-// Claim-plate fill progress (0..1). With a walking crew the plate waits for
-// them to reach their stakes, then fills over the rest of the claim.
-export const expandCrewPlateProgress = (claim: ExpandCrewClaim, nowMs: number, animate: boolean): number => {
-  const { walkEndsAt } = timeline(claim, animate);
+// Claim-plate fill progress (0..1). With a crew walking in the plate waits
+// for them to reach their stakes, then fills over the rest of the claim, with
+// motion on or off (see timeline).
+export const expandCrewPlateProgress = (claim: ExpandCrewClaim, nowMs: number): number => {
+  const { walkEndsAt } = timeline(claim);
   return clamp01((nowMs - walkEndsAt) / Math.max(1, claim.resolvesAt - walkEndsAt));
 };
 
 export const expandCrewFigurePose = (claim: ExpandCrewClaim, i: number, nowMs: number, animate: boolean): ExpandCrewPose | undefined => {
   if (i >= claim.crew || nowMs >= claim.resolvesAt) return undefined;
-  const { walkEndsAt, sinkStartsAt, sinkMs } = timeline(claim, animate);
+  const { walkEndsAt, sinkStartsAt, sinkMs } = timeline(claim);
   const stake = expandCrewStakePoint(claim, i);
   const height = 1 - clamp01((nowMs - sinkStartsAt) / sinkMs);
   if (animate && claim.fromStep && nowMs < walkEndsAt) {

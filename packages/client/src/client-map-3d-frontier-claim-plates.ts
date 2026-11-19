@@ -31,7 +31,7 @@ export type PlacedFrontierClaim = {
 // tile once they've walked in (client-expand-crew.ts); one without (an ATTACK
 // on frontier ground) keeps the sweep in from the left over the whole claim.
 // `animate` is the unit motion gate's verdict: with motion off the crew
-// stands on its stakes from the start, so the plate fills over the full claim.
+// stands on its stakes instead of walking, on the same clock.
 export function syncFrontierClaimPlates(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -47,9 +47,10 @@ export function syncFrontierClaimPlates(
   // top-of-loop skip and isHillNeighbor), so a bare isHillsTile predicate
   // here would bump-raise a claim plate over a mountain with no dome at all.
   isHillsAt: (x: number, y: number) => boolean,
-  animate = true
+  animate = true,
+  // One clock for the plates and the crew layer that reads `placed`.
+  nowEpochMs: number = Date.now()
 ): PlacedFrontierClaim[] {
-  const nowEpochMs = Date.now();
   const claims = collectFrontierClaims(state, keyFor, nowEpochMs);
   const placed: PlacedFrontierClaim[] = [];
 
@@ -86,7 +87,7 @@ export function syncFrontierClaimPlates(
       // Grows outward from the crew's stake point toward the full tile. The
       // anchor sits at least HALF_TILE - 0.22 inside every edge, so the
       // growing plate never leaves the tile.
-      const t = expandCrewPlateProgress(claim, nowEpochMs, animate);
+      const t = expandCrewPlateProgress(claim, nowEpochMs);
       const anchor = expandCrewAnchor(claim);
       plate.scale.set(Math.max(0.001, t), 1, Math.max(0.001, t));
       plate.position.set(dxw + anchor.x + (TILE_CENTER_OFFSET - anchor.x) * t, surfaceY + markerRise, dyw + anchor.y + (TILE_CENTER_OFFSET - anchor.y) * t);

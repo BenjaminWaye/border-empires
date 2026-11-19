@@ -6,7 +6,9 @@ import { expandCrewAnchor, expandCrewFigurePose, expandCrewPlateProgress } from 
 // the 2D renderer is the accessibility fallback, so an EXPAND gets the same
 // walk-out-and-stake on the same clock (client-expand-crew.ts), drawn
 // cheaply -- the claim fill as a square growing from the crew's stake point,
-// and the crew as the same dark pixel dots the 2D settle loader uses. Only
+// and the crew as the same dark pixel dots the 2D settle loader uses. 2D has
+// no slow-device gate (that watches the 3D render loop), so only reduced
+// motion stands the crew still here. Only
 // claims with a crew (EXPANDs) are drawn here; the 2D map draws nothing
 // on-tile for an ATTACK on frontier ground.
 
@@ -16,14 +18,24 @@ type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: 
 const CREW_DOT_COLOR = "rgba(6, 8, 12, 0.9)";
 const FILL_ALPHA = 0.3;
 
-const prefersReducedMotion = (): boolean =>
-  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// One MediaQueryList for the session, read live each frame (so toggling the
+// OS setting takes effect without a reload) without allocating a new one.
+let reducedMotionQuery: MediaQueryList | undefined;
+const prefersReducedMotion = (): boolean => {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  reducedMotionQuery ??= window.matchMedia("(prefers-reduced-motion: reduce)");
+  return reducedMotionQuery.matches;
+};
 
 export function drawExpandCrews2D(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
   worldToScreen: WorldToScreen,
   ctx: CanvasRenderingContext2D,
+  // This player's territory colour as the 2D map draws it
+  // (effectiveOverlayColor, so the diplomacy lens recolour matches): crew
+  // claims are always this player's own.
+  ownerColor: string,
   size: number,
   halfW: number,
   halfH: number,
@@ -40,14 +52,14 @@ export function drawExpandCrews2D(
     const left = center.sx - size / 2;
     const top = center.sy - size / 2;
 
-    const t = expandCrewPlateProgress(claim, nowEpochMs, animate);
+    const t = expandCrewPlateProgress(claim, nowEpochMs);
     if (t > 0) {
       const anchor = expandCrewAnchor(claim);
       const span = (size - 2) * t;
       const cx = left + (anchor.x + (0.5 - anchor.x) * t) * size;
       const cy = top + (anchor.y + (0.5 - anchor.y) * t) * size;
       ctx.globalAlpha = FILL_ALPHA;
-      ctx.fillStyle = claim.color;
+      ctx.fillStyle = ownerColor;
       ctx.fillRect(cx - span / 2, cy - span / 2, span, span);
     }
 

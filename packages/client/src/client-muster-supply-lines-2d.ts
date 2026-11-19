@@ -78,7 +78,7 @@ export function drawMusterOverlays2D(
   halfH: number,
   nowMs: number
 ): void {
-  drawExpandCrews2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH);
+  drawExpandCrews2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH);
   drawMusterSupplyLines2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawDockLandings2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH, nowMs);
