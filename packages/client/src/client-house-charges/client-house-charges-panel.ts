@@ -5,8 +5,9 @@
 // (client-house-charges-bubble.ts) and from your own profile's House Charges
 // section (client-house-charges-profile.ts).
 import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
-import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
+import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
 import { houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
@@ -27,6 +28,12 @@ export type HouseChargesPanelDeps = {
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
   readonly now: () => number;
+  /** Closes the panel so the map is in view; the docked cards then offer the way back (client-house-charges-bubble.ts). */
+  readonly closePanel: () => void;
+  /** The map canvas size, to fit the whole goal on screen. */
+  readonly viewport: () => { width: number; height: number };
+  /** Which map renderer is drawing; true-3D shows a different amount of map at one zoom. Defaults to the live renderer. */
+  readonly renderer?: () => "2d" | "3d";
 };
 
 /**
@@ -36,6 +43,42 @@ export type HouseChargesPanelDeps = {
 let rewardsOpen = false;
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
+type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
+
+/**
+ * The view Show on map just framed, so the new HUD can also close a screen the panel sat over (your profile)
+ * and put this view back if closing it moved the camera (a close-up glides back to where it began). Read once.
+ */
+let mapShowRequested: HouseChargeFitView | undefined;
+export const takeHouseChargeMapShowRequest = (): HouseChargeFitView | undefined => {
+  const requested = mapShowRequested;
+  mapShowRequested = undefined;
+  return requested;
+};
+
+/**
+ * "Show on map": highlight the charge, frame the whole goal (both towns of a
+ * Charter, not just one) and close the panel so the map can be seen at once.
+ * The docked cards then carry a "Back to cards" note (client-house-charges-bubble.ts).
+ */
+export const showHouseChargeOnMap = (
+  state: CameraState & Pick<ClientState, "houseChargeFocusId"> & Partial<Pick<ClientState, "tiles">>,
+  charge: HouseChargeView,
+  deps: Pick<HouseChargesPanelDeps, "wrapX" | "wrapY" | "requestViewRefresh" | "closePanel" | "viewport" | "renderer">
+): void => {
+  const tiles = state.tiles;
+  const renderer = deps.renderer?.() ?? (isTrue3DRendererActive() ? "3d" : "2d");
+  const view = houseChargeFitView(charge, (x, y) => tiles?.has(`${x},${y}`) ?? false, deps.viewport(), state.zoom, renderer);
+  state.houseChargeFocusId = charge.id;
+  state.camX = deps.wrapX(view.x);
+  state.camY = deps.wrapY(view.y);
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.zoom = view.zoom;
+  mapShowRequested = { x: state.camX, y: state.camY, zoom: view.zoom };
+  deps.closePanel();
+  deps.requestViewRefresh(2, true);
+};
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -116,7 +159,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
 const writtenHtml = new WeakMap<HTMLElement, string>();
 
 export const renderHouseChargesPanel = (
-  state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "houseChargeFocusId">,
+  state: PanelState & CameraState & Pick<ClientState, "houseChargeFocusId">,
   deps: HouseChargesPanelDeps
 ): void => {
   if (state.activePanel !== "charges") {
@@ -166,10 +209,7 @@ export const renderHouseChargesPanel = (
         deps.rerender();
         return;
       }
-      state.houseChargeFocusId = charge.id;
-      const tiles = state.tiles;
-      const point = houseChargeFocusPoint(charge, tiles ? (x, y) => tiles.has(`${x},${y}`) : undefined);
-      focusCameraOnTile(state, point.x, point.y, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: () => deps.requestViewRefresh(2, true) });
+      showHouseChargeOnMap(state, charge, deps);
       deps.rerender();
     };
   });

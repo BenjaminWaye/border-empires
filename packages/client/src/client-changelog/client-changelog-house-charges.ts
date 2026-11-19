@@ -55,6 +55,17 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1795104690676, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: Show on map shows the whole goal",
+    why: "Pressing Show on map on a charge left the cards open over the map, so you had to close them to look, and the camera framed only one of a road's two towns. On the 3D map the storm clouds over unexplored land hid the charge's markings.",
+    changes: [
+      "Show on map now closes your charges and moves the camera to the whole goal, zooming out so both towns of a road (or the whole area) are on screen, on the 2D and 3D maps alike. If a goal is too wide to fit even fully zoomed out, the town you have scouted stays in view.",
+      "While a charge is shown, the cards at the edge of the map say which one and have a Back to cards button. The × next to it stops showing the charge.",
+      "On the 3D map, a charge's dotted circles, road line and shaded area now draw over the unexplored storm clouds instead of being hidden under them."
+    ]
+  },
+  {
     createdAt: 1795105167432, // Date.now() captured once for this entry.
     introducedIn: "2026.11.19",
     title: "House Charges: everything on the card",

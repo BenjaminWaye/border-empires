@@ -63,8 +63,8 @@ describe("House Charges keep choice", () => {
   // with innerHTML rebuilt the panel every HUD frame, restarting the deal and dropping taps on the cards.
   it("the panel keeps its cards between renders, so a tap lands and the deal plays once", () => {
     const panelEl = document.createElement("div");
-    const state = { activePanel: "charges" as const, houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: undefined as string[] | undefined, camX: 0, camY: 0, camSubX: 0, camSubY: 0, selected: undefined, houseChargeFocusId: undefined };
-    const deps = { root: document, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000 };
+    const state = { activePanel: "charges" as const, houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: undefined as string[] | undefined, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 22, houseChargeFocusId: undefined };
+    const deps = { root: document, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000, closePanel: () => {}, viewport: () => ({ width: 800, height: 600 }) };
     renderHouseChargesPanel(state, deps);
     const card = panelEl.querySelector<HTMLButtonElement>('[data-house-charge-pick="c"]');
     renderHouseChargesPanel(state, deps);
