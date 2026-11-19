@@ -7,7 +7,7 @@
 
 import { ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
 import { occupationSurveyResourceLabel, type OccupationSurveyReport } from "../client-occupation-survey.js";
-import { focusCamera, type HudV2Deps } from "./client-hud-v2-context.js";
+import { focusCamera, screen, type HudV2Deps } from "./client-hud-v2-context.js";
 
 export const RESOURCE_SURVEYS_HEADING = "RESOURCE SURVEYS";
 
@@ -27,14 +27,19 @@ export const chronicleSurveysHtml = (reports: readonly OccupationSurveyReport[])
 
 /**
  * View on a survey row: moves the camera to the clue's area. The point is a rough
- * area, not a deposit, so unlike Show on an event it opens no tile menu. True when handled.
+ * area, not a deposit, so unlike Show on an event it opens no tile menu and leaves
+ * no tile selected; it also clears an event row's highlight. True when handled.
  */
 export const chronicleSurveyClick = (deps: Pick<HudV2Deps, "state" | "wrapX" | "wrapY" | "requestViewRefresh" | "renderHud">, target: Element): boolean => {
   const view = target.closest<HTMLElement>("[data-v2-chronicle-survey]");
   if (!view) return false;
   const x = Number(view.dataset.x);
   const y = Number(view.dataset.y);
-  if (Number.isFinite(x) && Number.isFinite(y)) focusCamera(deps, x, y);
+  if (Number.isFinite(x) && Number.isFinite(y)) {
+    focusCamera(deps, x, y);
+    deps.state.selected = undefined;
+  }
+  screen.chronicleSelectedId = undefined;
   deps.renderHud();
   return true;
 };
