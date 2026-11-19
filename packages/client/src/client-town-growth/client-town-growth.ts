@@ -90,6 +90,21 @@ export const shouldShowTownSmoke = (tile: Tile): boolean => {
   return !isTownGrowthPaused(town);
 };
 
+/**
+ * Your town whose tile you hold but haven't garrisoned (still FRONTIER): it makes no coin and doesn't grow
+ * until it is. Not while a garrison is already under way (`garrisoning`: tile keys with settle progress).
+ * Neither the unfed warning nor any other status covers this, so a player could sit on a dead town for a day.
+ */
+export const isOwnTownUngarrisoned = (tile: Tile, localPlayerId: string, garrisoning?: { has(key: string): boolean }): boolean =>
+  Boolean(tile.town) &&
+  Boolean(localPlayerId) &&
+  tile.ownerId === localPlayerId &&
+  tile.terrain === "LAND" &&
+  tile.ownershipState === "FRONTIER" &&
+  !tile.fogged &&
+  tile.optimisticPending !== "settle" &&
+  !garrisoning?.has(`${tile.x},${tile.y}`);
+
 // Mirror of the "Town is unfed" line in client-tile-menu-view.ts. The 2D and
 // 3D map badges must only paint when the tile-menu would also show the
 // unfed warning — otherwise neutral, foreign, or unsettled towns light up

@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
+import { isOwnTownUngarrisoned, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { musterFightIsClaim, musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
@@ -8,7 +8,7 @@ import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertSt
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
+export type PersistentAlertKind = "town_ungarrisoned" | "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
 
 export type PersistentAlert = {
   id: string;
@@ -32,7 +32,7 @@ export type PersistentAlertLocator = {
   radius: number;
 };
 
-type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
+type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & Partial<Pick<ClientState, "settleProgressByTile">> & {
 };
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
@@ -97,11 +97,23 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
 };
 
 export const persistentAlertsForState = (
-  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & HostileMusterAlertState,
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & Partial<Pick<ClientState, "settleProgressByTile">> & HostileMusterAlertState,
   nowMs: number = Date.now()
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
   for (const tile of state.tiles.values()) {
+    // An ungarrisoned town makes no coin and doesn't grow; the unfed check below only covers garrisoned ones.
+    if (isOwnTownUngarrisoned(tile, state.me, state.settleProgressByTile)) {
+      alerts.push({
+        id: `town_ungarrisoned:${tile.x},${tile.y}`,
+        kind: "town_ungarrisoned",
+        title: "Town not garrisoned",
+        detail: `${townLabel(tile)}: no coin or growth until garrisoned.`,
+        x: tile.x,
+        y: tile.y,
+        severity: "warn"
+      });
+    }
     if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile, state.me)) {
       alerts.push({
         id: `town_unfed:${tile.x},${tile.y}`,

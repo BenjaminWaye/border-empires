@@ -121,6 +121,17 @@ describe("town list", () => {
     expect(nextTownListSort({ key: "gold", descending: false }, "population")).toEqual({ key: "population", descending: true });
   });
 
+  // Playtest 2026-11-19: a player's only town sat ungarrisoned for a day at 0 coin and the list just said 0.0.
+  it("marks a town you hold but haven't garrisoned, ahead of unfed", () => {
+    const frontier = townTile(1, "Ashford", 0, 4000, { ownershipState: "FRONTIER" });
+    const [row] = rowsOf(mapOf([frontier]));
+    expect(row).toMatchObject({ garrisoned: false });
+    const html = townListCardHtml(mapOf([frontier]), "me");
+    expect(html).toContain("Town · Not garrisoned");
+    expect(html).toContain("is-unfed");
+    expect(townListCardHtml(mapOf([townTile(1, "Ashford", 2, 4000)]), "me")).not.toContain("Not garrisoned");
+  });
+
   it("renders rows in sort order with gold per day and jump targets", () => {
     const html = townListCardHtml(tiles, "me", { key: "gold", descending: false });
     expect(html).toContain("3 towns");

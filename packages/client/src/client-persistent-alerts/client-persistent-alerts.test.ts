@@ -102,6 +102,29 @@ describe("persistent alerts", () => {
     ]);
   });
 
+  // Playtest 2026-11-19: a player's only town sat ungarrisoned for a day, making 0 coin and not growing,
+  // and no alert said so (the unfed alert only covers garrisoned towns).
+  it("alerts on an owned town that isn't garrisoned, unless a garrison is under way", () => {
+    const ungarrisoned = (x: number, extra: TileOverrides = {}): Tile =>
+      unfedTownTile({ x, y: 5, ownershipState: "FRONTIER", town: { isFed: true }, ...extra });
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      settleProgressByTile: new Map([["3,5", { startAt: 0, resolvesAt: 1, target: { x: 3, y: 5 } }]]),
+      tiles: new Map<string, Tile>([
+        ["1,5", ungarrisoned(1)],
+        ["2,5", ungarrisoned(2, { optimisticPending: "settle" })],
+        ["3,5", ungarrisoned(3)],
+        ["4,5", ungarrisoned(4, { ownerId: "enemy" })],
+        ["6,5", unfedTownTile({ x: 6, y: 5, town: { isFed: true } })]
+      ])
+    };
+
+    expect(persistentAlertsForState(state)).toEqual([
+      expect.objectContaining({ id: "town_ungarrisoned:1,5", kind: "town_ungarrisoned", title: "Town not garrisoned", x: 1, y: 5 })
+    ]);
+  });
+
   it("creates a persistent alert for an owned active muster flag", () => {
     const state = {
       me: "me",

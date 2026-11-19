@@ -28,6 +28,8 @@ export type TownListRow = {
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
+  /** False while you hold the town's tile without garrisoning it: no coin, no growth. */
+  garrisoned: boolean;
   /** "0/4 plots garrisoned" while a fed town earns less for ungarrisoned plots (client-town-plot-income.ts). */
   plotsNote?: string;
   /** Support-ring tiles open for a new building; undefined for Settlements, which have no ring yet. */
@@ -67,6 +69,10 @@ export const townCoinPending = (tile: Tile, town: NonNullable<Tile["town"]>): bo
 export const formatTownCoinPerDay = (row: Pick<TownListRow, "goldPerMinute" | "coinPending">): string =>
   row.coinPending ? "…" : (row.goldPerMinute * 1440).toFixed(1);
 
+/** The row's warning, worst first: an ungarrisoned town makes nothing, an unfed one less. */
+export const townRowWarning = (row: Pick<TownListRow, "garrisoned" | "isFed">): "Not garrisoned" | "Unfed" | undefined =>
+  !row.garrisoned ? "Not garrisoned" : row.isFed ? undefined : "Unfed";
+
 /** Shared by both HUDs' town lists, so the order carries over between them. */
 export const toggleTownListSort = (key: TownListSortKey): void => {
   currentSort = nextTownListSort(currentSort, key);
@@ -91,6 +97,7 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
+      garrisoned: tile.ownershipState === "SETTLED",
       ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
@@ -138,8 +145,8 @@ export const townListCardHtml = (tiles: ReadonlyMap<string, Tile>, me: string, s
       ? '<div class="economy-line muted"><span>No towns yet</span></div>'
       : rows
           .map(
-            (row) => `<button class="town-list-row${row.isFed ? "" : " is-unfed"}" type="button" data-town-list-jump="${row.x},${row.y}">
-            <span class="town-list-name">${escapeHtml(row.name)}<small>${row.tierLabel}${row.isFed ? "" : " · Unfed"}</small></span>
+            (row) => `<button class="town-list-row${townRowWarning(row) ? " is-unfed" : ""}" type="button" data-town-list-jump="${row.x},${row.y}">
+            <span class="town-list-name">${escapeHtml(row.name)}<small>${row.tierLabel}${townRowWarning(row) ? ` · ${townRowWarning(row)}` : ""}</small></span>
             <strong>${formatTownCoinPerDay(row)}</strong>
             <strong>${formatCount(row.population)}<small>/ ${formatCount(row.maxPopulation)}</small></strong>
             <strong>${formatGrowth(row.growthPerMinute)}<small>/min</small></strong>
