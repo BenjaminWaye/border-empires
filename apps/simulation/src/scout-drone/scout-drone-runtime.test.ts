@@ -27,6 +27,7 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
   const events: SimulationEvent[] = [];
   const messages: Array<{ playerId: string; payload: Record<string, unknown> }> = [];
   const impacts: PersonalImpactEvent[] = [];
+  const reach = new Map<string, string>();
   const reveals: string[] = [];
   const live = new Map<string, number>();
   const runtime = createScoutDroneRuntime({
@@ -36,6 +37,7 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
     tiles: () => tiles,
     players: () => playerMap,
     afcTileKeys: (id) => (id === "me" ? ["2,10"] : []),
+    reachOwnerAt: (x, y) => reach.get(`${x},${y}`),
     visibilityCoverage: () => ({
       addTemporaryReveal: (viewer, x, y, radius) => {
         reveals.push(`+${viewer}@${x},${y}r${radius}`);
@@ -63,7 +65,7 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
     now = ms;
   };
   const liveReveals = (): number => [...live.values()].reduce((sum, n) => sum + n, 0);
-  return { runtime, tiles, events, messages, impacts, reveals, explore, recall, advanceTo, setNow, liveReveals, now: () => now };
+  return { runtime, tiles, reach, events, messages, impacts, reveals, explore, recall, advanceTo, setNow, liveReveals, now: () => now };
 };
 
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
@@ -129,6 +131,33 @@ describe("scout drone runtime", () => {
     const flight = h.runtime.flightFor("me")!;
     // AFC (2,10) -> 3,4 home -> 5,6 open, then back.
     expect(flight.landsAt - flight.launchedAt).toBe(2 * (2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS));
+  });
+
+  it("flies the player's unclaimed reach at home pace, and may target a tile in it", () => {
+    const h = harness(homeRow());
+    h.reach.set("5,10", "me");
+    h.explore(5, 10, "me", "reach-target");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "reach-target" });
+    const flight = h.runtime.flightFor("me")!;
+    expect(flight.landsAt - flight.launchedAt).toBe(2 * 3 * SCOUT_DRONE_HOME_STEP_MS);
+  });
+
+  it("jumps forward when the ground under and ahead of it becomes the player's reach", () => {
+    const h = harness(homeRow());
+    h.explore(9, 10);
+    const before = h.runtime.flightFor("me")!;
+    const into6 = before.steps.findIndex((s) => s.x === 6);
+    const now = before.steps[into6 - 1]!.at + 1_500; // over x=5, heading for x=6
+    for (const x of [5, 6, 7, 8]) h.reach.set(`${x},10`, "me");
+    h.advanceTo(now);
+    const after = h.runtime.flightFor("me")!;
+    expect(after.landsAt).toBeLessThan(before.landsAt);
+    expect(after.steps[into6]!.at).toBe(now);
+    expect(scoutDronePositionAt(after, now, 100, 60)!.x).toBe(6);
+    expect(lastPayload(h).flight).toEqual(after);
+    // The tiles it jumps over still count toward its report and vision.
+    h.advanceTo(after.steps[after.turnIndex]!.at);
+    expect(h.reveals).toContain("+me@9,10r3");
   });
 
   it("is turned back at a rival border, alerting the rival once per cooldown", () => {

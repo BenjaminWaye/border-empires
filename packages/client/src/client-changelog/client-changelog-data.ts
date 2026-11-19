@@ -1,3 +1,4 @@
+import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -473,6 +474,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_18_CHANGELOG,
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
+  { ...SCOUT_REACH_SPEEDUP_ENTRY, createdAt: 1795104752202, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -245,6 +245,47 @@ export const recallScoutDroneFlight = (flight: ScoutDroneFlight, turnIndex: numb
   return { ...turned, endReason: "RECALLED" };
 };
 
+/**
+ * Ground on the drone's path that became the player's own (land or reach, or
+ * an ally's land) mid-flight: the legs over it drop to home pace, so the drone
+ * jumps forward. A leg's pace follows its outer tile (the tile flown into on
+ * the way out, the tile flown out of on the way home), as in the plan. Legs
+ * only ever get faster: losing that ground again doesn't slow the drone. The
+ * leg in progress at `nowMs` ends no earlier than `nowMs`, so the drone never
+ * snaps past a tile it hasn't reached. Tiles, turnaround and range are
+ * unchanged. Undefined when no remaining leg got faster.
+ */
+export const speedUpScoutDroneFlight = (
+  flight: ScoutDroneFlight,
+  nowMs: number,
+  isHome: (x: number, y: number) => boolean
+): ScoutDroneFlight | undefined => {
+  const index = scoutDroneStepIndexAt(flight, nowMs);
+  if (index < 0 || index >= flight.steps.length - 1) return undefined;
+  const steps = flight.steps.map((step) => ({ ...step }));
+  const homeByTile = new Map<string, boolean>();
+  const homeAt = (x: number, y: number): boolean => {
+    const key = `${x},${y}`;
+    let home = homeByTile.get(key);
+    if (home === undefined) {
+      home = isHome(x, y);
+      homeByTile.set(key, home);
+    }
+    return home;
+  };
+  let changed = false;
+  for (let j = index + 1; j < steps.length; j += 1) {
+    const duration = flight.steps[j]!.at - flight.steps[j - 1]!.at;
+    const outer = j <= flight.turnIndex ? flight.steps[j]! : flight.steps[j - 1]!;
+    const faster = duration > SCOUT_DRONE_HOME_STEP_MS && homeAt(outer.x, outer.y);
+    let at = steps[j - 1]!.at + (faster ? SCOUT_DRONE_HOME_STEP_MS : duration);
+    if (j === index + 1) at = Math.max(nowMs, at);
+    if (at !== steps[j]!.at) changed = true;
+    steps[j]!.at = at;
+  }
+  return changed ? { ...flight, steps, landsAt: steps.at(-1)!.at } : undefined;
+};
+
 /** Index of the step the drone is over at `nowMs` (the last step whose time has come), or -1 before the first. */
 export const scoutDroneStepIndexAt = (flight: ScoutDroneFlight, nowMs: number): number => {
   let index = -1;
