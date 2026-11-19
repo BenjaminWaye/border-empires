@@ -269,10 +269,17 @@ commissions its equipment again.
 
 Before landing, a House gives its leader a few sealed **charges**: the House's
 own goals for this world, separate from the Court's terms. A road between two
-market towns, a town grown into a seat, a landmass or waste charted under its
+market towns, three towns on one landmass grown into Metropolises, a landmass or waste charted under its
 name, a Concordance installation woken. Charges point near the landing, mark an
 area rather than an exact place, and count only if still held when the campaign
-is decided. The seals are broken in public at the end, and a fulfilled charge
+is decided.
+
+Some charges are grievances. A House holding an old wrong against a rival
+lodges it with the Court's heralds (§8) and seals it as a **Writ of
+Correction**: take an AFC the rival founded and keep it to the end. The rival
+learns it was named only when struck.
+
+The seals are broken in public at the end, and a fulfilled charge
 goes into the House's archive. Rewards are in the
 [gameplay reference](../game-mechanics.md) and
 [House Charges plan](../house-charges-plan.md).
@@ -306,7 +313,11 @@ A **Siphon** diverts a site's output to the caster.
 marsh. The Core buys its fragrances; on a Sector world its intoxicants are
 control. A large town's people are where future Ancillaries come from. Where
 the House supplies what they depend on, they stay put; where supply runs short
-they hide and a great city yields the bodies of a much smaller one.
+they hide, and a great city yields the bodies and trade of a much smaller one
+until supply returns. A House without the deposits can culture the strains in a
+**Vivarium**, a sealed dome among a town's districts that feeds only that town,
+one share of dependence per dome. A great city needs three shares, a metropolis
+six.
 
 **Salvage fields** hold Concordance machinery, mostly in hills and foothills.
 The Imperium cannot make it (§2). A **Reclamation Works** fits it to the House's
@@ -337,7 +348,22 @@ no longer its civilians.
 Food supports people. Titanium and Umbrite are strategic materials for
 machinery, construction and arms. Crystal is usable aether (§3).
 
-Frontier waystations are temporary camps, struck once claimed.
+A **Farm Plot** is a town's own people working kitchen beds on plain ground
+beside the town. It is labour, not imported stock, so no Manifest buys it, and
+it yields little; fertile land stays the efficient source of food. Hyperfeed
+Seedstock, imported crop stock calibrated for this world's soil, turns a plot
+into a **Hydrogarden Plot**: glass beds as productive as a hydroponic garden on
+fertile ground. "Farm Plot" is a working name (§14).
+
+Frontier waystations are supply caches left by survey crews: armoured,
+brass-bound crates on a hovering anti-grav pad, sealed by a glowing orb of
+light that answers only to the House holding the ground. Once claimed, the
+cache is unsealed, its supplies collected, and the pad beams the empty crates
+away. Any fertile ground or deposit under it is left to work.
+
+A **muster flag** marks bodies gathered to march. A House that takes the ground
+they stand on takes them too, pressed into its own manpower. Planetary Defense
+keeps no reserve, so a muster it overruns is simply lost.
 
 A House's industry shows on its soldiers. A Titanium Weapons Factory puts them
 in heavy House-coloured plate riveted in titanium. An Umbrite Weapons Factory
@@ -385,7 +411,8 @@ knowledge.
 ### Captured machinery
 
 Modules can be moved between a House's own AFCs. Capturing an AFC captures
-its machinery but not the right to redeploy it. Losing an AFC does not erase
+its machinery but not the right to redeploy it, and never its founding: an AFC
+is known by the House that landed or built it for as long as it stands. Losing an AFC does not erase
 knowledge or buildings it enabled.
 
 ### Campaign specialization
@@ -426,6 +453,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 |---|---|
 | The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; Planetary Defense replaced it as the on-world hostile. |
 | The Imperium's name | "Imperium" is new; the game says "Imperial" and "Emperor" but has no player-facing name for the state yet. |
+| Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
 | Umbrite in forests | Storybook **Sandbox / Umbrite Forest / Concepts** shows violet Umbrite in roots and dead wood. Art proposal only; its origin is undecided. |
 

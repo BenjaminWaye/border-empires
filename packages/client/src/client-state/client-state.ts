@@ -218,7 +218,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
+    kind: "town_ungarrisoned" | "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;
