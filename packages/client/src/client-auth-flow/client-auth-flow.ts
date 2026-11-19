@@ -95,6 +95,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authOverlayEl: dom.authOverlayEl,
       authBusyModalEl: dom.authBusyModalEl,
       authBusyProgressEl: dom.authBusyProgressEl,
+      authBusyQuoteEl: dom.authBusyQuoteEl,
       authLoginBtn: dom.authLoginBtn,
       authRegisterBtn: dom.authRegisterBtn,
       authEmailLinkBtn: dom.authEmailLinkBtn,
