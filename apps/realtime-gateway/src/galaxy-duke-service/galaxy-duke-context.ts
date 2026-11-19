@@ -15,6 +15,7 @@ import type { GalaxyDukeStore } from "../galaxy-duke-store/galaxy-duke-store.js"
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import { isAiDukeUid, resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
+import { chargeDomainWeightByAuthUid } from "../galaxy-house-charge-rewards/galaxy-house-charge-rewards.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 
 export type GalaxyDukeDeps = {
@@ -44,6 +45,8 @@ export type DukeWorld = {
   // Warden pool is split across. AI-held Sectors never counted for either and
   // still do not (§29.1): AI Dukes take the same per-Planet Warden rate.
   capturedSectors: number;
+  // Domain score each account banked from House Charges (galaxy-house-charge-rewards.ts); absent counts as none.
+  chargeWeightByOwner?: Map<string, number>;
 };
 
 export type DukeContext = {
@@ -112,7 +115,12 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
       if (held.some((h) => h.tier === "PLANET")) dukeUids.push(authUid);
     }
     dukeUids.sort();
-    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors };
+    const chargeWeightByOwner = await chargeDomainWeightByAuthUid({
+      listSeasonArchives: deps.listSeasonArchives,
+      ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
+      authBindingStore: deps.authBindingStore
+    });
+    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors, chargeWeightByOwner };
   };
 
   // AI-held Sectors have no christened name; they go by their House (§29.1).
