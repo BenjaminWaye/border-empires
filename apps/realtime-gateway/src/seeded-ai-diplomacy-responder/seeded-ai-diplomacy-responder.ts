@@ -4,6 +4,7 @@ import {
   evaluateAiOffer,
   extensionPricing,
   swapDiplomacyTerms,
+  truceNeedsTownReturn,
   describeDiplomacyTermsForRecipient,
   type DiplomacyTerms
 } from "@border-empires/shared";
@@ -153,8 +154,10 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     // An extension is priced like a new truce, but the AI never pays for one (extensionPricing).
     const pricing = offer.extendsTruce ? extensionPricing(evaluation.pricing) : evaluation.pricing;
     const refusal = offer.kind === "truce" ? evaluation.truceRefusal : evaluation.allianceRefusal;
-    if (refusal) return { kind: "decline", reason: refusal, startCooldown: true };
     const duration = offer.durationHours ?? 12;
+    // Refusing because it can still retake its land: one of its towns back buys the truce anyway.
+    const townCanBuyIt = offer.kind === "truce" && truceNeedsTownReturn(pricing, duration);
+    if (refusal && !townCanBuyIt) return { kind: "decline", reason: refusal, startCooldown: true };
     const terms = offer.terms ?? emptyDiplomacyTerms();
     const verdict = evaluateAiOffer(pricing, offer.kind, duration, terms);
     if (verdict.accepts) return { kind: "accept", reason };
@@ -163,6 +166,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     }
     const counter = aiCounterOffer(pricing, offer.kind, duration, terms, requesterHoldings);
     if (counter.kind === "counter") return { kind: "counter", reason, terms: counter.terms };
+    if (refusal) return { kind: "decline", reason: refusal, startCooldown: true };
     if (counter.kind === "cannotAfford") {
       return { kind: "decline", reason: `${reason} ${aiName} wants about ${counter.shortfall} coin more than you can offer.`, startCooldown: true };
     }
