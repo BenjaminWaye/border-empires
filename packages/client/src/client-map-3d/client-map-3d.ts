@@ -268,7 +268,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // March-To target markers -- see client-map-3d-march-target-markers.ts.
   const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
   // Frontier-claim fill pool + expand crew soldiers -- see client-map-3d-expand-crew.ts.
-  const frontierClaimVisuals = createFrontierClaimVisuals(scene);
+  const frontierClaimVisuals = createFrontierClaimVisuals(scene, atmosphere.buildingEnvironmentTexture);
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.

@@ -1,4 +1,4 @@
-import { AnimationMixer, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction, type MeshStandardMaterial } from "three";
+import { AnimationMixer, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction, type MeshStandardMaterial, type Texture } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   firstSkinnedMesh,
@@ -8,6 +8,7 @@ import {
 } from "../client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import { createMarineMaterial } from "../client-map-3d-popup-marine/popup-marine-material.js";
+import { MARINE_MODEL_KEYS, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 import { FRONTIER_CLAIM_PLATE_CAP } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 import type { PlacedFrontierClaim } from "../client-map-3d-frontier-claim-plates.js";
 import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from "../client-expand-crew/client-expand-crew.js";
@@ -24,8 +25,10 @@ import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from ".
 //
 // Clip time comes from the wall clock, never accumulated deltas, so a pose
 // is a pure function of (claim, clock) like the paths themselves; slots are
-// simply handed out in claim order every frame. The standard armour only:
-// the heavy (titanium) model is for companies going to fight.
+// simply handed out in claim order every frame. They wear whatever armour the
+// empire's other soldiers wear (marineModelFor its weapons-factory gear, as
+// the muster transit overlay does): the heavy model's pool is only built the
+// first time it's needed, and until it has loaded they wear the standard one.
 const MAX_SOLDIERS = FRONTIER_CLAIM_PLATE_CAP * EXPAND_CREW_SIZE;
 const UP_AXIS = new Vector3(0, 1, 0);
 const CLIP_PHASE_STEP = 0.43;
@@ -45,19 +48,23 @@ type Soldier = {
 };
 
 export type ExpandCrewSoldiers = {
-  readonly update: (placed: readonly PlacedFrontierClaim[], nowEpochMs: number, animate: boolean) => void;
+  readonly update: (placed: readonly PlacedFrontierClaim[], nowEpochMs: number, animate: boolean, model: MarineModelKey) => void;
   readonly dispose: () => void;
 };
 
-export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
+// envMap: the shared building environment map the heavy armour's bare metal
+// reflects (same as the muster transit overlay).
+export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): ExpandCrewSoldiers => {
   let disposed = false;
-  let pool: Soldier[] = [];
-  let shown = 0;
+  const pools: Record<MarineModelKey, Soldier[]> = { standard: [], heavy: [] };
+  const requested = new Set<MarineModelKey>();
+  // Soldiers left visible last frame, per pool.
+  const shown: Record<MarineModelKey, number> = { standard: 0, heavy: 0 };
   const tmpQuat = new Quaternion();
 
-  const makeSoldier = (template: PopupMarineTemplate, index: number): Soldier => {
+  const makeSoldier = (template: PopupMarineTemplate, index: number, model: MarineModelKey): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
-    const material = createMarineMaterial(false);
+    const material = createMarineMaterial(model === "heavy", envMap);
     // Drawn in the transparent pass after the claim plate (renderOrder 7, no
     // depth test) so the plate doesn't wash over the soldiers standing on it.
     material.transparent = true;
@@ -81,15 +88,21 @@ export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
     return { root, material, mixer, actions, phase: index * CLIP_PHASE_STEP };
   };
 
-  loadPopupMarineTemplate()
-    .then((template) => {
-      if (disposed) return;
-      pool = Array.from({ length: MAX_SOLDIERS }, (_, i) => makeSoldier(template, i));
-    })
-    .catch((err: unknown) => {
-      // The claim plate still shows; only the crew is missing.
-      console.error("popup-marine model failed to load; expanding tiles will not show their crew", err);
-    });
+  const request = (model: MarineModelKey): void => {
+    if (requested.has(model)) return;
+    requested.add(model);
+    loadPopupMarineTemplate(model)
+      .then((template) => {
+        if (disposed) return;
+        pools[model] = Array.from({ length: MAX_SOLDIERS }, (_, i) => makeSoldier(template, i, model));
+      })
+      .catch((err: unknown) => {
+        // The claim plate still shows; a missing standard model leaves no
+        // crew, a missing heavy one keeps the crew in standard armour.
+        console.error(`popup-marine ${model} model failed to load; the expand crew falls back or will not render`, err);
+      });
+  };
+  request("standard");
 
   const pose = (soldier: Soldier, stance: ExpandCrewStance, nowMs: number): void => {
     // Fall back to standing if the asset lacks a clip (e.g. kneel).
@@ -102,8 +115,16 @@ export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
     soldier.mixer.update(0);
   };
 
-  const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate) => {
-    if (pool.length === 0 || (placed.length === 0 && shown === 0)) return;
+  const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate, wanted) => {
+    if (wanted !== "standard") request(wanted);
+    const model: MarineModelKey = pools[wanted].length > 0 ? wanted : "standard";
+    const pool = pools[model];
+    for (const other of MARINE_MODEL_KEYS) {
+      if (other === model) continue;
+      for (let k = 0; k < shown[other]; k += 1) pools[other][k]!.root.visible = false;
+      shown[other] = 0;
+    }
+    if (pool.length === 0 || (placed.length === 0 && shown[model] === 0)) return;
     let used = 0;
     for (const { claim, sceneX, sceneZ, surfaceY, fromSurfaceY } of placed) {
       for (let i = 0; i < claim.crew && used < pool.length; i += 1) {
@@ -124,13 +145,13 @@ export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
         soldier.root.updateMatrixWorld(true);
       }
     }
-    for (let k = used; k < shown; k += 1) pool[k]!.root.visible = false;
-    shown = used;
+    for (let k = used; k < shown[model]; k += 1) pool[k]!.root.visible = false;
+    shown[model] = used;
   };
 
   const dispose = (): void => {
     disposed = true;
-    for (const soldier of pool) {
+    for (const soldier of [...pools.standard, ...pools.heavy]) {
       soldier.mixer.stopAllAction();
       soldier.mixer.uncacheRoot(soldier.root);
       scene.remove(soldier.root);
@@ -139,8 +160,10 @@ export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
       });
       soldier.material.dispose();
     }
-    pool = [];
-    shown = 0;
+    pools.standard = [];
+    pools.heavy = [];
+    shown.standard = 0;
+    shown.heavy = 0;
   };
 
   return { update, dispose };

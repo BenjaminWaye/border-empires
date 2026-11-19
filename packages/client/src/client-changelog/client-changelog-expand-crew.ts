@@ -19,6 +19,7 @@ export const EXPAND_SOLDIERS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   changes: [
     "Two of your soldiers, in your empire's colour, now walk out of the tile you expand from and idly patrol the new tile while it is claimed, the same way Planetary Defense soldiers patrol theirs",
     "They kneel to plant the claim just before it completes",
+    "They wear the same armour as your attacking soldiers, including the heavy armour once you own a Titanium Weapons Factory",
     "Muster flag expands send the same pair",
     "On the 2D map they appear as the same soldier figures Planetary Defense tiles use, in your colour"
   ]
