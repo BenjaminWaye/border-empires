@@ -37,7 +37,7 @@ export type HouseChargesPanelDeps = {
 };
 
 /**
- * Whether "How charges pay out" is expanded. It is left out of the panel's HTML, so opening it never rewrites the
+ * Whether "How charges work" is expanded. It is left out of the panel's HTML, so opening it never rewrites the
  * panel (which would drop keyboard focus and restart a deal), and reapplied after any rewrite.
  */
 let rewardsOpen = false;
@@ -129,12 +129,12 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     ? ""
     : changed
       ? `<div class="house-charges-choice">
-        <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
+        <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
         ${choiceHintHtml(draft.length, wanted)}
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
       : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">Keeping ${wanted} of these ${payload.charges.length}. To swap, tap Kept on one card to set it aside, then Tap to keep on another, until ${until}.</p>
+        <p class="house-charges-saved" role="status">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>
       </div>`;
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
@@ -145,10 +145,11 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     houseChargeDeckCardHtml(charge, { choosing, ticked: draft.includes(charge.id), focused: state.houseChargeFocusId === charge.id, scoutHint: scoutHintFor(charge), formatWhen })
   );
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to bank Domain score for your House and earn its charge card. Nobody else can see your charges until then.</p>
-    <details class="house-charges-more" data-house-charges-more><summary>How charges pay out</summary>
-      <p>Each kept charge you still hold when the winner is crowned banks Domain score by its rarity: ${CHARGE_DOMAIN_BY_RARITY}. Every kept card shows what it banks. Domain score is your House's standing in the galaxy: it counts in the Court's race for Emperor and in your Senate vote.</p>
-      <p>◆ is a charge's difficulty: how far, how large or how contested it is. It does not change the reward.</p>
+    <p class="house-charges-intro">Hold your kept charges when the winner is crowned to bank Domain score.</p>
+    <details class="house-charges-more" data-house-charges-more><summary>How charges work</summary>
+      <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
+      <p>Each kept charge you still hold then earns its charge card and banks Domain score by rarity: ${CHARGE_DOMAIN_BY_RARITY}. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
+      <p>◆ is difficulty: how far, how large or how contested a charge is. It does not change the reward.</p>
     </details>
     ${choice}
     ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}

@@ -56,7 +56,9 @@ describe("House Charges panel", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
     // Nothing to save (possibly the default pair): say what is kept and how to swap, with no false "saved" tick.
-    expect(open).toContain("Keeping 2 of these 3. To swap, tap Kept on one card to set it aside, then Tap to keep on another");
+    expect(open).toContain("Keeping 2 of 3. You can swap until");
+    // The swap instructions live in How charges work, not above the cards.
+    expect(open).toContain("to swap, tap Kept on one card to set it aside, then Tap to keep on another");
     expect(open).not.toContain("✓");
     expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
@@ -92,14 +94,14 @@ describe("House Charges panel", () => {
     const html = houseChargesPanelHtml(panelState([charge({ renown: 3 })], 0), 5_000);
     expect(html).toContain('aria-label="Difficulty 3 of 4"');
     expect(html).not.toContain("Renown");
-    expect(html).toContain("bank Domain score for your House and earn its charge card");
+    expect(html).toContain("Hold your kept charges when the winner is crowned to bank Domain score.");
   });
 
   // Owner 2026-11-19: the reward goes behind an underlined read-more, and each card says what it banks.
-  it("explains the payout behind How charges pay out, and puts each card's Domain score on the card", () => {
+  it("explains the payout behind How charges work, and puts each card's Domain score on the card", () => {
     const html = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }], 0), 5_000);
-    expect(html).toContain("<summary>How charges pay out</summary>");
-    expect(html).toContain("banks Domain score by its rarity: Common +1, Rare +2, Mythic +4.");
+    expect(html).toContain("<summary>How charges work</summary>");
+    expect(html).toContain("banks Domain score by rarity: Common +1, Rare +2, Mythic +4.");
     expect(html).toContain("It does not change the reward.");
     expect(html).not.toContain("Influence");
     expect(html).toContain("✦ Common · +1 Domain");
