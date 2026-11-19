@@ -27,4 +27,18 @@ describe("tap confirm button styling", () => {
     expect(ruleBody(".tap-confirm-btn")).toMatch(/font-family:\s*var\(--sp-font-display/);
     expect(ruleBody(".tap-confirm-cost")).toMatch(/font-family:\s*var\(--sp-font-mono/);
   });
+
+  // Review follow-up: the cost is the price being confirmed, so it is solid
+  // ink (no translucency), and the disabled plate keeps a brass edge so it
+  // does not vanish over dark terrain.
+  it("keeps the cost solid ink and the disabled plate brass-edged", () => {
+    expect(ruleBody(".tap-confirm-cost")).toMatch(/color:\s*#120f0b/i);
+    expect(ruleBody(".tap-confirm-btn:disabled")).toMatch(/border-color:\s*var\(--sp-brass-/);
+  });
+
+  it("truncates long labels and costs instead of spilling out of the plate", () => {
+    const shared = ruleBody(".tap-confirm-label,\n.tap-confirm-cost");
+    expect(shared).toMatch(/overflow:\s*hidden/);
+    expect(shared).toMatch(/text-overflow:\s*ellipsis/);
+  });
 });
