@@ -155,9 +155,38 @@ describe("scout drone runtime", () => {
     expect(after.steps[into6]!.at).toBe(now);
     expect(scoutDronePositionAt(after, now, 100, 60)!.x).toBe(6);
     expect(lastPayload(h).flight).toEqual(after);
-    // The tiles it jumps over still count toward its report and vision.
-    h.advanceTo(after.steps[after.turnIndex]!.at);
-    expect(h.reveals).toContain("+me@9,10r3");
+    // Nothing more changed: the next tick sends no new flight.
+    const sent = h.messages.length;
+    h.advanceTo(now + 100);
+    expect(h.messages).toHaveLength(sent);
+  });
+
+  it("jumps forward over land claimed mid-flight, and a recall flies home over it at home pace", () => {
+    const h = harness(homeRow());
+    h.explore(9, 10);
+    const before = h.runtime.flightFor("me")!;
+    const into7 = before.steps.findIndex((s) => s.x === 7);
+    const now = before.steps[into7 - 2]!.at + 500; // just past x=5, heading for x=6
+    for (const x of [5, 6]) h.tiles.set(`${x},10`, land(x, 10, { ownerId: "me" }));
+    h.advanceTo(now);
+    h.recall();
+    h.advanceTo(now + 100);
+    const recalled = h.runtime.flightFor("me")!;
+    expect(recalled.endReason).toBe("RECALLED");
+    expect(lastPayload(h).flight).toEqual(recalled);
+    // It turned over x=6; the legs home out of x=6 and x=5 (now its land) are at home pace.
+    const { steps, turnIndex } = recalled;
+    expect(steps[turnIndex]!.x).toBe(6);
+    expect(steps[turnIndex + 1]!.at - steps[turnIndex]!.at).toBe(SCOUT_DRONE_HOME_STEP_MS);
+    expect(steps[turnIndex + 2]!.at - steps[turnIndex + 1]!.at).toBe(SCOUT_DRONE_HOME_STEP_MS);
+  });
+
+  it("keeps Planetary Defense land inside the player's reach at scouting pace", () => {
+    const h = harness([...homeRow(), land(5, 10, { ownerId: "barbarian-1" })]);
+    h.reach.set("5,10", "me");
+    h.explore(5, 10);
+    const flight = h.runtime.flightFor("me")!;
+    expect(flight.landsAt - flight.launchedAt).toBe(2 * (2 * SCOUT_DRONE_HOME_STEP_MS + SCOUT_DRONE_STEP_MS));
   });
 
   it("is turned back at a rival border, alerting the rival once per cooldown", () => {

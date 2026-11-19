@@ -124,7 +124,9 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const wx = wrap(x, deps.worldWidth);
       const wy = wrap(y, deps.worldHeight);
       const ownerId = deps.tiles().get(keyOf(wx, wy))?.ownerId;
-      if (ownerId && !isPlanetaryDefenseId(ownerId)) return isOwnOrAllied(actorId, ownerId) ? { kind: "HOME" } : { kind: "BLOCKED", ownerId };
+      // Planetary Defense land stays open even inside reach: the drone still scouts it.
+      if (ownerId && isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
+      if (ownerId) return isOwnOrAllied(actorId, ownerId) ? { kind: "HOME" } : { kind: "BLOCKED", ownerId };
       // Unclaimed ground inside the player's (or an ally's) reach is already in sight: fly it at home pace.
       const reachOwnerId = deps.reachOwnerAt(wx, wy);
       return reachOwnerId && isOwnOrAllied(actorId, reachOwnerId) ? { kind: "HOME" } : { kind: "OPEN" };

@@ -16,11 +16,11 @@ import { FRONTIER_CLAIM_MS } from "../config.js";
 export const SCOUT_DRONE_VISION_RADIUS = 3;
 /** Tiles the drone may fly past the player's own land before it turns back. */
 export const SCOUT_DRONE_MAX_RANGE_TILES = 15;
-/** Own and allied land the drone may cross on one flight (bounds the plan's size). */
+/** Home ground (own and allied land, and unclaimed own or allied reach) the drone may cross on one flight (bounds the plan's size). */
 export const SCOUT_DRONE_MAX_HOME_TILES = 80;
 /** Time per tile past the player's land: the same pace as Expand To. */
 export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
-/** Time per tile over the player's own or allied land, which it already sees. */
+/** Time per tile over home ground (own and allied land and reach), which the player already sees. */
 export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
 /** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
 export const SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS = 10 * 60_000;
@@ -34,7 +34,7 @@ export const SCOUT_SIGHTED_MESSAGE_TYPE = "SCOUT_SIGHTED";
 
 /** How the drone treats a tile on its line. */
 export type ScoutDroneTileClass =
-  | "HOME" // the player's own or allied land: crossed quickly, not counted toward range
+  | "HOME" // the player's own or allied land, or unclaimed own or allied reach: crossed quickly, not counted toward range
   | "OPEN" // neutral land, sea or Planetary Defense land: counted toward range
   | "BLOCKED"; // a non-allied player's land: the drone turns back before it
 
@@ -246,14 +246,16 @@ export const recallScoutDroneFlight = (flight: ScoutDroneFlight, turnIndex: numb
 };
 
 /**
- * Ground on the drone's path that became the player's own (land or reach, or
- * an ally's land) mid-flight: the legs over it drop to home pace, so the drone
- * jumps forward. A leg's pace follows its outer tile (the tile flown into on
- * the way out, the tile flown out of on the way home), as in the plan. Legs
- * only ever get faster: losing that ground again doesn't slow the drone. The
- * leg in progress at `nowMs` ends no earlier than `nowMs`, so the drone never
- * snaps past a tile it hasn't reached. Tiles, turnaround and range are
- * unchanged. Undefined when no remaining leg got faster.
+ * Ground on the drone's path that became home ground (the player's or an
+ * ally's land or reach) mid-flight: the legs over it drop to home pace, so the
+ * drone jumps forward. A leg's pace follows its outer tile (the tile flown
+ * into on the way out, the tile flown out of on the way home), as in the plan.
+ * Legs only ever get faster: losing that ground again doesn't slow the drone.
+ * The leg in progress ends no earlier than `nowMs`, so the drone may jump
+ * straight onto the tile it was flying toward but never past it. Tiles,
+ * turnaround and range are unchanged. Undefined when no remaining leg got
+ * faster. Runs every tick for every drone, so it only reads until a leg
+ * changes, and asks `isHome` only about legs still slower than home pace.
  */
 export const speedUpScoutDroneFlight = (
   flight: ScoutDroneFlight,
@@ -262,28 +264,19 @@ export const speedUpScoutDroneFlight = (
 ): ScoutDroneFlight | undefined => {
   const index = scoutDroneStepIndexAt(flight, nowMs);
   if (index < 0 || index >= flight.steps.length - 1) return undefined;
-  const steps = flight.steps.map((step) => ({ ...step }));
-  const homeByTile = new Map<string, boolean>();
-  const homeAt = (x: number, y: number): boolean => {
-    const key = `${x},${y}`;
-    let home = homeByTile.get(key);
-    if (home === undefined) {
-      home = isHome(x, y);
-      homeByTile.set(key, home);
-    }
-    return home;
-  };
-  let changed = false;
-  for (let j = index + 1; j < steps.length; j += 1) {
+  let steps: ScoutDroneStep[] | undefined;
+  for (let j = index + 1; j < flight.steps.length; j += 1) {
     const duration = flight.steps[j]!.at - flight.steps[j - 1]!.at;
     const outer = j <= flight.turnIndex ? flight.steps[j]! : flight.steps[j - 1]!;
-    const faster = duration > SCOUT_DRONE_HOME_STEP_MS && homeAt(outer.x, outer.y);
+    const faster = duration > SCOUT_DRONE_HOME_STEP_MS && isHome(outer.x, outer.y);
+    if (!faster && !steps) continue;
+    steps ??= flight.steps.map((step) => ({ ...step }));
     let at = steps[j - 1]!.at + (faster ? SCOUT_DRONE_HOME_STEP_MS : duration);
     if (j === index + 1) at = Math.max(nowMs, at);
-    if (at !== steps[j]!.at) changed = true;
     steps[j]!.at = at;
   }
-  return changed ? { ...flight, steps, landsAt: steps.at(-1)!.at } : undefined;
+  if (!steps || steps.at(-1)!.at === flight.landsAt) return undefined;
+  return { ...flight, steps, landsAt: steps.at(-1)!.at };
 };
 
 /** Index of the step the drone is over at `nowMs` (the last step whose time has come), or -1 before the first. */

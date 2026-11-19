@@ -19,7 +19,7 @@ export type GuideScoutStatus = "ready" | "out" | "none";
 
 /**
  * Rings searched around home for unexplored ground, and the farthest the target
- * goes: a drone flies at most 15 tiles past the player's own land
+ * goes: a drone flies at most 15 tiles past the player's own land and reach
  * (SCOUT_DRONE_MAX_RANGE_TILES), so a target further out is never reached and
  * would stay marked.
  */
