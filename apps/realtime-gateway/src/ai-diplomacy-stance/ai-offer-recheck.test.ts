@@ -19,7 +19,8 @@ const context = (memory: Partial<AiDiplomacyContext["memory"]> = {}): AiDiplomac
     truceDeals: 0,
     goodwillCoin: 0,
     lastPlayerAttackAt: undefined,
-    lastCombatAt: undefined,
+    // Fought within the last day (outside the 6h war window), so neighbours pay the 12h price.
+    lastCombatAt: NOW - 12 * 60 * 60_000,
     aiAlreadyPaidThisWar: false,
     ...memory
   },

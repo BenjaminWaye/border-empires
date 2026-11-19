@@ -28,6 +28,8 @@ const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, con
 
 const AI_ID = "ai-1";
 const HUMAN_ID = "human-1";
+/** Fought a day ago (outside the 6h war window): neighbours still pay the 12h neighbour price. */
+const foughtLately = () => quietContext({ lastCombatAt: NOW - 12 * 60 * 60_000 });
 
 const baseRequest: SocialTruceRequest = {
   id: "req-1",
@@ -128,14 +130,15 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("declines naming the shortfall when an evenly matched neighbour can't pay its price", async () => {
     const { deps, acceptTruce, rejectTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 10 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 10 }),
+      foughtLately()
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(requestTruce).not.toHaveBeenCalled();
-    // Neighbours at peace, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160; the requester holds 10.
+    // Neighbours who fought lately, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160; the requester holds 10.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
         [HUMAN_ID]:
@@ -150,7 +153,8 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("counter-offers with a price the requester can pay", async () => {
     const { deps, rejectTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 }),
+      foughtLately()
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
@@ -366,7 +370,8 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     expect(rejectAlliance).toHaveBeenCalledOnce();
     expect(requestAlliance).toHaveBeenCalledWith(AI_ID, "Human", {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0 }, ask: { gold: 46 + 24 * 60 } }
+      // The tribute that lifts it to Pleased; the alliance itself is earned, not bought.
+      terms: { give: { gold: 0 }, ask: { gold: 46 } }
     });
   });
 

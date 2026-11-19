@@ -37,7 +37,8 @@ describe("aiWarOutlook", () => {
   // and the tally's "lost 2+ more tiles" no longer counted as losing.
   it("only holds out for a reload when it is spent now", () => {
     const fit = { manpower: 600, manpowerCap: 1000, musterManpower: 0, nextRefillInMs: 90 * MIN, nextRefillManpower: 400 };
-    expect(outlook({ ai: fit, rival: { fightingStrength: 550, manpowerCap: 1000 }, recentTilesLost: 2.5 }).kind).toBe("STEADY");
+    // Fit enough to win the land back now: it fights on rather than waiting for a reload.
+    expect(outlook({ ai: fit, rival: { fightingStrength: 550, manpowerCap: 1000 }, recentTilesLost: 2.5 }).kind).toBe("RETAKE_NOW");
     // A fading count left over from hours ago is no recent loss.
     expect(outlook({ ai: { ...spent, nextRefillInMs: 20 * MIN, nextRefillManpower: 700 }, recentTilesLost: 0.6 }).kind).toBe("STEADY");
   });
@@ -49,10 +50,9 @@ describe("aiWarOutlook", () => {
     expect(outlook({ paidForPeaceAt: now - 25 * HOUR, now }).kind).toBe("SUE_FOR_PEACE");
   });
 
-  it("stays steady when not losing ground lately, losing it slowly, or still able to hold", () => {
+  it("stays steady when not losing ground lately or losing it slowly", () => {
     expect(outlook({ recentTilesLost: 2, recentTilesTaken: 2 }).kind).toBe("STEADY");
     expect(outlook({ recentTilesLost: 2 }).kind).toBe("STEADY");
-    expect(outlook({ ai: { ...spent, manpower: 700 } }).kind).toBe("STEADY");
     expect(outlook({ atWar: false }).kind).toBe("STEADY");
   });
 });
@@ -88,5 +88,37 @@ describe("an AI suing for peace", () => {
     const hold = computeAiOpinion({ stanceKind: "SEEKING_PEACE", memory, requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0,
       requesterBrokeAllianceWithAi: false, bordersTouch: true, incomePerHour: 60, outlook: { kind: "HOLD_FOR_REFILL", refillInMs: 20 * MIN }, now: NOW });
     expect(hold.war.aiLosing).toBe(false);
+  });
+});
+
+// Owner, 2026-11-19: the AI shouldn't sell a truce to a player who grabbed its land and ran
+// low on manpower while it can still take the land back.
+describe("an AI that can win its land back", () => {
+  it("reads as RETAKE_NOW when it lost ground but is strong enough right now", () => {
+    expect(outlook({ ai: { ...spent, manpower: 700 } })).toEqual({ kind: "RETAKE_NOW" });
+  });
+
+  const NOW = 100 * HOUR;
+  const grabbed: DiplomacyMemoryView = {
+    tilesTakenFromAi: 4, tilesTakenByAi: 0, recentTilesTakenFromAi: 4, recentTilesTakenByAi: 0, battles: 4, truceDeals: 0, goodwillCoin: 0,
+    lastPlayerAttackAt: NOW - 2 * HOUR, lastCombatAt: NOW - 2 * HOUR, aiAlreadyPaidThisWar: false
+  };
+  const priced = (warOutlook: AiWarOutlook) => {
+    const opinion = computeAiOpinion({ stanceKind: "WARY", memory: grabbed, requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0,
+      requesterBrokeAllianceWithAi: false, bordersTouch: true, incomePerHour: 60, outlook: warOutlook, now: NOW });
+    return aiDiplomacyPricing({ aiName: "Milo", stanceKind: "WARY", opinion, memory: grabbed, bordersTouch: true, aiIncomePerMinute: 1,
+      aiHoldings: { gold: 10_000 }, requesterBrokeTruceWithAi: false, aiWouldLeadAlliance: true, outlook: warOutlook, now: NOW });
+  };
+
+  it("refuses a truce while it can retake the land, now or after a reload", () => {
+    for (const warOutlook of [{ kind: "RETAKE_NOW" } as const, { kind: "HOLD_FOR_REFILL", refillInMs: 20 * MIN } as const]) {
+      const result = priced(warOutlook);
+      expect(result.pricing.required.truce12).toBeNull();
+      expect(result.truceRefusal).toBe("Milo wants to see how this war goes first: it has more armies to throw at you.");
+    }
+  });
+
+  it("deals once it can no longer win the land back", () => {
+    expect(priced({ kind: "STEADY" }).pricing.required.truce12).not.toBeNull();
   });
 });

@@ -77,9 +77,9 @@ export const spareCoinPerHour = (snapshot: AiDiplomacySnapshot | undefined): num
 };
 
 export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
-  if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
-    const minutes = Math.max(1, Math.ceil(outlook.refillInMs / 60_000));
-    return `${aiName} expects to win its land back when its armies reload in ${minutes} min.`;
+  // Never reveal when its armies reload: that tells the player when to strike.
+  if (opinion.war.atWar && (outlook.kind === "HOLD_FOR_REFILL" || outlook.kind === "RETAKE_NOW")) {
+    return `${aiName} means to win its land back and has more armies to throw at you.`;
   }
   if (opinion.war.aiLosing && outlook.kind === "SUE_FOR_PEACE") {
     return `${aiName} is losing ground fast and can't stop you before its armies reload, so it wants the war over.`;
