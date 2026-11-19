@@ -1,9 +1,11 @@
 // "Charges unhandled" bubble: while the keep choice is open and the House has
 // not opened its Charges panel for this deal, an illustration of three sealed
 // cards bobs at the left edge of the map, with a small speech bubble that says
-// the House has sent sealed charges. Tapping the cards opens the Charges panel
-// (which handles the deal and removes the bubble); the speech bubble's x hides
-// just the text. It replaced a one-time alert card that other alerts could
+// the House has sent sealed charges. Tapping the cards or the note's words opens
+// the Charges panel (which handles the deal and removes the bubble); the speech
+// bubble's x hides just the text. The words are a button of their own: when only
+// the cards opened the panel, a tap on the words did nothing or was snapped onto
+// the x by the phone's tap adjustment, so the note vanished (owner, 2026-11-19). It replaced a one-time alert card that other alerts could
 // bury (owner, 2026-11-18). Both flags are kept per deal in localStorage.
 import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
 // Shared pieces first, so the bubble's own rules come after them.
@@ -76,7 +78,7 @@ export const houseChargesBubbleHtml = (payload: HouseChargesPayload, showSpeech:
   const count = payload.charges.length;
   const speech = showSpeech
     ? `<div class="hcb-speech sp-callout sp-callout-tail-left" role="status">
-        <p>Your House has handed you ${count} sealed charges. Keep ${HOUSE_CHARGES_KEPT}.</p>
+        <button type="button" class="hcb-speech-open" data-hcb-action="open">Your House has handed you ${count} sealed charges. Keep ${HOUSE_CHARGES_KEPT}.<span class="hcb-speech-cta">See charges ›</span></button>
         <button type="button" class="hcb-speech-close" data-hcb-action="dismiss-speech" aria-label="Hide message">&times;</button>
       </div>`
     : "";

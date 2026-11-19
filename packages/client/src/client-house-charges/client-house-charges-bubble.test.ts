@@ -54,6 +54,20 @@ describe("sealed charges bubble", () => {
     expect(root()).toBeNull();
   });
 
+  // Owner 2026-11-19: a player tapped the note twice and it vanished both times, so he never saw his charges.
+  // Only the cards opened the panel; a tap on the words did nothing, or was snapped onto the note's x.
+  it("tapping the note itself opens the Charges panel, and its x stays apart from the words", () => {
+    const open = vi.fn();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, open);
+    const message = root()!.querySelector<HTMLButtonElement>(".hcb-speech [data-hcb-action='open']");
+    expect(message?.textContent).toContain("Your House has handed you 3 sealed charges. Keep 2.");
+    expect(message?.contains(root()!.querySelector(".hcb-speech-close"))).toBe(false);
+    message!.click();
+    expect(open).toHaveBeenCalledOnce();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000, false, open);
+    expect(root()).toBeNull();
+  });
+
   it("opening the Charges panel another way also handles the deal", () => {
     syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, () => {});
     expect(houseChargesUnhandled(deal, 2_000)).toBe(false);
