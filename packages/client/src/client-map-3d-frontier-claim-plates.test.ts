@@ -333,7 +333,7 @@ describe("activeFrontierAttackClaimTargetKeys", () => {
 });
 
 describe("frontier claim plates with an expand crew", () => {
-  it("waits for a manual EXPAND's crew to walk in, then grows from their stake point", () => {
+  it("waits for a manual EXPAND's crew to walk in before the plate grows", () => {
     const now = Date.now();
     const state = createState({
       capture: { startAt: now - 200, resolvesAt: now + 7_300, target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, actionType: "EXPAND" }
@@ -348,7 +348,7 @@ describe("frontier claim plates with an expand crew", () => {
     expect(scales[0]?.[0]).toBeLessThan(0.01);
     expect(scales[0]?.[2]).toBeLessThan(0.01);
     expect(placed).toHaveLength(1);
-    expect(placed[0]?.claim.crew).toBe(4);
+    expect(placed[0]?.claim.crew).toBe(2);
     expect(placed[0]?.claim.fromStep).toEqual({ dx: -1, dy: 0 });
   });
 

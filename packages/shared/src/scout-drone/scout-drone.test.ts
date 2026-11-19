@@ -8,6 +8,7 @@ import {
   scoutDroneLine,
   scoutDronePositionAt,
   scoutDroneStepIndexAt,
+  speedUpScoutDroneFlight,
   turnScoutDroneFlightBack,
   type ScoutDroneWorld
 } from "./scout-drone.js";
@@ -114,3 +115,31 @@ describe("rival borders the drone cannot slip through", () => {
   });
 });
 
+
+describe("ground that becomes home mid-flight", () => {
+  // AFC (2,10) -> 3,4 home -> 5..8 open, then back.
+  const plan = () => planScoutDroneFlight({ x: 2, y: 10 }, { x: 8, y: 10 }, 0, world())!;
+
+  it("jumps the drone forward over it, out and home, never past the tile it is flying toward", () => {
+    const flight = plan();
+    const legInto6 = flight.steps.findIndex((s) => s.x === 6);
+    const now = flight.steps[legInto6 - 1]!.at + 2_000; // 2s into the 7.5s leg toward x=6
+    const faster = speedUpScoutDroneFlight(flight, now, (x) => x <= 7)!;
+    expect(faster).toBeDefined();
+    // The leg in progress ends at least now (no snap past it), later legs over x<=7 take home pace.
+    expect(faster.steps[legInto6]!.at).toBe(now);
+    expect(faster.steps[legInto6 + 1]!.at - faster.steps[legInto6]!.at).toBe(SCOUT_DRONE_HOME_STEP_MS);
+    // x=8 is still open: the leg into it and the leg back out of it keep Expand To pace.
+    expect(faster.steps[faster.turnIndex]!.at - faster.steps[faster.turnIndex - 1]!.at).toBe(SCOUT_DRONE_STEP_MS);
+    expect(faster.steps[faster.turnIndex + 1]!.at - faster.steps[faster.turnIndex]!.at).toBe(SCOUT_DRONE_STEP_MS);
+    expect(faster.landsAt).toBe(faster.steps.at(-1)!.at);
+    expect(faster.landsAt).toBeLessThan(flight.landsAt);
+    expect(faster.steps.map((s) => [s.x, s.y])).toEqual(flight.steps.map((s) => [s.x, s.y]));
+    expect(scoutDronePositionAt(faster, now, W, H)!.x).toBeGreaterThanOrEqual(scoutDronePositionAt(flight, now, W, H)!.x);
+  });
+
+  it("changes nothing when no slow leg ahead is home", () => {
+    const flight = plan();
+    expect(speedUpScoutDroneFlight(flight, flight.steps[3]!.at, (x) => x < 5)).toBeUndefined();
+  });
+});

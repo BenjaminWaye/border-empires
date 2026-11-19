@@ -4,6 +4,7 @@ import { manpowerPerBatch, supportRingRadiusForTier, TOWN_MANPOWER_BY_TIER, type
 import { townPopulationMultiplier } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
 import type { TileActionDef } from "../client-types.js";
+import { freeSlotsOf, resourceSlotReasonText } from "./client-resource-slot-reason.js";
 import { tileActionAvailability } from "./client-tile-action-logic.js";
 
 const townGrowthUpgradeBonusDetail = (targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS"): string => {
@@ -27,7 +28,8 @@ export const townGrowthActionForUpgrade = (
   // replacing the old FOOD-stockpile lump-sum check now that FOOD has no
   // stockpile.
   const hasGold = state.gold >= upgrade.goldCost;
-  const hasFoodSlot = (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= 1;
+  const freeFood = freeSlotsOf(state.resourceSlots, "FOOD");
+  const hasFoodSlot = freeFood >= 1;
   const enabled = hasGold && hasFoodSlot;
   const id =
     upgrade.targetTier === "TOWN"
@@ -49,7 +51,7 @@ export const townGrowthActionForUpgrade = (
     upgrade.targetTier === "TOWN"
       ? "Unlocks town-tier growth and upkeep."
       : townGrowthUpgradeBonusDetail(upgrade.targetTier);
-  const missingReason = !hasGold ? `Need ${upgrade.goldCost} coin` : "Need a free FOOD slot";
+  const missingReason = !hasGold ? `Need ${upgrade.goldCost} coin` : resourceSlotReasonText("FOOD", 1, freeFood);
   return {
     id,
     label,

@@ -10,6 +10,7 @@
 // Outpost needs its own count-based gate ahead of the generic FOOD-slot
 // check, which only actually applies from the 6th outpost onward.
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor } from "@border-empires/shared";
+import { freeSlotsOf, resourceSlotReasonText } from "../client-tile-action-logic/client-resource-slot-reason.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export const ownedRelayBeaconCount = (state: ClientState): number => {
@@ -25,4 +26,4 @@ export const hasFreeResourceSlotsForRelayBeacon = (state: ClientState): boolean 
   (state.resourceSlots?.supply.FOOD ?? 0) - (state.resourceSlots?.demand.FOOD ?? 0) >= 1;
 
 export const missingRelayBeaconSlotReason = (state: ClientState): string | undefined =>
-  hasFreeResourceSlotsForRelayBeacon(state) ? undefined : "Need a free FOOD slot";
+  hasFreeResourceSlotsForRelayBeacon(state) ? undefined : resourceSlotReasonText("FOOD", 1, freeSlotsOf(state.resourceSlots, "FOOD"));
