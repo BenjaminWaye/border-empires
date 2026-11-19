@@ -1,7 +1,8 @@
 // The Charges panel's cards (owner 2026-11-19: "put the description on the
 // cards"). Each charge is one full-width trading card the player scrolls
-// through: title and difficulty, art, type and the Domain score it banks, then
-// the objective, the House's reason for the charge, progress and status, with
+// through: title and difficulty, art, type and rarity, then
+// the objective (a kept card also shows the Domain score it banks if held at the
+// crowning), the House's reason for the charge, progress and status, with
 // Keep and Show on map on the card itself. Replaces the separate card table and
 // details list.
 import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, type HouseChargeView } from "@border-empires/shared";
@@ -39,7 +40,7 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
   const { choosing, ticked, focused, scoutHint } = options;
   // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
   const difficulty = Math.max(1, Math.min(4, charge.renown));
-  const domain = HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[charge.rarity] ?? 0;
+  const domain = HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[charge.rarity];
   const kept = choosing ? ticked : charge.kept;
   const progress = houseChargeProgress(charge);
   const keep = choosing
@@ -49,7 +50,7 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
     <div class="hc-frame">
       <div class="hc-bar"><span class="hc-name">${esc(charge.title)}</span><span class="hc-pips" title="Difficulty ${difficulty} of 4" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span></div>
       <div class="hc-art">${houseChargeCardArtSvg({ kind: charge.kind })}</div>
-      <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[charge.kind]}</span><span class="hc-set hcd-reward" title="Domain score banked if you hold it when the winner is crowned">✦ ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]} · +${domain} Domain</span></div>
+      <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[charge.kind]}</span><span class="hcd-reward">✦ ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}${kept ? ` · +${domain} Domain` : ""}</span></div>
       <div class="hc-text">
         <p class="hcd-objective">${esc(houseChargeObjective(charge))}</p>
         <p class="hc-flavour">“${esc(houseChargeLetter(charge))}”</p>

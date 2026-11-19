@@ -17,6 +17,13 @@ describe("House Charge letters", () => {
     }
   });
 
+  it("asks to find a Reawakening's beacon only until it is found", () => {
+    for (let index = 0; index < 20; index += 1) {
+      const id = `RELIC:${index}`;
+      expect(houseChargeLetter({ id, kind: "RELIC", targets: [{ key: "r", name: "Relic", x: 1, y: 1 }] })).not.toMatch(/\bfind\b/i);
+    }
+  });
+
   it("always gives the same charge the same reason", () => {
     for (const kind of HOUSE_CHARGE_KINDS) expect(houseChargeLetter(charge(kind, "x"))).toBe(houseChargeLetter(charge(kind, "x")));
   });

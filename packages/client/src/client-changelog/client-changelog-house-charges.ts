@@ -62,7 +62,7 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Each charge is now one large card you scroll through, with its objective, progress, Keep button and Show on map on the card itself.",
       "Each card's quote is your House's reason for handing you that charge.",
-      "Each card shows the Domain score it banks if you hold it when the winner is crowned. Tap How charges pay out under the intro for the details."
+      "Each kept card shows the Domain score it banks if you still hold it when the winner is crowned. Tap How charges pay out under the intro for the details."
     ]
   }
 ];

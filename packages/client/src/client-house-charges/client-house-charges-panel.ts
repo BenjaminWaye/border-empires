@@ -29,7 +29,10 @@ export type HouseChargesPanelDeps = {
   readonly now: () => number;
 };
 
-/** Whether "How charges pay out" is expanded; kept across re-renders, which rewrite the panel. */
+/**
+ * Whether "How charges pay out" is expanded. It is left out of the panel's HTML, so opening it never rewrites the
+ * panel (which would drop keyboard focus and restart a deal), and reapplied after any rewrite.
+ */
 let rewardsOpen = false;
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
@@ -88,7 +91,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
       : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">Keeping ${wanted} of these ${payload.charges.length}. Tap Keep on another card to swap, until ${until}.</p>
+        <p class="house-charges-saved" role="status">Keeping ${wanted} of these ${payload.charges.length}. To swap, tap Kept on one card to set it aside, then Tap to keep on another, until ${until}.</p>
       </div>`;
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
@@ -100,8 +103,8 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   );
   return `<section class="card house-charges-card">
     <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to bank Domain score for your House and earn its charge card. Nobody else can see your charges until then.</p>
-    <details class="house-charges-more" data-house-charges-more${rewardsOpen ? " open" : ""}><summary>How charges pay out</summary>
-      <p>Each kept charge you still hold when the winner is crowned banks Domain score by its rarity: ${CHARGE_DOMAIN_BY_RARITY}. Every card shows what it banks. Domain score is your House's standing in the galaxy: it counts in the Court's race for Emperor and in your Senate vote.</p>
+    <details class="house-charges-more" data-house-charges-more><summary>How charges pay out</summary>
+      <p>Each kept charge you still hold when the winner is crowned banks Domain score by its rarity: ${CHARGE_DOMAIN_BY_RARITY}. Every kept card shows what it banks. Domain score is your House's standing in the galaxy: it counts in the Court's race for Emperor and in your Senate vote.</p>
       <p>◆ is a charge's difficulty: how far, how large or how contested it is. It does not change the reward.</p>
     </details>
     ${choice}
@@ -130,6 +133,7 @@ export const renderHouseChargesPanel = (
   }
   const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
   if (more) {
+    if (more.open !== rewardsOpen) more.open = rewardsOpen;
     more.ontoggle = () => {
       rewardsOpen = more.open;
     };

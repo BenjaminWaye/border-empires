@@ -34,7 +34,8 @@
 }
 
 .house-charges-more summary {
-  display: inline;
+  display: inline-block;
+  padding: 12px 0;
   cursor: pointer;
   list-style: none;
   color: #f0cf82;
@@ -47,7 +48,7 @@
 }
 
 .house-charges-more p {
-  margin: 8px 0 0;
+  margin: 0 0 8px;
 }
 
 .house-charges-hint {

@@ -56,7 +56,7 @@ describe("House Charges panel", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
     // Nothing to save (possibly the default pair): say what is kept and how to swap, with no false "saved" tick.
-    expect(open).toContain("Keeping 2 of these 3. Tap Keep on another card to swap");
+    expect(open).toContain("Keeping 2 of these 3. To swap, tap Kept on one card to set it aside, then Tap to keep on another");
     expect(open).not.toContain("✓");
     expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
@@ -104,6 +104,19 @@ describe("House Charges panel", () => {
     expect(html).not.toContain("Influence");
     expect(html).toContain("✦ Common · +1 Domain");
     expect(html).toContain("✦ Mythic · +4 Domain");
+  });
+
+  // Review of #2878: a set-aside or dropped card banks nothing, so it must not show a Domain score.
+  it("shows the Domain score only on kept cards", () => {
+    const closed = houseChargesPanelHtml(panelState([charge({}), desert], 0), 5_000);
+    expect(closed).toContain("✦ Common · +1 Domain");
+    const desertCard = closed.slice(closed.lastIndexOf("<article", closed.indexOf("The Ashen Reach")));
+    expect(desertCard).toContain("Not kept");
+    expect(desertCard).not.toContain("Domain");
+    const choosing = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }, desert], 10_000, [charge({}).id, desert.id]), 5_000);
+    const relicCard = choosing.slice(choosing.lastIndexOf("<article", choosing.indexOf("A Concordance installation")), choosing.indexOf("The Ashen Reach"));
+    expect(relicCard).toContain("✦ Mythic</span>");
+    expect(relicCard).not.toContain("+4 Domain");
   });
 
   // Owner 2026-11-19: one card per charge with its description on it, not a card row plus a separate list.
