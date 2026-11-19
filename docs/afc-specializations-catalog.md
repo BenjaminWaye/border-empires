@@ -90,7 +90,7 @@ renderers through the shared AFC effects layer.
 
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-chancery-1` | **Envoy Accreditation** | +10% of the House's own Coin income while at least one truce or mutual alliance is active. Court armistices qualify. | Accredited envoys turn standing agreements into trade credit. |
+| I `afc-chancery-1` | **Envoy Accreditation** | +20% of the House's own Coin income per distinct House it holds an active truce or mutual alliance with, uncapped. Court armistices qualify. | Accredited envoys turn standing agreements into trade credit. |
 | II `afc-chancery-2` | **Diplomatic Corps** | AI empires judge the House +15 opinion warmer; truces bought from them cost 50% less. | A permanent diplomatic staff. |
 | III `afc-chancery-3` | **Allied Levies** | +15% manpower cap and regeneration per mutual ally, counting at most three (+45%). Scales the House's own numbers, never reads an ally's. | Allied Houses send ancillary contingents. |
 | IV `afc-chancery-4` | **Court Armistice Mandate** | Impose a binding 12h truce; 48h cooldown. With Envoy Accreditation it qualifies for the Coin bonus (🔗). | The Court enforces the armistice. |

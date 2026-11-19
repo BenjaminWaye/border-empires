@@ -35,18 +35,18 @@ function fixture(upgrades: readonly string[], production = false, relation: "all
 }
 
 describe("Envoy Accreditation and Allied Levies through accrual and reconnect", () => {
-  it("adds 10% of the House's own Coin while a truce is active, without touching the partner", async () => {
+  it("adds 20% of the House's own Coin for a single active truce, without touching the partner", async () => {
     const base = fixture([], false, "truce"), envoy = fixture(["afc-chancery-1"], false, "truce");
     const before = base.runtime.exportState().players;
     const after = envoy.runtime.exportState();
     const own = after.players.find(p => p.id === "p")!;
-    expect(own.incomePerMinute).toBeCloseTo(before.find(p => p.id === "p")!.incomePerMinute! * 1.1, 8);
+    expect(own.incomePerMinute).toBeCloseTo(before.find(p => p.id === "p")!.incomePerMinute! * 1.2, 8);
     expect(after.players.find(p => p.id === "a")!.incomePerMinute).toBeCloseTo(before.find(p => p.id === "a")!.incomePerMinute!, 8);
     const projected = await envoy.runtime.exportVisibleStateForPlayerAsync("p", yieldToEventLoop);
     for (const state of [after, projected]) {
       const login = buildPlayerSubscriptionSnapshot("p", state, { tilesAlreadyVisible: true }).player!;
       const source = login.economyBreakdown?.GOLD.sources.find(row => row.label === "Envoy Accreditation");
-      expect(source?.amountPerMinute).toBeCloseTo(before.find(p => p.id === "p")!.incomePerMinute! * 0.1, 8);
+      expect(source?.amountPerMinute).toBeCloseTo(before.find(p => p.id === "p")!.incomePerMinute! * 0.2, 8);
       expect(login.incomePerMinute).toBeCloseTo(own.incomePerMinute!, 8);
     }
   });

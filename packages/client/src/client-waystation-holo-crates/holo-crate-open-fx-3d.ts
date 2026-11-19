@@ -1,5 +1,5 @@
 // The Holo-Locked Stack's opening, played once in true-3D where a collected
-// waystation stood: the padlock unlatches and shatters, the front crate's door
+// waystation stood: the seal orb flares and bursts, the front crate's door
 // drops like a ramp, a reward core rises out of the light, sparks stream up,
 // and as soon as it is open the whole site teleports out in a beam. Built from the same
 // part list as the instanced overlay (holo-crate-model-3d.ts) so the swap from
@@ -24,7 +24,6 @@ type Opening = {
   readonly site: Group;
   readonly door: Object3D;
   readonly lock: Group;
-  readonly shackle: Object3D[];
   readonly core: Mesh;
   readonly halo: Mesh;
   readonly shaft: Mesh;
@@ -78,7 +77,7 @@ export const createWaystationOpenFxLayer = (
   const spillGeometry = fade(new CircleGeometry(0.22, 28).rotateX(-Math.PI / 2), (x, _y, z) => 1 - Math.hypot(x, z) / 0.22);
   const beamGeometry = fade(new CylinderGeometry(0.46, 0.46, 2.6, 32, 6, true).translate(0, 1.3, 0), (_x, y) => Math.pow(1 - y / 2.6, 1.3));
   const scanGeometry = new TorusGeometry(0.5, 0.012, 4, 48).rotateX(Math.PI / 2);
-  const shardGeometry = geometries.keyhole;
+  const shardGeometry = geometries.box;
   const openings: Opening[] = [];
   const hingePosition = new Vector3();
   const hingeRotation = new Quaternion();
@@ -109,10 +108,9 @@ export const createWaystationOpenFxLayer = (
     const lock = new Group();
     lock.position.copy(LOCK_ANCHOR);
     site.add(lock);
-    const shackle: Object3D[] = [];
     for (const part of HOLO_CRATE_PARTS) {
       if (part.role === "door") mesh(part.geometry, part.material, part.matrix, door);
-      else if (part.role === "lock") { const m = mesh(part.geometry, part.material, part.matrix, lock); if (part.geometry === "shackle") shackle.push(m); }
+      else if (part.role === "lock") mesh(part.geometry, part.material, part.matrix, lock);
       else mesh(part.geometry, part.material, part.matrix, site);
     }
     const fx: MeshBasicMaterial[] = [];
@@ -146,7 +144,7 @@ export const createWaystationOpenFxLayer = (
     sparks.frustumCulled = false;
     site.add(sparks);
     group.add(root);
-    openings.push({ root, site, door, lock, shackle, core, halo, shaft, spill, beam, scan, sparks, shards, materials, fx, sparkMaterial, entry, seed, faded: false });
+    openings.push({ root, site, door, lock, core, halo, shaft, spill, beam, scan, sparks, shards, materials, fx, sparkMaterial, entry, seed, faded: false });
   };
 
   const disposeOpening = (opening: Opening): void => {
@@ -170,12 +168,12 @@ export const createWaystationOpenFxLayer = (
       const alpha = pose.alpha;
       const t = nowMs / 1000;
 
-      // Padlock: shackle springs up, the lock swells and flickers out, shards fly.
+      // Seal orb: flares bright and swells, then bursts into sparks.
       o.lock.visible = pose.lock < 1;
-      for (const s of o.shackle) s.position.y = 0.02 + 0.03 * Math.min(1, pose.lock * 3);
-      o.lock.scale.setScalar(1 + 0.45 * pose.lock * pose.lock);
-      o.lock.rotation.y = pose.lock * 0.9;
-      (o.materials.holo as MeshBasicMaterial).opacity = 0.5 * (1 - pose.lock) * (pose.lock > 0.3 && Math.sin(age * 0.09) > 0 ? 0.4 : 1);
+      o.lock.scale.setScalar(1 + 1.4 * pose.lock * pose.lock);
+      o.lock.rotation.y = t * 1.2 + pose.lock * 2;
+      (o.materials.holo as MeshBasicMaterial).opacity = (0.32 + 0.4 * Math.sin(Math.PI * Math.min(1, pose.lock * 1.6))) * (1 - pose.lock);
+      (o.materials.orbCore as MeshBasicMaterial).opacity = 0.95 * (1 - pose.lock * pose.lock);
       (o.materials.holoBeam as MeshBasicMaterial).opacity = 0.1 * (1 - pose.lock);
       o.shards.forEach((shard, j) => {
         const a = rand(o.seed, j) * Math.PI * 2, lift = rand(o.seed, j + 40) - 0.3, burst = pose.lock * 0.32;

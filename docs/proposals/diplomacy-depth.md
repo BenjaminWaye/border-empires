@@ -60,8 +60,8 @@ Read before choosing an option; each cause points at the code an option touches.
   more often than intended; find which before changing the discount.
 - **Envoy Accreditation counts any partner**: `afcEnvoyIncomeShare` in
   `apps/simulation/src/afc-specializations/afc-coalition.ts` counts every
-  distinct House with an active truce or alliance, capped at
-  `truceIncomeShareMax: 0.5` (`packages/shared/src/afc-specializations/afc-specializations.ts`).
+  distinct House with an active truce or alliance. (At the playtest it paid 10% each
+  capped at 50%; it was then a flat 10%, and since PR #2886 it pays 20% per House, uncapped.)
   Contact, borders and price don't matter.
 - **Truces are short by rule**: 12h or 24h, and never more than
   `TRUCE_MAX_LIFETIME_MS` (48h) from when they began, extensions included
