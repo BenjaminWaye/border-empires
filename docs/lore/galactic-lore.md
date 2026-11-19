@@ -23,36 +23,42 @@ was annihilated with it. Instant travel was lost. The colonies were left
 behind, reachable only by slow conventional crossings.
 
 The aether that ran through the Engine did not vanish. It poured into open
-space, ownerless. That raw aether is **the Bleed**: mindless, lethal to
-unshielded matter and life, spreading like a wildfire nobody is fighting.
-Most of known space is still Bleed.
+space, ownerless. That raw aether is **the Bleed**: mindless and lethal to
+unshielded matter and life.
 
 ## 2. The Imperium and the Court
 
-The Concordance remnants on the surviving colony worlds rebuilt as the
-**Imperium**. Its ruling authority is **the Court**: a dictatorship built for
-one purpose, the war against the Wardens (§4) and the Bleed. It commands; the
-nobility serves.
+The Concordance remnants on the colony worlds closest together rebuilt as the
+**Imperium**. Its ruling authority is **the Court**: a dictatorship forged in
+the war against the Wardens (§4) and the Bleed. It won that war. The Wardens
+were beaten back, and the Wardens themselves had already burned away most of
+the Bleed. The heartland the Court secured is the **Core**.
 
-The Court rules through noble **Houses**. A House that holds a world for the
-Court is led by a **Duke**. The heartland the Court has secured is the
-**Core**; everything beyond it is frontier.
+The Court never gave up the powers it took for the war. It rules through
+noble **Houses**; a House that holds a world for the Court is led by a
+**Duke**.
 
-The Imperium cannot make much of what the Concordance made. Concordance
+### The frontier
+
+Without the World Engine, every other colony world was cut off. For
+generations they have been left to their own work: their own rulers, their
+own plain machinery, no Court. This is the **frontier**.
+
+The Imperium cannot make much of what the Concordance made, and Concordance
 machinery recovered on the frontier is worth more to the Court than almost
 anything Houses can build.
 
 ### Sector campaigns
 
-The Court takes back frontier worlds by sending Houses to fight for them.
-It opens a **Sector**, a world at the edge of its frontier, and lands rival
-Houses on it together. The Core watches the campaign as the **Sector
-Contest**. Doctrine calls the system the **Writ of Sectors**: unclaimed ground
-is a debt owed to the Imperium.
+The Court means to retake the frontier with ordinary spacecraft, one world at
+a time. It opens a **Sector**, a frontier world, and lands rival Houses on it
+together to fight for it. Doctrine calls this the **Writ of Sectors**:
+unclaimed ground is a debt owed to the Imperium.
 
-The Court's reasons are practical. The campaign reclaims a world, keeps the
-nobility fighting the frontier instead of the Court, and shows which Houses
-can actually command.
+The Core watches each campaign as the **Sector Contest**, and that is half the
+point. While the nobility fights for worlds and the people watch them do it,
+nobody is looking at the dictatorship at home. Each campaign also shows the
+Court which Houses can actually command.
 
 A Sector takes only as many Houses as it can hold. Houses turned away wait
 for the next one. Once a campaign is decided, the next Sector is proclaimed,
@@ -73,11 +79,11 @@ builds.
 ## 4. The Wardens, Planetary Defense and relics
 
 The Concordance built the **Wardens**, automated constructs meant to hunt
-the Bleed. They could not tell Bleed from the aether in the Concordance's own
-works, and turned on everything aether-built. The Imperium's founding wars
-were fought against them as much as against the Bleed.
+the Bleed. They did: they burned away most of it. But they could not tell
+Bleed from the aether in the Concordance's own works, and turned on everything
+aether-built. The Court's founding war was against them, and the Court won it.
 
-The Wardens still raid the Imperium. They strike the systems Dukes hold.
+Surviving Wardens still roam beyond the Core and strike the systems Dukes hold.
 A Fighter in orbit turns a raid back; without one the system's stability
 suffers. Court fleets screen Dukes in good standing (§9), and the Court offers
 a new Duke a period of protection in exchange for a pledge not to move
@@ -85,9 +91,10 @@ against it.
 
 ### Planetary Defense
 
-Sector worlds are old colonies, cut off since the Engine fell. Their towns
-run on plain machinery: combustion engines, mechanical carts, no aether-work.
-Before opening a Sector the Court breaks the world's defenses. What is left is
+Sector worlds are frontier colonies, cut off since the Engine fell. Their
+towns run on plain machinery: combustion engines, mechanical carts, no
+aether-work, because aether-work is what drew the Wardens. Before opening a
+Sector the Court breaks the world's defenses. What is left is
 **Planetary Defense**, the remnant of the planet's own defense force. It holds
 scattered ground, wakes when a House can see it, and fights any House that
 comes near.
@@ -417,7 +424,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 
 | Question | Status |
 |---|---|
-| The Bleed in play | The Bleed is setting only. No current mechanic represents it; Planetary Defense replaced it as the on-world hostile. |
+| The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; Planetary Defense replaced it as the on-world hostile. |
 | The Imperium's name | "Imperium" is new; the game says "Imperial" and "Emperor" but has no player-facing name for the state yet. |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
 | Umbrite in forests | Storybook **Sandbox / Umbrite Forest / Concepts** shows violet Umbrite in roots and dead wood. Art proposal only; its origin is undecided. |
@@ -431,4 +438,6 @@ Do not infer gameplay rules from these while doing unrelated work.
 - **Houses held in ward** (Imperial Ward), removed November 2026.
 - **The Sovereign Siege Engine as the ancient artifact.** The artifact is the
   World Engine; the name now belongs only to the Great Project.
-- **The Court as a feudal order at rest.** It is a wartime dictatorship.
+- **The Court as a feudal order at rest.** It is a dictatorship that kept its
+  wartime powers after winning.
+- **Most of known space is still Bleed.** The Wardens burned most of it away.
