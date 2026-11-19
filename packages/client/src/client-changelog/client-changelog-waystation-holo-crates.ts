@@ -7,6 +7,6 @@ export const WAYSTATION_HOLO_CRATES_ENTRY: Omit<ClientChangelogEntry, "createdAt
   changes: [
     "Waystations are now a stack of armoured supply crates on a hovering pad, sealed under a hologram padlock, in both map renderers.",
     "When a waystation is collected, the padlock shatters, the front crate drops open and a glowing reward core rises out of it. If you collected it, this plays once you close the reward card.",
-    "Ten seconds later the cache teleports away and the tile is clear. The reward pool is unchanged."
+    "Once it is open, the cache teleports away and the tile is clear. The reward pool is unchanged."
   ]
 };

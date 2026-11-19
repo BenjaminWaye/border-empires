@@ -18,7 +18,7 @@ export const createInitialMapFxQueueState = () => ({
   ...createInitialAfcDeliveryState(),
   // Town tier-upgrade growth; see client-town-tier-upgrade-fx/.
   ...createInitialTownTierUpgradeFxState(),
-  // A collected waystation's 10 s opening, drawn by both renderers; see client-waystation-holo-crates/.
+  // A collected waystation's opening, drawn by both renderers; see client-waystation-holo-crates/.
   ...createInitialWaystationOpenFxState(),
   // "+N / −N manpower" over a captured muster flag, drawn by both renderers; see client-muster-capture/.
   ...createInitialMusterCaptureLabelState()

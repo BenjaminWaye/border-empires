@@ -14,7 +14,7 @@ export const drawWaystation2D = (
   drawHoloCrates2D(ctx, px, py, size, nowMs, { still });
 };
 
-/** A collected site's 10 s opening (padlock shatters, a crate opens, the site teleports out), held closed while a reward card covers the map. */
+/** A collected site's short opening (padlock shatters, a crate opens, the site teleports out), held closed while a reward card covers the map. */
 export const drawWaystationOpening2D = (
   ctx: CanvasRenderingContext2D, entry: WaystationOpenFxEntry | undefined,
   px: number, py: number, size: number, nowMs: number, nowEpochMs: number,

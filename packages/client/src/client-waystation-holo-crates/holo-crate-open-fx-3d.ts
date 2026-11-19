@@ -1,7 +1,7 @@
 // The Holo-Locked Stack's opening, played once in true-3D where a collected
 // waystation stood: the padlock unlatches and shatters, the front crate's door
 // drops like a ramp, a reward core rises out of the light, sparks stream up,
-// and after 9 s the whole site teleports out in a beam. Built from the same
+// and as soon as it is open the whole site teleports out in a beam. Built from the same
 // part list as the instanced overlay (holo-crate-model-3d.ts) so the swap from
 // the dormant site to this effect is seamless. Timeline: holo-crate-open-fx.ts.
 import {

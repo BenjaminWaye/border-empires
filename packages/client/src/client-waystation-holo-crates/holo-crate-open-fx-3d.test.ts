@@ -18,16 +18,16 @@ const rig = (covered = false) => {
 };
 
 describe("3D waystation opening", () => {
-  it("drops the door, fades the stack out and removes itself after 10 s", () => {
+  it("drops the door, then fades the stack out and removes itself", () => {
     const { parent, layer, tick } = rig();
     tick(0);
     const door = findDoor(layer.group);
     expect(door?.rotation.x).toBe(0);
-    tick(3000);
+    tick(1400);
     expect(door!.rotation.x).toBeCloseTo(Math.PI / 2, 2); // folded flat like a ramp
     const hull = (layer.group.children[0]!.children[0]!.children.find((c) => c instanceof Mesh) as Mesh).material as MeshStandardMaterial;
     expect(hull.opacity).toBe(1);
-    tick(6500);
+    tick(700);
     expect(hull.transparent).toBe(true);
     expect(hull.opacity).toBeCloseTo(0.5, 2);
     tick(500);
@@ -37,7 +37,7 @@ describe("3D waystation opening", () => {
     expect(parent.children).toHaveLength(0);
   });
 
-  it("holds closed while the reward card covers the map, then plays the full 10 s once it is closed", () => {
+  it("holds closed while the reward card covers the map, then plays in full once it is closed", () => {
     // Regression: the timeline ran behind the reward card, so closing it showed the cache already teleporting out.
     const { clock, layer, entry, tick } = rig(true);
     tick(12_000);
@@ -48,9 +48,9 @@ describe("3D waystation opening", () => {
     clock.covered = false;
     tick(16);
     expect(entry.startedAt).toBe(clock.wall);
-    tick(3000);
+    tick(1400);
     expect(door.rotation.x).toBeCloseTo(Math.PI / 2, 2);
-    tick(WAYSTATION_OPEN_TOTAL_MS - 3000);
+    tick(WAYSTATION_OPEN_TOTAL_MS - 1400);
     expect(layer.activeCount()).toBe(0);
   });
 

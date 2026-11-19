@@ -16,7 +16,7 @@ const site = (extra: Partial<Tile> = {}): Tile => ({ x: 3, y: 4, terrain: "LAND"
 const collected = { x: 3, y: 4, ownerId: "p1", ownershipState: "FRONTIER" as const, waystationJson: JSON.stringify({ activated: true, activatedByPlayerId: "p1", grantedEffect: "GOLD", grantedGold: 50 }) };
 
 describe("handleTileDeltaBatchMessage waystation opening", () => {
-  it("starts the 10 s crate opening for both renderers when a visible rig is collected", () => {
+  it("starts the crate opening for both renderers when a visible rig is collected", () => {
     const state = createInitialState();
     state.me = "p1";
     state.tiles.set("3,4", site());

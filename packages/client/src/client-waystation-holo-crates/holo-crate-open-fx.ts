@@ -3,12 +3,11 @@ import type { Tile } from "../client-types.js";
 // Holo-Locked Stack waystation: the moment a rig is collected. The server
 // clears an activated waystation from the map, so the client keeps a short,
 // renderer-agnostic record of each opening and both renderers play the same
-// 10 s timeline from it:
+// short timeline from it (the cache leaves as soon as it is open):
 //   0     - 500 ms  the hologram padlock unlatches and dissolves
 //   300   - 1100 ms the front crate's door hinges down like a ramp
 //   400   - 1500 ms the reward core rises out of the crate
-//   1100  - 9000 ms open, glowing, sparks rising
-//   9000  - 10000 ms teleport-out shimmer, then the site is gone.
+//   1600  - 2600 ms teleport-out shimmer, then the site is gone.
 // The collector's reward card covers the map the moment the rig is collected,
 // so an opening is held at its first frame (lock intact, crates closed) until
 // the map is clear, then its clock starts: startedAt is unset while held and
@@ -20,8 +19,8 @@ export const WAYSTATION_OPEN_DOOR_START_MS = 300;
 export const WAYSTATION_OPEN_DOOR_MS = 800;
 export const WAYSTATION_OPEN_CORE_START_MS = 400;
 export const WAYSTATION_OPEN_CORE_MS = 1100;
-export const WAYSTATION_OPEN_FADE_START_MS = 9000;
-export const WAYSTATION_OPEN_TOTAL_MS = 10000;
+export const WAYSTATION_OPEN_FADE_START_MS = 1600;
+export const WAYSTATION_OPEN_TOTAL_MS = 2600;
 /** Hard bound on concurrent openings: they are short-lived, but never let a burst grow the store. */
 export const WAYSTATION_OPEN_FX_MAX = 24;
 /** An opening still held this long after detection (a reward card never closed) is dropped. */

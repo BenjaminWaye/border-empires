@@ -7,16 +7,16 @@ import {
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
 describe("waystation opening timeline", () => {
-  it("unlocks, opens, holds, then teleports out and is gone at 10 s", () => {
+  it("unlocks, opens, then teleports straight out and is gone at 2.6 s", () => {
     const closed = waystationOpenPose(0);
     expect(closed).toMatchObject({ lock: 0, door: 0, core: 0, out: 0, alpha: 1, done: false });
     expect(waystationOpenPose(250).door).toBe(0); // the lock goes first
     expect(waystationOpenPose(500).lock).toBe(1);
     expect(waystationOpenPose(1100).door).toBeCloseTo(1, 5);
-    const held = waystationOpenPose(5000);
+    const held = waystationOpenPose(1550);
     expect(held).toMatchObject({ lock: 1, core: 1, out: 0, alpha: 1, done: false });
     expect(held.glow).toBeGreaterThan(0.9);
-    expect(waystationOpenPose(9500).out).toBeCloseTo(0.5, 5);
+    expect(waystationOpenPose(2100).out).toBeCloseTo(0.5, 5);
     expect(waystationOpenPose(WAYSTATION_OPEN_TOTAL_MS - 1).done).toBe(false);
     expect(waystationOpenPose(WAYSTATION_OPEN_TOTAL_MS)).toMatchObject({ alpha: 0, done: true });
   });
