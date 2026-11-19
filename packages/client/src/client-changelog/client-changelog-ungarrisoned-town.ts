@@ -8,6 +8,6 @@ export const UNGARRISONED_TOWN_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
     "A town you hold but haven't garrisoned shows a struck-through coin on its nameplate, on both the 3D and 2D maps",
     "When that town is off screen, a ! marker at the edge of the map points to it. Tap it to jump there",
     "The Towns list marks the town \"Not garrisoned\"",
-    "The nameplate mark and the marker go away as soon as the town's garrison starts"
+    "None of these show once the town's garrison is queued, planned by auto-settle or under way"
   ]
 };

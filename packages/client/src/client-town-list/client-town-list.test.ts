@@ -132,6 +132,15 @@ describe("town list", () => {
     expect(townListCardHtml(mapOf([townTile(1, "Ashford", 2, 4000)]), "me")).not.toContain("Not garrisoned");
   });
 
+  it("doesn't mark a town not garrisoned when its garrison is on its way or its ownership state is missing", () => {
+    const frontier = townTile(1, "Ashford", 0, 4000, { ownershipState: "FRONTIER" });
+    const map = mapOf([frontier]);
+    expect(deriveTownListRows(map.values(), "me", map, new Set(["1,0"]))[0]).toMatchObject({ garrisoned: true });
+    expect(townListCardHtml(map, "me", undefined, new Set(["1,0"]))).not.toContain("Not garrisoned");
+    const { ownershipState: _missing, ...partial } = townTile(2, "Brimvale", 1, 4000);
+    expect(rowsOf(mapOf([partial as Tile]))[0]).toMatchObject({ garrisoned: true });
+  });
+
   it("renders rows in sort order with gold per day and jump targets", () => {
     const html = townListCardHtml(tiles, "me", { key: "gold", descending: false });
     expect(html).toContain("3 towns");

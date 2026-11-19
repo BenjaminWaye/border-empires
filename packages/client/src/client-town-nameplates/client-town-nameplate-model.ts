@@ -50,7 +50,7 @@ const ownStatus = (
 
 /**
  * `unrulyTownKeys`: your towns above Town tier that get less biota than they need (ManpowerBreakdown.biotaTowns).
- * `garrisoning`: tile keys with a garrison under way (settleProgressByTile), which don't show as ungarrisoned.
+ * `garrisoning`: garrisons under way, queued or planned (garrisonPlannedTileKeys), which don't show as ungarrisoned.
  */
 export const townNameplateFor = (
   tile: Tile | undefined, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>, garrisoning?: { has(key: string): boolean }

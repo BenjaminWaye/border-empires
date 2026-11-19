@@ -5,7 +5,7 @@ import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { ownTownCoinPending } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
-import { displayTownPopulationTierLabel, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
+import { displayTownPopulationTierLabel, isOwnTownUngarrisoned, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
 
@@ -28,7 +28,7 @@ export type TownListRow = {
   maxPopulation: number;
   growthPerMinute: number;
   isFed: boolean;
-  /** False while you hold the town's tile without garrisoning it: no coin, no growth. */
+  /** False while you hold the town's tile without garrisoning it (or planning to): no coin, no growth. */
   garrisoned: boolean;
   /** "0/4 plots garrisoned" while a fed town earns less for ungarrisoned plots (client-town-plot-income.ts). */
   plotsNote?: string;
@@ -78,8 +78,13 @@ export const toggleTownListSort = (key: TownListSortKey): void => {
   currentSort = nextTownListSort(currentSort, key);
 };
 
-/** `towns` is any iterable holding the towns to list; `tiles` is the full map, read for each town's support ring. */
-export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: ReadonlyMap<string, Tile>): TownListRow[] => {
+/**
+ * `towns` is any iterable holding the towns to list; `tiles` is the full map, read for each town's support ring.
+ * `garrisoning` (garrisonPlannedTileKeys): towns whose garrison is on its way don't read "Not garrisoned".
+ */
+export const deriveTownListRows = (
+  towns: Iterable<Tile>, me: string, tiles: ReadonlyMap<string, Tile>, garrisoning?: { has(key: string): boolean }
+): TownListRow[] => {
   const rows: TownListRow[] = [];
   for (const tile of towns) {
     const town = tile.town;
@@ -97,7 +102,8 @@ export const deriveTownListRows = (towns: Iterable<Tile>, me: string, tiles: Rea
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
-      garrisoned: tile.ownershipState === "SETTLED",
+      // Same check as the map's nameplate and alert, so a missing ownershipState never reads as ungarrisoned.
+      garrisoned: !isOwnTownUngarrisoned(tile, me, garrisoning),
       ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
@@ -133,8 +139,10 @@ const formatGrowth = (value: number): string => {
   return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1)}`;
 };
 
-export const townListCardHtml = (tiles: ReadonlyMap<string, Tile>, me: string, sort: TownListSort = currentSort): string => {
-  const rows = sortTownListRows(deriveTownListRows(tiles.values(), me, tiles), sort);
+export const townListCardHtml = (
+  tiles: ReadonlyMap<string, Tile>, me: string, sort: TownListSort = currentSort, garrisoning?: { has(key: string): boolean }
+): string => {
+  const rows = sortTownListRows(deriveTownListRows(tiles.values(), me, tiles, garrisoning), sort);
   const headers = SORT_COLUMNS.map(({ key, label }) => {
     const active = sort.key === key;
     const arrow = active ? (sort.descending ? " ▼" : " ▲") : "";
@@ -145,13 +153,16 @@ export const townListCardHtml = (tiles: ReadonlyMap<string, Tile>, me: string, s
       ? '<div class="economy-line muted"><span>No towns yet</span></div>'
       : rows
           .map(
-            (row) => `<button class="town-list-row${townRowWarning(row) ? " is-unfed" : ""}" type="button" data-town-list-jump="${row.x},${row.y}">
-            <span class="town-list-name">${escapeHtml(row.name)}<small>${row.tierLabel}${townRowWarning(row) ? ` · ${townRowWarning(row)}` : ""}</small></span>
+            (row) => {
+              const warning = townRowWarning(row);
+              return `<button class="town-list-row${warning ? " is-unfed" : ""}" type="button" data-town-list-jump="${row.x},${row.y}">
+            <span class="town-list-name">${escapeHtml(row.name)}<small>${row.tierLabel}${warning ? ` · ${warning}` : ""}</small></span>
             <strong>${formatTownCoinPerDay(row)}</strong>
             <strong>${formatCount(row.population)}<small>/ ${formatCount(row.maxPopulation)}</small></strong>
             <strong>${formatGrowth(row.growthPerMinute)}<small>/min</small></strong>
             <strong title="Open build slots">${formatOpenSlots(row.openSlots)}</strong>
-          </button>`
+          </button>`;
+            }
           )
           .join("");
   return `<section class="card town-list-card">

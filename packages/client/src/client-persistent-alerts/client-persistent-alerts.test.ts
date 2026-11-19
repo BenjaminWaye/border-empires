@@ -125,6 +125,18 @@ describe("persistent alerts", () => {
     ]);
   });
 
+  it("stays quiet for a town whose garrison is queued or planned by auto-settle", () => {
+    const frontier = (x: number): Tile => unfedTownTile({ x, y: 5, ownershipState: "FRONTIER", town: { isFed: true } });
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      developmentQueue: [{ kind: "SETTLE" as const, x: 1, y: 5, tileKey: "1,5", label: "Garrison" }],
+      autoSettleTargets: new Set(["2,5"]),
+      tiles: new Map<string, Tile>([["1,5", frontier(1)], ["2,5", frontier(2)], ["3,5", frontier(3)]])
+    };
+    expect(persistentAlertsForState(state).map((alert) => alert.id)).toEqual(["town_ungarrisoned:3,5"]);
+  });
+
   it("creates a persistent alert for an owned active muster flag", () => {
     const state = {
       me: "me",

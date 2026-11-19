@@ -1,6 +1,7 @@
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-color-separation.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growth.js";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 import type { Tile } from "../client-types.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
@@ -15,8 +16,10 @@ export interface TownNameplatesState {
   readonly profileSetupRequired: boolean;
   readonly playerColors: ReadonlyMap<string, string>;
   readonly manpowerBreakdown?: { readonly biotaTowns?: readonly BiotaTownStatus[] | undefined } | undefined;
-  /** Tiles with a garrison under way: their town doesn't show as not garrisoned. */
+  /** Garrisons under way, queued or planned (garrisonPlannedTileKeys): their town doesn't show as not garrisoned. */
   readonly settleProgressByTile?: { has(key: string): boolean } | undefined;
+  readonly developmentQueue?: ReadonlyArray<{ kind: string; tileKey: string }> | undefined;
+  readonly autoSettleTargets?: { has(key: string): boolean } | undefined;
 }
 
 /** Your large towns that get less biota than they need: they show as unruly. */
@@ -102,10 +105,11 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
       const unruly = unrulyTownKeys(state.manpowerBreakdown?.biotaTowns);
+      const garrisoning = garrisonPlannedTileKeys(state);
       const candidates: Placed[] = [];
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible") continue;
-        const plate = townNameplateFor(t, state.me, nowMs, unruly, state.settleProgressByTile);
+        const plate = townNameplateFor(t, state.me, nowMs, unruly, garrisoning);
         if (!plate) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
         // 3D: the tile's on-screen width comes from the camera (zoom alone doesn't say it);
