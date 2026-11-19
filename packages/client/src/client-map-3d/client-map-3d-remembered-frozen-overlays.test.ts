@@ -36,7 +36,7 @@ describe("frozen overlay instances (remembered under fog)", () => {
     expect(matricesOf(scene)).toEqual(before);
   });
 
-  it("waystation: a dormant one remembered under fog keeps its padlock, on the still (non-pulsing) materials", () => {
+  it("waystation: a dormant one remembered under fog keeps its seal orb, on the still (non-pulsing) materials", () => {
     // Regression: frozen was treated as activated, so 3D showed an unclaimed waystation as already claimed.
     const scene = new Scene();
     const overlay = createWaystationOverlay(scene, 4);
@@ -44,7 +44,7 @@ describe("frozen overlay instances (remembered under fog)", () => {
     overlay.commit();
     const counts = { still: 0, live: 0 };
     scene.traverse((child) => {
-      if (!(child instanceof InstancedMesh) || child.count === 0 || !child.name.startsWith("holo-crate-shackle:holo")) return;
+      if (!(child instanceof InstancedMesh) || child.count === 0 || !child.name.startsWith("holo-crate-orbShell:holo")) return;
       if (child.name.endsWith("|still")) counts.still += child.count; else counts.live += child.count;
     });
     expect(counts).toEqual({ still: 1, live: 0 });

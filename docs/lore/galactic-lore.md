@@ -678,9 +678,9 @@ Crystal is usable aether (§3). These meanings do not prescribe stockpiles, reso
 per-cast consumption: those details follow the current gameplay reference.
 
 Frontier waystations are supply caches left by survey crews: a stack of
-armoured, brass-bound crates on a hovering anti-grav pad, sealed under a
-hologram padlock. The lock answers only to the House that holds the ground.
-Once a House claims it, the cache waits to be unlocked and its supplies
+armoured, brass-bound crates on a hovering anti-grav pad, sealed by a glowing
+orb of light that hovers above them. The seal answers only to the House that
+holds the ground. Once a House claims it, the cache waits to be unsealed and its supplies
 collected; then the pad beams the empty crates away. A cache that sat on fertile ground or a deposit leaves that
 site for the House to work and defend.
 

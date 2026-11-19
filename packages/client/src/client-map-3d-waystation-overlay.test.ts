@@ -22,13 +22,13 @@ describe("3D waystation overlay — Holo-Locked Stack", () => {
     overlay.dispose();
   });
 
-  it("animates the live padlock and lights but keeps a remembered (fogged) site still", () => {
+  it("animates the live orb and lights but keeps a remembered (fogged) site still", () => {
     const overlay = createWaystationOverlay(new Scene(), 2);
     overlay.addInstance(0, 0, 0, 0, 0, { activated: false }, true);
     overlay.addInstance(5, 5, 0, 5, 5, { activated: false });
     overlay.commit();
-    const liveLock = mesh(overlay, "shackle:holo");
-    const stillLock = mesh(overlay, "shackle:holo|still");
+    const liveLock = mesh(overlay, "orbShell:holo");
+    const stillLock = mesh(overlay, "orbShell:holo|still");
     expect(liveLock.count).toBe(1);
     expect(stillLock.count).toBe(1);
     const at = (m: InstancedMesh): number[] => { const out = new Matrix4(); m.getMatrixAt(0, out); return out.elements.slice(); };
@@ -36,7 +36,7 @@ describe("3D waystation overlay — Holo-Locked Stack", () => {
     const live0 = at(liveLock), still0 = at(stillLock);
     const glow = mesh(overlay, "ring:glow").material as MeshStandardMaterial;
     const stillGlow = mesh(overlay, "ring:glow|still").material as MeshStandardMaterial;
-    const holo = mesh(overlay, "shackle:holo|still").material as MeshBasicMaterial;
+    const holo = mesh(overlay, "orbShell:holo|still").material as MeshBasicMaterial;
     const g0 = glow.emissiveIntensity, s0 = stillGlow.emissiveIntensity, h0 = holo.opacity;
     overlay.update(700);
     expect(at(liveLock)).not.toEqual(live0);
@@ -47,11 +47,11 @@ describe("3D waystation overlay — Holo-Locked Stack", () => {
     overlay.dispose();
   });
 
-  it("never draws a padlock over an already-activated site", () => {
+  it("never draws the seal orb over an already-activated site", () => {
     const overlay = createWaystationOverlay(new Scene(), 1);
     overlay.addInstance(0, 0, 0, 0, 0, { activated: true });
     overlay.commit();
-    expect(mesh(overlay, "shackle:holo").count).toBe(0);
+    expect(mesh(overlay, "orbShell:holo").count).toBe(0);
     overlay.dispose();
   });
 });
