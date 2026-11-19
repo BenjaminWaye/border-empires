@@ -21,8 +21,8 @@ export const memory = (overrides: Partial<DiplomacyMemoryView> = {}): DiplomacyM
   ...overrides
 });
 
-/** Fought a day ago (outside the 6h war window): neighbours pay the 12h neighbour price. */
-export const foughtLately = (): DiplomacyMemoryView => memory({ lastCombatAt: NOW - 12 * HOUR });
+/** Attacked the AI 12h ago (outside the 6h war window): neighbours pay the 12h neighbour price, and it is Annoyed (x1.5). */
+export const foughtLately = (): DiplomacyMemoryView => memory({ lastCombatAt: NOW - 12 * HOUR, lastPlayerAttackAt: NOW - 12 * HOUR });
 
 export const price = (options: {
   stanceKind?: AiDiplomacyStanceKind;

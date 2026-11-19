@@ -16,8 +16,9 @@ describe("AI truce pricing", () => {
     expect(price({ ...options, aiIncome: 0 }).pricing.required.truce12).toBe(1);
   });
 
-  it("charges neighbours who fought in the last day 12h of income, 1.5x for a 24h truce", () => {
-    expect(price({ memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 60, truce24: 18 * 60 }));
+  it("charges neighbours who attacked it in the last day 12h of income, 1.5x for a 24h truce", () => {
+    // 12h base x Annoyed by the attack (1.5).
+    expect(price({ memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 1.5 * 60, truce24: 18 * 1.5 * 60 }));
   });
 
   // Playtest 2026-11-19: you only meet empires by reaching their border, so every known
@@ -26,21 +27,26 @@ describe("AI truce pricing", () => {
     expect(price({}).pricing.required).toEqual(expect.objectContaining({ truce12: 2 * 60, truce24: 3 * 60 }));
   });
 
+  // Review of #2885: a House the AI raided paid the 12h neighbour price for the AI's own attack.
+  it("charges a neighbour the AI attacked the peace price", () => {
+    expect(price({ memory: memory({ lastCombatAt: NOW - 12 * HOUR }) }).pricing.required.truce12).toBe(2 * 60);
+  });
+
   // Real incomes are a few hundred coin a day: a floor of 1,440 a day priced every neighbour truce at 720+ coin.
   it("prices low incomes on what the AI really earns", () => {
-    expect(price({ aiIncome: 0.24, memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 173, truce24: 259 }));
+    expect(price({ aiIncome: 0.24, memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 259, truce24: 389 }));
   });
 
   it("floors income at 10 coin a day", () => {
     expect(MIN_INCOME_PER_MINUTE * 24 * 60).toBeCloseTo(10);
-    expect(price({ aiIncome: 0, memory: foughtLately() }).pricing.required.truce12).toBe(5);
+    expect(price({ aiIncome: 0, memory: foughtLately() }).pricing.required.truce12).toBe(8);
   });
 
   // A strong economy buys off weak neighbours cheaply: only the AI's own income sets its price.
   it("prices on the AI's own income", () => {
     const smallAi = { aiIncome: 72 / 1440, memory: foughtLately() }; // 72 coin a day
-    expect(price(smallAi).pricing.required.truce12).toBe(36);
-    expect(price({ aiIncome: 533 / 1440, memory: foughtLately() }).pricing.required.truce12).toBe(267);
+    expect(price(smallAi).pricing.required.truce12).toBe(54);
+    expect(price({ aiIncome: 533 / 1440, memory: foughtLately() }).pricing.required.truce12).toBe(400);
     expect(price({ ...smallAi, bordersTouch: false, stanceKind: "OUTMATCHED", memory: memory({ goodwillCoin: 600 }) }).pricing.required.alliance).toBe(0);
   });
 

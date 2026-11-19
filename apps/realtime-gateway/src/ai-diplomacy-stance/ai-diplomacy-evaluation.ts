@@ -8,7 +8,7 @@ import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, typ
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
-import { atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
+import { AT_WAR_WINDOW_MS, atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
@@ -77,7 +77,8 @@ export const spareCoinPerHour = (snapshot: AiDiplomacySnapshot | undefined): num
 };
 
 export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
-  // Never reveal when its armies reload: that tells the player when to strike.
+  // Don't announce when its armies reload. (Refill offsets are derivable from the
+  // player id, so this is flavour, not secrecy.)
   if (opinion.war.atWar && (outlook.kind === "HOLD_FOR_REFILL" || outlook.kind === "RETAKE_NOW")) {
     return `${aiName} means to win its land back and has more armies to throw at you.`;
   }
@@ -146,6 +147,7 @@ export const evaluateAiDiplomacy = (input: {
     recentTilesLost: input.memory.recentTilesTakenFromAi ?? 0,
     recentTilesTaken: input.memory.recentTilesTakenByAi ?? 0,
     ...(input.memory.aiPaidForPeaceAt !== undefined ? { paidForPeaceAt: input.memory.aiPaidForPeaceAt } : {}),
+    rivalAttackedLately: input.memory.lastPlayerAttackAt !== undefined && input.now - input.memory.lastPlayerAttackAt < AT_WAR_WINDOW_MS,
     now: input.now
   });
   const opinion = computeAiOpinion({
