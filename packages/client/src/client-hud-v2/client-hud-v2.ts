@@ -34,8 +34,12 @@ import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-ch
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
+import { foodShortageForState } from "./client-hud-v2-food-shortage.js";
+import { handleFoodShortageClick } from "./client-hud-v2-food-plots.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
+import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
+import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -126,6 +130,8 @@ const openResourcePanel = (deps: HudV2Deps, chip: string, mode: "toggle" | "open
 
 /** Whether the tracker's Dev slots section is unfolded; open until the player folds it. */
 const slotsFold = { open: true };
+/** The tracker's "Short N FOOD" header starts folded: one line until tapped. */
+const foodFold = { open: false };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
@@ -163,6 +169,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
   if (handleSlotsToggle(target, slotsFold, () => renderTracker(deps.state, Date.now()))) return;
+  if (handleFoodShortageClick(deps, target, foodFold, () => renderTracker(deps.state, Date.now()))) return;
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
   if (chip?.dataset.hudV2Chip) {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
@@ -297,7 +304,7 @@ type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
 let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"]; nextStep: NextStepScan } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
-  [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
+  [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap, state.resourceSlots?.supply.FOOD, state.resourceSlots?.demand.FOOD].join("|");
 
 const slotPulse = createSlotPulse();
 
@@ -336,6 +343,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
     nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs, trackerScan.nextStep),
+    food: foodShortageForState(state, trackerScan.nextStep.food),
+    foodOpen: foodFold.open,
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));
@@ -373,6 +382,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-compact", layout === "compact");
     // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
     if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
+    const chargeView = takeHouseChargeMapShowRequest(); // Show on map from a charge opened over a screen (your profile)
+    if (chargeView && screen.id) closeScreenKeepingView(deps, chargeView, () => closeScreen(deps, { toMap: true }));
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
     // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.
@@ -389,7 +400,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
       deps.setActivePanel("charges");
       deps.renderHud();
-    });
+    }, deps.requestViewRefresh);
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
     renderFast(deps.state, deps.ownerColor, nowMs);

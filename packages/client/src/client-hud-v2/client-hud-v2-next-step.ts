@@ -17,6 +17,7 @@ import { REACH_HINT } from "./client-hud-v2-hints.js";
 import { manifestNodeState } from "./client-hud-v2-manifest.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { scanNextStepSources, type NextStepSite, type NextStepSources } from "./client-hud-v2-next-step-sources.js";
+import { foodShortBy, scanFoodSources, type FoodScan } from "./client-hud-v2-food-shortage.js";
 
 /** Manpower counts as low below this share of the cap, or below the next beacon's price. */
 export const LOW_MANPOWER_SHARE = 0.25;
@@ -159,8 +160,9 @@ export const nextSteps = (input: NextStepInput): NextStep[] => {
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export const nextStepsHtml = (steps: readonly NextStep[]): string => {
-  if (steps.length === 0) return "";
+/** `lead` is HTML placed first under the head: the "Short N FOOD" section (client-hud-v2-food-shortage.ts). */
+export const nextStepsHtml = (steps: readonly NextStep[], lead = ""): string => {
+  if (steps.length === 0 && !lead) return "";
   const rows = steps.map((s) => {
     const attr = s.focus ? ` data-hud-v2-focus-x="${s.focus.x}" data-hud-v2-focus-y="${s.focus.y}"` : !s.open ? "" : s.open.kind === "open" ? ` data-hud-v2-open="${esc(s.open.key)}"` : s.open.kind === "chip" ? ` data-hud-v2-chip="${esc(s.open.key)}"` : ` data-hud-v2-beacon="${esc(s.open.key)}"`;
     const title = s.hint ? ` title="${esc(s.hint)}"` : "";
@@ -168,15 +170,21 @@ export const nextStepsHtml = (steps: readonly NextStep[]): string => {
     const type = s.open || s.focus ? ` type="button"` : "";
     return `<${tag}${type} class="hud-v2-tracker-row hud-v2-next-step"${attr}${title}><span class="hud-v2-tracker-title">${esc(s.title)}</span><span class="hud-v2-tracker-sub">${esc(s.sub)}</span></${tag}>`;
   }).join("");
-  return `<div class="hud-v2-tracker-head"><span>Next step</span></div>${rows}`;
+  return `<div class="hud-v2-tracker-head"><span>Next step</span></div>${lead}${rows}`;
 };
 
 
-/** The tile-scanning inputs, computed with the tracker's cached scan (client-hud-v2.ts) instead of per render. */
-export type NextStepScan = { sources: NextStepSources; beaconCost: number };
+/**
+ * The tile-scanning inputs, computed with the tracker's cached scan (client-hud-v2.ts) instead of per render.
+ * `food` is scanned only while FOOD is short; the scan refreshes within seconds once it is.
+ */
+export type NextStepScan = { sources: NextStepSources; beaconCost: number; food?: FoodScan };
 
-export const nextStepScanForState = (state: ClientState): NextStepScan =>
-  ({ sources: scanNextStepSources(state), beaconCost: relayBeaconManpowerCostForState(state) });
+export const nextStepScanForState = (state: ClientState): NextStepScan => ({
+  sources: scanNextStepSources(state),
+  beaconCost: relayBeaconManpowerCostForState(state),
+  ...(foodShortBy(state) > 0 ? { food: scanFoodSources(state) } : {})
+});
 
 /** Next steps from client state; `scan` defaults to a fresh scan. */
 export const nextStepsForState = (state: ClientState, slots: { busy: number; queued: number }, nowMs: number, scan: NextStepScan = nextStepScanForState(state)): NextStep[] => {

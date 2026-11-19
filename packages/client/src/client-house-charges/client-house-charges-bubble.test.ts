@@ -157,4 +157,31 @@ describe("sealed charges bubble", () => {
     for (let t = 2_000; t < 4_000; t += 250) syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, t, false, () => {});
     expect(getItem.mock.calls.length).toBeLessThanOrEqual(3);
   });
+
+  // Owner 2026-11-19: after Show on map there had to be an easy way back to the cards.
+  it("while a charge is shown on the map, the docked cards offer Back to cards and an x that clears it", () => {
+    const open = vi.fn();
+    const refresh = vi.fn();
+    const state = { houseCharges: deal, activePanel: null as string | null, houseChargeFocusId: "a" as string | undefined };
+    syncHouseChargesBubble({ ...state, activePanel: "charges" }, 2_000, false, open);
+    syncHouseChargesBubble(state, 3_000, false, open, refresh);
+    expect(root()?.querySelector(".hcb-focus")?.textContent).toContain("Showing: Survey a");
+    root()!.querySelector<HTMLButtonElement>(".hcb-focus .hcb-speech-open")!.click();
+    expect(open).toHaveBeenCalledOnce();
+    syncHouseChargesBubble(state, 3_250, false, open, refresh);
+    root()!.querySelector<HTMLButtonElement>("[data-hcb-action='clear-focus']")!.click();
+    expect(state.houseChargeFocusId).toBeUndefined();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(root()?.querySelector(".hcb-focus")).toBeNull();
+  });
+
+  // Review of #2876: the focus note hid the first-dock note while still marking it seen, so it never showed.
+  it("keeps the one-time dock note for later while a charge is shown on the map", () => {
+    const open = vi.fn();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, open);
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null, houseChargeFocusId: "a" }, 3_000, false, open);
+    expect(root()?.querySelector(".hcb-focus")).not.toBeNull();
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 4_000, false, open);
+    expect(root()?.textContent).toContain("Your charges stay here.");
+  });
 });

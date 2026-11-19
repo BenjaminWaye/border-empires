@@ -9,7 +9,10 @@
 // Once the charges have been opened (or the choice has closed), the cards stay
 // docked in the same place, still and smaller, with a held count, as the way
 // back to the charges: the profile's Manage charges was too hard to find (owner,
-// 2026-11-19). The first time they dock, a short note says so. It replaced a one-time alert card that other alerts could
+// 2026-11-19). The first time they dock, a short note says so. While Show on
+// map highlights a charge, the docked cards carry a "Back to cards" note with
+// its title, and an x that clears the highlight (owner, 2026-11-19: pressing
+// Show on map left the panel open over the map). It replaced a one-time alert card that other alerts could
 // bury (owner, 2026-11-18). The flags are kept per deal in localStorage.
 import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
 // Shared pieces first, so the bubble's own rules come after them.
@@ -102,11 +105,27 @@ const CARDS_HTML = `<span class="hcb-cards" aria-hidden="true">${MINI_CARD}${MIN
 
 const closeHtml = '<button type="button" class="hcb-speech-close" data-hcb-action="dismiss-speech" aria-label="Hide message">&times;</button>';
 
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** While a charge is shown on the map: its title and the way back to the cards. */
+const focusNoteHtml = (title: string): string => `<div class="hcb-speech hcb-focus sp-callout sp-callout-tail-left">
+        <button type="button" class="hcb-speech-open" data-hcb-action="open"><span class="hcb-focus-title">Showing: ${escapeHtml(title)}</span><span class="hcb-focus-back">‹ Back to cards</span></button>
+        <button type="button" class="hcb-speech-close" data-hcb-action="clear-focus" aria-label="Stop showing this charge">&times;</button>
+      </div>`;
+
+/** Whether the docked cards show the Show on map note (the focused charge is in this deal). */
+const focusShown = (payload: HouseChargesPayload, focusId: string | undefined): boolean =>
+  focusId !== undefined && payload.charges.some((charge) => charge.id === focusId);
+
 /** The cards at rest once the charges have been opened: the way back to them, with how many kept charges are held. */
-export const houseChargesDockHtml = (payload: HouseChargesPayload, showNote: boolean): string => {
+export const houseChargesDockHtml = (payload: HouseChargesPayload, showNote: boolean, focusId?: string): string => {
   const kept = payload.charges.filter((charge) => charge.kept);
   const held = kept.filter((charge) => charge.held).length;
-  const note = showNote
+  const focused = focusShown(payload, focusId) ? payload.charges.find((charge) => charge.id === focusId) : undefined;
+  const note = focused
+    ? focusNoteHtml(focused.title)
+    : showNote
     ? `<div class="hcb-speech sp-callout sp-callout-tail-left" role="status">
         <button type="button" class="hcb-speech-open" data-hcb-action="open">Your charges stay here. Tap the cards to see them again.</button>${closeHtml}
       </div>`
@@ -128,19 +147,24 @@ ${closeHtml}
 export type HouseChargesBubbleState = {
   houseCharges?: HouseChargesPayload | null | undefined;
   activePanel: string | null;
+  houseChargeFocusId?: string | undefined;
 };
 
 let lastHtml = "";
 /** What the root's single click listener acts on; refreshed every frame. */
-let current: { state: HouseChargesBubbleState; payload: HouseChargesPayload; nowMs: number; overUi: boolean; openCharges: () => void } | undefined;
+let current: { state: HouseChargesBubbleState; payload: HouseChargesPayload; nowMs: number; overUi: boolean; openCharges: () => void; refreshMap: () => void } | undefined;
 
 const onBubbleClick = (ev: MouseEvent): void => {
   const action = (ev.target as Element | null)?.closest("[data-hcb-action]")?.getAttribute("data-hcb-action");
   if (!current) return;
-  const { state, payload, nowMs, overUi, openCharges } = current;
+  const { state, payload, nowMs, overUi, openCharges, refreshMap } = current;
   if (action === "dismiss-speech") {
     dismissSpeech(payload.dealtAt);
-    syncHouseChargesBubble(state, nowMs, overUi, openCharges);
+    syncHouseChargesBubble(state, nowMs, overUi, openCharges, refreshMap);
+  } else if (action === "clear-focus") {
+    state.houseChargeFocusId = undefined;
+    refreshMap();
+    syncHouseChargesBubble(state, nowMs, overUi, openCharges, refreshMap);
   } else if (action === "open") {
     markHouseChargesHandled(payload.dealtAt);
     document.getElementById(ROOT_ID)?.remove();
@@ -158,7 +182,13 @@ const docked = (payload: HouseChargesPayload | null | undefined, nowMs: number):
  * panel hide the bubble without handling the deal. Opening the Charges panel by any route handles it, and the
  * cards then dock.
  */
-export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: number, overUi: boolean, openCharges: () => void): void => {
+export const syncHouseChargesBubble = (
+  state: HouseChargesBubbleState,
+  nowMs: number,
+  overUi: boolean,
+  openCharges: () => void,
+  refreshMap: () => void = () => {}
+): void => {
   if (typeof document === "undefined") return;
   const payload = state.houseCharges;
   // Any opening counts, also with the choice closed or nothing to choose: the dock note waits for it.
@@ -171,7 +201,7 @@ export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: nu
     current = undefined;
     return;
   }
-  current = { state, payload, nowMs, overUi, openCharges };
+  current = { state, payload, nowMs, overUi, openCharges, refreshMap };
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
@@ -185,7 +215,8 @@ export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: nu
   const deal: HouseChargesPayload = payload;
   const html = unhandled
     ? houseChargesBubbleHtml(deal, !flagsFor(deal.dealtAt).speechDismissed)
-    : houseChargesDockHtml(deal, flagsFor(deal.dealtAt).handled && dockNoteShowing(deal.dealtAt, nowMs));
+    // The one-time dock note waits while the Show on map note takes its place, so it is not spent unseen.
+    : houseChargesDockHtml(deal, !focusShown(deal, state.houseChargeFocusId) && flagsFor(deal.dealtAt).handled && dockNoteShowing(deal.dealtAt, nowMs), state.houseChargeFocusId);
   if (html !== lastHtml) {
     root.innerHTML = html;
     lastHtml = html;
