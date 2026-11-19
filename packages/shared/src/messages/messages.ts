@@ -3,10 +3,12 @@ import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
 import type { ResourceType } from "../types.js";
-import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, recurringCoinHasSlot } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, TOWNS_ONLY_IN_TRUCES_MESSAGE, recurringCoinHasSlot, termsReturnTowns } from "../diplomacy-terms/diplomacy-terms.js";
 
 /** Alliance and independent trade terms: Coin per hour rides on a supply contract there. */
-const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE });
+// Alliances and resource trades: towns are handed back only in a truce or as a gift.
+const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE })
+  .refine((terms) => !termsReturnTowns(terms), { message: TOWNS_ONLY_IN_TRUCES_MESSAGE });
 
 const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
   AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
