@@ -1,3 +1,4 @@
+import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
@@ -474,6 +475,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_18_CHANGELOG,
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
+  { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
   { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
 ];
 
