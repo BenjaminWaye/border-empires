@@ -103,7 +103,7 @@ export const openChargeReward = (reward: ChargeReward, deps: Pick<ChargeRewardDe
     $<HTMLElement>("[data-cr-note]").hidden = false;
     skip.hidden = true;
     done.hidden = false;
-    const space = root.querySelector<HTMLButtonElement>(".cr-space");
+    const space = root.querySelector<HTMLButtonElement>("[data-cr-space]");
     if (space) space.hidden = false;
     done.focus();
   };
@@ -152,7 +152,8 @@ export const openChargeReward = (reward: ChargeReward, deps: Pick<ChargeRewardDe
   if (deps.openSpaceView) {
     const space = document.createElement("button");
     space.type = "button";
-    space.className = "cr-space";
+    space.className = "v2s-btn";
+    space.dataset.crSpace = "";
     space.hidden = true;
     space.textContent = "View in Space";
     space.onclick = () => {

@@ -73,6 +73,15 @@ describe("charge reward overlay", () => {
     expect(overlays[0]!.textContent).toContain("2 charges secured");
   });
 
+  it("uses the HUD's shared buttons, not its own", () => {
+    renderChargeReward({ state: state(), openSpaceView: () => {} } as never);
+    const root = document.querySelector<HTMLElement>("#charge-reward-overlay")!;
+    for (const button of root.querySelectorAll("button")) expect(button.classList.contains("v2s-btn")).toBe(true);
+    expect(root.querySelector("[data-cr-collect]")!.classList.contains("v2s-btn-primary")).toBe(true);
+    expect(root.querySelector("[data-cr-done]")!.classList.contains("v2s-btn-primary")).toBe(true);
+    expect(root.querySelector("[data-cr-skip]")!.classList.contains("v2s-btn-ghost")).toBe(true);
+  });
+
   it("does not open while the reveal is loading, for a House with no held charge, or after the season-end screen is dismissed", () => {
     renderChargeReward({ state: state({ houseChargeReveal: { key: "k", view: "loading" } }) });
     renderChargeReward({ state: state({ me: "winner" }) });
