@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
 import { profileHtml, type ProfileInput } from "../client-hud-v2/client-hud-v2-profile.js";
+import { houseChargeLetter } from "./client-house-charges-letters.js";
 import { houseChargeFocusPoint, houseChargesPanelHtml } from "./client-house-charges-panel.js";
 import { applyHouseChargesMessage, createInitialHouseChargesState } from "./client-house-charges-state.js";
 
@@ -116,7 +117,7 @@ describe("House Charges panel", () => {
     const road = cards[0]!;
     expect(road.querySelector(".hc-name")?.textContent).toBe("Road of Vell and Harrowmere");
     expect(road.querySelector(".hcd-objective")?.textContent).toContain("Join Vell and Harrowmere");
-    expect(road.querySelector(".hc-flavour")?.textContent).toContain("Our trading families have goods waiting in Vell");
+    expect(road.querySelector(".hc-flavour")?.textContent).toBe(`“${houseChargeLetter(charges[0]!)}”`);
     expect(road.querySelector(".hcd-progress")?.textContent).toBe("No unbroken road yet");
     expect(road.querySelector("[data-house-charge-pick]")?.textContent).toBe("✦ Kept");
     expect(road.querySelector("[data-house-charge-jump]")?.textContent).toBe("Show on map");

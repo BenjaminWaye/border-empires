@@ -57,46 +57,7 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
   }
 };
 
-/** Why a rival House is named in a Writ of Correction: one offence per charge, fixed by its id. */
-export const CORRECTION_OFFENCES: readonly string[] = [
-  "sold our landing charts before the last Proclamation's feast was cleared",
-  "turned our envoys away at the gate and named it caution",
-  "struck our House's name from a chart we paid to survey",
-  "took a convoy under our seal and called it salvage"
-];
-
-const hash = (text: string): number => {
-  let value = 2166136261;
-  for (let index = 0; index < text.length; index += 1) value = Math.imul(value ^ text.charCodeAt(index), 16777619);
-  return value >>> 0;
-};
-
-/** Why the House entrusted this charge to its campaign leader, in the House's voice; shown as the card's quote. */
-export const houseChargeLetter = (charge: Pick<HouseChargeView, "id" | "kind" | "targets">): string => {
-  const [first, second] = charge.targets;
-  const name = first?.name;
-  switch (charge.kind) {
-    case "CHARTER":
-      return `Our trading families have goods waiting in ${name ?? "one market town"} and buyers in ${second?.name ?? "the other"}. They trust you to give them a road no one can cut.`;
-    case "SEAT":
-      return `The elders want ${name ?? "this town"} raised into a city fit to seat a cadet line. You landed nearest, so the House looks to you.`;
-    case "SURVEY":
-      return `Our surveyors have staked their name on ${name ?? "this landmass"}. Garrison every acre so the Court's charts carry the House's name.`;
-    case "DESERT":
-      return `Our surveyors want ${name ?? "this waste"} entered in the charts under the House's name. No one else will hold that sand for us. You can.`;
-    case "TUNDRA":
-      return `Our surveyors want ${name ?? "this ice field"} entered in the charts under the House's name. It is a hard posting, and the elders chose you for it.`;
-    case "RELIC":
-      return "Our scholars believe a Concordance installation sleeps near your landing. They ask you to find its beacon and keep it in House hands.";
-    case "CORRECTION": {
-      const house = houseStyledName(name ?? "the rival");
-      const offence = CORRECTION_OFFENCES[hash(charge.id) % CORRECTION_OFFENCES.length]!;
-      return `${house} ${offence}. The elders have lodged the grievance with the Court's heralds. It is yours to press: take an AFC they founded and hold it until the campaign is decided, so the Core sees the wrong answered.`;
-    }
-    case "METROPOLIS":
-      return `The elders want three cadet lines seated on ${name ?? "the landmass"}, each in a city great enough to carry the House's name. Take the towns early, feed them, and keep the fighting away from their walls.`;
-  }
-};
+export { CORRECTION_OFFENCES, houseChargeLetter } from "./client-house-charges-letters.js";
 
 /** Current progress, or undefined when there is nothing to count yet. */
 export const houseChargeProgress = (charge: HouseChargeView): string | undefined => {
