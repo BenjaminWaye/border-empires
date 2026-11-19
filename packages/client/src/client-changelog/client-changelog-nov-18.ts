@@ -20,6 +20,8 @@ import { THREE_D_TAB_SWITCH_ENTRY } from "./client-changelog-3d-tab-switch.js";
 import { TOWN_BAR_BUTTONS_ENTRY } from "./client-changelog-town-bar-buttons.js";
 import { GUIDE_AFTER_MAP_LOAD_ENTRY } from "./client-changelog-guide-after-map-load.js";
 import { QUIET_LOGIN_CARDS_ENTRY } from "./client-changelog-quiet-login-cards.js";
+import { WAYSTATION_OWNED_TOAST_ENTRY } from "./client-changelog-waystation-owned-toast.js";
+import { WAYSTATION_HOLO_CRATES_ENTRY } from "./client-changelog-waystation-holo-crates.js";
 import { CHRONICLE_SURVEYS_ENTRY } from "./client-changelog-chronicle-surveys.js";
 import { STALE_WAYSTATION_CARD_ENTRY } from "./client-changelog-stale-waystation-card.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
@@ -48,6 +50,8 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_BAR_BUTTONS_ENTRY, createdAt: 1795035149737, },
   { ...GUIDE_AFTER_MAP_LOAD_ENTRY, createdAt: 1795033635525, },
   { ...QUIET_LOGIN_CARDS_ENTRY, createdAt: 1795033408340, },
+  { ...WAYSTATION_OWNED_TOAST_ENTRY, createdAt: 1795040315805, },
+  { ...WAYSTATION_HOLO_CRATES_ENTRY, createdAt: 1795041849825, },
   { ...CHRONICLE_SURVEYS_ENTRY, createdAt: 1795038899676, },
   { ...STALE_WAYSTATION_CARD_ENTRY, createdAt: 1795038774065, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },

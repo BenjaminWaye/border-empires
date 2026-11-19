@@ -9,7 +9,7 @@ interface Projection { readonly size: number; readonly project: (x: number, y: n
 type State = Pick<ClientState, "me" | "authSessionReady" | "profileSetupRequired">;
 const MAX_TOASTS = 64;
 
-/** Persistent screen-space cards anchored above visible, untaken rigs in either renderer. */
+/** Persistent screen-space cards anchored above visible, unactivated rigs on tiles the player owns, in either renderer. */
 export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: State, activate = activateWaystationSite): {
   render: (tiles: readonly MapTile[], projection: Projection) => void;
   dispose: () => void;
@@ -29,6 +29,8 @@ export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: St
       let omitted = 0;
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible" || !t?.waystation || t.waystation.activated || t.fogged) continue;
+        // Unclaimed or rival-held rigs get no card; claiming the tile is what earns the prompt.
+        if (!state.me || t.ownerId !== state.me) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
         const lift = three ? Math.max(24, size * 1.4) : Math.max(20, size * 0.48);
         const x = at.sx * sx, y = (at.sy - lift) * sy;
