@@ -36,6 +36,8 @@ type SurveyState = { camX: number; camY: number; camSubX: number; camSubY: numbe
 
 const TECH_BY_RESOURCE: Record<OccupationSurveyResource, string> = { TITANIUM: "masonry", UMBRITE: "leatherworking", GEMS: "crystal-lattices" };
 const RESOURCE_LABEL: Record<OccupationSurveyResource, string> = { TITANIUM: "Titanium", UMBRITE: "Umbrite", GEMS: "Crystal" };
+/** "Titanium", "Umbrite" or "Crystal". */
+export const occupationSurveyResourceLabel = (resource: OccupationSurveyResource): string => RESOURCE_LABEL[resource];
 const SIGNATURE_LABEL: Record<ProspectSignature, string> = { BLACKWOOD_CANOPY: "Blackwood canopy", FERROUS_DUST: "Ferrous dust", REFRACTIVE_GROUND: "Refractive ground" };
 
 const reportFromEntry = (entry: SurveyEventEntry): OccupationSurveyReport | undefined => {
@@ -109,7 +111,7 @@ const showPopup = (report: OccupationSurveyReport): void => {
     <span class="occupation-survey-kicker">Town survey completed</span>
     <h2 id="occupation-survey-title">Signs of ${RESOURCE_LABEL[report.resource]} nearby</h2>
     <p id="occupation-survey-detail">${escapeHtml(SIGNATURE_LABEL[report.signature])} ${escapeHtml(report.bearing.toLowerCase())} of this town indicates likely ${RESOURCE_LABEL[report.resource]}-bearing territory.</p>
-    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. The Manifest's card keeps this clue.</p>
+    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. Your Chronicle keeps this clue.</p>
     <div class="occupation-survey-actions"><button type="button" data-survey-view>View survey</button><button type="button" data-survey-dismiss>Got it</button></div>
   </section>`;
   overlay.querySelector<HTMLButtonElement>("[data-survey-view]")?.addEventListener("click", () => {
