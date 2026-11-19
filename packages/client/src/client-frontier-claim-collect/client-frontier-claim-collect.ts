@@ -2,12 +2,7 @@ import { activeIncomingFrontierClaims } from "../client-incoming-frontier-claim/
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
-import {
-  EXPAND_CREW_MANUAL,
-  EXPAND_CREW_MUSTER,
-  expandCrewFromStep,
-  type ExpandCrewClaim
-} from "../client-expand-crew/client-expand-crew.js";
+import { EXPAND_CREW_SIZE, expandCrewFromStep, type ExpandCrewClaim } from "../client-expand-crew/client-expand-crew.js";
 
 // Every frontier claim currently filling in, for both renderers: the 3D
 // claim plates and expand crew (client-map-3d-frontier-claim-plates.ts) and
@@ -128,7 +123,7 @@ export function collectFrontierClaims(
       startAt: capture.startAt,
       resolvesAt: capture.resolvesAt,
       color: empireColor,
-      crew: isExpand ? EXPAND_CREW_MANUAL : 0,
+      crew: isExpand ? EXPAND_CREW_SIZE : 0,
       ...(fromStep ? { fromStep } : {})
     });
     coveredTargetKeys.add(keyFor(capture.target.x, capture.target.y));
@@ -155,7 +150,7 @@ export function collectFrontierClaims(
       startAt,
       resolvesAt: outgoing.resolvesAt,
       color: empireColor,
-      crew: isExpand ? EXPAND_CREW_MUSTER : 0,
+      crew: isExpand ? EXPAND_CREW_SIZE : 0,
       ...(fromStep ? { fromStep } : {})
     });
   }
