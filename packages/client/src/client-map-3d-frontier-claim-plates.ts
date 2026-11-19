@@ -27,11 +27,11 @@ export type PlacedFrontierClaim = {
 
 // Drives the frontier-claim plate pool from every claim
 // collectFrontierClaims finds (see there for which claims count). A claim
-// with an expand crew grows its plate outward from where the crew staked the
-// tile once they've walked in (client-expand-crew.ts); one without (an ATTACK
-// on frontier ground) keeps the sweep in from the left over the whole claim.
-// `animate` is the unit motion gate's verdict: with motion off the crew
-// stands on its stakes instead of walking, on the same clock.
+// with an expand crew grows its plate outward from where the soldiers first
+// set foot on the tile once they've walked in (client-expand-crew.ts); one
+// without (an ATTACK on frontier ground) keeps the sweep in from the left
+// over the whole claim. `animate` is the unit motion gate's verdict: with
+// motion off the crew stands where it would have arrived, on the same clock.
 export function syncFrontierClaimPlates(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -84,9 +84,10 @@ export function syncFrontierClaimPlates(
     const tileCenterX = dxw + TILE_CENTER_OFFSET;
     const tileCenterZ = dyw + TILE_CENTER_OFFSET;
     if (claim.crew > 0) {
-      // Grows outward from the crew's stake point toward the full tile. The
-      // anchor sits at least HALF_TILE - 0.22 inside every edge, so the
-      // growing plate never leaves the tile.
+      // Grows outward from the crew's arrival point toward the full tile. The
+      // anchor sits inside the patrol disc (radius PATROL_RADIUS around the
+      // centre), well inside HALF_TILE, so the growing plate never leaves
+      // the tile.
       const t = expandCrewPlateProgress(claim, nowEpochMs);
       const anchor = expandCrewAnchor(claim);
       plate.scale.set(Math.max(0.001, t), 1, Math.max(0.001, t));

@@ -1,0 +1,147 @@
+import { AnimationMixer, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction, type MeshStandardMaterial } from "three";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import {
+  firstSkinnedMesh,
+  loadPopupMarineTemplate,
+  MARINE_CLIP_NAMES,
+  type PopupMarineTemplate
+} from "../client-map-3d-popup-marine/popup-marine-asset.js";
+import { MARINE_MODEL_SCALE } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import { createMarineMaterial } from "../client-map-3d-popup-marine/popup-marine-material.js";
+import { FRONTIER_CLAIM_PLATE_CAP } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
+import type { PlacedFrontierClaim } from "../client-map-3d-frontier-claim-plates.js";
+import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from "../client-expand-crew/client-expand-crew.js";
+
+// 3D expand crew: the two ancillary soldiers that walk out onto a neutral
+// tile, idly patrol it while its claim plate fills, and kneel to plant the
+// claim (client-expand-crew.ts holds the paths; the 2D canvas twin is
+// client-expand-crew-2d/). The same skinned marine the muster transit and
+// battle overlays use, tinted in the expanding empire's colour like a
+// marching company, walking (PistolWalk) and pausing (PistolIdle) the way
+// the Planetary Defense patrol does (client-map-3d-planetary-defense-
+// overlay.ts). Unarmed-looking it is not -- that's the point: the same
+// soldiers who fight the empire's battles also stake its new ground.
+//
+// Clip time comes from the wall clock, never accumulated deltas, so a pose
+// is a pure function of (claim, clock) like the paths themselves; slots are
+// simply handed out in claim order every frame. The standard armour only:
+// the heavy (titanium) model is for companies going to fight.
+const MAX_SOLDIERS = FRONTIER_CLAIM_PLATE_CAP * EXPAND_CREW_SIZE;
+const UP_AXIS = new Vector3(0, 1, 0);
+const CLIP_PHASE_STEP = 0.43;
+
+const CLIP_FOR_STANCE: Record<ExpandCrewStance, string> = {
+  walk: "PistolWalk",
+  stand: MARINE_CLIP_NAMES.stand,
+  kneel: MARINE_CLIP_NAMES.kneel
+};
+
+type Soldier = {
+  readonly root: Object3D;
+  readonly material: MeshStandardMaterial;
+  readonly mixer: AnimationMixer;
+  readonly actions: Partial<Record<ExpandCrewStance, AnimationAction>>;
+  readonly phase: number;
+};
+
+export type ExpandCrewSoldiers = {
+  readonly update: (placed: readonly PlacedFrontierClaim[], nowEpochMs: number, animate: boolean) => void;
+  readonly dispose: () => void;
+};
+
+export const createExpandCrewSoldiers = (scene: Scene): ExpandCrewSoldiers => {
+  let disposed = false;
+  let pool: Soldier[] = [];
+  let shown = 0;
+  const tmpQuat = new Quaternion();
+
+  const makeSoldier = (template: PopupMarineTemplate, index: number): Soldier => {
+    const root = cloneSkinned(template.root) as Object3D;
+    const material = createMarineMaterial(false);
+    // Drawn in the transparent pass after the claim plate (renderOrder 7, no
+    // depth test) so the plate doesn't wash over the soldiers standing on it.
+    material.transparent = true;
+    const mesh = firstSkinnedMesh(root);
+    mesh.material = material;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 8;
+    root.visible = false;
+    root.scale.setScalar(MARINE_MODEL_SCALE);
+    const mixer = new AnimationMixer(root);
+    const actions: Partial<Record<ExpandCrewStance, AnimationAction>> = {};
+    for (const stance of Object.keys(CLIP_FOR_STANCE) as ExpandCrewStance[]) {
+      const clip = template.clips.get(CLIP_FOR_STANCE[stance]);
+      if (!clip) continue;
+      const action = mixer.clipAction(clip);
+      action.play();
+      action.setEffectiveWeight(0);
+      actions[stance] = action;
+    }
+    scene.add(root);
+    return { root, material, mixer, actions, phase: index * CLIP_PHASE_STEP };
+  };
+
+  loadPopupMarineTemplate()
+    .then((template) => {
+      if (disposed) return;
+      pool = Array.from({ length: MAX_SOLDIERS }, (_, i) => makeSoldier(template, i));
+    })
+    .catch((err: unknown) => {
+      // The claim plate still shows; only the crew is missing.
+      console.error("popup-marine model failed to load; expanding tiles will not show their crew", err);
+    });
+
+  const pose = (soldier: Soldier, stance: ExpandCrewStance, nowMs: number): void => {
+    // Fall back to standing if the asset lacks a clip (e.g. kneel).
+    const active = soldier.actions[stance] ? stance : "stand";
+    for (const [name, action] of Object.entries(soldier.actions) as Array<[ExpandCrewStance, AnimationAction]>) {
+      action.setEffectiveWeight(name === active ? 1 : 0);
+      const duration = action.getClip().duration;
+      action.time = duration > 0 ? (nowMs * 0.001 + soldier.phase) % duration : 0;
+    }
+    soldier.mixer.update(0);
+  };
+
+  const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate) => {
+    if (pool.length === 0 || (placed.length === 0 && shown === 0)) return;
+    let used = 0;
+    for (const { claim, sceneX, sceneZ, surfaceY, fromSurfaceY } of placed) {
+      for (let i = 0; i < claim.crew && used < pool.length; i += 1) {
+        const crewPose = expandCrewFigurePose(claim, i, nowEpochMs, animate);
+        if (!crewPose) continue;
+        const soldier = pool[used]!;
+        used += 1;
+        // Still on (or stepping off) the origin tile: stand on its ground.
+        const outside = Math.max(0, -crewPose.x, crewPose.x - 1, -crewPose.y, crewPose.y - 1);
+        const groundY = surfaceY + (fromSurfaceY - surfaceY) * Math.min(1, outside * 2);
+        soldier.material.color.set(claim.color);
+        soldier.root.position.set(sceneX + crewPose.x, groundY, sceneZ + crewPose.y);
+        tmpQuat.setFromAxisAngle(UP_AXIS, crewPose.yaw);
+        soldier.root.quaternion.copy(tmpQuat);
+        soldier.root.visible = true;
+        // With motion off, hold the clip's first frame instead of looping.
+        pose(soldier, crewPose.stance, animate ? nowEpochMs : 0);
+        soldier.root.updateMatrixWorld(true);
+      }
+    }
+    for (let k = used; k < shown; k += 1) pool[k]!.root.visible = false;
+    shown = used;
+  };
+
+  const dispose = (): void => {
+    disposed = true;
+    for (const soldier of pool) {
+      soldier.mixer.stopAllAction();
+      soldier.mixer.uncacheRoot(soldier.root);
+      scene.remove(soldier.root);
+      soldier.root.traverse((child) => {
+        if (child instanceof SkinnedMesh) child.geometry.dispose();
+      });
+      soldier.material.dispose();
+    }
+    pool = [];
+    shown = 0;
+  };
+
+  return { update, dispose };
+};

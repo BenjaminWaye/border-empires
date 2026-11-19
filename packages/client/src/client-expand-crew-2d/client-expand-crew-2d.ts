@@ -1,12 +1,16 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { collectFrontierClaims } from "../client-frontier-claim-collect/client-frontier-claim-collect.js";
 import { expandCrewAnchor, expandCrewFigurePose, expandCrewPlateProgress } from "../client-expand-crew/client-expand-crew.js";
+import { drawSoldierGlyph2D } from "../client-map-render/client-map-render-planetary-defense-overlay.js";
 
 // 2D-canvas counterpart of the 3D expand crew (client-map-3d-expand-crew/):
 // the 2D renderer is the accessibility fallback, so an EXPAND gets the same
-// walk-out-and-stake on the same clock (client-expand-crew.ts), drawn
-// cheaply -- the claim fill as a square growing from the crew's stake point,
-// and the crew as the same dark pixel dots the 2D settle loader uses. 2D has
+// walk-out-and-patrol on the same clock (client-expand-crew.ts), drawn
+// cheaply -- the claim fill as a square growing from the crew's arrival point,
+// and the crew as the same soldier glyphs the 2D Planetary Defense patrol
+// uses (client-map-render-planetary-defense-overlay.ts), in this player's
+// colour, crouching for the closing kneel. Like that patrol, the glyphs are
+// skipped below 10px tiles, where only the fill shows. 2D has
 // no slow-device gate (that watches the 3D render loop), so only reduced
 // motion stands the crew still here. Only
 // claims with a crew (EXPANDs) are drawn here; the 2D map draws nothing
@@ -14,9 +18,8 @@ import { expandCrewAnchor, expandCrewFigurePose, expandCrewPlateProgress } from 
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
 
-// The settle loader's dot colour (client-runtime-loop.ts).
-const CREW_DOT_COLOR = "rgba(6, 8, 12, 0.9)";
 const FILL_ALPHA = 0.3;
+const KNEEL_HEIGHT = 0.7;
 
 // One MediaQueryList for the session, read live each frame (so toggling the
 // OS setting takes effect without a reload) without allocating a new one.
@@ -44,7 +47,7 @@ export function drawExpandCrews2D(
 ): void {
   const claims = collectFrontierClaims(state, keyFor, nowEpochMs);
   if (claims.length === 0) return;
-  const dot = Math.max(2, Math.round(size * 0.07));
+  const glyphH = Math.max(5, size * 0.34);
   ctx.save();
   for (const claim of claims) {
     if (claim.crew <= 0) continue;
@@ -64,13 +67,14 @@ export function drawExpandCrews2D(
     }
 
     ctx.globalAlpha = 1;
-    ctx.fillStyle = CREW_DOT_COLOR;
+    if (size < 10) continue;
     for (let i = 0; i < claim.crew; i += 1) {
       const pose = expandCrewFigurePose(claim, i, nowEpochMs, animate);
-      if (!pose || pose.height <= 0) continue;
-      // Sinking reads as the dot shrinking into the claim.
-      const d = Math.max(1, Math.round(dot * pose.height));
-      ctx.fillRect(Math.floor(left + pose.x * size - d / 2), Math.floor(top + pose.y * size - d / 2), d, d);
+      if (!pose) continue;
+      const h = pose.stance === "kneel" ? glyphH * KNEEL_HEIGHT : glyphH;
+      const stride = pose.stance === "walk" ? Math.sin(nowEpochMs * 0.012 + i * 1.7) : 0;
+      // Feet sit at the pose point; tile-local y is screen-down.
+      drawSoldierGlyph2D(ctx, left + pose.x * size, top + pose.y * size + glyphH * 0.45, h, Math.sin(pose.yaw) < 0, stride, ownerColor);
     }
   }
   ctx.restore();
