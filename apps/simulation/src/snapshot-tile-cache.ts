@@ -27,6 +27,8 @@ export type RuntimeState = {
     points: number;
     manpower: number;
     manpowerCapSnapshot?: number;
+    /** Exported with each player; its biota towns set how much of its tier's coin a short town earns. */
+    manpowerBreakdown?: import("@border-empires/sim-protocol").ManpowerBreakdown;
     techIds: string[];
     domainIds: string[];
     afcUpgradeRuleset?: "afc-v1";

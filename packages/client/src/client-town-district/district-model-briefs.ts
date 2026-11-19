@@ -1,4 +1,4 @@
-import { FARM_PLOT_FOOD_SLOT_SUPPLY, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE } from "@border-empires/shared";
+import { FARM_PLOT_FOOD_SLOT_SUPPLY, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE, VIVARIUM_BIOTA_SLOTS } from "@border-empires/shared";
 import { AMBARIC_TRANSFORMER_RADIUS } from "@border-empires/game-domain";
 import { populationStructureDescription } from "../client-population-structure-info/client-population-structure-info.js";
 import type { DistrictBuildingKind } from "./district-catalog.js";
@@ -15,6 +15,7 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   CLEARING_HOUSE: brief("Amplifies Manufactory income in its town and directly connected towns.", "Circular financial rotunda and colonnade."),
   TRADE_NEXUS: brief("Enables the road network's connected-town income bonus.", "Freight-transfer portal between paired exchange warehouses."),
   ANCILLARY_DEPOT: brief("Holds ancillary reserves and increases manpower capacity; amplified by Reserve Lattice.", "Sealed custody drum with radial reserve compartments."),
+  VIVARIUM: brief(`Cultures luxury biota for its own town: each copy covers ${VIVARIUM_BIOTA_SLOTS} of the town's biota slots, so it draws fewer from biota sites.`, "Tall ribbed glass dome over cultured biota, fed by a side nutrient tank."),
   NEURAL_WORKS: brief(`Amplifies Ancillary Factory manpower regeneration across its connected network and accelerates outpost muster within ${NEURAL_WORKS_MUSTER_RADIUS} tiles.`, "Mustering command bridge, dispatch lanes and network antennas."),
   ANCILLARY_FACTORY: brief("Remakes local people into controlled ancillary bodies; regenerates manpower and supports Forced Ancillarification.", "Distinct processing cells and overhead precision manipulators."),
   RESERVE_LATTICE: brief("Amplifies the capacity supplied by Ancillary Depots in its connected-town network.", "Open reserve-coordination lattice and linked control nodes."),

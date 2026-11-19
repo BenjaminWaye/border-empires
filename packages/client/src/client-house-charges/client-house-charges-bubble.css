@@ -1,0 +1,84 @@
+/* Bobbing sealed-charges bubble (client-house-charges-bubble.ts): beside the desktop tracker, or on the phone's left edge.
+   Only layout and motion live here: the cards are the charge card's `.is-mini` variant
+   (client-house-charge-cards.css) and the note is the shared `.sp-callout` (client-callout/client-callout.css). */
+/* Desktop: beside the tracker column (.hud-v2-tracker, fixed at left 16px, 280px wide, z 38), never under it. */
+.hcb-root {
+  position: fixed;
+  left: 312px;
+  top: 160px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  /* The whole bubble bobs, so the note's pointer stays on the cards. */
+  animation: hcb-bob 2.4s ease-in-out infinite;
+}
+/* Phone: the tracker folds to one line at the top, so the left edge below the guide's launcher is free. */
+body.hud-v2-compact .hcb-root {
+  left: calc(var(--v2c-safe-left, 0px) + 14px);
+  top: calc(var(--v2c-top, 60px) + 230px);
+}
+.hcb-orb,
+.hcb-speech { pointer-events: auto; }
+.hcb-orb {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--sp-brass-300, #d9ad52);
+  background: radial-gradient(circle at 35% 30%, var(--sp-leather-700, #3c2919), var(--sp-leather-900, #241812) 70%);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  touch-action: manipulation;
+  animation: hcb-glow 2.4s ease-in-out infinite;
+}
+.hcb-orb:focus-visible { outline: 2px solid var(--sp-parchment-100, #f2e8d3); outline-offset: 3px; }
+/* Three cards fanned from a point below the hand. */
+.hcb-cards { position: relative; width: 44px; height: 32px; }
+.hcb-cards .hc-card {
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  transform-origin: 50% 170%;
+}
+.hcb-cards .hc-card:nth-child(1) { transform: rotate(-16deg); }
+.hcb-cards .hc-card:nth-child(3) { transform: rotate(16deg); }
+.hcb-cards .hc-card:nth-child(2) { z-index: 1; }
+.hcb-speech {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: min(200px, calc(100vw - 100px));
+  padding: 6px 4px 6px 9px;
+}
+.hcb-speech p { margin: 0; }
+.hcb-speech-close {
+  appearance: none;
+  min-width: 24px;
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-parchment-100, #f2e8d3);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hcb-speech-close:focus-visible { outline: 2px solid var(--sp-parchment-100, #f2e8d3); outline-offset: 1px; }
+@keyframes hcb-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes hcb-glow {
+  0%, 100% { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(217, 173, 82, 0.45); }
+  50% { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(217, 173, 82, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hcb-root,
+  .hcb-orb { animation: none; }
+}

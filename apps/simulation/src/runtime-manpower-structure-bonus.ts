@@ -1,6 +1,6 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
 import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier,
-  type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
+  type BiotaTown, type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -8,7 +8,7 @@ import {
   neuralWorksNetworkAncillaryFactoryCountForPlayer,
   type ConnectedTownNetworkEntry
 } from "./economy-network/economy-network.js";
-import { ancillaryFactoryCapacityBonus, resolvedTownCoastal, resolvedTownTerrainProfileId, terrainAdjustedTownManpower } from "@border-empires/shared";
+import { ancillaryFactoryCapacityBonus, biotaAdjustedTownManpower, resolvedTownCoastal, resolvedTownTerrainProfileId } from "@border-empires/shared";
 import { countSupportedStructures, reserveLatticeAlreadyInNetwork } from "./economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
@@ -40,6 +40,8 @@ export type ManpowerStructureBonusContext = {
   ancillaryFactoryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   incubationEngineTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Active Vivaria per owner; optional so older test contexts without it count none. */
+  vivariumTilesByOwner?: ReadonlyMap<string, ReadonlySet<string>>;
   townNetworkCacheByPlayer: ReadonlyMap<string, Map<string, ConnectedTownNetworkEntry>>;
   activeMonumentOwnerByType: ReadonlyMap<MonumentalStructureType, { ownerId: string; tileKey: string }>;
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
@@ -63,6 +65,7 @@ export const cachedManpowerStructureBonusForPlayer = (
   const neuralWorksKeys = ctx.neuralWorksTilesByOwner.get(player.id);
   const reserveLatticeKeys = ctx.reserveLatticeTilesByOwner.get(player.id);
   const ancillaryFactoryKeys = ctx.ancillaryFactoryTilesByOwner.get(player.id);
+  const hasVivaria = (ctx.vivariumTilesByOwner?.get(player.id)?.size ?? 0) > 0;
   // §5.4: a dormant Ancillary Depot/Neural Works doesn't grant its bonus —
   // filter the raw existence indices against this player's current
   // dormant-economicStructure set before counting/checking presence. Only
@@ -80,7 +83,8 @@ export const cachedManpowerStructureBonusForPlayer = (
     (ancillaryDepotKeys?.size ?? 0) > 0 ||
     (neuralWorksKeys?.size ?? 0) > 0 ||
     (reserveLatticeKeys?.size ?? 0) > 0 ||
-    (ancillaryFactoryKeys?.size ?? 0) > 0
+    (ancillaryFactoryKeys?.size ?? 0) > 0 ||
+    hasVivaria
       ? ctx.dormantEconomicStructureKeysForPlayer(player.id)
       : undefined;
   const ancillaryDepotCount = ancillaryDepotKeys
@@ -157,18 +161,25 @@ export const cachedManpowerStructureBonusForPlayer = (
   const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
   const sites = ctx.networkSitesForPlayer?.(player.id) ??
     developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds);
-  const biotaTownSupply = biotaSupplyForTowns(summary.ownedTownTierByTile, sites.LUXURY_BIOTA, ctx.townHeldSince);
+  // A dormant Vivarium (FOOD upkeep unpaid) covers nothing; with none owned, skip the ring scans.
+  const vivariaAt = (townKey: string): number => {
+    if (!hasVivaria) return 0;
+    const townTile = ctx.tiles.get(townKey);
+    return townTile ? countSupportedStructures(player.id, townTile, "VIVARIUM", ctx.tiles, dormantEconomicStructureKeys ?? new Set()) : 0;
+  };
+  const biotaTownSupply = biotaSupplyForTowns(summary.ownedTownTierByTile, sites.LUXURY_BIOTA, ctx.townHeldSince, vivariaAt);
   const ancillaryFactoryCapacityBonusByTown = new Map<string, number>();
   for (const townKey of summary.ownedTownTierByTile.keys()) {
     const townTile = ctx.tiles.get(townKey);
     if (!townTile?.town) continue;
     const factoryCount = countSupportedStructures(player.id, townTile, "ANCILLARY_DEPOT", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
     if (factoryCount <= 0) continue;
-    // A town short of biota gives a lower tier's manpower (frontier-resource-effects.ts), Depot capacity included.
-    const base = terrainAdjustedTownManpower(
-      biotaTownSupply?.get(townKey)?.manpowerTier ?? townTile.town.populationTier,
+    // A town short of biota gives part of its tier's manpower (biota-town-output.ts), Depot capacity included.
+    const base = biotaAdjustedTownManpower(
+      townTile.town.populationTier,
       resolvedTownTerrainProfileId(townTile.town.terrainProfile, townTile.landBiome),
-      resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal)
+      resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal),
+      biotaTownSupply?.get(townKey)
     ).cap;
     ancillaryFactoryCapacityBonusByTown.set(townKey, ancillaryFactoryCapacityBonus(base, factoryCount, reserveLatticeAlreadyInNetwork(player.id, townKey, ctx.tiles, localTownNetwork)));
   }
@@ -195,11 +206,19 @@ export const cachedManpowerStructureBonusForPlayer = (
   return result;
 };
 
-/** Biota allocation for towns above Town tier; undefined when no owned town needs biota. Bounded by owned towns. */
+/**
+ * Biota allocation for towns above Town tier; undefined when no owned town needs biota.
+ * Each town's own Vivaria cover slots first. Bounded by owned towns × support ring.
+ */
 const biotaSupplyForTowns = (
-  townTiers: ReadonlyMap<string, PopulationTier>, biotaSites: number, heldSince: ((key: string) => number | undefined) | undefined
+  townTiers: ReadonlyMap<string, PopulationTier>, biotaSites: number, heldSince: ((key: string) => number | undefined) | undefined,
+  vivariaAt: (townKey: string) => number
 ): ReadonlyMap<string, BiotaTownSupply> | undefined => {
-  const towns: { key: string; tier: PopulationTier; heldSince: number }[] = [];
-  for (const [key, tier] of townTiers) if (biotaSlotsNeededForTier(tier) > 0) towns.push({ key, tier, heldSince: heldSince?.(key) ?? 0 });
+  const towns: BiotaTown[] = [];
+  for (const [key, tier] of townTiers) {
+    if (biotaSlotsNeededForTier(tier) <= 0) continue;
+    const vivaria = vivariaAt(key);
+    towns.push({ key, tier, heldSince: heldSince?.(key) ?? 0, ...(vivaria > 0 ? { vivaria } : {}) });
+  }
   return towns.length > 0 ? allocateBiotaSlots(towns, biotaSites * BIOTA_SLOTS_PER_SITE) : undefined;
 };

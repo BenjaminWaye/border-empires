@@ -48,6 +48,7 @@ export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, strin
   AETHER_CONDENSER: "Aether Condenser",
   HIGH_YIELD_AETHER_CONDENSER: "High-Yield Aether Condenser",
   ANCILLARY_DEPOT: "Ancillary Depot",
+  VIVARIUM: "Vivarium",
   HARBOR_EXCHANGE: "Harbor Exchange",
   MINISTRY_HALL: "Ministry Hall",
   RESONANCE_GRID: "Resonance Grid",

@@ -1,6 +1,8 @@
 import { afcSpecializationProgress, usesAfcSpecializations, type AfcTechTier } from "@border-empires/shared";
 import type { DomainInfo, Tile } from "../client-types.js";
 import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
+// Shared callout first, so this file's own rules (same specificity) come after it.
+import "../client-callout/client-callout.css";
 import "./client-afc-upgrade-ready.css";
 
 type Resource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
@@ -103,7 +105,7 @@ export function createAfcUpgradeReadyBadges(canvas: HTMLCanvasElement, openUpgra
         if (!button) {
           button = canvas.ownerDocument.createElement("button");
           button.type = "button";
-          button.className = "afc-upgrade-ready-badge";
+          button.className = "afc-upgrade-ready-badge sp-callout sp-callout-tail-down";
           button.onpointerdown = event => event.stopPropagation();
           button.onclick = event => { event.stopPropagation(); openUpgrades(); };
           layer.append(button);

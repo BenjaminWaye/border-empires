@@ -4,7 +4,8 @@
 // turning inside it, the dashed route still ahead, a soft shadow, and the top-down Sentinel
 // (client-map-render-2d-scout-drone-craft.ts). It uses the same pose as the 3D drone
 // (client-map-3d-scout-drone-pose.ts), so it also lifts off and settles back at the AFC, and the
-// same running-lights rule: nav lights over home land, dark past the border.
+// same running-lights rule: nav lights over home land, dark past the border. Over it, the same
+// "Back in …" countdown pill as true-3D (client-scout-drone-eta-label.ts).
 // Called from client-runtime-loop.ts only while the true-3D renderer is off. No per-frame
 // allocation; on Reduce Motion the sweep and rotor streaks hold still.
 import { scoutStrobeOn } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-lights.js";
@@ -18,6 +19,7 @@ import {
   type ScoutHomeSource
 } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-running-lights.js";
 import { drawScoutCraft2D } from "./client-map-render-2d-scout-drone-craft.js";
+import { drawScoutDroneEtaPill, scoutDroneEtaText } from "../client-scout-drone/client-scout-drone-eta-label.js";
 
 const CYAN = "#4fd8ff";
 const SWEEP_SLICES = 7;
@@ -153,4 +155,6 @@ export const drawScoutDrone2D = (
   const rec = !pose.returning && (still || nowMs % 1_000 < 500) ? lights : 0;
   drawScoutCraft2D(ctx, s, still ? 0 : nowMs * 0.03, pulse, lights, scoutSensorLevel(lights), rec, !still && scoutStrobeOn(nowMs));
   ctx.restore();
+  const eta = scoutDroneEtaText(flight, nowMs);
+  if (eta) drawScoutDroneEtaPill(ctx, cx, cy - s * 0.85, eta, Math.max(11, Math.min(16, size * 0.4)));
 };

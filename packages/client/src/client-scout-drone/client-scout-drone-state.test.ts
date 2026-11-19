@@ -65,14 +65,16 @@ describe("handleScoutDroneMessage", () => {
     }));
   });
 
-  it("announces a launch only once the server confirms it, and not for a stale replay", () => {
+  // The "Scout drone launched" popup only repeated the tap; the drone and its "Back in …" pill on the
+  // map confirm the launch. A recall the player asked for needs no popup either.
+  it("shows no popup for a launch or a recall", () => {
+    const state = stateWith();
     const pushFeed = vi.fn();
     const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
-    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), pushFeed, vi.fn(), shiftBack, 600);
-    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ title: "Scout drone launched", text: "Flying toward (12, 4). Report in 8s.", alert: true, focusX: 12, focusY: 4 }));
-    const replayFeed = vi.fn();
-    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, stateWith(), replayFeed, vi.fn(), shiftBack, 60_000);
-    expect(replayFeed).not.toHaveBeenCalled();
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, state, pushFeed, vi.fn(), shiftBack, 600);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: { ...open, endReason: "RECALLED" } }, state, pushFeed, vi.fn(), shiftBack, 700);
+    expect(pushFeed).not.toHaveBeenCalled();
+    expect(state.scoutDroneFlight?.endReason).toBe("RECALLED");
   });
 
   it("says when a border on its path turns the drone back mid-flight", () => {
@@ -96,14 +98,14 @@ describe("handleScoutDroneMessage", () => {
     expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ text: "Foreign scouts sighted near (3, 8): House Vey.", type: "combat", severity: "warn" }));
   });
 
-  // 2026-11-14 playtest: the launch and report went only to the admin-only Alerts feed, so a player
-  // who pressed Explore saw no message at all. They must reach the on-screen alert card.
-  it("shows the launch and the report on the alert card, not only in the admin feed", () => {
+  // 2026-11-14 playtest: the report went only to the admin-only Alerts feed, so a player who pressed
+  // Explore saw no message at all. It must reach the on-screen alert card.
+  it("shows the report on the alert card, not only in the admin feed", () => {
     const state: ReturnType<typeof stateWith> & FeedMutableState = { ...stateWith(), feed: [], captureAlert: undefined };
     const push = (entry: FeedEntry): void => pushFeedEntry(state, entry);
     const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, state, push, vi.fn(), shiftBack, 600);
-    expect(state.captureAlert).toMatchObject({ title: "Scout drone launched" });
+    expect(state.captureAlert).toBeUndefined();
     const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, push, vi.fn(), shiftBack, 9_000);
     expect(state.captureAlert).toMatchObject({ title: "Scout report", detail: "Scout drone returned from (12, 4): 1 town." });

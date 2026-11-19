@@ -64,7 +64,8 @@ export const DurableCommandTypeSchema = z.enum([
   "SET_AUTO_SETTLE_PREFS",
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
-  "EXPLORE"
+  "EXPLORE",
+  "RECALL_SCOUT"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;

@@ -178,7 +178,7 @@ describe("client action flow regressions", () => {
     // the second tap of the same tile (confirmTap).
     expect(source).not.toContain("targetInReach: clickTargetInReach");
     expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
-    const visibleBranchStart = source.indexOf("const to = clicked;");
+    const visibleBranchStart = source.indexOf("const to = ownAfcFootprintTapTarget(state.tiles, state.me, wx, wy) ?? clicked;");
     const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
     expect(visibleBranch).toContain(
       "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId,\n      confirmTap\n    });"

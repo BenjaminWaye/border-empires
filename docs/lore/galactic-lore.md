@@ -584,10 +584,17 @@ intoxicants are a tool of control. The civilians of a large town are the
 people every future Ancillary is taken from, and they know it. Where the House
 is the only supplier of what the town has come to depend on, its people stay
 put and give up their own; where supply runs short the town turns unruly, its
-people hide and withhold themselves, and a great city yields the bodies of a much
-smaller one. Each kind of
+people hide and withhold themselves, and a great city yields the bodies and the
+trade of a much smaller one, recovering share by share as supply returns. Each kind of
 estate supplies a fixed share of that dependence, and the House serves the
 towns it has held longest first.
+
+A House without the deposits can culture the strains itself. A Vivarium is a
+sealed dome raised among a town's support districts, growing the same
+intoxicants under glass from stock the census office keeps on file. It feeds
+only the town it stands in, and each dome answers for one share of that town's
+dependence. The larger the city, the faster its dependence outgrows the last:
+a great city needs three shares and a metropolis six.
 
 Precursor salvage fields contain recoverable machinery from before the Court,
 exposed mostly in hills and mountain foothills. The Court's own progress has
