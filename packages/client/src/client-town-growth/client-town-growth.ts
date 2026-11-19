@@ -90,6 +90,39 @@ export const shouldShowTownSmoke = (tile: Tile): boolean => {
   return !isTownGrowthPaused(town);
 };
 
+type TileKeySet = { has(key: string): boolean };
+const NO_KEYS: TileKeySet = { has: () => false };
+
+/**
+ * Tile keys whose garrison is under way, queued (development queue) or planned by auto-settle: what the tile
+ * menu shows as Garrisoning / Garrison queued / Garrison planned. Missing inputs count as empty.
+ */
+export const garrisonPlannedTileKeys = (state: {
+  developmentQueue?: ReadonlyArray<{ kind: string; tileKey: string }> | undefined;
+  settleProgressByTile?: TileKeySet | undefined;
+  autoSettleTargets?: TileKeySet | undefined;
+}): TileKeySet => {
+  const queued = new Set((state.developmentQueue ?? []).filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey));
+  const progress = state.settleProgressByTile ?? NO_KEYS;
+  const planned = state.autoSettleTargets ?? NO_KEYS;
+  return { has: (key) => queued.has(key) || progress.has(key) || planned.has(key) };
+};
+
+/**
+ * Your town whose tile you hold but haven't garrisoned (still FRONTIER): it makes no coin and doesn't grow
+ * until it is. Not while a garrison is already on its way (`garrisoning`: garrisonPlannedTileKeys).
+ * Neither the unfed warning nor any other status covers this, so a player could sit on a dead town for a day.
+ */
+export const isOwnTownUngarrisoned = (tile: Tile, localPlayerId: string, garrisoning?: TileKeySet): boolean =>
+  Boolean(tile.town) &&
+  Boolean(localPlayerId) &&
+  tile.ownerId === localPlayerId &&
+  tile.terrain === "LAND" &&
+  tile.ownershipState === "FRONTIER" &&
+  !tile.fogged &&
+  tile.optimisticPending !== "settle" &&
+  !garrisoning?.has(`${tile.x},${tile.y}`);
+
 // Mirror of the "Town is unfed" line in client-tile-menu-view.ts. The 2D and
 // 3D map badges must only paint when the tile-menu would also show the
 // unfed warning — otherwise neutral, foreign, or unsettled towns light up

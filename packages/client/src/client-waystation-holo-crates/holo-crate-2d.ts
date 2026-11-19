@@ -1,7 +1,7 @@
 // 2D canvas counterpart of the Holo-Locked Stack (holo-crate-model-3d.ts):
-// three armoured crates on a hexagonal anti-grav pad under a floating
-// hologram padlock, drawn in a light oblique projection in a 100x100 box per
-// tile. With an opening pose (holo-crate-open-fx.ts) the padlock shatters, the
+// three armoured crates on a hexagonal anti-grav pad under a hovering
+// glowing orb, drawn in a light oblique projection in a 100x100 box per
+// tile. With an opening pose (holo-crate-open-fx.ts) the orb flares and bursts, the
 // front-left crate's door drops like a ramp, a reward core rises and the site
 // teleports out.
 import type { WaystationOpenPose } from "./holo-crate-open-fx.js";
@@ -83,34 +83,40 @@ const pad = (ctx: Ctx, nowMs: number, boost: number): void => {
   }
 };
 
-/** Hologram padlock with projection cone and scanlines; `lock` 0 intact .. 1 gone. */
-const padlock = (ctx: Ctx, nowMs: number, lock: number, still: boolean): void => {
+/** Glowing seal orb in its projection beam, with a tilted orbit ring; `lock` 0 intact .. 1 burst. */
+const sealOrb = (ctx: Ctx, nowMs: number, lock: number, still: boolean): void => {
   if (lock >= 1) return;
-  const flicker = still ? 0.85 : 0.82 + 0.18 * Math.sin(nowMs * 0.019) * (Math.sin(nowMs * 0.0131) > 0.985 ? -1 : 1);
-  const a = (1 - lock) * flicker * (lock > 0.3 && Math.sin(nowMs * 0.09) > 0 ? 0.45 : 1);
+  const breath = still ? 0.5 : 0.5 + 0.5 * Math.sin(nowMs * 0.0024);
+  const flare = Math.sin(Math.PI * Math.min(1, lock * 1.6));
+  const a = 1 - lock;
   const bob = still ? 0 : Math.sin(nowMs * 0.0021) * 1.4;
-  const cx = 50, top = 5 + bob - lock * 6, s = 1 + lock * 0.5;
-  // Projection cone from the emitter on the top crate.
-  const cone = ctx.createLinearGradient(0, 36, 0, top + 14);
+  const cx = 50, cy = 15 + bob - lock * 4, s = 1 + lock * 1.4;
+  // Projection beam from the emitter on the top crate.
+  const cone = ctx.createLinearGradient(0, 36, 0, cy + 5);
   cone.addColorStop(0, cyan(0.3 * a)); cone.addColorStop(1, cyan(0.04 * a));
-  poly(ctx, [[cx - 2, 36], [cx + 2, 36], [cx + 10, top + 16], [cx - 10, top + 16]], cone);
+  poly(ctx, [[cx - 2, 36], [cx + 2, 36], [cx + 7, cy + 5], [cx - 7, cy + 5]], cone);
   ctx.save();
-  ctx.translate(cx, top + 10);
+  ctx.translate(cx, cy);
   ctx.scale(s, s);
-  ctx.fillStyle = cyan(0.18 * a);
-  ctx.fillRect(-8, -3, 16, 12);
-  ctx.strokeStyle = cyan(a); ctx.lineWidth = 1.4;
-  ctx.strokeRect(-8, -3, 16, 12);
-  ctx.beginPath(); ctx.arc(0, -3 - lock * 5, 5, Math.PI, 0); ctx.stroke();
-  ctx.fillStyle = cyan(a); ctx.fillRect(-0.9, 1, 1.8, 4.5);
-  ctx.fillStyle = cyan(0.25 * a);
-  for (let i = 0; i < 4; i += 1) ctx.fillRect(-9, -2 + i * 3 + ((nowMs / 60) % 3), 18, 0.5);
+  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
+  halo.addColorStop(0, cyan((0.55 + 0.2 * breath + 0.4 * flare) * a));
+  halo.addColorStop(0.45, cyan((0.22 + 0.1 * breath + 0.3 * flare) * a));
+  halo.addColorStop(1, cyan(0));
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = `rgba(232,252,255,${(0.95 * a).toFixed(3)})`;
+  ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, Math.PI * 2); ctx.fill();
+  const spin = still ? 0.6 : nowMs * 0.0011;
+  ctx.strokeStyle = cyan((0.55 + 0.25 * breath) * a); ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.ellipse(0, 0, 8.5, 2.6, -0.35 + Math.sin(spin) * 0.08, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = cyan(0.95 * a);
+  ctx.fillRect(Math.cos(spin) * 8.5 - 0.8, Math.sin(spin) * 2.6 - 0.8 - Math.cos(spin) * 2.9, 1.6, 1.6);
   ctx.restore();
   if (lock > 0) {
     for (let i = 0; i < 10; i += 1) {
       const angle = (i / 10) * Math.PI * 2 + 0.3, r = 4 + lock * 22;
       ctx.fillStyle = cyan((1 - lock) * 0.9);
-      ctx.fillRect(cx + Math.cos(angle) * r, top + 12 + Math.sin(angle) * r * 0.7, 1.6, 1.6);
+      ctx.fillRect(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r * 0.7, 1.6, 1.6);
     }
   }
 };
@@ -162,7 +168,7 @@ const drawStack = (ctx: Ctx, nowMs: number, pose: WaystationOpenPose | undefined
       ctx.fillRect(sx, cy - life * 48, 1.3, 1.3);
     }
   }
-  padlock(ctx, nowMs, pose?.lock ?? 0, still);
+  sealOrb(ctx, nowMs, pose?.lock ?? 0, still);
 };
 
 export const drawHoloCrates2D = (

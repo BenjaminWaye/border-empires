@@ -6,10 +6,11 @@
 //
 // Three armoured supply crates (gunmetal hulls, brass corner guards, a dark
 // belt with a cyan light strip and an amber status light) sit on a hexagonal
-// anti-grav pad. A hologram padlock floats above the stack, projected from an
-// emitter on the top crate. The front-left crate is the one that opens: its
-// door is tagged "door" (relative to its bottom hinge), the padlock "lock"
-// (relative to LOCK_ANCHOR), and the lit cavity behind the door "interior".
+// anti-grav pad. A glowing orb, ringed by a slow orbit, hovers above the
+// stack in a projection beam from an emitter on the top crate. The
+// front-left crate is the one that opens: its door is tagged "door" (relative
+// to its bottom hinge), the orb "lock" (the seal, relative to LOCK_ANCHOR),
+// and the lit cavity behind the door "interior".
 import {
   AdditiveBlending, BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Euler,
   IcosahedronGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, TorusGeometry, Vector3,
@@ -18,8 +19,8 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
-export type HoloGeometryKey = "hull" | "box" | "padBase" | "padDeck" | "ring" | "shackle" | "lockRing" | "keyhole" | "beam" | "core";
-export type HoloMaterialKey = "hull" | "panel" | "brass" | "band" | "deck" | "glow" | "led" | "holo" | "holoBeam" | "interior";
+export type HoloGeometryKey = "hull" | "box" | "padBase" | "padDeck" | "ring" | "orb" | "orbShell" | "lockRing" | "beam" | "core";
+export type HoloMaterialKey = "hull" | "panel" | "brass" | "band" | "deck" | "glow" | "led" | "holo" | "holoBeam" | "orbCore" | "interior";
 export type HoloPartRole = "static" | "door" | "lock" | "interior";
 export type HoloCratePart = {
   readonly geometry: HoloGeometryKey;
@@ -30,8 +31,10 @@ export type HoloCratePart = {
 };
 
 export const PAD_TOP = 0.075;
-/** Where the padlock floats (site-local); it bobs and turns about this point. */
-export const LOCK_ANCHOR = new Vector3(0.02, PAD_TOP + 0.66, 0.02);
+/** Where the seal orb hovers (site-local); it bobs and its orbit ring turns about this point. */
+export const LOCK_ANCHOR = new Vector3(0.02, PAD_TOP + 0.64, 0.02);
+/** The projection beam stops this far below the orb's centre. */
+const ORB_BEAM_GAP = 0.085;
 
 type CratePose = { x: number; y: number; z: number; yaw: number; w: number; h: number; d: number };
 /** The crate that opens, front-left on the pad. */
@@ -99,19 +102,18 @@ const buildParts = (): HoloCratePart[] => {
   crate(BACK, false);
   crate(OPENER, true);
   crate(TOP, false);
-  // Carry handles and the hologram emitter on the top crate.
+  // Carry handles and the orb projector on the top crate.
   const topAt = poseMatrix(TOP);
   for (const hx of [-0.07, 0.07]) add("box", "brass", topAt.clone().multiply(local(hx, TOP.h + 0.012, 0, 0.018, 0.018, 0.13)));
   add("padDeck", "brass", topAt.clone().multiply(local(0, TOP.h + 0.008, 0, 0.13, 0.4, 0.13)));
   add("box", "glow", topAt.clone().multiply(local(0, TOP.h + 0.02, 0, 0.03, 0.01, 0.03)));
-  // Projection cone from the emitter up to the padlock.
-  add("beam", "holoBeam", local(LOCK_ANCHOR.x, (PAD_TOP + 0.5 + LOCK_ANCHOR.y - 0.06) / 2, LOCK_ANCHOR.z, 1, 1, 1));
+  // Projection cone from the emitter up to the orb.
+  add("beam", "holoBeam", local(LOCK_ANCHOR.x, (PAD_TOP + 0.5 + LOCK_ANCHOR.y - ORB_BEAM_GAP) / 2, LOCK_ANCHOR.z, 1, 1, 1));
 
-  // Hologram padlock (anchor-local): body, shackle and a slow halo ring.
-  add("box", "holo", local(0, -0.03, 0, 0.13, 0.1, 0.03), "lock");
-  add("keyhole", "interior", local(0, -0.035, 0.016, 0.022, 0.04, 0.004), "lock");
-  add("shackle", "holo", local(0, 0.02, 0, 1, 1, 1), "lock");
-  add("lockRing", "holo", local(0, -0.01, 0, 1, 1, 1, new Euler(Math.PI / 2, 0, 0)), "lock");
+  // Seal orb (anchor-local): a bright core inside a soft glow shell, with a tilted orbit ring.
+  add("orb", "orbCore", local(0, 0, 0, 1, 1, 1), "lock");
+  add("orbShell", "holo", local(0, 0, 0, 1, 1, 1), "lock");
+  add("lockRing", "holo", local(0, 0, 0, 1, 1, 1, new Euler(Math.PI / 2 + 0.38, 0, 0.22)), "lock");
   return parts;
 };
 
@@ -119,17 +121,16 @@ export const HOLO_CRATE_PARTS: readonly HoloCratePart[] = buildParts();
 export const holoPartSlot = (part: Pick<HoloCratePart, "geometry" | "material">): string => `${part.geometry}:${part.material}`;
 
 export const createHoloCrateGeometries = (): Record<HoloGeometryKey, BufferGeometry> => {
-  const shackle = new TorusGeometry(0.04, 0.009, 6, 18, Math.PI);
-  const beamHeight = LOCK_ANCHOR.y - 0.06 - (PAD_TOP + 0.5);
+  const beamHeight = LOCK_ANCHOR.y - ORB_BEAM_GAP - (PAD_TOP + 0.5);
   return {
     hull: new RoundedBoxGeometry(1, 1, 1, 2, 0.07),
     box: new BoxGeometry(1, 1, 1),
     padBase: new CylinderGeometry(0.45, 0.48, 0.05, 6),
     padDeck: new CylinderGeometry(0.4, 0.42, 0.025, 6),
     ring: new TorusGeometry(0.41, 0.011, 6, 42),
-    shackle,
-    lockRing: new TorusGeometry(0.1, 0.004, 4, 32),
-    keyhole: new BoxGeometry(1, 1, 1),
+    orb: new IcosahedronGeometry(0.038, 2),
+    orbShell: new IcosahedronGeometry(0.07, 2),
+    lockRing: new TorusGeometry(0.1, 0.004, 4, 40),
     beam: new ConeGeometry(0.11, beamHeight, 16, 1, true).rotateX(Math.PI),
     core: new IcosahedronGeometry(0.045, 1)
   };
@@ -162,6 +163,7 @@ export const createHoloCrateMaterials = (environment?: Texture): Record<HoloMate
     led,
     holo: additive("#46d2e6", 0.42),
     holoBeam: additive("#46d2e6", 0.1),
+    orbCore: additive("#dcfbff", 0.95),
     interior
   };
 };
