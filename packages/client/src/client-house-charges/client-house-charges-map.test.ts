@@ -4,6 +4,7 @@ import { InstancedMesh, Matrix4, Scene } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { createMapGuideOverlay } from "../client-map-3d-map-guide-overlay.js";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { houseChargeMarkerTiles, houseChargeTintTiles } from "./client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges-search-guide.js";
 import { CHARGE_TINT_GARRISONED, CHARGE_TINT_OPEN, drawMapGuideOverlays } from "./client-map-guide-overlays-2d.js";
@@ -112,5 +113,22 @@ describe("renderer parity", () => {
     expect((rings.children[0] as InstancedMesh).count).toBe(0);
     overlay.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+});
+
+// Owner 2026-11-19: in true-3D the unexplored storm clouds hid the charge's dotted circles, which mark
+// exactly that unexplored ground. Three.js paints transparent meshes in renderOrder, so every charge
+// guide layer must come after the storm and the fogged mist.
+describe("true-3D charge guide over the storm", () => {
+  it("draws the shaded area, its outline and the dotted circles after the unexplored storm", () => {
+    const scene = new Scene();
+    createMapGuideOverlay(scene);
+    const names = ["house-charge-area-garrisoned", "house-charge-area-open", "house-charge-area-outline", "house-charge-search-ring", "house-charge-search-link"];
+    for (const name of names) {
+      const layer = scene.children.find((child) => child.name === name);
+      expect(layer, name).toBeDefined();
+      expect(layer!.renderOrder, name).toBeGreaterThan(RENDER_ORDER.unexploredStorm);
+      expect(layer!.renderOrder, name).toBeGreaterThan(RENDER_ORDER.foggedMist);
+    }
   });
 });

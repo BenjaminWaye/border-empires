@@ -41,6 +41,12 @@ export const RENDER_ORDER = {
   // gone back under fog; under the placement-preview and crystal-targeting
   // markers (15, client-map-3d-placement-overlay.ts / crystal-targeting overlay)
   // and the selection and hover markers.
+  // A focused House Charge's shaded area, its gold outline, then its dotted rough circles and link
+  // (client-map-3d-map-guide-overlay.ts): over the storm and fogged mist too, since the circles mark
+  // unexplored ground; they were drawn at 0-2 and the storm hid them (owner, 2026-11-19).
+  houseChargeAreaTint: 14.05,
+  houseChargeAreaOutline: 14.1,
+  houseChargeGuideDots: 14.15,
   guideMarkerHalo: 14.2,
   guideMarkerRing: 14.3,
   guideMarkerChevron: 14.4,
