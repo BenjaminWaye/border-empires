@@ -4,6 +4,10 @@
 #season-end-overlay {
   /* Above HUD controls and the guest badge (40), below authentication (50). */
   z-index: 45;
+}
+/* Shared with the charge reward overlay (client-charge-reward/), which uses the same se-* pieces. */
+#season-end-overlay,
+#charge-reward-overlay {
   --se-brass: #c9a24b;
   --se-brass-dim: #8c6535;
   --se-brass-hi: #f0d79a;

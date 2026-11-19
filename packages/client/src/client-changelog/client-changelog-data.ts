@@ -1,10 +1,12 @@
 import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
 import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
+import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
+import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -475,8 +477,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_18_CHANGELOG,
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
+  { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
   { ...SCOUT_REACH_SPEEDUP_ENTRY, createdAt: 1795104752202, },
+  { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -2,7 +2,7 @@
 
 Status: active proposal (Phases 1 and 2 built: dealing, the Charges panel and keep choice, map highlights, loss warnings, the season-end reveal, charge cards, the galaxy reward, AI pursuit and cross-water Charters; see the [gameplay reference](game-mechanics.md#house-charges). Phase 3 decided against for now: no Renown, no public titles, no Writ variant; see Decisions)
 Owner: game design (repository owner) decides scope and reward weights before implementation
-Last verified: 2026-11-13
+Last verified: 2026-11-18
 Replaces: none (on delivery, the rules move into [`game-mechanics.md`](game-mechanics.md) and the fiction into the [world bible](lore/galactic-lore.md))
 
 ## Problem
@@ -146,13 +146,17 @@ Charges pay out only after the season, so rewards are things that outlast it.
    the player's profile beside the career stats. Sets grant **titles only**
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
-3. **Galaxy reward**: +1 **Domain Weight** per fulfilled charge for empires
-   that hold a Planet or Outpost (see the [galactic layer](game-mechanics.md#galactic-layer)).
-   Domain Weight is only computed for territory holders, so other players
-   instead receive a **larger Stipend** (Stipends now pay Influence only,
-   at most 10). +1 is a third of an Outpost, so about ten
-   seasons of charges match one Planet. If that accumulates too fast, count
-   only recent seasons.
+3. **Galaxy reward**: each fulfilled charge banks **Domain score** on the
+   account by card rarity: **Common +1, Rare +2, Mythic +4**
+   (`HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY`). Decided 2026-11-18 by the owner:
+   every account banks it, with or without a Planet or Outpost, and it is the
+   charge's only galaxy reward (the earlier +3 Stipend Influence for players
+   without territory was dropped). It counts in the Court's Domain Weight (the
+   race for Emperor) and in Senate vote weight (see the
+   [galactic layer](game-mechanics.md#galactic-layer)). It is collected on the
+   season-end screen: the sealed cards flip one by one and the House's Domain
+   score counts up. A view-only Space View, so players without a world can
+   see where their Domain score stands, is a planned follow-up.
 4. **Renown** (later phase): a final-score bonus that can move leaderboard
    rank and, through it, the season rating. Size it **relative to the
    season's score distribution**, for example 10% of the median final score
