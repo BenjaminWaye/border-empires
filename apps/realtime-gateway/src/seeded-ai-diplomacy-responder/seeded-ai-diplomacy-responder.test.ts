@@ -138,11 +138,12 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(requestTruce).not.toHaveBeenCalled();
-    // Neighbours who fought lately, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160; the requester holds 10.
+    // Neighbours who fought lately, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160. The requester
+    // holds 10 coin and pledges all 60 coin/hour of spare income (worth 24h x 0.5 = 12 each, so 720): 1430 short.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
         [HUMAN_ID]:
-          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 2150 coin more than you can offer.",
+          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 1430 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
       startCooldown: true,
