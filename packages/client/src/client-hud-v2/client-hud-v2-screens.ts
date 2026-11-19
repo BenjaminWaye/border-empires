@@ -33,7 +33,6 @@ import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
-import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen } from "./client-hud-v2-town-runtime.js";
 import { cancelTownPlotPick } from "./client-hud-v2-town-plot-pick.js";
 import { townClick } from "./client-hud-v2-town-click.js";
@@ -424,7 +423,6 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       focusCamera(deps, x, y);
       const tile = deps.state.tiles.get(`${deps.wrapX(x)},${deps.wrapY(y)}`);
       if (tile) {
-        suppressAutoExpand();
         const centre = screenCentre();
         deps.actionFlow.openSingleTileActionMenu(tile, centre.x, centre.y);
       }

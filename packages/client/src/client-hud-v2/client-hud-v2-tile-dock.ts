@@ -12,7 +12,7 @@ import { refineryStatusFor } from "../client-refineries/refinery-client-status.j
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import type { TileActionDef, TileMenuView } from "../client-types.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
@@ -65,9 +65,6 @@ type DockState = {
 
 let dock: DockState | undefined;
 let listener: DockListener | undefined;
-let suppressAutoExpandUntil = 0;
-/** Last pointer-up on the map canvas: only a menu opened by a real map click may claim land. */
-let lastMapClickAt = 0;
 const MAP_CLICK_WINDOW_MS = 800;
 /** Last tap (pointer-up without a pan) on the map, and the last one a menu render already used. */
 let lastMapTapAt = 0;
@@ -101,11 +98,11 @@ const trackMapTaps = (): void => {
     mapPointerDown = { x: event.clientX, y: event.clientY, press: mapPressSeq };
   }, true);
   game.addEventListener("pointerup", (event) => {
-    lastMapClickAt = Date.now();
+    const now = Date.now();
     const down = mapPointerDown;
     mapPointerDown = undefined;
     if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) {
-      lastMapTapAt = lastMapClickAt;
+      lastMapTapAt = now;
       lastTapPress = down.press;
     }
   }, true);
@@ -120,11 +117,6 @@ const trackMapTaps = (): void => {
 export const setDockListener = (next: DockListener): void => {
   listener = next;
   trackMapTaps();
-};
-
-/** Programmatic opens (Chronicle Show, town stepping) must not trigger the click-to-expand shortcut. */
-export const suppressAutoExpand = (ms = 1_500): void => {
-  suppressAutoExpandUntil = Date.now() + ms;
 };
 
 const barEl = (): HTMLElement | null => document.getElementById(BAR_ID);
@@ -315,15 +307,8 @@ const watchMenuVisibility = (menuEl: HTMLElement): void => {
   }).observe(menuEl, { attributes: true, attributeFilter: ["style"] });
 };
 
-const NEIGHBOURS: ReadonlyArray<[number, number]> = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
-
-/** A plain click on neutral land touching yours claims it at once (the bar would only offer Expand To). */
-export const shouldAutoExpand = (state: Pick<ClientState, "tiles" | "me">, tile: Tile | undefined, view: Pick<TileMenuView, "actions">): boolean => {
-  if (!tile || tile.ownerId || tile.terrain !== "LAND" || !state.me) return false;
-  const expand = view.actions.find((a) => a.id === "settle_land" && a.label === "Expand To");
-  if (!expand || expand.disabled) return false;
-  return NEIGHBOURS.some(([dx, dy]) => state.tiles.get(`${tile.x + dx},${tile.y + dy}`)?.ownerId === state.me);
-};
+// No claim fires from here: a map tap only selects, and Expand To spends on its own button or a
+// confirming second tap (select first, then confirm: client-tile-interaction.ts).
 
 /** Called at the end of every floating-menu render. */
 export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuView, deps: TileDockDeps, rerender: () => void): void => {
@@ -338,7 +323,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
       el?.addEventListener("mousedown", (event) => event.stopPropagation());
     }
     watchMenuVisibility(menuEl);
-    // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
+    // Tells a real map tap from other menu opens (feed/alert "Center", tips, town stepping) for onMenuView.
     trackMapTaps();
     dock = { deps, state, rerender, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined, lastArmSeq: undefined };
   }
@@ -363,12 +348,6 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     dock.lastArmSeq = arm.seq;
   }
   menuEl.classList.add(DOCKED);
-  const fromMapClick = Date.now() - lastMapClickAt < MAP_CLICK_WINDOW_MS;
-  if (fresh && key && fromMapClick && Date.now() > suppressAutoExpandUntil && shouldAutoExpand(state, state.tiles.get(key), view)) {
-    hideBar();
-    deps.handleTileAction("settle_land");
-    return;
-  }
   const tap = lastMapTapAt !== consumedMapTapAt && Date.now() - lastMapTapAt < MAP_CLICK_WINDOW_MS;
   if (tap) consumedMapTapAt = lastMapTapAt;
   if (key && listener?.onMenuView(view, key, tap ? lastTapPress : undefined)) {
