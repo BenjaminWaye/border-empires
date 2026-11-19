@@ -53,7 +53,8 @@ anything Houses can build.
 The Court means to retake the frontier with ordinary spacecraft, one world at
 a time. It opens a **Sector**, a frontier world, and lands rival Houses on it
 together to fight for it. Doctrine calls this the **Writ of Sectors**:
-unclaimed ground is a debt owed to the Imperium.
+to hold nothing is to owe everything; unclaimed ground is a debt the galaxy
+owes itself.
 
 The Core watches each campaign as the **Sector Contest**, and that is half the
 point. While the nobility fights for worlds and the people watch them do it,
