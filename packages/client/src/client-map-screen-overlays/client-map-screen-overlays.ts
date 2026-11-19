@@ -8,6 +8,8 @@ import { createSalvageReadyToasts } from "../client-salvage-tribute/client-salva
 import { createTownNameplates } from "../client-town-nameplates/client-town-nameplates.js";
 import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
+import { advanceWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import { isMapCoveredByRewardCard } from "../client-waystation-holo-crates/holo-crate-map-covered.js";
 
 type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
 type MapOverlayTiles = Parameters<AfcMapOverlays["render"]>[0];
@@ -24,6 +26,8 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
   const refineryToasts = createRefineryFieldToasts(canvas, state);
   return {
     render(tiles, projection) {
+      // Collected waystations: one clock for both renderers, on screen or not.
+      advanceWaystationOpenings(state, Date.now(), isMapCoveredByRewardCard);
       if (!isTrue3DRendererActive()) {
         const ctx = canvas.getContext("2d");
         if (ctx) {

@@ -14,7 +14,8 @@ import { drawCaptureHoldGarrison2D } from "./client-map-2d-capture-hold-overlay.
 import { drawWarScars2D } from "./client-capture-aftermath/client-map-2d-war-scars.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
-import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
+import { drawWaystation2D, drawWaystationOpening2D } from "./client-map-2d-waystation-overlay.js";
+import type { WaystationOpenFxEntry } from "./client-waystation-holo-crates/holo-crate-open-fx.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
 import { drawRememberedStructures2D, type RememberedStructures2DDeps } from "./client-remembered-structures-2d/client-remembered-structures-2d.js";
 import type { Tile } from "./client-types.js";
@@ -33,6 +34,8 @@ export type TileFeatureOverlayDeps2D = {
   remembered: RememberedStructures2DDeps;
   /** Town tier-upgrade celebrations by tile key (client-town-tier-upgrade-fx/). */
   townTierUpgradeFxByKey: ReadonlyMap<string, TownTierUpgradeFxEntry>;
+  /** Collected waystations still playing their opening, by tile key (client-waystation-holo-crates/). */
+  waystationOpenFxByKey?: ReadonlyMap<string, WaystationOpenFxEntry>;
   /** Known tiles: which way a burning dock faces its water. */
   tiles?: ReadonlyMap<string, Tile>;
 };
@@ -60,6 +63,7 @@ export const drawTileFeatureOverlays2D = (
   if (t.terrain === "LAND" && t.warScarUntil !== undefined) drawWarScars2D(deps.ctx, t, px, py, size, Date.now());
   if (t.terrain === "LAND" && t.watchtower) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.waystation) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
+  else if (t.terrain === "LAND" && deps.waystationOpenFxByKey?.size) drawWaystationOpening2D(deps.ctx, deps.waystationOpenFxByKey.get(tileKey), px, py, size, nowMs, Date.now());
   if (t.terrain === "LAND" && t.afc) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, deps.afcModuleDeliveryLandedAt.get(tileKey), deps.afcJoinDrop);
   if (t.naturalWonder) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor, t.naturalWonder, t.ownershipState === "SETTLED");
   // Capture-hold garrison: 2D counterpart of the 3D standing squad. Checks
