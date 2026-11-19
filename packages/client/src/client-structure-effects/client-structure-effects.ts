@@ -11,6 +11,7 @@ import {
   structureSlotRequirements,
   type SlotResource
 } from "@border-empires/shared";
+import { freeSlotsOf, resourceSlotReasonText } from "../client-tile-action-logic/client-resource-slot-reason.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
@@ -216,9 +217,9 @@ export const canBuildPlacementStructure = (
     return { available: false, reason: `Need ${costDef.baseGoldCost} coin` };
 
   for (const requirement of structureSlotRequirements(structureType)) {
-    const free = (resourceSlots?.supply[requirement.resource] ?? 0) - (resourceSlots?.demand[requirement.resource] ?? 0);
+    const free = freeSlotsOf(resourceSlots, requirement.resource);
     if (free < requirement.count)
-      return { available: false, reason: `Need a free ${requirement.resource} slot` };
+      return { available: false, reason: resourceSlotReasonText(requirement.resource, requirement.count, free) };
   }
 
   return { available: true };
