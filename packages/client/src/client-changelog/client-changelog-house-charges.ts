@@ -41,5 +41,17 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "When your charges arrive, three face-down charge cards bob at the left edge of the map with a note that your House has handed you sealed charges. Tap the cards to choose which two to keep.",
       "The note can be closed on its own; the cards stay until you open your charges or the choice closes."
     ]
+  },
+  {
+    createdAt: 1795071970851, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: pick between cards, and find them again",
+    why: "A playtester tapped the sealed-charges note twice and it vanished both times, so he never saw his charges. Once seen, charges were hard to find again, and choosing them meant ticking boxes.",
+    changes: [
+      "Tapping the note that your House has handed you sealed charges now opens your charges, like tapping the cards. The note also says See charges.",
+      "The note's × sits further from the words, so a tap on the message no longer closes it by mistake.",
+      "You now choose your charges from a hand of cards: they are dealt face down and turn over, and you tap a card to keep it or set it aside.",
+      "After you have opened your charges, the cards stay at the edge of the map with how many of your kept charges you hold. Tap them any time to see your charges."
+    ]
   }
 ];
