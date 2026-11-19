@@ -6,6 +6,7 @@ import { musterFillText, musterStatusText, type ManpowerPanelMusterFlag } from "
 import type { DevelopmentSlotOccupant } from "../client-development-panel/client-development-html.js";
 import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
 import { nextStepsHtml, type NextStep } from "./client-hud-v2-next-step.js";
+import { foodShortageHtml, type FoodShortage } from "./client-hud-v2-food-shortage.js";
 
 export type TrackerNeed = { kind: "afc" | "flag"; title: string; sub: string; x?: number; y?: number };
 
@@ -34,6 +35,10 @@ export type TrackerInput = {
   capture?: { x: number; y: number; resolvesAt: number; battle: boolean } | undefined;
   /** What to do while the slots sit idle (client-hud-v2-next-step.ts); empty while anything builds. */
   nextSteps?: readonly NextStep[];
+  /** FOOD demand above supply: a "Short N FOOD" header in Next step, unfolding into the fixes. */
+  food?: FoodShortage | undefined;
+  /** The FOOD fixes are unfolded under their header. */
+  foodOpen?: boolean;
   nowMs: number;
 };
 
@@ -158,7 +163,7 @@ export const trackerHtml = (input: TrackerInput, slotsHint = false): string => {
   parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse));
   if (slotsHint) parts.push(`<div class="hud-v2-tracker-sub hud-v2-slots-hint">${DEV_SLOTS_HINT}</div>`);
   if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
-  if (needs.length === 0 && input.nextSteps && input.nextSteps.length > 0) parts.push(nextStepsHtml(input.nextSteps));
+  if (needs.length === 0) parts.push(nextStepsHtml(input.nextSteps ?? [], input.food ? foodShortageHtml(input.food, Boolean(input.foodOpen)) : ""));
   if (input.flags.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>Flags · ${input.flags.length}</span></div>`);
     parts.push(capped(input.flags, (f) => {
