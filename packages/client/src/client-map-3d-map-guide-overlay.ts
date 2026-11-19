@@ -4,6 +4,7 @@ import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, typ
 import { houseChargeSearchGuide } from "./client-house-charges/client-house-charges-search-guide.js";
 import { CHARGE_LINK_DOT_RADIUS, CHARGE_RING_DOT_RADIUS } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHighlightTile } from "./client-map-3d-onboarding-checklist-highlight.js";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // True-3D map guidance, the counterpart of the 2D client-map-guide-overlays-2d.ts:
@@ -49,7 +50,7 @@ const createTintMesh = (geometry: PlaneGeometry, material: MeshBasicMaterial, na
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.count = 0;
   mesh.frustumCulled = false;
-  mesh.renderOrder = 0;
+  mesh.renderOrder = RENDER_ORDER.houseChargeAreaTint;
   return mesh;
 };
 
@@ -62,7 +63,7 @@ const createDotMesh = (radius: number, color: string, name: string): InstancedMe
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.count = 0;
   mesh.frustumCulled = false;
-  mesh.renderOrder = 2;
+  mesh.renderOrder = RENDER_ORDER.houseChargeGuideDots;
   return mesh;
 };
 
@@ -100,7 +101,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
   const outline = new LineSegments(outlineGeometry, outlineMaterial);
   outline.name = "house-charge-area-outline";
   outline.frustumCulled = false;
-  outline.renderOrder = 1;
+  outline.renderOrder = RENDER_ORDER.houseChargeAreaOutline;
   const ringDots = createDotMesh(CHARGE_RING_DOT_RADIUS, "#f0cf82", "house-charge-search-ring");
   const linkDots = createDotMesh(CHARGE_LINK_DOT_RADIUS, "#fff4d6", "house-charge-search-link");
   scene.add(garrisoned, open, outline, ringDots, linkDots);
