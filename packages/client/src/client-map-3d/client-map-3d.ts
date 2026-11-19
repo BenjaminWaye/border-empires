@@ -267,8 +267,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   for (const flag of waypointFlags) flag.group.visible = false;
   // March-To target markers -- see client-map-3d-march-target-markers.ts.
   const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
-  // Frontier-claim fill pool + expand crew -- see client-map-3d-expand-crew.ts.
-  const frontierClaimVisuals = createFrontierClaimVisuals();
+  // Frontier-claim fill pool + expand crew soldiers -- see client-map-3d-expand-crew.ts.
+  const frontierClaimVisuals = createFrontierClaimVisuals(scene, atmosphere.buildingEnvironmentTexture);
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -1119,7 +1119,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     garrisonSelection.sync(deps.state.garrisonMany, tileHighlightDeps);
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    frontierClaimVisuals.sync(deps.state, deps.keyFor, heightfield, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
+    frontierClaimVisuals.sync(deps.state, deps.keyFor, heightfield, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN", deps.effectiveOverlayColor(deps.state.me));
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);

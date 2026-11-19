@@ -4,10 +4,10 @@ import { createFrontierClaimVisuals } from "@client/client-map-3d-expand-crew/cl
 import type { ClientState } from "@client/client-state/client-state.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
-// The expand crew (client-expand-crew.ts): ancillaries walk out of owned
-// ground (left, tinted) onto neutral tiles, stake them, and sink in as the
-// claim plate grows from their stake point. Top row: a manual EXPAND (full
-// crew). Bottom row: a muster flag's auto-fired EXPAND (lighter crew).
+// The expand crew (client-expand-crew.ts): two ancillary soldiers walk out of
+// owned ground (left, tinted) onto a neutral tile, idly patrol it while the
+// claim plate grows from where they arrived, and kneel as it completes. Top
+// row: a manual EXPAND. Bottom row: a muster flag's auto-fired EXPAND.
 type Args = {
   durationMs: number;
   ownerColor: string;
@@ -60,11 +60,11 @@ const render = (args: Args): HTMLElement => {
   spawnWave();
   const interval = setInterval(spawnWave, args.durationMs + 800);
 
-  const visuals = createFrontierClaimVisuals({ recordFrame: () => {}, shouldAnimate: () => !args.reducedMotion });
+  const visuals = createFrontierClaimVisuals(stage.scene, undefined, { recordFrame: () => {}, shouldAnimate: () => !args.reducedMotion });
   stage.scene.add(...visuals.objects);
   let rafId = 0;
   const animate = (): void => {
-    visuals.sync(state, keyFor, flatHeightfield, CAM, CAM, 0.004, (x) => x, (y) => y, () => false);
+    visuals.sync(state, keyFor, flatHeightfield, CAM, CAM, 0.004, (x) => x, (y) => y, () => false, args.ownerColor);
     rafId = requestAnimationFrame(animate);
   };
   animate();

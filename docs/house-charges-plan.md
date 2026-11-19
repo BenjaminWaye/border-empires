@@ -150,8 +150,7 @@ Charges pay out only after the season, so rewards are things that outlast it.
    account by card rarity: **Common +1, Rare +2, Mythic +4**
    (`HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY`). Decided 2026-11-18 by the owner:
    every account banks it, with or without a Planet or Outpost, and it is the
-   charge's only galaxy reward (the earlier +3 Stipend Influence for players
-   without territory was dropped). It counts in the Court's Domain Weight (the
+   charge's only galaxy reward. It counts in the Court's Domain Weight (the
    race for Emperor) and in Senate vote weight (see the
    [galactic layer](game-mechanics.md#galactic-layer)). It is collected on the
    season-end screen: the sealed cards flip one by one and the House's Domain
@@ -168,9 +167,6 @@ Explicitly not proposed: mid-season bonuses (they contradict holding to the
 end), gameplay advantages in the next season (snowballing, and House
 equipment does not carry between worlds in the lore), or penalties for
 failure.
-
-**Dependency:** Stipends are now paid into the galaxy balance once per
-account and season (fixed separately), which the galaxy reward builds on.
 
 ### Card design
 
@@ -359,7 +355,7 @@ These are design expectations, not measurements.
 ## Decisions (owner, 2026-11-14)
 
 - **No Renown in the final score.** Cards and the galaxy reward (Domain
-  Weight or a larger Stipend) are the reward; ranks and ratings are unchanged.
+  score by rarity) are the reward; ranks and ratings are unchanged.
 - **No public titles** (live Longest Road, Royal Cartographer).
 - **No Writ variant for now.** Interesting, but it depends on the open canon
   question about Writs (world bible §14) and belongs with a Court/revolt
@@ -382,7 +378,7 @@ These are design expectations, not measurements.
    highlights with progressive reveal in 2D and 3D; scoring at crowning; the
    season-end reveal; cards on the profile.
 2. **Phase 2**: rare charges (Tundra, Reawakening); AI pursuit; the galaxy
-   Domain Weight / Stipend reward.
+   Domain score reward.
 3. **Phase 3**: Renown in the final score, public titles, and possibly a Writ
    variant once the canon question is settled.
 

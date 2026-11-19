@@ -64,5 +64,16 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "While a charge is shown, the cards at the edge of the map say which one and have a Back to cards button. The × next to it stops showing the charge.",
       "On the 3D map, a charge's dotted circles, road line and shaded area now draw over the unexplored storm clouds instead of being hidden under them."
     ]
+  },
+  {
+    createdAt: 1795105167432, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: everything on the card",
+    why: "Each charge was shown twice, as a small card and again as a description below it, and the small cards were too narrow for their own titles.",
+    changes: [
+      "Each charge is now one large card you scroll through, with its objective, progress, Keep button and Show on map on the card itself.",
+      "Each card's quote is your House's reason for handing you that charge.",
+      "Each kept card shows the Domain score it banks if you still hold it when the winner is crowned. The text above the cards is one line; tap How charges work for the details."
+    ]
   }
 ];

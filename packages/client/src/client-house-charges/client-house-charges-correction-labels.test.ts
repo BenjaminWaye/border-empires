@@ -14,8 +14,8 @@ describe("Writ of Correction text", () => {
   });
 
   it("carries the House's letter with one fixed offence", () => {
-    const letter = houseChargeLetter(writ)!;
-    expect(letter.startsWith("House Varn ")).toBe(true);
+    const letter = houseChargeLetter(writ);
+    expect(letter).toContain("House Varn ");
     expect(CORRECTION_OFFENCES.some((offence) => letter.includes(offence))).toBe(true);
     expect(houseChargeLetter(writ)).toBe(letter);
   });
@@ -32,11 +32,14 @@ describe("Three Metropolises text", () => {
   it("names the landmass, counts Metropolises held and has a letter", () => {
     expect(houseChargeObjective(seats)).toBe("Hold 3 towns on Aldmoor and grow each one to a Metropolis.");
     expect(houseChargeProgress(seats)).toBe("2 of 3 Metropolises held");
-    expect(houseChargeLetter(seats)).toContain("three cadet lines seated on Aldmoor");
+    expect(houseChargeLetter(seats)).toContain("Aldmoor");
     expect(houseChargeCardRule({ kind: "METROPOLIS", places: ["Aldmoor"] })).toBe("Raised three towns on Aldmoor to Metropolises and held them to the end of the contest.");
   });
 
-  it("gives older charges no letter", () => {
-    expect(houseChargeLetter({ ...seats, kind: "SURVEY" })).toBeUndefined();
+  it("gives every charge kind the House's reason for entrusting it, naming its places", () => {
+    for (const kind of ["CHARTER", "SEAT", "SURVEY", "DESERT", "TUNDRA", "RELIC"] as const) {
+      expect(houseChargeLetter({ ...seats, kind }).length).toBeGreaterThan(40);
+    }
+    expect(houseChargeLetter({ ...seats, kind: "SURVEY" })).toContain("Aldmoor");
   });
 });

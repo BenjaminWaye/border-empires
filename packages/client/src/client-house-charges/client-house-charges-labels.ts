@@ -57,35 +57,7 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
   }
 };
 
-/** Why a rival House is named in a Writ of Correction: one offence per charge, fixed by its id. */
-export const CORRECTION_OFFENCES: readonly string[] = [
-  "sold our landing charts before the last Proclamation's feast was cleared",
-  "turned our envoys away at the gate and named it caution",
-  "struck our House's name from a chart we paid to survey",
-  "took a convoy under our seal and called it salvage"
-];
-
-const hash = (text: string): number => {
-  let value = 2166136261;
-  for (let index = 0; index < text.length; index += 1) value = Math.imul(value ^ text.charCodeAt(index), 16777619);
-  return value >>> 0;
-};
-
-/** The House's sealed letter behind a charge, or undefined for charges whose objective says it all. */
-export const houseChargeLetter = (charge: Pick<HouseChargeView, "id" | "kind" | "targets">): string | undefined => {
-  const name = charge.targets[0]?.name;
-  switch (charge.kind) {
-    case "CORRECTION": {
-      const house = houseStyledName(name ?? "the rival");
-      const offence = CORRECTION_OFFENCES[hash(charge.id) % CORRECTION_OFFENCES.length]!;
-      return `${house} ${offence}. The elders have lodged the grievance with the Court's heralds. It is yours to press: take an AFC they founded and hold it until the campaign is decided, so the Core sees the wrong answered.`;
-    }
-    case "METROPOLIS":
-      return `The elders want three cadet lines seated on ${name ?? "the landmass"}, each in a city great enough to carry the House's name. Take the towns early, feed them, and keep the fighting away from their walls.`;
-    default:
-      return undefined;
-  }
-};
+export { CORRECTION_OFFENCES, houseChargeLetter } from "./client-house-charges-letters.js";
 
 /** Current progress, or undefined when there is nothing to count yet. */
 export const houseChargeProgress = (charge: HouseChargeView): string | undefined => {
