@@ -78,7 +78,8 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "SET_AUTO_SETTLE_PREFS",
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
-  "EXPLORE"
+  "EXPLORE",
+  "RECALL_SCOUT"
 ];
 
 export const migratedDurableCommandTypes: ReadonlySet<string> = new Set(migratedDurableCommandTypesList);

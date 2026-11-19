@@ -356,13 +356,15 @@ export const renderTileActionMenu = (
   fitAfcModulePicker(deps.tileActionMenuEl);
 };
 
+let afcArmTapSeq = 0;
+
 export const openSingleTileActionMenu = (
   state: ClientState,
   tile: Tile,
   clientX: number,
   clientY: number,
   deps: TileActionMenuUiDeps,
-  options: { requestAttackPreview?: boolean; preserveTab?: boolean; openTab?: TileMenuTab } = {}
+  options: { requestAttackPreview?: boolean; preserveTab?: boolean; openTab?: TileMenuTab; afcArmSocket?: number } = {}
 ): void => {
   if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
@@ -377,6 +379,8 @@ export const openSingleTileActionMenu = (
   if (!options.preserveTab) {
     state.tileActionMenu.scrollTopByTab = {};
     state.tileActionMenu.renderSignature = "";
+    // A tap on an AFC arm spotlights that arm's module socket; any other open clears it.
+    state.tileActionMenu.afcArmFocus = options.afcArmSocket === undefined ? undefined : { socket: options.afcArmSocket, seq: ++afcArmTapSeq };
   }
   const view = deps.tileMenuViewForTile(tile);
   // Before the active tab is picked, so rows that force "actions" first count.

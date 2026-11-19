@@ -212,7 +212,11 @@ and collector numbering, so a collection is organised by Sector like
 expansions. Every card is unique: no other House can ever hold the same card.
 
 **Card back:** one shared back, the Court's seal over a starfield, so every
-collection reads as one game.
+collection reads as one game. Built as a brass cog seal (the shared `.sp-cog`)
+on a dark plate over diagonal ribs of dark and light blue, in a gold-leaf frame
+(`houseChargeCardBackHtml`); the starfield was dropped as too soft at card
+size. The House Charges bubble shows three of them; flip-to-back is not
+built yet.
 
 **Collection view:** a binder-style grid grouped by Sector or by charge type,
 with filters for rarity and foil, flip-to-back on tap, and an enlarged view

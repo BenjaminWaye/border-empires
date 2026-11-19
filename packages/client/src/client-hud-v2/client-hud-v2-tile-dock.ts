@@ -59,6 +59,8 @@ type DockState = {
   panel: BarPanel | undefined;
   buildSelection: string | undefined;
   buildCategory: BuildingCategory | undefined;
+  /** `seq` of the last AFC arm tap honoured, so each new arm tap reopens Modules once. */
+  lastArmSeq: number | undefined;
 };
 
 let dock: DockState | undefined;
@@ -323,7 +325,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     watchMenuVisibility(menuEl);
     // Tells a real map tap from other menu opens (feed/alert "Center", tips, town stepping) for onMenuView.
     trackMapTaps();
-    dock = { deps, state, rerender, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
+    dock = { deps, state, rerender, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined, lastArmSeq: undefined };
   }
   dock.deps = deps;
   dock.state = state;
@@ -338,6 +340,12 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     dock.panel = undefined;
     dock.buildSelection = undefined;
     dock.buildCategory = undefined;
+  }
+  // A tap on an own AFC's arm tile opens straight onto Modules, spotlighting that arm's module.
+  const arm = state.tileActionMenu.afcArmFocus;
+  if (arm && arm.seq !== dock.lastArmSeq && view.tabs.includes("modules")) {
+    dock.panel = "modules";
+    dock.lastArmSeq = arm.seq;
   }
   menuEl.classList.add(DOCKED);
   const tap = lastMapTapAt !== consumedMapTapAt && Date.now() - lastMapTapAt < MAP_CLICK_WINDOW_MS;

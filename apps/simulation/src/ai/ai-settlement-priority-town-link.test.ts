@@ -42,6 +42,7 @@ const entry = (townKey: string, overrides: Partial<TownEconomyEntry> = {}): Town
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
   amplifiersUnderConstruction: [],
+  biotaShortSlots: 0,
   ...overrides
 });
 

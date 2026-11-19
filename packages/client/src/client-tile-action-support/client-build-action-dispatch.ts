@@ -49,6 +49,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "TRADE_NEXUS";
     case "build_ancillary_depot":
       return "ANCILLARY_DEPOT";
+    case "build_vivarium":
+      return "VIVARIUM";
     case "build_harbor_exchange":
       return "HARBOR_EXCHANGE";
     case "build_neural_works":
@@ -141,6 +143,8 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "civil-service";
     case "build_ancillary_depot":
       return "organized-supply";
+    case "build_vivarium":
+      return "census-records";
     case "build_siege_camp":
     case "build_umbrite_weapons_factory":
       return "leatherworking";
