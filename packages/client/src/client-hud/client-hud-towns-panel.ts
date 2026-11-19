@@ -3,6 +3,7 @@
 
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growth.js";
 import { bindTownListControls, townListCardHtml } from "../client-town-list/client-town-list.js";
 
 export type HudTownsPanelDeps = {
@@ -23,7 +24,7 @@ export const renderHudTownsPanel = (state: ClientState, deps: HudTownsPanelDeps)
     return;
   }
   deps.panelEl.innerHTML = deps.safeHtml("townListCardHtml", deps.fallbackHtml, () =>
-    townListCardHtml(state.tiles, state.me)
+    townListCardHtml(state.tiles, state.me, undefined, garrisonPlannedTileKeys(state))
   );
   bindTownListControls(deps.root, {
     rerender: deps.rerender,

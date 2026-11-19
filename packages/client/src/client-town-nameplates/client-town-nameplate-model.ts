@@ -1,8 +1,8 @@
 import { townIdentityForTile } from "../client-town-identity.js";
-import { shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge, townGrowthBlocker } from "../client-town-growth/client-town-growth.js";
+import { isOwnTownUngarrisoned, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge, townGrowthBlocker } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 
-export type TownNameplateStatus = "unfed" | "unruly" | "upgrade" | "war" | "captured";
+export type TownNameplateStatus = "ungarrisoned" | "unfed" | "unruly" | "upgrade" | "war" | "captured";
 /** Own towns only: growing, or paused by hunger, a nearby war or a recent capture. Absent when neither (e.g. at the tier cap). */
 export type TownNameplateGrowth = "growing" | "paused";
 
@@ -23,6 +23,7 @@ const GROWTH_EPSILON = 0.001;
 const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 4 } as const;
 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
+  ungarrisoned: "Not garrisoned: no coin or growth",
   unfed: "Unfed",
   unruly: "Unruly: short of luxury biota, giving a smaller town's manpower",
   upgrade: "Upgrade ready",
@@ -32,9 +33,12 @@ export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
 
 // Same gates as the tile menu (shouldShowTownUnfedWarning /
 // shouldShowTownUpgradeReadyBadge), so a plate never claims a status the
-// town's own menu doesn't. Unfed outranks everything: it costs coin now.
-// Unruly (a large town short of biota) comes next: it costs manpower now.
-const ownStatus = (tile: Tile, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>): TownNameplateStatus | undefined => {
+// town's own menu doesn't. Not garrisoned outranks everything: the town makes nothing at all.
+// Unfed comes next: it costs coin now. Unruly (a large town short of biota) then: it costs manpower now.
+const ownStatus = (
+  tile: Tile, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>, garrisoning?: { has(key: string): boolean }
+): TownNameplateStatus | undefined => {
+  if (isOwnTownUngarrisoned(tile, me, garrisoning)) return "ungarrisoned";
   if (shouldShowTownUnfedWarning(tile, me)) return "unfed";
   if (unrulyTownKeys?.has(`${tile.x},${tile.y}`)) return "unruly";
   const blocker = tile.town ? townGrowthBlocker(tile.town, nowMs) : undefined;
@@ -44,14 +48,19 @@ const ownStatus = (tile: Tile, me: string, nowMs: number, unrulyTownKeys?: Reado
   return undefined;
 };
 
-/** `unrulyTownKeys`: your towns above Town tier that get less biota than they need (ManpowerBreakdown.biotaTowns). */
-export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>): TownNameplate | undefined => {
+/**
+ * `unrulyTownKeys`: your towns above Town tier that get less biota than they need (ManpowerBreakdown.biotaTowns).
+ * `garrisoning`: garrisons under way, queued or planned (garrisonPlannedTileKeys), which don't show as ungarrisoned.
+ */
+export const townNameplateFor = (
+  tile: Tile | undefined, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>, garrisoning?: { has(key: string): boolean }
+): TownNameplate | undefined => {
   const identity = townIdentityForTile(tile);
   if (!tile || !identity || tile.terrain !== "LAND" || tile.fogged) return undefined;
   // Neutral towns get a plate too (no owner line, no status): they're the towns you can still take.
   const ownerId = tile.ownerId || undefined;
   const own = Boolean(me) && ownerId === me;
-  const status = own ? ownStatus(tile, me, nowMs, unrulyTownKeys) : undefined;
+  const status = own ? ownStatus(tile, me, nowMs, unrulyTownKeys, garrisoning) : undefined;
   const population = own && typeof tile.town?.population === "number" ? Math.round(tile.town.population) : undefined;
   // The mark rides on the population, so it needs one. Paused also covers an unfed
   // settlement, which has no unfed bubble (shouldShowTownUnfedWarning skips that tier).
@@ -59,7 +68,7 @@ export const townNameplateFor = (tile: Tile | undefined, me: string, nowMs: numb
   // rounded near-zero rate at the cap doesn't read as growth.
   const growth: TownNameplateGrowth | undefined = population === undefined
     ? undefined
-    : status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false
+    : status === "ungarrisoned" || status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false
       ? "paused"
       : (tile.town?.populationGrowthPerMinute ?? 0) > GROWTH_EPSILON ? "growing" : undefined;
   return {

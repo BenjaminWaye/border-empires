@@ -20,6 +20,14 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(unfed, "me", 0)).toMatchObject({ status: "unfed", growth: "paused" });
   });
 
+  it("flags an own town that isn't garrisoned, ahead of every other status, until a garrison starts", () => {
+    const frontier = tile({ ownershipState: "FRONTIER", town: town({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(frontier, "me", 0)).toMatchObject({ status: "ungarrisoned", growth: "paused" });
+    expect(townNameplateFor(frontier, "me", 0, undefined, new Set(["4,5"]))?.status).toBeUndefined();
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER", optimisticPending: "settle" }), "me", 0)?.status).toBeUndefined();
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER", ownerId: "rival" }), "me", 0)?.status).toBeUndefined();
+  });
+
   it("flags an own large town short of biota as unruly, below unfed", () => {
     const city = tile({ town: town({ populationTier: "CITY" }) });
     expect(townNameplateFor(city, "me", 0, new Set(["4,5"]))?.status).toBe("unruly");
