@@ -120,7 +120,23 @@ describe("charge reward overlay", () => {
     root.querySelector<HTMLButtonElement>("[data-cr-skip]")!.click();
     expect(root.querySelectorAll(".cr-slot.is-revealed")).toHaveLength(2);
     expect(root.querySelector("[data-cr-domain]")!.textContent).toBe(String(COMMON + MYTHIC));
+    // Review of #2873: the Domain total resolving after Skip wrote the pre-contest number back.
     await vi.runAllTimersAsync();
+    expect(root.querySelector("[data-cr-domain]")!.textContent).toBe(String(COMMON + MYTHIC));
+  });
+
+  // Review of #2873: a count-up still running when Skip was pressed kept writing its own numbers over the final total.
+  it("Skip during a count-up keeps the final total", async () => {
+    renderChargeReward({ state: state() });
+    const root = document.querySelector<HTMLElement>("#charge-reward-overlay")!;
+    root.querySelector<HTMLButtonElement>("[data-cr-collect]")!.click();
+    // Signed out, the Domain total resolves at once; past the first card's flip and pause, its count-up is under way.
+    await vi.advanceTimersByTimeAsync(350 + 420 + 100);
+    expect(root.classList.contains("is-revealing")).toBe(true);
+    root.querySelector<HTMLButtonElement>("[data-cr-skip]")!.click();
+    await vi.runAllTimersAsync();
+    expect(root.classList.contains("is-done")).toBe(true);
+    expect(root.querySelector("[data-cr-domain]")!.textContent).toBe(String(COMMON + MYTHIC));
   });
 
   it("reads the banked charge Domain score from /hq/galaxy/me, and nothing when signed out", async () => {

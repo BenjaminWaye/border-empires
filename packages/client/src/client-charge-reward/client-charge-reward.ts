@@ -114,6 +114,8 @@ export const openChargeReward = (reward: ChargeReward, deps: Pick<ChargeRewardDe
     collect.hidden = true;
     skip.hidden = false;
     range = domainCountRange(await within(domainTotal, DOMAIN_WAIT_MS), reward.gained);
+    // Skip may land while the total loads; finish() has already shown the final number.
+    if (skipped) return;
     valueEl.textContent = range.from.toLocaleString();
     const quick = prefersReducedMotion();
     let running = range.from;
@@ -128,7 +130,7 @@ export const openChargeReward = (reward: ChargeReward, deps: Pick<ChargeRewardDe
       hapticTap(entry.card.rarity === "MYTHIC" ? [30, 40, 60] : entry.card.rarity === "RARE" ? [25, 30, 25] : 25);
       await sleep(quick ? 0 : 420);
       const next = running + entry.domain;
-      await countUp(valueEl, running, next, quick ? 0 : 520);
+      await countUp(valueEl, running, next, quick ? 0 : 520, () => skipped);
       running = next;
     }
     if (skipped) return;
