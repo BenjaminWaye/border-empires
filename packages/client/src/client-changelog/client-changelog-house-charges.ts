@@ -53,5 +53,16 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "You now choose your charges from a hand of cards: they are dealt face down and turn over, and you tap a card to keep it or set it aside.",
       "After you have opened your charges, the cards stay at the edge of the map with how many of your kept charges you hold. Tap them any time to see your charges."
     ]
+  },
+  {
+    createdAt: 1795105167432, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: everything on the card",
+    why: "Each charge was shown twice, as a small card and again as a description below it, and the small cards were too narrow for their own titles.",
+    changes: [
+      "Each charge is now one large card you scroll through, with its objective, progress, Keep button and Show on map on the card itself.",
+      "Each card's quote is your House's reason for handing you that charge.",
+      "Each card shows the Domain score it banks if you hold it when the winner is crowned. Tap How charges pay out under the intro for the details."
+    ]
   }
 ];

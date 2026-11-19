@@ -71,10 +71,23 @@ const hash = (text: string): number => {
   return value >>> 0;
 };
 
-/** The House's sealed letter behind a charge, or undefined for charges whose objective says it all. */
-export const houseChargeLetter = (charge: Pick<HouseChargeView, "id" | "kind" | "targets">): string | undefined => {
-  const name = charge.targets[0]?.name;
+/** Why the House entrusted this charge to its campaign leader, in the House's voice; shown as the card's quote. */
+export const houseChargeLetter = (charge: Pick<HouseChargeView, "id" | "kind" | "targets">): string => {
+  const [first, second] = charge.targets;
+  const name = first?.name;
   switch (charge.kind) {
+    case "CHARTER":
+      return `Our trading families have goods waiting in ${name ?? "one market town"} and buyers in ${second?.name ?? "the other"}. They trust you to give them a road no one can cut.`;
+    case "SEAT":
+      return `The elders want ${name ?? "this town"} raised into a city fit to seat a cadet line. You landed nearest, so the House looks to you.`;
+    case "SURVEY":
+      return `Our surveyors have staked their name on ${name ?? "this landmass"}. Garrison every acre so the Court's charts carry the House's name.`;
+    case "DESERT":
+      return `Our surveyors want ${name ?? "this waste"} entered in the charts under the House's name. No one else will hold that sand for us. You can.`;
+    case "TUNDRA":
+      return `Our surveyors want ${name ?? "this ice field"} entered in the charts under the House's name. It is a hard posting, and the elders chose you for it.`;
+    case "RELIC":
+      return "Our scholars believe a Concordance installation sleeps near your landing. They ask you to find its beacon and keep it in House hands.";
     case "CORRECTION": {
       const house = houseStyledName(name ?? "the rival");
       const offence = CORRECTION_OFFENCES[hash(charge.id) % CORRECTION_OFFENCES.length]!;
@@ -82,8 +95,6 @@ export const houseChargeLetter = (charge: Pick<HouseChargeView, "id" | "kind" | 
     }
     case "METROPOLIS":
       return `The elders want three cadet lines seated on ${name ?? "the landmass"}, each in a city great enough to carry the House's name. Take the towns early, feed them, and keep the fighting away from their walls.`;
-    default:
-      return undefined;
   }
 };
 

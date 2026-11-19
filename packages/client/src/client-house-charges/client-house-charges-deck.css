@@ -1,0 +1,95 @@
+/* The Charges panel's full-width cards (client-house-charges-deck.ts): the trading card
+   (client-house-charge-cards.css) at reading size, sized to its content. */
+.hcd-deck {
+  display: grid;
+  gap: 22px;
+  padding: 4px 0 8px;
+}
+
+.hcd-card.hc-card {
+  max-width: 520px;
+  width: 100%;
+  margin: 0 auto;
+  aspect-ratio: auto;
+  box-sizing: border-box;
+  padding: 9px;
+  border-radius: 14px;
+  transition: box-shadow 0.18s ease-out;
+}
+.hcd-card .hc-frame { gap: 6px; padding: 6px; }
+.hcd-card .hc-bar { padding: 6px 9px; }
+.hcd-card .hc-name { white-space: normal; overflow-wrap: break-word; font-size: clamp(15px, 4.6cqi, 19px); line-height: 1.2; }
+.hcd-card .hc-pips { font-size: 14px; }
+.hcd-card .hc-art { aspect-ratio: 16 / 7; }
+.hcd-card .hc-type { flex-wrap: wrap; font-size: 12px; line-height: 1.3; }
+.hcd-card .hcd-reward { font-size: 12px; }
+.hcd-card .hc-text { overflow: visible; gap: 8px; padding: 9px 11px; font-size: 15px; line-height: 1.4; }
+.hcd-card .hc-flavour { font-size: 14px; }
+
+.hcd-progress { font-weight: 600; color: #3d2d16; }
+.hcd-progress::before { content: "◇ "; color: #8a5a2b; }
+.hcd-progress.is-scout { font-weight: 400; font-style: italic; }
+.hcd-status { font-size: 13px; color: #6b5a40; }
+.hcd-status.is-held { color: #2f6b2a; font-weight: 600; }
+.hcd-status.is-pending { color: #8a5a2b; font-style: italic; }
+.hcd-status.is-lost { color: #9c3a22; font-weight: 600; }
+
+.hcd-foot {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+.hcd-keep,
+.hcd-map {
+  min-height: 44px;
+  border-radius: 9px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hcd-keep {
+  flex: 1 1 auto;
+  border: 1px solid var(--sp-brass-300, #d9ad52);
+  background: #1b140c;
+  color: #f0cf82;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hcd-keep.is-kept {
+  background: linear-gradient(180deg, #e0bd6a, #a8812f);
+  color: #21170a;
+}
+.hcd-map {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 1px solid var(--hc-frame-hi);
+  background: #1b140c;
+  color: #f2e8d3;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hcd-map.is-active { background: var(--hc-frame-lo); }
+.hcd-keep:focus-visible,
+.hcd-map:focus-visible { outline: 2px solid var(--sp-parchment-100, #f2e8d3); outline-offset: 2px; }
+
+/* Kept cards glow; a card set aside fades, but its Keep button stays bright so it reads as tappable. */
+.hcd-card.is-kept { box-shadow: 0 0 0 2px var(--sp-brass-300, #d9ad52), 0 12px 26px -12px rgba(217, 173, 82, 0.6); }
+.hcd-card.is-unkept .hc-bar,
+.hcd-card.is-unkept .hc-art,
+.hcd-card.is-unkept .hc-text { opacity: 0.6; }
+
+.hcd-deck.is-dealing .hcd-card { animation: hcd-deal 0.5s ease-out both; }
+.hcd-deck.is-dealing .hcd-card:nth-child(2) { animation-delay: 0.25s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(3) { animation-delay: 0.5s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(4) { animation-delay: 0.75s; }
+@keyframes hcd-deal {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hcd-card.hc-card { transition: none; }
+  .hcd-deck.is-dealing .hcd-card { animation: none; }
+}

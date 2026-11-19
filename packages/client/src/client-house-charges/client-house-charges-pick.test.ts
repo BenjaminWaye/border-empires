@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
 import { houseChargesPanelHtml, renderHouseChargesPanel } from "./client-house-charges-panel.js";
-import { HOUSE_CHARGES_DEAL_MS, houseChargesDealing, houseChargesPickHtml, resetHouseChargesPickForTests, toggleHouseChargePick } from "./client-house-charges-pick.js";
+import { HOUSE_CHARGES_DEAL_MS, houseChargesDealing, resetHouseChargesPickForTests, toggleHouseChargePick } from "./client-house-charges-pick.js";
 
 const charge = (id: string, kept: boolean): HouseChargeView => ({
   id, kind: "SURVEY", title: `Survey ${id}`, rarity: "COMMON", renown: 2, kept, held: false, size: 0, searchCircle: { x: 5, y: 5, radius: 10 }, targets: []
@@ -10,21 +10,20 @@ const charge = (id: string, kept: boolean): HouseChargeView => ({
 const charges = [charge("a", true), charge("b", true), charge("c", false)];
 
 // Owner 2026-11-19: picking charges should feel like picking between cards, not ticking boxes.
-describe("House Charges card table", () => {
+describe("House Charges keep choice", () => {
   beforeEach(() => {
     window.localStorage.clear();
     resetHouseChargesPickForTests();
   });
 
-  it("deals one trading card per charge, kept cards raised and sealed", () => {
-    const html = houseChargesPickHtml(charges, ["a", "b"], 2, false);
+  it("deals one card per charge with a Keep button, kept cards marked", () => {
+    const html = houseChargesPanelHtml({ activePanel: "charges", houseCharges: { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: undefined }, 5_000);
     document.body.innerHTML = html;
-    const slots = document.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]");
-    expect(slots).toHaveLength(3);
-    expect(Array.from(slots).map((slot) => slot.getAttribute("aria-pressed"))).toEqual(["true", "true", "false"]);
-    expect(slots[0]!.querySelector(".hcp-face .hc-card .hc-name")?.textContent).toBe("Survey a");
-    expect(slots[0]!.querySelector(".hcp-back .hc-card.is-back")).not.toBeNull();
-    expect(slots[2]!.textContent).toContain("Tap to keep");
+    const keeps = document.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]");
+    expect(keeps).toHaveLength(3);
+    expect(Array.from(keeps).map((keep) => keep.getAttribute("aria-pressed"))).toEqual(["true", "true", "false"]);
+    expect(keeps[0]!.closest(".hcd-card")?.querySelector(".hc-name")?.textContent).toBe("Survey a");
+    expect(keeps[2]!.textContent).toBe("Tap to keep");
   });
 
   // Review of #2875: auto-swapping "the oldest pick" dropped an arbitrary card of a default pair nobody had
@@ -38,7 +37,7 @@ describe("House Charges card table", () => {
     expect(html).toMatch(/data-house-charges-save disabled/);
   });
 
-  it("turns the cards over once per deal, the first time the table is shown", () => {
+  it("deals the cards once per deal, the first time the panel is shown", () => {
     expect(houseChargesDealing(1_000, 5_000)).toBe(true);
     expect(houseChargesDealing(1_000, 5_000 + HOUSE_CHARGES_DEAL_MS - 1)).toBe(true);
     expect(houseChargesDealing(1_000, 5_000 + HOUSE_CHARGES_DEAL_MS)).toBe(false);
@@ -49,13 +48,15 @@ describe("House Charges card table", () => {
     expect(houseChargesDealing(2_000, 9_000)).toBe(true);
   });
 
-  it("the Charges panel shows the table only while the choice is open, with no tick boxes", () => {
+  it("the Charges panel deals the cards and shows Keep only while the choice is open, with no tick boxes", () => {
     const state = (choiceClosesAt: number) => ({ activePanel: "charges" as const, houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 1_000, choiceClosesAt, charges }, houseChargesDraftKeep: undefined });
     const open = houseChargesPanelHtml(state(10_000), 5_000);
-    expect(open).toContain("hcp-table is-dealing");
+    expect(open).toContain("hcd-deck is-dealing");
     expect(open).not.toContain('type="checkbox"');
     expect(houseChargesPanelHtml(state(10_000), 5_000 + HOUSE_CHARGES_DEAL_MS)).not.toContain("is-dealing");
-    expect(houseChargesPanelHtml(state(2_000), 5_000)).not.toContain("hcp-table");
+    const closed = houseChargesPanelHtml(state(2_000), 5_000);
+    expect(closed).not.toContain("is-dealing");
+    expect(closed).not.toContain("data-house-charge-pick");
   });
 
   // Found driving the real client: the browser writes the card art's <rect/> back as <rect></rect>, so comparing

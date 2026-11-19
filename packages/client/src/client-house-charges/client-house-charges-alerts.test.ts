@@ -42,7 +42,7 @@ describe("House Charge loss warnings", () => {
 
   it("shows when a kept charge was lost in the panel", () => {
     const html = houseChargesPanelHtml({ activePanel: "charges", houseCharges: payload([road]), houseChargesDraftKeep: undefined }, 5_000);
-    expect(html).toContain("house-charge-status is-lost");
+    expect(html).toContain("hcd-status is-lost");
     expect(html).toContain("Lost ");
   });
 });

@@ -1,23 +1,14 @@
-// The keep choice as a card table (owner 2026-11-19: "pick between cards"). While
-// the choice is open, the Charges panel deals the House's charges as trading
-// cards: they arrive face down and turn over one by one the first time the
-// panel is opened for a deal, then a tap on a card keeps it or sets it aside.
+// The keep choice (owner 2026-11-19: "pick between cards"). While the choice is
+// open, the Charges panel deals the House's charges as cards
+// (client-house-charges-deck.ts) that slide in one by one the first time the
+// panel is opened for a deal; each card's Keep button keeps it or sets it aside.
 // A tap only keeps or sets aside that card: with a full hand the player sets one
 // aside first (a third kept card disables saving, and the hint says so); an
-// automatic swap would drop an arbitrary card of a default pair nobody picked. The details list under the table (objective,
-// letter, Show on map) is unchanged; the table replaced its Keep tick boxes.
-import type { HouseChargeView } from "@border-empires/shared";
-import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
-import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL } from "./client-house-charges-labels.js";
-import "./client-house-charge-cards.css";
-import "./client-house-charges-pick.css";
+// automatic swap would drop an arbitrary card of a default pair nobody picked.
 
 const DEAL_KEY = "be.houseCharges.pickDealt";
-/** Long enough for the last card's turn (0.25 s apart, 0.6 s each) to finish before the class goes. */
+/** Long enough for the last card's deal (0.25 s apart, 0.5 s each) to finish before the class goes. */
 export const HOUSE_CHARGES_DEAL_MS = 1_600;
-
-const esc = (text: string): string =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** When this deal's cards started turning over in this session; read from storage once per deal. */
 let dealing: { dealtAt: number; startedAt: number | null } | undefined;
@@ -56,31 +47,3 @@ export const resetHouseChargesPickForTests = (): void => {
 /** The draft after a tap on `id`: set aside if kept, else kept. */
 export const toggleHouseChargePick = (draft: readonly string[], id: string): string[] =>
   draft.includes(id) ? draft.filter((entry) => entry !== id) : [...draft, id];
-
-/** The table's card face: the trading card cut down to what reads at a third of a phone's width. The objective,
- * letter and progress are in the details list under the table. */
-const faceHtml = (charge: HouseChargeView): string => {
-  const difficulty = Math.max(1, Math.min(4, charge.renown));
-  return `<div class="hc-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}">
-    <div class="hc-frame">
-      <div class="hc-bar"><span class="hc-name">${esc(charge.title)}</span></div>
-      <div class="hc-art">${houseChargeCardArtSvg({ kind: charge.kind })}<span class="hcp-pips" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span></div>
-      <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[charge.kind]}</span><span class="hc-set" title="${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}" aria-label="${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}">✦</span></div>
-    </div>
-  </div>`;
-};
-
-/**
- * The table: one card per charge, kept cards raised with a seal. `dealing` turns them over in sequence. No inline
- * styles: the panel re-renders when its HTML differs from the browser's serialisation, which rewrites them.
- */
-export const houseChargesPickHtml = (charges: readonly HouseChargeView[], draft: readonly string[], wanted: number, dealing: boolean): string => {
-  const cards = charges.map((charge) => {
-    const kept = draft.includes(charge.id);
-    return `<button type="button" class="hcp-slot${kept ? " is-kept" : ""}" data-house-charge-pick="${esc(charge.id)}" aria-pressed="${kept}" aria-label="${esc(charge.title)}: ${kept ? "kept. Tap to set it aside" : "set aside. Tap to keep it"}">
-      <span class="hcp-flip"><span class="hcp-face">${faceHtml(charge)}</span><span class="hcp-back">${houseChargeCardBackHtml()}</span></span>
-      <span class="hcp-seal" aria-hidden="true">${kept ? "Kept" : "Tap to keep"}</span>
-    </button>`;
-  }).join("");
-  return `<div class="hcp-table${dealing ? " is-dealing" : ""}" role="group" aria-label="Tap ${wanted} cards to keep">${cards}</div>`;
-};
