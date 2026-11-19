@@ -26,11 +26,19 @@ export const WAYSTATION_OPEN_FX_MAX = 24;
 /** An opening still held this long after detection (a reward card never closed) is dropped. */
 export const WAYSTATION_OPEN_HOLD_MAX_MS = 5 * 60_000;
 
-export type WaystationOpenFxEntry = { x: number; y: number; detectedAt: number; startedAt?: number };
+/** `mine`: the local player collected it, so their reward card is what may be covering the map. */
+export type WaystationOpenFxEntry = { x: number; y: number; mine: boolean; detectedAt: number; startedAt?: number };
 
-/** Starts a held opening's clock once `covered()` says the map is visible; true while it is running. */
+/** A consumed record older than this (server clock) is a re-send of an old collection, not a live one. */
+export const WAYSTATION_OPEN_MAX_RECORD_AGE_MS = 5 * 60_000;
+
+/**
+ * Starts a held opening's clock; true while it is running. Only the
+ * collector's own opening waits for `covered()` (their reward card) to clear:
+ * everyone else watches it as it happens.
+ */
 export const beginWaystationOpening = (entry: WaystationOpenFxEntry, nowEpochMs: number, covered: () => boolean): boolean => {
-  if (entry.startedAt === undefined && !covered()) entry.startedAt = nowEpochMs;
+  if (entry.startedAt === undefined && (!entry.mine || !covered())) entry.startedAt = nowEpochMs;
   return entry.startedAt !== undefined;
 };
 
@@ -89,13 +97,14 @@ export const waystationOpenPose = (ageMs: number): WaystationOpenPose => {
 
 type WaystationUpdate = { x: number; y: number; waystationJson?: string };
 
-const isActivatedRecord = (json: string | undefined): boolean => {
-  if (!json) return false;
+type ActivatedRecord = { activatedByPlayerId?: unknown; activatedAt?: unknown };
+const activatedRecord = (json: string | undefined): ActivatedRecord | undefined => {
+  if (!json) return undefined;
   try {
-    const parsed = JSON.parse(json) as { activated?: unknown } | null;
-    return parsed?.activated === true;
+    const parsed = JSON.parse(json) as ({ activated?: unknown } & ActivatedRecord) | null;
+    return parsed?.activated === true ? parsed : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 };
 
@@ -104,17 +113,24 @@ const isActivatedRecord = (json: string | undefined): boolean => {
  * now reported collected. Must run before the batch is merged, because the
  * merge deletes an activated waystation from the tile.
  */
+export type WaystationOpening = { x: number; y: number; mine: boolean };
+
 export const detectWaystationOpenings = (
   tiles: ReadonlyMap<string, Pick<Tile, "waystation" | "fogged">>,
   updates: ReadonlyArray<WaystationUpdate>,
-  keyFor: (x: number, y: number) => string
-): Array<{ x: number; y: number }> => {
-  const found: Array<{ x: number; y: number }> = [];
+  keyFor: (x: number, y: number) => string,
+  me: string,
+  serverNowMs: number
+): WaystationOpening[] => {
+  const found: WaystationOpening[] = [];
   for (const update of updates) {
-    if (!isActivatedRecord(update.waystationJson)) continue;
+    const record = activatedRecord(update.waystationJson);
+    if (!record) continue;
+    // A stamped record from long ago is a consumed site being re-sent, not a collection happening now.
+    if (typeof record.activatedAt === "number" && serverNowMs - record.activatedAt > WAYSTATION_OPEN_MAX_RECORD_AGE_MS) continue;
     const before = tiles.get(keyFor(update.x, update.y));
     if (!before?.waystation || before.waystation.activated || before.fogged) continue;
-    found.push({ x: update.x, y: update.y });
+    found.push({ x: update.x, y: update.y, mine: Boolean(me) && record.activatedByPlayerId === me });
   }
   return found;
 };
@@ -127,16 +143,29 @@ export const expireWaystationOpenings = (state: WaystationOpenFxState, nowEpochM
   state.waystationOpenFxQueue = state.waystationOpenFxQueue.filter((entry) => waystationOpeningAge(entry, nowEpochMs) !== undefined);
 };
 
-/** Queues the opening for each detected tile, held until the map is visible (bounded; oldest dropped first). */
+/**
+ * Once per frame in either renderer (client-map-screen-overlays.ts): starts
+ * held clocks the moment the map is clear, whether or not the tile is on
+ * screen, so 2D and true-3D run every opening on the same timeline; then
+ * drops finished ones.
+ */
+export const advanceWaystationOpenings = (state: WaystationOpenFxState, nowEpochMs: number, covered: () => boolean): void => {
+  if (state.waystationOpenFxByKey.size === 0 && state.waystationOpenFxQueue.length === 0) return;
+  for (const entry of state.waystationOpenFxByKey.values()) beginWaystationOpening(entry, nowEpochMs, covered);
+  for (const entry of state.waystationOpenFxQueue) beginWaystationOpening(entry, nowEpochMs, covered);
+  expireWaystationOpenings(state, nowEpochMs);
+};
+
+/** Queues the opening for each detected tile; the collector's own waits for their reward card (bounded; oldest dropped first). */
 export const recordWaystationOpenings = (
   state: WaystationOpenFxState,
-  openings: ReadonlyArray<{ x: number; y: number }>,
+  openings: ReadonlyArray<WaystationOpening>,
   keyFor: (x: number, y: number) => string,
   nowEpochMs: number
 ): void => {
   expireWaystationOpenings(state, nowEpochMs);
-  for (const { x, y } of openings) {
-    const entry: WaystationOpenFxEntry = { x, y, detectedAt: nowEpochMs };
+  for (const { x, y, mine } of openings) {
+    const entry: WaystationOpenFxEntry = { x, y, mine, detectedAt: nowEpochMs };
     state.waystationOpenFxByKey.delete(keyFor(x, y));
     state.waystationOpenFxByKey.set(keyFor(x, y), entry);
     state.waystationOpenFxQueue.push(entry);

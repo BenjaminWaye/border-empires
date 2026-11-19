@@ -304,6 +304,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   };
 
   const syncWaystationOpenFxQueue = (): void => {
+    expireWaystationOpenings(state, Date.now()); // finished while 2D was showing: don't build them just to drop them
     while (state.waystationOpenFxQueue.length > 0) {
       const opening = state.waystationOpenFxQueue.shift()!;
       const { sceneX, sceneZ } = fxXZ(opening.x, opening.y);
@@ -311,7 +312,6 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
       layers.waystationOpenFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(opening.x, opening.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
         opening, opening.x * 31 + opening.y);
     }
-    expireWaystationOpenings(state, Date.now());
   };
 
   const syncSalvageDeliveryFxQueue = (): void => {

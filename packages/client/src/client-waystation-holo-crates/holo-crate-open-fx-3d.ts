@@ -181,7 +181,7 @@ export const createWaystationOpenFxLayer = (
         const a = rand(o.seed, j) * Math.PI * 2, lift = rand(o.seed, j + 40) - 0.3, burst = pose.lock * 0.32;
         shard.position.set(Math.cos(a) * burst, lift * burst, Math.sin(a) * burst);
         shard.rotation.set(a * 3 + t * 6, a + t * 4, 0);
-        opacity(shard, pose.lock > 0 ? 0.9 * (1 - pose.lock) * 1.6 : 0);
+        opacity(shard, pose.lock > 0 ? Math.min(1, 1.45 * (1 - pose.lock)) : 0);
       });
 
       // Door drops toward the camera like a ramp; the cavity floods with light.

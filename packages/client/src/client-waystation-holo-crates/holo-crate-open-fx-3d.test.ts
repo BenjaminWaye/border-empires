@@ -12,7 +12,7 @@ const rig = (covered = false) => {
   const clock = { wall: 50_000, covered };
   const parent = new Group();
   const layer = createWaystationOpenFxLayer(parent, undefined, () => clock.covered, () => clock.wall);
-  const entry: WaystationOpenFxEntry = { x: 2, y: 3, detectedAt: clock.wall };
+  const entry: WaystationOpenFxEntry = { x: 2, y: 3, mine: true, detectedAt: clock.wall };
   layer.spawn(2, 3, 0.1, entry, 7);
   return { clock, parent, layer, entry, tick: (ms: number) => { clock.wall += ms; layer.update(clock.wall); } };
 };

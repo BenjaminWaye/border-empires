@@ -18,6 +18,7 @@ import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModule
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
 import { detectWaystationOpenings, recordWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { emitSalvageDeliveries } from "../client-salvage-delivery-fx/client-salvage-delivery-detect.js";
 import { snapshotSalvageLoadsShipped } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 
@@ -91,7 +92,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     }
   }
   // Before the merge: it deletes the collected rig, which the opening animation replaces.
-  const waystationOpenings = Array.isArray(tileUpdates) ? detectWaystationOpenings(state.tiles, tileUpdates, keyFor) : [];
+  const waystationOpenings = Array.isArray(tileUpdates) ? detectWaystationOpenings(state.tiles, tileUpdates, keyFor, state.me, Date.now() + serverClock.offsetMs()) : [];
   applyGatewayTileDeltaBatch(
     { state, keyFor, mergeIncomingTileDetail: deps.mergeIncomingTileDetail, mergeServerTileWithOptimisticState: deps.mergeServerTileWithOptimisticState, clearRenderCaches: deps.clearRenderCaches, buildMiniMapBase: deps.buildMiniMapBase },
     tileUpdates

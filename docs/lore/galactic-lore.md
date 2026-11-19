@@ -681,7 +681,7 @@ Frontier waystations are supply caches left by survey crews: a stack of
 armoured, brass-bound crates on a hovering anti-grav pad, sealed under a
 hologram padlock. The lock answers only to the House that holds the ground.
 Once a House claims it, the cache waits to be unlocked and its supplies
-collected; then the pad beams the empty crates away. A camp that guarded fertile ground or a deposit leaves that
+collected; then the pad beams the empty crates away. A cache that sat on fertile ground or a deposit leaves that
 site for the House to work and defend.
 
 A House's war industry shows on its soldiers. Once a House runs a Titanium

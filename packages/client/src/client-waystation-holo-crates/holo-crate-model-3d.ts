@@ -118,12 +118,6 @@ const buildParts = (): HoloCratePart[] => {
 export const HOLO_CRATE_PARTS: readonly HoloCratePart[] = buildParts();
 export const holoPartSlot = (part: Pick<HoloCratePart, "geometry" | "material">): string => `${part.geometry}:${part.material}`;
 
-export type HoloCrateKit = {
-  readonly geometries: Readonly<Record<HoloGeometryKey, BufferGeometry>>;
-  readonly materials: Readonly<Record<HoloMaterialKey, Material>>;
-  readonly dispose: () => void;
-};
-
 export const createHoloCrateGeometries = (): Record<HoloGeometryKey, BufferGeometry> => {
   const shackle = new TorusGeometry(0.04, 0.009, 6, 18, Math.PI);
   const beamHeight = LOCK_ANCHOR.y - 0.06 - (PAD_TOP + 0.5);
@@ -169,18 +163,5 @@ export const createHoloCrateMaterials = (environment?: Texture): Record<HoloMate
     holo: additive("#46d2e6", 0.42),
     holoBeam: additive("#46d2e6", 0.1),
     interior
-  };
-};
-
-export const createHoloCrateKit = (environment?: Texture): HoloCrateKit => {
-  const geometries = createHoloCrateGeometries();
-  const materials = createHoloCrateMaterials(environment);
-  return {
-    geometries,
-    materials,
-    dispose() {
-      for (const geometry of Object.values(geometries)) geometry.dispose();
-      for (const material of Object.values(materials)) material.dispose();
-    }
   };
 };
