@@ -31,15 +31,29 @@ describe("2D Holo-Locked Stack", () => {
   });
 
   it("plays the opening for 10 s, then draws nothing", () => {
-    const entry = { x: 1, y: 1, startedAt: 50_000 };
+    const entry = { x: 1, y: 1, detectedAt: 50_000, startedAt: 50_000 };
     const open = recorder();
-    drawWaystationOpening2D(open.ctx, entry, 0, 0, 48, 0, 50_000 + 3000);
+    drawWaystationOpening2D(open.ctx, entry, 0, 0, 48, 0, 50_000 + 3000, () => false);
     expect(open.calls.some((c) => c.startsWith("createRadialGradient"))).toBe(true); // lit cavity and reward core
     const gone = recorder();
-    drawWaystationOpening2D(gone.ctx, entry, 0, 0, 48, 0, 50_000 + WAYSTATION_OPEN_TOTAL_MS);
+    drawWaystationOpening2D(gone.ctx, entry, 0, 0, 48, 0, 50_000 + WAYSTATION_OPEN_TOTAL_MS, () => false);
     expect(gone.calls).toEqual([]);
     const none = recorder();
     drawWaystationOpening2D(none.ctx, undefined, 0, 0, 48, 0, 0);
     expect(none.calls).toEqual([]);
+  });
+
+  it("stays closed behind the reward card and starts its 10 s when the card closes", () => {
+    const entry: { x: number; y: number; detectedAt: number; startedAt?: number } = { x: 1, y: 1, detectedAt: 50_000 };
+    const held = recorder();
+    drawWaystationOpening2D(held.ctx, entry, 0, 0, 48, 0, 62_000, () => true);
+    expect(held.calls.length).toBeGreaterThan(40); // still drawn, as the closed stack
+    expect(held.calls.some((c) => c.startsWith("createRadialGradient"))).toBe(false);
+    expect(entry.startedAt).toBeUndefined();
+    drawWaystationOpening2D(recorder().ctx, entry, 0, 0, 48, 0, 63_000, () => false);
+    expect(entry.startedAt).toBe(63_000);
+    const running = recorder();
+    drawWaystationOpening2D(running.ctx, entry, 0, 0, 48, 0, 66_000, () => false);
+    expect(running.calls.some((c) => c.startsWith("createRadialGradient"))).toBe(true);
   });
 });

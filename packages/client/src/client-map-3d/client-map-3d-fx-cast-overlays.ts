@@ -303,9 +303,9 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     while (state.waystationOpenFxQueue.length > 0) {
       const opening = state.waystationOpenFxQueue.shift()!;
       const { sceneX, sceneZ } = fxXZ(opening.x, opening.y);
-      // startedAt is wall-clock (shared with 2D); the layer ticks on performance.now().
+      // The layer keeps the entry: it holds while a reward card covers the map, then runs on the wall clock (shared with 2D).
       layers.waystationOpenFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(opening.x, opening.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        performance.now() - Math.max(0, Date.now() - opening.startedAt), opening.x * 31 + opening.y);
+        opening, opening.x * 31 + opening.y);
     }
     expireWaystationOpenings(state, Date.now());
   };

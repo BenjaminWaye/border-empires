@@ -9,7 +9,8 @@ import {
   Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, Points, PointsMaterial, Quaternion, TorusGeometry, Vector3,
   type Material, type Texture
 } from "three";
-import { waystationOpenPose } from "./holo-crate-open-fx.js";
+import { beginWaystationOpening, waystationOpeningAge, waystationOpenPose, type WaystationOpenFxEntry } from "./holo-crate-open-fx.js";
+import { isMapCoveredByRewardCard } from "./holo-crate-map-covered.js";
 import {
   createHoloCrateGeometries, createHoloCrateMaterials, DOOR_HINGE, HOLO_CRATE_PARTS, LOCK_ANCHOR, OPENER, PAD_TOP,
   type HoloMaterialKey
@@ -35,15 +36,15 @@ type Opening = {
   readonly materials: Record<HoloMaterialKey, Material>;
   readonly fx: MeshBasicMaterial[];
   readonly sparkMaterial: PointsMaterial;
-  readonly startedAt: number;
+  readonly entry: WaystationOpenFxEntry;
   readonly seed: number;
   faded: boolean;
 };
 
 export type WaystationOpenFxLayer = {
   readonly group: Group;
-  /** startedAt is on the performance.now() clock the layer updates with. */
-  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, startedAt: number, seed: number) => void;
+  /** Plays `entry` (held at its first frame until the map is uncovered; wall-clock timeline). */
+  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, entry: WaystationOpenFxEntry, seed: number) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly dispose: () => void;
@@ -57,7 +58,10 @@ const rand = (seed: number, i: number): number => {
   return v - Math.floor(v);
 };
 
-export const createWaystationOpenFxLayer = (parent: Object3D, environment?: Texture): WaystationOpenFxLayer => {
+export const createWaystationOpenFxLayer = (
+  parent: Object3D, environment?: Texture,
+  covered: () => boolean = isMapCoveredByRewardCard, wallNow: () => number = Date.now
+): WaystationOpenFxLayer => {
   const group = new Group();
   group.name = "waystation-open-fx";
   parent.add(group);
@@ -83,7 +87,7 @@ export const createWaystationOpenFxLayer = (parent: Object3D, environment?: Text
   const coreFrom = new Vector3(OPENER.x, PAD_TOP + 0.12, OPENER.z);
   const coreTo = new Vector3(OPENER.x + 0.01, PAD_TOP + 0.44, OPENER.z + 0.24);
 
-  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, startedAt: number, seed: number): void => {
+  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, entry: WaystationOpenFxEntry, seed: number): void => {
     const materials = createHoloCrateMaterials(environment);
     const root = new Group();
     root.position.set(sceneX, surfaceY, sceneZ);
@@ -142,7 +146,7 @@ export const createWaystationOpenFxLayer = (parent: Object3D, environment?: Text
     sparks.frustumCulled = false;
     site.add(sparks);
     group.add(root);
-    openings.push({ root, site, door, lock, shackle, core, halo, shaft, spill, beam, scan, sparks, shards, materials, fx, sparkMaterial, startedAt, seed, faded: false });
+    openings.push({ root, site, door, lock, shackle, core, halo, shaft, spill, beam, scan, sparks, shards, materials, fx, sparkMaterial, entry, seed, faded: false });
   };
 
   const disposeOpening = (opening: Opening): void => {
@@ -158,11 +162,13 @@ export const createWaystationOpenFxLayer = (parent: Object3D, environment?: Text
   const update = (nowMs: number): void => {
     for (let i = openings.length - 1; i >= 0; i -= 1) {
       const o = openings[i]!;
-      const age = nowMs - o.startedAt;
+      const wall = wallNow();
+      beginWaystationOpening(o.entry, wall, covered);
+      const age = waystationOpeningAge(o.entry, wall);
+      if (age === undefined) { disposeOpening(o); openings.splice(i, 1); continue; }
       const pose = waystationOpenPose(age);
-      if (pose.done) { disposeOpening(o); openings.splice(i, 1); continue; }
       const alpha = pose.alpha;
-      const t = age / 1000;
+      const t = nowMs / 1000;
 
       // Padlock: shackle springs up, the lock swells and flickers out, shards fly.
       o.lock.visible = pose.lock < 1;

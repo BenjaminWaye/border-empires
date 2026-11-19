@@ -50,6 +50,9 @@ describe("detecting and recording openings", () => {
     expect(state.waystationOpenFxQueue).toHaveLength(WAYSTATION_OPEN_FX_MAX);
     expect(state.waystationOpenFxByKey.has(`${many.length - 1},0`)).toBe(true); // newest kept
     expireWaystationOpenings(state, 1000 + WAYSTATION_OPEN_TOTAL_MS);
+    expect(state.waystationOpenFxByKey.size).toBe(WAYSTATION_OPEN_FX_MAX); // still held: never started
+    for (const entry of state.waystationOpenFxByKey.values()) entry.startedAt = 1000;
+    expireWaystationOpenings(state, 1000 + WAYSTATION_OPEN_TOTAL_MS);
     expect(state.waystationOpenFxByKey.size).toBe(0);
     expect(state.waystationOpenFxQueue).toHaveLength(0);
   });

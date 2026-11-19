@@ -9,8 +9,11 @@ import type { Tile } from "../client-types.js";
 //   400   - 1500 ms the reward core rises out of the crate
 //   1100  - 9000 ms open, glowing, sparks rising
 //   9000  - 10000 ms teleport-out shimmer, then the site is gone.
-// startedAt is wall-clock (Date.now() ms). True-3D drains the queue into an
-// anchored fx layer; 2D reads waystationOpenFxByKey (the 3D drain empties the queue).
+// The collector's reward card covers the map the moment the rig is collected,
+// so an opening is held at its first frame (lock intact, crates closed) until
+// the map is clear, then its clock starts: startedAt is unset while held and
+// wall-clock (Date.now() ms) once running. True-3D drains the queue into an
+// anchored fx layer that keeps the entry; 2D reads waystationOpenFxByKey.
 
 export const WAYSTATION_OPEN_LOCK_MS = 500;
 export const WAYSTATION_OPEN_DOOR_START_MS = 300;
@@ -21,8 +24,23 @@ export const WAYSTATION_OPEN_FADE_START_MS = 9000;
 export const WAYSTATION_OPEN_TOTAL_MS = 10000;
 /** Hard bound on concurrent openings: they are short-lived, but never let a burst grow the store. */
 export const WAYSTATION_OPEN_FX_MAX = 24;
+/** An opening still held this long after detection (a reward card never closed) is dropped. */
+export const WAYSTATION_OPEN_HOLD_MAX_MS = 5 * 60_000;
 
-export type WaystationOpenFxEntry = { x: number; y: number; startedAt: number };
+export type WaystationOpenFxEntry = { x: number; y: number; detectedAt: number; startedAt?: number };
+
+/** Starts a held opening's clock once `covered()` says the map is visible; true while it is running. */
+export const beginWaystationOpening = (entry: WaystationOpenFxEntry, nowEpochMs: number, covered: () => boolean): boolean => {
+  if (entry.startedAt === undefined && !covered()) entry.startedAt = nowEpochMs;
+  return entry.startedAt !== undefined;
+};
+
+/** Milliseconds into the timeline (0 while held), or undefined once finished or held too long. */
+export const waystationOpeningAge = (entry: WaystationOpenFxEntry, nowEpochMs: number): number | undefined => {
+  if (entry.startedAt === undefined) return nowEpochMs - entry.detectedAt >= WAYSTATION_OPEN_HOLD_MAX_MS ? undefined : 0;
+  const age = nowEpochMs - entry.startedAt;
+  return age >= WAYSTATION_OPEN_TOTAL_MS ? undefined : Math.max(0, age);
+};
 
 export type WaystationOpenFxState = {
   waystationOpenFxQueue: WaystationOpenFxEntry[];
@@ -105,12 +123,12 @@ export const detectWaystationOpenings = (
 /** Drops finished openings so neither renderer draws them again. */
 export const expireWaystationOpenings = (state: WaystationOpenFxState, nowEpochMs: number): void => {
   for (const [key, entry] of state.waystationOpenFxByKey) {
-    if (nowEpochMs - entry.startedAt >= WAYSTATION_OPEN_TOTAL_MS) state.waystationOpenFxByKey.delete(key);
+    if (waystationOpeningAge(entry, nowEpochMs) === undefined) state.waystationOpenFxByKey.delete(key);
   }
-  state.waystationOpenFxQueue = state.waystationOpenFxQueue.filter((entry) => nowEpochMs - entry.startedAt < WAYSTATION_OPEN_TOTAL_MS);
+  state.waystationOpenFxQueue = state.waystationOpenFxQueue.filter((entry) => waystationOpeningAge(entry, nowEpochMs) !== undefined);
 };
 
-/** Starts the opening animation for each detected tile (bounded; oldest dropped first). */
+/** Queues the opening for each detected tile, held until the map is visible (bounded; oldest dropped first). */
 export const recordWaystationOpenings = (
   state: WaystationOpenFxState,
   openings: ReadonlyArray<{ x: number; y: number }>,
@@ -119,7 +137,7 @@ export const recordWaystationOpenings = (
 ): void => {
   expireWaystationOpenings(state, nowEpochMs);
   for (const { x, y } of openings) {
-    const entry = { x, y, startedAt: nowEpochMs };
+    const entry: WaystationOpenFxEntry = { x, y, detectedAt: nowEpochMs };
     state.waystationOpenFxByKey.delete(keyFor(x, y));
     state.waystationOpenFxByKey.set(keyFor(x, y), entry);
     state.waystationOpenFxQueue.push(entry);
