@@ -17,12 +17,12 @@ export function afcAgreementCount(player: AgreementPeer, players: ReadonlyMap<st
   for (const id of player.truces ?? []) if (id !== player.id && !id.startsWith("barbarian-") && players.has(id)) partners.add(id);
   return partners.size;
 }
-/** Envoy Accreditation: share of the player's own Coin income added per agreement, capped. */
+/** Envoy Accreditation: share of the player's own Coin income added per agreement, uncapped. */
 export function afcEnvoyIncomeShare(player: Pick<DomainPlayer, "techIds" | "domainIds"> & AgreementPeer, players: ReadonlyMap<string, AfcAlliancePeer>): { share: number; agreements: number } {
   const perAgreement = additiveEffectForPlayer(player, "truceIncomeShare");
   if (perAgreement <= 0) return { share: 0, agreements: 0 };
   const agreements = afcAgreementCount(player, players);
-  return { share: Math.min(AFC_SPECIALIZATION_BALANCE.truceIncomeShareMax, perAgreement * agreements), agreements };
+  return { share: perAgreement * agreements, agreements };
 }
 /** Allied Levies: share of the player's own manpower cap and regeneration added per mutual ally, capped by ally count. */
 export function afcAlliedLevyShare(player: Pick<DomainPlayer, "techIds" | "domainIds"> & AfcAlliancePeer, players: ReadonlyMap<string, AfcAlliancePeer>): { share: number; allies: number } {

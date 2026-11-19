@@ -178,8 +178,8 @@ unsuppressed when it ends; the 1s Aether Tower tick resolves it from
 `observatory.hijack`. Once per House per 24h; Aegis Domes block it.
 
 Court mandates impose binding 12h truces with a 48h caster recharge; existing
-battles finish. Envoy Accreditation adds 10% to the House's own Coin while at least
-one truce or mutual alliance is active; Allied Levies adds 15% manpower cap and
+battles finish. Envoy Accreditation adds 20% to the House's own Coin per distinct House it
+holds an active truce or mutual alliance with (uncapped); Allied Levies adds 15% manpower cap and
 regeneration per mutual ally (max three); Diplomatic Corps gives +15 AI opinion and
 halves AI truce prices. Chancery diplomatic weighting counts each member once, while
 the largest member by actual territory remains the sole candidate for victory (ties
