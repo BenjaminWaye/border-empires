@@ -35,7 +35,17 @@
   content: "\2014\00a0";
 }
 
+/* The sign-in card is warm parchment, not the map overlay's cool blue. */
 #auth-busy-quote {
   margin-top: 4px;
   text-align: left;
+  border-top-color: rgba(242, 232, 211, 0.16);
+}
+
+#auth-busy-quote blockquote {
+  color: rgba(242, 232, 211, 0.88);
+}
+
+#auth-busy-quote figcaption {
+  color: rgba(242, 232, 211, 0.55);
 }
