@@ -22,6 +22,9 @@ export const resetWaystationPopupGateForTests = (): void => {
   recheckTimer = null;
 };
 
+/** A reward card is waiting for What's New (or the tutorial) to close. */
+export const isWaystationActivationPopupPending = (): boolean => pendingInfo !== null;
+
 export const isWaystationPopupBlocked = (state: WaystationPopupGateState, nowMs: number = Date.now()): boolean => gate.isBlocked(state, nowMs);
 
 const flush = (state: WaystationPopupGateState): void => {

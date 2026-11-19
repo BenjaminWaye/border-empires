@@ -44,6 +44,15 @@ describe("waystation prompt and Activate", () => {
     visible[0]!.vis = "visible";
     paint();
     expect(host.querySelector(".waystation-toast")).not.toBeNull();
+    tile.ownerId = "rival";
+    paint();
+    expect(host.querySelector(".waystation-toast")).toBeNull(); // only above rigs the player has taken
+    delete tile.ownerId;
+    paint();
+    expect(host.querySelector(".waystation-toast")).toBeNull();
+    tile.ownerId = "me";
+    paint();
+    expect(host.querySelector(".waystation-toast")).not.toBeNull();
     tile.waystation = { activated: true };
     paint();
     expect(host.querySelector(".waystation-toast")).toBeNull();

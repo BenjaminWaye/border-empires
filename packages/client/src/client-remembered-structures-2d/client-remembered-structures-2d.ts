@@ -54,7 +54,7 @@ export const drawRememberedStructures2D = (
   if (tile.observatory) drawAetherTowerSprite2D(deps.aetherTowerSprite, tile.observatory, tile.ownerId, px, py, size);
   // Without its reveal window: the reveal ring is live state, timed off the wall clock.
   if (tile.watchtower) drawWatchtower2D(ctx, { x: tile.x, y: tile.y, watchtower: { activated: tile.watchtower.activated } }, px, py, size, STOPPED_CLOCK_MS);
-  if (tile.waystation) drawWaystation2D(ctx, tile, px, py, size, STOPPED_CLOCK_MS);
+  if (tile.waystation) drawWaystation2D(ctx, tile, px, py, size, STOPPED_CLOCK_MS, true);
   if (tile.afc && !isAfcHiddenForJoinDrop(deps.afcJoinDrop, tile.x, tile.y)) drawAfc2D(ctx, tile, px, py, size, STOPPED_CLOCK_MS);
   ctx.restore();
 };

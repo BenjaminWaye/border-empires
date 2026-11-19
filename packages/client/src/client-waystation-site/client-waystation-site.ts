@@ -16,7 +16,7 @@ export const waystationActivationReason = (me: string, tile: Tile): string =>
 export const waystationActions = (state: Pick<ClientState, "me">, tile: Tile): TileActionDef[] => {
   if (!tile.waystation || tile.waystation.activated || tile.fogged) return [];
   const reason = waystationActivationReason(state.me, tile);
-  return [{ id: "activate_waystation", label: "Activate", detail: "Collect one random waystation reward. The survey rig is packed up afterwards.",
+  return [{ id: "activate_waystation", label: "Activate", detail: "Unlock the crates and collect one random waystation reward. The cache is beamed away afterwards.",
     disabled: Boolean(reason), ...(reason ? { disabledReason: reason } : { recommended: true }) }];
 };
 
