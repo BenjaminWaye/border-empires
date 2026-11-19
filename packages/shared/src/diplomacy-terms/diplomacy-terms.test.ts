@@ -129,6 +129,17 @@ describe("Coin per hour in AI deals", () => {
     expect(evaluateAiOffer(pricing(0, 0), "alliance", 12, pledge(10))).toEqual({ accepts: false, reason: "refuses" });
     expect(aiCounterOffer(earning(60, 100), "truce", 12, pledge(5), { gold: 100 })).toEqual({ kind: "counter", terms: { give: { gold: 30, coinPerHour: 5 }, ask: { gold: 0 } } });
   });
+  // Playtest 2026-11-19: a House earning 11.5 coin/day with 7 coin was told a truce was "3 coin more
+  // than you can offer" though the AI takes Coin per hour; the counter never asked for it.
+  it("counters with Coin per hour from spare income when lump-sum coin isn't enough", () => {
+    expect(aiCounterOffer(earning(60, 100), "truce", 12, emptyDiplomacyTerms(), { gold: 10 }))
+      .toEqual({ kind: "counter", terms: { give: { gold: 10, coinPerHour: 9 }, ask: { gold: 0 } } });
+    // Only spare income counts: with 2 coin/hour spare it still falls short.
+    expect(aiCounterOffer(earning(60, 2), "truce", 12, emptyDiplomacyTerms(), { gold: 10 })).toEqual({ kind: "cannotAfford", shortfall: 38 });
+    // Never for an alliance.
+    expect(aiCounterOffer({ ...pricing(0, 60), requesterSpareCoinPerHour: 100 }, "alliance", 12, emptyDiplomacyTerms(), { gold: 10 }))
+      .toEqual({ kind: "cannotAfford", shortfall: 50 });
+  });
   it("lets a truce carry Coin per hour without a slot, but not an alliance or trade", () => {
     expect(DiplomacyTermsSchema.safeParse(pledge(10)).success).toBe(true);
     expect(recurringCoinHasSlot(pledge(10))).toBe(false);

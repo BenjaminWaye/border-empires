@@ -141,8 +141,8 @@ const offerLabel = (selection: TradeSelection): string =>
 /**
  * An AI below Pleased asks tribute for an alliance (the gateway's
  * ai-diplomacy-pricing.ts): coin that wins it over -- deal payments count as
- * goodwill -- plus its alliance price. Says how the price splits, or "" when
- * no tribute is involved.
+ * goodwill. Alliances themselves are free at Pleased, so this is normally the
+ * whole price; any remainder is shown too. "" when no tribute is involved.
  */
 export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection): string => {
   if (selection.kind !== "alliance" || !reply?.found || !reply.ai || !reply.attitude || !reply.gift) return "";
@@ -150,7 +150,8 @@ export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, sel
   if (required === null || reply.attitude.score >= ATTITUDE_MIN_SCORE.PLEASED) return "";
   const winOver = giftToReach(reply.gift, reply.attitude.score, ATTITUDE_MIN_SCORE.PLEASED);
   if (winOver === undefined) return "";
-  return ` Its price is tribute: about ${winOver} coin to win it over, plus ${Math.max(0, required - winOver)} for the alliance.`;
+  const rest = Math.max(0, required - winOver);
+  return ` Its price is tribute: about ${winOver} coin to win it over${rest > 0 ? `, plus ${rest} for the alliance` : ""}.`;
 };
 
 export const formatOfferCooldown = (remainingMs: number): string => `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;

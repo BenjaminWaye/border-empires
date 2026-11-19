@@ -4,6 +4,7 @@ import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-wo
 import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
 import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
 import { SIGN_IN_LORE_QUOTE_ENTRY } from "./client-changelog-sign-in-lore-quote.js";
+import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
 import { ENVOY_PER_TRUCE_ENTRY } from "./client-changelog-envoy-per-truce.js";
 import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
@@ -486,6 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SCOUT_REACH_SPEEDUP_ENTRY, createdAt: 1795104752202, },
   { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
   { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
+  { ...FAIR_DIPLOMACY_ENTRY, createdAt: 1795121188927, },
   { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
   { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
   { ...SIGN_IN_LORE_QUOTE_ENTRY, createdAt: 1795123334962, },

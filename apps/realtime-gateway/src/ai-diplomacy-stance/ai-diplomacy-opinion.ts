@@ -102,7 +102,7 @@ export const computeAiOpinion = (input: {
   // win its land back isn't losing yet, and one being overrun is, even before
   // the tally shows it.
   const outlook = input.outlook?.kind;
-  const aiLosing = atWar && outlook !== "HOLD_FOR_REFILL" &&
+  const aiLosing = atWar && outlook !== "HOLD_FOR_REFILL" && outlook !== "RETAKE_NOW" &&
     (outlook === "SUE_FOR_PEACE" || balance <= -2 || ((input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED") && balance <= 0));
   const aiWinning = atWar && !aiLosing && (balance >= 2 || input.stanceKind === "WINNING");
   return {
