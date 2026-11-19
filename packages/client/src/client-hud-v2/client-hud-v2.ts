@@ -36,6 +36,7 @@ import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-
 import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
+import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -373,6 +374,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-compact", layout === "compact");
     // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
     if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
+    if (takeHouseChargeMapShowRequest() && screen.id) closeScreen(deps, { toMap: true }); // Show on map from a charge opened over your profile
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
     // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.
@@ -389,7 +391,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
       deps.setActivePanel("charges");
       deps.renderHud();
-    });
+    }, deps.requestViewRefresh);
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
     renderFast(deps.state, deps.ownerColor, nowMs);

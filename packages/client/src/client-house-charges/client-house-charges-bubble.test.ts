@@ -157,4 +157,21 @@ describe("sealed charges bubble", () => {
     for (let t = 2_000; t < 4_000; t += 250) syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, t, false, () => {});
     expect(getItem.mock.calls.length).toBeLessThanOrEqual(3);
   });
+
+  // Owner 2026-11-19: after Show on map there had to be an easy way back to the cards.
+  it("while a charge is shown on the map, the docked cards offer Back to cards and an x that clears it", () => {
+    const open = vi.fn();
+    const refresh = vi.fn();
+    const state = { houseCharges: deal, activePanel: null as string | null, houseChargeFocusId: "a" as string | undefined };
+    syncHouseChargesBubble({ ...state, activePanel: "charges" }, 2_000, false, open);
+    syncHouseChargesBubble(state, 3_000, false, open, refresh);
+    expect(root()?.querySelector(".hcb-focus")?.textContent).toContain("Showing: Survey a");
+    root()!.querySelector<HTMLButtonElement>(".hcb-focus .hcb-speech-open")!.click();
+    expect(open).toHaveBeenCalledOnce();
+    syncHouseChargesBubble(state, 3_250, false, open, refresh);
+    root()!.querySelector<HTMLButtonElement>("[data-hcb-action='clear-focus']")!.click();
+    expect(state.houseChargeFocusId).toBeUndefined();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(root()?.querySelector(".hcb-focus")).toBeNull();
+  });
 });

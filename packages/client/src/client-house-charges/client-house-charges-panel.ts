@@ -5,8 +5,8 @@
 // (client-house-charges-bubble.ts) and from your own profile's House Charges
 // section (client-house-charges-profile.ts).
 import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
-import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { houseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
 import { houseChargesDealing, houseChargesPickHtml, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
@@ -26,9 +26,45 @@ export type HouseChargesPanelDeps = {
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
   readonly now: () => number;
+  /** Closes the panel so the map is in view; the docked cards then offer the way back (client-house-charges-bubble.ts). */
+  readonly closePanel: () => void;
+  /** The map canvas size, to fit the whole goal on screen. */
+  readonly viewport: () => { width: number; height: number };
 };
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
+type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
+
+/** Set by Show on map so the new HUD also closes a screen the panel sat over (your profile); read once. */
+let mapShowRequested = false;
+export const takeHouseChargeMapShowRequest = (): boolean => {
+  const requested = mapShowRequested;
+  mapShowRequested = false;
+  return requested;
+};
+
+/**
+ * "Show on map": highlight the charge, frame the whole goal (both towns of a
+ * Charter, not just one) and close the panel so the map can be seen at once.
+ * The docked cards then carry a "Back to cards" note (client-house-charges-bubble.ts).
+ */
+export const showHouseChargeOnMap = (
+  state: CameraState & Pick<ClientState, "houseChargeFocusId"> & Partial<Pick<ClientState, "tiles">>,
+  charge: HouseChargeView,
+  deps: Pick<HouseChargesPanelDeps, "wrapX" | "wrapY" | "requestViewRefresh" | "closePanel" | "viewport">
+): void => {
+  const tiles = state.tiles;
+  const view = houseChargeFitView(charge, (x, y) => tiles?.has(`${x},${y}`) ?? false, deps.viewport(), state.zoom);
+  state.houseChargeFocusId = charge.id;
+  state.camX = deps.wrapX(view.x);
+  state.camY = deps.wrapY(view.y);
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.zoom = view.zoom;
+  mapShowRequested = true;
+  deps.closePanel();
+  deps.requestViewRefresh(2, true);
+};
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -137,7 +173,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
 const writtenHtml = new WeakMap<HTMLElement, string>();
 
 export const renderHouseChargesPanel = (
-  state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "houseChargeFocusId">,
+  state: PanelState & CameraState & Pick<ClientState, "houseChargeFocusId">,
   deps: HouseChargesPanelDeps
 ): void => {
   if (state.activePanel !== "charges") {
@@ -180,10 +216,7 @@ export const renderHouseChargesPanel = (
         deps.rerender();
         return;
       }
-      state.houseChargeFocusId = charge.id;
-      const tiles = state.tiles;
-      const point = houseChargeFocusPoint(charge, tiles ? (x, y) => tiles.has(`${x},${y}`) : undefined);
-      focusCameraOnTile(state, point.x, point.y, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: () => deps.requestViewRefresh(2, true) });
+      showHouseChargeOnMap(state, charge, deps);
       deps.rerender();
     };
   });
