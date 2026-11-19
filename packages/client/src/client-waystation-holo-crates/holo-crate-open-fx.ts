@@ -4,7 +4,7 @@ import type { Tile } from "../client-types.js";
 // clears an activated waystation from the map, so the client keeps a short,
 // renderer-agnostic record of each opening and both renderers play the same
 // short timeline from it (the cache leaves as soon as it is open):
-//   0     - 500 ms  the hologram padlock unlatches and dissolves
+//   0     - 500 ms  the seal orb flares and bursts
 //   300   - 1100 ms the front crate's door hinges down like a ramp
 //   400   - 1500 ms the reward core rises out of the crate
 //   1600  - 2600 ms teleport-out shimmer, then the site is gone.
@@ -69,7 +69,7 @@ const backOut = (p: number): number => {
 
 /** Every animated quantity of an opening at `ageMs`, shared by both renderers. */
 export type WaystationOpenPose = {
-  /** 0 intact padlock .. 1 fully dissolved. */
+  /** 0 intact seal orb .. 1 fully burst. */
   readonly lock: number;
   /** 0 closed .. ~1.08 (overshoot) door folded down flat. */
   readonly door: number;
