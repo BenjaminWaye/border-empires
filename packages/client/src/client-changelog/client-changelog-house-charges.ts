@@ -50,7 +50,7 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Tapping the note that your House has handed you sealed charges now opens your charges, like tapping the cards. The note also says See charges.",
       "The note's × sits further from the words, so a tap on the message no longer closes it by mistake.",
-      "You now choose your charges from a hand of cards: they are dealt face down and turn over, and you tap a card to keep it. With two kept, tapping a third swaps out your earliest pick.",
+      "You now choose your charges from a hand of cards: they are dealt face down and turn over, and you tap a card to keep it or set it aside.",
       "After you have opened your charges, the cards stay at the edge of the map with how many of your kept charges you hold. Tap them any time to see your charges."
     ]
   }

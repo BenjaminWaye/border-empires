@@ -27,10 +27,15 @@ describe("House Charges card table", () => {
     expect(slots[2]!.textContent).toContain("Tap to keep");
   });
 
-  it("a tap keeps or sets aside, and a third pick swaps out the oldest so the hand never exceeds two", () => {
-    expect(toggleHouseChargePick(["a", "b"], "a", 2)).toEqual(["b"]);
-    expect(toggleHouseChargePick(["b"], "c", 2)).toEqual(["b", "c"]);
-    expect(toggleHouseChargePick(["a", "b"], "c", 2)).toEqual(["b", "c"]);
+  // Review of #2875: auto-swapping "the oldest pick" dropped an arbitrary card of a default pair nobody had
+  // picked. A tap only changes that card; a third kept card blocks saving and the hint says to set one aside.
+  it("a tap keeps or sets aside only that card, and a third kept card blocks saving with a hint", () => {
+    expect(toggleHouseChargePick(["a", "b"], "a")).toEqual(["b"]);
+    expect(toggleHouseChargePick(["b"], "c")).toEqual(["b", "c"]);
+    expect(toggleHouseChargePick(["a", "b"], "c")).toEqual(["a", "b", "c"]);
+    const html = houseChargesPanelHtml({ activePanel: "charges", houseCharges: { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: ["a", "b", "c"] }, 5_000);
+    expect(html).toContain("You have 3 cards kept. Tap one to set it aside: you can keep only 2.");
+    expect(html).toMatch(/data-house-charges-save disabled/);
   });
 
   it("turns the cards over once per deal, the first time the table is shown", () => {
@@ -64,6 +69,6 @@ describe("House Charges card table", () => {
     renderHouseChargesPanel(state, deps);
     expect(panelEl.querySelector('[data-house-charge-pick="c"]')).toBe(card);
     card!.click();
-    expect(state.houseChargesDraftKeep).toEqual(["b", "c"]);
+    expect(state.houseChargesDraftKeep).toEqual(["a", "b", "c"]);
   });
 });

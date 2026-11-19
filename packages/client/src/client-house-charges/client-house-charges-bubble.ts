@@ -83,7 +83,7 @@ const dismissSpeech = (dealtAt: number): void => {
   writeDeal(SPEECH_KEY, dealtAt);
 };
 
-/** Whether the docked cards show their one-time note now; the first docked frame of a deal starts it. */
+/** Whether the docked cards show their one-time note now; the first docked frame after the charges were opened starts it. */
 const dockNoteShowing = (dealtAt: number, nowMs: number): boolean => {
   const deal = flagsFor(dealtAt);
   if (!deal.dockNoteSeen) {
@@ -108,7 +108,7 @@ export const houseChargesDockHtml = (payload: HouseChargesPayload, showNote: boo
   const held = kept.filter((charge) => charge.held).length;
   const note = showNote
     ? `<div class="hcb-speech sp-callout sp-callout-tail-left" role="status">
-        <button type="button" class="hcb-speech-open" data-hcb-action="open">Your charges stay here. Tap the cards any time.</button>${closeHtml}
+        <button type="button" class="hcb-speech-open" data-hcb-action="open">Your charges stay here. Tap the cards to see them again.</button>${closeHtml}
       </div>`
     : "";
   return `<button type="button" class="hcb-orb is-docked" data-hcb-action="open" aria-label="Your House charges: ${held} of ${kept.length} held">${CARDS_HTML}<span class="hcb-badge" aria-hidden="true">${held}/${kept.length}</span></button>${note}`;
@@ -118,7 +118,7 @@ export const houseChargesBubbleHtml = (payload: HouseChargesPayload, showSpeech:
   const count = payload.charges.length;
   const speech = showSpeech
     ? `<div class="hcb-speech sp-callout sp-callout-tail-left" role="status">
-        <button type="button" class="hcb-speech-open" data-hcb-action="open">Your House has handed you ${count} sealed charges. Keep ${HOUSE_CHARGES_KEPT}.<span class="hcb-speech-cta">See charges ›</span></button>
+        <button type="button" class="hcb-speech-open" data-hcb-action="open">Your House has handed you ${count} sealed charges. Keep ${HOUSE_CHARGES_KEPT}. <span class="hcb-speech-cta">See charges ›</span></button>
 ${closeHtml}
       </div>`
     : "";
@@ -161,7 +161,8 @@ const docked = (payload: HouseChargesPayload | null | undefined, nowMs: number):
 export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: number, overUi: boolean, openCharges: () => void): void => {
   if (typeof document === "undefined") return;
   const payload = state.houseCharges;
-  if (payload && state.activePanel === "charges" && houseChargesUnhandled(payload, nowMs)) markHouseChargesHandled(payload.dealtAt);
+  // Any opening counts, also with the choice closed or nothing to choose: the dock note waits for it.
+  if (payload && state.activePanel === "charges" && !flagsFor(payload.dealtAt).handled) markHouseChargesHandled(payload.dealtAt);
   let root = document.getElementById(ROOT_ID);
   const unhandled = houseChargesUnhandled(payload, nowMs);
   if (!payload || (!unhandled && !docked(payload, nowMs)) || overUi || state.activePanel !== null) {
@@ -184,7 +185,7 @@ export const syncHouseChargesBubble = (state: HouseChargesBubbleState, nowMs: nu
   const deal: HouseChargesPayload = payload;
   const html = unhandled
     ? houseChargesBubbleHtml(deal, !flagsFor(deal.dealtAt).speechDismissed)
-    : houseChargesDockHtml(deal, dockNoteShowing(deal.dealtAt, nowMs));
+    : houseChargesDockHtml(deal, flagsFor(deal.dealtAt).handled && dockNoteShowing(deal.dealtAt, nowMs));
   if (html !== lastHtml) {
     root.innerHTML = html;
     lastHtml = html;

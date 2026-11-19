@@ -1,7 +1,9 @@
 // The House Charges side panel (docs/house-charges-plan.md, "Player guidance"):
 // the House's sealed charges, whether each is held now, the keep-two choice
-// while it is open, and "Show on map". Opened from the House Charges section of
-// your own profile (client-house-charges-profile.ts).
+// while it is open (a card table, client-house-charges-pick.ts), and "Show on
+// map". Opened from the sealed-cards bubble or its docked cards
+// (client-house-charges-bubble.ts) and from your own profile's House Charges
+// section (client-house-charges-profile.ts).
 import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -78,7 +80,11 @@ const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: bool
 
 /** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
 const choiceHintHtml = (ticked: number, wanted: number): string => {
-  const text = ticked < wanted ? `Tap ${wanted - ticked} more ${wanted - ticked === 1 ? "card" : "cards"} to keep ${wanted}.` : `Press Keep these ${wanted} to confirm your new choice.`;
+  const text = ticked > wanted
+    ? `You have ${ticked} cards kept. Tap one to set it aside: you can keep only ${wanted}.`
+    : ticked < wanted
+      ? `Tap ${wanted - ticked} more ${wanted - ticked === 1 ? "card" : "cards"} to keep ${wanted}.`
+      : `Press Keep these ${wanted} to confirm your new choice.`;
   return `<p class="house-charges-hint${ticked === wanted ? "" : " is-warning"}" role="status">${text}</p>`;
 };
 
@@ -146,7 +152,7 @@ export const renderHouseChargesPanel = (
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
     card.onclick = () => {
       const current = state.houseChargesDraftKeep ?? payload.charges.filter((charge) => charge.kept).map((charge) => charge.id);
-      state.houseChargesDraftKeep = toggleHouseChargePick(current, card.dataset.houseChargePick ?? "", Math.min(HOUSE_CHARGES_KEPT, payload.charges.length));
+      state.houseChargesDraftKeep = toggleHouseChargePick(current, card.dataset.houseChargePick ?? "");
       deps.rerender();
     };
   });

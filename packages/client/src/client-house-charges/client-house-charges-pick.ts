@@ -2,8 +2,9 @@
 // the choice is open, the Charges panel deals the House's charges as trading
 // cards: they arrive face down and turn over one by one the first time the
 // panel is opened for a deal, then a tap on a card keeps it or sets it aside.
-// Two kept is a full hand: tapping a third swaps out the oldest pick, so the
-// draft is never over the limit. The details list under the table (objective,
+// A tap only keeps or sets aside that card: with a full hand the player sets one
+// aside first (a third kept card disables saving, and the hint says so); an
+// automatic swap would drop an arbitrary card of a default pair nobody picked. The details list under the table (objective,
 // letter, Show on map) is unchanged; the table replaced its Keep tick boxes.
 import type { HouseChargeView } from "@border-empires/shared";
 import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
@@ -52,12 +53,9 @@ export const resetHouseChargesPickForTests = (): void => {
   dealing = undefined;
 };
 
-/** The draft after a tap on `id`: set aside if kept, else kept, dropping the oldest pick when the hand is full. */
-export const toggleHouseChargePick = (draft: readonly string[], id: string, wanted: number): string[] => {
-  if (draft.includes(id)) return draft.filter((entry) => entry !== id);
-  const next = [...draft, id];
-  return next.length > wanted ? next.slice(next.length - wanted) : next;
-};
+/** The draft after a tap on `id`: set aside if kept, else kept. */
+export const toggleHouseChargePick = (draft: readonly string[], id: string): string[] =>
+  draft.includes(id) ? draft.filter((entry) => entry !== id) : [...draft, id];
 
 /** The table's card face: the trading card cut down to what reads at a third of a phone's width. The objective,
  * letter and progress are in the details list under the table. */
