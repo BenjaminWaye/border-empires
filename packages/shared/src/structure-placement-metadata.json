@@ -167,6 +167,11 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
+  "VIVARIUM": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
   "HARBOR_EXCHANGE": {
     "showOn": ["dock"],
     "placementMode": "same_tile",

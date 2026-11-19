@@ -53,6 +53,7 @@ import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
 import { fortTierOptionsForTile, tierRowAvailability } from "./client-structure-tier-options.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
+import { frontierBuildDetailSuffix, manpowerSupportBuildActions } from "./client-tile-action-manpower-support.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { buildDurationMsForState, buildManpowerCostForState, buildTimeLabel, relayBeaconBuildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
@@ -182,9 +183,6 @@ export const chainedBuildAvailabilityFromModule = (
     settledCostText
   ];
 };
-
-const frontierBuildDetailSuffix = (tile: Tile): string =>
-  tile.ownershipState === "FRONTIER" ? " • garrisons this tile first" : "";
 
 // Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
@@ -970,25 +968,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      if (buildShowsOnTile("ANCILLARY_DEPOT", tile, supportedTowns.length, supportedDocks.length)) {
-        out.push({
-          id: "build_ancillary_depot",
-          label: "Build Ancillary Depot",
-          detail: (deps.buildDetailTextForAction("build_ancillary_depot", tile) ?? "") + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailability(
-            ...chainedBuildAvailability(
-              "ANCILLARY_DEPOT",
-              state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "ANCILLARY_DEPOT") && !tile.siegeBattery && !tile.observatory,
-              !state.techIds.includes("organized-supply")
-                ? "Requires Reserve Custody Cadre"
-                : tile.siegeBattery || tile.observatory
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "ANCILLARY_DEPOT") ?? "Unavailable",
-              `${deps.structureCostText("ANCILLARY_DEPOT")} • ${buildTimeLabel(economicBuildMsForState(state, "ANCILLARY_DEPOT"))} • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by a Reserve Lattice network${upkeepSuffixFor("ANCILLARY_DEPOT")}`
-            )
-          )
-        });
-      }
+      out.push(...manpowerSupportBuildActions(state, tile, deps, chainedBuildAvailability, supportedTowns.length, supportedDocks.length));
       // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
       // no build clause for it, so it stops appearing in any build menu.
       // Legacy copies a player already owns keep functioning; see

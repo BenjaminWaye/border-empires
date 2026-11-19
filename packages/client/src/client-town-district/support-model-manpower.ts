@@ -5,6 +5,26 @@ import { band, gantry, housing } from "./support-model-detail.js";
 export const buildManpower = (t: TownBuilders, kind: string): boolean => {
   switch (kind) {
     case "ANCILLARY_DEPOT": depot(t); return true;
+    case "VIVARIUM":
+      // One tall ribbed glass dome over cultured biota, fed by a side nutrient tank.
+      t.body.cylinder(0.02, 0.012, 0, 0.25, 0.26, 0.05, "stoneLight", 12);
+      t.body.cylinder(0.02, 0.062, 0, 0.23, 0.23, 0.008, "trunk", 12);
+      for (const [x, z, r] of [[-0.07, -0.06, 0.05], [0.1, -0.05, 0.045], [0.04, 0.1, 0.05], [-0.1, 0.08, 0.04]] as const) {
+        t.body.blob(x, 0.08, z, r, "foliage", 0.8);
+      }
+      t.body.cylinder(0.02, 0.07, 0, 0.012, 0.012, 0.13, "trunk", 6);
+      t.glow.gem(0.02, 0.22, 0, 0.035, 0.05, "aether");
+      t.body.ellipsoid(0.02, 0.07, 0, 0.23, 0.25, 0.23, "glassLight");
+      for (let i = 0; i < 4; i += 1) {
+        const a = (i * Math.PI) / 4;
+        t.body.pipe(0.02 - Math.cos(a) * 0.23, 0.07, -Math.sin(a) * 0.23, 0.02, 0.32, 0, 0.006, "brassDark");
+        t.body.pipe(0.02 + Math.cos(a) * 0.23, 0.07, Math.sin(a) * 0.23, 0.02, 0.32, 0, 0.006, "brassDark");
+      }
+      t.body.cylinder(0.02, 0.31, 0, 0.03, 0.02, 0.05, "brass", 8);
+      t.body.cylinder(-0.29, 0.012, -0.17, 0.045, 0.05, 0.15, "iron", 8);
+      band(t, -0.29, 0.11, -0.17, 0.05);
+      t.body.pipe(-0.29, 0.13, -0.17, -0.12, 0.13, -0.12, 0.009, "brass");
+      return true;
     case "INCUBATION_ENGINE":
       // Four reclined growth capsules, one overhead nutrient distributor.
       housing(t, 0, -0.17, 0.36, 0.1, 0.085);

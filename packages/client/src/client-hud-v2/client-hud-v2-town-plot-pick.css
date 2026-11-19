@@ -1,0 +1,23 @@
+/* Phones' town plot pick (client-hud-v2-town-plot-pick.ts): the town screen's panels step aside so the
+   town's glowing plots are visible, and one bar at the foot names the building and builds or cancels. */
+.v2t-pick { display: none; }
+body.hud-v2-town-plot-picking #v2t-left,
+body.hud-v2-town-plot-picking #v2t-build,
+body.hud-v2-town-plot-picking #v2t-bar { display: none !important; }
+body.hud-v2-town-plot-picking .v2t-pick:not(:empty) { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; }
+.v2t-pick-bar {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px calc(var(--v2c-safe-right, 0px) + 14px) calc(var(--v2c-safe-bottom, 0px) + 12px) calc(var(--v2c-safe-left, 0px) + 14px);
+  background: #1a1610; border-top: 1px solid var(--v2-edge-strong); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+}
+.v2t-pick-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.v2t-pick-ico { flex: none; width: 44px; height: 44px; overflow: hidden; }
+.v2t-pick-ico > span { position: relative; display: block; width: 44px; height: 44px; overflow: hidden; }
+.v2t-pick-ico:empty { display: none; }
+.v2t-pick-text { display: flex; flex-direction: column; min-width: 0; }
+.v2t-pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--v2-display); font-size: 17px; font-weight: 700; color: var(--v2-gold-hi); }
+.v2t-pick-cost { font-size: 13px; color: var(--v2-muted); }
+.v2t-pick-hint { font-size: 13px; line-height: 1.35; color: var(--v2-muted); }
+.v2t-pick-hint.v2t-warn { color: var(--v2-amber); }
+.v2t-pick-acts { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.v2t-pick-acts .v2s-btn { min-height: 48px; }

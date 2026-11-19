@@ -5,38 +5,17 @@
   pointer-events: none;
   overflow: hidden;
 }
+/* Box, pointer and focus ring come from the shared .sp-callout (client-callout/client-callout.css). */
 .afc-upgrade-ready-badge {
   position: absolute;
   transform: translate(-50%, -100%);
   min-height: 44px;
   padding: 6px 12px;
-  border: 1px solid var(--sp-brass-300, #d9ad52);
-  border-radius: 5px;
-  color: var(--sp-brass-100, #f4dfa6);
-  background: #241812f5;
-  box-shadow: 0 3px 8px #0008;
-  font: 600 12px var(--sp-font-body, Georgia, serif);
+  line-height: normal;
   white-space: nowrap;
   pointer-events: auto;
-  touch-action: manipulation;
 }
-.afc-upgrade-ready-badge::after {
-  content: "";
-  position: absolute;
-  left: calc(50% - 4px);
-  bottom: -5px;
-  width: 8px;
-  height: 8px;
-  border-right: 1px solid var(--sp-brass-300, #d9ad52);
-  border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
-  background: #241812;
-  transform: rotate(45deg);
-}
-.afc-upgrade-ready-badge:hover { background: #3c2919; }
-.afc-upgrade-ready-badge:focus-visible {
-  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
-  outline-offset: 3px;
-}
+.afc-upgrade-ready-badge:hover { background: var(--sp-leather-700, #3c2919); }
 [data-afc-upgrade-ready] { position: relative; }
 [data-afc-upgrade-ready]::before {
   content: attr(data-afc-upgrade-ready);

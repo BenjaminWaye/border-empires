@@ -54,6 +54,18 @@ describe("buildTownEconomyView", () => {
     });
   });
 
+  it("reports a town's biota shortfall, less any Vivarium already going up", () => {
+    const tiles = mapOf([town(20, 20, "METROPOLIS"), land(21, 20, "VIVARIUM", "under_construction"), town(40, 40, "CITY")]);
+    const supply = new Map([
+      ["20,20", { received: 2, needed: 6, manpowerTier: "CITY" as const }],
+      ["40,40", { received: 1, needed: 1, manpowerTier: "CITY" as const }]
+    ]);
+    const view = buildTownEconomyView(PLAYER, ["20,20", "40,40"], tiles, emptyNetwork, supply);
+    expect(view.find((entry) => entry.townKey === "20,20")?.biotaShortSlots).toBe(3);
+    expect(view.find((entry) => entry.townKey === "40,40")?.biotaShortSlots).toBe(0);
+    expect(buildTownEconomyView(PLAYER, ["20,20"], tiles, emptyNetwork)[0]?.biotaShortSlots).toBe(0);
+  });
+
   it("reads amplifiers in connected towns from the real connected-town network", () => {
     // Two towns joined by a settled corridor; the Trade Nexus and Clearing
     // House sit at the second town only.

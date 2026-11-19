@@ -1,4 +1,4 @@
-import { networkSupplyStatus } from "../resource-networks/resource-network-status.js";
+import { biotaDemandTowns, networkSupplyStatus } from "../resource-networks/resource-network-status.js";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
@@ -12,7 +12,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { EMPIRE_INTEGRITY_INCOME_LABEL, converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_INCOME_LABEL, biotaBlend, biotaShareMet, converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -174,7 +174,10 @@ export const townGoldPerMinuteForPlayer = (
   // town's support ring — see supportedConverterGoldPerMinuteForTown.
   // Excluded for SETTLEMENT-tier towns via the early return below, same gate
   // MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN already uses.
-  converterGoldPerMinute: number = 0
+  converterGoldPerMinute: number = 0,
+  // Share of the town's luxury biota need that is met (biota-town-output.ts): a
+  // short City+ earns between a Town's coin and its own tier's.
+  biotaShare: number = 1
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -208,7 +211,7 @@ export const townGoldPerMinuteForPlayer = (
     TOWN_BASE_GOLD_PER_MIN *
     terrainGoldMultiplier *
     supportRatio *
-    townPopulationMultiplier(town.populationTier) *
+    biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(town.populationTier), biotaShare) *
     (1 + (town.connectedTownBonus ?? 0)) *
     manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, multiplicativeEffectForPlayer(player, "clearingHouseUpliftMult")) *
     firstThreeTownMult *
@@ -240,7 +243,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   // no separate captureShockUntil field) — EXCHANGE payout is suppressed
   // while mode is locked, from a build, flip, or capture reset alike.
   now: number = Date.now(),
-  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts
+  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts,
+  biotaTownSupply?: ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply>
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   let countedAfcBaseline = false;
@@ -346,7 +350,8 @@ export const buildPlayerUpdateEconomySnapshot = (
         firstThreeTownKeys,
         connectedClearingHouseKeys,
         dormantEconomicStructureKeys,
-        converterTownBonusByTileKey.get(tileKey) ?? 0
+        converterTownBonusByTileKey.get(tileKey) ?? 0,
+        biotaShareMet(biotaTownSupply?.get(tileKey))
       );
       // townGoldOutputMult excludes SETTLEMENT-tier towns, same exclusion
       // townGoldCapMult used before it — a fresh settlement's flat base rate
@@ -423,7 +428,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   return {
     incomePerMinute,
     integrityEconMult,
-    networkSupply: networkSupplyStatus(sites, summary.ownedTownTierByTile.values()),
+    networkSupply: networkSupplyStatus(sites, biotaDemandTowns(player.id, orderedTownTiles, tiles, dormantEconomicStructureKeys)),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),

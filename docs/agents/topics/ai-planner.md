@@ -121,6 +121,10 @@ policy.
   economic synergy scoring (`ai/build/economic-synergy-scoring.ts`,
   `docs/ai-economic-synergy-plan.md`). Keep it on the cached network; don't
   add a map walk.
+  Each entry also carries `biotaShortSlots` from the player's cached biota
+  allocation (`ManpowerStructureBonus.biotaTownSupply`, passed by the AI
+  advisor as `biotaTownSupply`; the memo rebuilds when that allocation object
+  changes). The scorer proposes a Vivarium only in a town that is short.
 
 ## How to find dead / wasteful AI code
 

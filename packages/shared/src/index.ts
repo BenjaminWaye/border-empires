@@ -109,6 +109,7 @@ export * from "./relics/relic-map-hints.js";
 export * from "./refineries/refinery-constants.js";
 export * from "./resource-networks/resource-networks.js";
 export * from "./resource-networks/frontier-resource-effects.js";
+export * from "./resource-networks/biota-town-output.js";
 
 export * from "./resource-networks/resource-network-biomes.js";
 

@@ -19,9 +19,9 @@ export type BarPanel = "aether" | "build" | "details" | "progress" | "status" | 
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "afc"; primary: boolean }
-  | { kind: "panel"; panel: BarPanel; label: string };
+  | { kind: "panel"; panel: BarPanel; label: string; primary?: boolean };
 
-type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress">>;
+type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress" | "modules">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   // Your own tile while Planetary Defense is capturing it: send a flag after them.
@@ -30,8 +30,11 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "march_attack_flag",
   "expand_here",
   "march_to_pick_origin",
-  // An unexplored tile: launch the scout drone (client-scout-drone/).
+  // An unexplored tile: launch the scout drone (client-scout-drone/), or call it back while it flies out.
   "explore_scout",
+  "recall_scout",
+  // Your own AFC with nothing to upgrade or call down: send the scout drone (or call it back).
+  "afc_scout_drone",
   // Only offered on your own Reclamation Works; gold while there is salvage to ship.
   "ship_salvage_to_court",
   "activate_waystation"
@@ -105,16 +108,28 @@ const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
 /** afcUpgradesReady is only set when the selected tile is the viewer's own AFC (client-hud-v2-tile-dock.ts). */
 const isOwnAfc = (view: Pick<BarView, "afcUpgradesReady">): boolean => view.afcUpgradesReady !== undefined;
 
+/** A module this AFC can call down right now (an enabled Call down row; full AFCs show only disabled ones). */
+const hasModuleToCallDown = (view: Pick<BarView, "modules">): boolean => view.modules?.actions.some((a) => !a.disabled) ?? false;
+
+/** The scout drone's AFC rows: the main action only when the AFC has nothing to upgrade or call down. */
+const SCOUT_AFC_IDS: ReadonlyArray<TileActionDef["id"]> = ["afc_scout_drone", "recall_scout"];
+
 export const selectBarButtons = (view: BarView): BarButton[] => {
   const buttons: BarButton[] = [];
   const afcReady = (view.afcUpgradesReady ?? 0) > 0;
-  const primary = afcReady ? undefined : primaryAction(view);
-  // On your own AFC, AFC upgrades and Modules lead the bar: gold unless an urgent action
-  // (e.g. hunting attackers) applies, instead of hiding in the minor row under Build ▸.
-  if (afcReady || (isOwnAfc(view) && !primary)) buttons.push({ kind: "afc", primary: true });
+  const candidate = afcReady ? undefined : primaryAction(view);
+  // A module to call down outranks only the scout drone; an urgent action (e.g. hunting attackers) keeps gold.
+  const modulesReady = !afcReady && isOwnAfc(view) && hasModuleToCallDown(view) && (!candidate || SCOUT_AFC_IDS.includes(candidate.id));
+  const primary = modulesReady ? undefined : candidate;
+  // On your own AFC, a ready AFC upgrade leads in gold, then a module to call down; with neither,
+  // Send scout drone does (PRIMARY_ORDER), unless an urgent action (e.g. hunting attackers) applies.
+  // AFC upgrades and Modules always stay on the bar instead of hiding in the minor row under Build ▸.
+  const modules: BarButton | undefined = isOwnAfc(view) && view.tabs.includes("modules") ? { kind: "panel", panel: "modules", label: "Modules ▸", primary: modulesReady } : undefined;
+  if (modulesReady && modules) buttons.push(modules);
+  if (afcReady || (isOwnAfc(view) && !primary && !modulesReady)) buttons.push({ kind: "afc", primary: true });
   if (primary) buttons.push({ kind: "action", action: primary, primary: true });
-  if (isOwnAfc(view) && primary) buttons.push({ kind: "afc", primary: false });
-  if (isOwnAfc(view) && view.tabs.includes("modules")) buttons.push({ kind: "panel", panel: "modules", label: "Modules ▸" });
+  if (isOwnAfc(view) && (primary || modulesReady)) buttons.push({ kind: "afc", primary: false });
+  if (!modulesReady && modules) buttons.push(modules);
   let secondary = 0;
   for (const id of SECONDARY_ORDER) {
     if (secondary >= MAX_SECONDARY) break;
@@ -213,7 +228,7 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
     : b.kind === "afc" ? `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}" data-hud-v2-open="afc">${(view.afcUpgradesReady ?? 0) > 0 ? `AFC upgrades · ${view.afcUpgradesReady} ready` : "AFC upgrades"}</button>`
-    : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
+    : `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""} hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).

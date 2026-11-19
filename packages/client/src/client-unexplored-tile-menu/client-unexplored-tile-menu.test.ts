@@ -89,6 +89,15 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.actions[0]?.disabledReason).toMatch(/^Scout drone is out, back in 1m 2\ds$/);
   });
 
+  it("offers Recall drone first while the drone is still flying out", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const now = Date.now();
+    state.scoutDroneFlight = { ...flight(now + 80_000), steps: [{ x: 0, y: 0, at: now - 1_000 }, { x: 1, y: 1, at: now + 40_000 }, { x: 0, y: 0, at: now + 80_000 }] };
+    const view = openAt(state, 3, 3);
+    expect(view.actions.map((action) => [action.id, action.disabled ?? false])).toEqual([["recall_scout", false], ["explore_scout", true]]);
+  });
+
   it("enables Explore again once the drone has landed", () => {
     const state = createInitialState();
     state.me = "me";
