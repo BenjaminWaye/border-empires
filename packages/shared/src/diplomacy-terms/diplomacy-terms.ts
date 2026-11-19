@@ -218,7 +218,7 @@ export type AiCounterOffer =
  * The smallest change to the requester's terms that the AI would accept,
  * never asking for more than the requester actually holds: first drop what
  * the requester asked the AI for, then ask for the requester's coin, then
- * their resource supply. If even everything they have isn't enough, the AI says so
+ * their resource supply, then (truces only) Coin per hour from their spare income. If even everything they have isn't enough, the AI says so
  * instead of naming a price they can't pay.
  */
 export const aiCounterOffer = (
@@ -266,6 +266,19 @@ export const aiCounterOffer = (
     const available = Math.max(0, (requesterHoldings.resources?.[resource] ?? 0) - (next.give.resources?.[resource] ?? 0));
     const add = Math.min(available, Math.ceil(deficit / unitValue));
     if (add > 0) { next.give.resources ??= {}; next.give.resources[resource] = (next.give.resources[resource] ?? 0) + add; deficit -= add * unitValue; }
+  }
+  // Still short after coin and supply: a truce can take Coin per hour from the
+  // requester's spare income, like Civ's gold per turn, so a small empire can
+  // still buy peace it couldn't pay for upfront.
+  if (deficit > 0 && kind === "truce") {
+    const hours = aiCoinHours(kind, durationHours, next);
+    const perCoinPerHour = hours * AI_RECURRING_COIN_VALUE_SHARE;
+    const spare = Math.max(0, Math.floor(pricing.requesterSpareCoinPerHour ?? 0) - (next.give.coinPerHour ?? 0));
+    const add = perCoinPerHour > 0 ? Math.min(spare, Math.ceil(deficit / perCoinPerHour)) : 0;
+    if (add > 0) {
+      next.give.coinPerHour = (next.give.coinPerHour ?? 0) + add;
+      deficit -= add * perCoinPerHour;
+    }
   }
   if (deficit > 0) return { kind: "cannotAfford", shortfall: Math.ceil(deficit) };
   return { kind: "counter", terms: next };
