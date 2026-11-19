@@ -833,7 +833,7 @@ export const processActionQueue = (
     const silent = !to.ownerId;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
     const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-    const combatSnapshot = actionType === "ATTACK" ? captureCombatSnapshotForAttack(state, to, deps) : undefined; state.capture = { ...baseCapture, actionType, ...(silent ? { silent: true } : {}), ...(combatSnapshot ? { combatSnapshot } : {}) }; // actionType drives the on-map claim plate (client-map-3d.ts) from dispatch, not just from ACTION_ACCEPTED; combatSnapshot: see client-attack-preview-logic.ts
+    const combatSnapshot = actionType === "ATTACK" ? captureCombatSnapshotForAttack(state, to, deps) : undefined; state.capture = { ...baseCapture, actionType, ...(actionType === "EXPAND" ? { origin: { x: from.x, y: from.y } } : {}), ...(silent ? { silent: true } : {}), ...(combatSnapshot ? { combatSnapshot } : {}) }; // actionType drives the on-map claim plate (client-map-3d.ts) from dispatch, not just from ACTION_ACCEPTED; combatSnapshot: see client-attack-preview-logic.ts
     attackSyncLog("queue-dispatch", {
       actionType,
       target: { x: to.x, y: to.y },

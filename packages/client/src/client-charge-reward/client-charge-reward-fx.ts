@@ -36,9 +36,16 @@ export const burstFrom = (host: HTMLElement, rarity: HouseChargeRarity): void =>
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
 
-/** Counts `el` from `from` to `to` over `durationMs`, pulsing on each whole step; resolves when done. */
-export const countUp = (el: HTMLElement, from: number, to: number, durationMs: number): Promise<void> =>
+/**
+ * Counts `el` from `from` to `to` over `durationMs`, pulsing on each whole step; resolves when done. Once
+ * `cancelled()` is true it stops writing and resolves (Skip has already shown the final total).
+ */
+export const countUp = (el: HTMLElement, from: number, to: number, durationMs: number, cancelled: () => boolean = () => false): Promise<void> =>
   new Promise((resolve) => {
+    if (cancelled()) {
+      resolve();
+      return;
+    }
     const format = (value: number): string => Math.round(value).toLocaleString();
     if (prefersReducedMotion() || durationMs <= 0 || to === from || typeof window.requestAnimationFrame !== "function") {
       el.textContent = format(to);
@@ -50,6 +57,10 @@ export const countUp = (el: HTMLElement, from: number, to: number, durationMs: n
     let shown = Math.round(from);
     el.textContent = format(from);
     const step = (now: number): void => {
+      if (cancelled()) {
+        resolve();
+        return;
+      }
       start ??= now;
       const t = Math.min(1, (now - start) / durationMs);
       const value = Math.round(from + (to - from) * easeOutCubic(t));
