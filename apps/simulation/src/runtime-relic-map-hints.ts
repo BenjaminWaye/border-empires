@@ -18,22 +18,19 @@ export class RelicMapHintIndex {
   private readonly siteKeys = new Set<string>();
   /** Site key -> the House whose wake it gives off (absent while silent). */
   private readonly wakeOwners = new Map<string, string>();
-  private wakeChangePending = false;
-  /** `onWakeChanged` runs once, after the current task, when any relic starts, stops or changes hands operating. */
+  /** `onWakeChanged` runs synchronously whenever a relic starts, stops or changes hands operating (the caller defers and coalesces: relic-wake-broadcast.ts). */
   constructor(private readonly onWakeChanged?: () => void) {}
-  refresh(key: string, tile: DomainTileState): void {
-    if (!isRedesignedRelic(tile.naturalWonder)) { this.siteKeys.delete(key); this.setWake(key, undefined); return; }
+  /** `notify` is false while seeding at boot: a restart changes no wake anyone could see. */
+  refresh(key: string, tile: DomainTileState, notify = true): void {
+    if (!isRedesignedRelic(tile.naturalWonder)) { this.siteKeys.delete(key); this.setWake(key, undefined, notify); return; }
     if (!this.siteKeys.has(key) && this.siteKeys.size >= 9) throw new RangeError("World relic limit exceeded");
     this.siteKeys.add(key);
-    this.setWake(key, relicWakeOwner(tile));
+    this.setWake(key, relicWakeOwner(tile), notify);
   }
-  private setWake(key: string, ownerId: string | undefined): void {
+  private setWake(key: string, ownerId: string | undefined, notify: boolean): void {
     if (this.wakeOwners.get(key) === ownerId) return;
     if (ownerId) this.wakeOwners.set(key, ownerId); else this.wakeOwners.delete(key);
-    // Coalesced: one capture writes the whole nine-tile site, and a burst of writes is one broadcast.
-    if (!this.onWakeChanged || this.wakeChangePending) return;
-    this.wakeChangePending = true;
-    queueMicrotask(() => { this.wakeChangePending = false; this.onWakeChanged?.(); });
+    if (notify) this.onWakeChanged?.();
   }
   hintsFor(context: RelicReadContext, player: DomainPlayer): RelicMapHint[] {
     const hints: RelicMapHint[] = [];

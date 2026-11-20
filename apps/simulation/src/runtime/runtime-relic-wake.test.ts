@@ -34,31 +34,28 @@ describe("relic aether wake", () => {
     expect(relicWakeOwner(relic({ ownershipState: "FRONTIER" }))).toBeUndefined();
   });
 
-  it("notifies once per burst of changes, when a relic starts, changes hands or stops operating", async () => {
+  it("notifies on each start, change of hands or stop, but not while seeding at boot", () => {
     let calls = 0;
     const index = new RelicMapHintIndex(() => { calls += 1; });
-    index.refresh("40,40", relic({ ownershipState: "FRONTIER" }));
-    await Promise.resolve();
+    index.refresh("40,40", relic(), false);
     expect(calls).toBe(0);
     index.refresh("40,40", relic());
-    index.refresh("40,40", relic());
-    await Promise.resolve();
-    expect(calls).toBe(1);
+    expect(calls).toBe(0);
     index.refresh("40,40", relic({ ownerId: "rival" }));
     index.refresh("40,40", relic({ ownerId: "rival", ownershipState: "FRONTIER" }));
-    await Promise.resolve();
-    expect(calls).toBe(2);
     index.refresh("40,40", relic({ ownerId: "rival", ownershipState: "FRONTIER" }));
-    await Promise.resolve();
     expect(calls).toBe(2);
   });
 });
 
 describe("relic aether wake in the runtime", () => {
   it("pushes the wake to another human House when a rival garrisons a relic", async () => {
-    const runtime = new SimulationRuntime({ now: () => 1000, scheduleAfter: () => {}, initialPlayers: new Map([
+    const scheduled: Array<() => void> = [];
+    const runtime = new SimulationRuntime({ now: () => 1000, scheduleAfter: (_delay, task) => { scheduled.push(task); }, isPlayerSubscribed: (id) => id !== "offline", initialPlayers: new Map([
       ["p", buildPlayer("p", { points: 1000, manpower: 1000 })],
-      ["far", buildPlayer("far")]
+      ["far", buildPlayer("far")],
+      ["offline", buildPlayer("offline")],
+      ["bot", buildPlayer("bot", { isAi: true })]
     ]), initialState: {
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "FRONTIER", naturalWonder: createRelicState("QUICKFORGE") },
@@ -67,14 +64,28 @@ describe("relic aether wake in the runtime", () => {
       activeLocks: []
     } });
     const events = collectEvents(runtime);
+    const wakeUpdatesFor = (playerId: string) => events
+      .filter((event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> => event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE" && event.playerId === playerId)
+      .map((event) => (JSON.parse(event.payloadJson) as { relicMapHints?: unknown[] }).relicMapHints);
     const command = { sessionId: "s", playerId: "p", issuedAt: 1000, payloadJson: JSON.stringify({ x: 10, y: 10 }) };
     runtime.submitCommand({ ...command, commandId: "settle", clientSeq: 1, type: "SETTLE" }); await Promise.resolve();
     runtime.submitCommand({ ...command, commandId: "rush", clientSeq: 2, type: "RUSH_BUY" }); await Promise.resolve();
-    await Promise.resolve();
+    // Nothing reaches the far House inside the command turn: the broadcast waits for the scheduler.
+    expect(wakeUpdatesFor("far")).toEqual([]);
+    for (const task of scheduled.splice(0)) task();
     expect(events.filter((event) => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    const farHints = events
-      .filter((event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> => event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE" && event.playerId === "far")
-      .map((event) => (JSON.parse(event.payloadJson) as { relicMapHints?: unknown[] }).relicMapHints);
-    expect(farHints.at(-1)).toEqual([{ x: 10, y: 10, kind: "WAKE", ownerId: "p" }]);
+    expect(wakeUpdatesFor("far")).toEqual([[{ x: 10, y: 10, kind: "WAKE", ownerId: "p" }]]);
+    expect(wakeUpdatesFor("offline")).toEqual([]);
+    expect(wakeUpdatesFor("bot")).toEqual([]);
+  });
+
+  it("sends nothing on restart for a relic that was already operating", () => {
+    const scheduled: Array<() => void> = [];
+    new SimulationRuntime({ now: () => 1000, scheduleAfter: (_delay, task) => { scheduled.push(task); }, isPlayerSubscribed: () => true, initialPlayers: new Map([["p", buildPlayer("p")], ["far", buildPlayer("far")]]), initialState: {
+      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", naturalWonder: createRelicState("QUICKFORGE") }],
+      activeLocks: []
+    } });
+    const wakeTasks = scheduled.length;
+    expect(wakeTasks).toBe(0);
   });
 });
