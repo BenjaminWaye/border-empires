@@ -47,6 +47,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   dominance?: DominanceSizing;
   /** Towns the requester could hand back (simulation GetPlayerTradeHoldings); the AI prices the ones it lost. */
   returnableTowns?: readonly ReturnableTown[];
+  /** Names of the requester's allies the AI is at war with (requesterAlliesAtWarWithAi): it refuses an alliance. */
+  requesterAlliesAtWarWithAi: readonly string[];
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -182,6 +184,7 @@ export const evaluateAiDiplomacy = (input: {
     temperament,
     outlook,
     aiPlayerId: input.aiPlayerId,
+    requesterAlliesAtWarWithAi: input.requesterAlliesAtWarWithAi,
     ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
     now: input.now
   });

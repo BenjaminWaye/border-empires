@@ -20,7 +20,7 @@ function setup(manpower = 900, goodwillCoin = 6000) {
   memory.recordPayment("ai-1", "human", goodwillCoin);
   const diplomacyContext = (requesterId: string, aiId: string) => ({ requesterBrokeTruceWithAi: false,
     requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory.view(aiId, requesterId), now: Date.now(),
-    alliesOf: (id: string) => social.snapshotForPlayer(id).allies });
+    alliesOf: (id: string) => social.snapshotForPlayer(id).allies, requesterAlliesAtWarWithAi: [] });
   for (const snapshot of Object.values(snapshots)) {
     snapshot.worldStatus = { leaderboard: { overall: [{ id: "ai-1", tiles: 2 }, { id: "human", tiles: 1 }] } };
     snapshot.player!.incomePerMinute = 1;

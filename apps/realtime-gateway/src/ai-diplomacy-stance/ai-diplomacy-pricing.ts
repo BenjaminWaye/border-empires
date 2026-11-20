@@ -25,10 +25,11 @@
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
-// a day, and -- when the resulting bloc would hold 40%+ of the world's land --
-// would be its largest member (Diplomatic Dominance victory goes to the bloc's
-// largest member); the AI never pays to
-// join one. An AI below Pleased that payments could still win over (the
+// a day, isn't at war with any of the player's allies (ai-enemy-allies.ts: no
+// price buys an alliance with a friend of its enemy), and -- when the
+// resulting bloc would hold 40%+ of the world's land -- would be its largest
+// member (Diplomatic Dominance victory goes to the bloc's largest member);
+// the AI never pays to join one. An AI below Pleased that payments could still win over (the
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
 // lifts it to Pleased -- deal payments count as goodwill once accepted.
 // Past that an alliance costs nothing: it is earned, not bought.
@@ -38,6 +39,7 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
+import { joinNames } from "./ai-enemy-allies.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import type { AiWarOutlook } from "./ai-war-outlook.js";
 import { pricedReturnableTowns } from "./ai-town-return-value.js";
@@ -120,6 +122,8 @@ export const aiDiplomacyPricing = (input: {
   returnableTowns?: readonly ReturnableTown[];
   /** This AI's id, to pick its own towns out of returnableTowns. */
   aiPlayerId?: string;
+  /** Names of the requester's allies this AI is at war with (ai-enemy-allies.ts); it won't ally with their friend. */
+  requesterAlliesAtWarWithAi?: readonly string[];
   now: number;
 }): AiDiplomacyPricingResult => {
   const temperament = input.temperament ?? AI_TEMPERAMENTS.MEASURED;
@@ -211,9 +215,12 @@ export const aiDiplomacyPricing = (input: {
   // Below Pleased, tribute that wins the AI over stands in for the attitude it lacks.
   const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
   const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
+  const enemyAllies = input.requesterAlliesAtWarWithAi ?? [];
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
+  // No tribute buys this one: allying would bind the AI to peace with its enemy's friend mid-war.
+  else if (enemyAllies.length > 0) allianceRefusal = `${aiName} won't ally with a friend of ${joinNames(enemyAllies)} while they are at war.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;

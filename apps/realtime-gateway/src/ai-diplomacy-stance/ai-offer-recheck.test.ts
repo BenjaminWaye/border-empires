@@ -25,7 +25,8 @@ const context = (memory: Partial<AiDiplomacyContext["memory"]> = {}): AiDiplomac
     ...memory
   },
   now: NOW,
-  alliesOf: () => []
+  alliesOf: () => [],
+  requesterAlliesAtWarWithAi: []
 });
 
 // Neighbours (touching borders), evenly matched, AI earns 2 coin/min.
