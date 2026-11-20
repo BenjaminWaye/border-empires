@@ -148,8 +148,10 @@ describe("Planetary Defense captures", () => {
     expect(runtime.barbarianStateSizes()).toMatchObject({ camps: 0, tiles: 0 });
   });
 
-  // Review regression: the per-fight change report said SETTLED for a town taken
-  // at the camp cap, while the capture itself lands as FRONTIER.
+  // Review regressions: the per-fight change report said SETTLED for a town taken
+  // at the camp cap, while the capture itself lands as FRONTIER; and the report
+  // is built when the lock starts, so it is re-derived at resolution (a camp can
+  // be founded or lost while the fight runs).
   it("at the camp cap a taken town is frontier, and the fight's report says so", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const otherCamps = Array.from({ length: MAX_PLANETARY_DEFENSE_CAMPS - 1 }, (_, i) => camp(100 + (i % 20) * 5, 100 + Math.floor(i / 20) * 5));
@@ -164,6 +166,26 @@ describe("Planetary Defense captures", () => {
     });
     await resolve();
     expect(tile(10, 11)).toMatchObject({ ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "10,10" });
+    expect(reported).toEqual(["10,11:FRONTIER"]);
+  });
+
+  it("a fight that started below the cap but resolves at it is reported as frontier", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const otherCamps = Array.from({ length: MAX_PLANETARY_DEFENSE_CAMPS - 2 }, (_, i) => camp(100 + (i % 20) * 5, 100 + Math.floor(i / 20) * 5));
+    const { runtime, resolve, tile } = buildRuntime(
+      [camp(10, 10), { x: 10, y: 11, ownerId: "player-1", ownershipState: "SETTLED", town }, { x: 30, y: 30, ownerId: "player-1", ownershipState: "SETTLED" }, { x: 60, y: 60, terrain: "LAND", dockId: "d-late" }, ...otherCamps],
+      { attackerId: "barbarian-1", actionType: "ATTACK", origin: [10, 10], target: [10, 11] }
+    );
+    expect(runtime.barbarianStateSizes().camps).toBe(MAX_PLANETARY_DEFENSE_CAMPS - 1);
+    // Another camp is founded while this fight runs, reaching the cap.
+    (runtime as unknown as { replaceTileState: (key: string, tile: DomainTileState, commandId?: string) => void })
+      .replaceTileState("60,60", { x: 60, y: 60, terrain: "LAND", dockId: "d-late", ownerId: "barbarian-1", ownershipState: "SETTLED", campId: "60,60" }, "test-found");
+    const reported: string[] = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMBAT_RESOLVED") for (const change of event.combatResult?.changes ?? []) reported.push(`${change.x},${change.y}:${change.ownershipState}`);
+    });
+    await resolve();
+    expect(tile(10, 11)).toMatchObject({ ownershipState: "FRONTIER" });
     expect(reported).toEqual(["10,11:FRONTIER"]);
   });
 

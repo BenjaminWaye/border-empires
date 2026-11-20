@@ -15,6 +15,8 @@ import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { applyResourceTileSteal } from "./runtime-resource-steal.js";
+import { withPlanetaryDefenseChangeStates } from "./planetary-defense-camps/camp-rules.js";
+import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactDock, PersonalImpactMuster, PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
@@ -169,7 +171,10 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
     originOwnerId === lock.playerId;
   const bounty = attacker ? afcPlanetaryDefenseBounty({ attackerWon, actionType: lock.actionType, previousTarget, bountyPerCamp: additiveEffectForPlayer(attacker, "barbarianCaptureCoinBonus") }) : 0;
-  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder + bounty);
+  const reportedResult = withAfcCapturePlunder(
+    combatResult && { ...combatResult, changes: withPlanetaryDefenseChangeStates(combatResult.changes, (x, y) => context.tiles.get(simulationTileKey(x, y)), context.planetaryDefenseCampCount()) },
+    afcPlunder + bounty
+  );
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense

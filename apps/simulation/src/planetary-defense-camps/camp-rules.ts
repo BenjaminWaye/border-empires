@@ -52,3 +52,19 @@ export const releasedPlanetaryDefenseTile = (tile: DomainTileState): DomainTileS
   ...(tile.waystation ? { waystation: tile.waystation } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {})
 });
+
+/**
+ * A fight's reported changes, with each Planetary Defense capture's ownership
+ * state worked out now, at resolution. The fight result is built when the lock
+ * starts; by the time it resolves the camp count may have crossed the cap.
+ */
+export const withPlanetaryDefenseChangeStates = <C extends { x: number; y: number; ownerId?: string; ownershipState?: string }>(
+  changes: readonly C[],
+  tileAt: (x: number, y: number) => Pick<DomainTileState, "town" | "dockId"> | undefined,
+  campCount: number
+): C[] =>
+  changes.map((change) =>
+    isPlanetaryDefenseOwner(change.ownerId)
+      ? { ...change, ownershipState: planetaryDefenseCaptureFields({ targetKey: `${change.x},${change.y}`, previousTarget: tileAt(change.x, change.y), sourceCampId: undefined, campCount }).ownershipState }
+      : change
+  );

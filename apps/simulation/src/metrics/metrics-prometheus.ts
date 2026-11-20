@@ -40,8 +40,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_barbarian_camp_awake_drift_total ${formatMetricValue(sample.simBarbarianCampAwakeDriftTotal)}`,
     "# TYPE sim_barbarian_camp_tiles_released_total counter",
     `sim_barbarian_camp_tiles_released_total ${formatMetricValue(sample.simBarbarianCampTilesReleasedTotal)}`,
-    "# TYPE sim_visibility_footprint_ledger_entries gauge",
-    `sim_visibility_footprint_ledger_entries ${formatMetricValue(sample.simVisibilityFootprintLedgerEntries)}`,
     "# TYPE sim_manpower_cap_bootstrap_restamped_total counter",
     `sim_manpower_cap_bootstrap_restamped_total ${formatMetricValue(sample.simManpowerCapBootstrapRestampedTotal)}`,
     "# TYPE sim_territory_flip_log_entries gauge",

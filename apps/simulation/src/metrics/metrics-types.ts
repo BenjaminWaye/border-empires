@@ -148,8 +148,6 @@ export type SimulationMetricsSnapshot = {
   simBarbarianDirtyCamps: number;
   simBarbarianCampAwakeDriftTotal: number;
   simBarbarianCampTilesReleasedTotal: number;
-  /** Live terrain-dependent vision contributions remembered so removal subtracts the same cells (visibility-footprint-ledger.ts). */
-  simVisibilityFootprintLedgerEntries: number;
   simManpowerCapBootstrapRestampedTotal: number;
   simTerritoryFlipLogEntries: number;
   simCombatManpowerLogEntries: number;

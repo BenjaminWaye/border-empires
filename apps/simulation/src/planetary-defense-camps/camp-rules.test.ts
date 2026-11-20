@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_PLANETARY_DEFENSE_CAMPS } from "@border-empires/shared";
-import { foundsCamp, isPlanetaryDefenseCampTile, planetaryDefenseCaptureFields, releasedPlanetaryDefenseTile } from "./camp-rules.js";
+import { foundsCamp, isPlanetaryDefenseCampTile, planetaryDefenseCaptureFields, releasedPlanetaryDefenseTile, withPlanetaryDefenseChangeStates } from "./camp-rules.js";
 
 const town = { type: "FARMING" as const, populationTier: "TOWN" as const };
 
@@ -49,5 +49,16 @@ describe("Planetary Defense camp rules", () => {
       campId: "5,5"
     });
     expect(released).toEqual({ x: 5, y: 5, terrain: "LAND", resource: "FARM", town });
+  });
+
+  it("re-derives a fight's reported Planetary Defense change at resolution, leaving House changes alone", () => {
+    // Built when the lock started (below the cap): SETTLED. Resolving at the cap: FRONTIER.
+    const started = [{ x: 5, y: 5, ownerId: "barbarian-1", ownershipState: "SETTLED" as const }, { x: 6, y: 6, ownerId: "player-1", ownershipState: "FRONTIER" as const }];
+    const tileAt = (x: number) => (x === 5 ? { town } : {});
+    expect(withPlanetaryDefenseChangeStates(started, tileAt, MAX_PLANETARY_DEFENSE_CAMPS)).toEqual([
+      { x: 5, y: 5, ownerId: "barbarian-1", ownershipState: "FRONTIER" },
+      { x: 6, y: 6, ownerId: "player-1", ownershipState: "FRONTIER" }
+    ]);
+    expect(withPlanetaryDefenseChangeStates(started, tileAt, 3)[0]?.ownershipState).toBe("SETTLED");
   });
 });

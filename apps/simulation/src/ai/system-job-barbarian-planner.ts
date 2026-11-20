@@ -251,7 +251,8 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     inFlightCount: () => inFlightByCommandId.size,
     restUntilByCamp,
     exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, now()),
-    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp)
+    // A saved rest can't outlast one full rest from now: a corrupt or far-future value must not silence a camp.
+    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp, now() + restMs)
   };
 };
 
@@ -273,11 +274,16 @@ const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsB
   return { camps };
 };
 
-/** Ignores malformed entries rather than failing a boot. */
-const restorePlannerState = (snapshot: PlanetaryDefensePlannerSnapshot | undefined, restUntilByCamp: Map<string, number>, raidsByCamp: RaidsByCamp): void => {
+/** Ignores malformed entries rather than failing a boot; a rest is clamped to `maxRestUntil`. */
+const restorePlannerState = (
+  snapshot: PlanetaryDefensePlannerSnapshot | undefined,
+  restUntilByCamp: Map<string, number>,
+  raidsByCamp: RaidsByCamp,
+  maxRestUntil: number
+): void => {
   for (const camp of snapshot?.camps ?? []) {
     if (typeof camp?.campId !== "string") continue;
-    if (typeof camp.restUntil === "number" && Number.isFinite(camp.restUntil)) restUntilByCamp.set(camp.campId, camp.restUntil);
+    if (typeof camp.restUntil === "number" && Number.isFinite(camp.restUntil)) restUntilByCamp.set(camp.campId, Math.min(camp.restUntil, maxRestUntil));
     const byHouse = new Map<string, { windowStart: number; count: number }>();
     for (const raid of camp.raids ?? []) {
       if (typeof raid?.houseId === "string" && Number.isFinite(raid.windowStart) && Number.isInteger(raid.count) && raid.count > 0) {

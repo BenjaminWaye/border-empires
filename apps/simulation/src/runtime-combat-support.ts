@@ -68,7 +68,7 @@ export type RuntimeCombatSupportContext = {
   locksByCommandId: Map<string, LockRecord>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   /** Live Planetary Defense camps, so the reported change matches the capture at the camp cap (camp-rules.ts). */
-  planetaryDefenseCampCount?: () => number;
+  planetaryDefenseCampCount: () => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   tileDeltaRevealOnly: (tile: DomainTileState, playerId: string) => SimulationTileWireDelta;
@@ -414,7 +414,7 @@ const capturedOwnershipState = (
   previous: DomainTileState | undefined
 ): "SETTLED" | "FRONTIER" =>
   isPlanetaryDefenseOwner(captorId)
-    ? planetaryDefenseCaptureFields({ targetKey: tileKey, previousTarget: previous, sourceCampId: undefined, campCount: ctx.planetaryDefenseCampCount?.() ?? 0 }).ownershipState
+    ? planetaryDefenseCaptureFields({ targetKey: tileKey, previousTarget: previous, sourceCampId: undefined, campCount: ctx.planetaryDefenseCampCount() }).ownershipState
     : "FRONTIER";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;

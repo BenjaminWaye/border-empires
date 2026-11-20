@@ -126,7 +126,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   const activityLogMetrics = createActivityLogMetrics();
   const barbarianCampMetrics = createBarbarianCampMetrics();
-  let simVisibilityFootprintLedgerEntries = 0;
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
   let simEphemeralCommandPersistSkippedTotal = 0;
@@ -159,7 +158,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simOwnedTilesTotal,
     simMaxEmpireTiles,
     ...barbarianCampMetrics.snapshot(),
-    simVisibilityFootprintLedgerEntries,
     simManpowerCapBootstrapRestampedTotal,
     ...activityLogMetrics.snapshot(),
     ...runtimeCounters.snapshot(),
@@ -273,7 +271,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       simMaxEmpireTiles = clampMetric(value);
     },
     setSimBarbarianState: barbarianCampMetrics.set,
-    setSimVisibilityFootprintLedgerEntries(value: number): void { simVisibilityFootprintLedgerEntries = clampMetric(value); },
     setSimManpowerCapBootstrapRestampedTotal(value: number): void {
       simManpowerCapBootstrapRestampedTotal = clampMetric(value);
     },

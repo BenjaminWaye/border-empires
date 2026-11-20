@@ -248,12 +248,11 @@ producer tests in `ai/`):
 - After review: rejected attacks refund the budget and raid and the target is
   avoided for 60s; the boot conversion is persisted as an event; a tile won
   after its camp fell collapses; landmark tiles share `campId`; camp rest and
-  raid counts are saved in snapshots (`planetaryDefensePlanner`); the
-  per-fight change report applies the camp cap; vision footprints are removed
-  with the exact cells they added, so a terrain change between add and remove
-  no longer leaves tiles stuck visible or drops them early (this affected all
-  fog edges, not just camp waking; `visibility-footprint-ledger.ts`, gauge
-  `sim_visibility_footprint_ledger_entries`).
+  raid counts are saved in snapshots (`planetaryDefensePlanner`; a rest is
+  clamped to one full rest on restore; a crash loses what changed since the
+  last snapshot, and a command in flight at restart sets no rest); the
+  per-fight change report is re-derived at resolution, so it matches the
+  capture at the camp cap.
 
 Not built:
 - Stage 3 (client): no camp marker, soldier display rule or tap highlight in
@@ -273,6 +272,15 @@ Known follow-ups (accepted for now):
   old walk release did; keeping barbarian-owned structures on neutral ground
   needs its own rule.
 - Admin live seeding (`runtime-live-barbarians.ts`) does not check the camp cap.
+- Pre-existing vision drift, separate PR: removing a vision footprint
+  recomputes its cells from live terrain, so a mountain removed (or forest
+  cleared) in range between add and remove leaves cells counted wrongly, and a
+  newly raised mountain does not block existing vision until those sources
+  change. This affects all fog edges, not only camps (camp awake counts
+  self-heal through the 5-minute verify). The fix is to refresh the vision
+  sources in range at the three terrain-changing sites (CREATE_MOUNTAIN,
+  REMOVE_MOUNTAIN, AFC forest clearing); a per-contribution ledger was tried
+  and reverted (memory cost, reason-key collisions, still stale vision).
 
 ## Staged implementation
 

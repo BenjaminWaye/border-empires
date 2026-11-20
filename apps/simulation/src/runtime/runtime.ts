@@ -2000,7 +2000,7 @@ export class SimulationRuntime {
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
   afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, activeHijacks: this.activeHijackCount, globalLosses: this.state.afcGlobalLosses, aiRecoverySearches: afcRecoverySearchCount(this.playerSummaries.values()) }; }
 
-  barbarianStateSizes(): ReturnType<PlanetaryDefenseCamps["sizes"]> { return this.planetaryDefenseCamps.sizes(); } visibilityFootprintLedgerSize(): number { return this.state.visibilityCoverage.footprintLedgerSize(); }
+  barbarianStateSizes(): ReturnType<PlanetaryDefenseCamps["sizes"]> { return this.planetaryDefenseCamps.sizes(); }
 
   /** Planetary Defense camps a watcher (an AI, or a human with the game open) can see now (planetary-defense-camps/camp-awake-tracker.ts). */
   exportAwakeCampIds(): string[] { return this.planetaryDefenseCamps.awakeCampIds(); }

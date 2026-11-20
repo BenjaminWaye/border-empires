@@ -8,7 +8,6 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
 import { addReasonCount, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
 import { parseVisibilityTileKey as parseTileKey } from "./visibility-tile-key.js";
-import { VisibilityFootprintLedger, type FootprintOffsets } from "./visibility-footprint-ledger.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
 
@@ -33,8 +32,6 @@ export class VisibilityCoverageCache {
   // only two places a cell's coverage crosses zero. Feeds the Planetary
   // Defense camp awake counts (planetary-defense-camps/camp-awake-tracker.ts).
   private readonly onCoverageEdge: ((viewerId: string, tileKey: string, entered: boolean) => void) | undefined;
-  // The exact cells each terrain-dependent contribution added (visibility-footprint-ledger.ts).
-  private readonly ledger = new VisibilityFootprintLedger();
 
   constructor(
     worldWidth: number,
@@ -88,8 +85,7 @@ export class VisibilityCoverageCache {
    * edge, not every refcount increment). Kept allocation-free on the hot
    * O(radius²) path — no per-cell closures beyond the one passed in.
    * `ignoreForest` (outpost rings) skips forest occlusion; pass the same value to the
-   * matching remove. The cells added are recorded, so the remove subtracts the
-   * same cells even if terrain in range changed in between.
+   * matching remove (a mountain edit in range between the two still shifts the cells).
    */
   addFootprint(
     viewerId: string,
@@ -101,9 +97,7 @@ export class VisibilityCoverageCache {
     ignoreForest = false
   ): void {
     const map = this.mapFor(viewerId);
-    const offsets = this.footprintTable?.getOffsets(x, y, radius, ignoreForest);
-    if (offsets) this.ledger.record(viewerId, VisibilityFootprintLedger.keyFor(x, y, radius, ignoreForest), offsets);
-    this.forEachDilatedCell(x, y, radius, offsets, (key) => {
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
       const next = (map.get(key) ?? 0) + 1;
       map.set(key, next);
       if (reason) addReasonCount(this.reasons, viewerId, key, reason);
@@ -130,10 +124,7 @@ export class VisibilityCoverageCache {
   ): void {
     const map = this.coverage.get(viewerId);
     if (!map) return;
-    const offsets = this.footprintTable
-      ? this.ledger.take(viewerId, VisibilityFootprintLedger.keyFor(x, y, radius, ignoreForest)) ?? this.footprintTable.getOffsets(x, y, radius, ignoreForest)
-      : undefined;
-    this.forEachDilatedCell(x, y, radius, offsets, (key) => {
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
       if (reason) removeReasonCount(this.reasons, viewerId, key, reason);
       const next = (map.get(key) ?? 0) - 1;
       if (next <= 0) {
@@ -186,17 +177,11 @@ export class VisibilityCoverageCache {
     return map;
   }
 
-  /** Live terrain-dependent contributions recorded in the footprint ledger (gauge). */
-  footprintLedgerSize(): number {
-    return this.ledger.size();
-  }
-
-  /** `offsets` from the footprint table, or the plain (2r+1)² square when there is no table. */
-  private forEachDilatedCell(x: number, y: number, radius: number, offsets: FootprintOffsets | undefined, cb: (key: string) => void): void {
+  private forEachDilatedCell(x: number, y: number, radius: number, ignoreForest: boolean, cb: (key: string) => void): void {
     const W = this.worldWidth;
     const H = this.worldHeight;
-    if (offsets) {
-      for (const [dx, dy] of offsets) {
+    if (this.footprintTable) {
+      for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius, ignoreForest)) {
         const nx = ((x + dx) % W + W) % W;
         const ny = ((y + dy) % H + H) % H;
         cb(simulationTileKey(nx, ny));
