@@ -17,7 +17,7 @@ const slotHtml = (entry: ChargeReward["cards"][number], index: number): string =
       <div class="cr-face cr-front">${houseChargeCardHtml(entry.card)}</div>
     </div>
     <span class="cr-chip" aria-hidden="true">+${entry.domain}</span>
-    <span class="cr-rarity">${rarityDomainLabel(entry.card.rarity)}</span>
+    <span class="cr-rarity">${rarityDomainLabel(entry.card)}</span>
   </li>`;
 
 export const chargeRewardHtml = (reward: ChargeReward): string => {
