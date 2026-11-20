@@ -51,7 +51,7 @@ export const hudMarkup = `
         <div id="map-loading-meta">Preparing map data...</div>
       </div>
     </div>
-    <figure id="map-loading-quote" hidden>
+    <figure id="map-loading-quote" class="lore-quote" hidden>
       <blockquote id="map-loading-quote-text"></blockquote>
       <figcaption id="map-loading-quote-source"></figcaption>
     </figure>
@@ -198,6 +198,10 @@ export const hudMarkup = `
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
           <div id="auth-busy-progress" class="auth-busy-progress" role="progressbar" aria-label="World download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="auth-busy-progress-fill"></div></div>
+          <figure id="auth-busy-quote" class="lore-quote" hidden>
+            <blockquote></blockquote>
+            <figcaption></figcaption>
+          </figure>
           <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
           <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Join the waitlist for the next Sector</button>
         </div>

@@ -1,14 +1,14 @@
-#map-loading-quote {
+.lore-quote {
   margin: 8px 0 0;
   padding: 8px 0 0;
   border-top: 1px solid rgba(190, 216, 255, 0.16);
 }
 
-#map-loading-quote[hidden] {
+.lore-quote[hidden] {
   display: none;
 }
 
-#map-loading-quote-text {
+.lore-quote blockquote {
   margin: 0;
   color: rgba(232, 242, 255, 0.9);
   font-size: 12px;
@@ -16,21 +16,36 @@
   line-height: 1.4;
 }
 
-#map-loading-quote-text::before {
+.lore-quote blockquote::before {
   content: "\201C";
 }
 
-#map-loading-quote-text::after {
+.lore-quote blockquote::after {
   content: "\201D";
 }
 
-#map-loading-quote-source {
+.lore-quote figcaption {
   margin-top: 3px;
   color: rgba(216, 234, 255, 0.55);
   font-size: 11px;
   text-align: right;
 }
 
-#map-loading-quote-source::before {
+.lore-quote figcaption::before {
   content: "\2014\00a0";
+}
+
+/* The sign-in card is warm parchment, not the map overlay's cool blue. */
+#auth-busy-quote {
+  margin-top: 4px;
+  text-align: left;
+  border-top-color: rgba(242, 232, 211, 0.16);
+}
+
+#auth-busy-quote blockquote {
+  color: rgba(242, 232, 211, 0.88);
+}
+
+#auth-busy-quote figcaption {
+  color: rgba(242, 232, 211, 0.55);
 }

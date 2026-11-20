@@ -2,6 +2,7 @@ import type { User } from "firebase/auth";
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
+import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
 
@@ -99,6 +100,7 @@ export const syncAuthOverlay = (
     authBusyCopyEl: HTMLElement;
     /** World-download bar for the chunked INIT transfer; optional so partial test doms still render. */
     authBusyProgressEl?: HTMLElement;
+    authBusyQuoteEl?: HTMLElement;
     authBusyDiagnosticsBtn: HTMLButtonElement;
     authBusySeasonFullNotifyBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
@@ -145,6 +147,12 @@ export const syncAuthOverlay = (
   // The busy modal is centered in a viewport-tall card; scroll back so it is not left below the fold.
   if (busy) deps.authOverlayEl.scrollTop = 0;
   deps.authBusyModalEl.setAttribute("aria-hidden", busy ? "false" : "true");
+  // Same rule as the map-loading overlay: a quote only while the wait is
+  // calm. An error, a full Sector or the diagnostics button takes the space.
+  if (deps.authBusyQuoteEl) {
+    const calm = !state.authError && !state.seasonFull && authBusyElapsedMs < AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS;
+    renderLoreQuoteFigure(deps.authBusyQuoteEl, busy && calm ? pickLoginLoreQuote(pageLoginLoreQuoteSeed()) : null);
+  }
   deps.authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;

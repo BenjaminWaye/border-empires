@@ -50,7 +50,7 @@ export const loginLoreQuoteForView = (
 // open, init, auth retry), so seeding from that would swap the quote while
 // the player is reading it.
 let pageQuoteSeed: number | null = null;
-const pageLoginLoreQuoteSeed = (): number => {
+export const pageLoginLoreQuoteSeed = (): number => {
   pageQuoteSeed ??= Date.now();
   return pageQuoteSeed;
 };
@@ -61,16 +61,20 @@ type MapLoadingCopyElements = {
   mapLoadingMetaEl: HTMLElement;
 };
 
+// Fills a <figure> holding a <blockquote> and a <figcaption>, or hides it.
+// Shared by the sign-in loading card and the in-game map-loading overlay.
+export const renderLoreQuoteFigure = (figureEl: HTMLElement, quote: LoginLoreQuote | null): void => {
+  figureEl.hidden = quote === null;
+  if (!quote) return;
+  const textEl = figureEl.querySelector<HTMLElement>("blockquote");
+  const sourceEl = figureEl.querySelector<HTMLElement>("figcaption");
+  if (textEl && textEl.textContent !== quote.text) textEl.textContent = quote.text;
+  if (sourceEl && sourceEl.textContent !== quote.source) sourceEl.textContent = quote.source;
+};
+
 export const renderMapLoadingCopy = (dom: MapLoadingCopyElements, view: MapLoadingView, seed: number = pageLoginLoreQuoteSeed()): void => {
   dom.mapLoadingTitleEl.textContent = view.title;
   dom.mapLoadingMetaEl.textContent = view.meta;
   const quoteEl = dom.mapLoadingOverlayEl.querySelector<HTMLElement>("#map-loading-quote");
-  if (!quoteEl) return;
-  const quote = loginLoreQuoteForView(view, seed);
-  quoteEl.hidden = quote === null;
-  if (!quote) return;
-  const textEl = quoteEl.querySelector<HTMLElement>("#map-loading-quote-text");
-  const sourceEl = quoteEl.querySelector<HTMLElement>("#map-loading-quote-source");
-  if (textEl && textEl.textContent !== quote.text) textEl.textContent = quote.text;
-  if (sourceEl && sourceEl.textContent !== quote.source) sourceEl.textContent = quote.source;
+  if (quoteEl) renderLoreQuoteFigure(quoteEl, loginLoreQuoteForView(view, seed));
 };

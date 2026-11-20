@@ -6,6 +6,7 @@ import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.j
 import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
 import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
 import { ENVOY_PER_TRUCE_ENTRY } from "./client-changelog-envoy-per-truce.js";
+import { SIGN_IN_LORE_QUOTE_ENTRY } from "./client-changelog-sign-in-lore-quote.js";
 import { RETURN_A_TOWN_ENTRY } from "./client-changelog-return-a-town.js";
 import { LOGIN_LORE_WORLD_ENGINE_ENTRY } from "./client-changelog-login-lore-world-engine.js";
 import { AFC_UPGRADES_BEFORE_MANIFEST_ENTRY } from "./client-changelog-afc-upgrades-before-manifest.js";
@@ -25,6 +26,7 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...PLACE_ANOTHER_PLOTS_ENTRY, createdAt: 1795153409713 },
   { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
   { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
+  { ...SIGN_IN_LORE_QUOTE_ENTRY, createdAt: 1795123334962, },
   { ...RETURN_A_TOWN_ENTRY, createdAt: 1795153599126, },
   { ...LOGIN_LORE_WORLD_ENGINE_ENTRY, createdAt: 1795160318022, },
   { ...AFC_UPGRADES_BEFORE_MANIFEST_ENTRY, createdAt: 1795160490729 },
