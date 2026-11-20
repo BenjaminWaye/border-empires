@@ -1,3 +1,4 @@
+import { townsValueToAi, truceNeedsTownReturn, type ReturnableTown } from "@border-empires/shared";
 import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
@@ -31,6 +32,8 @@ export type DiplomacyStanceReply = {
   truceLockout?: { until: number; reason: string };
   /** The target is at its supply agreement limit (known only for live or AI targets). */
   supplyAgreementsFull?: true;
+  /** Your towns taken from this target lately that you could hand back (client-diplomacy-town-return.ts). */
+  returnableTowns?: ReturnableTown[];
 } & (
   | { found: false; targetPlayerName: string }
   /** holdings: the human's coin and spare supply, absent when they're offline or the gateway predates it. */
@@ -238,12 +241,12 @@ export const tradeVerdict = (input: {
   }
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
   if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
-  const required = requiredForOffer(pricing, kind, selection.durationHours) ?? 0;
+  const required = requiredForOffer(pricing, kind, selection.durationHours, selection.terms) ?? 0;
   // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms));
+  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms)) + townsValueToAi(pricing.townValues, selection.terms.give.towns);
   return {
     tone: "bad",
     text: (affordable
@@ -268,8 +271,9 @@ export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection
   if (kind === "trade" || !reply?.found || !reply.ai || !reply.pricing) return undefined;
   const pricing = pricingFor(reply.pricing, selection);
   const required = requiredForOffer(pricing, kind, selection.durationHours);
-  if (required === null) return undefined;
-  if (required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
+  // A truce it refuses until one of its towns comes back: the counter names the town.
+  if (required === null && !(kind === "truce" && truceNeedsTownReturn(pricing, selection.durationHours))) return undefined;
+  if (required !== null && required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
   const counter = aiCounterOffer(pricing, kind, selection.durationHours, emptyDiplomacyTerms(), own);
   return counter.kind === "counter" ? counter.terms : undefined;
 };

@@ -24,7 +24,7 @@ export async function settleResourceTreaty(
     const result = await deps.settlement.settle({
       proposerId: request.fromPlayerId, targetId: request.toPlayerId,
       terms: swapDiplomacyTerms(terms), commandId: `${commandId}:refund`,
-      issuedAt: request.createdAt, refundIfLate: false, refundOf: commandId
+      issuedAt: request.createdAt, refundIfLate: false, refund: true, refundOf: commandId
     });
     // A rejected refund has released its supply contract, even when already
     // spent Coin need separate recovery (the simulation logs the failure).

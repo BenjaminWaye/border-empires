@@ -34,6 +34,8 @@ export const createRuntimeActivityLogs = (now: () => number) => {
     territoryGauge: () => territory.gauge(),
     combatGauge: () => combat.gauge(),
     personalImpactGauge: () => personalImpacts.gauge(),
+    /** The durable 24h impact tail, oldest first: who captured which town (diplomacy-town-return/). */
+    personalImpactEntries: (): readonly PersonalImpactEvent[] => personalImpacts.entries(),
     personalTimeline: (playerId: string, from: number, to: number): PersonalActivityTimeline =>
       aggregatePersonalActivity(playerId, { from, to }, territory.entries(), combat.entries(), personalImpacts.entries())
   };
