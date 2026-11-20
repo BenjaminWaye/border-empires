@@ -1,3 +1,4 @@
+import { START_SITE_PATROLS_ENTRY } from "./client-changelog-start-site-patrols.js";
 import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
 import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
@@ -493,6 +494,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
   { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
   { ...RETURN_A_TOWN_ENTRY, createdAt: 1795153599126, },
+  { ...START_SITE_PATROLS_ENTRY, createdAt: 1795170704736, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

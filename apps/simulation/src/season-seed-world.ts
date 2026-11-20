@@ -330,7 +330,8 @@ export const createSeasonSeedWorld = (
     docksByTile,
     worldSeed,
     terrainAt,
-    seeded01: terrainRuntime.seeded01
+    seeded01: terrainRuntime.seeded01,
+    startSites: fairSpawnSites
   });
 
   const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };

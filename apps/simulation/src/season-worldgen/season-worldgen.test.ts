@@ -79,12 +79,13 @@ describe("season worldgen", () => {
     );
 
     const barbarianTiles = generated.initialState.tiles.filter((tile) => tile.ownerId === "barbarian-1");
-    // Seed target is 30 (kept small vs. the old 80) so barbarians start
-    // small; growth is separately capped in the planner (MAX_BARBARIAN_TILES).
-    // Placement can fall a little short of target when land is scarce, so
-    // assert a band.
-    expect(barbarianTiles.length).toBeGreaterThanOrEqual(15);
-    expect(barbarianTiles.length).toBeLessThanOrEqual(30);
+    // Random scatter targets 30 (kept small vs. the old 80) so barbarians
+    // start small; growth is separately capped in the planner
+    // (MAX_BARBARIAN_TILES). On top of that, one patrol is posted 20 tiles out
+    // from each of the 50 predetermined start sites. Placement can fall a
+    // little short when land is scarce, so assert a band.
+    expect(barbarianTiles.length).toBeGreaterThanOrEqual(15 + 45);
+    expect(barbarianTiles.length).toBeLessThanOrEqual(30 + 50);
     expect(barbarianTiles.every((tile) => tile.ownershipState === "SETTLED")).toBe(true);
     expect(barbarianTiles.every((tile) => tile.terrain === "LAND")).toBe(true);
     expect(barbarianTiles.every((tile) => !tile.town && !tile.dockId)).toBe(true);

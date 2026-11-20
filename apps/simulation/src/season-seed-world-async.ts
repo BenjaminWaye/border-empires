@@ -322,7 +322,8 @@ export const createSeasonSeedWorldAsync = async (
     docksByTile,
     worldSeed,
     terrainAt,
-    seeded01: terrainRuntime.seeded01
+    seeded01: terrainRuntime.seeded01,
+    startSites: fairSpawnSites
   });
   await onYield?.();
 
