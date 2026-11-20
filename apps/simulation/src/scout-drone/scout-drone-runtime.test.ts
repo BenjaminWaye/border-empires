@@ -189,6 +189,17 @@ describe("scout drone runtime", () => {
     expect(flight.landsAt - flight.launchedAt).toBe(2 * (2 * SCOUT_DRONE_HOME_STEP_MS + SCOUT_DRONE_STEP_MS));
   });
 
+  // Owner, 2026-11-20: Planetary Defense land never blocks the drone, even on a long flight.
+  it("flies straight over a wall of Planetary Defense land to a far target", () => {
+    const pdWall = [8, 9, 10, 11, 12].map((y) => land(8, y, { ownerId: "barbarian-1" }));
+    const h = harness([...homeRow(), ...pdWall]);
+    h.explore(40, 10);
+    const flight = h.runtime.flightFor("me")!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 40, y: 10 });
+    expect(flight.blockedByPlayerId).toBeUndefined();
+  });
+
   it("is turned back at a rival border, alerting the rival once per cooldown", () => {
     const rivalWall = [8, 9, 10, 11].map((y) => land(8, y, { ownerId: "rival" }));
     const h = harness([...homeRow(), ...rivalWall]);
@@ -219,10 +230,13 @@ describe("scout drone runtime", () => {
     expect(h.messages.some((m) => m.playerId === "friend")).toBe(false);
   });
 
-  it("sends the flight in the air on subscribe, and nothing while docked", () => {
+  // Review of #2895: after a restart a docked drone sent nothing, so the client kept the old
+  // flight and Explore stayed locked until its landing time (over an hour on a long flight).
+  it("sends the flight in the air on subscribe, and an empty flight while docked", () => {
     const h = harness(homeRow());
     h.runtime.sendTo("me");
-    expect(h.messages).toHaveLength(0);
+    expect(h.messages).toHaveLength(1);
+    expect(lastPayload(h)).toMatchObject({ type: "SCOUT_DRONE", flight: null });
     h.explore(9, 10);
     h.runtime.sendTo("me");
     expect(lastPayload(h).flight?.targetX).toBe(9);
