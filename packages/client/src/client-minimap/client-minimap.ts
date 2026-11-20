@@ -308,12 +308,12 @@ export const drawMiniMap = (options: {
     const drawRelicHint = (hint: import("@border-empires/shared").RelicMapHint): void => {
       const wrappedX = wrapCoordNearBoxCenter(hint.x, box.x0, box.w, WORLD_WIDTH);
       const wrappedY = wrapCoordNearBoxCenter(hint.y, box.y0, box.h, WORLD_HEIGHT);
-      if (!inBox(wrappedX, wrappedY) && hint.kind !== "RELIC") return;
+      if (!inBox(wrappedX, wrappedY) && hint.kind === "RESOURCE") return;
       const edge = !inBox(wrappedX, wrappedY) ? miniMapEdgeArrowPoint(wxToPx(wrappedX), wyToPy(wrappedY), w, h) : undefined;
       const x = edge?.x ?? wxToPx(wrappedX + 0.5), y = edge?.y ?? wyToPy(wrappedY + 0.5);
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
-      cctx.strokeStyle = depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
+      cctx.strokeStyle = hint.kind === "WAKE" ? "#c9a8ff" : depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
       const k = markerScale; cctx.lineWidth = 1.5 * uiScale; cctx.strokeRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k);
       if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
       if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
@@ -325,7 +325,7 @@ export const drawMiniMap = (options: {
     // revealed 10x10-ish area (matches the 3D flicker; see
     // client-map-3d-watchtower-overlay.ts).
     for (const tile of options.state.tiles.values()) {
-      if (tile.naturalWonder?.relicVersion === 1 && options.state.relicMapHints?.get(`${tile.x},${tile.y}`)?.kind !== "RELIC") drawRelicHint({ x: tile.x, y: tile.y, kind: "RELIC" });
+      if (tile.naturalWonder?.relicVersion === 1 && (options.state.relicMapHints?.get(`${tile.x},${tile.y}`)?.kind ?? "RESOURCE") === "RESOURCE") drawRelicHint({ x: tile.x, y: tile.y, kind: "RELIC" });
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
