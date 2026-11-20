@@ -1,6 +1,6 @@
 # Planetary Defense camps (proposal)
 
-Status: **proposal, owner direction agreed 2026-11-20; not implemented.**
+Status: **proposal, rules agreed with the owner 2026-11-20; not implemented.**
 Replaces the barbarian walk/multiply model described in
 [`game-mechanics.md`](game-mechanics.md) (the "Barbarians (rewrite model)"
 bullet) once built. Delete or fold into `game-mechanics.md` when shipped (see
@@ -47,16 +47,26 @@ it only acts where someone can see it.
    through its own frontier, under the normal encirclement rule. Destroying a
    camp collapses the frontier it supported. Remove the barbarian exemptions in
    stranded-frontier / encirclement handling.
-5. **New camps come only from towns.** When Planetary Defense captures a
-   **town**, either neutral or a House's, that tile becomes a new camp
-   (SETTLED). Nothing else creates a camp. **The progress / multiply rule is
+5. **New camps come only from towns and docks.** When Planetary Defense
+   captures a **town or a dock**, neutral or a House's, that tile becomes a
+   new camp (SETTLED). Nothing else creates a camp, and a destroyed camp never
+   comes back (owner decision 2026-11-20), so the force shrinks over a season
+   as Houses clear it. **The progress / multiply rule is
    removed** (`barbarianTileProgress`, `BARBARIAN_MULTIPLY_THRESHOLD`, +1/+2
    gain, `BARB_MULTIPLIED`, `BARB_ATE_TILE` progress fields).
 6. **Action budget.** Each camp, together with the frontier connected to it,
    takes at most one action (EXPAND or ATTACK) per 15 s
    (`BARBARIAN_TILE_REST_MS`), measured from when the action settles, as today.
-   The action may launch from any tile in that camp's group. Frontier connected
-   to two camps belongs to the camp that has waited longest.
+   The action may launch from any tile in that camp's group.
+8. **Camps don't move through each other** (owner decision 2026-11-20). Every
+   Planetary Defense frontier tile belongs to exactly one camp: the nearest
+   camp (land-gated steps) whose reach covers it, ties to the lower tile key.
+   This is derived from positions each time, not saved. A camp acts only from
+   its own tiles and only into its own reach, so it can never use another
+   camp's land as a road to ground beyond it. Supply is per camp too: when a
+   camp falls, its frontier collapses, except tiles that lie inside a surviving
+   camp's reach and connect to that camp, which simply become that camp's.
+   Two camps can't attack each other (same owner).
 7. **Wake when seen** stays: a camp's group acts only while a non-barbarian
    player can see at least one of its tiles. This keeps the server cheap and
    means no camp grows while everyone nearby is offline (core pillar 3). The
@@ -89,7 +99,8 @@ it only acts where someone can see it.
 - Release-on-launch: `launchBarbarianAttack`, `LockRecord.barbarianLaunch`, and
   the matching branches in `runtime-lock-resolution.ts`.
 - Barbarian-only beach landings (`dockBeachLandings` in the barbarian planner).
-  Planetary Defense uses normal dock rules, or no docks at all (open question).
+  Planetary Defense crosses water only from a camp on a captured dock, under
+  normal dock rules (owner decision 2026-11-20).
 - Hunt Planetary Defense end to end: `MusterState.hunt` / `SET_MUSTER.hunt`
   (`packages/shared/src/messages/messages.ts`, gateway
   `set-muster-command-payload.ts`, `runtime-command-parsers.ts`), the hunt
@@ -151,7 +162,4 @@ it only acts where someone can see it.
 
 ## Open questions
 
-- Docks: may Planetary Defense cross by dock at all? Recommendation: only from
-  a camp that is itself a captured dock town, under normal dock rules.
-- Does a destroyed camp ever come back? Current answer: no; camps only come
-  from towns, so the force shrinks over a season as Houses clear it.
+None outstanding; all decided by the owner on 2026-11-20.
