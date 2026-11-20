@@ -44,6 +44,23 @@ interior lighting. A depleted ruin remains selectable and capturable, retaining
 its House banner but losing its operating lights. Both renderers show a crossed
 empty-cell symbol and the tile information/dialog says **Depleted**.
 
+**Aether wake.** While an installation is garrisoned (SETTLED) and not
+depleted, it gives off an aether wake every other House sees, through fog and
+unexplored ground: a tall column in the operating House's colour on both map
+renderers and a violet marker on the minimap (with an edge arrow when it is
+off the minimap's view). The wake carries the location and the operating
+House only, never the installation type or reserves (`kind: "WAKE"` relic map
+hint, `relicWakeOwner` in `runtime-relic-map-hints.ts`), though a wake that
+ends while the same House still holds the site shows the relic is spent. It
+replaces that House's anonymous transponder beam for the site. The operator
+sees no wake of its own. A relic held only as frontier, unowned or depleted
+gives none. Both renderers use the same owner colour (the map overlay colour,
+so the Diplomacy view recolours it). When a relic starts, stops or changes
+hands operating, every online human House is sent a fresh `PLAYER_UPDATE`
+with its hints on the runtime's scheduler, outside the command turn, once per
+burst of changes (`relic-wake-broadcast.ts`); offline Houses get theirs on
+connect, and seeding at boot sends nothing.
+
 A maintenance transponder identifies a relic's location once a House has a
 garrison within 12 tiles. The anonymous column can appear through unexplored
 ground and is marked on the minimap. The signal discloses no installation type,

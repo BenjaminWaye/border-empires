@@ -129,6 +129,12 @@ reserves, aether resonators and survey arrays.
 
 Each relic has a low-power optical transponder on a sealed conventional
 supply. It shows where the site is, not who holds it or whether it works.
+
+Running the main machinery is not quiet. A working installation draws on the
+aether and leaves an **aether wake** House instruments read across the whole
+world: where it works and whose control codes drive it, never what kind of
+installation it is or what it still holds. A dormant or spent installation
+leaves none. Waking a relic announces it to every rival House.
 Numbers are in the [relic reference](../relics.md).
 
 ## 5. Dukes and their worlds

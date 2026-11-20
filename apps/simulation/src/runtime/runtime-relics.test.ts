@@ -79,7 +79,7 @@ describe("redesigned relic runtime", () => {
     expect(cache.get("p")?.has("CONSCRIPTION_ENGINE")).toBe(false); expect(player.wonderDockGoldMultiplier).toBe(2);
   });
   it("reveals anonymous nearby signals, never ownership or hidden resource types", () => {
-    const array = relicTile("CARTOGRAPHERS_LENS"), unknown = { ...relicTile("WARPRESS", 20), ownerId: "enemy" };
+    const array = relicTile("CARTOGRAPHERS_LENS"), unknown = { ...relicTile("WARPRESS", 20), ownerId: "enemy", ownershipState: "FRONTIER" as const }; // dormant: no aether wake
     const ctx = indexedContext([array, unknown, { x: 11, y: 10, terrain: "LAND", resource: "UMBRITE", ownerId: "enemy" }]);
     const hints = new RelicMapHintIndex(); hints.refresh("10,10", array); hints.refresh("20,10", unknown);
     const result = hints.hintsFor(ctx, buildPlayer("p"));

@@ -6,7 +6,7 @@ import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
 import { createRuntimeResourceSupply, passiveIncomeSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
-import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
+import { RelicMapHintIndex } from "../runtime-relic-map-hints.js"; import { createRelicWakeBroadcast } from "../relic-wake-broadcast/relic-wake-broadcast.js";
 import { activateUnallocatedFoundries } from "../runtime-relics.js";
 import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
 import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
@@ -608,7 +608,7 @@ export class SimulationRuntime {
   // refreshNeutralBeaconIndexForTileImpl; rebuilt from this.state.tiles in the
   // constructor.  Changes increment beaconGeneration so export caches can
   // detect staleness without re-scanning the set.
-  private readonly relicMapHintIndex = new RelicMapHintIndex();
+  private readonly relicMapHintIndex = new RelicMapHintIndex(createRelicWakeBroadcast({ players: () => this.state.players.values(), isSubscribed: (id) => this.isPlayerSubscribed?.(id) ?? false, schedule: (task) => this.scheduleAfter(0, task), emit: (id) => this.emitPlayerStateUpdate({ commandId: `relic-wake:${this.now()}:${id}`, playerId: id }), onError: (err, id) => runtimeLogError({ err, playerId: id }, "relic wake PLAYER_UPDATE failed") }));
   private readonly neutralBeaconTileKeys = new Set<string>();
   private beaconGeneration = 0;
   // Per-player cache for the expansion objective selected from beacon indexes.
@@ -880,7 +880,7 @@ export class SimulationRuntime {
       // Boot-time seed for grownTownSupportRingByOwner (cold-rebuilt, not snapshotted -- see field's doc comment).
       seedGrownTownSupportRingForTownTileImpl(this.grownTownSupportRingByOwner, tile, this.state.tiles);
       this.ownerIndexes.seedFromBootTile(tileKey, tile);
-      this.relicMapHintIndex.refresh(tileKey, tile);
+      this.relicMapHintIndex.refresh(tileKey, tile, false);
       // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
       if (isNeutralBeaconTileImpl(tile)) this.neutralBeaconTileKeys.add(tileKey);
       // Both seeds run in this unconditional first pass, and through the same
