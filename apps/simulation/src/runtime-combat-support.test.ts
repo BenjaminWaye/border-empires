@@ -62,6 +62,7 @@ describe("attackerOutpostMult", () => {
       musterReservedByKey: new Map(),
       locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
+      planetaryDefenseCampCount: () => 0,
       summaryForPlayer: () => ({ territoryTileKeys: new Set([OUTPOST_KEY]) }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
       replaceTileState: () => {},
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
@@ -107,6 +108,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
       musterReservedByKey: new Map(),
       locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
+      planetaryDefenseCampCount: () => 0,
       summaryForPlayer: () => ({ settledTileCount: 1, territoryTileKeys: new Set() }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
       replaceTileState: () => {},
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
@@ -246,6 +248,7 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
       musterReservedByKey: new Map(),
       locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
+      planetaryDefenseCampCount: () => 0,
       summaryForPlayer: () =>
         ({ settledTileCount: 5, territoryTileKeys: new Set() }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
       replaceTileState: () => {},

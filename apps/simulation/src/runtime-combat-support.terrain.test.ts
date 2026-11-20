@@ -44,6 +44,7 @@ const makeContext = (): Ctx => ({
   musterReservedByKey: new Map(),
   locksByTile: new CombatLockIndex(),
   locksByCommandId: new Map(),
+  planetaryDefenseCampCount: () => 0,
   summaryForPlayer: () => ({ settledTileCount: 1, territoryTileKeys: new Set() }) as ReturnType<Ctx["summaryForPlayer"]>,
   replaceTileState: () => {},
   tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
