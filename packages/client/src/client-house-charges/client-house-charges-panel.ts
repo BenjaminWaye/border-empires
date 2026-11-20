@@ -9,7 +9,8 @@ import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
-import { houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { HOUSE_CHARGE_RARITY_LABEL } from "./client-house-charges-labels.js";
@@ -156,6 +157,23 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   </section>`;
 };
 
+/** Until when each panel's cards are being drawn from the deck (each opening; a first deal has its own, slower draw). */
+const drawingUntil = new WeakMap<HTMLElement, number>();
+
+/**
+ * Draws the cards from the deck when the panel opens. Kept on the deck for the whole draw, so a rewrite of the panel
+ * in the meantime (a pushed update, a Keep tap) carries the draw on rather than snapping the cards to rest.
+ */
+const syncHouseChargesDraw = (panelEl: HTMLElement, opening: boolean, nowMs: number): void => {
+  const deck = panelEl.querySelector<HTMLElement>(".hcd-deck");
+  if (!deck || deck.classList.contains("is-dealing")) return;
+  if (opening && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    drawingUntil.set(panelEl, nowMs + HOUSE_CHARGES_DRAW_MS);
+    window.setTimeout(() => panelEl.querySelector(".hcd-deck")?.classList.remove("is-drawing"), HOUSE_CHARGES_DRAW_MS);
+  }
+  deck.classList.toggle("is-drawing", nowMs < (drawingUntil.get(panelEl) ?? 0));
+};
+
 /** The HTML last written into each panel element. */
 const writtenHtml = new WeakMap<HTMLElement, string>();
 
@@ -171,10 +189,12 @@ export const renderHouseChargesPanel = (
   const html = houseChargesPanelHtml(state, deps.now());
   // Compared with what was last written, not innerHTML: the browser rewrites the card art's `<rect/>` as
   // `<rect></rect>`, so an innerHTML check re-rendered every frame (restarting the deal, dropping taps).
+  const opening = !writtenHtml.has(deps.panelEl);
   if (writtenHtml.get(deps.panelEl) !== html || !deps.panelEl.firstChild) {
     deps.panelEl.innerHTML = html;
     writtenHtml.set(deps.panelEl, html);
   }
+  syncHouseChargesDraw(deps.panelEl, opening, deps.now());
   const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
   if (more) {
     if (more.open !== rewardsOpen) more.open = rewardsOpen;
@@ -210,6 +230,7 @@ export const renderHouseChargesPanel = (
         deps.rerender();
         return;
       }
+      foldHouseChargeCards(deps.panelEl, charge.id);
       showHouseChargeOnMap(state, charge, deps);
       deps.rerender();
     };

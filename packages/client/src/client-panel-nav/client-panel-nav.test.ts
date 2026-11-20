@@ -99,7 +99,10 @@ describe("renderSidePanel", () => {
     expect(hint.textContent).toContain("Compact garrisoned land");
     renderSidePanel({ ...base, activePanel: "charges" }, deps);
     expect(hint.textContent).toContain("Secret goals");
+    // Owner 2026-11-19: on desktop the charges float side by side; the class lets the panel widen and lose its frame.
+    expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(true);
     renderSidePanel({ ...base, activePanel: "settings" }, deps);
     expect(hint.hidden).toBe(true);
+    expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(false);
   });
 });
