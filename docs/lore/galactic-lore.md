@@ -95,10 +95,20 @@ against it.
 Sector worlds are frontier colonies, cut off since the Engine fell. Their
 towns run on plain machinery: combustion engines, mechanical carts, no
 aether-work, because aether-work is what drew the Wardens. Before opening a
-Sector the Court breaks the world's defenses. What is left is
-**Planetary Defense**, the remnant of the planet's own defense force. It holds
-scattered ground, wakes when a House can see it, and fights any House that
-comes near.
+Sector the Court strips the world of its government, but not every garrison
+lays down its arms. What is left is **Planetary Defense**, the remnant of the
+planet's own defense force.
+
+It holds out in fortified **camps**: old barracks, depots and strongpoints. A
+camp does not move. It holds the ground around it with pickets, and that ground
+falls away if cut off from the camp or if the camp is taken. The force digs in
+as a new camp in any town or harbour it seizes; open land it only pickets. It
+cannot raise new garrisons, so every camp taken is gone for good and the force
+dwindles through the campaign. The Court pays for every camp taken.
+
+Its remaining sensors pick up active attention: a House's command studying its
+ground, or a drone overhead (§12). A camp stirs while watched and settles when
+nobody is looking.
 
 ### Surviving relic installations
 

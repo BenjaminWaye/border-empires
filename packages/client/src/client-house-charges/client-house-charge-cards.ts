@@ -141,6 +141,7 @@ export const parseHouseChargeCard = (value: unknown): HouseChargeCardView | unde
     ...(places ? { places } : {}),
     ...(typeof raw.art === "string" ? { art: raw.art } : {}),
     ...(typeof raw.relicType === "string" ? { relicType: raw.relicType } : {}),
+    ...(raw.difficultyScored === true ? { difficultyScored: true as const } : {}),
     seasonId: raw.seasonId,
     seasonSequence: finite(raw.seasonSequence),
     endedAt: typeof raw.endedAt === "number" ? raw.endedAt : null,

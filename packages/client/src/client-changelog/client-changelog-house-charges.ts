@@ -88,5 +88,17 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "Card text is dark ink on the parchment again, so it is easy to read.",
       "Each kind of charge has its own picture: a road between two towns, a keep, three towers, a charted island, dunes, ice peaks, a waking beacon or a grievance banner."
     ]
+  },
+  {
+    createdAt: 1795182084781, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.20",
+    title: "House Charges: harder charges pay more",
+    why: "A small tundra paid twice as much as charting a 342-tile landmass, because rarity came from the kind of charge rather than the work it took.",
+    changes: [
+      "Each new charge's difficulty (◆) now weighs how much land it needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it.",
+      "A held charge banks +1 Domain score for each ◆, from +1 to +4. Rarity follows the ◆: one or two Common, three Rare, four Mythic.",
+      "Relics are no longer always Mythic: a close relic nobody else is after is an easy charge and pays like one.",
+      "Charges you were already dealt keep their ◆ and the pay they were dealt with."
+    ]
   }
 ];

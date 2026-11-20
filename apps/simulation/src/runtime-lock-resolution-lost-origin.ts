@@ -5,21 +5,32 @@ import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automatio
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
 import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
 import { applyMusterFlagCapture } from "./muster-capture/muster-capture.js";
+import { isPlanetaryDefenseOwner, planetaryDefenseCaptureFields } from "./planetary-defense-camps/camp-rules.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 
 // Split out of runtime-lock-resolution.ts (kept that file under the 500-line
 // cap) -- an attacker who lost their ATTACK also loses the origin tile they
-// launched from, and this reverts it to the previous owner (or releases a
-// barbarian-held defender tile back to neutral if the previous owner was the
-// barbarian faction). Only called from resolveLock's `originLost` branch.
+// launched from, and this hands it to the defender. A Planetary Defense
+// defender stays where it is and takes the origin into the defending tile's
+// camp (a town or dock founds a new camp, camp-rules.ts). Only called from
+// resolveLock's `originLost` branch.
 export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockRecord, previousOwnerId: string): void {
   const previousOrigin = context.tiles.get(lock.originKey);
   if (!previousOrigin) return;
-  const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
+  const campFields = isPlanetaryDefenseOwner(previousOwnerId)
+    ? planetaryDefenseCaptureFields({
+        targetKey: lock.originKey,
+        previousTarget: previousOrigin,
+        sourceCampId: context.tiles.get(lock.targetKey)?.campId ?? lock.targetKey,
+        campCount: context.planetaryDefenseCampCount()
+      })
+    : undefined;
+  const originOwnershipState = campFields?.ownershipState ?? "FRONTIER";
   const { muster: _discardMuster, ...strippedOrigin } = previousOrigin;
   const resolvedOrigin: DomainTileState = {
     ...strippedOrigin,
+    ...(campFields?.campId ? { campId: campFields.campId } : {}),
     ownerId: previousOwnerId,
     ownershipState: originOwnershipState,
     frontierDecayAt: undefined,
@@ -64,27 +75,6 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
       y: previousOrigin.y,
       muster: { ...previousOrigin.muster, amount: Math.max(0, previousOrigin.muster.amount - reserved) }
     });
-  }
-
-  if (previousOwnerId === "barbarian-1") {
-    const defenderTile = context.tiles.get(lock.targetKey);
-    if (defenderTile?.ownerId === "barbarian-1" && !context.locksByTile.has(lock.targetKey)) {
-      const releasedDefender: DomainTileState = {
-        x: defenderTile.x,
-        y: defenderTile.y,
-        terrain: defenderTile.terrain,
-        ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
-        ...(defenderTile.prospectSignature ? { prospectSignature: defenderTile.prospectSignature } : {}),
-        ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
-        ...(defenderTile.town ? { town: defenderTile.town } : {}),
-        ...(defenderTile.naturalWonder ? { naturalWonder: defenderTile.naturalWonder } : {}),
-        ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
-        ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
-      };
-      context.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
-      context.barbarianTileProgress.delete(lock.targetKey);
-      tileDeltas.push(context.tileDeltaFromState(releasedDefender));
-    }
   }
 
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });

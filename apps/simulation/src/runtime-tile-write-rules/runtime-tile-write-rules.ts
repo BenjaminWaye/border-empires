@@ -40,6 +40,18 @@ export const withoutClearedRazedWreck = (next: DomainTileState, nowMs: number): 
 };
 
 /**
+ * Drops a Planetary Defense camp id from a tile Planetary Defense no longer
+ * owns, so every route that takes or releases a barbarian tile (capture,
+ * collapse, AFC landing clear, ...) clears it without having to remember to.
+ */
+export const withoutStrayCampId = (next: DomainTileState): DomainTileState => {
+  if (next.campId === undefined) return next;
+  if (next.ownerId?.startsWith("barbarian-")) return next;
+  const { campId: _campId, ...rest } = next;
+  return rest;
+};
+
+/**
  * Maintains the settledAt stamp resource-slot dormancy and reach anchors read:
  *   - newly SETTLED (previously not, or new owner) → stamp `now`
  *   - leaves SETTLED → clear

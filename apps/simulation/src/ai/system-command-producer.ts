@@ -34,7 +34,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
   // + rest + attack budget), not by the one-command-per-player gate below.
   const barbSettleRelay = createBarbSettleRelay({
     barbPlayerId: BARBARIAN_PLAYER_ID,
-    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt),
+    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt, msg.rejected === true),
     now
   });
   let tickInFlight = false;
@@ -71,7 +71,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
         } catch {
           pendingPlayers.delete(playerId);
           // A barbarian command that never reached the runtime must not hold its tile in flight.
-          if (isBarb) barbSettleRelay.onEvent({ eventType: "COMMAND_REJECTED", playerId, commandId: command.commandId });
+          if (isBarb) barbSettleRelay.onEvent({ eventType: "SUBMIT_FAILED", playerId, commandId: command.commandId });
         }
         return;
       }

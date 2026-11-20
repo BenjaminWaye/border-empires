@@ -228,7 +228,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       economy = { influence: balance?.influence ?? 0, production: balance?.production ?? 0 };
     }
 
-    // Domain score banked from House Charges (by rarity), held with or without territory in space.
+    // Domain score banked from House Charges (one per difficulty pip), held with or without territory in space.
     const chargeDomain = (await chargeDomainWeightByAuthUid({
       listSeasonArchives: deps.listSeasonArchives,
       ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),

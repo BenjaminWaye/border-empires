@@ -280,7 +280,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
     // whatever attack its auto-fire launches (see MusterState.commitManpower).
     commitManpower: z.number().positive().optional(),
-    // ADVANCE only: hunt Planetary Defense (see MusterState.hunt).
+    // Legacy: Hunt Planetary Defense, removed with Planetary Defense camps. Still
+    // accepted so older clients aren't rejected; the gateway never forwards it.
     hunt: z.boolean().optional(),
     ...FrontierCommandMetadataSchema
   }),

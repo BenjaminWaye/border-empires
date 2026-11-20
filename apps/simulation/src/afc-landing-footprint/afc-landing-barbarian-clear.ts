@@ -24,21 +24,21 @@ const isLandForReach =
  * Releases every barbarian tile inside the reach of a freshly landed AFC at
  * (x, y) back to neutral, so a new player never starts with barbarians already
  * on their doorstep. Placement keeps its distance from barbarian land on the
- * normal passes (barbarian tiles are SETTLED, so they count toward
- * minSpawnDistance), but a crowded map falls through to looser passes and
+ * normal passes (camps are SETTLED, so they count toward minSpawnDistance;
+ * camp frontier is caught by hasBarbarianWithin), but a crowded map falls through to looser passes and
  * barbarians can also arrive afterwards -- this is the guarantee for the
  * landing moment itself.
  *
- * Same release shape as a barbarian walk (runtime-barbarian-walk.ts): drop
+ * Same release shape as releasedPlanetaryDefenseTile (planetary-defense-camps/camp-rules.ts): drop
  * owner/state/muster, keep the static features (resource, town, dock, ...).
  * Unlike the walk it also drops `economicStructure`: a capture re-stamps a
  * structure's owner to the capturer (capturedStructureFields), so a surviving
  * one would sit on a tile the new player is about to auto-claim while still
  * owned by `barbarian-1`. (Forts, observatories and siege batteries a barbarian
- * captured are not carried over by the walk's release either.)
+ * captured are not carried over by the camp release either.)
  *
- * Goes through `replaceTileState`, so barbarian walk progress is dropped by the
- * runtime's own "left barbarian ownership" hook. Tiles with a lock in flight or
+ * Goes through `replaceTileState`, so the tile's campId is dropped and its camp
+ * re-checked for land cut off from it (planetary-defense-camps/camp-runtime.ts). Tiles with a lock in flight or
  * a pending settlement are left alone rather than corrupting a live fight.
  *
  * Call after `prepareAfcLandingFootprint` (so flattened mountains are land for

@@ -73,8 +73,8 @@ or withdraw and redeploy. See [AFC recovery](docs/afc-recovery-plan.md).
 
 ### Barbarians
 
-- Barbarian tiles are seeded far from player spawns at world gen. A barbarian tile acts only while some player (human or AI) can see it in their fog of war; each seen tile takes its own turns and rests 15s after an action finishes.
-- Barbarian tiles attack nearby players and can multiply or walk based on accumulated progress. Recapturing a tile clears its progress.
+- Barbarians ("Planetary Defense") hold **camps** (`docs/planetary-defense-camps-plan.md`). Worldgen seeds them far from player spawns; each seeded tile is a one-tile camp. A camp never moves: it spreads frontier around itself, and a town or dock it takes becomes a new camp (up to 100). Camps destroyed by players never come back.
+- A camp acts only while an AI player, or a human with the game open, can see one of its tiles; it takes one action at a time, rests 15s after it finishes, and may attack a given House's garrisoned tiles at most 10 times per manpower window. Taking a camp collapses its land.
 - Barbarians project no reach (a captured town or dock keeps its structure but anchors nothing), and a new player's AFC landing releases any barbarian tiles inside its reach back to neutral.
 
 ### Strategic Layers
