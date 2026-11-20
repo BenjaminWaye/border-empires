@@ -104,7 +104,8 @@ camp does not move. It holds the ground around it with pickets, and that ground
 falls away if cut off from the camp or if the camp is taken. The force digs in
 as a new camp in any town or harbour it seizes; open land it only pickets. It
 cannot raise new garrisons, so every camp taken is gone for good and the force
-dwindles through the campaign. The Court pays for every camp taken.
+dwindles through the campaign. The Court pays a bounty for every camp taken
+to a House that has commissioned for it (Vanguard, §12).
 
 Its remaining sensors pick up active attention: a House's command studying its
 ground, or a drone overhead (§12). A camp stirs while watched and settles when
