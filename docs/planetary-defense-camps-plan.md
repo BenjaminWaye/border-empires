@@ -71,12 +71,16 @@ it only acts where someone can see it.
   the client stops guessing movement by comparing redraws.
 - Taking Planetary Defense frontier is cheap, as with any frontier. Taking a
   camp is a SETTLED fight and collapses the frontier that camp supported.
-- **Hunt Planetary Defense** aims at the nearest camp in range rather than
-  chasing walkers. The "patrol mid-capture stands on no tile" handling
-  (`barbarianAttackInRangeResolvesAt`) goes away along with release-on-launch.
-- **Bounty** (Pacification Routines, 25 Coin per Planetary Defense tile)
-  keeps paying per tile taken. A bonus for taking a camp is an open question
-  (below).
+- **Hunt Planetary Defense is removed** (owner decision 2026-11-20). It was
+  built to chase patrols that walk away; camps don't move, so an ordinary
+  attack, or a plain ADVANCE flag (which already treats Planetary Defense as
+  hostile), does the job.
+- **Bounty is paid per camp, not per tile** (owner decision 2026-11-20).
+  Pacification Routines (AFC Vanguard specialization,
+  `barbarianCaptureCoinBonus` / `afcPlanetaryDefenseBounty`) pays when a camp
+  is captured. Taking Planetary Defense frontier pays nothing. Since one camp
+  replaces many bounty tiles, raise the amount (proposal: 150 Coin; open
+  question below) and update the specialization text in `afc-vanguard.ts`.
 
 ## What gets deleted
 
@@ -86,6 +90,19 @@ it only acts where someone can see it.
   the matching branches in `runtime-lock-resolution.ts`.
 - Barbarian-only beach landings (`dockBeachLandings` in the barbarian planner).
   Planetary Defense uses normal dock rules, or no docks at all (open question).
+- Hunt Planetary Defense end to end: `MusterState.hunt` / `SET_MUSTER.hunt`
+  (`packages/shared/src/messages/messages.ts`, gateway
+  `set-muster-command-payload.ts`, `runtime-command-parsers.ts`), the hunt
+  branches in `runtime-muster-tick/` (`muster-advance-fire.ts`,
+  `muster-advance-clear.ts`, `muster-advance-scan.ts`,
+  `muster-auto-fire-shared.ts`, `barbarianAttackInRangeResolvesAt`), and on
+  the client `client-muster-hunt/`, the hunt routing in
+  `client-queue-muster-dispatch.ts`, the flag action in
+  `client-muster-tile-actions.ts`, and hunt labels in the muster panels, HUD v2
+  and persistent alerts. Flags saved with `hunt: true` load as plain ADVANCE.
+  Keep the parser tolerant of an old `hunt` field so old clients aren't
+  rejected while the release rolls out.
+- The unused constant `BARBARIAN_CLEAR_GOLD_REWARD` in `packages/shared/src/config.ts`.
 - The territory cap's shedding of unseen tiles (`UNCAPTURE_TILE` erosion). The
   cap becomes a limit on the number of camps.
 - The reach exemption for barbarians in `runtime-reach-anchors.ts` is narrowed:
@@ -120,7 +137,8 @@ it only acts where someone can see it.
    seed-like centre) as camps and convert the rest to FRONTIER. Alternatively,
    ship at the next season reset and skip migration.
 3. **Client**: camp overlay in 3D and 2D, remove the movement guessing in
-   `commit()`, Hunt Planetary Defense targets camps, tile menu labels a camp.
+   `commit()`, remove Hunt Planetary Defense (server side goes in stage 1),
+   tile menu labels a camp and shows the camp bounty.
    Changelog entry in `client-changelog-data.ts`.
 4. **Docs and lore**: rewrite the barbarian bullet in `game-mechanics.md`. The
    world bible (`docs/lore/galactic-lore.md`) has no Planetary Defense entry
@@ -130,7 +148,7 @@ it only acts where someone can see it.
 
 ## Open questions
 
-- Bonus Coin for destroying a camp, on top of the per-tile bounty?
+- Camp bounty amount (proposal: 150 Coin, versus 25 per tile today).
 - Docks: may Planetary Defense cross by dock at all? Recommendation: only from
   a camp that is itself a captured dock town, under normal dock rules.
 - Does a destroyed camp ever come back? Current answer: no; camps only come
