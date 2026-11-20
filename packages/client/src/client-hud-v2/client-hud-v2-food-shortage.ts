@@ -19,7 +19,7 @@ import {
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { freeSlotsOf } from "../client-tile-action-logic/client-resource-slot-reason.js";
-import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
@@ -84,7 +84,7 @@ export const scanFoodSources = (state: ClientState): FoodScan => {
   let garrisonCount = 0;
   let expand: Tile | undefined;
   let outside: Tile | undefined;
-  const reach = resolveMyReach(state);
+  const reach = resolveMyReachCached(state);
   let afc: Tile | undefined;
   const towns: Tile[] = [];
   for (const tile of state.tiles.values()) {
