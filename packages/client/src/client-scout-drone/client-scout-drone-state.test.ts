@@ -65,6 +65,13 @@ describe("handleScoutDroneMessage", () => {
     }));
   });
 
+  it("points Show at the find the server named, not where the drone was sent", () => {
+    const pushFeed = vi.fn();
+    const report = { targetX: 12, targetY: 4, focusX: 15, focusY: 7, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, stateWith(), pushFeed, vi.fn(), shiftBack);
+    expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({ title: "Scout report", focusX: 15, focusY: 7 }));
+  });
+
   // The "Scout drone launched" popup only repeated the tap; the drone and its "Back in …" pill on the
   // map confirm the launch. A recall the player asked for needs no popup either.
   it("shows no popup for a launch or a recall", () => {
