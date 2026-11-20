@@ -109,8 +109,26 @@ describe("scout drone runtime", () => {
     expect(h.runtime.flightFor("me")).toBeUndefined();
     const landed = lastPayload(h);
     expect(landed.flight).toBeNull();
-    expect(landed.report).toMatchObject({ towns: 1, planetaryDefenseTiles: 1, targetX: 9, targetY: 10, empiresSighted: [] });
-    expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 9, y: 10 });
+    // The town (10,10) outranks Planetary Defense (12,11): Show jumps to the find, not the target (9,10).
+    expect(landed.report).toMatchObject({ towns: 1, planetaryDefenseTiles: 1, targetX: 9, targetY: 10, focusX: 10, focusY: 10, empiresSighted: [] });
+    expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 10, y: 10 });
+  });
+
+  it("points the report at the town farthest out when it sees two, and at the target when it finds nothing", () => {
+    const town = { type: "MARKET", populationTier: "TOWN" } as DomainTileState["town"];
+    const h = harness([...homeRow(), land(6, 10, { town }), land(15, 10, { town })]);
+    h.explore(15, 10, "me", "c1");
+    h.advanceTo(h.runtime.flightFor("me")!.landsAt);
+    expect(lastPayload(h).report).toMatchObject({ towns: 2, focusX: 15, focusY: 10 });
+    const impact = h.impacts.at(-1)!;
+    expect(impact).toMatchObject({ kind: "SCOUT_REPORT", x: 15, y: 10 });
+    expect(impact).not.toHaveProperty("focusX");
+
+    const empty = harness(homeRow());
+    empty.explore(9, 10, "me", "c2");
+    empty.advanceTo(empty.runtime.flightFor("me")!.landsAt);
+    expect(lastPayload(empty).report).toMatchObject({ targetX: 9, targetY: 10 });
+    expect(lastPayload(empty).report).not.toHaveProperty("focusX");
   });
 
   it("names visible deposits in the report and respects the viewer's research", () => {
