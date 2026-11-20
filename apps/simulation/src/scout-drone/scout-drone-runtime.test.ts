@@ -114,6 +114,23 @@ describe("scout drone runtime", () => {
     expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 10, y: 10 });
   });
 
+  it("points the report at the town farthest out when it sees two, and at the target when it finds nothing", () => {
+    const town = { type: "MARKET", populationTier: "TOWN" } as DomainTileState["town"];
+    const h = harness([...homeRow(), land(6, 10, { town }), land(15, 10, { town })]);
+    h.explore(15, 10, "me", "c1");
+    h.advanceTo(h.runtime.flightFor("me")!.landsAt);
+    expect(lastPayload(h).report).toMatchObject({ towns: 2, focusX: 15, focusY: 10 });
+    const impact = h.impacts.at(-1)!;
+    expect(impact).toMatchObject({ kind: "SCOUT_REPORT", x: 15, y: 10 });
+    expect(impact).not.toHaveProperty("focusX");
+
+    const empty = harness(homeRow());
+    empty.explore(9, 10, "me", "c2");
+    empty.advanceTo(empty.runtime.flightFor("me")!.landsAt);
+    expect(lastPayload(empty).report).toMatchObject({ targetX: 9, targetY: 10 });
+    expect(lastPayload(empty).report).not.toHaveProperty("focusX");
+  });
+
   it("names visible deposits in the report and respects the viewer's research", () => {
     for (const techIds of [new Set<string>(), new Set(["masonry"])]) {
       const h = harness([...homeRow(), land(8, 10, { resource: "FARM" }), land(9, 10, { resource: "TITANIUM" })], [{ ...player("me"), techIds }]);

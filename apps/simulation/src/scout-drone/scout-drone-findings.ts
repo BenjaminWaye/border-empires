@@ -28,10 +28,11 @@ export const createScoutFindings = (
   const empires = new Set<string>();
   const resourceCounts = new Map<string, number>();
   const r = SCOUT_DRONE_VISION_RADIUS;
-  // Lower rank = more notable; the report's focus is the first tile of the best rank seen.
+  // Lower rank = more notable. Ties go to the latest tile seen: the flight is observed outbound,
+  // so a later tile is farther from home, and a known town by the border never hides a new find.
   let focus: { x: number; y: number; rank: number } | undefined;
   const consider = (rank: number, x: number, y: number): void => {
-    if (!focus || rank < focus.rank) focus = { x, y, rank };
+    if (!focus || rank <= focus.rank) focus = { x, y, rank };
   };
   return {
     observe: (x, y, viewer) => {

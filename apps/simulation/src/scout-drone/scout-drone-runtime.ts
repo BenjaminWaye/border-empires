@@ -217,15 +217,16 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
 
   const recordReport = (active: ActiveFlight, nowMs: number, report: ScoutReportFindings): void => {
     const { targetX, targetY, blockedByPlayerId } = active.flight;
+    const { focusX, focusY, ...counts } = report;
     deps.recordPersonalImpact({
       kind: "SCOUT_REPORT",
       id: `scout-report:${active.commandId}`,
       playerId: active.playerId,
       occurredAt: nowMs,
-      ...report,
+      ...counts,
       // The activity card's Show jumps to x/y: the notable find, not where the drone was aimed.
-      x: report.focusX ?? targetX,
-      y: report.focusY ?? targetY,
+      x: focusX ?? targetX,
+      y: focusY ?? targetY,
       ...(blockedByPlayerId ? { blockedByPlayerId } : {})
     });
   };
