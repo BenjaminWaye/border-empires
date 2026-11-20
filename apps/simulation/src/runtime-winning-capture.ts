@@ -25,7 +25,9 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       ? planetaryDefenseCaptureFields({
           targetKey: lock.targetKey,
           previousTarget,
-          sourceCampId: lock.campId ?? context.tiles.get(lock.originKey)?.campId,
+          // Never a Planetary Defense tile without a camp: with no live source the
+          // tile joins the origin's key as a dead camp and collapses on the next drain.
+          sourceCampId: lock.campId ?? context.tiles.get(lock.originKey)?.campId ?? lock.originKey,
           campCount: context.planetaryDefenseCampCount()
         })
       : undefined;

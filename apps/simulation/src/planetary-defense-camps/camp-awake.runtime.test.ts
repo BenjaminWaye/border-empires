@@ -88,6 +88,27 @@ describe("runtime.exportAwakeCampIds", () => {
     expect(runtime.exportAwakeCampIds()).toEqual(["51,51"]);
   });
 
+  // Review regression: the boot conversion changed tiles in memory only, so a
+  // crash replay from the pre-camp snapshot re-derived it from a changed map.
+  it("records the boot conversion as one event on the first tick, with owner and camp explicit", () => {
+    const runtime = makeRuntime([makePlayer("player-1"), makePlayer("barbarian-1")], [
+      settled(50, 50, "player-1"),
+      { x: 60, y: 60, ownerId: "barbarian-1", ownershipState: "SETTLED" },
+      { x: 61, y: 60, ownerId: "barbarian-1", ownershipState: "SETTLED" }
+    ]);
+    const batches: Array<{ commandId: string; tileDeltas: Array<Record<string, unknown>> }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "TILE_DELTA_BATCH" && event.commandId.startsWith("pd-camp-migration:")) batches.push(event);
+    });
+    runtime.tickSideTickers(1_000);
+    runtime.tickSideTickers(1_000);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]!.tileDeltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 60, y: 60, ownerId: "barbarian-1", ownershipState: "SETTLED", campId: "60,60" }),
+      expect.objectContaining({ x: 61, y: 60, ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "60,60" })
+    ]));
+  });
+
   it("an AI's vision always wakes a camp", () => {
     const runtime = makeRuntime([makePlayer("ai-1"), makePlayer("barbarian-1")], [settled(50, 50, "ai-1"), camp(51, 51)], new Set());
     expect(runtime.exportAwakeCampIds()).toEqual(["51,51"]);

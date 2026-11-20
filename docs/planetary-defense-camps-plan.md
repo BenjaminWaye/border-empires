@@ -54,12 +54,10 @@ everywhere.
    never attack each other.
 4. **Supply per camp.** A Planetary Defense frontier tile must connect to its
    own camp through tiles of the same `campId` (the normal encirclement rule,
-   applied per camp). When a camp falls, its land is released to neutral by
-   `campId`, with no flood fill. A House that captures the camp first takes,
-   under the ordinary encirclement rule, the camp frontier its capture cut off
-   (as for any House's frontier); only what that rule leaves, for example tiles
-   touching another camp, goes neutral. A tile cut off from its camp
-   mid-territory is released the same way.
+   applied per camp). When a camp falls, all of its land is released to
+   neutral by `campId`, with no flood fill; the House-wide encirclement pass
+   skips Planetary Defense land. A tile cut off from its camp mid-territory,
+   or won by a camp that has already fallen, is released the same way.
 5. **New camps come only from towns and docks.** When Planetary Defense
    captures a **town or a dock**, neutral or a House's, that tile becomes a
    new camp (SETTLED, its own new `campId`). Nothing else creates a camp, and a
@@ -90,8 +88,9 @@ everywhere.
   **prominent persistent alert** ("Planetary Defense camp active near you")
   (owner decision 2026-11-20). It fires on whichever happens second: the camp
   wakes while you see one of its tiles, or your vision reaches a tile of an
-  already active camp. Both are events the server already has (camp wake, vision
-  edge), so it costs one check per event, with no scanning. The alert has a
+  already active camp. Both moments are visible to the server (the awake count
+  crossing zero, a coverage edge), but the per-player alert event built on them
+  is not written yet; it should cost one check per event, with no scanning. The alert has a
   locate button that jumps the camera to the camp
   (`client-persistent-alerts/`). At most one alert per camp per player per manpower window,
   so camps flickering awake and asleep as viewers come and go don't spam it.
@@ -166,9 +165,10 @@ sync re-exported the barbarian's whole territory on every change (the reason
 for the old 100-tile cap). One camp's decision reads a few hundred tiles
 straight from the runtime, so both system producers now call the planner
 through `runtime-barbarian-planner-bridge.ts` and the barbarian is never
-synced to the worker: at most ~7 decisions a second x ~0.07 ms, and the
-O(territory) re-export, the seen-set posting and the worker-side barbarian
-tile copy are gone.
+synced to the worker. The producer issues at most one command per 500 ms
+tick, so camps make at most about two decisions a second (~0.07 ms each, timed
+as `system_barbarian_choose`), and the O(territory) re-export, the seen-set
+posting and the worker-side barbarian tile copy are gone.
 
 ## Barbarian planner rewrite
 
@@ -245,8 +245,31 @@ producer tests in `ai/`):
   ignored).
 - Docks: a camp on a dock crosses like any House's dock (linked docks and
   their landing ground); nothing barbarian-only remains.
+- After review: rejected attacks refund the budget and raid and the target is
+  avoided for 60s; the boot conversion is persisted as an event; a tile won
+  after its camp fell collapses; landmark tiles share `campId`.
 
-Not built: stage 3 (client).
+Not built:
+- Stage 3 (client): no camp marker, soldier display rule or tap highlight in
+  either renderer; Hunt is still offered (it is a plain Advance now).
+- The alert and login summary need server work too: an event when a camp
+  becomes active in a player's vision, and a record of what a camp took from
+  a House while it was offline. Neither exists yet.
+
+Known follow-ups (accepted for now):
+- A camp's size is unbounded (owner decision: no tile cap). Each decision walks
+  every tile of one camp; at about two decisions a second this stays small,
+  but a camp that grows to thousands of tiles makes its decisions, a human
+  login/logout re-count and the 5-minute verify scale with it. Watch
+  `sim_barbarian_tiles` and `system_barbarian_choose`; scanning only a camp's
+  border would bound it.
+- Raid counts and camp rest are memory-only: a restart resets them mid-window.
+- A collapsing camp drops buildings it captured (forts, observatories), as the
+  old walk release did; keeping barbarian-owned structures on neutral ground
+  needs its own rule.
+- At the camp cap, the per-fight change report says SETTLED for a captured
+  town/dock that actually lands as FRONTIER (report only).
+- Admin live seeding (`runtime-live-barbarians.ts`) does not check the camp cap.
 
 ## Staged implementation
 

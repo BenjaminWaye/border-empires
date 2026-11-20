@@ -1385,7 +1385,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              barbarianBridge: () => runtime.barbarianBridge()
+              barbarianBridge: () => { const bridge = runtime.barbarianBridge(); return { choose: (seq, at) => trackSyncMainThreadTaskWithMetrics("system_barbarian_choose", undefined, () => bridge.choose(seq, at)), settle: bridge.settle }; }
             },
             systemPlayerIds,
             submitCommand: submitDurableCommand,

@@ -92,7 +92,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   // relay with settle events.
   const barbSettleRelay = createBarbSettleRelay({
     barbPlayerId: BARBARIAN_PLAYER_ID,
-    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt),
+    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt, msg.rejected === true),
     now
   });
   // System producer issues one command per non-barbarian player at a time. If neither
@@ -430,7 +430,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         } catch {
           pendingPlayers.delete(playerId);
           // A barbarian command that never reached the runtime must not hold its tile in flight.
-          if (barbCommandId) barbSettleRelay.onEvent({ eventType: "COMMAND_REJECTED", playerId, commandId: barbCommandId });
+          if (barbCommandId) barbSettleRelay.onEvent({ eventType: "SUBMIT_FAILED", playerId, commandId: barbCommandId });
         }
         return;
       }

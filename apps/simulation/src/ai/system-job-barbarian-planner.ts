@@ -26,6 +26,9 @@ export const BARBARIAN_PLAYER_ID = "barbarian-1";
 
 // Safety net for a camp that found no target and was never woken.
 const NO_TARGET_RETRY_MS = 30_000;
+// A target the runtime refused (sealed by an Aether Wall, locked by another
+// fight, ...) is skipped by that camp for this long instead of retried every rest.
+const REJECTED_TARGET_AVOID_MS = 60_000;
 const ATTACK_BUDGET_WINDOW_MS = 60_000;
 
 export type BarbarianPlannerDeps = {
@@ -47,8 +50,12 @@ export type BarbarianPlannerDeps = {
 export type BarbarianPlanner = {
   /** At most one command per call; the camp that has waited longest goes first. */
   readonly choose: (clientSeq: number, issuedAt: number) => CommandEnvelope | null;
-  /** A command the planner issued finished (resolved, rejected or cancelled); its camp rests from `settledAt`. */
-  readonly settle: (commandId: string, settledAt: number) => void;
+  /**
+   * A command the planner issued finished (resolved, rejected or cancelled); its camp rests from
+   * `settledAt`. `rejected`: the runtime refused it, so its attack-budget slot and raid are
+   * refunded and the camp avoids that target for a while.
+   */
+  readonly settle: (commandId: string, settledAt: number, rejected?: boolean) => void;
   /** Something next to this camp changed owner: a sleeping camp looks again. */
   readonly wakeCamp: (campId: string) => void;
   readonly inFlightCount: () => number;
@@ -56,7 +63,14 @@ export type BarbarianPlanner = {
   readonly restUntilByCamp: ReadonlyMap<string, number>;
 };
 
-type InFlight = { readonly campId: string; readonly targetKey: string; readonly issuedAt: number };
+type InFlight = {
+  readonly campId: string;
+  readonly targetKey: string;
+  readonly issuedAt: number;
+  readonly attack: boolean;
+  /** House whose garrisoned tile this raid targets (counted against the raid limit). */
+  readonly raidedHouseId?: string;
+};
 type CampAction = { from: PlannerTile; target: PlannerTile; type: "ATTACK" | "EXPAND"; score: number; targetKey: string };
 
 const dropDeadCamps = <V>(byCamp: Map<string, V>, live: ReadonlySet<string>): void => {
@@ -81,11 +95,30 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   // campId -> House id -> raids on that House's garrisoned land in its current manpower window.
   const raidsByCamp = new Map<string, Map<string, { windowStart: number; count: number }>>();
   const attackIssuedAt: number[] = [];
+  // campId -> target key -> until when that camp skips it (after a rejection); small per camp.
+  const avoidUntilByCamp = new Map<string, Map<string, number>>();
 
-  const settle = (commandId: string, settledAt: number): void => {
+  const refundRejected = (entry: InFlight, settledAt: number): void => {
+    if (entry.attack) {
+      const slot = attackIssuedAt.indexOf(entry.issuedAt);
+      if (slot >= 0) attackIssuedAt.splice(slot, 1);
+    }
+    const raids = entry.raidedHouseId ? raidsByCamp.get(entry.campId)?.get(entry.raidedHouseId) : undefined;
+    if (raids && raids.count > 0) raids.count -= 1;
+    let avoid = avoidUntilByCamp.get(entry.campId);
+    if (!avoid) {
+      avoid = new Map();
+      avoidUntilByCamp.set(entry.campId, avoid);
+    }
+    for (const [key, until] of avoid) if (until <= settledAt) avoid.delete(key);
+    avoid.set(entry.targetKey, settledAt + REJECTED_TARGET_AVOID_MS);
+  };
+
+  const settle = (commandId: string, settledAt: number, rejected = false): void => {
     const entry = inFlightByCommandId.get(commandId);
     if (!entry) return;
     inFlightByCommandId.delete(commandId);
+    if (rejected) refundRejected(entry, settledAt);
     restUntilByCamp.set(entry.campId, settledAt + restMs);
   };
 
@@ -118,20 +151,34 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     dropDeadCamps(lastActedByCamp, live);
     dropDeadCamps(sleepingUntilByCamp, live);
     dropDeadCamps(raidsByCamp, live);
+    dropDeadCamps(avoidUntilByCamp, live);
   };
 
-  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, t: number): CampAction | undefined => {
+  /**
+   * The camp's best action, or why it has none: `held` means a target exists but
+   * is held back for now (attack budget spent, raid limit reached, a recent
+   * rejection), so the camp should look again soon rather than sleep.
+   */
+  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, t: number): { best?: CampAction; held: boolean } => {
     const dockLinks = deps.getDockLinksByDockTileKey();
+    const avoid = avoidUntilByCamp.get(campId);
     let best: CampAction | undefined;
+    let held = false;
     for (const from of deps.campTiles(campId)) {
       for (const targetKey of candidateKeysForOrigin(from, dockLinks, deps.tilesByKey)) {
         if (busyTargets.has(targetKey)) continue;
         const target = deps.tilesByKey.get(targetKey);
         if (!target || target.terrain !== "LAND" || isBarbarian(target.ownerId)) continue;
+        if ((avoid?.get(targetKey) ?? 0) > t) {
+          held = true;
+          continue;
+        }
         let type: CampAction["type"];
         if (target.ownerId) {
-          if (!canAttack) continue;
-          if (target.ownershipState === "SETTLED" && !raidAllowed(campId, target.ownerId, t)) continue;
+          if (!canAttack || (target.ownershipState === "SETTLED" && !raidAllowed(campId, target.ownerId, t))) {
+            held = true;
+            continue;
+          }
           type = "ATTACK";
         } else {
           type = "EXPAND";
@@ -143,7 +190,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
         }
       }
     }
-    return best;
+    return best ? { best, held } : { held };
   };
 
   const choose = (clientSeq: number, issuedAt: number): CommandEnvelope | null => {
@@ -166,17 +213,17 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     eligible.sort((a, b) => a.lastActed - b.lastActed || (a.campId < b.campId ? -1 : 1));
     const canAttack = attackBudgetOpen(t);
     for (const { campId } of eligible) {
-      const pick = pickFor(campId, busyTargets, canAttack, t);
+      const { best: pick, held } = pickFor(campId, busyTargets, canAttack, t);
       if (!pick) {
-        sleepingUntilByCamp.set(campId, t + NO_TARGET_RETRY_MS);
+        // Nothing to take at all: sleep until a neighbour changes. Only held back: look again next time.
+        if (!held) sleepingUntilByCamp.set(campId, t + NO_TARGET_RETRY_MS);
         continue;
       }
       const command = createFrontierCommand({ from: pick.from, target: pick.target, score: pick.score }, BARBARIAN_PLAYER_ID, clientSeq, issuedAt, "system-runtime", pick.type);
-      if (pick.type === "ATTACK") {
-        attackIssuedAt.push(t);
-        if (pick.target.ownershipState === "SETTLED" && pick.target.ownerId) recordRaid(campId, pick.target.ownerId, t);
-      }
-      inFlightByCommandId.set(command.commandId, { campId, targetKey: pick.targetKey, issuedAt: t });
+      const raidedHouseId = pick.type === "ATTACK" && pick.target.ownershipState === "SETTLED" ? pick.target.ownerId : undefined;
+      if (pick.type === "ATTACK") attackIssuedAt.push(t);
+      if (raidedHouseId) recordRaid(campId, raidedHouseId, t);
+      inFlightByCommandId.set(command.commandId, { campId, targetKey: pick.targetKey, issuedAt: t, attack: pick.type === "ATTACK", ...(raidedHouseId ? { raidedHouseId } : {}) });
       lastActedByCamp.set(campId, t);
       return command;
     }

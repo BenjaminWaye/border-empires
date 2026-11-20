@@ -22,7 +22,7 @@ export type RuntimeBarbarianBridgeDeps = {
 
 export type RuntimeBarbarianBridge = {
   readonly choose: (clientSeq: number, issuedAt: number) => CommandEnvelope | undefined;
-  readonly settle: (commandId: string, settledAt: number) => void;
+  readonly settle: (commandId: string, settledAt: number, rejected?: boolean) => void;
 };
 
 export const createRuntimeBarbarianBridge = (deps: RuntimeBarbarianBridgeDeps): RuntimeBarbarianBridge => {

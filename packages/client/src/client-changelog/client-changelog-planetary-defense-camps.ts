@@ -7,7 +7,7 @@ export const PLANETARY_DEFENSE_CAMPS_ENTRY: Omit<ClientChangelogEntry, "createdA
   changes: [
     "Planetary Defense now holds camps that never move. A camp spreads frontier around itself and takes your land from there",
     "Taking a town or a dock gives Planetary Defense a new camp. Camps destroyed by players never come back, so Planetary Defense shrinks as Houses clear it",
-    "Capture a camp and its land falls with it: you take the frontier your attack cut off, and the rest goes back to neutral",
+    "Capture a camp and all of its land falls with it, back to neutral",
     "A camp only acts while a player who is online, or an AI empire, can see one of its tiles",
     "Each camp can attack a House's garrisoned tiles at most 10 times per manpower window, so a camp next to you while you're offline can only do limited damage",
     "Pacification Routines now pays its 25 Coin bounty per camp captured instead of per tile",

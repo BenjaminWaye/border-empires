@@ -29,7 +29,8 @@ export type PlanetaryDefenseCampsDeps = {
   /** True while a fight holds `tileKey` (as origin or target): its land is left alone until it resolves. */
   readonly isLocked: (tileKey: string) => boolean;
   readonly replaceTileState: (tileKey: string, tile: DomainTileState, commandId: string) => void;
-  readonly emitReleased: (commandId: string, tiles: readonly DomainTileState[]) => void;
+  /** Broadcasts and records changed Planetary Defense tiles (collapse, boot conversion). */
+  readonly emitTiles: (commandId: string, tiles: readonly DomainTileState[]) => void;
   readonly now: () => number;
   /** Defers a drain to after the current synchronous work (queueMicrotask in production). */
   readonly defer?: (task: () => void) => void;
@@ -48,6 +49,8 @@ export class PlanetaryDefenseCamps {
   // open, which must never run while the runtime (and the service's
   // subscription registry) is still being constructed.
   private watchersSynced = false;
+  // Tiles the boot conversion changed, emitted (and so persisted) on the first tick.
+  private pendingMigrationKeys: readonly string[] = [];
   private neighbourChanged: ((campId: string) => void) | undefined;
 
   constructor(deps: PlanetaryDefenseCampsDeps) {
@@ -92,8 +95,10 @@ export class PlanetaryDefenseCamps {
    */
   bootTiles(tiles: Map<string, DomainTileState>): void {
     const migrated = migrateLegacyPlanetaryDefenseTiles(tiles);
-    if (migrated.camps + migrated.frontier + migrated.released > 0) {
-      this.deps.logInfo?.({ type: "pd_camp_migration", ...migrated }, "converted pre-camp Planetary Defense land into camps");
+    if (migrated.changedKeys.length > 0) {
+      const { changedKeys, ...counts } = migrated;
+      this.deps.logInfo?.({ type: "pd_camp_migration", ...counts }, "converted pre-camp Planetary Defense land into camps");
+      this.pendingMigrationKeys = changedKeys;
     }
     this.index.rebuild(tiles);
   }
@@ -105,6 +110,7 @@ export class PlanetaryDefenseCamps {
 
   /** 1s side tick: watchers who came or went, retries, periodic drift check. */
   tick(nowMs: number): void {
+    this.emitMigration(nowMs);
     this.syncWatchers();
     if (this.index.hasDirtyCamps()) this.drain(`pd-camp-collapse:${nowMs}`);
     if (nowMs - this.lastVerifyAt >= AWAKE_VERIFY_INTERVAL_MS) {
@@ -176,7 +182,18 @@ export class PlanetaryDefenseCamps {
       released.push(next);
     }
     this.releasedTotal += released.length;
-    if (released.length > 0) this.deps.emitReleased(commandId, released);
+    if (released.length > 0) this.deps.emitTiles(commandId, released);
+  }
+
+  private emitMigration(nowMs: number): void {
+    if (this.pendingMigrationKeys.length === 0) return;
+    const tiles = this.deps.tiles();
+    const changed = this.pendingMigrationKeys.flatMap((key) => {
+      const tile = tiles.get(key);
+      return tile ? [tile] : [];
+    });
+    this.pendingMigrationKeys = [];
+    if (changed.length > 0) this.deps.emitTiles(`pd-camp-migration:${nowMs}`, changed);
   }
 
   private ensureWatchersSynced(): void {

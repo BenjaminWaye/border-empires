@@ -104,6 +104,27 @@ describe("Planetary Defense planner", () => {
     expect(choose()).toMatchObject({ type: "EXPAND", to: "10,11" });
   });
 
+  // Review regression: a target the runtime refused (an Aether Wall, a lock) was
+  // retried every rest, spending the faction's attack budget and the raid limit.
+  it("a rejected attack is refunded and its target avoided for a while", () => {
+    const { planner, choose, advance, now } = setup([campTile(10, 10), house(10, 9), neutral(10, 11)], { raids: 1, attacksPerMinute: 1 });
+    const first = choose()!;
+    expect(first).toMatchObject({ type: "ATTACK", to: "10,9" });
+    planner.settle(first.commandId, now(), true);
+    advance(16_000);
+    // The budget slot and raid were refunded, but the refused target is skipped: it expands instead.
+    expect(choose()).toMatchObject({ type: "EXPAND", to: "10,11" });
+  });
+
+  it("a camp held back only by the attack budget looks again on the next call instead of sleeping", () => {
+    const { planner, choose } = setup([campTile(10, 10), house(10, 9), sea(10, 11), sea(9, 9), sea(11, 9), sea(9, 10), sea(11, 10), sea(9, 11), sea(11, 11), campTile(40, 40), neutral(40, 41)], { attacksPerMinute: 1 });
+    const first = choose()!; // one camp spends the only attack slot
+    const second = choose(); // the other expands
+    expect([first.type, second?.type].sort()).toEqual(["ATTACK", "EXPAND"]);
+    planner.settle(first.commandId, 1_000, true); // refunded: the slot is free again at once
+    expect(planner.restUntilByCamp.size).toBeGreaterThan(0);
+  });
+
   it("a camp with nothing to take sleeps until something next to it changes", () => {
     const { planner, choose, tilesByKey } = setup([campTile(10, 10), sea(10, 11)]);
     expect(choose()).toBeUndefined();

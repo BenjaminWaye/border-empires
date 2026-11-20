@@ -627,7 +627,7 @@ export class SimulationRuntime {
     isWatcherNow: (id) => Boolean(this.state.players.get(id)?.isAi) || (this.isPlayerSubscribed?.(id) ?? false),
     isVisible: (viewerId, key) => this.state.visibilityCoverage.isVisible(viewerId, key),
     replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId),
-    emitReleased: (commandId, tiles) => this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: "barbarian-1", tileDeltas: tiles.map((tile) => this.tileDeltaFromState(tile)) }),
+    emitTiles: (commandId, tiles) => this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: "barbarian-1", tileDeltas: tiles.map((tile) => ({ ...this.tileDeltaFromState(tile), ownerId: tile.ownerId, ownershipState: tile.ownershipState, campId: tile.campId })) }), // owner and camp always explicit: a replay rebuilds camps from these
     logInfo: (payload, message) => runtimeLogInfo(payload, message)
   });
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();

@@ -22,12 +22,6 @@ export class PlanetaryDefenseCampIndex {
   // land cut off from the camp. Bounded by the number of camps.
   private readonly dirtyCamps = new Set<string>();
   private listener: CampMembershipListener | undefined;
-  // The worker-side copy (planner) never drains, so it doesn't keep a dirty set.
-  private readonly trackDirty: boolean;
-
-  constructor(options: { readonly trackDirty?: boolean } = {}) {
-    this.trackDirty = options.trackDirty ?? true;
-  }
 
   setListener(listener: CampMembershipListener): void {
     this.listener = listener;
@@ -35,7 +29,8 @@ export class PlanetaryDefenseCampIndex {
 
   /**
    * Feed one tile write. Cheap when neither side is a Planetary Defense tile.
-   * Returns true when a camp lost a tile or its camp tile (it needs a drain).
+   * Returns true when a camp needs a drain: it lost a tile or its camp tile,
+   * or a tile joined a camp that is not alive (e.g. a fight won after its camp fell).
    */
   onTileWrite(tileKey: string, next: CampTileFields | undefined): boolean {
     const before = this.campByTile.get(tileKey);
@@ -49,7 +44,9 @@ export class PlanetaryDefenseCampIndex {
     if (before === after) return lost;
     if (before) this.removeMember(tileKey, before);
     if (after) this.addMember(tileKey, after);
-    return lost || before !== undefined;
+    const joinedDeadCamp = after !== undefined && !this.liveCampKeys.has(after);
+    if (joinedDeadCamp) this.markDirty(after);
+    return lost || before !== undefined || joinedDeadCamp;
   }
 
   /** Replace the whole index from the current tiles (boot / hydration). */
@@ -90,7 +87,7 @@ export class PlanetaryDefenseCampIndex {
   }
 
   markDirty(campId: string): void {
-    if (this.trackDirty) this.dirtyCamps.add(campId);
+    this.dirtyCamps.add(campId);
   }
 
   hasDirtyCamps(): boolean {

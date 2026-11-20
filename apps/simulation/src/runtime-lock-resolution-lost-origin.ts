@@ -22,7 +22,7 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
     ? planetaryDefenseCaptureFields({
         targetKey: lock.originKey,
         previousTarget: previousOrigin,
-        sourceCampId: context.tiles.get(lock.targetKey)?.campId,
+        sourceCampId: context.tiles.get(lock.targetKey)?.campId ?? lock.targetKey,
         campCount: context.planetaryDefenseCampCount()
       })
     : undefined;

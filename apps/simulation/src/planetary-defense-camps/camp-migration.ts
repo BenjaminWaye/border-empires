@@ -5,15 +5,18 @@
 //   - camps: every town or dock tile in it, or, if it has none, one tile
 //     (the lowest y, then x) so the cluster keeps a camp;
 //   - FRONTIER for the rest, each tile joining its nearest camp in the cluster.
-// Deterministic in the tile state, so replaying the event log and booting again
-// gives the same result. A world with no unconverted tiles is left untouched.
+// Runs in place before any index is built; camp-runtime.ts then records the
+// converted tiles as one event on the first tick, so a crash replay from the
+// pre-camp snapshot reapplies exactly this result rather than re-deriving it
+// from a map that has changed since. A world with no unconverted tiles is
+// left untouched.
 import type { DomainTileState } from "@border-empires/game-domain";
 import { MAX_PLANETARY_DEFENSE_CAMPS } from "@border-empires/shared";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { foundsCamp, isPlanetaryDefenseCampTile, isPlanetaryDefenseOwner, releasedPlanetaryDefenseTile } from "./camp-rules.js";
 
-export type CampMigrationResult = { readonly camps: number; readonly frontier: number; readonly released: number };
+export type CampMigrationResult = { readonly camps: number; readonly frontier: number; readonly released: number; readonly changedKeys: readonly string[] };
 
 const needsMigration = (tile: DomainTileState): boolean => isPlanetaryDefenseOwner(tile.ownerId) && !tile.campId;
 
@@ -27,7 +30,7 @@ export const migrateLegacyPlanetaryDefenseTiles = (tiles: Map<string, DomainTile
     if (needsMigration(tile)) pending.add(key);
     else if (isPlanetaryDefenseCampTile(key, tile)) campCount += 1;
   }
-  const result = { camps: 0, frontier: 0, released: 0 };
+  const result = { camps: 0, frontier: 0, released: 0, changedKeys: [] as string[] };
   if (pending.size === 0) return result;
   const remaining = new Set(pending);
   const ordered = [...pending].map((key) => tiles.get(key)!).sort(byPosition);
@@ -42,6 +45,7 @@ export const migrateLegacyPlanetaryDefenseTiles = (tiles: Map<string, DomainTile
     campCount += allowed.length;
     const campOf = nearestCamp(cluster, allowed, tiles);
     for (const key of cluster) {
+      result.changedKeys.push(key);
       const tile = tiles.get(key)!;
       const campId = campOf.get(key);
       if (!campId) {
