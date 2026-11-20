@@ -29,8 +29,13 @@ export const SUING_REPEAT_COOLDOWN_MS = 24 * 60 * 60_000;
 export const COUNTER_ATTACK_STRENGTH_RATIO = 1;
 
 export type AiWarOutlook =
-  /** No reason to change course: not at war, not losing ground lately, or holding its own. */
+  /** No reason to change course: not at war, not losing ground lately, or losing it slowly. */
   | { kind: "STEADY" }
+  /**
+   * Has lost ground lately but is strong enough right now to take it back: it
+   * won't sell peace to an attacker who grabbed land and ran low on manpower.
+   */
+  | { kind: "RETAKE_NOW" }
   /** Losing ground and spent for now, but its reload lands soon and out-muscles the rival: it fights on rather than pay. */
   | { kind: "HOLD_FOR_REFILL"; refillInMs: number }
   /** Losing ground fast with no way to stop it before the horizon: it pays for peace now. */
@@ -54,6 +59,12 @@ export const aiWarOutlook = (input: {
   recentTilesTaken: number;
   /** When this AI last paid this rival for peace, if ever. */
   paidForPeaceAt?: number;
+  /**
+   * Whether the rival attacked this AI lately. RETAKE_NOW is about a rival who
+   * grabbed land: an AI whose own failed attacks cost it tiles is no victim, and
+   * keeps the old "steady" read. Omitted: false.
+   */
+  rivalAttackedLately?: boolean;
   now?: number;
 }): AiWarOutlook => {
   const { ai, rival } = input;
@@ -62,11 +73,14 @@ export const aiWarOutlook = (input: {
   // Fading counts never quite reach zero: under a tile of net loss is no recent loss at all.
   if (netLoss < 1) return STEADY;
 
-  // An AI that can stop the bleeding with what it has now isn't waiting on anything:
-  // the tally decides whether it is losing, as before.
+  // An AI that can take its land back with what it has now fights on: a
+  // player who grabs tiles and runs dry can't buy a truce to keep them.
   const strength = fightingStrengthOf(ai);
   const holdsNow = rival.fightingStrength !== undefined ? strength >= rival.fightingStrength : strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
-  if (holdsNow) return STEADY;
+  // "Can retake" needs a real army (the retaliation-ready share of its cap) as
+  // well as matching the rival: two spent empires mustn't lock each other out of peace.
+  const ready = strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
+  if (holdsNow) return input.rivalAttackedLately && ready ? { kind: "RETAKE_NOW" } : STEADY;
 
   // Spent for now: a reload that lands soon and out-muscles the rival is worth waiting for.
   const reloadsSoon = ai.nextRefillInMs !== undefined && ai.nextRefillInMs <= WAR_OUTLOOK_HORIZON_MS;

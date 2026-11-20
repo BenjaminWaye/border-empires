@@ -48,12 +48,13 @@ describe("2D Holo-Locked Stack", () => {
     const held = recorder();
     drawWaystationOpening2D(held.ctx, entry, 0, 0, 48, 0, 62_000, () => true);
     expect(held.calls.length).toBeGreaterThan(40); // still drawn, as the closed stack
-    expect(held.calls.some((c) => c.startsWith("createRadialGradient"))).toBe(false);
+    const radials = (calls: string[]): number => calls.filter((c) => c.startsWith("createRadialGradient")).length;
+    expect(radials(held.calls)).toBe(1); // only the seal orb's own glow: the crate is still closed
     expect(entry.startedAt).toBeUndefined();
     drawWaystationOpening2D(recorder().ctx, entry, 0, 0, 48, 0, 63_000, () => false);
     expect(entry.startedAt).toBe(63_000);
     const running = recorder();
     drawWaystationOpening2D(running.ctx, entry, 0, 0, 48, 0, 64_200, () => false);
-    expect(running.calls.some((c) => c.startsWith("createRadialGradient"))).toBe(true);
+    expect(radials(running.calls)).toBeGreaterThan(1); // lit cavity and reward core
   });
 });

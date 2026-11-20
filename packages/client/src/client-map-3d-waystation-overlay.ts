@@ -1,6 +1,6 @@
 // Holo-Locked Stack waystation (client-waystation-holo-crates/): three armoured
-// crates on an anti-grav pad under a floating hologram padlock. Every part is
-// instanced; per frame only the live padlocks bob and turn and the cyan
+// crates on an anti-grav pad under a hovering glowing orb. Every part is
+// instanced; per frame only the live orbs bob and spin their rings and the cyan
 // lights pulse. Remembered (fogged) sites use their own still materials.
 import { Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Material, type Scene, type Texture } from "three";
 import {
@@ -21,17 +21,17 @@ export type WaystationOverlay = {
 /** Materials whose look animates; remembered sites get a still copy of each. */
 const ANIMATED: ReadonlySet<HoloMaterialKey> = new Set(["glow", "holo", "holoBeam"]);
 
-/** Padlock pose for a site at `nowMs`: a slow bob and turn, phase-shifted per tile so neighbours don't move in lockstep. */
+/** Seal-orb pose for a site at `nowMs`: a slow bob and orbit-ring spin, phase-shifted per tile so neighbours don't move in lockstep. */
 const UP = new Vector3(0, 1, 0);
 const UNIT = new Vector3(1, 1, 1);
 const lockPosition = new Vector3();
 const lockTurn = new Quaternion();
-/** Runs per live padlock per frame, so it reuses module temporaries instead of allocating. */
+/** Runs per live orb per frame, so it reuses module temporaries instead of allocating. */
 export const holoLockMatrix = (out: Matrix4, siteX: number, siteY: number, siteZ: number, nowMs: number, phase: number, still: boolean): Matrix4 => {
   const bob = still ? 0 : Math.sin(nowMs * 0.0021 + phase) * 0.018;
-  const turn = still ? 0.35 : nowMs * 0.0006 + phase;
+  const turn = still ? 0.35 : nowMs * 0.0011 + phase;
   lockPosition.set(siteX + LOCK_ANCHOR.x, siteY + LOCK_ANCHOR.y + bob, siteZ + LOCK_ANCHOR.z);
-  return out.compose(lockPosition, lockTurn.setFromAxisAngle(UP, Math.sin(turn) * 0.6), UNIT);
+  return out.compose(lockPosition, lockTurn.setFromAxisAngle(UP, turn), UNIT);
 };
 
 export const createWaystationOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): WaystationOverlay => {
@@ -118,9 +118,8 @@ export const createWaystationOverlay = (scene: Scene, maxTiles: number, building
     update(nowMs) {
       const pulse = 0.5 + 0.5 * Math.sin(nowMs * 0.0024);
       (live.glow as MeshStandardMaterial).emissiveIntensity = 0.8 + 0.45 * pulse;
-      // Hologram flicker: a steady shimmer plus a rare, brief dropout.
-      const dropout = Math.sin(nowMs * 0.0131) > 0.985 ? 0.45 : 1;
-      (live.holo as MeshBasicMaterial).opacity = (0.36 + 0.1 * Math.sin(nowMs * 0.019)) * dropout;
+      // The orb's glow shell and ring breathe with the lights.
+      (live.holo as MeshBasicMaterial).opacity = 0.28 + 0.14 * pulse;
       (live.holoBeam as MeshBasicMaterial).opacity = 0.06 + 0.05 * pulse;
       if (lockSites.length) placeLocks(nowMs);
     },

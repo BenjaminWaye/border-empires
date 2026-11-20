@@ -18,8 +18,9 @@ const context = (memory: Partial<AiDiplomacyContext["memory"]> = {}): AiDiplomac
     battles: 0,
     truceDeals: 0,
     goodwillCoin: 0,
-    lastPlayerAttackAt: undefined,
-    lastCombatAt: undefined,
+    // Attacked the AI within the last day (outside the 6h war window), so neighbours pay the 12h price.
+    lastPlayerAttackAt: NOW - 12 * 60 * 60_000,
+    lastCombatAt: NOW - 12 * 60 * 60_000,
     aiAlreadyPaidThisWar: false,
     ...memory
   },
@@ -40,8 +41,8 @@ const snapshotFor = (playerId: string, gold: number, incomePerMinute: number): P
     worldStatus: { leaderboard: { selfOverall: { score: 100 } } }
   }) as unknown as PlayerSubscriptionSnapshot;
 
-// The AI's 12h truce counter: the player pays 12h x 2 coin/min = 1440 coin (Cautious neighbours at peace).
-const counterFromAi = { give: { gold: 0 }, ask: { gold: 1440 } };
+// The AI's 12h truce counter: the player pays 12h x Annoyed 1.5 x 2 coin/min = 2160 coin (neighbours the player attacked yesterday).
+const counterFromAi = { give: { gold: 0 }, ask: { gold: 2160 } };
 
 const recheck = (memory: Partial<AiDiplomacyContext["memory"]>, aiSnapshot: PlayerSubscriptionSnapshot | null = snapshotFor(AI_ID, 0, 2)) =>
   recheckAiOffer(

@@ -16,15 +16,15 @@ describe("Envoy Accreditation and Allied Levies scale the House's own economy", 
     expect(afcAgreementCount(actor, peers)).toBe(2);
   });
 
-  it("pays a single 10% bonus for Envoy Accreditation while any agreement is active", () => {
+  it("pays 20% per agreement for Envoy Accreditation, without a cap", () => {
     const actor = player("p", ["afc-chancery-1"]);
     const partners = Array.from({ length: 8 }, (_, i) => player(`t${i}`));
     const peers = new Map([actor, ...partners].map(p => [p.id, p]));
     expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: 0, agreements: 0 });
     partners.slice(0, 2).forEach(p => actor.truces.add(p.id));
-    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: 0.1, agreements: 2 });
+    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: 0.4, agreements: 2 });
     partners.forEach(p => actor.truces.add(p.id));
-    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: 0.1, agreements: 8 });
+    expect(afcEnvoyIncomeShare(actor, peers)).toEqual({ share: expect.closeTo(1.6, 10), agreements: 8 });
     expect(afcEnvoyIncomeShare(player("q"), peers).share).toBe(0);
   });
 
