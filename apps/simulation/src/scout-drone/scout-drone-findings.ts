@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { SCOUT_DRONE_VISION_RADIUS, type ScoutReportFindings } from "@border-empires/shared";
+import { SCOUT_DRONE_VISION_RADIUS, SCOUT_FINDING_SITES_MAX_TILES, type ScoutFindingSites, type ScoutFindingTile, type ScoutReportFindings } from "@border-empires/shared";
 
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 
@@ -8,6 +8,7 @@ import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resou
 // Planetary Defense tiles and other empires. Each tile counts once per
 // flight. The viewer's own and allied land is skipped, so the report lists
 // only what is new to them. The vision square is the drone's radius-3 box.
+// Each find group also keeps where it was (capped), so the Chronicle can jump to it.
 
 export type ScoutFindings = {
   readonly observe: (x: number, y: number, viewer: DomainPlayer) => void;
@@ -17,6 +18,17 @@ export type ScoutFindings = {
 
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
 
+const keep = (list: ScoutFindingTile[], x: number, y: number): void => {
+  if (list.length < SCOUT_FINDING_SITES_MAX_TILES) list.push({ x, y });
+};
+
+const keepKeyed = (groups: Record<string, ScoutFindingTile[]>, key: string, x: number, y: number): void => {
+  keep((groups[key] ??= []), x, y);
+};
+
+const copyKeyed = (groups: Record<string, ScoutFindingTile[]>): Record<string, ScoutFindingTile[]> =>
+  Object.fromEntries(Object.entries(groups).map(([key, tiles]) => [key, tiles.map((t) => ({ ...t }))]));
+
 export const createScoutFindings = (
   tiles: () => ReadonlyMap<string, DomainTileState>,
   width: number,
@@ -25,6 +37,7 @@ export const createScoutFindings = (
   // Bounded by the flight: at most (2r+1)^2 tiles per outbound step.
   const seen = new Set<string>();
   const result: ScoutReportFindings = { towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+  const sites: ScoutFindingSites = { towns: [], docks: [], waystations: [], watchtowers: [], planetaryDefense: [], resources: {}, empires: {} };
   const empires = new Set<string>();
   const resourceCounts = new Map<string, number>();
   const r = SCOUT_DRONE_VISION_RADIUS;
@@ -32,26 +45,46 @@ export const createScoutFindings = (
     observe: (x, y, viewer) => {
       for (let dy = -r; dy <= r; dy += 1) {
         for (let dx = -r; dx <= r; dx += 1) {
-          const key = `${wrap(x + dx, width)},${wrap(y + dy, height)}`;
+          const tx = wrap(x + dx, width);
+          const ty = wrap(y + dy, height);
+          const key = `${tx},${ty}`;
           if (seen.has(key)) continue;
           seen.add(key);
           const tile = tiles().get(key);
           if (!tile) continue;
           const owner = tile.ownerId;
           if (owner && (owner === viewer.id || viewer.allies.has(owner))) continue;
-          if (owner?.startsWith("barbarian-")) result.planetaryDefenseTiles += 1;
-          else if (owner && !empires.has(owner)) {
-            empires.add(owner);
-            result.empiresSighted.push(owner);
+          if (owner?.startsWith("barbarian-")) {
+            result.planetaryDefenseTiles += 1;
+            keep(sites.planetaryDefense, tx, ty);
+          } else if (owner) {
+            if (!empires.has(owner)) {
+              empires.add(owner);
+              result.empiresSighted.push(owner);
+            }
+            keepKeyed(sites.empires, owner, tx, ty);
           }
-          if (tile.town) result.towns += 1;
-          if (tile.dockId) result.docks += 1;
-          if (tile.waystation) result.waystations += 1;
-          if (tile.watchtower && !tile.watchtower.activated) result.watchtowers += 1;
+          if (tile.town) {
+            result.towns += 1;
+            keep(sites.towns, tx, ty);
+          }
+          if (tile.dockId) {
+            result.docks += 1;
+            keep(sites.docks, tx, ty);
+          }
+          if (tile.waystation) {
+            result.waystations += 1;
+            keep(sites.waystations, tx, ty);
+          }
+          if (tile.watchtower && !tile.watchtower.activated) {
+            result.watchtowers += 1;
+            keep(sites.watchtowers, tx, ty);
+          }
           const resource = revealedResourceValueForPlayer(tile.resource, viewer);
           if (resource) {
             result.resourceTiles += 1;
             resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
+            keepKeyed(sites.resources, resource, tx, ty);
           }
         }
       }
@@ -60,7 +93,16 @@ export const createScoutFindings = (
     counts: () => ({
       ...result,
       empiresSighted: [...result.empiresSighted],
-      resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count }))
+      resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count })),
+      sites: {
+        towns: sites.towns.map((t) => ({ ...t })),
+        docks: sites.docks.map((t) => ({ ...t })),
+        waystations: sites.waystations.map((t) => ({ ...t })),
+        watchtowers: sites.watchtowers.map((t) => ({ ...t })),
+        planetaryDefense: sites.planetaryDefense.map((t) => ({ ...t })),
+        resources: copyKeyed(sites.resources),
+        empires: copyKeyed(sites.empires)
+      }
     })
   };
 };

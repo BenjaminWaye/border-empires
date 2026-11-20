@@ -1,4 +1,4 @@
-import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, ScoutFindingSites, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -251,6 +251,9 @@ export type PersonalActivityScoutReportCard = {
   resourceTiles: number;
   planetaryDefenseTiles: number;
   empiresSighted: string[];
+  resourcesSighted?: Array<{ resource: string; count: number }>;
+  // Where each find is (capped per group); absent on reports from before it existed.
+  sites?: ScoutFindingSites;
   // Set when a rival's border turned the drone back.
   blockedByPlayerId?: string;
 };

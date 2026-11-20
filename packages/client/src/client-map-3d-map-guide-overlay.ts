@@ -5,10 +5,11 @@ import { houseChargeSearchGuide } from "./client-house-charges/client-house-char
 import { CHARGE_LINK_DOT_RADIUS, CHARGE_RING_DOT_RADIUS } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHighlightTile } from "./client-map-3d-onboarding-checklist-highlight.js";
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
+import { scoutFindingRingTiles } from "./client-scout-drone/client-scout-finding-highlight.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // True-3D map guidance, the counterpart of the 2D client-map-guide-overlays-2d.ts:
-// the onboarding guide's ring markers plus a focused House Charge's markers
+// the onboarding guide's ring markers plus a focused House Charge's and a clicked scout find's markers
 // (one ring overlay, client-map-3d-onboarding-checklist-highlight.ts), the
 // charge's dotted rough circles and link (client-house-charges-search-guide.ts)
 // and its shaded area, drawn as flat tiles on the ground at each tile's real
@@ -73,7 +74,7 @@ const disposeDotMesh = (mesh: InstancedMesh): void => {
 };
 
 export type MapGuideScenePoint = OnboardingChecklistHighlightTile;
-export type MapGuideState = Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
+export type MapGuideState = Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight">>;
 
 export type MapGuideOverlay = {
   readonly sync: (state: MapGuideState, toScene: (x: number, y: number) => MapGuideScenePoint, nowMs: number) => void;
@@ -126,7 +127,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
       const guide = houseChargeSearchGuide(state, WORLD_WIDTH, WORLD_HEIGHT);
       placeDots(ringDots, guide.ringDots, toScene);
       placeDots(linkDots, guide.linkDots, toScene);
-      const markers = houseChargeMarkerTiles(state);
+      const markers = [...houseChargeMarkerTiles(state), ...scoutFindingRingTiles(state, Date.now())];
       const ringTiles = markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles;
       rings.sync(ringTiles.map((tile) => toScene(tile.x, tile.y)), nowMs);
       const counts = { garrisoned: 0, open: 0 };

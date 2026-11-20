@@ -69,6 +69,26 @@ export type ScoutReportFindings = {
   planetaryDefenseTiles: number;
   /** Other empires whose land the drone saw. */
   empiresSighted: string[];
+  /** Where each counted find is, so the report can jump to it. Absent on reports from before it existed. */
+  sites?: ScoutFindingSites;
+};
+
+/** Most tiles kept per find group; the counts above stay exact past it. */
+export const SCOUT_FINDING_SITES_MAX_TILES = 24;
+
+export type ScoutFindingTile = { x: number; y: number };
+
+/** Tiles per find group, in the order the drone saw them, each capped at SCOUT_FINDING_SITES_MAX_TILES. */
+export type ScoutFindingSites = {
+  towns: ScoutFindingTile[];
+  docks: ScoutFindingTile[];
+  waystations: ScoutFindingTile[];
+  watchtowers: ScoutFindingTile[];
+  planetaryDefense: ScoutFindingTile[];
+  /** Keyed by resource id. */
+  resources: Record<string, ScoutFindingTile[]>;
+  /** Keyed by player id. */
+  empires: Record<string, ScoutFindingTile[]>;
 };
 
 export type ScoutDronePayload = {
