@@ -152,7 +152,9 @@ it only acts where someone can see it.
    ship at the next season reset and skip migration.
 3. **Client**: camp overlay in 3D and 2D, remove the movement guessing in
    `commit()`, remove Hunt Planetary Defense (server side goes in stage 1),
-   tile menu labels a camp and shows the camp bounty.
+   tile menu labels a camp and shows the camp bounty. Tapping a camp or any of
+   its frontier highlights that camp's whole area in both renderers, and the
+   tile menu names the camp it belongs to (owner decision 2026-11-20).
    Changelog entry in `client-changelog-data.ts`.
 4. **Docs and lore**: rewrite the barbarian bullet in `game-mechanics.md`. The
    world bible (`docs/lore/galactic-lore.md`) has no Planetary Defense entry
