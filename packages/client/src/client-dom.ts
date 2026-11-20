@@ -64,6 +64,7 @@ export const initClientDom = () => {
   const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
   const authBusyCopyEl = requireElement<HTMLParagraphElement>("#auth-busy-copy");
   const authBusyProgressEl = requireElement<HTMLDivElement>("#auth-busy-progress");
+  const authBusyQuoteEl = requireElement<HTMLElement>("#auth-busy-quote");
   const authBusyDiagnosticsBtn = requireElement<HTMLButtonElement>("#auth-busy-diagnostics");
   const authBusySeasonFullNotifyBtn = requireElement<HTMLButtonElement>("#auth-busy-season-full-notify");
   const authEmailSentAddressEl = requireElement<HTMLSpanElement>("#auth-email-sent-address");
@@ -127,6 +128,7 @@ export const initClientDom = () => {
     authBusySeasonFullNotifyBtn,
     authBusyModalEl,
     authBusyProgressEl,
+    authBusyQuoteEl,
     authBusyTitleEl,
     authOverlayEl,
     authPanelEl,
