@@ -7,6 +7,10 @@ describe("relic wire hints", () => {
     expect(parseRelicMapHints([{ x: 1, y: 2, kind: "RELIC", ownerId: "enemy", remainingUses: 3 }])).toEqual([{ x: 1, y: 2, kind: "RELIC" }]);
     expect(parseRelicMapHints([{ x: 1, y: 2, kind: "RESOURCE", resource: "FOOD" }, { x: Infinity, y: 1, kind: "RELIC" }, { x: 1.2, y: 1, kind: "RELIC" }])).toEqual([]);
   });
+  it("keeps an aether wake's operator and nothing else, and drops a wake without one", () => {
+    expect(parseRelicMapHints([{ x: 1, y: 2, kind: "WAKE", ownerId: "p2", type: "QUICKFORGE", remainingUses: 3 }])).toEqual([{ x: 1, y: 2, kind: "WAKE", ownerId: "p2" }]);
+    expect(parseRelicMapHints([{ x: 1, y: 2, kind: "WAKE" }, { x: 1, y: 2, kind: "WAKE", ownerId: "" }, { x: 1, y: 2, kind: "WAKE", ownerId: 7 }])).toEqual([]);
+  });
   it("bounds the payload and preserves only recognized survey resources", () => {
     expect(parseRelicMapHints(Array.from({ length: RELIC_MAP_HINT_LIMIT + 1 }, () => ({ x: 1, y: 1, kind: "RELIC" })))).toEqual([]);
     expect(parseRelicMapHints([{ x: 1, y: 2, kind: "RESOURCE", resource: "UMBRITE" }])).toEqual([{ x: 1, y: 2, kind: "RESOURCE", resource: "UMBRITE" }]);

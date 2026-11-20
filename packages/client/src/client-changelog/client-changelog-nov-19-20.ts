@@ -16,6 +16,7 @@ import { START_SITE_PATROLS_ENTRY } from "./client-changelog-start-site-patrols.
 import { SCOUT_DRONE_ANY_DISTANCE_ENTRY } from "./client-changelog-scout-drone-any-distance.js";
 import { START_SITE_PATROLS_ISLANDS_ENTRY } from "./client-changelog-start-site-patrols-islands.js";
 import { PLANETARY_DEFENSE_CAMPS_ENTRY } from "./client-changelog-planetary-defense-camps.js";
+import { RELIC_AETHER_WAKE_ENTRY } from "./client-changelog-relic-aether-wake.js";
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
 import { NEXT_STEP_NO_BRAINERS_ENTRY } from "./client-changelog-next-step-no-brainers.js";
 
@@ -36,6 +37,7 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...SCOUT_DRONE_ANY_DISTANCE_ENTRY, createdAt: 1795173371678 },
   { ...START_SITE_PATROLS_ISLANDS_ENTRY, createdAt: 1795175657050, },
   { ...PLANETARY_DEFENSE_CAMPS_ENTRY, createdAt: 1795178995450 },
+  { ...RELIC_AETHER_WAKE_ENTRY, createdAt: 1795196290100 }, // Date.now() captured once for this entry.
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
   { ...NEXT_STEP_NO_BRAINERS_ENTRY, createdAt: 1795209183293 },
 ];
