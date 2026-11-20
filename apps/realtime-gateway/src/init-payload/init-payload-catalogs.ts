@@ -1,4 +1,5 @@
 import { manifestGoldRequirement } from "@border-empires/shared";
+import { domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "../../../simulation/src/tech-domain-bridge/tech-domain-catalogs.js";
 import type { DomainCatalogEntry, TechCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
 type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
@@ -102,3 +103,15 @@ export const buildInitDomainCatalog = (
       }
     };
   });
+
+/** Upgrade catalogue + open choices for INIT, under the player's (or season's) AFC ruleset. */
+export function initDomainProgression(techIds: string[], domainIds: string[], afcUpgradeRuleset: "afc-v1" | undefined): {
+  domains: readonly DomainCatalogEntry[]; domainChoices: string[]; reachableDomainChoiceSet: Set<string>;
+} {
+  const progression = { techIds, domainIds, ...(afcUpgradeRuleset ? { afcUpgradeRuleset } : {}) };
+  return {
+    domains: domainCatalogForPlayer(progression),
+    domainChoices: openDomainChoices(domainIds, progression),
+    reachableDomainChoiceSet: new Set(reachableDomainChoices(techIds, domainIds, progression))
+  };
+}

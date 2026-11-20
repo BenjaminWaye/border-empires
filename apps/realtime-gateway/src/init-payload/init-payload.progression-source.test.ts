@@ -92,4 +92,21 @@ describe("gateway init progression sources", () => {
     expect(init.domainChoices).not.toContain("frontier-doctrine");
     expect(init.domainCatalog.find((domain) => domain.id === "cogwork-foundries")?.requirements.canResearch).toBe(false);
   });
+
+  it("serves the season's AFC specialization catalogue before the joining player is in the live snapshot", () => {
+    // Regression: a fresh joiner's INIT fell back to the legacy domain tree (Frontier Doctrine,
+    // Dwarf Kingdom...) because only the player's own ruleset was read, so the AFC panel offered
+    // legacy Tier I picks before any Manifest was chosen.
+    const initialState = {
+      playerId: "player-new",
+      tiles: [],
+      season: { afcUpgradeRuleset: "afc-v1" }
+    } as unknown as NonNullable<Parameters<typeof buildGatewayInitPayload>[1]>;
+    const init = buildGatewayInitPayload({ playerId: "player-new", playerName: "Newcomer" }, initialState, "default");
+
+    expect(init.domainCatalog.length).toBeGreaterThan(0);
+    expect(init.domainCatalog.every((domain) => domain.id.startsWith("afc-"))).toBe(true);
+    expect(init.domainCatalog.map((domain) => domain.id)).not.toContain("frontier-doctrine");
+    expect(init.domainChoices).toEqual([]);
+  });
 });

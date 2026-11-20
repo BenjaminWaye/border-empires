@@ -1,10 +1,9 @@
-import { domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "../../../simulation/src/tech-domain-bridge/tech-domain-catalogs.js";
 import { displayNameForSeedPlayer, recoverEntryNameFromSnapshot, recoverOptionalEntryNameFromSnapshot, recoverSeasonVictoryNamesFromSnapshot } from "./init-payload-name-recovery.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
 import { buildSeasonVictoryObjectives } from "./init-payload-season-victory.js";
-import { buildInitDomainCatalog, buildInitTechCatalog, type InitDomainCatalogEntry, type InitTechCatalogEntry } from "./init-payload-catalogs.js";
+import { buildInitDomainCatalog, buildInitTechCatalog, initDomainProgression, type InitDomainCatalogEntry, type InitTechCatalogEntry } from "./init-payload-catalogs.js";
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
@@ -292,9 +291,8 @@ export const buildGatewayInitPayload = (
   const techIds = liveSnapshotPlayer?.techIds ?? bootstrapProfile?.techIds ?? (player ? [...player.techIds] : []);
   const domainIds: string[] = liveSnapshotPlayer?.domainIds ?? bootstrapProfile?.domainIds ?? [];
   const techChoices = reachableTechChoices(techIds);
-  const progression = { techIds, domainIds, ...(liveSnapshotPlayer?.afcUpgradeRuleset ? { afcUpgradeRuleset: liveSnapshotPlayer.afcUpgradeRuleset } : {}) };
-  const domainChoices = openDomainChoices(domainIds, progression);
-  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds, progression));
+  // Season ruleset covers a joiner not yet in the live snapshot; otherwise INIT served the legacy domain tree.
+  const { domains, domainChoices, reachableDomainChoiceSet } = initDomainProgression(techIds, domainIds, liveSnapshotPlayer?.afcUpgradeRuleset ?? initialState?.season?.afcUpgradeRuleset);
   const liveWorldStatus = initialState?.worldStatus;
   const tileCounts = new Map<string, number>();
   for (const tile of initialState?.tiles ?? []) {
@@ -499,7 +497,7 @@ export const buildGatewayInitPayload = (
     techChoices,
     techCatalog: buildInitTechCatalog(techTree.techs, { researchedCount: techIds.length, techChoices, availableGold, availableStrategic, manifestGoldDiscount: liveSnapshotPlayer?.manifestGoldDiscount ?? 0 }),
     domainChoices,
-    domainCatalog: buildInitDomainCatalog(domainCatalogForPlayer(progression), { reachableDomainChoiceSet, availableGold, availableStrategic }),
+    domainCatalog: buildInitDomainCatalog(domains, { reachableDomainChoiceSet, availableGold, availableStrategic }),
     leaderboard: {
       overall,
       ...(selfOverall ? { selfOverall } : {}),
