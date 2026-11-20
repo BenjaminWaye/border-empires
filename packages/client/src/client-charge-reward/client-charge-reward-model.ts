@@ -3,7 +3,7 @@
 // each banking Domain score by its difficulty pips. Pure data helpers: which cards this
 // House earned (numbered exactly as GET /hq/house-charges/cards numbers them),
 // how much Domain score they bank, and whether the reward was already collected.
-import { houseChargeDomainForPips, houseChargeDomainWeight, type HouseChargeRarity } from "@border-empires/shared";
+import { houseChargeDomain, houseChargeDomainWeight, type HouseChargeRarity } from "@border-empires/shared";
 import type { HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 import type { HouseChargeRevealView } from "../client-house-charges/client-house-charge-reveal.js";
 
@@ -69,9 +69,9 @@ export const domainCountRange = (total: number | undefined, gained: number): { f
   return { from: total - gained, to: total };
 };
 
-/** "Rare · +3 Domain": the card's rarity and the Domain score its difficulty pips bank. */
-export const rarityDomainLabel = (card: { readonly rarity: HouseChargeRarity; readonly renown: number }): string =>
-  `${card.rarity.charAt(0)}${card.rarity.slice(1).toLowerCase()} · +${houseChargeDomainForPips(card.renown)} Domain`;
+/** "Rare · +3 Domain": the card's rarity and the Domain score it banks. */
+export const rarityDomainLabel = (card: { readonly rarity: HouseChargeRarity; readonly renown: number; readonly difficultyScored?: true }): string =>
+  `${card.rarity.charAt(0)}${card.rarity.slice(1).toLowerCase()} · +${houseChargeDomain(card)} Domain`;
 
 const collectedKey = (seasonId: string): string => `be-charge-reward-collected:${seasonId}`;
 

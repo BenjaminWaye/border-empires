@@ -12,6 +12,7 @@ const charge = (overrides: Partial<HouseChargeView>): HouseChargeView => ({
   title: "Road of Vell and Harrowmere",
   rarity: "COMMON",
   renown: 2,
+  difficultyScored: true,
   kept: true,
   held: false,
   size: 0,
@@ -106,6 +107,12 @@ describe("House Charges panel", () => {
     expect(html).not.toContain("Influence");
     expect(html).toContain("✦ Common · +2 Domain");
     expect(html).toContain("✦ Mythic · +4 Domain");
+  });
+
+  // Review of #2897: a charge dealt before difficulty scoring still shows the pay it was dealt with.
+  it("shows the stored-rarity Domain on a charge dealt before difficulty scoring", () => {
+    const { difficultyScored: _scored, ...legacy } = charge({ rarity: "RARE", renown: 3 });
+    expect(houseChargesPanelHtml(panelState([legacy], 0), 5_000)).toContain("✦ Rare · +2 Domain");
   });
 
   // Review of #2878: a set-aside or dropped card banks nothing, so it must not show a Domain score.

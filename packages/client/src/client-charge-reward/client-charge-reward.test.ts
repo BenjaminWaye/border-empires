@@ -9,7 +9,7 @@ import { fetchChargeDomainTotal, renderChargeReward, resetChargeRewardForTests }
 const PIPS: Record<HouseChargeRarity, number> = { COMMON: 1, RARE: 3, MYTHIC: 4 };
 const { COMMON, RARE, MYTHIC } = PIPS;
 const charge = (id: string, rarity: HouseChargeRarity, held: boolean) =>
-  ({ id, kind: "CHARTER" as const, title: `Road ${id}`, rarity, renown: PIPS[rarity], held, hoursHeld: held ? 12 : 0, size: 9, places: ["Vell", "Harrow"] });
+  ({ id, kind: "CHARTER" as const, title: `Road ${id}`, rarity, renown: PIPS[rarity], difficultyScored: true as const, held, hoursHeld: held ? 12 : 0, size: 9, places: ["Vell", "Harrow"] });
 const house = (playerId: string, charges: ReturnType<typeof charge>[]): SeasonHouseChargesSnapshot => ({ playerId, playerName: playerId, charges });
 const view = (houses: SeasonHouseChargesSnapshot[]): HouseChargeRevealView =>
   ({ seasonId: "season-7", seasonSequence: 7, endedAt: 1_000, winnerPlayerId: "winner", houses });

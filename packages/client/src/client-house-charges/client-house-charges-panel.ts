@@ -145,7 +145,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     <details class="house-charges-more" data-house-charges-more><summary>How charges work</summary>
       <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
       <p>Each kept charge you still hold then earns its charge card and banks Domain score by difficulty: +1 for each ◆, so +1 to +4. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
-      <p>◆ is difficulty: how much land the charge needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it or were sent after it too. Harder charges are rarer and pay more.</p>
+      <p>◆ is difficulty: how much land the charge needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it. Harder charges are rarer and pay more.</p>
     </details>
     ${choice}
     ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}

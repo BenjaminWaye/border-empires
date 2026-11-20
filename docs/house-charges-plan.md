@@ -151,10 +151,12 @@ Charges pay out only after the season, so rewards are things that outlast it.
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: each fulfilled charge banks **Domain score** on the
-   account, **+1 per difficulty pip (+1 to +4)** (`houseChargeDomainForPips`).
+   account, **+1 per difficulty pip (+1 to +4)** (`houseChargeDomain`).
    Decided 2026-11-20 by the owner, replacing pay by rarity (Common +1, Rare
    +2, Mythic +4), which paid a 26-tile tundra twice a 342-tile Survey.
    Difficulty is one score for every kind (see [Difficulty](#difficulty)).
+   Charges dealt before then keep pay by rarity, so crowned seasons are not
+   repriced.
    Decided 2026-11-18 by the owner:
    every account banks it, with or without a Planet or Outpost, and it is the
    charge's only galaxy reward. It counts in the Court's Domain Weight (the
@@ -180,8 +182,9 @@ failure.
 Every charge kind is scored on one scale when it is dealt
 (`apps/simulation/src/house-charges/house-charge-difficulty.ts`): the tiles
 the House must garrison at the target, plus the distance from its landing
-site, plus a sea crossing, scaled up for rival landing sites near the target
-and for other Houses dealt the same target. The score sets the pips (1..4),
+site, plus a sea crossing, scaled up for rival landing sites near the target.
+Other Houses dealt the same target are not counted: Houses are dealt one after
+another, so that would score the same target differently by dealing order. The score sets the pips (1..4),
 the pips set rarity and the Domain score paid. Bands were set on the seeded
 100-empire continent and island worlds (2026-11-20) so that relics usually
 score 1-2 pips, Charters and Writs 2-3, Three Seats 3, and large Survey,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { HOUSE_CHARGE_TARGET_CAP, houseChargeRarityForPips, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
+import { HOUSE_CHARGE_REGION_GARRISON_SHARE, HOUSE_CHARGE_TARGET_CAP, houseChargeRarityForPips, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
+import { houseChargePipsForScore } from "./house-charge-difficulty.js";
 import { buildBiomeRegionRegistry } from "./biome-region-registry.js";
 import { dealHouseCharges } from "./house-charge-dealing.js";
 import { charterRoadLength, houseChargeStanding } from "./house-charge-held.js";
@@ -57,7 +58,15 @@ describe("dealing", () => {
     expect(state.offered).toHaveLength(3);
     expect(state.offered[0]).toMatchObject({ kind: "RELIC", relicType: "FOUNDRY_HEART" });
     // Every kind's rarity follows its scored difficulty (house-charge-difficulty.ts); a relic is no longer Mythic by kind.
-    for (const charge of state.offered) expect(charge.rarity).toBe(houseChargeRarityForPips(charge.renown));
+    for (const charge of state.offered) {
+      expect(charge.difficultyScored).toBe(true);
+      expect(charge.rarity).toBe(houseChargeRarityForPips(charge.renown));
+      // Dealing feeds the target's real size into the score: never fewer pips than its garrison work alone earns.
+      if (charge.areaTiles !== undefined) {
+        const work = charge.kind === "SURVEY" ? charge.areaTiles : Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE);
+        expect(charge.renown).toBeGreaterThanOrEqual(houseChargePipsForScore(work));
+      }
+    }
     expect(state.keptIds).toEqual(state.offered.slice(0, 2).map((charge) => charge.id));
     for (const charge of state.offered) {
       const { x, y, radius } = charge.searchCircle;

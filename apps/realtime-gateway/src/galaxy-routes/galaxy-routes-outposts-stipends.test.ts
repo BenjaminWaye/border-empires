@@ -147,7 +147,7 @@ describe("galaxy routes — Outposts/Stipends", () => {
     await authBindingStore.bindIdentity({ uid: "uid-3", playerId: "player-3" });
     const bystanderIdentity: GatewayResolvedIdentity = { playerId: "player-3", playerName: "Bystander", authUid: "uid-3" };
     const charge = (id: string, pips: number, held: boolean) =>
-      ({ id, kind: "CHARTER" as const, title: id, rarity: houseChargeRarityForPips(pips), renown: pips, held, hoursHeld: held ? 4 : 0, size: 3 });
+      ({ id, kind: "CHARTER" as const, title: id, rarity: houseChargeRarityForPips(pips), renown: pips, difficultyScored: true as const, held, hoursHeld: held ? 4 : 0, size: 3 });
     const app = buildApp({
       archives: [
         wonArchive({

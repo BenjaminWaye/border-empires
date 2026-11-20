@@ -80,6 +80,8 @@ export type HouseCharge = {
   crossWater?: boolean;
   /** METROPOLIS: towns on the landmass when dealt. */
   areaTowns?: number;
+  /** Dealt on or after 2026-11-20: `renown` is the one-scale difficulty score's pips, and a held charge banks one Domain per pip. Absent on older charges, which keep pay by rarity. */
+  difficultyScored?: true;
 };
 
 /** A House's charges, stored on its player record. */
@@ -117,6 +119,8 @@ export type HouseChargeResult = {
   art?: string;
   /** RELIC: installation family, recorded once the House held it. */
   relicType?: string;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Every House's kept charges and their outcome, recorded on the season at crowning. */
@@ -187,6 +191,8 @@ export type HouseChargeView = {
   crossWater?: boolean;
   /** METROPOLIS: towns on the landmass when dealt. */
   areaTowns?: number;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */
@@ -223,17 +229,22 @@ export const houseChargeRarityForPips = (renown: number): HouseChargeRarity => {
   return pips >= 4 ? "MYTHIC" : pips === 3 ? "RARE" : "COMMON";
 };
 
+/** Pay for charges dealt before difficulty scoring (no `difficultyScored`): by stored rarity, as they were promised. */
+export const HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY: Readonly<Record<HouseChargeRarity, number>> = { COMMON: 1, RARE: 2, MYTHIC: 4 };
+
 /**
  * Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain score banked on
- * the account for each charge held at a crowning, one per difficulty pip
- * (+1..+4). Every account banks it, with or without territory in space; it is
- * the charge's only galaxy reward (no Stipend Influence).
+ * the account for a charge held at a crowning: one per difficulty pip (+1..+4)
+ * for a difficulty-scored charge, else by its stored rarity (legacy). Every
+ * account banks it, with or without territory in space; it is the charge's
+ * only galaxy reward (no Stipend Influence).
  */
-export const houseChargeDomainForPips = (renown: number): number => houseChargePips(renown);
+export const houseChargeDomain = (charge: Pick<HouseChargeResult, "rarity" | "renown" | "difficultyScored">): number =>
+  charge.difficultyScored ? houseChargePips(charge.renown) : (HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY[charge.rarity] ?? 0);
 
-/** Domain score one charge result banks: its pips when held at the crowning, otherwise 0. */
-export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "renown">): number =>
-  charge.held ? houseChargeDomainForPips(charge.renown) : 0;
+/** Domain score one charge result banks when held at the crowning, otherwise 0. */
+export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "rarity" | "renown" | "difficultyScored">): number =>
+  charge.held ? houseChargeDomain(charge) : 0;
 
 /** Domain score each House banked from the charges it held at one crowning (Houses with none are omitted). */
 export const heldHouseChargeDomainWeights = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {

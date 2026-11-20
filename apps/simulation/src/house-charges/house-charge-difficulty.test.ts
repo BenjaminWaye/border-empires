@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { houseChargeDomainWeight } from "@border-empires/shared";
 import { houseChargeDifficulty, houseChargePipsForScore } from "./house-charge-difficulty.js";
 
-const near = { reach: 15, crossesWater: false, rivalsNear: 0, otherHolders: 0 };
+const near = { reach: 15, crossesWater: false, rivalsNear: 0 };
 
 describe("House Charge difficulty", () => {
   // Owner report 2026-11-20: a 34-tile tundra (75% = 26 tiles) was Rare, +2 Domain, while
@@ -12,7 +12,8 @@ describe("House Charge difficulty", () => {
     const survey = houseChargeDifficulty({ ...near, kind: "SURVEY", areaTiles: 342 });
     expect(survey.score).toBeGreaterThan(tundra.score);
     expect(survey.renown).toBeGreaterThan(tundra.renown);
-    expect(houseChargeDomainWeight({ held: true, renown: survey.renown })).toBeGreaterThan(houseChargeDomainWeight({ held: true, renown: tundra.renown }));
+    const paid = (scored: { renown: number; rarity: typeof survey.rarity }) => houseChargeDomainWeight({ ...scored, held: true, difficultyScored: true });
+    expect(paid(survey)).toBeGreaterThan(paid(tundra));
     expect(tundra.rarity).toBe("COMMON");
     expect(survey.rarity).toBe("MYTHIC");
   });
@@ -32,11 +33,10 @@ describe("House Charge difficulty", () => {
     expect(houseChargeDifficulty({ ...near, kind: "RELIC", reach: 40 }).score).toBeGreaterThan(base);
     expect(houseChargeDifficulty({ ...near, kind: "RELIC", reach: 20, crossesWater: true }).score).toBeGreaterThan(base);
     expect(houseChargeDifficulty({ ...near, kind: "RELIC", reach: 20, rivalsNear: 2 }).score).toBeGreaterThan(base);
-    expect(houseChargeDifficulty({ ...near, kind: "RELIC", reach: 20, otherHolders: 2 }).score).toBeGreaterThan(base);
   });
 
   it("caps the contest multiplier", () => {
-    const many = houseChargeDifficulty({ ...near, kind: "SURVEY", areaTiles: 30, reach: 0, rivalsNear: 50, otherHolders: 50 });
+    const many = houseChargeDifficulty({ ...near, kind: "SURVEY", areaTiles: 30, reach: 0, rivalsNear: 50 });
     expect(many.score).toBe(Math.round(30 * 1.4));
   });
 

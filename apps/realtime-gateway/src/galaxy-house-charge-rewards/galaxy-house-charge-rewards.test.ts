@@ -6,7 +6,7 @@ import { chargeDomainWeightByAuthUid } from "./galaxy-house-charge-rewards.js";
 
 type Spec = [held: boolean, pips?: number];
 let nextId = 0;
-const charge = ([held, pips = 1]: Spec) => ({ id: `c${(nextId += 1)}`, kind: "CHARTER" as const, title: "Road", rarity: houseChargeRarityForPips(pips), renown: pips, held, hoursHeld: held ? 5 : 0, size: 3 });
+const charge = ([held, pips = 1]: Spec) => ({ id: `c${(nextId += 1)}`, kind: "CHARTER" as const, title: "Road", rarity: houseChargeRarityForPips(pips), renown: pips, difficultyScored: true as const, held, hoursHeld: held ? 5 : 0, size: 3 });
 const [COMMON, RARE, MYTHIC] = [1, 3, 4];
 const houses = (entries: Array<[string, Spec[]]>): SeasonHouseChargesSnapshot[] =>
   entries.map(([playerId, specs]) => ({ playerId, playerName: playerId, charges: specs.map(charge) }));
@@ -19,9 +19,17 @@ describe("House Charges galaxy reward", () => {
   });
 
   it("pays one Domain per difficulty pip, whatever the rarity label, and nothing unless held", () => {
-    expect([1, 2, 3, 4].map((renown) => houseChargeDomainWeight({ held: true, renown }))).toEqual([1, 2, 3, 4]);
-    expect(houseChargeDomainWeight({ held: false, renown: 4 })).toBe(0);
+    expect([1, 2, 3, 4].map((renown) => houseChargeDomainWeight({ held: true, renown, rarity: "COMMON", difficultyScored: true }))).toEqual([1, 2, 3, 4]);
+    expect(houseChargeDomainWeight({ held: false, renown: 4, rarity: "MYTHIC", difficultyScored: true })).toBe(0);
     expect([1, 2, 3, 4].map(houseChargeRarityForPips)).toEqual(["COMMON", "COMMON", "RARE", "MYTHIC"]);
+  });
+
+  // Review of #2897: charges dealt before difficulty scoring keep the pay they were dealt with, so archived
+  // seasons are not repriced and an old 3-pip tundra does not jump to +3.
+  it("pays a charge dealt before difficulty scoring by its stored rarity", () => {
+    expect(houseChargeDomainWeight({ held: true, rarity: "RARE", renown: 3 })).toBe(2);
+    expect(houseChargeDomainWeight({ held: true, rarity: "COMMON", renown: 2 })).toBe(1);
+    expect(houseChargeDomainWeight({ held: true, rarity: "MYTHIC", renown: 4 })).toBe(4);
   });
 
   it("banks Domain score per bound account across crowned seasons, including Stipend players, skipping unbound players", async () => {

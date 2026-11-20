@@ -171,8 +171,7 @@ const charterCandidate = (input: DealHouseChargesInput, random: () => number): H
     roadTiles: pairDistance,
     reach: Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b)),
     crossesWater: a.islandId !== homeIsland || b.islandId !== homeIsland,
-    rivalsNear: rivalsNear(input, midpoint),
-    otherHolders: Math.max(...targets.map((target) => input.holders(target.key)))
+    rivalsNear: rivalsNear(input, midpoint)
   });
   return {
     id: chargeIdFor(input.playerId, "CHARTER", targets),
@@ -203,8 +202,7 @@ const correctionCandidate = (input: DealHouseChargesInput, random: () => number)
     kind: "CORRECTION",
     reach: chargeDistance(world, home, rival),
     crossesWater: world.islands.islandAt(rival.x, rival.y)?.id !== homeIslandOf(input),
-    rivalsNear: rivalsNear(input, rival, rival),
-    otherHolders: input.holders(key)
+    rivalsNear: rivalsNear(input, rival, rival)
   });
   return {
     id: chargeIdFor(input.playerId, "CORRECTION", [{ key }]),
@@ -263,8 +261,7 @@ const metropolisCandidate = (input: DealHouseChargesInput, random: () => number)
       kind: "METROPOLIS",
       reach: chargeDistance(world, home, nearest[0]!),
       crossesWater: island.id !== homeIsland,
-      rivalsNear: rivalsNear(input, centre),
-      otherHolders: input.holders(key)
+      rivalsNear: rivalsNear(input, centre)
     });
     options.push({
       id: chargeIdFor(input.playerId, "METROPOLIS", [{ key }]),
@@ -295,8 +292,7 @@ const surveyCandidate = (input: DealHouseChargesInput, random: () => number): Ho
       areaTiles: island.landTilesAtBuild,
       reach: nearest.distance,
       crossesWater: island.id !== homeIsland,
-      rivalsNear: rivalsNear(input, centre),
-      otherHolders: input.holders(key)
+      rivalsNear: rivalsNear(input, centre)
     });
     options.push({
       id: chargeIdFor(input.playerId, "SURVEY", [{ key }]),
@@ -325,8 +321,7 @@ const regionCandidate = (input: DealHouseChargesInput, random: () => number, kin
       areaTiles: region.cells.length,
       reach: nearest.distance,
       crossesWater: world.islands.islandAt(nearest.x, nearest.y)?.id !== homeIslandOf(input),
-      rivalsNear: rivalsNear(input, region.centre),
-      otherHolders: input.holders(key)
+      rivalsNear: rivalsNear(input, region.centre)
     });
     options.push({
       id: chargeIdFor(input.playerId, kind, [{ key }]),
@@ -355,8 +350,7 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
     kind: "RELIC",
     reach: chargeDistance(world, home, site),
     crossesWater: world.islands.islandAt(site.x, site.y)?.id !== homeIslandOf(input),
-    rivalsNear: rivalsNear(input, site),
-    otherHolders: input.holders(key)
+    rivalsNear: rivalsNear(input, site)
   });
   return {
     id: chargeIdFor(input.playerId, "RELIC", [{ key }]),
@@ -401,7 +395,7 @@ const dealWithinReach = (input: DealHouseChargesInput): HouseChargesState | unde
     const swap = Math.floor(random() * (index + 1));
     [others[index], others[swap]] = [others[swap]!, others[index]!];
   }
-  const offered = [...(relic ? [relic] : []), ...others].slice(0, HOUSE_CHARGES_OFFERED);
+  const offered = [...(relic ? [relic] : []), ...others].slice(0, HOUSE_CHARGES_OFFERED).map((charge): HouseCharge => ({ ...charge, difficultyScored: true }));
   if (offered.length === 0) return undefined;
   return { dealtAt: input.now, offered, keptIds: offered.slice(0, HOUSE_CHARGES_KEPT).map((charge) => charge.id) };
 };
