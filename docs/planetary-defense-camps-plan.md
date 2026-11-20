@@ -4,8 +4,8 @@ Status: **proposal, rules agreed with the owner 2026-11-20; not implemented.**
 Replaces the barbarian walk/multiply model described in
 [`game-mechanics.md`](game-mechanics.md) (the "Barbarians (rewrite model)"
 bullet) once built. Delete or fold into `game-mechanics.md` when shipped (see
-[`README.md`](README.md) lifecycle policy). Items marked *(agent default)* were
-proposed by the agent and not yet confirmed by the owner.
+[`README.md`](README.md) lifecycle policy). All rules below are
+confirmed by the owner.
 
 ## Why
 
@@ -66,21 +66,21 @@ everywhere.
    `BARBARIAN_ATTACKS_PER_MINUTE` (12) stays.
 7. **Only an online player wakes a camp** (option A). A camp acts only while a
    player who is **online** (map open; the simulation's `isPlayerSubscribed`)
-   can see at least one of its tiles. An offline player's land never wakes a
-   camp. AI players are never "online", so a camp next to an AI only wakes when
-   a human is watching. *(Consequence to confirm with the owner.)*
+   can see at least one of its tiles. An offline human's land never wakes a
+   camp. **AI players count as always online**, so their vision always wakes
+   camps (owner decision 2026-11-20).
 8. **Raid limit on garrisoned land** (option D). A camp can always take
    Planetary Defense-adjacent FRONTIER, but **attacks on a House's garrisoned
    (SETTLED) tiles are limited per House per manpower window**
    (`MANPOWER_REFILL_WINDOW_MS`, 4 h). Every attack counts, won or lost. Limit:
-   **2 per House per window, counted across all camps** *(agent default)*. This
+   **10 per camp per House per window** (owner decision 2026-11-20). This
    covers the case rule 7 does not: an online neighbour wakes a camp that then
    attacks an offline House.
 
 ### Alert: a camp woke at your border
 
 - When a camp goes from asleep to awake and its land touches, or is within 2
-  tiles of, your land *(agent default distance)*, you get a **prominent
+  tiles of, your land, you get a **prominent
   persistent alert** ("Planetary Defense camp awake at your border") with a
   locate button that jumps the camera to the camp
   (`client-persistent-alerts/`). At most one alert per camp per manpower window,
@@ -125,7 +125,7 @@ that.
 
 | Cost | Today | Camps |
 |---|---|---|
-| "Is anyone looking?" check | every 1 s over barb tiles × all players (~0.09 ms at 100 tiles; ~2.7 ms at 3,000) | **event-driven**: each camp keeps a count of its tiles an online player can see, updated only when a player's vision of a tile changes or a camp gains/loses a tile. "Is the camp awake?" is one number check. Rebuilt on boot, not saved. |
+| "Is anyone looking?" check | every 1 s over barb tiles × all players (~0.09 ms at 100 tiles; ~2.7 ms at 3,000) | **event-driven**: each camp keeps a count of its tiles an online player or an AI can see, updated only when a player's vision of a tile changes or a camp gains/loses a tile. "Is the camp awake?" is one number check. Rebuilt on boot, not saved. |
 | Planner per decision | loads every barb tile, runs the House AI's frontier scorer | looks at **one camp's** tiles with a small barbarian-only picker (below) |
 | Barbarian commands | up to 100 tiles × one per 15 s | up to 100 camps × one per 15 s (same worst case) |
 | Barbarian attacks | ≤ 12/min | ≤ 12/min, plus the raid limit |
@@ -220,7 +220,4 @@ tiles must come in at or below today's numbers before merge.
 
 ## Open questions
 
-- Raid limit: 2 garrisoned-tile attacks per House per 4 h window across all
-  camps, or per camp?
-- Should AI players' vision wake camps (rule 7)?
-- Alert distance: 2 tiles from your land?
+None outstanding; all decided by the owner on 2026-11-20.
