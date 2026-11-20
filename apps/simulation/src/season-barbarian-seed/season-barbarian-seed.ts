@@ -22,7 +22,8 @@ export const BARBARIAN_START_SITE_PATROL_DISTANCE = 20;
 // every map style gets a patrol at (almost) every site:
 //  1. 12-35 tiles out, at least 12 from every roster site (the normal case);
 //  2. crowded island clusters: 10-35 out, at least 10 from every site;
-//  3. remote islands with no land that near: 36-60 out, at least 10 from every site.
+//  3. remote islands with no land that near: 36-60 out, at least 12 from every site;
+//  4. remote and crowded: 36-60 out, at least 10 from every site.
 // Never closer than 10: live spawning rejects a roster site with settled land,
 // barbarians included, within 10 tiles (FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE
 // in runtime-respawn-helpers.ts), and a starter route reaches at most 8 steps.
@@ -31,8 +32,13 @@ export const BARBARIAN_START_SITE_PATROL_MAX_DISTANCE = 60;
 const PATROL_TIERS: ReadonlyArray<{ minRadius: number; maxRadius: number; siteKeepOut: number }> = [
   { minRadius: BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN, maxRadius: 35, siteKeepOut: BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN },
   { minRadius: BARBARIAN_START_SITE_PATROL_MIN_DISTANCE, maxRadius: 35, siteKeepOut: BARBARIAN_START_SITE_PATROL_MIN_DISTANCE },
+  { minRadius: 36, maxRadius: BARBARIAN_START_SITE_PATROL_MAX_DISTANCE, siteKeepOut: BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN },
   { minRadius: 36, maxRadius: BARBARIAN_START_SITE_PATROL_MAX_DISTANCE, siteKeepOut: BARBARIAN_START_SITE_PATROL_MIN_DISTANCE }
 ];
+// A tile on the site's own landmass (reachable on foot) wins over one on other
+// land (reached by dock) unless it is this many more rings away from the
+// target distance.
+const OWN_LANDMASS_RING_SLACK = 5;
 
 // Toroidal (wrapping) Chebyshev distance — inlined to keep this shared module
 // dependency-free of season-seed-world.ts (which imports back from here).
@@ -124,23 +130,26 @@ export const seedBarbarianTiles = (input: BarbarianSeedInput): Set<TileKey> => {
   const isFarFromAnyStartSite = (x: number, y: number, keepOut = BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN): boolean =>
     startSites.every((site) => wrappedChebyshev(x, y, site.x, site.y) >= keepOut);
   // The usable tile nearest BARBARIAN_START_SITE_PATROL_DISTANCE out, trying
-  // the tiers in order; within a ring, one on the site's own landmass
-  // (reachable on foot) beats one on other land, reached by dock.
+  // the tiers in order. A tile on the site's own landmass wins over a nearer
+  // one on other land while it is within OWN_LANDMASS_RING_SLACK more rings of
+  // the target distance.
   const patrolTileFor = (site: { x: number; y: number }, siteIndex: number): { x: number; y: number } | undefined => {
     const siteLandmass = input.landmassAt(site.x, site.y);
     for (const tier of PATROL_TIER_RADII) {
+      let offLandmass: { x: number; y: number; ringsFromTarget: number } | undefined;
       for (const radius of tier.radii) {
+        const ringsFromTarget = Math.abs(radius - BARBARIAN_START_SITE_PATROL_DISTANCE);
+        if (offLandmass && ringsFromTarget > offLandmass.ringsFromTarget + OWN_LANDMASS_RING_SLACK) break;
         const ring = ringTiles(site.x, site.y, radius);
         const offset = Math.floor(input.seeded01(site.x * 31 + siteIndex, site.y * 37 + radius, input.worldSeed + 50_003) * ring.length);
-        let offLandmass: { x: number; y: number } | undefined;
         for (let index = 0; index < ring.length; index += 1) {
           const tile = ring[(offset + index) % ring.length]!;
           if (!canSeedAt(tile.x, tile.y, tier.siteKeepOut) || !isFarFromAnyStartSite(tile.x, tile.y, tier.siteKeepOut)) continue;
           if (siteLandmass !== undefined && input.landmassAt(tile.x, tile.y) === siteLandmass) return tile;
-          offLandmass ??= tile;
+          offLandmass ??= { ...tile, ringsFromTarget };
         }
-        if (offLandmass) return offLandmass;
       }
+      if (offLandmass) return { x: offLandmass.x, y: offLandmass.y };
     }
     return undefined;
   };

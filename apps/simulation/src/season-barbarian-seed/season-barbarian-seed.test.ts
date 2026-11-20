@@ -116,6 +116,16 @@ describe("seedBarbarianTiles start-site patrols", () => {
     expect(patrolsNear(tiles, site)).toEqual([[80, 100]]);
   });
 
+  it("prefers the site's own landmass a ring further out over other land at exactly 20", () => {
+    const site = { x: 100, y: 100 };
+    // Ring 20 is all another landmass; the site's own land starts at ring 21.
+    const landmassAt = (x: number, y: number): number => (wrappedChebyshev(x, y, site.x, site.y) === 20 ? 1 : 0);
+    const tiles = seedBarbarianTiles(baseInput({ startSites: [site], landmassAt }));
+    const patrol = [...tiles].map((tk) => parseKey(tk)).filter(([x, y]) => wrappedChebyshev(x, y, site.x, site.y) <= 25);
+    expect(patrol).toHaveLength(1);
+    expect(wrappedChebyshev(patrol[0]![0], patrol[0]![1], site.x, site.y)).toBe(21);
+  });
+
   it("gives a site on a small island a patrol on the nearest other land, out to 60 tiles", () => {
     const site = { x: 100, y: 100 };
     // The site's island is 7x7; the nearest other land starts 45 tiles east.
@@ -132,11 +142,13 @@ describe("seedBarbarianTiles start-site patrols", () => {
     const sites = [{ x: 100, y: 100 }, { x: 114, y: 100 }, { x: 128, y: 100 }];
     const terrainAt = (x: number, y: number): string => (x >= 90 && x <= 139 && (y === 100 || y === 101) ? "LAND" : "SEA");
     const tiles = seedBarbarianTiles(baseInput({ startSites: sites, terrainAt }));
-    expect(tiles.size).toBeGreaterThanOrEqual(1);
-    for (const tk of tiles) {
+    // Only x=90 and x=138..139 are 10+ from every site, and the 12 keep-out admits none.
+    const nearestSite = [...tiles].map((tk) => {
       const [x, y] = parseKey(tk);
-      for (const site of sites) expect(wrappedChebyshev(x, y, site.x, site.y)).toBeGreaterThanOrEqual(10);
-    }
+      return Math.min(...sites.map((site) => wrappedChebyshev(x, y, site.x, site.y)));
+    });
+    expect(nearestSite.length).toBeGreaterThanOrEqual(2);
+    expect(nearestSite.every((distance) => distance === 10 || distance === 11)).toBe(true);
   });
 
   it("adds no patrols when no start sites are given", () => {
