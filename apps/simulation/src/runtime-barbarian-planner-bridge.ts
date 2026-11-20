@@ -7,7 +7,7 @@
  */
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { createBarbarianPlanner } from "./ai/system-job-barbarian-planner.js";
+import { createBarbarianPlanner, type PlanetaryDefensePlannerSnapshot } from "./ai/system-job-barbarian-planner.js";
 
 export type RuntimeBarbarianBridgeDeps = {
   readonly tiles: ReadonlyMap<string, DomainTileState>;
@@ -23,9 +23,11 @@ export type RuntimeBarbarianBridgeDeps = {
 export type RuntimeBarbarianBridge = {
   readonly choose: (clientSeq: number, issuedAt: number) => CommandEnvelope | undefined;
   readonly settle: (commandId: string, settledAt: number, rejected?: boolean) => void;
+  /** Camp rest and raid counts, saved in snapshots so a restart doesn't reset them. */
+  readonly exportState: () => PlanetaryDefensePlannerSnapshot;
 };
 
-export const createRuntimeBarbarianBridge = (deps: RuntimeBarbarianBridgeDeps): RuntimeBarbarianBridge => {
+export const createRuntimeBarbarianBridge = (deps: RuntimeBarbarianBridgeDeps, restored?: PlanetaryDefensePlannerSnapshot): RuntimeBarbarianBridge => {
   const planner = createBarbarianPlanner({
     tilesByKey: deps.tiles,
     campIds: deps.liveCampIds,
@@ -41,9 +43,11 @@ export const createRuntimeBarbarianBridge = (deps: RuntimeBarbarianBridgeDeps): 
     getAwakeCampIds: () => new Set(deps.awakeCampIds()),
     now: deps.now
   });
+  planner.restoreState(restored);
   deps.onCampNeighbourChanged((campId) => planner.wakeCamp(campId));
   return {
     choose: (clientSeq, issuedAt) => planner.choose(clientSeq, issuedAt) ?? undefined,
-    settle: planner.settle
+    settle: planner.settle,
+    exportState: planner.exportState
   };
 };

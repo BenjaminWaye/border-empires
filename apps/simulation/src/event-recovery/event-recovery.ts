@@ -9,6 +9,8 @@ import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { recoverTownState, parseOptionalJson } from "./event-recovery-town-helpers.js";
 import { recoverOverlaySubstructures } from "./event-recovery-overlays.js";
+import { recoverCampId, recoverRazedWreck, recoverWarScars } from "./event-recovery-tile-fields.js";
+import type { PlanetaryDefensePlannerSnapshot } from "../ai/system-job-barbarian-planner.js";
 import { overlaySubstructuresFrom, type TileOverlays } from "../tile-overlay-fields/tile-overlay-fields.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
@@ -79,6 +81,8 @@ export type RecoveredSimulationState = {
   exploredTiles?: ExploredTilesSnapshotEntry[];
   /** The season's worldgen roster of starting sites (spawn-placement-index.ts); carried unchanged. Absent on seasons generated before it was saved. */
   fairSpawnSites?: FairSpawnSite[];
+  /** Planetary Defense camp rest and raid counts (system-job-barbarian-planner.ts); carried unchanged. */
+  planetaryDefensePlanner?: PlanetaryDefensePlannerSnapshot;
 };
 
 type RecoveredSimulationAccumulator = {
@@ -101,6 +105,7 @@ type RecoveredSimulationAccumulator = {
   reachBorder?: Map<string, string>;
   exploredTiles?: ExploredTilesSnapshotEntry[];
   fairSpawnSites?: FairSpawnSite[];
+  planetaryDefensePlanner?: PlanetaryDefensePlannerSnapshot;
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -155,31 +160,9 @@ export const createRecoveredSimulationAccumulator = (
     ),
     ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {}),
     ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {}),
-    ...(baseState.fairSpawnSites ? { fairSpawnSites: baseState.fairSpawnSites } : {})
+    ...(baseState.fairSpawnSites ? { fairSpawnSites: baseState.fairSpawnSites } : {}),
+    ...(baseState.planetaryDefensePlanner ? { planetaryDefensePlanner: baseState.planetaryDefensePlanner } : {})
   };
-};
-
-// Battle scars (shared war-scars.ts): same "absent = unchanged, present but
-// not a number = cleared" rule as captureHoldUntil.
-const recoverWarScars = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "warScarLevel" | "warScarUntil"> => {
-  const level = "warScarLevel" in tileDelta ? tileDelta.warScarLevel : existing?.warScarLevel;
-  const until = "warScarUntil" in tileDelta ? tileDelta.warScarUntil : existing?.warScarUntil;
-  return typeof level === "number" && typeof until === "number" ? { warScarLevel: level, warScarUntil: until } : {};
-};
-
-// Razed wreck (shared razed-wreck.ts): the same rule again.
-const recoverRazedWreck = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "razedWreck" | "razedWreckUntil"> => {
-  const kind = "razedWreck" in tileDelta ? tileDelta.razedWreck : existing?.razedWreck;
-  const until = "razedWreckUntil" in tileDelta ? tileDelta.razedWreckUntil : existing?.razedWreckUntil;
-  return typeof kind === "string" && kind && typeof until === "number" ? { razedWreck: kind, razedWreckUntil: until } : {};
-};
-
-// Planetary Defense camp id: a present key wins ("" / undefined = cleared), else keep the existing one.
-// Only a barbarian-owned tile keeps one, since a persisted clear can drop out of JSON as undefined.
-const recoverCampId = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "campId"> => {
-  const ownerId = "ownerId" in tileDelta ? tileDelta.ownerId : existing?.ownerId;
-  const campId = "campId" in tileDelta ? tileDelta.campId : existing?.campId;
-  return typeof campId === "string" && campId && ownerId?.startsWith("barbarian-") ? { campId } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -462,7 +445,8 @@ export const finalizeRecoveredSimulationAccumulator = (
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
   ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {}),
   ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {}),
-  ...(accumulator.fairSpawnSites ? { fairSpawnSites: accumulator.fairSpawnSites } : {})
+  ...(accumulator.fairSpawnSites ? { fairSpawnSites: accumulator.fairSpawnSites } : {}),
+  ...(accumulator.planetaryDefensePlanner ? { planetaryDefensePlanner: accumulator.planetaryDefensePlanner } : {})
 });
 
 export const recoverSimulationStateFromEvents = (

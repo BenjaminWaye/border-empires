@@ -65,7 +65,7 @@ const makeSystemRuntime = () => ({
   exportPlannerWorldView: () => ({ tiles: [], players: [] }),
   exportPlannerPlayerViews: () => [],
   onEvent: () => () => undefined,
-  barbarianBridge: () => ({ choose: () => undefined, settle: () => {} })
+  barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
 });
 
 describe("createCombinedWorkerHost", () => {

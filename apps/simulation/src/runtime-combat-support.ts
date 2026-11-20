@@ -45,7 +45,7 @@ import {
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
 import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
-import { foundsCamp, isPlanetaryDefenseOwner } from "./planetary-defense-camps/camp-rules.js";
+import { isPlanetaryDefenseOwner, planetaryDefenseCaptureFields } from "./planetary-defense-camps/camp-rules.js";
 
 export type RuntimeCombatSupportContext = {
   ownedTownKeys?: (playerId: string) => Iterable<string>;
@@ -67,6 +67,8 @@ export type RuntimeCombatSupportContext = {
   locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  /** Live Planetary Defense camps, so the reported change matches the capture at the camp cap (camp-rules.ts). */
+  planetaryDefenseCampCount?: () => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   tileDeltaRevealOnly: (tile: DomainTileState, playerId: string) => SimulationTileWireDelta;
@@ -374,9 +376,9 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     origin: { x: lock.originX, y: lock.originY },
     target: { x: lock.targetX, y: lock.targetY },
     changes: combat.attackerWon
-      ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: isPlanetaryDefenseOwner(lock.playerId) && foundsCamp(previousTarget) ? "SETTLED" : "FRONTIER" }]
+      ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: capturedOwnershipState(ctx, lock.playerId, lock.targetKey, previousTarget) }]
       : defenderOwnerId && !originHeldByFort
-        ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: isPlanetaryDefenseOwner(defenderOwnerId) && foundsCamp(ctx.tiles.get(lock.originKey)) ? "SETTLED" : "FRONTIER" }]
+        ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: capturedOwnershipState(ctx, defenderOwnerId, lock.originKey, ctx.tiles.get(lock.originKey)) }]
         : [],
     pointsDelta: 0,
     manpowerDelta,
@@ -403,6 +405,17 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     ...(defenderGear ? { defenderGear } : {})
   };
 };
+
+/** The ownership state a capture lands in: FRONTIER, or SETTLED for a town/dock that founds a Planetary Defense camp below the cap. */
+const capturedOwnershipState = (
+  ctx: Pick<RuntimeCombatSupportContext, "planetaryDefenseCampCount">,
+  captorId: string,
+  tileKey: string,
+  previous: DomainTileState | undefined
+): "SETTLED" | "FRONTIER" =>
+  isPlanetaryDefenseOwner(captorId)
+    ? planetaryDefenseCaptureFields({ targetKey: tileKey, previousTarget: previous, sourceCampId: undefined, campCount: ctx.planetaryDefenseCampCount?.() ?? 0 }).ownershipState
+    : "FRONTIER";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 

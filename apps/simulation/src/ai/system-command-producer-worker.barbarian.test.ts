@@ -59,7 +59,8 @@ const makeRuntime = (commandForChoose: (seq: number) => CommandEnvelope | undefi
       exportPlannerPlayerViews: () => [],
       barbarianBridge: () => ({
         choose: (seq: number) => commandForChoose(seq),
-        settle: (commandId: string, settledAt: number) => settled.push({ commandId, settledAt })
+        settle: (commandId: string, settledAt: number) => settled.push({ commandId, settledAt }),
+        exportState: () => ({ camps: [] })
       })
     }
   };

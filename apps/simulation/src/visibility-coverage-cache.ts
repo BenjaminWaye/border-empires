@@ -110,6 +110,11 @@ export class VisibilityCoverageTracker {
     this.observatoryBonusTracker = new SourceBonusRadiusTracker(this.cache, "observatory", isBarbarian, viewersForSource);
   }
 
+  /** Gauge: live entries in the raster's footprint ledger (visibility-footprint-ledger.ts). */
+  footprintLedgerSize(): number {
+    return this.cache.footprintLedgerSize();
+  }
+
   isVisible(viewerId: string, tileKey: string): boolean {
     return this.cache.isVisible(viewerId, tileKey);
   }

@@ -125,6 +125,30 @@ describe("Planetary Defense planner", () => {
     expect(planner.restUntilByCamp.size).toBeGreaterThan(0);
   });
 
+  // Review regression: rest and raid counts were memory-only, so every deploy
+  // reset each camp's raid allowance mid-window.
+  it("camp rest and raid counts survive a restart through exportState/restoreState", () => {
+    const tiles = [campTile(10, 10), house(10, 9), house(11, 9)];
+    const first = setup(tiles, { raids: 1 });
+    const action = first.choose()!;
+    expect(action.type).toBe("ATTACK");
+    first.planner.settle(action.commandId, first.now());
+    const saved = first.planner.exportState();
+    expect(saved.camps).toEqual([{ campId: "10,10", restUntil: first.now() + 15_000, raids: [expect.objectContaining({ houseId: "player-1", count: 1 })] }]);
+
+    const second = setup(tiles, { raids: 1 });
+    second.planner.restoreState(JSON.parse(JSON.stringify(saved)));
+    expect(second.choose()).toBeUndefined(); // still resting
+    second.advance(16_000);
+    expect(second.choose()).toBeUndefined(); // raid limit for player-1 already spent this window
+  });
+
+  it("restoreState ignores malformed entries", () => {
+    const { planner, choose } = setup([campTile(10, 10), neutral(10, 11)]);
+    planner.restoreState({ camps: [{ campId: 5 as unknown as string }, { campId: "10,10", raids: [{ houseId: "x", windowStart: Number.NaN, count: 2 }] }] });
+    expect(choose()).toMatchObject({ type: "EXPAND" });
+  });
+
   it("a camp with nothing to take sleeps until something next to it changes", () => {
     const { planner, choose, tilesByKey } = setup([campTile(10, 10), sea(10, 11)]);
     expect(choose()).toBeUndefined();

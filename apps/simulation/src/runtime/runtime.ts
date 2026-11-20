@@ -276,7 +276,7 @@ import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
-import { createRuntimeBarbarianBridge, type RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
+import type { RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runtime.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
@@ -922,7 +922,7 @@ export class SimulationRuntime {
     // Restore the persisted reach border, then reconcile it with the loaded anchors
     // (indexes above are now fully populated) -- see runtime-reach-border-restore.ts.
     this.planetaryDefenseCamps.bootVision();
-    restoreRuntimeSnapshotSidecars({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex }, options.initialState);
+    restoreRuntimeSnapshotSidecars({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex, planetaryDefenseCamps: this.planetaryDefenseCamps }, options.initialState);
     restoreReachBorder({ persisted: options.initialState?.reachBorder, tiles: this.state.tiles, gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, setReachBorder: (border) => { this.reachBorder = border; }, reachBorder: () => this.reachBorder, syncReachVision: (oldBorder, newBorder, changedKeys) => this.reachAnchorLifecycleDeps().syncReachVision(oldBorder, newBorder, changedKeys), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
     this.clearPersistedOutOfReachDecayTimers();
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
@@ -1259,6 +1259,7 @@ export class SimulationRuntime {
   private combatSupportContext(): RuntimeCombatSupportContext {
     return {
       ownedTownKeys: id => this.summaryForPlayer(id).ownedTownTierByTile.keys(),
+      planetaryDefenseCampCount: () => this.planetaryDefenseCamps.campCount(),
       hasPendingClaim: key => this.pendingSettlementsByTile.has(key),
       isTileShieldedByAegisLock: (id, x, y) => this.isTileShieldedByAegisLock(id, x, y),
       now: this.now,
@@ -1810,17 +1811,9 @@ export class SimulationRuntime {
 
   private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] { return existingTilesForKeys(this.state.tiles, keys); }
 
-  // Planetary Defense planner on the main thread, used by both system producers (runtime-barbarian-planner-bridge.ts).
-  private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
-
+  /** Planetary Defense planner on the main thread, used by both system producers (planetary-defense-camps/camp-runtime.ts). */
   barbarianBridge(): RuntimeBarbarianBridge {
-    return this.barbarianBridgeCache ??= createRuntimeBarbarianBridge({
-      tiles: this.state.tiles,
-      dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey,
-      liveCampIds: () => this.planetaryDefenseCamps.liveCampIds(), campTileKeys: (campId) => this.planetaryDefenseCamps.campTileKeys(campId),
-      awakeCampIds: () => this.planetaryDefenseCamps.awakeCampIds(), onCampNeighbourChanged: (listener) => this.planetaryDefenseCamps.onCampNeighbourChanged(listener),
-      now: () => this.now()
-    });
+    return this.planetaryDefenseCamps.planner();
   }
 
   chooseNextOwnedFrontierCommand(
@@ -1907,7 +1900,7 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       reachBorder: () => this.reachBorder,
-      ...runtimeSnapshotSidecarExports({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex }, (id) => this.state.players.has(id)),
+      ...runtimeSnapshotSidecarExports({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex, planetaryDefenseCamps: this.planetaryDefenseCamps }, (id) => this.state.players.has(id)),
       prebuiltTiles: this.snapshotTileCache,
       plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
@@ -2007,7 +2000,7 @@ export class SimulationRuntime {
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
   afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, activeHijacks: this.activeHijackCount, globalLosses: this.state.afcGlobalLosses, aiRecoverySearches: afcRecoverySearchCount(this.playerSummaries.values()) }; }
 
-  barbarianStateSizes(): ReturnType<PlanetaryDefenseCamps["sizes"]> { return this.planetaryDefenseCamps.sizes(); }
+  barbarianStateSizes(): ReturnType<PlanetaryDefenseCamps["sizes"]> { return this.planetaryDefenseCamps.sizes(); } visibilityFootprintLedgerSize(): number { return this.state.visibilityCoverage.footprintLedgerSize(); }
 
   /** Planetary Defense camps a watcher (an AI, or a human with the game open) can see now (planetary-defense-camps/camp-awake-tracker.ts). */
   exportAwakeCampIds(): string[] { return this.planetaryDefenseCamps.awakeCampIds(); }

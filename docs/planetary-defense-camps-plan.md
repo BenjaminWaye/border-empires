@@ -247,7 +247,13 @@ producer tests in `ai/`):
   their landing ground); nothing barbarian-only remains.
 - After review: rejected attacks refund the budget and raid and the target is
   avoided for 60s; the boot conversion is persisted as an event; a tile won
-  after its camp fell collapses; landmark tiles share `campId`.
+  after its camp fell collapses; landmark tiles share `campId`; camp rest and
+  raid counts are saved in snapshots (`planetaryDefensePlanner`); the
+  per-fight change report applies the camp cap; vision footprints are removed
+  with the exact cells they added, so a terrain change between add and remove
+  no longer leaves tiles stuck visible or drops them early (this affected all
+  fog edges, not just camp waking; `visibility-footprint-ledger.ts`, gauge
+  `sim_visibility_footprint_ledger_entries`).
 
 Not built:
 - Stage 3 (client): no camp marker, soldier display rule or tap highlight in
@@ -263,12 +269,9 @@ Known follow-ups (accepted for now):
   login/logout re-count and the 5-minute verify scale with it. Watch
   `sim_barbarian_tiles` and `system_barbarian_choose`; scanning only a camp's
   border would bound it.
-- Raid counts and camp rest are memory-only: a restart resets them mid-window.
 - A collapsing camp drops buildings it captured (forts, observatories), as the
   old walk release did; keeping barbarian-owned structures on neutral ground
   needs its own rule.
-- At the camp cap, the per-fight change report says SETTLED for a captured
-  town/dock that actually lands as FRONTIER (report only).
 - Admin live seeding (`runtime-live-barbarians.ts`) does not check the camp cap.
 
 ## Staged implementation

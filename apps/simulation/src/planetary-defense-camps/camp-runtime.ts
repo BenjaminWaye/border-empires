@@ -6,6 +6,8 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { PlanetaryDefenseCampAwakeTracker } from "./camp-awake-tracker.js";
 import { PlanetaryDefenseCampIndex } from "./camp-index.js";
+import type { PlanetaryDefensePlannerSnapshot } from "../ai/system-job-barbarian-planner.js";
+import { createRuntimeBarbarianBridge, type RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { migrateLegacyPlanetaryDefenseTiles } from "./camp-migration.js";
 import { releasedPlanetaryDefenseTile } from "./camp-rules.js";
 import { campTilesCutOff } from "./camp-supply.js";
@@ -52,6 +54,9 @@ export class PlanetaryDefenseCamps {
   // Tiles the boot conversion changed, emitted (and so persisted) on the first tick.
   private pendingMigrationKeys: readonly string[] = [];
   private neighbourChanged: ((campId: string) => void) | undefined;
+  private bridge: RuntimeBarbarianBridge | undefined;
+  // Planner state from the snapshot, held until the planner is first created.
+  private restoredPlanner: PlanetaryDefensePlannerSnapshot | undefined;
 
   constructor(deps: PlanetaryDefenseCampsDeps) {
     this.deps = deps;
@@ -82,6 +87,28 @@ export class PlanetaryDefenseCamps {
   /** The planner's wake-up for a camp next to a tile that changed owner (one listener). */
   onCampNeighbourChanged(listener: (campId: string) => void): void {
     this.neighbourChanged = listener;
+  }
+
+  /** The main-thread Planetary Defense planner (runtime-barbarian-planner-bridge.ts), created on first use. */
+  planner(): RuntimeBarbarianBridge {
+    return this.bridge ??= createRuntimeBarbarianBridge({
+      tiles: this.deps.tiles(),
+      dockLinksByDockTileKey: this.deps.dockLinksByDockTileKey,
+      liveCampIds: () => this.liveCampIds(),
+      campTileKeys: (campId) => this.campTileKeys(campId),
+      awakeCampIds: () => this.awakeCampIds(),
+      onCampNeighbourChanged: (listener) => this.onCampNeighbourChanged(listener),
+      now: this.deps.now
+    }, this.restoredPlanner);
+  }
+
+  /** Boot: the planner state saved in the snapshot (camp rest, raid counts). */
+  restorePlannerState(snapshot: PlanetaryDefensePlannerSnapshot | undefined): void {
+    this.restoredPlanner = snapshot;
+  }
+
+  exportPlannerState(): PlanetaryDefensePlannerSnapshot | undefined {
+    return this.bridge ? this.bridge.exportState() : this.restoredPlanner;
   }
 
   /** VisibilityCoverageCache 0↔1 edges. */

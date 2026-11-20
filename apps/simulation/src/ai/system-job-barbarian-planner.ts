@@ -47,6 +47,16 @@ export type BarbarianPlannerDeps = {
   readonly inFlightTimeoutMs?: number;
 };
 
+/**
+ * What survives a restart: when each camp may act again and its raids per
+ * House in that House's current manpower window. Saved in snapshots
+ * (runtime-snapshot-sidecars.ts); bounded by camps x Houses raided. In-flight
+ * commands are not saved: a recovered lock resolves without settling one.
+ */
+export type PlanetaryDefensePlannerSnapshot = {
+  camps: Array<{ campId: string; restUntil?: number; raids?: Array<{ houseId: string; windowStart: number; count: number }> }>;
+};
+
 export type BarbarianPlanner = {
   /** At most one command per call; the camp that has waited longest goes first. */
   readonly choose: (clientSeq: number, issuedAt: number) => CommandEnvelope | null;
@@ -61,6 +71,8 @@ export type BarbarianPlanner = {
   readonly inFlightCount: () => number;
   /** camp id -> time before which the camp may not act again. */
   readonly restUntilByCamp: ReadonlyMap<string, number>;
+  readonly exportState: () => PlanetaryDefensePlannerSnapshot;
+  readonly restoreState: (snapshot: PlanetaryDefensePlannerSnapshot | undefined) => void;
 };
 
 type InFlight = {
@@ -93,7 +105,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   const sleepingUntilByCamp = new Map<string, number>();
   const inFlightByCommandId = new Map<string, InFlight>();
   // campId -> House id -> raids on that House's garrisoned land in its current manpower window.
-  const raidsByCamp = new Map<string, Map<string, { windowStart: number; count: number }>>();
+  const raidsByCamp: RaidsByCamp = new Map();
   const attackIssuedAt: number[] = [];
   // campId -> target key -> until when that camp skips it (after a rejection); small per camp.
   const avoidUntilByCamp = new Map<string, Map<string, number>>();
@@ -237,6 +249,41 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
       sleepingUntilByCamp.delete(campId);
     },
     inFlightCount: () => inFlightByCommandId.size,
-    restUntilByCamp
+    restUntilByCamp,
+    exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, now()),
+    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp)
   };
+};
+
+type RaidsByCamp = Map<string, Map<string, { windowStart: number; count: number }>>;
+
+/** Live entries only: a rest that has ended or a raid window with no raids carries nothing. */
+const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsByCamp: RaidsByCamp, t: number): PlanetaryDefensePlannerSnapshot => {
+  const campIds = new Set([...restUntilByCamp.keys(), ...raidsByCamp.keys()]);
+  const camps: PlanetaryDefensePlannerSnapshot["camps"] = [];
+  for (const campId of [...campIds].sort()) {
+    const restUntil = restUntilByCamp.get(campId);
+    const raids = [...(raidsByCamp.get(campId) ?? [])]
+      .filter(([houseId, entry]) => entry.count > 0 && entry.windowStart === lastManpowerRefillAtMs(houseId, t))
+      .map(([houseId, entry]) => ({ houseId, windowStart: entry.windowStart, count: entry.count }));
+    const live = restUntil !== undefined && restUntil > t;
+    if (!live && raids.length === 0) continue;
+    camps.push({ campId, ...(live ? { restUntil } : {}), ...(raids.length > 0 ? { raids } : {}) });
+  }
+  return { camps };
+};
+
+/** Ignores malformed entries rather than failing a boot. */
+const restorePlannerState = (snapshot: PlanetaryDefensePlannerSnapshot | undefined, restUntilByCamp: Map<string, number>, raidsByCamp: RaidsByCamp): void => {
+  for (const camp of snapshot?.camps ?? []) {
+    if (typeof camp?.campId !== "string") continue;
+    if (typeof camp.restUntil === "number" && Number.isFinite(camp.restUntil)) restUntilByCamp.set(camp.campId, camp.restUntil);
+    const byHouse = new Map<string, { windowStart: number; count: number }>();
+    for (const raid of camp.raids ?? []) {
+      if (typeof raid?.houseId === "string" && Number.isFinite(raid.windowStart) && Number.isInteger(raid.count) && raid.count > 0) {
+        byHouse.set(raid.houseId, { windowStart: raid.windowStart, count: raid.count });
+      }
+    }
+    if (byHouse.size > 0) raidsByCamp.set(camp.campId, byHouse);
+  }
 };

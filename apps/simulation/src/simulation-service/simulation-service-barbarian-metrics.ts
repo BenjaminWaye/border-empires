@@ -15,9 +15,10 @@ export const sampleBarbarianMetrics = (
 
 /** Everything sampled from the runtime on the periodic metrics tick that isn't already inline. */
 export const sampleRuntimeGaugeMetrics = (
-  runtime: ActivityLogArgs[0] & Pick<SimulationRuntime, "barbarianStateSizes" | "persistenceLogStats"> & Partial<Pick<SimulationRuntime, "afcStateStats">>,
-  metrics: ActivityLogArgs[1] & Pick<SimulationMetrics, "setSimBarbarianState" | "setSimPersistenceLogStats"> & Partial<Pick<SimulationMetrics, "setSimAfcState">>
+  runtime: ActivityLogArgs[0] & Pick<SimulationRuntime, "barbarianStateSizes" | "persistenceLogStats"> & Partial<Pick<SimulationRuntime, "afcStateStats" | "visibilityFootprintLedgerSize">>,
+  metrics: ActivityLogArgs[1] & Pick<SimulationMetrics, "setSimBarbarianState" | "setSimPersistenceLogStats"> & Partial<Pick<SimulationMetrics, "setSimAfcState" | "setSimVisibilityFootprintLedgerEntries">>
 ): void => {
+  if (runtime.visibilityFootprintLedgerSize) metrics.setSimVisibilityFootprintLedgerEntries?.(runtime.visibilityFootprintLedgerSize());
   if (runtime.afcStateStats) metrics.setSimAfcState?.(runtime.afcStateStats());
   sampleActivityLogMetrics(runtime, metrics);
   sampleBarbarianMetrics(runtime, metrics);

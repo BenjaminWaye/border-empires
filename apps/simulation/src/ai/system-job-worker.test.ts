@@ -80,7 +80,7 @@ const makeRuntime = (depths: {
       return () => eventEmitter.off("event", listener);
     },
     exportPlannerPlayerViews: () => [],
-    barbarianBridge: () => ({ choose: () => undefined, settle: () => {} })
+    barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
   };
 };
 
@@ -353,7 +353,7 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        barbarianBridge: () => ({ choose: () => undefined, settle: () => {} })
+        barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
       },
       systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,
@@ -411,7 +411,7 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        barbarianBridge: () => ({ choose: () => undefined, settle: () => {} })
+        barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
       },
       systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,

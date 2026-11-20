@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { MAX_PLANETARY_DEFENSE_CAMPS } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
 
@@ -145,6 +146,25 @@ describe("Planetary Defense captures", () => {
     await resolve();
     expect(tile(10, 11)?.ownerId).toBeUndefined();
     expect(runtime.barbarianStateSizes()).toMatchObject({ camps: 0, tiles: 0 });
+  });
+
+  // Review regression: the per-fight change report said SETTLED for a town taken
+  // at the camp cap, while the capture itself lands as FRONTIER.
+  it("at the camp cap a taken town is frontier, and the fight's report says so", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const otherCamps = Array.from({ length: MAX_PLANETARY_DEFENSE_CAMPS - 1 }, (_, i) => camp(100 + (i % 20) * 5, 100 + Math.floor(i / 20) * 5));
+    const { runtime, resolve, tile } = buildRuntime(
+      [camp(10, 10), { x: 10, y: 11, ownerId: "player-1", ownershipState: "SETTLED", town }, { x: 30, y: 30, ownerId: "player-1", ownershipState: "SETTLED" }, ...otherCamps],
+      { attackerId: "barbarian-1", actionType: "ATTACK", origin: [10, 10], target: [10, 11] }
+    );
+    expect(runtime.barbarianStateSizes().camps).toBe(MAX_PLANETARY_DEFENSE_CAMPS);
+    const reported: string[] = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMBAT_RESOLVED") for (const change of event.combatResult?.changes ?? []) reported.push(`${change.x},${change.y}:${change.ownershipState}`);
+    });
+    await resolve();
+    expect(tile(10, 11)).toMatchObject({ ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "10,10" });
+    expect(reported).toEqual(["10,11:FRONTIER"]);
   });
 
   it("a failed attack on a camp hands the attacker's tile to that camp without the camp moving", async () => {
