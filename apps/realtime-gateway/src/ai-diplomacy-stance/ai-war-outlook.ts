@@ -59,6 +59,12 @@ export const aiWarOutlook = (input: {
   recentTilesTaken: number;
   /** When this AI last paid this rival for peace, if ever. */
   paidForPeaceAt?: number;
+  /**
+   * Whether the rival attacked this AI lately. RETAKE_NOW is about a rival who
+   * grabbed land: an AI whose own failed attacks cost it tiles is no victim, and
+   * keeps the old "steady" read. Omitted: false.
+   */
+  rivalAttackedLately?: boolean;
   now?: number;
 }): AiWarOutlook => {
   const { ai, rival } = input;
@@ -71,7 +77,10 @@ export const aiWarOutlook = (input: {
   // player who grabs tiles and runs dry can't buy a truce to keep them.
   const strength = fightingStrengthOf(ai);
   const holdsNow = rival.fightingStrength !== undefined ? strength >= rival.fightingStrength : strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
-  if (holdsNow) return { kind: "RETAKE_NOW" };
+  // "Can retake" needs a real army (the retaliation-ready share of its cap) as
+  // well as matching the rival: two spent empires mustn't lock each other out of peace.
+  const ready = strength / ai.manpowerCap >= RETALIATION_READY_RATIO;
+  if (holdsNow) return input.rivalAttackedLately && ready ? { kind: "RETAKE_NOW" } : STEADY;
 
   // Spent for now: a reload that lands soon and out-muscles the rival is worth waiting for.
   const reloadsSoon = ai.nextRefillInMs !== undefined && ai.nextRefillInMs <= WAR_OUTLOOK_HORIZON_MS;

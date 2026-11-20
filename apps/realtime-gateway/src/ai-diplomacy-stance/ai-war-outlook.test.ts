@@ -11,7 +11,7 @@ const HOUR = 60 * MIN;
 const spent = { manpower: 50, manpowerCap: 1000, musterManpower: 0 };
 const rival = { fightingStrength: 600, manpowerCap: 1000 };
 const outlook = (overrides: Partial<Parameters<typeof aiWarOutlook>[0]> = {}) =>
-  aiWarOutlook({ atWar: true, ai: { ...spent, nextRefillInMs: 3 * HOUR, nextRefillManpower: 700 }, rival, recentTilesLost: 5, recentTilesTaken: 0, ...overrides });
+  aiWarOutlook({ atWar: true, ai: { ...spent, nextRefillInMs: 3 * HOUR, nextRefillManpower: 700 }, rival, recentTilesLost: 5, recentTilesTaken: 0, rivalAttackedLately: true, ...overrides });
 
 describe("aiWarOutlook", () => {
   it("sues for peace when losing ground fast with no reload in reach", () => {
@@ -98,6 +98,16 @@ describe("an AI that can win its land back", () => {
     expect(outlook({ ai: { ...spent, manpower: 700 } })).toEqual({ kind: "RETAKE_NOW" });
   });
 
+  // Review of #2885: tiles an AI lost through its own failed attacks blocked its victim's truce.
+  it("isn't RETAKE_NOW when the rival didn't attack it lately", () => {
+    expect(outlook({ ai: { ...spent, manpower: 700 }, rivalAttackedLately: false }).kind).toBe("STEADY");
+  });
+
+  // Review of #2885: two spent empires (10 vs 5 of a 1000 cap) read as "can retake" and refused peace.
+  it("needs a real army, not just more than a spent rival", () => {
+    expect(outlook({ ai: { ...spent, manpower: 10 }, rival: { fightingStrength: 5, manpowerCap: 1000 } }).kind).toBe("STEADY");
+  });
+
   const NOW = 100 * HOUR;
   const grabbed: DiplomacyMemoryView = {
     tilesTakenFromAi: 4, tilesTakenByAi: 0, recentTilesTakenFromAi: 4, recentTilesTakenByAi: 0, battles: 4, truceDeals: 0, goodwillCoin: 0,
@@ -114,7 +124,7 @@ describe("an AI that can win its land back", () => {
     for (const warOutlook of [{ kind: "RETAKE_NOW" } as const, { kind: "HOLD_FOR_REFILL", refillInMs: 20 * MIN } as const]) {
       const result = priced(warOutlook);
       expect(result.pricing.required.truce12).toBeNull();
-      expect(result.truceRefusal).toBe("Milo wants to see how this war goes first: it has more armies to throw at you.");
+      expect(result.truceRefusal).toBe("Milo wants to see how this war goes first: it means to win its land back.");
     }
   });
 

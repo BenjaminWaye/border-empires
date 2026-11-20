@@ -14,7 +14,7 @@ describe("AI temperaments", () => {
   });
 
   it("scales only the base truce price, not reparations", () => {
-    expect(price({ temperament: MERCHANT, memory: foughtLately() }).pricing.required.truce12).toBe(9 * 60);
+    expect(price({ temperament: MERCHANT, memory: foughtLately() }).pricing.required.truce12).toBe(9 * 1.5 * 60);
     const fair = atWar({ tilesTakenFromAi: 1, tilesTakenByAi: 1 });
     const baseline = price({ memory: fair }).pricing.required.truce12!;
     const discount = price({ memory: fair, temperament: MERCHANT }).pricing.required.truce12!;
