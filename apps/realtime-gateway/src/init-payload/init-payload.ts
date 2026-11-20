@@ -291,8 +291,7 @@ export const buildGatewayInitPayload = (
   const techIds = liveSnapshotPlayer?.techIds ?? bootstrapProfile?.techIds ?? (player ? [...player.techIds] : []);
   const domainIds: string[] = liveSnapshotPlayer?.domainIds ?? bootstrapProfile?.domainIds ?? [];
   const techChoices = reachableTechChoices(techIds);
-  // Season ruleset covers a joiner not yet in the live snapshot; otherwise INIT served the legacy domain tree.
-  const { domains, domainChoices, reachableDomainChoiceSet } = initDomainProgression(techIds, domainIds, liveSnapshotPlayer?.afcUpgradeRuleset ?? initialState?.season?.afcUpgradeRuleset);
+  const { afcUpgradeRuleset, domains, domainChoices, reachableDomainChoiceSet } = initDomainProgression(techIds, domainIds, liveSnapshotPlayer?.afcUpgradeRuleset ?? initialState?.season?.afcUpgradeRuleset);
   const liveWorldStatus = initialState?.worldStatus;
   const tileCounts = new Map<string, number>();
   for (const tile of initialState?.tiles ?? []) {
@@ -482,6 +481,7 @@ export const buildGatewayInitPayload = (
       techRootId: "rewrite-local",
       ...(initialState?.respawnNotice ? { respawnNotice: initialState.respawnNotice } : {}),
       ...passthrough,
+      ...(afcUpgradeRuleset ? { afcUpgradeRuleset } : {}), // same ruleset as the catalogue above
       ...(homeTile ? { homeTile } : {}),
       tileColor: myTileColor
     },

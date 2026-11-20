@@ -108,5 +108,7 @@ describe("gateway init progression sources", () => {
     expect(init.domainCatalog.every((domain) => domain.id.startsWith("afc-"))).toBe(true);
     expect(init.domainCatalog.map((domain) => domain.id)).not.toContain("frontier-doctrine");
     expect(init.domainChoices).toEqual([]);
+    // The client gates "ready" badges and installs on the ruleset, so INIT must carry it with the catalogue.
+    expect(init.player.afcUpgradeRuleset).toBe("afc-v1");
   });
 });
