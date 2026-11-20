@@ -277,25 +277,52 @@ describe("tutorial guide in the onboarding corner", () => {
     }
   });
 
-  it("Finish ends the guide even while Contest and Diplomacy are still waiting for a first contact", () => {
+  it("Finish with Contest and Diplomacy still waiting keeps them: the guide folds and comes back on first contact", () => {
+    // Playtest 2026-11: Finish at 13/16 ended the guide and felt like losing the last three steps.
     setGuideStatus("active", EMAIL);
     const waitingOnly = GUIDE_STEPS.filter((s) => !["contest-muster", "diplomacy-truce", "turn-finish"].includes(s.id)).map((s) => s.id);
     markGuideStepsCompleted(waitingOnly, EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
-    expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
+    expect(card()?.querySelector(".tg-later")?.textContent).toBe("Back on first contact: Contest, Diplomacy");
     click("finish");
-    expect(readGuideProgress(EMAIL).status).toBe("done");
-    // Only the Guide complete acknowledgement is left. Playtest: it said "Guide complete" over a 14/16 bar;
-    // the waiting steps are handed to the First Contact tip, so the bar is full and the note says so.
-    expect(card()?.querySelector("[data-guide-action]")).toBeNull();
-    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
-    expect(card()?.querySelector(".tg-progress")?.getAttribute("aria-valuenow")).toBe(String(GUIDE_STEPS.length));
-    expect(card()?.textContent).toContain("Contest and Diplomacy are explained");
-    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
+    expect(readGuideProgress(EMAIL).status).toBe("active");
+    expect(readGuideProgress(EMAIL).steps).toContain("turn-finish");
+    // Folded to its launcher, which still counts the two steps left.
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true);
+    expect(card()?.querySelector(".tg-launcher")?.hasAttribute("hidden")).toBe(false);
+    expect(card()?.querySelector(".tg-badge")?.textContent).toBe("2");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true); // stays folded while waiting
+    // Meeting a rival House: the guide unfolds on Diplomacy by itself.
+    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED" } as Tile);
     state.tilesRevision += 1;
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(card()?.querySelector("[data-guide-action]")).toBeNull(); // contact after Finish doesn't bring the guide back
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(false);
+    expect(card()?.querySelector(".tg-chapter")?.textContent).toContain("Diplomacy");
+  });
+
+  it("ends with a full Guide complete card once the steps waiting after Finish are done", () => {
+    setGuideStatus("active", EMAIL);
+    markGuideStepsCompleted(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce").map((s) => s.id), EMAIL);
+    const state = newPlayerState();
+    refreshOnboardingChecklistHighlight(state);
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true); // reload after Finish: still folded
+    markGuideStepsCompleted(["diplomacy-truce"], EMAIL);
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(readGuideProgress(EMAIL).status).toBe("done");
+    expect(card()?.textContent).toContain("Guide complete");
+    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
+  });
+
+  it("Finish with every step done ends the guide at once", () => {
+    setGuideStatus("active", EMAIL);
+    markGuideStepsCompleted(GUIDE_STEPS.filter((s) => s.id !== "turn-finish").map((s) => s.id), EMAIL);
+    refreshOnboardingChecklistHighlight(newPlayerState());
+    expect(card()?.querySelector(".tg-later")).toBeNull();
+    click("finish");
+    expect(readGuideProgress(EMAIL).status).toBe("done");
+    expect(card()?.textContent).toContain("Guide complete");
   });
 
   it("Skip guide is a visible button that turns it off and removes the card", () => {

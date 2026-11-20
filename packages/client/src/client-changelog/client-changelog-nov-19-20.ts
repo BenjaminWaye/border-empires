@@ -1,5 +1,6 @@
 // 2026.11.19-20 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { GUIDE_FINISH_KEEPS_STEPS_ENTRY } from "./client-changelog-guide-finish-keeps-steps.js";
 import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
 import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
 import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
@@ -36,4 +37,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...START_SITE_PATROLS_ISLANDS_ENTRY, createdAt: 1795175657050, },
   { ...PLANETARY_DEFENSE_CAMPS_ENTRY, createdAt: 1795178995450 },
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
+  { ...GUIDE_FINISH_KEEPS_STEPS_ENTRY, createdAt: 1795207799098 },
 ];

@@ -13,10 +13,12 @@ const isAtOrOverCap = (m: GuideManpower | undefined): m is GuideManpower =>
 
 const fmt = (n: number): string => Math.floor(n).toLocaleString("en-US");
 
-export const turnFinishTitle = (manpower: GuideManpower | undefined): string =>
-  isAtOrOverCap(manpower) ? `That's the basics. Spend your ${fmt(manpower.current)} manpower.` : "That's the basics. Your manpower refills every 4 hours.";
+// The title is a send-off, never a chore: Finish is the next action, so the
+// card must not read as "do this first" (2026-11 playtest: "Spend your 2,447
+// manpower" made Finish look premature).
+export const turnFinishTitle = (): string => "That's the basics.";
 
 export const turnFinishWhy = (manpower: GuideManpower | undefined, chronicleName: string): string =>
   isAtOrOverCap(manpower)
-    ? `Explore for towns, then expand, garrison, build and attack. No refill until you're under ${fmt(manpower.cap)}. The ${chronicleName} shows what happened while you were away.`
-    : `Come back, Explore for towns, spend it on expanding, garrisoning, building and attacking, and check the ${chronicleName} for what happened while you were away.`;
+    ? `Spend your ${fmt(manpower.current)} manpower: explore for towns, expand, garrison, build, attack. No refill until you're under ${fmt(manpower.cap)}. The ${chronicleName} shows what happened while you were away.`
+    : `Manpower refills every 4 hours: explore for towns, expand, garrison, build, attack. The ${chronicleName} shows what happened while you were away.`;

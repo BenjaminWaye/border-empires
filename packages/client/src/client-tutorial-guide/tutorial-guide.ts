@@ -47,6 +47,19 @@ let lastIdentityKey: string | undefined;
 let lastState: GuideInputState | undefined;
 let showMeIndex = 0;
 let checklistFlagSynced = false;
+// Whether the last rendered view was waiting, once Finish was pressed: the card
+// then folds while waiting and unfolds when a step can be done.
+let lastWaiting: boolean | undefined;
+
+const FINISH_STEP_ID = "turn-finish";
+
+/** Ends the guide with the Guide complete card. */
+const completeGuide = (): void => {
+  setGuideStatus("done", lastAuthEmail);
+  setOnboardingRelayBeaconSite(undefined);
+  removeTutorialGuideUi();
+  renderGuideCompleteCard(GUIDE_STEPS.length);
+};
 
 const forceRerender = (): void => {
   lastSignature = "";
@@ -70,15 +83,20 @@ const handlers: GuideCardHandlers = {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
     forceRerender();
   },
-  // Finish ends the guide even when Contest / Diplomacy are still waiting for a
-  // first contact: the First Contact discovery tip covers muster flags later.
+  // Finish never drops steps: with Contest / Diplomacy still waiting for a
+  // first contact, the guide stays running, folded to its launcher, and
+  // reopens on its own when one of them can be done (renderTutorialGuide).
+  // Playtest 2026-11: pressing Finish at 13/16 felt like losing three steps.
   onFinish: () => {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
-    setGuideStatus("done", lastAuthEmail);
-    setOnboardingRelayBeaconSite(undefined);
-    removeTutorialGuideUi();
     const doneIds = new Set(readGuideProgress(lastAuthEmail).steps);
-    renderGuideCompleteCard(GUIDE_STEPS.length, GUIDE_STEPS.filter((s) => !doneIds.has(s.id)).length);
+    if (GUIDE_STEPS.some((s) => !doneIds.has(s.id))) {
+      expanded = false;
+      lastWaiting = true;
+      forceRerender();
+      return;
+    }
+    completeGuide();
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);
@@ -158,13 +176,23 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     checklistFlagSynced = true;
     if (!isOnboardingChecklistCompleted(state.authEmail)) markOnboardingChecklistCompleted(state.authEmail);
   }
-  const view = evaluateGuide(input, new Set(readGuideProgress(state.authEmail).steps));
+  const completed = new Set(readGuideProgress(state.authEmail).steps);
+  const view = evaluateGuide(input, completed);
   if (view.kind === "step" && view.newlyCompleted.length > 0) markGuideStepsCompleted(view.newlyCompleted, state.authEmail);
   if (view.kind === "done") {
-    setGuideStatus("done", state.authEmail);
-    setOnboardingRelayBeaconSite(undefined);
-    removeTutorialGuideUi();
+    // The last waiting step done after Finish (on screen this session): acknowledge it.
+    if (lastView) completeGuide();
+    else {
+      setGuideStatus("done", state.authEmail);
+      setOnboardingRelayBeaconSite(undefined);
+    }
     return [];
+  }
+  // After Finish the guide only holds steps waiting on a first contact: fold
+  // while they wait, unfold when one can be done (also after a reload).
+  if (completed.has(FINISH_STEP_ID) && view.waiting !== lastWaiting) {
+    lastWaiting = view.waiting;
+    expanded = !view.waiting;
   }
   setOnboardingRelayBeaconSite(!deferred && !view.waiting ? guideBeaconSite(view.step.id, input) : undefined);
   if (deferred) {
@@ -199,6 +227,7 @@ export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefin
 /** Settings "Restart guide": reopen the card on the first unfinished step. */
 export const reopenTutorialGuideCard = (): void => {
   expanded = true;
+  lastWaiting = undefined;
   lastSignature = "";
 };
 
@@ -212,4 +241,5 @@ export const resetTutorialGuideForTests = (): void => {
   lastState = undefined;
   showMeIndex = 0;
   checklistFlagSynced = false;
+  lastWaiting = undefined;
 };
