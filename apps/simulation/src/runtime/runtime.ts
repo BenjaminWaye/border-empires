@@ -143,7 +143,7 @@ import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlaye
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { createRuntimeVisibilityCoverage } from "./runtime-visibility-coverage-factory.js";
-import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js"; import { restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
+import { type ExploredTilesStore, createRuntimeExploredTilesStore, restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -534,7 +534,7 @@ export class SimulationRuntime {
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
-  private readonly exploredTiles = new ExploredTilesStore(WORLD_WIDTH, WORLD_HEIGHT); // per-player fog memory, saved in snapshots; see explored-tiles-store.ts
+  private readonly exploredTiles = createRuntimeExploredTilesStore(); // per-player fog memory, saved in snapshots; see explored-tiles-store.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();

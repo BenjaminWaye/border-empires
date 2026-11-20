@@ -7,6 +7,6 @@ export const START_SITE_PATROLS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
   changes: [
     "New worlds post one Planetary Defense patrol about 20 tiles out from each starting landing site (a few sites on small islands have no land that far out)",
     "These patrols replace the Planetary Defense that used to be scattered at random across the map",
-    "Players who join mid-season now land on those same starting sites while any are free"
+    "In new worlds, players who join mid-season or start again after losing their empire land on those same starting sites while any are free"
   ]
 };

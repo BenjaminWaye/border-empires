@@ -6,6 +6,7 @@ import { buildWorldgenBaselineIndex, compactSnapshotForStorage, expandSnapshotFr
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
 import { SpawnPlacementIndex } from "./spawn-placement-index.js";
+import { simulationTileKey } from "../seed-state/seed-state.js";
 
 // Worldgen posts a Planetary Defense patrol 20 tiles out from each starting
 // site in its roster. Live spawns used to recompute the roster from live
@@ -54,6 +55,29 @@ describe("fair spawn roster persistence", () => {
     expect(saved.fairSpawnSites).toEqual(fairSpawnSites);
     const restarted = buildRuntime({ ...saved, tiles: [...baselineTiles], activeLocks: [] });
     expect(restarted.exportSnapshotSections().initialState.fairSpawnSites).toEqual(fairSpawnSites);
+  });
+
+  it("lands a joining player on the saved roster site, not the site a live recompute would pick", () => {
+    // 60x60 of land with towns and farms every 20 tiles: several qualified sites.
+    const tiles: RecoveredSimulationState["tiles"] = [];
+    for (let y = 0; y < 60; y += 1) for (let x = 0; x < 60; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    const byKey = new Map(tiles.map((tile) => [simulationTileKey(tile.x, tile.y), tile]));
+    for (let y = 10; y < 60; y += 20) for (let x = 10; x < 60; x += 20) {
+      byKey.get(simulationTileKey(x, y))!.town = { type: "MARKET", populationTier: "TOWN" } as RecoveredSimulationState["tiles"][number]["town"];
+      for (let dx = 1; dx <= 4; dx += 1) byKey.get(simulationTileKey(x + dx, y))!.resource = "FARM";
+    }
+    const live = new SpawnPlacementIndex().fairSpawnSites(new Map([...byKey].map(([k, t]) => [k, t as DomainTileState])));
+    expect(live.length).toBeGreaterThan(1);
+    // The live recompute's first pick is live[0] on an empty map; save a different one.
+    const saved = live[live.length - 1]!;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["joiner", buildPlayer("joiner")]]),
+      initialState: { tiles, activeLocks: [], fairSpawnSites: [saved] }
+    });
+    expect(runtime.ensurePlayerHasSpawnTerritory("joiner")).toBe(true);
+    const owned = runtime.exportSnapshotSections().initialState.tiles.filter((tile) => tile.ownerId === "joiner");
+    expect(owned.some((tile) => tile.x === saved.x && tile.y === saved.y)).toBe(true);
   });
 
   it("writes no roster for a legacy season", () => {

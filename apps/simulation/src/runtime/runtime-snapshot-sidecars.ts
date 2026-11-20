@@ -1,4 +1,6 @@
-import type { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+
+import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import type { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 
@@ -7,6 +9,11 @@ import type { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-ind
  * the tiles: per-player explored-tile memory and the season's worldgen
  * starting-site roster. Kept out of runtime.ts, which is over the file-line cap.
  */
+export type { ExploredTilesStore };
+
+/** Per-player fog memory sized to the world, saved in snapshots (explored-tiles-store.ts). */
+export const createRuntimeExploredTilesStore = (): ExploredTilesStore => new ExploredTilesStore(WORLD_WIDTH, WORLD_HEIGHT);
+
 export type RuntimeSnapshotSidecars = {
   exploredTiles: ExploredTilesStore;
   spawnPlacementIndex: SpawnPlacementIndex;

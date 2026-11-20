@@ -203,13 +203,14 @@ describe("SpawnPlacementIndex", () => {
     const index = new SpawnPlacementIndex();
     index.restoreFairSpawnSites([saved]);
     const isAvailable = (x: number, y: number): boolean => tiles.get(simulationTileKey(x, y))?.ownerId === undefined;
-    expect(index.claimFairSpawnSite(tiles, isAvailable)).toEqual(saved);
+    expect(index.claimFairSpawnSite(tiles, isAvailable)).toEqual({ ...saved, rosterSource: "saved" });
 
     // The saved site is taken: the next join gets a qualified live site, not nothing.
     tiles.get(simulationTileKey(saved.x, saved.y))!.ownerId = "player-1";
     const next = index.claimFairSpawnSite(tiles, isAvailable);
-    expect(next).toBeDefined();
-    expect(next).not.toEqual(saved);
-    expect(new SpawnPlacementIndex().fairSpawnSites(tiles)).toContainEqual(next);
+    expect(next?.rosterSource).toBe("live");
+    const nextSite = { x: next!.x, y: next!.y };
+    expect(nextSite).not.toEqual(saved);
+    expect(new SpawnPlacementIndex().fairSpawnSites(tiles)).toContainEqual(nextSite);
   });
 });

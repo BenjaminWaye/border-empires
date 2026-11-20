@@ -2,8 +2,14 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { starterSiteQuality } from "@border-empires/game-domain";
 import { computeCoastalLandKeys, computeFairSpawnSites, computeLandRegions, type FairSpawnSite } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+
+// Worldgen saves exactly 50 sites (FAIR_SPAWN_SITE_WORLDGEN_MINIMUM); a hard bound on what a snapshot can restore.
+const MAX_SAVED_FAIR_SPAWN_SITES = 50;
 
 export type SpawnPlacementCoord = { x: number; y: number };
+/** Which roster a claimed site came from; set only for seasons with a saved worldgen roster. */
+export type ClaimedFairSpawnSite = SpawnPlacementCoord & { rosterSource?: "saved" | "live" };
 
 /**
  * The spawn-search slice of RuntimeRespawnContext, bound to the live world by
@@ -24,7 +30,7 @@ export type SpawnSearchLookups = {
   // computeFairSpawnSites/SpawnPlacementIndex.claimFairSpawnSite). Tried
   // before falling back to chooseLegacySpawnPlacement's per-player random
   // search, which stays as the fallback once the roster is exhausted.
-  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: SpawnPlacementCoord) => SpawnPlacementCoord | undefined;
+  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: SpawnPlacementCoord) => ClaimedFairSpawnSite | undefined;
   // Reach-border owner of (x, y) — keeps a spawn's AFC disk out of a rival's
   // reach (see SpawnRequirements.avoidRivalReach).
   reachOwnerAt: (x: number, y: number) => string | undefined;
@@ -259,8 +265,13 @@ export class SpawnPlacementIndex {
   // shifts as soon as anything (AI land, those patrols) is owned. Seasons
   // saved without a roster keep the lazy recompute below.
   restoreFairSpawnSites(sites: readonly FairSpawnSite[] | undefined): void {
-    if (!sites?.length) return;
-    this.fairSpawnSitesCache = sites.map((site) => ({ x: site.x, y: site.y }));
+    // Drop anything that can't be a tile (a corrupt or hand-edited snapshot)
+    // rather than carrying it forward in every checkpoint.
+    const valid = (sites ?? [])
+      .filter((site) => Number.isInteger(site.x) && Number.isInteger(site.y) && site.x >= 0 && site.y >= 0 && site.x < WORLD_WIDTH && site.y < WORLD_HEIGHT)
+      .slice(0, MAX_SAVED_FAIR_SPAWN_SITES);
+    if (valid.length === 0) return;
+    this.fairSpawnSitesCache = valid.map((site) => ({ x: site.x, y: site.y }));
     this.fairSpawnSitesPersisted = true;
   }
 
@@ -299,14 +310,16 @@ export class SpawnPlacementIndex {
     tiles: ReadonlyMap<string, DomainTileState>,
     isAvailable: (x: number, y: number) => boolean,
     rallyAnchor?: SpawnPlacementCoord
-  ): FairSpawnSite | undefined {
+  ): ClaimedFairSpawnSite | undefined {
     const fromRoster = this.pickFairSpawnSite(tiles, this.fairSpawnSites(tiles), isAvailable, rallyAnchor);
     // A saved worldgen roster only has the sites season-start AI left open;
     // once those are all taken, fall back to sites recomputed from live
     // tiles (what every join used before the roster was saved) rather than
     // straight to the unqualified legacy search.
-    if (fromRoster || !this.fairSpawnSitesPersisted) return fromRoster;
-    return this.pickFairSpawnSite(tiles, this.liveFairSpawnSites(tiles), isAvailable, rallyAnchor);
+    if (!this.fairSpawnSitesPersisted) return fromRoster;
+    if (fromRoster) return { ...fromRoster, rosterSource: "saved" };
+    const fromLive = this.pickFairSpawnSite(tiles, this.liveFairSpawnSites(tiles), isAvailable, rallyAnchor);
+    return fromLive ? { ...fromLive, rosterSource: "live" } : undefined;
   }
 
   private pickFairSpawnSite(
