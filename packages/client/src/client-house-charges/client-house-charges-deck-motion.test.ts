@@ -28,6 +28,11 @@ describe("House Charges card styles", () => {
   // the bottom of every card was cut off; and How charges work pushed the cards down into a scroll.
   it("lets the desktop hand reach the bottom of the screen and floats the help over the cards", () => {
     expect(motionCss).toMatch(/#side-panel\.charges-panel-active \{[^}]*bottom: 16px/);
+    // The shrink-to-fit rules for short screens stay off the compact (phone) HUD as well.
+    const short = motionCss.slice(motionCss.indexOf("@media (min-width: 901px) and (max-height"));
+    const shortSelectors = short.match(/^\s*[^{}@\s][^{}]*\{/gm) ?? [];
+    expect(shortSelectors.length).toBeGreaterThan(2);
+    for (const selector of shortSelectors) expect(selector).toContain("body:not(.hud-v2-compact)");
     const style = source("client-house-charges-style.css").replace(/\/\*[\s\S]*?\*\//g, "");
     expect(style).toMatch(/\.house-charges-more \{[^}]*position: absolute/);
   });
