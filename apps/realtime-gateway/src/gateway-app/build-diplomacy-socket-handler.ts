@@ -29,6 +29,7 @@ import { createDiplomacyOfferAcceptance } from "../diplomacy-settlement/diplomac
 import { createDiplomacySettlement, type DiplomacySettlement } from "../diplomacy-settlement/diplomacy-settlement.js";
 import { offerDiplomacyGift } from "../diplomacy-gift/diplomacy-gift-message.js";
 import { createTownGiftValue } from "../diplomacy-gift/town-gift-value.js";
+import { createReturnableTownsRead } from "../ai-diplomacy-stance/returnable-towns-read.js";
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
@@ -170,7 +171,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   });
   const fetchAiSnapshot = memoizeWithTtl((playerId) => deps.ensureSubscribed(playerId).catch(() => undefined), 3_000);
   // Towns a player could hand back (the "return a town" term); a failed read lists none.
-  const returnableTownsOf = memoizeWithTtl((playerId) => deps.simulationReads.getPlayerTradeHoldings(playerId).then((held) => held?.returnableTowns ?? []).catch(() => []), 3_000);
+  const returnableTownsOf = createReturnableTownsRead({ getPlayerTradeHoldings: (id) => deps.simulationReads.getPlayerTradeHoldings(id), recordGatewayEvent: deps.recordGatewayEvent });
   const requesterSnapshot = async (playerId: string): Promise<PlayerSubscriptionSnapshot | undefined> =>
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;

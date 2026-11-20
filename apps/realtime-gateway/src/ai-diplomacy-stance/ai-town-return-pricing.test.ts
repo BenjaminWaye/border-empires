@@ -94,3 +94,17 @@ describe("returnable towns over the wire", () => {
     expect(result.message).toBe("You gave Elin the return of the town at (4, 4) as a gift.");
   });
 });
+
+describe("reading returnable towns for AI replies", () => {
+  it("lists none, and records it, when the simulation is slow or fails", async () => {
+    const { createReturnableTownsRead } = await import("./returnable-towns-read.js");
+    const recordGatewayEvent = vi.fn();
+    const slow = createReturnableTownsRead({ getPlayerTradeHoldings: () => new Promise(() => undefined), recordGatewayEvent, timeoutMs: 10 });
+    expect(await slow("p1")).toEqual([]);
+    const failing = createReturnableTownsRead({ getPlayerTradeHoldings: async () => { throw new Error("down"); }, recordGatewayEvent });
+    expect(await failing("p1")).toEqual([]);
+    expect(recordGatewayEvent.mock.calls.map((call) => call[2])).toEqual([{ playerId: "p1", reason: "timeout" }, { playerId: "p1", reason: "error" }]);
+    const ok = createReturnableTownsRead({ getPlayerTradeHoldings: async () => ({ gold: 0, activeSupplyAgreements: 0, returnableTowns: [oak] }), recordGatewayEvent });
+    expect(await ok("p1")).toEqual([oak]);
+  });
+});
