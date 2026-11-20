@@ -90,6 +90,9 @@ export const renderSidePanel = (
     hintEl.textContent = hint;
     hintEl.hidden = hint === "";
   }
+  // The "?" beside the title only explains House Charges (client-house-charges-panel.ts binds it).
+  const helpEl = deps.panelTitleEl.parentElement?.querySelector<HTMLElement>("#panel-help");
+  if (helpEl) helpEl.hidden = state.activePanel !== "charges";
 };
 
 export const bindTechTreeDragScroll = (

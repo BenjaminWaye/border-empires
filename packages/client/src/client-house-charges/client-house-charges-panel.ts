@@ -33,8 +33,9 @@ export type HouseChargesPanelDeps = {
 };
 
 /**
- * Whether "How charges work" is expanded. It is left out of the panel's HTML, so opening it never rewrites the
- * panel (which would drop keyboard focus and restart a deal), and reapplied after any rewrite.
+ * Whether the "?" beside the panel title has opened How charges work. It is left out of the panel's HTML, so
+ * opening it never rewrites the panel (which would drop keyboard focus and restart a deal), and reapplied after
+ * any rewrite. Owner 2026-11-20: nothing sits above the cards unless the player asks for it.
  */
 let rewardsOpen = false;
 
@@ -118,20 +119,16 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // With nothing to save (the draft matches what the server keeps, which may be the default pair), say what is
-  // kept and how to swap instead of a disabled button that reads as an unsaved choice. Deliberately no "saved"
-  // tick: the default pair is kept without the player ever choosing.
-  const choice = !choosing
-    ? ""
-    : changed
-      ? `<div class="house-charges-choice">
+  // Only an unsaved swap puts anything above the cards (its Keep button); what is kept and until when sits in
+  // How charges work, behind the "?" beside the title.
+  const choice = choosing && changed
+    ? `<div class="house-charges-choice">
         <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
         ${choiceHintHtml(draft.length, wanted)}
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-      : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>
-      </div>`;
+    : "";
+  const swapWindow = choosing ? `<p class="house-charges-saved">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>` : "";
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
     !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
@@ -141,12 +138,13 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     houseChargeDeckCardHtml(charge, { choosing, ticked: draft.includes(charge.id), focused: state.houseChargeFocusId === charge.id, scoutHint: scoutHintFor(charge), formatWhen })
   );
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Hold your kept charges when the winner is crowned to bank Domain score.</p>
-    <details class="house-charges-more" data-house-charges-more><summary>How charges work</summary>
+    <div class="house-charges-more" id="house-charges-help" data-house-charges-more hidden>
+      ${swapWindow}
+      <p>Hold your kept charges when the winner is crowned to bank Domain score.</p>
       <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
       <p>Each kept charge you still hold then earns its charge card and banks Domain score by difficulty: +1 for each ◆, so +1 to +4. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
       <p>◆ is difficulty: how much land the charge needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it. Harder charges are rarer and pay more.</p>
-    </details>
+    </div>
     ${choice}
     ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}
   </section>`;
@@ -190,11 +188,16 @@ export const renderHouseChargesPanel = (
     writtenHtml.set(deps.panelEl, html);
   }
   syncHouseChargesDraw(deps.panelEl, opening, deps.now());
-  const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
-  if (more) {
-    if (more.open !== rewardsOpen) more.open = rewardsOpen;
-    more.ontoggle = () => {
-      rewardsOpen = more.open;
+  const more = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
+  if (more) more.hidden = !rewardsOpen;
+  const help = deps.root.querySelector<HTMLButtonElement>("#panel-help");
+  if (help) {
+    help.setAttribute("aria-expanded", String(rewardsOpen));
+    help.onclick = () => {
+      rewardsOpen = !rewardsOpen;
+      const shown = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
+      if (shown) shown.hidden = !rewardsOpen;
+      help.setAttribute("aria-expanded", String(rewardsOpen));
     };
   }
   const payload = state.houseCharges;

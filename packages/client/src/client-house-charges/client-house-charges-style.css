@@ -26,29 +26,58 @@
   background: #2a2014;
 }
 
-/* "How charges pay out": an underlined read-more under the intro. */
+/* How charges work: shown only from the "?" beside the panel title. */
 .house-charges-more {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(217, 178, 92, 0.45);
+  border-radius: 8px;
+  background: #2a2014;
   font-size: 13px;
   line-height: 1.45;
   color: rgba(214, 226, 240, 0.82);
 }
 
-.house-charges-more summary {
-  display: inline-block;
-  padding: 12px 0;
-  cursor: pointer;
-  list-style: none;
-  color: #f0cf82;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.house-charges-more summary::-webkit-details-marker {
+.house-charges-more[hidden] {
   display: none;
 }
 
 .house-charges-more p {
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+#side-panel.charges-panel-active #panel-title {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.panel-help {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 10px;
+  padding: 0;
+  vertical-align: middle;
+  border: 1px solid rgba(217, 178, 92, 0.7);
+  border-radius: 50%;
+  background: rgba(42, 32, 20, 0.85);
+  color: #f0cf82;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.panel-help[hidden] {
+  display: none;
+}
+
+.panel-help[aria-expanded="true"] {
+  background: #f0cf82;
+  color: #2a2014;
 }
 
 .house-charges-hint {
@@ -66,6 +95,6 @@
   color: #f0b45c;
 }
 
-.house-charges-choice > p.house-charges-saved {
+.house-charges-saved {
   color: #8fd18a;
 }

@@ -74,19 +74,26 @@ describe("House Charges keep choice", () => {
   });
 
   // Review of #2878: opening the read-more changed the panel's HTML, so it was rewritten, dropping focus.
-  it("opening How charges work keeps the panel's elements and stays open across a rewrite", () => {
+  it("the ? beside the title opens How charges work without rewriting the panel, and it stays open across a rewrite", () => {
     const panelEl = document.createElement("div");
     const state = { activePanel: "charges" as const, houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: undefined as string[] | undefined, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 22, houseChargeFocusId: undefined };
-    const deps = { root: document, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000, closePanel: () => {}, viewport: () => ({ width: 800, height: 600 }) };
+    const root = document.createElement("div");
+    root.innerHTML = '<button id="panel-help" type="button">?</button>';
+    const deps = { root, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000, closePanel: () => {}, viewport: () => ({ width: 800, height: 600 }) };
     renderHouseChargesPanel(state, deps);
-    const more = panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]")!;
-    more.open = true;
-    more.dispatchEvent(new Event("toggle"));
+    const more = panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!;
+    expect(more.hidden).toBe(true);
+    const help = root.querySelector<HTMLButtonElement>("#panel-help")!;
+    help.click();
+    expect(more.hidden).toBe(false);
+    expect(help.getAttribute("aria-expanded")).toBe("true");
     renderHouseChargesPanel(state, deps);
     expect(panelEl.querySelector("[data-house-charges-more]")).toBe(more);
-    // A real change rewrites the panel; the read-more stays open.
+    // A real change rewrites the panel; the help stays open.
     state.houseChargesDraftKeep = ["a"];
     renderHouseChargesPanel(state, deps);
-    expect(panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]")!.open).toBe(true);
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(false);
+    help.click();
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
   });
 });
