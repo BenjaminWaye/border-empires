@@ -1,5 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState, FairSpawnSite } from "@border-empires/game-domain";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 import type { LockRecord } from "./runtime-types.js";
 import type { PendingSettlementRecord, PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -30,6 +30,8 @@ export type SnapshotExportInput = {
   reachBorder: () => ReadonlyMap<string, string>;
   // Per-player explored-tile memory (explored-tiles-store.ts); optional so tests can omit it.
   exploredTiles?: () => ExploredTilesSnapshotEntry[];
+  // The persisted worldgen starting-site roster (spawn-placement-index.ts); undefined for seasons that never had one.
+  fairSpawnSites?: () => readonly FairSpawnSite[] | undefined;
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -38,6 +40,9 @@ export type SnapshotExportInput = {
   // buildRuntimeSnapshotSectionsAsync for why the copy is still yield-chunked).
   prebuiltTiles?: ReadonlyMap<string, SnapshotTile>;
 };
+
+const fairSpawnSitesSection = (sites: readonly FairSpawnSite[] | undefined): { fairSpawnSites?: FairSpawnSite[] } =>
+  sites?.length ? { fairSpawnSites: sites.map((site) => ({ x: site.x, y: site.y })) } : {};
 
 export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   x: tile.x,
@@ -155,6 +160,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         .sort((a, b) => a.playerId.localeCompare(b.playerId)),
       reachBorder: encodeReachBorder(input.reachBorder()),
       ...(input.exploredTiles ? { exploredTiles: input.exploredTiles() } : {}),
+      ...fairSpawnSitesSection(input.fairSpawnSites?.()),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({

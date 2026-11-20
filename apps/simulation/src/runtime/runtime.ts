@@ -143,7 +143,7 @@ import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlaye
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { createRuntimeVisibilityCoverage } from "./runtime-visibility-coverage-factory.js";
-import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
+import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js"; import { restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -912,7 +912,7 @@ export class SimulationRuntime {
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     // Restore the persisted reach border, then reconcile it with the loaded anchors
     // (indexes above are now fully populated) -- see runtime-reach-border-restore.ts.
-    this.exploredTiles.restore(options.initialState?.exploredTiles);
+    restoreRuntimeSnapshotSidecars({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex }, options.initialState);
     restoreReachBorder({ persisted: options.initialState?.reachBorder, tiles: this.state.tiles, gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, setReachBorder: (border) => { this.reachBorder = border; }, reachBorder: () => this.reachBorder, syncReachVision: (oldBorder, newBorder, changedKeys) => this.reachAnchorLifecycleDeps().syncReachVision(oldBorder, newBorder, changedKeys), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
     this.clearPersistedOutOfReachDecayTimers();
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
@@ -1900,7 +1900,7 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       reachBorder: () => this.reachBorder,
-      exploredTiles: () => { this.exploredTiles.retainOnly((id) => this.state.players.has(id)); return this.exploredTiles.exportSnapshot(); },
+      ...runtimeSnapshotSidecarExports({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex }, (id) => this.state.players.has(id)),
       prebuiltTiles: this.snapshotTileCache,
       plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),

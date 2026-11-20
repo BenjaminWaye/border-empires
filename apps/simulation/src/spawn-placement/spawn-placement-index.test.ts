@@ -190,4 +190,26 @@ describe("SpawnPlacementIndex", () => {
     for (const tile of tiles.values()) if (tile.resource === "FARM") tile.ownerId = "rival";
     expect(index.claimFairSpawnSite(tiles, () => true)).toBeUndefined();
   });
+  it("claims from a saved worldgen roster first, then falls back to sites recomputed from live tiles", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y < 60; y += 1) {
+      for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    }
+    addStarterEconomy(tiles);
+    const live = new SpawnPlacementIndex().fairSpawnSites(tiles);
+    expect(live.length).toBeGreaterThan(1);
+    const saved = live[live.length - 1]!;
+
+    const index = new SpawnPlacementIndex();
+    index.restoreFairSpawnSites([saved]);
+    const isAvailable = (x: number, y: number): boolean => tiles.get(simulationTileKey(x, y))?.ownerId === undefined;
+    expect(index.claimFairSpawnSite(tiles, isAvailable)).toEqual(saved);
+
+    // The saved site is taken: the next join gets a qualified live site, not nothing.
+    tiles.get(simulationTileKey(saved.x, saved.y))!.ownerId = "player-1";
+    const next = index.claimFairSpawnSite(tiles, isAvailable);
+    expect(next).toBeDefined();
+    expect(next).not.toEqual(saved);
+    expect(new SpawnPlacementIndex().fairSpawnSites(tiles)).toContainEqual(next);
+  });
 });

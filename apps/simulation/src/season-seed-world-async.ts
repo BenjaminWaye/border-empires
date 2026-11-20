@@ -365,6 +365,7 @@ export const createSeasonSeedWorldAsync = async (
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT
     }),
+    fairSpawnSites: fairSpawnSites.map((site) => ({ x: site.x, y: site.y })),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,

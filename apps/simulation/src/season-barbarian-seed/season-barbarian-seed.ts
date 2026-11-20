@@ -8,6 +8,8 @@ import { key, parseKey } from "@border-empires/game-domain";
 // tiles' ownership changes; with the barbarian constantly eaten by AI that
 // re-export churned continuously and became the dominant sim-thread cost,
 // starving gateway logins on the shared vCPU. Keep the start small.
+// Start-site patrols (below) count against this budget first; the random
+// scatter only tops up to it, so a full 50-site roster seeds no random tiles.
 export const BARBARIAN_SEED_TARGET = 30;
 export const BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN = 12;
 export const BARBARIAN_SEED_MIN_SEPARATION = 4;
@@ -36,8 +38,8 @@ export type BarbarianSeedInput = {
   terrainAt: (x: number, y: number) => string;
   /** Deterministic [0,1) sampler; same signature as terrainRuntime.seeded01. */
   seeded01: (a: number, b: number, seed: number) => number;
-  /** The worldgen roster of predetermined starting sites; each gets one patrol BARBARIAN_START_SITE_PATROL_DISTANCE out. */
-  startSites?: ReadonlyArray<{ x: number; y: number }>;
+  /** The worldgen roster of predetermined starting sites; each gets one patrol BARBARIAN_START_SITE_PATROL_DISTANCE out. Required so a worldgen path can't silently drop the patrols. */
+  startSites: ReadonlyArray<{ x: number; y: number }>;
 };
 
 const wrap = (value: number, size: number): number => ((value % size) + size) % size;
@@ -101,7 +103,7 @@ export const seedBarbarianTiles = (input: BarbarianSeedInput): Set<TileKey> => {
   // Each must also keep BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN from every
   // roster site, so it never sits on top of another (possibly still
   // unclaimed) start; live spawn placement avoids barbarians near a site.
-  const startSites = input.startSites ?? [];
+  const startSites = input.startSites;
   const isFarFromAnyStartSite = (x: number, y: number): boolean =>
     startSites.every((site) => wrappedChebyshev(x, y, site.x, site.y) >= BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN);
   startSites.forEach((site, siteIndex) => {
@@ -116,11 +118,10 @@ export const seedBarbarianTiles = (input: BarbarianSeedInput): Set<TileKey> => {
       }
     }
   });
-  const startSitePatrolCount = barbarianTileKeys.size;
-  for (let attempt = 0; attempt < BARBARIAN_SEED_MAX_TRIES && barbarianTileKeys.size - startSitePatrolCount < BARBARIAN_SEED_TARGET; attempt += 1) {
+  for (let attempt = 0; attempt < BARBARIAN_SEED_MAX_TRIES && barbarianTileKeys.size < BARBARIAN_SEED_TARGET; attempt += 1) {
     const x = Math.floor(input.seeded01(attempt * 73 + 11, attempt * 131 + 17, input.worldSeed + 50_001) * WORLD_WIDTH);
     const y = Math.floor(input.seeded01(attempt * 89 + 19, attempt * 113 + 23, input.worldSeed + 50_002) * WORLD_HEIGHT);
-    if (canSeedAt(x, y)) seed(x, y);
+    if (canSeedAt(x, y) && isFarFromAnyStartSite(x, y)) seed(x, y);
   }
   return barbarianTileKeys;
 };

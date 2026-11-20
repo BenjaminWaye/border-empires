@@ -30,6 +30,7 @@ const baseInput = (overrides: Partial<BarbarianSeedInput> = {}): BarbarianSeedIn
   worldSeed: 4242,
   terrainAt: () => "LAND",
   seeded01,
+  startSites: [],
   ...overrides
 });
 
@@ -45,14 +46,14 @@ const patrolsNear = (tiles: Set<TileKey>, site: { x: number; y: number }): Array
   [...tiles].map((tk) => parseKey(tk)).filter(([x, y]) => wrappedChebyshev(x, y, site.x, site.y) === BARBARIAN_START_SITE_PATROL_DISTANCE);
 
 describe("seedBarbarianTiles start-site patrols", () => {
-  it("posts one Planetary Defense tile 20 tiles out from every start site, on top of the random scatter", () => {
+  it("posts one Planetary Defense tile 20 tiles out from every start site, topped up to the seed budget at random", () => {
     const input = baseInput({ startSites });
     const tiles = seedBarbarianTiles(input);
 
     for (const site of startSites) {
       expect(patrolsNear(tiles, site)).toHaveLength(1);
     }
-    expect(tiles.size).toBe(BARBARIAN_SEED_TARGET + startSites.length);
+    expect(tiles.size).toBe(BARBARIAN_SEED_TARGET);
     for (const tk of tiles) expect(input.ownership.get(tk)).toBe("barbarian-1");
   });
 
@@ -87,6 +88,22 @@ describe("seedBarbarianTiles start-site patrols", () => {
     const [px, py] = patrol[0]!;
     expect(blocked.has(key(px, py))).toBe(false);
     expect(wrappedChebyshev(px, py, neighbour.x, neighbour.y)).toBeGreaterThanOrEqual(BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN);
+  });
+
+  it("spends the whole budget on patrols when the roster is larger than it, seeding no random tiles", () => {
+    // A 10x5 grid of sites 60 apart, like a full 50-site worldgen roster.
+    const fullRoster = Array.from({ length: 50 }, (_, index) => ({ x: 30 + (index % 10) * 60, y: 30 + Math.floor(index / 10) * 60 }));
+    const tiles = seedBarbarianTiles(baseInput({ startSites: fullRoster }));
+    expect(tiles.size).toBe(fullRoster.length);
+    for (const site of fullRoster) expect(patrolsNear(tiles, site)).toHaveLength(1);
+  });
+
+  it("keeps random tiles clear of every start site", () => {
+    const tiles = seedBarbarianTiles(baseInput({ startSites }));
+    for (const tk of tiles) {
+      const [x, y] = parseKey(tk);
+      for (const site of startSites) expect(wrappedChebyshev(x, y, site.x, site.y)).toBeGreaterThanOrEqual(BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN);
+    }
   });
 
   it("adds no patrols when no start sites are given", () => {
