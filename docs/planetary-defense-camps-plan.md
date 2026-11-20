@@ -78,9 +78,9 @@ it only acts where someone can see it.
 - **Bounty is paid per camp, not per tile** (owner decision 2026-11-20).
   Pacification Routines (AFC Vanguard specialization,
   `barbarianCaptureCoinBonus` / `afcPlanetaryDefenseBounty`) pays when a camp
-  is captured. Taking Planetary Defense frontier pays nothing. Since one camp
-  replaces many bounty tiles, raise the amount (proposal: 150 Coin; open
-  question below) and update the specialization text in `afc-vanguard.ts`.
+  is captured. Taking Planetary Defense frontier pays nothing. The amount stays
+  25 Coin (owner decision 2026-11-20); update the specialization text in
+  `afc-vanguard.ts` from "each of their tiles" to "each of their camps".
 
 ## What gets deleted
 
@@ -104,7 +104,9 @@ it only acts where someone can see it.
   rejected while the release rolls out.
 - The unused constant `BARBARIAN_CLEAR_GOLD_REWARD` in `packages/shared/src/config.ts`.
 - The territory cap's shedding of unseen tiles (`UNCAPTURE_TILE` erosion). The
-  cap becomes a limit on the number of camps.
+  cap becomes a limit on the number of camps: `MAX_BARBARIAN_TILES` (100) is
+  reused as the camp cap (owner decision 2026-11-20). At the cap, a captured
+  town becomes FRONTIER instead of a camp.
 - The reach exemption for barbarians in `runtime-reach-anchors.ts` is narrowed:
   camps are anchors. The original reason for the exemption (a captured town
   stealing a fresh spawn's reach) is still covered by AFC landing clearing
@@ -117,8 +119,9 @@ it only acts where someone can see it.
   (`season-barbarian-seed.ts`), so the season starts with about 30 camps.
 - Frontier scoring already adds +1000 for a town, so camps will go for towns in
   reach. Growth is limited by how many towns lie within 3 tiles of a camp's
-  reach. Keep a cap on camps (start at 30–40) so a cluster of neutral towns
-  can't turn into a runaway early in the season.
+  reach. Camps are capped at 100 (the old tile cap). Watch the early-season camp
+  count in staging: a cluster of neutral towns near a camp can chain new camps
+  quickly, and the cap is the only brake besides players.
 - Taking a House's town makes a camp inside that House's land. Encirclement
   makes the House's cut-off frontier go neutral, not to Planetary Defense
   (barbarian pockets already go neutral). That stays.
@@ -148,9 +151,7 @@ it only acts where someone can see it.
 
 ## Open questions
 
-- Camp bounty amount (proposal: 150 Coin, versus 25 per tile today).
 - Docks: may Planetary Defense cross by dock at all? Recommendation: only from
   a camp that is itself a captured dock town, under normal dock rules.
 - Does a destroyed camp ever come back? Current answer: no; camps only come
   from towns, so the force shrinks over a season as Houses clear it.
-- Camp cap value.
