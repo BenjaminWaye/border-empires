@@ -56,6 +56,13 @@ describe("trade screen: return a town", () => {
     );
   });
 
+  it("suggests handing the town back when only that buys the truce", () => {
+    open();
+    document.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.click();
+    expect(townButton().getAttribute("aria-pressed")).toBe("true");
+    expect(verdictText()).toBe("Milo would accept a 12h truce on these terms.");
+  });
+
   it("takes the town back out with its ✕ in the deal", () => {
     open();
     townButton().click();

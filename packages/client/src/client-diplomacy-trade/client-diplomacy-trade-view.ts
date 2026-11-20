@@ -1,4 +1,4 @@
-import { townsValueToAi, type ReturnableTown } from "@border-empires/shared";
+import { townsValueToAi, truceNeedsTownReturn, type ReturnableTown } from "@border-empires/shared";
 import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
@@ -271,8 +271,9 @@ export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection
   if (kind === "trade" || !reply?.found || !reply.ai || !reply.pricing) return undefined;
   const pricing = pricingFor(reply.pricing, selection);
   const required = requiredForOffer(pricing, kind, selection.durationHours);
-  if (required === null) return undefined;
-  if (required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
+  // A truce it refuses until one of its towns comes back: the counter names the town.
+  if (required === null && !(kind === "truce" && truceNeedsTownReturn(pricing, selection.durationHours))) return undefined;
+  if (required !== null && required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
   const counter = aiCounterOffer(pricing, kind, selection.durationHours, emptyDiplomacyTerms(), own);
   return counter.kind === "counter" ? counter.terms : undefined;
 };
