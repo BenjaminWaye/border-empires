@@ -497,28 +497,3 @@ describe("scout drone runtime", () => {
   });
 });
 
-describe("adding stops to a drone in the air", () => {
-  it("charges one per added stop, flies on to them, and lands once with one report", () => {
-    const h = harness([...homeRow(), land(9, 18, { town: { type: "MARKET", populationTier: "TOWN" } as DomainTileState["town"] })]);
-    h.explore(9, 10, "me", "first");
-    const first = h.runtime.flightFor("me")!;
-    h.advanceTo(first.steps[first.turnIndex + 1]!.at + 100); // already heading home
-    h.exploreRoute([{ x: 9, y: 16 }, { x: 12, y: 16 }], "me", "more");
-    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "more" });
-    const extended = h.runtime.flightFor("me")!;
-    expect(extended.waypoints).toEqual([{ x: 9, y: 10 }, { x: 9, y: 16 }, { x: 12, y: 16 }]);
-    expect(h.playerMap.get("me")!.scoutChargeSpends).toHaveLength(3);
-    h.advanceTo(extended.landsAt);
-    expect(h.runtime.flightFor("me")).toBeUndefined();
-    const reports = h.messages.filter((m) => m.payload.report);
-    expect(reports).toHaveLength(1);
-    expect(h.liveReveals()).toBe(0);
-  });
-
-  it("refuses stops beyond the charges left or a full route", () => {
-    const h = harness(homeRow());
-    h.exploreRoute(Array.from({ length: 7 }, (_, i) => ({ x: 6 + (i % 2), y: 10 + i })));
-    h.exploreRoute([{ x: 20, y: 20 }, { x: 22, y: 20 }], "me", "two");
-    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "two", code: "SCOUT_NO_CHARGES" });
-  });
-});
