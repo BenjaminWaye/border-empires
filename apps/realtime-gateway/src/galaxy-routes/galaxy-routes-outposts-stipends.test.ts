@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import Fastify from "fastify";
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
-import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, type HouseChargeRarity } from "@border-empires/shared";
+import { houseChargeRarityForPips } from "@border-empires/shared";
 
 import { registerGalaxyRoutes } from "./galaxy-routes.js";
 import { InMemoryGalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
@@ -142,17 +142,17 @@ describe("galaxy routes — Outposts/Stipends", () => {
     expect(publicResponse.json().outposts).toEqual([]);
   });
 
-  it("banks a Stipend player's held House Charges as Domain score by rarity, not extra Stipend Influence", async () => {
+  it("banks a Stipend player's held House Charges as Domain score by difficulty pips, not extra Stipend Influence", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     await authBindingStore.bindIdentity({ uid: "uid-3", playerId: "player-3" });
     const bystanderIdentity: GatewayResolvedIdentity = { playerId: "player-3", playerName: "Bystander", authUid: "uid-3" };
-    const charge = (id: string, rarity: HouseChargeRarity, held: boolean) =>
-      ({ id, kind: "CHARTER" as const, title: id, rarity, renown: 1, held, hoursHeld: held ? 4 : 0, size: 3 });
+    const charge = (id: string, pips: number, held: boolean) =>
+      ({ id, kind: "CHARTER" as const, title: id, rarity: houseChargeRarityForPips(pips), renown: pips, difficultyScored: true as const, held, hoursHeld: held ? 4 : 0, size: 3 });
     const app = buildApp({
       archives: [
         wonArchive({
           galaxyTiers: [{ playerId: "player-3", playerName: "Bystander", tier: "STIPEND", influence: 5 }],
-          houseCharges: [{ playerId: "player-3", playerName: "Bystander", charges: [charge("a", "RARE", true), charge("b", "COMMON", true), charge("c", "MYTHIC", false)] }]
+          houseCharges: [{ playerId: "player-3", playerName: "Bystander", charges: [charge("a", 3, true), charge("b", 1, true), charge("c", 4, false)] }]
         })
       ],
       identityForToken: (auth) => (auth === "Bearer bystander-token" ? bystanderIdentity : undefined),
@@ -160,7 +160,7 @@ describe("galaxy routes — Outposts/Stipends", () => {
     });
 
     const me = (await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer bystander-token" } })).json();
-    expect(me.chargeDomain).toBe(HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY.RARE + HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY.COMMON);
+    expect(me.chargeDomain).toBe(3 + 1);
     expect(me.stipends.map((stipend: { influence: number }) => stipend.influence)).toEqual([5]);
   });
 

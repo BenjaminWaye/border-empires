@@ -33,7 +33,8 @@ export const houseChargesAtCrowning = (players: Iterable<CrowningChargePlayer>, 
         size: state.sizes?.[charge.id] ?? 0,
         ...(charge.kind === "RELIC" ? {} : { places: charge.targets.map((target) => target.name) }),
         ...(held && state.art?.[charge.id] ? { art: state.art[charge.id] } : {}),
-        ...(held && charge.relicType ? { relicType: charge.relicType } : {})
+        ...(held && charge.relicType ? { relicType: charge.relicType } : {}),
+        ...(charge.difficultyScored ? { difficultyScored: true as const } : {})
       };
     });
     if (charges.length === 0) continue;

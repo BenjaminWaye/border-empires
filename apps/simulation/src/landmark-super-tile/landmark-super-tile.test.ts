@@ -3,7 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { describe, expect, it, vi } from "vitest";
 
-import { alignLandmarkSuperTiles, createLandmarkSuperTileSync, footprintHeldByRival, superTileActionTarget } from "./landmark-super-tile.js";
+import { alignLandmarkSuperTiles, createLandmarkSuperTileSync, footprintHeldByRival, superTileActionTarget, withSuperTileOwnership } from "./landmark-super-tile.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 
@@ -25,6 +25,14 @@ const ownerGrid = (tiles: Map<string, DomainTileState>, cx: number, cy: number, 
 };
 
 describe("AFC/relic super tile", () => {
+  // Review regression: sibling tiles of a wonder Planetary Defense took kept no
+  // campId, so the next boot's camp conversion turned them into fake camps.
+  it("carries the Planetary Defense camp to every member tile, and clears it with the owner", () => {
+    const centre = relicAt(10, 10, { ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "8,8" });
+    expect(withSuperTileOwnership(land(9, 10), centre)).toMatchObject({ ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "8,8" });
+    expect(withSuperTileOwnership(land(9, 10, { ownerId: "barbarian-1", campId: "8,8" }), land(10, 10, { ownerId: "player-1", ownershipState: "FRONTIER" })).campId).toBeUndefined();
+  });
+
   it("targets the centre when any of the nine tiles is aimed at", () => {
     const tiles = footprintWorld(relicAt(10, 10));
     expect(superTileActionTarget(tiles, tiles.get("9,11")!)).toBe(tiles.get("10,10"));

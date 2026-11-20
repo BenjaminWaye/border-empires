@@ -22,10 +22,10 @@ export const LOGIN_LORE_QUOTES: readonly LoginLoreQuote[] = [
   { text: "The Court noticed before I did. That is, I have come to believe, always true.", source: SABLE },
   { text: "I was running a shipping concern that had grown teeth.", source: SABLE },
   { text: "Calling it a game and understanding what it actually was were two different things.", source: SABLE },
-  { text: "Crystal is aether that has gone quiet. Refining it wakes it up.", source: "Frontier saying" },
+  { text: "Crystal is aether that has gone quiet. Refining it puts it back to work.", source: "Frontier saying" },
   { text: "The frontier doesn't care who you are. It cares what you're doing.", source: "Frontier saying" },
-  { text: "Build more, and the frontier pushes back harder.", source: "Frontier saying" },
-  { text: "The Wardens were built to destroy the infestations. They could not tell them from their makers.", source: "Court histories" }
+  { text: "The Court forgot us for generations. Now it sends Houses.", source: "Frontier saying" },
+  { text: "The Wardens burned away the Bleed. Then they could not tell it from their makers.", source: "Court histories" }
 ];
 
 // Same seed, same quote.

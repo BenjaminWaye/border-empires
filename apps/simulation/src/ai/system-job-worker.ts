@@ -1,16 +1,15 @@
 /**
  * System job worker thread.
  *
- * Handles barbarian maintenance, truce expiry, ability cooldown ticks,
- * and structure upkeep — all system-player-owned frontier commands.
+ * Handles truce expiry, ability cooldown ticks, and structure upkeep —
+ * system-player-owned frontier commands. Planetary Defense (barbarian) camps
+ * are planned on the main thread instead (runtime-barbarian-planner-bridge.ts).
  * Runs in a Worker so these jobs never block human command acceptance.
  *
  * Message protocol (main → worker):
  *   { type: "init"; worldView: PlannerWorldView }
  *   { type: "sync_players"; players: PlannerPlayerView[] }
  *   { type: "tile_deltas"; tileDeltas: SimulationTileDelta[] }
- *   { type: "vision_union"; keys: string[] }
- *   { type: "barb_settled"; commandId: string; settledAt: number }
  *   { type: "plan"; playerId: string; clientSeq: number; issuedAt: number;
  *     sessionPrefix: "system-runtime" }
  *   { type: "pause" }
