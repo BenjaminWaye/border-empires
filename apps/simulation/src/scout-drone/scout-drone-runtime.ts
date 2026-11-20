@@ -7,11 +7,12 @@ import {
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
   planScoutDroneWaypointFlight,
-  recallScoutDroneFlight,
+  SCOUT_DRONE_MAX_STOPS,
+  extendScoutDroneFlight,
   scoutDroneBlockAt,
   scoutDroneStepIndexAt,
   speedUpScoutDroneFlight,
-  turnScoutDroneFlightBack,
+  turnScoutDroneFlightHome,
   type ScoutDroneFlight,
   type ScoutDronePayload,
   type ScoutDroneTileClass,
@@ -25,20 +26,22 @@ import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
 
-// Explore (docs/explore-scout-plan.md): one scout drone per player, launched
-// from the active AFC nearest its first stop. It flies through up to
-// SCOUT_DRONE_MAX_STOPS stops (each leg at most SCOUT_DRONE_MAX_LEG_TILES open
-// tiles, shared scout-drone-route.ts), then straight home, or back along its
-// route when a rival border is in the way. Each stop it will reach spends one
-// charge at launch; a charge refills SCOUT_DRONE_CHARGE_REFILL_MS later
-// (scout-drone-charge-ledger.ts), and every SCOUT_DRONE message carries the
-// player's charges. While it flies it holds a radius-3 temporary reveal on the
-// tile it is over, through the same coverage the fog of war and Planetary
-// Defense wake-up read, so both follow it with no extra rules; the report
-// counts what it saw out and home. Flights and charge spends live only in
-// memory: flights last minutes, and a restart docks any drone in the air and
-// refunds spent charges (EXPLORE is excluded from restart parity for this
-// reason, sim-protocol command-coverage-sets.ts).
+// Explore (docs/explore-scout-plan.md §13): one scout drone per player, launched
+// from the active AFC nearest its first stop. It flies through its stops (each
+// leg at most SCOUT_DRONE_MAX_LEG_TILES open tiles, shared scout-drone-route.ts),
+// then straight home; a recall or a rival border ahead also sends it straight
+// home from where it is (back along its route only when a rival border lies
+// across the line home). EXPLORE while it is out adds the stops to its route
+// (extendScoutDroneFlight), up to SCOUT_DRONE_MAX_ROUTE_STOPS in all. Each stop
+// it will reach spends one charge; a charge refills SCOUT_DRONE_CHARGE_REFILL_MS
+// later. Spends are kept on the player record and saved with snapshots
+// (scout-drone-charge-ledger.ts), and every SCOUT_DRONE message carries them.
+// While it flies it holds a radius-3 temporary reveal on the tile it is over,
+// through the same coverage the fog of war and Planetary Defense wake-up read,
+// so both follow it with no extra rules; the report counts what it saw out and
+// home. Flights live only in memory: they last minutes, and a restart docks any
+// drone in the air (EXPLORE is excluded from restart parity for this reason,
+// sim-protocol command-coverage-sets.ts).
 
 /** Hard bounds (docs/agents/state-and-persistence-discipline.md); each eviction or refusal counts in gauge(). */
 export const SCOUT_DRONE_MAX_ACTIVE_FLIGHTS = 10_000;
@@ -79,12 +82,14 @@ export type ScoutDroneGauge = {
   alertCooldownEntries: number;
   capRefusals: number;
   cooldownEvictions: number;
-  /** Players with charges still refilling, and how many were evicted at the cap (each eviction refunds that player). */
-  chargeEntries: number;
-  chargeEvictions: number;
   /** EXPLOREs refused with SCOUT_NO_CHARGES. */
   noChargeRefusals: number;
+  /** EXPLOREs that would take a flying drone past SCOUT_DRONE_MAX_ROUTE_STOPS (SCOUT_ROUTE_FULL). */
+  routeFullRefusals: number;
 };
+
+/** Stops one flight may hold once extended mid-flight (EXPLORE while the drone is out). */
+export const SCOUT_DRONE_MAX_ROUTE_STOPS = SCOUT_DRONE_MAX_STOPS * 2;
 
 export type ScoutDroneRuntime = {
   readonly handleExplore: (command: CommandEnvelope) => void;
@@ -115,9 +120,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   // When each player's last scout report went into the shared Activity log, so free
   // back-to-back flights can't crowd out everyone's other cards. Same bound as lastAlertAt.
   const lastReportActivityAt = new Map<string, number>();
-  const charges = createScoutChargeLedger();
+  const charges = createScoutChargeLedger(deps.players);
   let capRefusals = 0;
   let noChargeRefusals = 0;
+  let routeFullRefusals = 0;
   let cooldownEvictions = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
@@ -250,7 +256,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     const { steps } = active.flight;
     const wall = scoutDroneBlockAt(steps[stepIndex - 1]!, steps[stepIndex]!, worldFor(active.playerId));
     if (!wall) return false;
-    active.flight = turnScoutDroneFlightBack(active.flight, stepIndex - 1, nowMs, wall);
+    active.flight = turnScoutDroneFlightHome(active.flight, stepIndex - 1, nowMs, worldFor(active.playerId), wall);
     active.lastStepIndex = stepIndex - 1;
     alertRival(active, nowMs);
     send(active.playerId, `scout-drone-turned:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
@@ -287,12 +293,37 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     if (step && (active.revealAt?.x !== step.x || active.revealAt.y !== step.y)) moveReveal(active, { x: step.x, y: step.y });
   };
 
+  /** EXPLORE while the drone is out: the new stops join its route (shared extendScoutDroneFlight). */
+  const extendFlight = (command: CommandEnvelope, active: ActiveFlight, stops: Array<{ x: number; y: number }>): void => {
+    const now = deps.now();
+    if (stops.length > charges.available(active.playerId, now)) {
+      noChargeRefusals += 1;
+      return reject(command, "SCOUT_NO_CHARGES", "no scout drone charges left");
+    }
+    if ((active.flight.waypoints?.length ?? 1) + stops.length > SCOUT_DRONE_MAX_ROUTE_STOPS) {
+      routeFullRefusals += 1;
+      return reject(command, "SCOUT_ROUTE_FULL", "your scout drone's route is full");
+    }
+    const extended = extendScoutDroneFlight(active.flight, now, stops, worldFor(active.playerId));
+    if (!extended) return reject(command, "SCOUT_NO_PATH", "no clear way to those tiles");
+    charges.spend(active.playerId, extended.newStopsReached, now);
+    active.flight = extended.flight;
+    active.alerted = false;
+    send(active.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
+    deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  };
+
   return {
     handleExplore: (command) => {
       const actor = deps.players().get(command.playerId);
       const stops = parseScoutDroneExploreStops(command.payloadJson, deps.worldWidth, deps.worldHeight);
       if (!actor || !stops) return reject(command, "BAD_COMMAND", "invalid explore request");
-      if (flights.has(actor.id)) return reject(command, "SCOUT_DRONE_BUSY", "your scout drone is already out");
+      const flying = flights.get(actor.id);
+      if (flying) {
+        // Catch up first (it may have just landed); a drone still out takes the new stops on.
+        advance(flying, deps.now());
+        if (flights.has(actor.id)) return extendFlight(command, flying, stops);
+      }
       if (flights.size >= SCOUT_DRONE_MAX_ACTIVE_FLIGHTS) {
         capRefusals += 1;
         return reject(command, "SCOUT_DRONE_BUSY", "no scout drones can launch right now");
@@ -331,7 +362,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       }
       // Turn over the tile it is flying toward: it finishes this leg, then heads home
       // (turning over the last tile reached would snap it backwards mid-leg).
-      active.flight = recallScoutDroneFlight(active.flight, active.lastStepIndex + 1, now);
+      active.flight = turnScoutDroneFlightHome(active.flight, active.lastStepIndex + 1, now, worldFor(command.playerId));
       send(command.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
@@ -339,7 +370,6 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const active of [...flights.values()]) advance(active, nowMs);
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
-      charges.prune(nowMs);
     },
     sendTo: (playerId) => {
       // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
@@ -355,8 +385,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       alertCooldownEntries: lastAlertAt.size,
       capRefusals,
       cooldownEvictions,
-      chargeEntries: charges.size(),
-      chargeEvictions: charges.evictions(),
+      routeFullRefusals,
       noChargeRefusals
     })
   };

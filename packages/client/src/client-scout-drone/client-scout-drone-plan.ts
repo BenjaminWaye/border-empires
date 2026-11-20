@@ -11,7 +11,9 @@ import {
   SCOUT_DRONE_MAX_STOPS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  extendScoutDroneFlight,
   planScoutDroneRoute,
+  scoutDroneStepIndexAt,
   planScoutDroneWaypointFlight,
   scoutChargesAvailable,
   type ScoutDroneFlight,
@@ -79,10 +81,22 @@ export const scoutChargesReady = (state: Pick<ClientState, "scoutDroneCharges">,
 
 export const scoutChargesMax = (state: Pick<ClientState, "scoutDroneCharges">): number => state.scoutDroneCharges?.max ?? SCOUT_DRONE_MAX_CHARGES;
 
-/** How many stops the plan can hold now. */
-export const scoutPlanCapacity = (state: ScoutPlanState, nowMs: number): number => Math.min(SCOUT_DRONE_MAX_STOPS, scoutChargesReady(state, nowMs));
+/** Stops one flight may hold once stops are added mid-flight (matches the server's SCOUT_DRONE_MAX_ROUTE_STOPS). */
+export const SCOUT_DRONE_MAX_ROUTE_STOPS = SCOUT_DRONE_MAX_STOPS * 2;
+
+/** The drone in the air at `nowMs`, if any. */
+export const flyingScoutDrone = (state: Pick<ClientState, "scoutDroneFlight">, nowMs: number): ScoutDroneFlight | undefined =>
+  state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs ? state.scoutDroneFlight : undefined;
+
+/** How many stops the plan can hold now: charges left, and room on the flying drone's route. */
+export const scoutPlanCapacity = (state: ScoutPlanState, nowMs: number): number => {
+  const flying = flyingScoutDrone(state, nowMs);
+  const room = flying ? SCOUT_DRONE_MAX_ROUTE_STOPS - (flying.waypoints?.length ?? 1) : SCOUT_DRONE_MAX_STOPS;
+  return Math.max(0, Math.min(room, scoutChargesReady(state, nowMs)));
+};
 
 export type ScoutPlanPreview = {
+  /** Where the planned legs start: the AFC, or where the flying drone will take them on. */
   readonly launch: Point;
   readonly route: ScoutDroneRoutePlan;
   /** The whole flight as the server would plan it now (launch, stops, home), for the route home and the time on Go. */
@@ -93,9 +107,18 @@ export type ScoutPlanPreview = {
 export const scoutPlanPreview = (state: ScoutPlanState, stops: readonly Point[], nowMs: number): ScoutPlanPreview | undefined => {
   const first = stops[0];
   if (!first) return undefined;
+  const world = clientScoutWorld(state);
+  const flying = flyingScoutDrone(state, nowMs);
+  if (flying) {
+    // The new stops join the flying drone's route: after its last stop while it is still flying
+    // out, or from the tile it is flying toward once it is heading home (shared extendScoutDroneFlight).
+    const index = Math.max(0, scoutDroneStepIndexAt(flying, nowMs));
+    const anchor = index + 1 <= flying.turnIndex ? flying.steps[flying.turnIndex]! : flying.steps[Math.min(index + 1, flying.steps.length - 1)]!;
+    const launch = { x: anchor.x, y: anchor.y };
+    return { launch, route: planScoutDroneRoute(launch, stops, world), flight: extendScoutDroneFlight(flying, nowMs, stops, world)?.flight };
+  }
   const launch = scoutLaunchAfc(state, first);
   if (!launch) return undefined;
-  const world = clientScoutWorld(state);
   return { launch, route: planScoutDroneRoute(launch, stops, world), flight: planScoutDroneWaypointFlight(launch, stops, nowMs, world) };
 };
 
@@ -125,7 +148,9 @@ export const canPlanScoutFlight = (state: Pick<ClientState, "tiles" | "me" | "ti
 export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number, nowMs: number): boolean => {
   const plan = state.scoutDronePicking;
   if (!plan.active) {
-    if (state.discoveredTiles.has(keyOf(wx, wy)) || !canPlanScoutFlight(state)) return false;
+    // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
+    const key = keyOf(wx, wy);
+    if (state.discoveredTiles.has(key) || state.tiles.has(key) || isHome(state, wx, wy) || !canPlanScoutFlight(state)) return false;
     plan.active = true;
     plan.stops = [];
   }
@@ -149,11 +174,10 @@ export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number
 
 export type ScoutPlanLaunchDeps = { sendGameMessage?: ((payload: unknown) => boolean) | undefined };
 
-/** Go: sends the plan's stops (as the route reaches them) and closes the plan. */
+/** Go: sends the plan's stops (as the route reaches them) and closes the plan. With a drone out, the server adds them to its route. */
 export const launchScoutPlan = (state: ScoutPlanState, deps: ScoutPlanLaunchDeps, nowMs: number): boolean => {
   const preview = scoutPlanPreview(state, state.scoutDronePicking.stops, nowMs);
-  const flightActive = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs;
-  if (!preview || preview.route.stops.length === 0 || flightActive || !deps.sendGameMessage) return false;
+  if (!preview || preview.route.stops.length === 0 || !deps.sendGameMessage) return false;
   const stops = preview.route.stops.map((stop) => ({ x: stop.x, y: stop.y }));
   const first = stops[0]!;
   deps.sendGameMessage({ type: "EXPLORE", x: first.x, y: first.y, waypoints: stops });

@@ -4,12 +4,11 @@
 // until Go or Cancel on the dock (client-scout-drone-dock.ts). The server
 // launches from the active AFC nearest the first stop. Arming clears the other
 // map picks, and arming a Crystal ability clears this one.
-import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
 import { clearCrystalTargeting } from "../client-tile-action-logic/client-crystal-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { activeScoutDroneFlight, buildRecallScoutAction, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
+import type { ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
 import { cancelScoutPlan, handleScoutPlanTap, type ScoutPlanState } from "./client-scout-drone-plan.js";
 
 export const AFC_SCOUT_ACTION_ID = "afc_scout_drone" as const;
@@ -18,33 +17,15 @@ export const AFC_SCOUT_ACTION_DETAIL = "Pick a tile on the map to send your scou
 
 type PickingState = ScoutPlanState & Pick<ClientState, "musterMarchTargeting" | "marchOriginPicking" | "buildingPlacement">;
 
-const droneOutReason = (landsAt: number, nowMs: number): string => `Scout drone is out, back in ${formatCooldownShort(landsAt - nowMs)}`;
-
-/**
- * The AFC menu rows: only on your own active AFC. Send scout drone, disabled while the drone is
- * out, preceded by Recall drone while it is still flying out.
- */
-export const afcScoutDroneActions = (state: Pick<ClientState, "me" | "scoutDroneFlight">, tile: Tile, nowMs: number = Date.now()): TileActionDef[] => {
+/** The AFC menu row: Send scout drone, only on your own active AFC. With the drone out, the plan adds stops to its route. */
+export const afcScoutDroneActions = (state: Pick<ClientState, "me">, tile: Tile): TileActionDef[] => {
   if (tile.afc?.ownerId !== state.me || tile.afc.status !== "active") return [];
-  const active = activeScoutDroneFlight(state.scoutDroneFlight, nowMs);
-  const recall = buildRecallScoutAction(state.scoutDroneFlight, nowMs);
-  const send: TileActionDef = {
-    id: AFC_SCOUT_ACTION_ID,
-    label: "Send scout drone",
-    detail: AFC_SCOUT_ACTION_DETAIL,
-    ...(active ? { disabled: true, disabledReason: droneOutReason(active.landsAt, nowMs) } : {})
-  };
-  return recall ? [recall, send] : [send];
+  return [{ id: AFC_SCOUT_ACTION_ID, label: "Send scout drone", detail: AFC_SCOUT_ACTION_DETAIL }];
 };
 
 /** Handles the AFC menu row. Returns true when `actionId` was Send scout drone. */
-export const dispatchAfcScoutAction = (actionId: string, state: ClientState, deps: Pick<ExploreDispatchDeps, "pushFeed">, nowMs: number = Date.now()): boolean => {
+export const dispatchAfcScoutAction = (actionId: string, state: ClientState): boolean => {
   if (actionId !== AFC_SCOUT_ACTION_ID) return false;
-  const active = activeScoutDroneFlight(state.scoutDroneFlight, nowMs);
-  if (active) {
-    deps.pushFeed(`${droneOutReason(active.landsAt, nowMs)}.`, "info", "warn");
-    return true;
-  }
   // One armed pick at a time, so the card on screen is always the one the next tap answers.
   clearCrystalTargeting(state);
   if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);

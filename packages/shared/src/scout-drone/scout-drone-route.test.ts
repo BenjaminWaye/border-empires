@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScoutDroneWorld } from "./scout-drone.js";
-import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg } from "./scout-drone-route.js";
+import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg, turnScoutDroneFlightHome, extendScoutDroneFlight } from "./scout-drone-route.js";
 import { SCOUT_DRONE_CHARGE_REFILL_MS, SCOUT_DRONE_MAX_CHARGES, nextScoutChargeAt, scoutChargesAvailable } from "./scout-drone-charges.js";
 
 const W = 200;
@@ -82,5 +82,57 @@ describe("scout drone charges", () => {
     expect(nextScoutChargeAt(charges, 5000)).toBe(SCOUT_DRONE_CHARGE_REFILL_MS);
     expect(scoutChargesAvailable(charges, SCOUT_DRONE_CHARGE_REFILL_MS + 1500)).toBe(SCOUT_DRONE_MAX_CHARGES - 1);
     expect(nextScoutChargeAt({ usedAt: [] }, 0)).toBeUndefined();
+  });
+});
+
+describe("turnScoutDroneFlightHome", () => {
+  it("flies straight home from where it turned instead of retracing the route", () => {
+    const flight = planScoutDroneWaypointFlight({ x: 2, y: 5 }, [{ x: 15, y: 5 }, { x: 15, y: 15 }], 0, world)!;
+    const turnAt = flight.steps.findIndex((step) => step.x === 15 && step.y === 10);
+    const turned = turnScoutDroneFlightHome(flight, turnAt, flight.steps[turnAt]!.at, world);
+    expect(turned.endReason).toBe("RECALLED");
+    const home = turned.steps.slice(turned.turnIndex + 1);
+    expect(home.at(-1)).toMatchObject({ x: 2, y: 5 });
+    // Straight back diagonally: it never revisits the first stop.
+    expect(home.some((step) => step.x === 15 && step.y === 5)).toBe(false);
+    expect(turned.landsAt).toBeLessThan(flight.landsAt);
+  });
+
+  it("names the border that turned it back", () => {
+    const flight = planScoutDroneWaypointFlight({ x: 2, y: 30 }, [{ x: 20, y: 30 }], 0, world)!;
+    const turned = turnScoutDroneFlightHome(flight, 5, 5000, world, { ownerId: "rival", x: 8, y: 30 });
+    expect(turned).toMatchObject({ endReason: "BLOCKED", blockedByPlayerId: "rival" });
+    expect(turned.steps.at(-1)).toMatchObject({ x: 2, y: 30 });
+  });
+});
+
+describe("extendScoutDroneFlight", () => {
+  const base = () => planScoutDroneWaypointFlight({ x: 2, y: 5 }, [{ x: 15, y: 5 }], 0, world)!;
+
+  it("while flying out, finishes its stops, then flies the new ones, then home", () => {
+    const flight = base();
+    const now = flight.steps[4]!.at + 100;
+    const ext = extendScoutDroneFlight(flight, now, [{ x: 15, y: 15 }], world)!;
+    expect(ext.newStopsReached).toBe(1);
+    expect(ext.flight.waypoints).toEqual([{ x: 15, y: 5 }, { x: 15, y: 15 }]);
+    expect(ext.flight.steps[ext.flight.turnIndex]).toMatchObject({ x: 15, y: 15 });
+    // What it already flew keeps its times.
+    expect(ext.flight.steps.slice(0, 6)).toEqual(flight.steps.slice(0, 6));
+    expect(ext.flight.steps.at(-1)).toMatchObject({ x: 2, y: 5 });
+  });
+
+  it("on its way home, turns from where it is to the new stop", () => {
+    const flight = base();
+    const now = flight.steps[flight.turnIndex + 3]!.at + 100;
+    const ext = extendScoutDroneFlight(flight, now, [{ x: 12, y: 20 }], world)!;
+    const turn = ext.flight.steps[ext.flight.turnIndex]!;
+    expect(turn).toMatchObject({ x: 12, y: 20 });
+    expect(ext.flight.endReason).toBe("TARGET");
+    expect(ext.flight.waypoints).toEqual([{ x: 15, y: 5 }, { x: 12, y: 20 }]);
+  });
+
+  it("does nothing once landed", () => {
+    const flight = base();
+    expect(extendScoutDroneFlight(flight, flight.landsAt, [{ x: 15, y: 15 }], world)).toBeUndefined();
   });
 });

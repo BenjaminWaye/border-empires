@@ -299,10 +299,10 @@ unlimited range and Expand To pace.
 | Start | Tap fog: a plan opens with that tile as stop 1. Send scout drone on an AFC opens an empty plan |
 | Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
 | Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
-| Charges | 1 per stop; 8 held; each back 4h after it was spent; kept in sim memory (a restart refunds) |
+| Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
 | Pace | 1s per open tile, 0.5s over home ground |
-| Route | AFC → each stop → straight home (retraces when a rival border ends it or blocks the line home) |
-| Drones | One in the air per player |
+| Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
+| Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
 Guidance, with almost no text: the bottom dock's pips (placed cyan, ready brass,
 refilling with a clock fill), ✕ / ↶ / Go with the flight time; the next pip and Go

@@ -66,15 +66,12 @@ const dockHtml = (state: ClientState, nowMs: number): string => {
       return `<span class="${cls}"${style}>${DRONE_SVG}</span>`;
     })
     .join("");
-  const flying = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs ? state.scoutDroneFlight : undefined;
-  const preview = flying ? undefined : scoutPlanPreview(state, plan.stops, nowMs);
+  const preview = scoutPlanPreview(state, plan.stops, nowMs);
   const stops = preview?.route.stops.length ?? 0;
   const flightMs = preview?.flight ? preview.flight.landsAt - nowMs : 0;
   const noCharges = scoutChargesReady(state, nowMs) === 0 && plan.stops.length === 0;
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
-  const go = flying
-    ? `<button class="sd-go is-flying" type="button" disabled>${DRONE_SVG}<span class="sd-time">${scoutClock(flying.landsAt - nowMs)}</span></button>`
-    : refill !== undefined
+  const go = refill !== undefined
       ? `<button class="sd-go is-empty" type="button" disabled><span class="sd-time">${scoutClock(refill - nowMs)}</span></button>`
       : `<button class="sd-go${stops > 0 ? " is-armed" : ""}" type="button" ${stops > 0 ? "" : "disabled"}>Go${stops > 0 ? `<span class="sd-time">${scoutClock(flightMs)}</span>` : ""}</button>`;
   const shake = nowMs - plan.shakeAt < 450 ? " is-shaking" : "";

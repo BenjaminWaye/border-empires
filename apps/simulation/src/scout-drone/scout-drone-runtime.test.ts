@@ -69,7 +69,7 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
     now = ms;
   };
   const liveReveals = (): number => [...live.values()].reduce((sum, n) => sum + n, 0);
-  return { runtime, tiles, reach, events, messages, impacts, reveals, explore, exploreRoute, recall, advanceTo, setNow, liveReveals, now: () => now };
+  return { runtime, tiles, playerMap, reach, events, messages, impacts, reveals, explore, exploreRoute, recall, advanceTo, setNow, liveReveals, now: () => now };
 };
 
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
@@ -90,11 +90,14 @@ describe("scout drone runtime", () => {
     expect(h.runtime.flightFor("me")).toBeDefined();
   });
 
-  it("rejects a second launch while the drone is out, and a player with no AFC", () => {
+  it("adds a second EXPLORE's stops to the drone in the air, and rejects a player with no AFC", () => {
     const h = harness(homeRow());
     h.explore(9, 10);
-    h.explore(9, 12, "me", "c2");
-    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_DRONE_BUSY" });
+    h.explore(9, 14, "me", "c2");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "c2" });
+    const extended = h.runtime.flightFor("me")!;
+    expect(extended.waypoints).toEqual([{ x: 9, y: 10 }, { x: 9, y: 14 }]);
+    expect(extended.steps[extended.turnIndex]).toMatchObject({ x: 9, y: 14 });
     h.explore(9, 12, "rival", "c3");
     expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_NO_AFC" });
     h.runtime.handleExplore({ commandId: "c4", playerId: "me", payloadJson: "{bad", type: "EXPLORE" } as unknown as CommandEnvelope);
@@ -320,7 +323,7 @@ describe("scout drone runtime", () => {
     // Launch at 1000 from (2,10): home tiles 3,4 at home pace, then scouting pace per tile past x=4.
     const outAtX6 = 1_000 + 2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS;
 
-    it("finishes the leg it is on, then flies home along the same tiles at the outbound pace", () => {
+    it("finishes the leg it is on, then flies straight home", () => {
       const h = harness(homeRow());
       h.explore(9, 10);
       h.advanceTo(outAtX6 + 500);
@@ -332,8 +335,8 @@ describe("scout drone runtime", () => {
       // Between x=6 and x=7 when recalled: it turns over x=7, the tile it was flying toward.
       expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 7, y: 10, at: outAtX6 + SCOUT_DRONE_STEP_MS });
       expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2]);
-      // Home at the outbound pace: 3 open-tile legs, then 2 home-tile legs.
-      expect(flight.landsAt).toBe(outAtX6 + SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
+      // Straight home, each leg paced by the tile it flies into: 6 and 5 open, then 4, 3 and the AFC's 2 home.
+      expect(flight.landsAt).toBe(outAtX6 + SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_HOME_STEP_MS);
       expect(h.runtime.flightFor("me")?.endReason).toBe("RECALLED");
       h.advanceTo(flight.landsAt);
       expect(h.runtime.flightFor("me")).toBeUndefined();
@@ -431,9 +434,10 @@ describe("scout drone runtime", () => {
       h.advanceTo(flight.landsAt);
       h.explore(9, 10, "me", "empty");
       expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "empty", code: "SCOUT_NO_CHARGES" });
-      expect(h.runtime.gauge()).toMatchObject({ noChargeRefusals: 1, chargeEntries: 1 });
+      expect(h.runtime.gauge()).toMatchObject({ noChargeRefusals: 1 });
+      // Spends live on the player record, so a snapshot saves them.
+      expect(h.playerMap.get("me")!.scoutChargeSpends).toHaveLength(SCOUT_DRONE_MAX_CHARGES);
       h.advanceTo(1_000 + SCOUT_DRONE_CHARGE_REFILL_MS);
-      expect(h.runtime.gauge().chargeEntries).toBe(0);
       h.explore(9, 10, "me", "refilled");
       expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "refilled" });
     });
@@ -490,5 +494,31 @@ describe("scout drone runtime", () => {
       expect(h.runtime.flightFor("me")).toBeUndefined();
       expect(h.messages.some((m) => m.playerId === "rival")).toBe(false);
     });
+  });
+});
+
+describe("adding stops to a drone in the air", () => {
+  it("charges one per added stop, flies on to them, and lands once with one report", () => {
+    const h = harness([...homeRow(), land(9, 18, { town: { type: "MARKET", populationTier: "TOWN" } as DomainTileState["town"] })]);
+    h.explore(9, 10, "me", "first");
+    const first = h.runtime.flightFor("me")!;
+    h.advanceTo(first.steps[first.turnIndex + 1]!.at + 100); // already heading home
+    h.exploreRoute([{ x: 9, y: 16 }, { x: 12, y: 16 }], "me", "more");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED", commandId: "more" });
+    const extended = h.runtime.flightFor("me")!;
+    expect(extended.waypoints).toEqual([{ x: 9, y: 10 }, { x: 9, y: 16 }, { x: 12, y: 16 }]);
+    expect(h.playerMap.get("me")!.scoutChargeSpends).toHaveLength(3);
+    h.advanceTo(extended.landsAt);
+    expect(h.runtime.flightFor("me")).toBeUndefined();
+    const reports = h.messages.filter((m) => m.payload.report);
+    expect(reports).toHaveLength(1);
+    expect(h.liveReveals()).toBe(0);
+  });
+
+  it("refuses stops beyond the charges left or a full route", () => {
+    const h = harness(homeRow());
+    h.exploreRoute(Array.from({ length: 7 }, (_, i) => ({ x: 6 + (i % 2), y: 10 + i })));
+    h.exploreRoute([{ x: 20, y: 20 }, { x: 22, y: 20 }], "me", "two");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "two", code: "SCOUT_NO_CHARGES" });
   });
 });
