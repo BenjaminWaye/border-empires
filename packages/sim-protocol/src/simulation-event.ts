@@ -141,6 +141,7 @@ export type SimulationEvent =
         warScarUntil?: number | undefined;
         razedWreckUntil?: number | undefined;
         razedWreck?: string | undefined;
+        campId?: string | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;

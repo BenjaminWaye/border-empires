@@ -10,6 +10,7 @@ import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fie
 import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
 import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot.js";
 import type { ExploredTilesSnapshotEntry } from "./explored-tiles/explored-tiles-store.js";
+import type { PlanetaryDefensePlannerSnapshot } from "./ai/system-job-barbarian-planner.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -32,6 +33,8 @@ export type SnapshotExportInput = {
   exploredTiles?: () => ExploredTilesSnapshotEntry[];
   // The persisted worldgen starting-site roster (spawn-placement-index.ts); undefined for seasons that never had one.
   fairSpawnSites?: () => readonly FairSpawnSite[] | undefined;
+  // Planetary Defense camp rest and raid counts (system-job-barbarian-planner.ts); undefined before the planner ran.
+  planetaryDefensePlanner?: () => PlanetaryDefensePlannerSnapshot | undefined;
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -40,6 +43,9 @@ export type SnapshotExportInput = {
   // buildRuntimeSnapshotSectionsAsync for why the copy is still yield-chunked).
   prebuiltTiles?: ReadonlyMap<string, SnapshotTile>;
 };
+
+const plannerSection = (planner: PlanetaryDefensePlannerSnapshot | undefined): { planetaryDefensePlanner?: PlanetaryDefensePlannerSnapshot } =>
+  planner?.camps.length ? { planetaryDefensePlanner: planner } : {};
 
 const fairSpawnSitesSection = (sites: readonly FairSpawnSite[] | undefined): { fairSpawnSites?: FairSpawnSite[] } =>
   sites?.length ? { fairSpawnSites: sites.map((site) => ({ x: site.x, y: site.y })) } : {};
@@ -61,6 +67,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
   ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+  ...(typeof tile.campId === "string" ? { campId: tile.campId } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays come from the one shared key list: AFCs were once missing here,
   // so they were never saved and every restart re-placed them elsewhere.
@@ -161,6 +168,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
       reachBorder: encodeReachBorder(input.reachBorder()),
       ...(input.exploredTiles ? { exploredTiles: input.exploredTiles() } : {}),
       ...fairSpawnSitesSection(input.fairSpawnSites?.()),
+      ...plannerSection(input.planetaryDefensePlanner?.()),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({

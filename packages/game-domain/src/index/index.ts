@@ -188,6 +188,9 @@ export type DomainTileState = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  // Planetary Defense camp this barbarian tile belongs to: the camp's own tile
+  // key (docs/planetary-defense-camps-plan.md). Only set on barbarian-owned tiles.
+  campId?: string | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<

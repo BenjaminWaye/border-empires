@@ -13,6 +13,7 @@ import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js
 import { START_SITE_PATROLS_ENTRY } from "./client-changelog-start-site-patrols.js";
 import { SCOUT_DRONE_ANY_DISTANCE_ENTRY } from "./client-changelog-scout-drone-any-distance.js";
 import { START_SITE_PATROLS_ISLANDS_ENTRY } from "./client-changelog-start-site-patrols-islands.js";
+import { PLANETARY_DEFENSE_CAMPS_ENTRY } from "./client-changelog-planetary-defense-camps.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -28,4 +29,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...START_SITE_PATROLS_ENTRY, createdAt: 1795170704736, },
   { ...SCOUT_DRONE_ANY_DISTANCE_ENTRY, createdAt: 1795173371678 },
   { ...START_SITE_PATROLS_ISLANDS_ENTRY, createdAt: 1795175657050, },
+  { ...PLANETARY_DEFENSE_CAMPS_ENTRY, createdAt: 1795178995450 },
 ];

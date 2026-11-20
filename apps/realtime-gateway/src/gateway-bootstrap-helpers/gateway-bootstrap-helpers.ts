@@ -31,6 +31,7 @@ export const jsonSafeTileDeltaBatch = (
       ...("warScarUntil" in tileDelta && tileDelta.warScarUntil === undefined ? { warScarUntil: null } : {}),
       ...("razedWreckUntil" in tileDelta && tileDelta.razedWreckUntil === undefined ? { razedWreckUntil: null } : {}),
       ...("razedWreck" in tileDelta && tileDelta.razedWreck === undefined ? { razedWreck: null } : {}),
+      ...("campId" in tileDelta && tileDelta.campId === undefined ? { campId: null } : {}),
       ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
       ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
     };

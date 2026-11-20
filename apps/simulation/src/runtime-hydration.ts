@@ -193,6 +193,7 @@ const createTilesFromInitialStateUncleared = (
       ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
       ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
       ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+      ...(typeof tile.campId === "string" && tile.campId && tile.ownerId?.startsWith("barbarian-") ? { campId: tile.campId } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

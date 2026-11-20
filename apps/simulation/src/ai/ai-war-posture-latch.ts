@@ -47,11 +47,11 @@ const requiresDockCrossing = (selection: ThreatSelection): boolean =>
  * Deliberately asymmetric: an enemy-player tile only counts when
  * pressureThreatensCore already holds (a single ordinary border touch with
  * a neighbor is normal, not a sustained incursion). A barbarian tile counts
- * unconditionally — barbarians walk and MULTIPLY (runtime-barbarian-walk.ts:
- * eating a tile accrues progress, and past BARBARIAN_MULTIPLY_THRESHOLD one
- * tile becomes two, each of which can go on to eat and multiply again), so
- * waiting for pressureThreatensCore's bar (2+ hostile tiles, or a high
- * pressure score) means waiting for it to have already multiplied past you.
+ * unconditionally — a Planetary Defense camp keeps spreading frontier while
+ * it is watched, and a town or dock it takes founds another camp
+ * (planetary-defense-camps/camp-rules.ts), so waiting for
+ * pressureThreatensCore's bar (2+ hostile tiles, or a high pressure score)
+ * means waiting for it to have already spread past you.
  */
 export const hasLandConnectedThreat = (input: {
   pressureThreatensCore: boolean;

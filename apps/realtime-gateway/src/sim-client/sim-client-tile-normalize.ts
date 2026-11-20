@@ -25,6 +25,7 @@ export type SimClientTileDelta = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  campId?: string | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
@@ -64,11 +65,13 @@ export type ProtoTileDelta = {
   war_scar_until?: number;
   razed_wreck_until?: number;
   razed_wreck?: string;
+  camp_id?: string;
   captureHoldUntil?: number;
   warScarLevel?: number;
   warScarUntil?: number;
   razedWreckUntil?: number;
   razedWreck?: string;
+  campId?: string;
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -131,6 +134,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("razed_wreck" in tile || "razedWreck" in tile) {
     const razedWreck = tile.razed_wreck ?? tile.razedWreck;
     normalized.razedWreck = typeof razedWreck === "string" && razedWreck ? razedWreck : undefined;
+  }
+  if ("camp_id" in tile || "campId" in tile) {
+    const campId = tile.camp_id ?? tile.campId;
+    normalized.campId = typeof campId === "string" && campId ? campId : undefined;
   }
   if ("razed_wreck_until" in tile || "razedWreckUntil" in tile) {
     const razedWreckUntil = tile.razed_wreck_until ?? tile.razedWreckUntil;

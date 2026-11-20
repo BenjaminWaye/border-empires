@@ -6,8 +6,8 @@ export const AFC_VANGUARD = [
     "tier": 1,
     "branch": "vanguard",
     "name": "Pacification Routines",
-    "description": "Your attacks are twice as strong against Planetary Defense, including barbarian holdings, and each of their tiles you capture pays a 25 Coin bounty. AFC command software supplies assault plans for these positions, and the Court pays for every one cleared.",
-    "mechanicalSummary": "+100% attack vs Planetary Defense | +25 Coin per tile taken.",
+    "description": "Your attacks are twice as strong against Planetary Defense, including barbarian holdings, and each of their camps you capture pays a 25 Coin bounty. AFC command software supplies assault plans for these positions, and the Court pays for every camp cleared.",
+    "mechanicalSummary": "+100% attack vs Planetary Defense | +25 Coin per camp taken.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {

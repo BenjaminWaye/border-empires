@@ -19,14 +19,17 @@ const makePlayer = (id: string, big = false) => [
   }
 ] as const;
 
-// End to end through a real runtime on a fake clock: a barbarian fighting one
-// player must not starve a barbarian that can only walk next to another.
-describe("system command producer — barbarian fairness (real runtime)", () => {
-  it("a barbarian one tile off a border moves even while another barbarian keeps attacking elsewhere", async () => {
+// End to end through a real runtime on a fake clock: a camp fighting one player
+// must not starve a camp that can only expand next to another. The pre-camp
+// tiles below become one-tile camps at boot (camp-migration.ts).
+describe("system command producer — Planetary Defense camp fairness (real runtime)", () => {
+  it("a camp one tile off a border expands even while another camp keeps attacking elsewhere", async () => {
     vi.useFakeTimers({ now: 1_000_000 });
     try {
       const runtime = new SimulationRuntime({
         now: () => Date.now(),
+        // Both humans have the game open, so their vision wakes the camps they see.
+        isPlayerSubscribed: () => true,
         initialPlayers: new Map([makePlayer("you"), makePlayer("other"), makePlayer("barbarian-1", true)]),
         seedTiles: new Map(),
         initialState: {
@@ -67,8 +70,8 @@ describe("system command producer — barbarian fairness (real runtime)", () => 
       producer.close();
 
       const bySource = (from: string) => issued.filter((c) => c.from === from);
-      // The far barbarian fights; the near one walks. Before the fix the near one
-      // never acted while the far one held the faction's single slot.
+      // The far camp fights; the near one expands. One camp's fight never holds
+      // the other's turn (each camp has its own action slot).
       expect(bySource("102,100").length).toBeGreaterThan(0);
       expect(bySource("12,10").length).toBeGreaterThan(0);
       expect(bySource("12,10")[0]!.type).toBe("EXPAND");

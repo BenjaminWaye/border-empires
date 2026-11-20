@@ -11,6 +11,8 @@ export type RuntimeVisibilityCoverageDeps = {
   readonly footprintTable: VisionFootprintTable | undefined;
   /** Every tile entering a player's vision for the first time since it was last unseen (explored-tiles-store.ts). */
   readonly onFirstSeen: (viewerId: string, tileKey: string) => void;
+  /** Every 0→1 / 1→0 coverage edge (Planetary Defense camp awake counts). */
+  readonly onCoverageEdge?: (viewerId: string, tileKey: string, entered: boolean) => void;
 };
 
 /** The runtime's O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts). */
@@ -26,5 +28,6 @@ export const createRuntimeVisibilityCoverage = (deps: RuntimeVisibilityCoverageD
       return settled;
     },
     frontierTileKeysForPlayer: (id) => deps.summaryForPlayer(id).frontierTileKeys,
-    onFirstSeen: deps.onFirstSeen
+    onFirstSeen: deps.onFirstSeen,
+    ...(deps.onCoverageEdge ? { onCoverageEdge: deps.onCoverageEdge } : {})
   }, deps.footprintTable);

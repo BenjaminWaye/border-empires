@@ -5,10 +5,12 @@ import { buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-he
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
-// Extracted from runtime.test.ts ("barbarian walk vs multiply") so that file
-// does not grow past its line cap.
+// Extracted from runtime.test.ts so that file does not grow past its line cap.
+// With Planetary Defense camps (docs/planetary-defense-camps-plan.md), a failed
+// attack on a camp hands the attacker's origin to that camp as frontier; the
+// camp itself stays where it is.
 describe("barbarian counter-captures", () => {
-  it("keeps barbarian counter-captures settled when a player attack fails", async () => {
+  it("hands a failed attacker's origin to the defending camp as frontier", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     try {
@@ -58,8 +60,12 @@ describe("barbarian counter-captures", () => {
       expect(origin).toEqual(
         expect.objectContaining({
           ownerId: "barbarian-1",
-          ownershipState: "SETTLED"
+          ownershipState: "FRONTIER",
+          campId: "10,11"
         })
+      );
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
+        expect.objectContaining({ ownerId: "barbarian-1", ownershipState: "SETTLED", campId: "10,11" })
       );
       expect(origin?.frontierDecayAt).toBeUndefined();
       expect(origin?.frontierDecayKind).toBeUndefined();
@@ -73,7 +79,7 @@ describe("barbarian counter-captures", () => {
           x: 10,
           y: 10,
           ownerId: "barbarian-1",
-          ownershipState: "SETTLED"
+          ownershipState: "FRONTIER"
         })
       );
     } finally {

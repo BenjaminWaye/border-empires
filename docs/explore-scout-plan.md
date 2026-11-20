@@ -84,8 +84,9 @@ player gets the **foreign scouts sighted** alert (§5).
 
 ### 3.3 Planetary Defense
 
-Planetary Defense tiles act only while some player can see them
-(`runtime-barb-activation-vision.ts`). Drone vision counts as normal player
+Planetary Defense camps act only while a watcher can see one of their tiles
+(`planetary-defense-camps/camp-awake-tracker.ts`; this was per tile, via the
+since-removed `runtime-barb-activation-vision.ts`, when this plan was written). Drone vision counts as normal player
 vision, so tiles under the flight path wake for as long as the drone sees
 them, typically 30–45 seconds. With a 15s rest after each action
 (`BARBARIAN_TILE_REST_MS`) that is one or two moves per tile, usually a walk
@@ -210,7 +211,7 @@ mission state, and `docs/agents/implementation-rules.md` before source work.
 2. **Simulation** (`apps/simulation`): an EXPLORE command, a per-player
    mission record saved in snapshots and reloaded after restart, step-by-step
    movement, temporary vision feeding fog and barbarian activation
-   (`reach-border-vision.ts`, `runtime-barb-activation-vision.ts`), the
+   (`reach-border-vision.ts`; the camp awake counts follow the same coverage), the
    rival alert, and the report on landing.
 3. **Protocols** (`packages/sim-protocol`, `packages/client-protocol`): the
    command, mission state for the owner, the report and the alert.

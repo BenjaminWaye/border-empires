@@ -1,5 +1,11 @@
 # Barbarian activation and scheduling plan
 
+> **Superseded** by [`planetary-defense-camps-plan.md`](planetary-defense-camps-plan.md):
+> barbarians are now Planetary Defense camps, planned per camp on the main
+> thread with event-driven awake counts; the per-tile walk/multiply model,
+> the seen-tile scan and the worker sync described here were removed. Kept for
+> its measured performance budget. Delete together with the camps plan.
+
 Status: **implemented on this branch (PR #2191)**, pending staging verification.
 Target stack: rewrite (`apps/simulation`). Delete this file once the staging
 checks at the bottom pass (see `docs/README.md` lifecycle policy).

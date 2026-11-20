@@ -81,8 +81,8 @@ describe("season worldgen", () => {
     const barbarianTiles = generated.initialState.tiles.filter((tile) => tile.ownerId === "barbarian-1");
     // One patrol is posted ~20 tiles out from each of the 50 predetermined
     // start sites; those spend the 30-tile seed budget first, so a full
-    // roster seeds no random tiles. Growth is separately capped in the
-    // planner (MAX_BARBARIAN_TILES).
+    // roster seeds no random tiles. Each becomes a one-tile Planetary Defense
+    // camp at boot (camps are capped at MAX_PLANETARY_DEFENSE_CAMPS).
     const roster = generated.initialState.fairSpawnSites ?? [];
     expect(roster).toHaveLength(50);
     const ringDistance = (site: { x: number; y: number }, tile: { x: number; y: number }): number => {
