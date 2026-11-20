@@ -1,14 +1,5 @@
-import { START_SITE_PATROLS_ENTRY } from "./client-changelog-start-site-patrols.js";
-import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
-import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
+import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
-import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
-import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
-import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
-import { ENVOY_PER_TRUCE_ENTRY } from "./client-changelog-envoy-per-truce.js";
-import { RETURN_A_TOWN_ENTRY } from "./client-changelog-return-a-town.js";
-import { PLACE_ANOTHER_PLOTS_ENTRY } from "./client-changelog-place-another-plots.js";
-import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
@@ -485,16 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
-  { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
-  { ...SCOUT_REACH_SPEEDUP_ENTRY, createdAt: 1795104752202, },
-  { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
-  { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
-  { ...FAIR_DIPLOMACY_ENTRY, createdAt: 1795121188927, },
-  { ...PLACE_ANOTHER_PLOTS_ENTRY, createdAt: 1795153409713 },
-  { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
-  { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
-  { ...RETURN_A_TOWN_ENTRY, createdAt: 1795153599126, },
-  { ...START_SITE_PATROLS_ENTRY, createdAt: 1795170704736, },
+  ...NOV_19_20_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
