@@ -104,7 +104,7 @@ describe("createDiplomacySettlement", () => {
     settlement.observe({ eventType: "COMMAND_RESOLVED", commandId: submitted[0]!.commandId });
     await Promise.resolve();
     expect(submitted).toHaveLength(2);
-    expect(JSON.parse(submitted[1]!.payloadJson)).toEqual({ proposerId: "p1", targetId: "p2", proposerPays: terms.ask, targetPays: terms.give });
+    expect(JSON.parse(submitted[1]!.payloadJson)).toEqual({ proposerId: "p1", targetId: "p2", proposerPays: terms.ask, targetPays: terms.give, refund: true });
     expect(settlement.abandonedCount()).toBe(0);
   });
 
@@ -226,7 +226,7 @@ describe("createDiplomacyOfferAcceptance", () => {
     });
 
     expect(await acceptance.acceptTruce("p2", requestId)).toEqual(expect.objectContaining({ ok: false, code: "TRUCE_LOCKED_OUT" }));
-    expect(settle).toHaveBeenLastCalledWith({ proposerId: "p1", targetId: "p2", terms: { give: terms.ask, ask: terms.give }, refundIfLate: false });
+    expect(settle).toHaveBeenLastCalledWith({ proposerId: "p1", targetId: "p2", terms: { give: terms.ask, ask: terms.give }, refundIfLate: false, refund: true });
     expect(recordGatewayEvent).toHaveBeenCalledWith("warn", "gateway_diplomacy_settlement_refunded", expect.objectContaining({ refunded: true }));
   });
 
