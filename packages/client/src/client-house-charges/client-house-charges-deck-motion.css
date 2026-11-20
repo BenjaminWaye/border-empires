@@ -59,6 +59,9 @@
     right: auto;
     z-index: 45;
     width: min(1040px, calc(100vw - 40px));
+    /* The hand covers the dimmed map, so it does not keep the bottom HUD's reserve (client-hud-v2.css):
+       that reserve cut the bottom of the cards off (owner 2026-11-20). */
+    bottom: 16px;
     transform: translateX(-50%);
     border: 0;
     border-radius: 0;
@@ -90,6 +93,15 @@
     transition: transform 0.2s ease-out;
   }
   body:not(.hud-v2-compact) #hud:has(#side-panel.charges-panel-active) #mini-map-wrap { visibility: hidden; }
+}
+/* Short desktop screens: the hand shrinks to fit instead of scrolling (owner 2026-11-20). The art gives up height
+   first; on the shortest screens the italic quote goes too. */
+@media (min-width: 901px) and (max-height: 900px) {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { padding: 8px 8px 12px; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100dvh - 720px), 132px); }
+}
+@media (min-width: 901px) and (max-height: 760px) {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text .hc-flavour { display: none; }
 }
 @keyframes hcd-float {
   0%, 100% { transform: translateY(0); }

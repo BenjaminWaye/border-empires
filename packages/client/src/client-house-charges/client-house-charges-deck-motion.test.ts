@@ -24,6 +24,14 @@ afterEach(() => {
 });
 
 describe("House Charges card styles", () => {
+  // Regression (owner 2026-11-20): the hand kept the HUD's bottom reserve (up to 236px, client-hud-v2.css), so
+  // the bottom of every card was cut off; and How charges work pushed the cards down into a scroll.
+  it("lets the desktop hand reach the bottom of the screen and floats the help over the cards", () => {
+    expect(motionCss).toMatch(/#side-panel\.charges-panel-active \{[^}]*bottom: 16px/);
+    const style = source("client-house-charges-style.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(style).toMatch(/\.house-charges-more \{[^}]*position: absolute/);
+  });
+
   // Regression (owner 2026-11-19, staging): "text on the cards is unreadable". The panel's generic `.card p`
   // (pale parchment text, specificity 0,1,1) beat the card's ink, which was set on bare classes (0,1,0).
   it("sets the card text's ink on selectors that beat the panel's generic `.card p`", () => {

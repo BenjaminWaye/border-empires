@@ -1,6 +1,7 @@
 /* House Charges panel (client-house-charges-panel.ts). Frame colours follow
    the charge-card design in docs/house-charges-plan.md. */
 .house-charges-card {
+  position: relative;
   display: grid;
   gap: 12px;
 }
@@ -26,8 +27,17 @@
   background: #2a2014;
 }
 
-/* How charges work: shown only from the "?" beside the panel title. */
+/* How charges work: a popup over the top of the cards from the "?" beside the panel title, so opening it never
+   pushes the cards down into a scroll (owner 2026-11-20). */
 .house-charges-more {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: min(640px, 100%);
+  box-sizing: border-box;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
   display: grid;
   gap: 8px;
   padding: 12px 14px;

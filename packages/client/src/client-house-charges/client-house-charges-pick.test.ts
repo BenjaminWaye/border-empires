@@ -95,5 +95,10 @@ describe("House Charges keep choice", () => {
     expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(false);
     help.click();
     expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
+    // A tap on the popup itself closes it too.
+    help.click();
+    panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.click();
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
+    expect(help.getAttribute("aria-expanded")).toBe("false");
   });
 });

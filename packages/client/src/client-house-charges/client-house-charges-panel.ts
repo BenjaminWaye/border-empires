@@ -189,17 +189,16 @@ export const renderHouseChargesPanel = (
   }
   syncHouseChargesDraw(deps.panelEl, opening, deps.now());
   const more = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
-  if (more) more.hidden = !rewardsOpen;
   const help = deps.root.querySelector<HTMLButtonElement>("#panel-help");
-  if (help) {
-    help.setAttribute("aria-expanded", String(rewardsOpen));
-    help.onclick = () => {
-      rewardsOpen = !rewardsOpen;
-      const shown = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
-      if (shown) shown.hidden = !rewardsOpen;
-      help.setAttribute("aria-expanded", String(rewardsOpen));
-    };
-  }
+  // The help is a popup over the cards: the "?" toggles it and a tap on it closes it.
+  const setHelpOpen = (open: boolean): void => {
+    rewardsOpen = open;
+    if (more) more.hidden = !open;
+    help?.setAttribute("aria-expanded", String(open));
+  };
+  setHelpOpen(rewardsOpen);
+  if (more) more.onclick = () => setHelpOpen(false);
+  if (help) help.onclick = () => setHelpOpen(!rewardsOpen);
   const payload = state.houseCharges;
   if (!payload) return;
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
