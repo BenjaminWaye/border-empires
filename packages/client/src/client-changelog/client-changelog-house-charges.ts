@@ -75,5 +75,18 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "Each card's quote is your House's reason for handing you that charge.",
       "Each kept card shows the Domain score it banks if you still hold it when the winner is crowned. The text above the cards is one line; tap How charges work for the details."
     ]
+  },
+  {
+    createdAt: 1795125697861, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: a hand of cards on desktop",
+    why: "On desktop the charges sat one at a time in a narrow panel, the card text was too faint to read, and different charges had the same picture.",
+    changes: [
+      "On a wide screen your charges float side by side over the dimmed map, bobbing gently and lifting when you point at one.",
+      "Opening your charges draws the cards from a deck and turns them over.",
+      "Show on map folds the hand into the cards at the edge of the map, with the charge you picked face up on top. Tap them to bring the hand back.",
+      "Card text is dark ink on the parchment again, so it is easy to read.",
+      "Each kind of charge has its own picture: a road between two towns, a keep, three towers, a charted island, dunes, ice peaks, a waking beacon or a grievance banner."
+    ]
   }
 ];

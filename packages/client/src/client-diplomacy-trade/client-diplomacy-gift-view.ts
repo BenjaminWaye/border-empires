@@ -10,6 +10,7 @@ import {
   giftToReach,
   netValueToAi,
   spendableCoin,
+  townsValueToAi,
   type DiplomacyGoods,
   type DiplomacyTerms
 } from "@border-empires/shared";
@@ -31,8 +32,10 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel: SEND_LABEL };
   if (reply?.found && !reply.ai) return { tone: "bad", text: "Only AI empires take gifts.", canSend: false, sendLabel: SEND_LABEL };
-  const value = netValueToAi({ give, ask: { gold: 0 } });
-  if (value <= 0) {
+  // A town handed back counts as the AI values getting it back (its priced towns).
+  const townValue = reply?.found && reply.ai ? townsValueToAi(reply.pricing?.townValues, give.towns) : 0;
+  const value = netValueToAi({ give: { gold: give.gold }, ask: { gold: 0 } }) + townValue;
+  if (value <= 0 && !give.towns?.length) {
     return { tone: "neutral", text: `Set what you give. A gift raises ${targetName}'s opinion of you. ${FADE_NOTE}`, canSend: false, sendLabel: SEND_LABEL };
   }
   if (!reply?.found || !reply.ai || !reply.gift || !reply.attitude) {
@@ -52,11 +55,18 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
     };
   }
   // Coin past the goodwill cap buys nothing: say how much counts instead of taking it.
+  // A town is worth more than the cap on its own, so only its coin is held back.
   const useful = giftCoinToCap(gift);
-  if (value > useful) {
+  if (value > useful && give.gold > 0) {
+    const coinUseful = Math.max(0, useful - townValue);
+    const capNote = `gifts add up to +${gift.maxPoints} opinion in all.`;
     return {
       tone: "bad",
-      text: `Only about ${useful} coin of this would count: gifts add up to +${gift.maxPoints} opinion in all. Give ${useful} coin or less.`,
+      text: townValue <= 0
+        ? `Only about ${useful} coin of this would count: ${capNote} Give ${useful} coin or less.`
+        : coinUseful > 0
+          ? `Only about ${coinUseful} coin would count on top of the town: ${capNote} Give ${coinUseful} coin or less with it.`
+          : `The town alone fills ${targetName}'s opinion as far as gifts go: ${capNote} Give it without coin.`,
       canSend: false,
       sendLabel: SEND_LABEL
     };

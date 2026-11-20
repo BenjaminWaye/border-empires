@@ -31,6 +31,8 @@
 .hc-card.kind-survey { --hc-frame: #2f6481; --hc-frame-hi: #5e9cbc; --hc-frame-lo: #173447; }
 .hc-card.kind-desert { --hc-frame: #b8925a; --hc-frame-hi: #e3c48d; --hc-frame-lo: #6e5126; }
 .hc-card.kind-tundra { --hc-frame: #9fb3ba; --hc-frame-hi: #eef3f5; --hc-frame-lo: #5a6b72; }
+.hc-card.kind-metropolis { --hc-frame: #6e6a5c; --hc-frame-hi: #b7b09a; --hc-frame-lo: #36332b; }
+.hc-card.kind-correction { --hc-frame: #8a2f26; --hc-frame-hi: #c96a55; --hc-frame-lo: #45150f; }
 .hc-card.kind-relic { --hc-frame: #5d3b8c; --hc-frame-hi: #9a74d1; --hc-frame-lo: #2b1846; }
 .hc-card.rarity-rare { --hc-set: #d9b25c; }
 .hc-card.rarity-mythic { --hc-set: #e0753a; }
@@ -170,6 +172,12 @@
 .hc-art-cells { fill: var(--hc-frame-hi); stroke: var(--hc-frame-lo); stroke-width: 0.06; }
 .hc-art-beam { fill: rgba(200, 165, 255, 0.7); }
 .hc-art-gate { fill: #1b241a; }
+/* Emblem details (client-house-charge-emblems.ts). */
+.hc-art-road { fill: #e9dcb8; opacity: 0.85; }
+.hc-art-flag,
+.hc-art-blade { fill: #e9dcb8; }
+.hc-art-sun { fill: #f2c96a; opacity: 0.9; }
+.hc-art-snow { fill: #f4f7f8; }
 
 .hc-type { font-family: var(--v2-display, "Cinzel", Georgia, serif); font-weight: 600; font-size: clamp(7px, 4.4cqi, 10px); }
 .hc-set { flex: none; color: var(--hc-set); text-shadow: 0 0 1px #000, 0 0 1px #000; font-size: 1.1em; white-space: nowrap; }

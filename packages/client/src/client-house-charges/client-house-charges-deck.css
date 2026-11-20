@@ -1,13 +1,19 @@
 /* The Charges panel's full-width cards (client-house-charges-deck.ts): the trading card
    (client-house-charge-cards.css) at reading size, sized to its content. */
+/* One card per row on a phone; side by side wherever the panel is wide enough (desktop, below). */
 .hcd-deck {
   display: grid;
-  gap: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  align-items: stretch;
+  gap: 22px 16px;
   padding: 4px 0 8px;
 }
 
+
+
 .hcd-card.hc-card {
   max-width: 520px;
+  height: 100%;
   width: 100%;
   margin: 0 auto;
   aspect-ratio: auto;
@@ -26,16 +32,17 @@
 .hcd-card .hcd-reward { flex: none; font-size: 12px; font-weight: 700; color: #3d2d16; white-space: nowrap; }
 .hcd-card.rarity-rare .hcd-reward { color: #7a5410; }
 .hcd-card.rarity-mythic .hcd-reward { color: #9c3a14; }
-.hcd-card .hc-text { overflow: visible; gap: 8px; padding: 9px 11px; font-size: 15px; line-height: 1.4; }
-.hcd-card .hc-flavour { font-size: 14px; }
-
-.hcd-progress { font-weight: 600; color: #3d2d16; }
-.hcd-progress::before { content: "◇ "; color: #8a5a2b; }
-.hcd-progress.is-scout { font-weight: 400; font-style: italic; }
-.hcd-status { font-size: 13px; color: #6b5a40; }
-.hcd-status.is-held { color: #2f6b2a; font-weight: 600; }
-.hcd-status.is-pending { color: #8a5a2b; font-style: italic; }
-.hcd-status.is-lost { color: #9c3a22; font-weight: 600; }
+.hcd-card .hc-text { overflow: visible; gap: 8px; padding: 9px 11px; font-size: 15px; line-height: 1.4; color: #2a2116; }
+/* Ink on parchment. Scoped under .hcd-card .hc-text so it beats the panel's generic `.card p` (pale text, top margin). */
+.hcd-card .hc-text p { margin: 0; color: #2a2116; }
+.hcd-card .hc-text .hc-flavour { font-size: 14px; color: #5b4a33; }
+.hcd-card .hc-text .hcd-progress { font-weight: 600; color: #3d2d16; }
+.hcd-card .hc-text .hcd-progress::before { content: "◇ "; color: #8a5a2b; }
+.hcd-card .hc-text .hcd-progress.is-scout { font-weight: 400; font-style: italic; }
+.hcd-card .hc-text .hcd-status { font-size: 13px; color: #5e4d33; }
+.hcd-card .hc-text .hcd-status.is-held { color: #2f6b2a; font-weight: 600; }
+.hcd-card .hc-text .hcd-status.is-pending { color: #8a5a2b; font-style: italic; }
+.hcd-card .hc-text .hcd-status.is-lost { color: #9c3a22; font-weight: 600; }
 
 .hcd-foot {
   display: flex;
@@ -83,16 +90,3 @@
 .hcd-card.is-unkept .hc-bar,
 .hcd-card.is-unkept .hc-art,
 .hcd-card.is-unkept .hc-text { opacity: 0.6; }
-
-.hcd-deck.is-dealing .hcd-card { animation: hcd-deal 0.5s ease-out both; }
-.hcd-deck.is-dealing .hcd-card:nth-child(2) { animation-delay: 0.25s; }
-.hcd-deck.is-dealing .hcd-card:nth-child(3) { animation-delay: 0.5s; }
-.hcd-deck.is-dealing .hcd-card:nth-child(4) { animation-delay: 0.75s; }
-@keyframes hcd-deal {
-  from { transform: translateY(24px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hcd-card.hc-card { transition: none; }
-  .hcd-deck.is-dealing .hcd-card { animation: none; }
-}

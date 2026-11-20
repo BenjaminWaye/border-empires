@@ -1,0 +1,25 @@
+// 2026.11.19 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
+import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { SCOUT_REACH_SPEEDUP_ENTRY } from "./client-changelog-scout-reach-speedup.js";
+import { TAP_CONFIRM_BRASS_ENTRY } from "./client-changelog-tap-confirm-brass.js";
+import { FOOD_SHORTAGE_GUIDANCE_ENTRY } from "./client-changelog-food-shortage.js";
+import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
+import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
+import { ENVOY_PER_TRUCE_ENTRY } from "./client-changelog-envoy-per-truce.js";
+import { RETURN_A_TOWN_ENTRY } from "./client-changelog-return-a-town.js";
+import { PLACE_ANOTHER_PLOTS_ENTRY } from "./client-changelog-place-another-plots.js";
+import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js";
+import { SIGN_IN_LORE_QUOTE_ENTRY } from "./client-changelog-sign-in-lore-quote.js";
+
+export const NOV_19_CHANGELOG: ClientChangelogEntry[] = [
+  { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
+  { ...SCOUT_REACH_SPEEDUP_ENTRY, createdAt: 1795104752202, },
+  { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
+  { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
+  { ...FAIR_DIPLOMACY_ENTRY, createdAt: 1795121188927, },
+  { ...PLACE_ANOTHER_PLOTS_ENTRY, createdAt: 1795153409713 },
+  { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
+  { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
+  { ...RETURN_A_TOWN_ENTRY, createdAt: 1795153599126, },
+  { ...SIGN_IN_LORE_QUOTE_ENTRY, createdAt: 1795123334962, },
+];
