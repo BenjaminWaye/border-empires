@@ -136,7 +136,8 @@ export const generateSeasonWorld = async (
       activeLocks: [],
       players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
       pendingSettlements: [],
-      playerYieldCollectionEpochByPlayer: []
+      playerYieldCollectionEpochByPlayer: [],
+      fairSpawnSites: generated.fairSpawnSites.map((site) => ({ x: site.x, y: site.y }))
     },
     worldSeed: generated.worldSeed ?? requestedWorldSeed,
     mapStyle
