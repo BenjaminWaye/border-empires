@@ -16,6 +16,13 @@ describe("tracker Relay Beacon step", () => {
     expect(relayBeaconStartTile({ ...state, tiles: tiles(tile(5, 5, { ownershipState: "FRONTIER" })) } as never)).toBeUndefined();
   });
 
+  // Owner call 2026-11-20: a food row's beacon starts on your land nearest the grain or fish it names.
+  it("starts nearest a target when given one", () => {
+    const state = { tiles: tiles(tile(0, 0), tile(10, 10), tile(5, 5, { ownershipState: "FRONTIER" })), me: "me", serverReach: undefined, serverReachRevision: 0 };
+    expect(relayBeaconStartTile(state as never, { x: 12, y: 11 })).toEqual({ x: 10, y: 10 });
+    expect(relayBeaconStartTile(state as never, { x: 1, y: 0 })).toEqual({ x: 0, y: 0 });
+  });
+
   it("arms Relay Beacon placement, centres on it and shows the placement bar", () => {
     const state = { tiles: tiles(tile(20, 20)), me: "me", serverReach: undefined, serverReachRevision: 0, buildingPlacement: { active: false, structureType: "", x: 0, y: 0 }, camX: 0, camY: 0, camSubX: 0, camSubY: 0 };
     const renderPlacementOverlay = vi.fn();

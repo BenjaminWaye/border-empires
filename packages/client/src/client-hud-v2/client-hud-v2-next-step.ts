@@ -1,19 +1,17 @@
-// "Next step" rows for the tracker when the development slots sit idle (playtest 2026-11-18: two testers
-// ran out of coin, saw nothing to build and quit at 9 and 12 minutes). Guidance only, no rule changes:
-// manpower is what builds (a Relay Beacon is the main growth verb), coin only buys Manifests and upgrades,
-// so the rows say what manpower can do now and when coin reaches the next Manifest, in coin per day.
-// When manpower or coin runs low (owner feedback 2026-11-18) the rows also name where more comes from --
-// a salvage shipment, a waystation, a neutral town, a Manufactory -- even while the slots are busy.
+// "Next step" rows in the tracker. Owner call 2026-11-20: the tutorial teaches the game, so this is not a
+// second, never-ending tutorial listing every option. It shows only no-brainer fixes while something runs
+// low (FOOD is its own section, client-hud-v2-food-shortage.ts), each pointing at a tile whose menu acts:
+//   - manpower low: take a neutral town, gamble on a waystation, ship salvage; with none in sight, explore;
+//   - coin low: build a Manufactory (an instant +MANUFACTORY_INSTANT_GOLD_BONUS Coin on completion).
+// Nothing low: no rows, whether or not the development slots are busy.
 
 import { SALVAGE_LOADS_PER_SITE, WAYSTATION_MANPOWER_GRANT, formatCoinPerDay, spendableCoin, structureCostDefinition } from "@border-empires/shared";
+import { MANUFACTORY_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { formatDuration } from "../client-duke-panel/client-duke-format.js";
-import { formatRefillCountdown, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
-import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import { formatRefillCountdown } from "../client-manpower-gauge/client-manpower-refill.js";
 import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
-import { REACH_HINT } from "./client-hud-v2-hints.js";
 import { manifestNodeState } from "./client-hud-v2-manifest.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { scanNextStepSources, type NextStepSite, type NextStepSources } from "./client-hud-v2-next-step-sources.js";
@@ -31,19 +29,10 @@ export const LOW_COIN_WAIT_MS = 12 * 3_600_000;
 export const NEXT_STEP_CAP = 5;
 
 export type NextStepInput = {
-  devBusy: number;
-  queued: number;
   manpower: number;
   manpowerCap: number;
-  /** Manpower for the player's next Relay Beacon (relayBeaconManpowerCostForState). */
+  /** Manpower for the player's next Relay Beacon (relayBeaconManpowerCostForState): below it, manpower is low. */
   beaconCost: number;
-  /**
-   * A beacon can be built now: some tile passes the build path's rule (isRelayBeaconBuildTile) and a FOOD
-   * slot is free when the beacon needs one. False drops the beacon row rather than suggest a build that fails.
-   */
-  beaconBuildable: boolean;
-  /** Ms until the next manpower batch, or undefined when unknown. */
-  nextBatchInMs: number | undefined;
   gold: number;
   /** Net coin per minute (internal unit; shown per day). */
   netPerMinute: number;
@@ -87,26 +76,6 @@ export const coinShortText = (gold: number, cost: number, netPerMinute: number):
     : `Need ${short.toLocaleString("en-US")} more Coin · ${rate} · ready in ${formatEta(eta)}`;
 };
 
-const manpowerStep = (input: NextStepInput): NextStep | undefined => {
-  if (!input.beaconBuildable) return undefined;
-  const cost = Math.max(0, Math.ceil(input.beaconCost));
-  if (input.manpower >= cost) {
-    return { title: "Build a Relay Beacon", sub: `${cost} MP · garrisoned land · more land to build on`, hint: REACH_HINT, open: { kind: "beacon", key: "RELAY_BEACON" } };
-  }
-  const batch = input.nextBatchInMs === undefined ? "" : ` · next batch ${formatEta(input.nextBatchInMs)}`;
-  return { title: "Saving MP", sub: `Relay Beacon ${cost} MP${batch}`, open: { kind: "open", key: "manpower" } };
-};
-
-const coinStep = (input: NextStepInput): NextStep | undefined => {
-  const cost = input.nextManifestCost;
-  if (cost === undefined) return undefined;
-  const title = `Next Manifest ${cost.toLocaleString("en-US")} Coin`;
-  if (spendableCoin(input.gold) >= cost) return { title: "Manifest affordable", sub: `${cost.toLocaleString("en-US")} Coin · commission one`, open: { kind: "open", key: "manifest" } };
-  const eta = msUntilCoin(input.gold, cost, input.netPerMinute);
-  if (eta === undefined) return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · feed a town for Coin`, open: { kind: "chip", key: "coin" } };
-  return { title, sub: `${formatCoinPerDay(input.netPerMinute)} · ready in ${formatEta(eta)}`, open: { kind: "open", key: "manifest" } };
-};
-
 export const isManpowerLow = (input: Pick<NextStepInput, "manpower" | "manpowerCap" | "beaconCost">): boolean =>
   input.manpower < Math.ceil(input.beaconCost) || input.manpower < input.manpowerCap * LOW_MANPOWER_SHARE;
 
@@ -118,18 +87,23 @@ export const isCoinLow = (input: Pick<NextStepInput, "gold" | "nextManifestCost"
 
 const place = (site: NextStepSite): string => site.name ?? `${site.x}, ${site.y}`;
 const at = (site: NextStepSite): { x: number; y: number } => ({ x: site.x, y: site.y });
-const WAYSTATION_ODDS = `1 in 6 chance of +${WAYSTATION_MANPOWER_GRANT.toLocaleString("en-US")} MP`;
+const mp = (n: number): string => n.toLocaleString("en-US");
+const WAYSTATION_ODDS = `1 in 6 chance of +${mp(WAYSTATION_MANPOWER_GRANT)} MP`;
 
+/** Nearest first in the order a player should reach for them: a town is sure, a waystation is a gamble. */
 const manpowerSourceSteps = (sources: NextStepSources): NextStep[] => {
   const steps: NextStep[] = [];
-  const { salvage, waystation, neutralTown } = sources;
-  if (salvage) steps.push({ title: "Ship salvage to the Court", sub: `+${salvage.delivered.toLocaleString("en-US")} MP · ${salvage.loads} of ${SALVAGE_LOADS_PER_SITE} loads left`, focus: at(salvage) });
+  const { salvage, waystation, neutralTown, explore } = sources;
+  if (neutralTown) {
+    steps.push({ title: "Take a neutral town", sub: `${place(neutralTown)} · +${mp(neutralTown.capAdded)} max MP · +${mp(neutralTown.perBatch)} MP per batch`, focus: at(neutralTown) });
+  }
   if (waystation) {
     steps.push(waystation.owned
       ? { title: "Activate a waystation", sub: WAYSTATION_ODDS, focus: at(waystation) }
       : { title: "Claim a waystation", sub: `Expand To it, then Activate · ${WAYSTATION_ODDS}`, focus: at(waystation) });
   }
-  if (neutralTown) steps.push({ title: "Take a neutral town", sub: `${place(neutralTown)} · more manpower every batch`, focus: at(neutralTown) });
+  if (salvage) steps.push({ title: "Ship salvage to the Court", sub: `+${mp(salvage.delivered)} MP · ${salvage.loads} of ${SALVAGE_LOADS_PER_SITE} loads left`, focus: at(salvage) });
+  if (steps.length === 0 && explore) steps.push({ title: "Explore", sub: "Find a town, waystation or salvage · scout drone", focus: at(explore) });
   return steps;
 };
 
@@ -137,23 +111,14 @@ const manufactoryStep = (input: NextStepInput): NextStep | undefined => {
   const town = input.sources?.manufactoryTown;
   if (!town) return undefined;
   const cost = input.manufactoryCost === undefined ? "" : `${Math.ceil(input.manufactoryCost)} MP · `;
-  return { title: "Build a Manufactory", sub: `${cost}more Coin from ${place(town)}`, focus: at(town) };
+  return { title: "Build a Manufactory", sub: `${cost}+${MANUFACTORY_INSTANT_GOLD_BONUS} Coin when built · ${place(town)}`, focus: at(town) };
 };
 
-/**
- * Next steps. With the slots idle: what manpower can do and when coin reaches the next Manifest. Whenever
- * manpower or coin is low, busy slots or not: where more of it comes from.
- */
+/** No-brainer fixes for whatever is low; nothing when nothing is. */
 export const nextSteps = (input: NextStepInput): NextStep[] => {
-  const idle = input.devBusy <= 0 && input.queued <= 0;
-  const mpLow = isManpowerLow(input);
-  const coinLow = isCoinLow(input);
   const steps: Array<NextStep | undefined> = [];
-  // No buildable beacon: the coin row is the next most useful step.
-  if (idle) steps.push(manpowerStep(input));
-  if (mpLow && input.sources) steps.push(...manpowerSourceSteps(input.sources));
-  if (idle || coinLow) steps.push(coinStep(input));
-  if (coinLow) steps.push(manufactoryStep(input));
+  if (isManpowerLow(input) && input.sources) steps.push(...manpowerSourceSteps(input.sources));
+  if (isCoinLow(input)) steps.push(manufactoryStep(input));
   return steps.filter((step): step is NextStep => step !== undefined).slice(0, NEXT_STEP_CAP);
 };
 
@@ -187,24 +152,17 @@ export const nextStepScanForState = (state: ClientState): NextStepScan => ({
 });
 
 /** Next steps from client state; `scan` defaults to a fresh scan. */
-export const nextStepsForState = (state: ClientState, slots: { busy: number; queued: number }, nowMs: number, scan: NextStepScan = nextStepScanForState(state)): NextStep[] => {
-  const idle = slots.busy <= 0 && slots.queued <= 0;
+export const nextStepsForState = (state: ClientState, scan: NextStepScan = nextStepScanForState(state)): NextStep[] => {
   const owned = new Set(state.techIds);
   const choices = new Set(state.techChoices);
-  // Every Manifest shares one price, but only offer it while one can be commissioned (not all locked).
+  // Every Manifest shares one price, but only count it while one can be commissioned (not all locked).
   const canCommission = state.techCatalog.some((t) => manifestNodeState(t, owned, choices) === "available");
   const nextManifestCost = canCommission ? state.techCatalog.find((t) => !owned.has(t.id))?.requirements.gold : undefined;
   const netPerMinute = empireCoinIncome(state).netPerMinute;
   const levels = { manpower: state.manpower, manpowerCap: state.manpowerCap, beaconCost: scan.beaconCost, gold: state.gold, nextManifestCost, netPerMinute };
-  // Busy and nothing low: no rows, so skip the beacon site check.
-  if (!idle && !isManpowerLow(levels) && !isCoinLow(levels)) return [];
-  const refillAt = nextManpowerRefillForPlayer(state.me, nowMs);
+  if (!isManpowerLow(levels) && !isCoinLow(levels)) return [];
   return nextSteps({
     ...levels,
-    devBusy: slots.busy,
-    queued: slots.queued,
-    beaconBuildable: idle && hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me),
-    nextBatchInMs: refillAt === undefined ? undefined : refillAt - nowMs,
     sources: scan.sources,
     ...(scan.sources.manufactoryTown ? { manufactoryCost: structureManpowerCostForState(state, "MANUFACTORY", structureCostDefinition("MANUFACTORY").manpowerCost ?? 0) } : {})
   });

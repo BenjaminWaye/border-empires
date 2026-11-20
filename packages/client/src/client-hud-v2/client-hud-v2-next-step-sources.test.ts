@@ -48,7 +48,24 @@ describe("next-step sources scan", () => {
       tile(1, 1, { ...town("TOWN", "Hidden"), fogged: true }),
       tile(2, 2, { ...town("TOWN", "Rival"), ownerId: "them" })
     ]));
-    expect(sources.neutralTown).toEqual({ x: 3, y: 3, name: "Near" });
+    // A TOWN adds 300 max MP and 300 per 12h of regen: 100 per 4h batch while you hold under five towns.
+    expect(sources.neutralTown).toEqual({ x: 3, y: 3, name: "Near", capAdded: 300, perBatch: 100 });
+  });
+
+  // Owner call 2026-11-20: the town row says what the town is worth, at the diminishing weight your town count gives it.
+  it("weights the town's manpower per batch by how many towns you already hold", () => {
+    const owned = Array.from({ length: 5 }, (_, i) => mine(40 + i * 3, 40, town("SETTLEMENT", `Own${i}`)));
+    expect(scanNextStepSources(state([tile(3, 3, town("TOWN", "Near")), ...owned])).neutralTown).toMatchObject({ capAdded: 300, perBatch: 50 });
+  });
+
+  it("points explore at the unexplored tile nearest home", () => {
+    // Known: a 3x3 block round home plus a far strip; (2,0) is the nearest coordinate missing from the map.
+    const known: Tile[] = [];
+    for (let y = -1; y <= 1; y += 1) for (let x = -1; x <= 1; x += 1) known.push(tile(x, y));
+    known.push(tile(30, 30));
+    const explore = scanNextStepSources(state(known)).explore;
+    expect(explore && Math.abs(explore.x) + Math.abs(explore.y)).toBe(2);
+    expect(known.some((t) => t.x === explore?.x && t.y === explore?.y)).toBe(false);
   });
 
   it("offers a Manufactory town only when the town menu's action would be enabled", () => {

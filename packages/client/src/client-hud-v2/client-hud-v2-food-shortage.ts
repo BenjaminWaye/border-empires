@@ -2,11 +2,13 @@
 // used against 3 produced, Fortify stayed blocked, one Farm Plot only moved him from -6 to -5, and he gave
 // up). One clickable header while FOOD demand is above supply; it unfolds into the fixes, cheapest first:
 //   1. garrison grain or fish you already hold as a frontier claim;
-//   2. expand (or beacon) toward the nearest known grain or fish;
-//   3. with no food known nearby, send the scout drone from your AFC;
-//   4. queue Farm Plots in the closest town with free plots (150 MP, +1 FOOD each).
-// Guidance only: rows 1-3 focus a tile whose own menu has the action; row 4 queues through the normal
-// build path (client-hud-v2-food-plots.ts), which waits for a Dev slot and is checked again by the server.
+//   2. expand to the nearest known grain or fish inside your reach (where you can garrison it);
+//   3. outside your reach, a Relay Beacon toward it (owner call 2026-11-20), placement starting nearest it;
+//   4. with no food known nearby, send the scout drone from your AFC;
+//   5. queue Farm Plots in the closest town with free plots (150 MP, +1 FOOD each).
+// Guidance only: rows 1, 2 and 4 focus a tile whose own menu has the action; row 3 opens the normal beacon
+// placement; row 5 queues through the normal build path (client-hud-v2-food-plots.ts), which waits for a
+// Dev slot and is checked again by the server.
 import {
   AGRICULTURE_FISH_FOOD_SLOT_BONUS,
   BASE_SLOTS_BY_TILE_RESOURCE,
@@ -17,6 +19,9 @@ import {
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { freeSlotsOf } from "../client-tile-action-logic/client-resource-slot-reason.js";
+import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { townBuildPlots } from "./client-hud-v2-town-plots.js";
@@ -30,8 +35,10 @@ type FoodSite = Site & { resource: "FARM" | "FISH" };
 export type FoodScan = {
   /** Nearest grain or fish you own but haven't garrisoned, and how many such tiles there are. */
   garrison?: FoodSite & { count: number };
-  /** Nearest unowned grain or fish within FOOD_NEARBY_TILES of home. */
+  /** Nearest unowned grain or fish within FOOD_NEARBY_TILES of home and inside your reach. */
   expand?: FoodSite & { distance: number };
+  /** Nearest unowned grain or fish within FOOD_NEARBY_TILES of home but outside your reach: a beacon brings it in. */
+  outside?: FoodSite & { distance: number };
   /** Your active AFC nearest home: its menu sends the scout drone. */
   afc?: Site;
   /** Closest town of yours with free plots a Farm Plot can take. */
@@ -50,6 +57,8 @@ export type FoodShortage = FoodScan & {
   plotsToQueue: number;
   /** Hyperfeed Seedstock commissioned: a Farm Plot upgrades to a Hydrogarden Plot, and grain takes a Hydrogarden. */
   hyperfeed: boolean;
+  /** A Relay Beacon can be placed now: a tile passes the build rule and a FOOD slot is free when it needs one. */
+  beaconReady: boolean;
 };
 
 const isFood = (resource: string | undefined): resource is FoodSite["resource"] => resource === "FARM" || resource === "FISH";
@@ -74,6 +83,8 @@ export const scanFoodSources = (state: ClientState): FoodScan => {
   let garrison: Tile | undefined;
   let garrisonCount = 0;
   let expand: Tile | undefined;
+  let outside: Tile | undefined;
+  const reach = resolveMyReach(state);
   let afc: Tile | undefined;
   const towns: Tile[] = [];
   for (const tile of state.tiles.values()) {
@@ -83,7 +94,8 @@ export const scanFoodSources = (state: ClientState): FoodScan => {
         garrisonCount += 1;
         garrison = nearer(garrison, tile);
       } else if (!tile.ownerId && distance(tile) <= FOOD_NEARBY_TILES) {
-        expand = nearer(expand, tile);
+        if (reach.has(`${tile.x},${tile.y}`)) expand = nearer(expand, tile);
+        else outside = nearer(outside, tile);
       }
     }
     if (tile.afc?.ownerId === me && tile.afc.status === "active") afc = nearer(afc, tile);
@@ -101,6 +113,7 @@ export const scanFoodSources = (state: ClientState): FoodScan => {
   return {
     ...(garrison ? { garrison: { ...food(garrison), count: garrisonCount } } : {}),
     ...(expand ? { expand: { ...food(expand), distance: distance(expand) } } : {}),
+    ...(outside ? { outside: { ...food(outside), distance: distance(outside) } } : {}),
     ...(afc ? { afc: { x: afc.x, y: afc.y } } : {}),
     ...(plotTown ? { plotTown } : {})
   };
@@ -121,7 +134,9 @@ export const foodShortageForState = (state: ClientState, scan: FoodScan | undefi
     short,
     plotCost,
     plotsToQueue: Math.min(free, affordable),
-    hyperfeed: state.techIds.includes(FARM_PLOT_UPGRADE_TECH_ID)
+    hyperfeed: state.techIds.includes(FARM_PLOT_UPGRADE_TECH_ID),
+    // Only checked when a beacon row could show (the build-tile check walks every tile).
+    beaconReady: Boolean(scan?.outside) && hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me)
   };
 };
 
@@ -131,10 +146,13 @@ export type FoodStep = {
   focus?: Site;
   /** Queue Farm Plots in the town at this tile. */
   plots?: Site & { count: number };
+  /** Start Relay Beacon placement on your land nearest this tile. */
+  beacon?: Site;
 };
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const FOOD_NAME = { FARM: "grain", FISH: "fish" } as const;
+const FOOD_TITLE = { FARM: "Grain", FISH: "Fish" } as const;
 /** What the tile gives once garrisoned: Hyperfeed (the "agriculture" tech) adds a flat +1 to every fish tile. */
 const foodYield = (resource: FoodSite["resource"], hyperfeed: boolean): number =>
   (BASE_SLOTS_BY_TILE_RESOURCE[resource]?.baseSlots ?? 0) + (resource === "FISH" && hyperfeed ? AGRICULTURE_FISH_FOOD_SLOT_BONUS : 0);
@@ -146,15 +164,22 @@ const yieldText = (resource: FoodSite["resource"], hyperfeed: boolean): string =
 /** The fixes, cheapest first. */
 export const foodShortageSteps = (food: FoodShortage): FoodStep[] => {
   const steps: FoodStep[] = [];
-  const { garrison, expand, afc, plotTown } = food;
+  const { garrison, expand, outside, afc, plotTown } = food;
   if (garrison) {
     const more = garrison.count > 1 ? ` · ${garrison.count} in reach` : "";
     steps.push({ title: `Garrison ${FOOD_NAME[garrison.resource]}`, sub: `${yieldText(garrison.resource, food.hyperfeed)}${more}`, focus: { x: garrison.x, y: garrison.y } });
   }
   if (expand) {
-    steps.push({ title: `Expand to ${FOOD_NAME[expand.resource]}`, sub: `${yieldText(expand.resource, food.hyperfeed)} · ${plural(expand.distance, "tile")} out · or beacon`, focus: { x: expand.x, y: expand.y } });
+    steps.push({ title: `Expand to ${FOOD_NAME[expand.resource]}`, sub: `${yieldText(expand.resource, food.hyperfeed)} · then garrison`, focus: { x: expand.x, y: expand.y } });
   }
-  if (!garrison && !expand && afc) steps.push({ title: "Scout for food", sub: "No grain or fish nearby · drone from AFC", focus: afc });
+  if (outside && !expand) {
+    const out = `${yieldText(outside.resource, food.hyperfeed)} · ${plural(outside.distance, "tile")} out`;
+    // No beacon can go down (no build tile, or no FOOD slot for it): show where the food is, with nothing to start.
+    steps.push(food.beaconReady
+      ? { title: `Relay Beacon to ${FOOD_NAME[outside.resource]}`, sub: `${out} · outside reach`, beacon: { x: outside.x, y: outside.y } }
+      : { title: `${FOOD_TITLE[outside.resource]} outside reach`, sub: `${out} · needs a Relay Beacon`, focus: { x: outside.x, y: outside.y } });
+  }
+  if (!garrison && !expand && !outside && afc) steps.push({ title: "Scout for food", sub: "No grain or fish nearby · drone from AFC", focus: afc });
   if (plotTown) {
     const n = food.plotsToQueue;
     const each = food.hyperfeed ? `+1 FOOD each, ${HYDROGARDEN_YIELD} upgraded` : "+1 FOOD each";
@@ -178,6 +203,7 @@ const esc = (text: string): string =>
 const stepHtml = (step: FoodStep): string => {
   const attr = step.plots
     ? ` data-hud-v2-food-plots="${step.plots.x},${step.plots.y}" data-hud-v2-food-plots-count="${step.plots.count}"`
+    : step.beacon ? ` data-hud-v2-beacon="RELAY_BEACON" data-hud-v2-beacon-x="${step.beacon.x}" data-hud-v2-beacon-y="${step.beacon.y}"`
     : step.focus ? ` data-hud-v2-focus-x="${step.focus.x}" data-hud-v2-focus-y="${step.focus.y}"` : "";
   const tag = attr ? "button" : "div";
   const type = attr ? ` type="button"` : "";

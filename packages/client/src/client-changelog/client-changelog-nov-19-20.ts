@@ -17,6 +17,7 @@ import { SCOUT_DRONE_ANY_DISTANCE_ENTRY } from "./client-changelog-scout-drone-a
 import { START_SITE_PATROLS_ISLANDS_ENTRY } from "./client-changelog-start-site-patrols-islands.js";
 import { PLANETARY_DEFENSE_CAMPS_ENTRY } from "./client-changelog-planetary-defense-camps.js";
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
+import { NEXT_STEP_NO_BRAINERS_ENTRY } from "./client-changelog-next-step-no-brainers.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -36,4 +37,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...START_SITE_PATROLS_ISLANDS_ENTRY, createdAt: 1795175657050, },
   { ...PLANETARY_DEFENSE_CAMPS_ENTRY, createdAt: 1795178995450 },
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
+  { ...NEXT_STEP_NO_BRAINERS_ENTRY, createdAt: 1795209183293 },
 ];
