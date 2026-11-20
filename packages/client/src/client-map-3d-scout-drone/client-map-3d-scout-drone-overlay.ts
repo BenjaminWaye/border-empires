@@ -26,7 +26,7 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 //
 // client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
 // allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
-// the rotors, sweep, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
+// the rotors, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
 // along its route, since that is information, not decoration.
 
 export type ScoutDroneScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
@@ -201,7 +201,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     if (animate) trails.update(nowMs, navLeft, navRight, at.sceneX - pose.x, at.sceneZ - pose.y, deps.camera, pose.lift * level * (0.15 + 0.85 * speedNorm));
 
     // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
-    if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
+    // The sweep is one rotating disc -- nothing a slow device needs to save -- so it keeps turning
+    // when the slow-device latch stands the drone still; only Reduce Motion stops it.
+    if (!gate.prefersReducedMotion()) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
     ground.place(at.sceneX, groundY, at.sceneZ, altitude, yaw, pose.lift, sweepAngle, pulse);
     // Rotor wash: faint ripples on the ground under each prop while it is low (launch and landing).
     const wash = animate ? pose.rotor * (1 - smoothstep01((pose.lift - 0.15) / 0.6)) : 0;

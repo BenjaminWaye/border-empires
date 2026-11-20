@@ -11,7 +11,7 @@ const { createFrontierClaimVisuals } = await import("./client-map-3d-expand-crew
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
 const heightfield = { elevationAt: () => 0, cornerYAt: () => 0 } as never;
-const gate = { recordFrame: () => {}, shouldAnimate: () => true };
+const gate = { recordFrame: () => {}, shouldAnimate: () => true, prefersReducedMotion: () => false };
 
 const stateWith = (overrides: Partial<ClientState>): ClientState =>
   ({
