@@ -86,9 +86,15 @@ describe("sign-in busy card lore quote", () => {
     expect(LOGIN_LORE_QUOTES).toContainEqual({ text, source });
   });
 
-  it("steps aside for an error, a full Sector, the diagnostics button, or when not busy", () => {
+  it("keeps the quote once the slow-login diagnostics button appears", () => {
     const quoteEl = mountQuote();
-    for (const overrides of [{ authError: "Sign-in failed" }, { seasonFull: true }, { elapsedMs: 60_000 }, { authBusy: false }]) {
+    render(quoteEl, { elapsedMs: 60_000 });
+    expect(quoteEl.hidden).toBe(false);
+  });
+
+  it("steps aside for an error, a full Sector, or when not busy", () => {
+    const quoteEl = mountQuote();
+    for (const overrides of [{ authError: "Sign-in failed" }, { seasonFull: true }, { authBusy: false }]) {
       render(quoteEl);
       expect(quoteEl.hidden).toBe(false);
       render(quoteEl, overrides);
