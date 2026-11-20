@@ -201,7 +201,7 @@ describe("review fixes: no Explore loops, beacon step stays a beacon", () => {
     expect(capped.kind === "step" && capped.title).toMatch(/^No town in sight: build a Relay Beacon/);
   });
 
-  it("keeps the target within drone range of home", () => {
+  it("keeps the target within the guide's search radius of home", () => {
     // Seen out to radius 11: the nearest unexplored tile is 12 out; 12 + overshoot would be 20.
     const target = guideExploreTarget(discoveredAround(11), HOME);
     expect(Math.max(Math.abs(target!.x - HOME.x), Math.abs(target!.y - HOME.y))).toBe(GUIDE_EXPLORE_SEARCH_RADIUS);

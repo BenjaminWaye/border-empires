@@ -18,10 +18,9 @@ import type { ScoutDroneFlight } from "@border-empires/shared";
 export type GuideScoutStatus = "ready" | "out" | "none";
 
 /**
- * Rings searched around home for unexplored ground, and the farthest the target
- * goes: a drone flies at most 15 tiles past the player's own land and reach
- * (SCOUT_DRONE_MAX_RANGE_TILES), so a target further out is never reached and
- * would stay marked.
+ * Rings searched around home for unexplored ground. The drone has no range
+ * limit, but the guide keeps its first flights short so they report back
+ * within a visit.
  */
 export const GUIDE_EXPLORE_SEARCH_RADIUS = 16;
 /** Flights the guide asks for before its town and food steps fall back to a Relay Beacon, so a target the drone can't reach (a rival border, open sea) can't loop forever. */
