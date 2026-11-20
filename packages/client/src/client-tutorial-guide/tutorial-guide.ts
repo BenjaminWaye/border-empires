@@ -47,18 +47,59 @@ let lastIdentityKey: string | undefined;
 let lastState: GuideInputState | undefined;
 let showMeIndex = 0;
 let checklistFlagSynced = false;
-// Whether the last rendered view was waiting, once Finish was pressed: the card
-// then folds while waiting and unfolds when a step can be done.
-let lastWaiting: boolean | undefined;
+// After Finish: the last step id shown ("" while waiting; undefined before
+// Finish or after the guide restarts), the steps already unfolded for once,
+// and whether this page has shown the guide since Finish (so the Guide
+// complete card is earned even if a dialog hid the launcher meanwhile).
+let postFinishKey: string | undefined;
+const postFinishOpened = new Set<string>();
+let postFinishShown = false;
+
+const resetPostFinish = (): void => {
+  postFinishKey = undefined;
+  postFinishOpened.clear();
+  postFinishShown = false;
+};
 
 const FINISH_STEP_ID = "turn-finish";
 
 /** Ends the guide with the Guide complete card. */
 const completeGuide = (): void => {
+  resetPostFinish();
   setGuideStatus("done", lastAuthEmail);
   setOnboardingRelayBeaconSite(undefined);
   removeTutorialGuideUi();
   renderGuideCompleteCard(GUIDE_STEPS.length);
+};
+
+/**
+ * After Finish the guide only holds steps that are waiting: fold while they
+ * wait, unfold the first time each becomes doable. Availability can flicker
+ * (a rival's only tile leaves the map), so a step unfolds once, and the card
+ * folds again only after Finish, a reload, or a step being done -- never over
+ * the player's own fold or unfold. A guide restarted without Finish (new
+ * season, Restart on another device) starts unfolded.
+ */
+const syncPostFinishFold = (view: StepView, completed: ReadonlySet<string>): void => {
+  if (!completed.has(FINISH_STEP_ID)) {
+    if (postFinishKey !== undefined) {
+      resetPostFinish();
+      expanded = true;
+    }
+    return;
+  }
+  postFinishShown = true;
+  const key = view.waiting ? "" : view.step.id;
+  if (key === postFinishKey) return;
+  if (!view.waiting) {
+    if (!postFinishOpened.has(key)) {
+      postFinishOpened.add(key);
+      expanded = true;
+    }
+  } else if (postFinishKey === undefined || completed.has(postFinishKey)) {
+    expanded = false;
+  }
+  postFinishKey = key;
 };
 
 const forceRerender = (): void => {
@@ -92,7 +133,8 @@ const handlers: GuideCardHandlers = {
     const doneIds = new Set(readGuideProgress(lastAuthEmail).steps);
     if (GUIDE_STEPS.some((s) => !doneIds.has(s.id))) {
       expanded = false;
-      lastWaiting = true;
+      postFinishKey = "";
+      postFinishShown = true;
       forceRerender();
       return;
     }
@@ -180,20 +222,20 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
   const view = evaluateGuide(input, completed);
   if (view.kind === "step" && view.newlyCompleted.length > 0) markGuideStepsCompleted(view.newlyCompleted, state.authEmail);
   if (view.kind === "done") {
-    // The last waiting step done after Finish (on screen this session): acknowledge it.
-    if (lastView) completeGuide();
-    else {
+    // The last waiting step done after Finish: acknowledge it, once no dialog covers the corner.
+    if (lastView || postFinishShown) {
+      if (deferred) {
+        if (lastView) removeTutorialGuideUi();
+        return [];
+      }
+      completeGuide();
+    } else {
       setGuideStatus("done", state.authEmail);
       setOnboardingRelayBeaconSite(undefined);
     }
     return [];
   }
-  // After Finish the guide only holds steps waiting on a first contact: fold
-  // while they wait, unfold when one can be done (also after a reload).
-  if (completed.has(FINISH_STEP_ID) && view.waiting !== lastWaiting) {
-    lastWaiting = view.waiting;
-    expanded = !view.waiting;
-  }
+  syncPostFinishFold(view, completed);
   setOnboardingRelayBeaconSite(!deferred && !view.waiting ? guideBeaconSite(view.step.id, input) : undefined);
   if (deferred) {
     if (lastView) removeTutorialGuideUi();
@@ -227,7 +269,7 @@ export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefin
 /** Settings "Restart guide": reopen the card on the first unfinished step. */
 export const reopenTutorialGuideCard = (): void => {
   expanded = true;
-  lastWaiting = undefined;
+  resetPostFinish();
   lastSignature = "";
 };
 
@@ -241,5 +283,5 @@ export const resetTutorialGuideForTests = (): void => {
   lastState = undefined;
   showMeIndex = 0;
   checklistFlagSynced = false;
-  lastWaiting = undefined;
+  resetPostFinish();
 };

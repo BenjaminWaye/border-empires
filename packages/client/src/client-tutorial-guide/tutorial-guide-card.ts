@@ -63,7 +63,7 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
       <div class="tg-title${view.waiting ? " tg-title-waiting" : ""}">${escapeHtml(view.title)}</div>
       ${view.waiting ? "" : `<div class="tg-why">${escapeHtml(view.why)}</div>`}
       ${lookForHtml(view.lookFor)}
-      ${view.laterChapterTitles.length > 0 ? `<div class="tg-later">${view.step.acknowledge ? "Back on first contact" : "Later"}: ${escapeHtml(view.laterChapterTitles.join(", "))}</div>` : ""}
+      ${view.laterChapterTitles.length > 0 ? `<div class="tg-later">${view.step.acknowledge ? "The guide returns for" : "Later"}: ${escapeHtml(view.laterChapterTitles.join(", "))}</div>` : ""}
       <div class="tg-progress-row">
         <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
         <span class="tg-count">${view.completedCount}/${view.totalCount}</span>
