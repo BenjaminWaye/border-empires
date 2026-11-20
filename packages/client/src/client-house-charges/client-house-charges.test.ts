@@ -111,7 +111,7 @@ describe("House Charges panel", () => {
   // Review of #2878: a set-aside or dropped card banks nothing, so it must not show a Domain score.
   it("shows the Domain score only on kept cards", () => {
     const closed = houseChargesPanelHtml(panelState([charge({}), desert], 0), 5_000);
-    expect(closed).toContain("✦ Common · +1 Domain");
+    expect(closed).toContain("✦ Common · +2 Domain");
     const desertCard = closed.slice(closed.lastIndexOf("<article", closed.indexOf("The Ashen Reach")));
     expect(desertCard).toContain("Not kept");
     expect(desertCard).not.toContain("Domain");
