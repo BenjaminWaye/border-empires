@@ -1,4 +1,5 @@
-import { manifestGoldRequirement } from "@border-empires/shared";
+import { manifestGoldRequirement, type AfcSpecializationRuleset } from "@border-empires/shared";
+import { domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "../../../simulation/src/tech-domain-bridge/tech-domain-catalogs.js";
 import type { DomainCatalogEntry, TechCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
 type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
@@ -102,3 +103,20 @@ export const buildInitDomainCatalog = (
       }
     };
   });
+
+/**
+ * Upgrade catalogue + open choices for INIT under the AFC ruleset (the player's, else the season's, so a
+ * joiner not yet in the live snapshot doesn't get the legacy tree). None means the legacy tree. The ruleset
+ * is echoed back so INIT's player object carries the same one the catalogue was built with.
+ */
+export function initDomainProgression(techIds: string[], domainIds: string[], afcUpgradeRuleset: AfcSpecializationRuleset | undefined): {
+  afcUpgradeRuleset: AfcSpecializationRuleset | undefined; domains: readonly DomainCatalogEntry[]; domainChoices: string[]; reachableDomainChoiceSet: Set<string>;
+} {
+  const progression = { techIds, domainIds, ...(afcUpgradeRuleset ? { afcUpgradeRuleset } : {}) };
+  return {
+    afcUpgradeRuleset,
+    domains: domainCatalogForPlayer(progression),
+    domainChoices: openDomainChoices(domainIds, progression),
+    reachableDomainChoiceSet: new Set(reachableDomainChoices(techIds, domainIds, progression))
+  };
+}

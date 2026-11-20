@@ -66,6 +66,8 @@ export type GeneratedSeasonSeedWorld = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   docks: DockRouteDefinition[];
+  /** The accepted roster of predetermined starting sites; persisted so live spawns claim from it (spawn-placement-index.ts). */
+  fairSpawnSites: FairSpawnSite[];
   worldSeed: number;
   significantIslandCount: number;
   humanPlayers: number;
@@ -330,7 +332,8 @@ export const createSeasonSeedWorld = (
     docksByTile,
     worldSeed,
     terrainAt,
-    seeded01: terrainRuntime.seeded01
+    seeded01: terrainRuntime.seeded01,
+    startSites: fairSpawnSites
   });
 
   const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
@@ -370,6 +373,7 @@ export const createSeasonSeedWorld = (
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT
     }),
+    fairSpawnSites: fairSpawnSites.map((site) => ({ x: site.x, y: site.y })),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,
