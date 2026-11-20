@@ -72,7 +72,7 @@ describe("planScoutDroneFlight", () => {
     expect(flight.steps[flight.turnIndex]!.x).toBe(29);
   });
 
-  it("reports the blocking border when it comes before the range limit", () => {
+  it("reports the blocking border that turns it back", () => {
     const near = world({ classify: (x) => (x < 5 ? { kind: "HOME" } : x >= 9 ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" }) });
     const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 20, y: 0 }, 0, near)!;
     expect(flight.endReason).toBe("BLOCKED");

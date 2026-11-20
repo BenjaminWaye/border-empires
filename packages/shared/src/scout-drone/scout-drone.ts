@@ -37,11 +37,11 @@ export type ScoutDroneTileClass =
 export type ScoutDroneStep = { x: number; y: number; at: number };
 
 /**
- * RECALLED: the owner called it home early (RECALL_SCOUT). RANGE is no longer
- * produced (the drone has no range limit since 2026-11-20; a farther target
- * only means a longer flight) but stays so flights saved before then still parse.
+ * RECALLED: the owner called it home early (RECALL_SCOUT). There is no RANGE
+ * reason: the drone has had no range limit since 2026-11-20 (a farther target
+ * only means a longer flight). A client parses an unknown reason as TARGET.
  */
-export type ScoutDroneEndReason = "TARGET" | "RANGE" | "BLOCKED" | "RECALLED";
+export type ScoutDroneEndReason = "TARGET" | "BLOCKED" | "RECALLED";
 
 export type ScoutDroneFlight = {
   launchedAt: number;

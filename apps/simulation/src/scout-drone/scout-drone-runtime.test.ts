@@ -230,10 +230,13 @@ describe("scout drone runtime", () => {
     expect(h.messages.some((m) => m.playerId === "friend")).toBe(false);
   });
 
-  it("sends the flight in the air on subscribe, and nothing while docked", () => {
+  // Review of #2895: after a restart a docked drone sent nothing, so the client kept the old
+  // flight and Explore stayed locked until its landing time (over an hour on a long flight).
+  it("sends the flight in the air on subscribe, and an empty flight while docked", () => {
     const h = harness(homeRow());
     h.runtime.sendTo("me");
-    expect(h.messages).toHaveLength(0);
+    expect(h.messages).toHaveLength(1);
+    expect(lastPayload(h)).toMatchObject({ type: "SCOUT_DRONE", flight: null });
     h.explore(9, 10);
     h.runtime.sendTo("me");
     expect(lastPayload(h).flight?.targetX).toBe(9);

@@ -260,8 +260,9 @@ What shipped, and where it differs from the sections above:
 - **Restarts dock the drone.** Flights live only in simulation memory, not in
   snapshots (§10 had planned a saved mission record). A flight costs nothing,
   so a restart loses at most one trip. Without a range limit a flight to the
-  far side of the map can take close to an hour, so a restart mid-flight now
-  costs more waiting than it did. Its report is lost
+  far side of the default 640×320 map takes about 40 minutes each way. On
+  resubscribe the server sends a docked drone as `flight: null`, so a restart
+  never leaves the client showing a drone that is no longer flying. Its report is lost
   with it; reports already filed are kept with the Activity log.
 - **"Unexplored" is a client rule.** The server keeps no per-player record of
   which tiles a player has ever seen, so it accepts EXPLORE toward any tile and
