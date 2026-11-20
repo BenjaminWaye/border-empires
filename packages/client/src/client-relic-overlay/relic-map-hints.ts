@@ -18,21 +18,35 @@ export function applyRelicAndProgressionUpdate(state: RelicHintClientState, mess
   state.tilesRevision += 1;
   state.relicMapHintsRevision += 1;
 }
+/** Aether-wake colour when the operating House's colour is unknown to this client. */
+export const RELIC_WAKE_FALLBACK_COLOR = "#b98cff";
+
 /**
  * The anonymous transponder beam only stands in for a relic the player cannot
  * see yet: once the tile itself carries the relic, the model is on the map and
- * the beam is hidden. Survey signatures stay unless the relic there is depleted.
+ * the beam is hidden. An aether wake (a rival operating the relic) always
+ * shows: the server sends it only while the relic operates, and the remembered
+ * tile may be out of date. Survey signatures stay unless the relic there is depleted.
  */
 export function shouldDrawRelicHint(hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined): hint is RelicMapHint {
   if (!hint) return false;
-  if (!tile?.naturalWonder) return true;
+  if (hint.kind === "WAKE" || !tile?.naturalWonder) return true;
   return hint.kind !== "RELIC" && relicRemainingUses(tile.naturalWonder) !== 0;
 }
-export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number): void {
+export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number, ownerColor?: (ownerId: string) => string): void {
   if (!shouldDrawRelicHint(hint, tile)) return;
   ctx.save();
   const cx = x + size / 2, cy = y + size / 2;
-  if (hint.kind === "RELIC") {
+  if (hint.kind === "WAKE") {
+    // A taller column in the operating House's colour, with a diamond at its foot.
+    const color = ownerColor?.(hint.ownerId) || RELIC_WAKE_FALLBACK_COLOR;
+    const gradient = ctx.createLinearGradient(cx, cy - size * 4, cx, cy);
+    gradient.addColorStop(0, "rgba(0,0,0,0)"); gradient.addColorStop(1, color);
+    ctx.globalAlpha = 0.75; ctx.fillStyle = gradient; ctx.fillRect(cx - Math.max(2, size * 0.09), cy - size * 4, Math.max(4, size * 0.18), size * 4);
+    ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    const r = Math.max(4, size * 0.16);
+    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); ctx.stroke();
+  } else if (hint.kind === "RELIC") {
     const gradient = ctx.createLinearGradient(cx, cy - size * 2.8, cx, cy);
     gradient.addColorStop(0, "rgba(211,231,190,0)"); gradient.addColorStop(1, "rgba(211,231,190,0.65)");
     ctx.fillStyle = gradient; ctx.fillRect(cx - Math.max(1.5, size * 0.06), cy - size * 2.8, Math.max(3, size * 0.12), size * 2.8);

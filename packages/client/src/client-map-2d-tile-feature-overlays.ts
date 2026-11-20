@@ -51,7 +51,7 @@ export const drawTileFeatureOverlays2D = (
   size: number,
   nowMs: number
 ): void => {
-  if (!isTrue3DRendererActive()) drawRelicHint2D(deps.ctx, deps.relicMapHints?.get(tileKey), t, px, py, size);
+  if (!isTrue3DRendererActive()) drawRelicHint2D(deps.ctx, deps.relicMapHints?.get(tileKey), t, px, py, size, deps.effectiveOverlayColor);
   if (!isTrue3DRendererActive() && vis === "fogged" && t?.naturalWonder && isRedesignedRelic(t.naturalWonder)) {
     deps.ctx.save(); deps.ctx.globalAlpha *= 0.7;
     drawNaturalWonderOverlay2D(deps.ctx, undefined, t.ownerId ?? "", px, py, size, deps.structureAccentColor, t.naturalWonder, false);
