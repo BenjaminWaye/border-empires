@@ -211,17 +211,29 @@ export const houseChargeChoiceError = (
   return undefined;
 };
 
+/** Highest difficulty: pips run 1..HOUSE_CHARGE_MAX_PIPS. */
+export const HOUSE_CHARGE_MAX_PIPS = 4;
+
+/** A charge's difficulty pips (its `renown`), clamped to 1..HOUSE_CHARGE_MAX_PIPS. */
+export const houseChargePips = (renown: number): number => Math.max(1, Math.min(HOUSE_CHARGE_MAX_PIPS, Math.round(renown) || 1));
+
+/** Card rarity follows difficulty: 1-2 pips Common, 3 Rare, 4 Mythic. */
+export const houseChargeRarityForPips = (renown: number): HouseChargeRarity => {
+  const pips = houseChargePips(renown);
+  return pips >= 4 ? "MYTHIC" : pips === 3 ? "RARE" : "COMMON";
+};
+
 /**
  * Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain score banked on
- * the account for each charge held at a crowning, by card rarity. Every
- * account banks it, with or without territory in space; it is the charge's
- * only galaxy reward (no Stipend Influence).
+ * the account for each charge held at a crowning, one per difficulty pip
+ * (+1..+4). Every account banks it, with or without territory in space; it is
+ * the charge's only galaxy reward (no Stipend Influence).
  */
-export const HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY: Readonly<Record<HouseChargeRarity, number>> = { COMMON: 1, RARE: 2, MYTHIC: 4 };
+export const houseChargeDomainForPips = (renown: number): number => houseChargePips(renown);
 
-/** Domain score one charge result banks: its rarity's weight when held at the crowning, otherwise 0. */
-export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "rarity">): number =>
-  charge.held ? (HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[charge.rarity] ?? 0) : 0;
+/** Domain score one charge result banks: its pips when held at the crowning, otherwise 0. */
+export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "renown">): number =>
+  charge.held ? houseChargeDomainForPips(charge.renown) : 0;
 
 /** Domain score each House banked from the charges it held at one crowning (Houses with none are omitted). */
 export const heldHouseChargeDomainWeights = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {

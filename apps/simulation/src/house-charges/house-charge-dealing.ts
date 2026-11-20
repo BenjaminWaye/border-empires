@@ -33,6 +33,7 @@ import {
   type HouseChargesState
 } from "@border-empires/shared";
 import { chargeDistance, nearestCell, type ChargeTownSite, type HouseChargesWorld } from "./house-charges-world.js";
+import { houseChargeDifficulty, rivalsNearTarget } from "./house-charge-difficulty.js";
 
 export type RivalLanding = HouseChargePoint & { readonly playerId: string; readonly name: string };
 
@@ -56,6 +57,13 @@ export type DealHouseChargesInput = {
 /** Wider searches tried, in order, while fewer than HOUSE_CHARGES_KEPT charges qualify (crowded maps). */
 const REACH_SCALES = [1, 1.6, 2.2, 3] as const;
 const reach = (input: DealHouseChargesInput): number => input.reachScale ?? 1;
+
+/** Rival landing sites near a target point, for the difficulty score. */
+const rivalsNear = (input: DealHouseChargesInput, target: HouseChargePoint, exclude?: HouseChargePoint): number =>
+  rivalsNearTarget(input.world, input.rivalLandingSites ?? [], target, exclude);
+
+/** The landmass of the House's landing site. */
+const homeIslandOf = (input: DealHouseChargesInput): string | undefined => input.world.islands.islandAt(input.home.x, input.home.y)?.id;
 
 /** Towns within this distance of a rival's landing site are never charge targets. */
 const RIVAL_SEAT_EXCLUSION = 4;
@@ -156,16 +164,22 @@ const charterCandidate = (input: DealHouseChargesInput, random: () => number): H
   const chosen = pick(random, openPairs.length > 0 ? openPairs : pairsOf(tiers[1]));
   if (!chosen) return undefined;
   const [a, b, pairDistance] = chosen;
-  const route = pairDistance + Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b));
-  const renown = route <= 30 ? 1 : route <= 45 ? 2 : 3;
   const targets = [townTarget(a, tiles), townTarget(b, tiles)];
   const midpoint = { x: Math.round((a.x + b.x) / 2), y: Math.round((a.y + b.y) / 2) };
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "CHARTER",
+    roadTiles: pairDistance,
+    reach: Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b)),
+    crossesWater: a.islandId !== homeIsland || b.islandId !== homeIsland,
+    rivalsNear: rivalsNear(input, midpoint),
+    otherHolders: Math.max(...targets.map((target) => input.holders(target.key)))
+  });
   return {
     id: chargeIdFor(input.playerId, "CHARTER", targets),
     kind: "CHARTER",
     targets,
     searchCircle: searchCircleAround(random, midpoint, Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(pairDistance / 2) + 3), input.world),
-    rarity: renown >= 3 ? "RARE" : "COMMON",
+    rarity,
     renown,
     ...(a.islandId !== b.islandId ? { crossWater: true } : {})
   };
@@ -185,13 +199,19 @@ const correctionCandidate = (input: DealHouseChargesInput, random: () => number)
   const rival = pick(random, rivals);
   if (!rival) return undefined;
   const key = `house:${rival.playerId}`;
-  const renown = chargeDistance(world, home, rival) > 30 ? 3 : 2;
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "CORRECTION",
+    reach: chargeDistance(world, home, rival),
+    crossesWater: world.islands.islandAt(rival.x, rival.y)?.id !== homeIslandOf(input),
+    rivalsNear: rivalsNear(input, rival, rival),
+    otherHolders: input.holders(key)
+  });
   return {
     id: chargeIdFor(input.playerId, "CORRECTION", [{ key }]),
     kind: "CORRECTION",
     targets: [{ key, name: rival.name, x: rival.x, y: rival.y }],
     searchCircle: searchCircleAround(random, rival, HOUSE_CHARGE_SEARCH_RADIUS, world),
-    rarity: "RARE",
+    rarity,
     renown
   };
 };
@@ -239,13 +259,19 @@ const metropolisCandidate = (input: DealHouseChargesInput, random: () => number)
     const nearest = [...towns].sort((a, b) => chargeDistance(world, home, a) - chargeDistance(world, home, b)).slice(0, HOUSE_CHARGE_METROPOLIS_COUNT);
     if (chargeDistance(world, home, nearest[0]!) > HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE * reach(input)) continue;
     const centre = wrappedCentre(world, nearest);
-    const renown = island.id === homeIsland ? 2 : 3;
+    const { renown, rarity } = houseChargeDifficulty({
+      kind: "METROPOLIS",
+      reach: chargeDistance(world, home, nearest[0]!),
+      crossesWater: island.id !== homeIsland,
+      rivalsNear: rivalsNear(input, centre),
+      otherHolders: input.holders(key)
+    });
     options.push({
       id: chargeIdFor(input.playerId, "METROPOLIS", [{ key }]),
       kind: "METROPOLIS",
       targets: [{ key, name: world.islandNames.defaultNameFor(island), ...centre }],
       searchCircle: searchCircleAround(random, centre, HOUSE_CHARGE_SEARCH_RADIUS, world),
-      rarity: renown >= 3 ? "RARE" : "COMMON",
+      rarity,
       renown,
       areaTowns: towns.length
     });
@@ -255,6 +281,7 @@ const metropolisCandidate = (input: DealHouseChargesInput, random: () => number)
 
 const surveyCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
   const { world, home } = input;
+  const homeIsland = homeIslandOf(input);
   const options: HouseCharge[] = [];
   for (const island of world.islands.islands) {
     if (island.landTilesAtBuild < HOUSE_CHARGE_SURVEY_MIN_LAND_TILES || island.landTilesAtBuild > HOUSE_CHARGE_SURVEY_MAX_LAND_TILES) continue;
@@ -262,14 +289,21 @@ const surveyCandidate = (input: DealHouseChargesInput, random: () => number): Ho
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
     const nearest = nearestCell(world, island.cells, home);
     if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
-    const renown = island.landTilesAtBuild <= 150 ? 1 : island.landTilesAtBuild <= 350 ? 2 : 3;
     const centre = { x: Math.round(island.geometry.x), y: Math.round(island.geometry.y) };
+    const { renown, rarity } = houseChargeDifficulty({
+      kind: "SURVEY",
+      areaTiles: island.landTilesAtBuild,
+      reach: nearest.distance,
+      crossesWater: island.id !== homeIsland,
+      rivalsNear: rivalsNear(input, centre),
+      otherHolders: input.holders(key)
+    });
     options.push({
       id: chargeIdFor(input.playerId, "SURVEY", [{ key }]),
       kind: "SURVEY",
       targets: [{ key, name: world.islandNames.defaultNameFor(island), ...centre }],
       searchCircle: { x: centre.x, y: centre.y, radius: Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(island.geometry.span / 2) + 2) },
-      rarity: renown >= 3 ? "RARE" : "COMMON",
+      rarity,
       renown,
       areaTiles: island.landTilesAtBuild
     });
@@ -284,14 +318,22 @@ const regionCandidate = (input: DealHouseChargesInput, random: () => number, kin
     if (region.kind !== kind) continue;
     const key = `region:${region.id}`;
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
-    if (nearestCell(world, region.cells, home).distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
-    const renown = kind === "TUNDRA" ? 3 : region.cells.length <= 120 ? 1 : region.cells.length <= 250 ? 2 : 3;
+    const nearest = nearestCell(world, region.cells, home);
+    if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
+    const { renown, rarity } = houseChargeDifficulty({
+      kind,
+      areaTiles: region.cells.length,
+      reach: nearest.distance,
+      crossesWater: world.islands.islandAt(nearest.x, nearest.y)?.id !== homeIslandOf(input),
+      rivalsNear: rivalsNear(input, region.centre),
+      otherHolders: input.holders(key)
+    });
     options.push({
       id: chargeIdFor(input.playerId, kind, [{ key }]),
       kind,
       targets: [{ key, name: world.regionName(region), ...region.centre }],
       searchCircle: searchCircleAround(random, region.centre, HOUSE_CHARGE_SEARCH_RADIUS + 2, world),
-      rarity: kind === "TUNDRA" || renown >= 3 ? "RARE" : "COMMON",
+      rarity,
       renown,
       areaTiles: region.cells.length
     });
@@ -309,13 +351,20 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
   const site = pick(random, sites);
   if (!site) return undefined;
   const key = `relic:${site.key}`;
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "RELIC",
+    reach: chargeDistance(world, home, site),
+    crossesWater: world.islands.islandAt(site.x, site.y)?.id !== homeIslandOf(input),
+    rivalsNear: rivalsNear(input, site),
+    otherHolders: input.holders(key)
+  });
   return {
     id: chargeIdFor(input.playerId, "RELIC", [{ key }]),
     kind: "RELIC",
     targets: [{ key, name: "A Concordance installation", x: site.x, y: site.y }],
     searchCircle: searchCircleAround(random, site, HOUSE_CHARGE_SEARCH_RADIUS, world),
-    rarity: "MYTHIC",
-    renown: 4,
+    rarity,
+    renown,
     ...(tiles.get(site.key)?.naturalWonder?.type ? { relicType: tiles.get(site.key)!.naturalWonder!.type } : {})
   };
 };

@@ -5,7 +5,7 @@
 // crowning), the House's reason for the charge, progress and status, with
 // Keep and Show on map on the card itself. Replaces the separate card table and
 // details list.
-import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, type HouseChargeView } from "@border-empires/shared";
+import { houseChargeDomainForPips, houseChargePips, type HouseChargeView } from "@border-empires/shared";
 import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 import "./client-house-charge-cards.css";
@@ -39,9 +39,9 @@ const statusHtml = (charge: HouseChargeView, options: HouseChargeDeckCardOptions
 /** One charge as a full-width card. Keep uses `data-house-charge-pick`, Show on map `data-house-charge-jump`. */
 export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseChargeDeckCardOptions): string => {
   const { choosing, ticked, focused, scoutHint } = options;
-  // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
-  const difficulty = Math.max(1, Math.min(4, charge.renown));
-  const domain = HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[charge.rarity];
+  // `renown` is the charge's difficulty pips, scored when it is dealt (house-charge-difficulty.ts); each pip banks +1 Domain.
+  const difficulty = houseChargePips(charge.renown);
+  const domain = houseChargeDomainForPips(charge.renown);
   const kept = choosing ? ticked : charge.kept;
   const progress = houseChargeProgress(charge);
   const keep = choosing

@@ -101,10 +101,10 @@ describe("House Charges panel", () => {
   it("explains the payout behind How charges work, and puts each card's Domain score on the card", () => {
     const html = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }], 0), 5_000);
     expect(html).toContain("<summary>How charges work</summary>");
-    expect(html).toContain("banks Domain score by rarity: Common +1, Rare +2, Mythic +4.");
-    expect(html).toContain("It does not change the reward.");
+    expect(html).toContain("banks Domain score by difficulty: +1 for each ◆, so +1 to +4.");
+    expect(html).toContain("Harder charges are rarer and pay more.");
     expect(html).not.toContain("Influence");
-    expect(html).toContain("✦ Common · +1 Domain");
+    expect(html).toContain("✦ Common · +2 Domain");
     expect(html).toContain("✦ Mythic · +4 Domain");
   });
 

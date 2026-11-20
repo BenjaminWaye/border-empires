@@ -4,7 +4,7 @@
 // (client-house-charges-pick.ts), and "Show on map". Opened from the sealed-cards bubble or its docked cards
 // (client-house-charges-bubble.ts) and from your own profile's House Charges
 // section (client-house-charges-profile.ts).
-import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
@@ -13,12 +13,7 @@ import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } 
 import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
-import { HOUSE_CHARGE_RARITY_LABEL } from "./client-house-charges-labels.js";
 
-/** "Common +1, Rare +2, Mythic +4": the Domain score a held charge banks, by rarity. */
-const CHARGE_DOMAIN_BY_RARITY = (["COMMON", "RARE", "MYTHIC"] as const)
-  .map((rarity) => `${HOUSE_CHARGE_RARITY_LABEL[rarity]} +${HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY[rarity]}`)
-  .join(", ");
 
 export type HouseChargesPanelDeps = {
   readonly root: ParentNode;
@@ -149,8 +144,8 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     <p class="house-charges-intro">Hold your kept charges when the winner is crowned to bank Domain score.</p>
     <details class="house-charges-more" data-house-charges-more><summary>How charges work</summary>
       <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
-      <p>Each kept charge you still hold then earns its charge card and banks Domain score by rarity: ${CHARGE_DOMAIN_BY_RARITY}. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
-      <p>◆ is difficulty: how far, how large or how contested a charge is. It does not change the reward.</p>
+      <p>Each kept charge you still hold then earns its charge card and banks Domain score by difficulty: +1 for each ◆, so +1 to +4. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
+      <p>◆ is difficulty: how much land the charge needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it or were sent after it too. Harder charges are rarer and pay more.</p>
     </details>
     ${choice}
     ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}

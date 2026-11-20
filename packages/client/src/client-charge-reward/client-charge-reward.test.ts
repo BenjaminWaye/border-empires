@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, type HouseChargeRarity, type SeasonHouseChargesSnapshot } from "@border-empires/shared";
+import { type HouseChargeRarity, type SeasonHouseChargesSnapshot } from "@border-empires/shared";
 import type { HouseChargeRevealView } from "../client-house-charges/client-house-charge-reveal.js";
 import { chargeRewardFor, domainCountRange, isChargeRewardCollected, revealCards } from "./client-charge-reward-model.js";
 import { fetchChargeDomainTotal, renderChargeReward, resetChargeRewardForTests } from "./client-charge-reward.js";
 
-const { COMMON, RARE, MYTHIC } = HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY;
+/** Domain each test card banks: one per pip (renown). */
+const PIPS: Record<HouseChargeRarity, number> = { COMMON: 1, RARE: 3, MYTHIC: 4 };
+const { COMMON, RARE, MYTHIC } = PIPS;
 const charge = (id: string, rarity: HouseChargeRarity, held: boolean) =>
-  ({ id, kind: "CHARTER" as const, title: `Road ${id}`, rarity, renown: 2, held, hoursHeld: held ? 12 : 0, size: 9, places: ["Vell", "Harrow"] });
+  ({ id, kind: "CHARTER" as const, title: `Road ${id}`, rarity, renown: PIPS[rarity], held, hoursHeld: held ? 12 : 0, size: 9, places: ["Vell", "Harrow"] });
 const house = (playerId: string, charges: ReturnType<typeof charge>[]): SeasonHouseChargesSnapshot => ({ playerId, playerName: playerId, charges });
 const view = (houses: SeasonHouseChargesSnapshot[]): HouseChargeRevealView =>
   ({ seasonId: "season-7", seasonSequence: 7, endedAt: 1_000, winnerPlayerId: "winner", houses });
@@ -25,7 +27,7 @@ describe("charge reward model", () => {
     ]);
   });
 
-  it("gives this House its held cards rarest last, with Domain score by rarity", () => {
+  it("gives this House its held cards rarest last, with Domain score by difficulty pips", () => {
     const reward = chargeRewardFor(reveal, "me")!;
     expect(reward.cards.map((entry) => [entry.card.id, entry.domain])).toEqual([["a", COMMON], ["b", MYTHIC]]);
     expect(reward.gained).toBe(COMMON + MYTHIC);
