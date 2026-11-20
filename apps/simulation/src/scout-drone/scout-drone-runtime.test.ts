@@ -189,6 +189,17 @@ describe("scout drone runtime", () => {
     expect(flight.landsAt - flight.launchedAt).toBe(2 * (2 * SCOUT_DRONE_HOME_STEP_MS + SCOUT_DRONE_STEP_MS));
   });
 
+  // Owner, 2026-11-20: Planetary Defense land never blocks the drone, even on a long flight.
+  it("flies straight over a wall of Planetary Defense land to a far target", () => {
+    const pdWall = [8, 9, 10, 11, 12].map((y) => land(8, y, { ownerId: "barbarian-1" }));
+    const h = harness([...homeRow(), ...pdWall]);
+    h.explore(40, 10);
+    const flight = h.runtime.flightFor("me")!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 40, y: 10 });
+    expect(flight.blockedByPlayerId).toBeUndefined();
+  });
+
   it("is turned back at a rival border, alerting the rival once per cooldown", () => {
     const rivalWall = [8, 9, 10, 11].map((y) => land(8, y, { ownerId: "rival" }));
     const h = harness([...homeRow(), ...rivalWall]);

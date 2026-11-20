@@ -9,6 +9,7 @@ export const SCOUT_DRONE_ANY_DISTANCE_ENTRY: Omit<ClientChangelogEntry, "created
   changes: [
     "Explore has no range limit: tap any unexplored tile and the drone flies all the way there and back",
     "A farther target only takes longer, at the same pace as before over open land and sea",
-    "A rival's border still turns it back, so a long flight towards someone tells you where their land starts"
+    "A rival's border still turns it back, so a long flight towards someone tells you where their land starts",
+    "Planetary Defense land never stops it: the drone flies straight over"
   ]
 };
