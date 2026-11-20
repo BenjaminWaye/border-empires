@@ -1,25 +1,22 @@
-// "Send scout drone" on an active AFC's tile menu: the button arms a pick
-// mode (state.scoutDronePicking), and the next map tap sends EXPLORE toward
-// that tile, the same command the unexplored-tile Explore button sends
-// (client-scout-drone-explore-action.ts). The server still launches from the
-// active AFC nearest the target (planScoutDroneFlight), so the button aims
-// the drone; it does not pick which AFC it leaves from. A tap on the player's
-// own or allied land is refused here, as the server would (SCOUT_TARGET_HOME),
-// and picking continues so a mis-tap doesn't drop the order. Arming clears
-// the other map picks, and arming a Crystal ability clears this one. The armed card
-// with its Cancel button is client-hud/client-hud-targeting-overlay.ts.
+// "Send scout drone" on an active AFC's tile menu opens a flight plan with no
+// stops yet (state.scoutDronePicking), and so does a tap on fog, with that tile
+// as the first stop. Taps then add and remove stops (client-scout-drone-plan.ts)
+// until Go or Cancel on the dock (client-scout-drone-dock.ts). The server
+// launches from the active AFC nearest the first stop. Arming clears the other
+// map picks, and arming a Crystal ability clears this one.
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
 import { clearCrystalTargeting } from "../client-tile-action-logic/client-crystal-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { activeScoutDroneFlight, buildRecallScoutAction, dispatchExploreAction, EXPLORE_ACTION_ID, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
+import { activeScoutDroneFlight, buildRecallScoutAction, type ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
+import { cancelScoutPlan, handleScoutPlanTap, type ScoutPlanState } from "./client-scout-drone-plan.js";
 
 export const AFC_SCOUT_ACTION_ID = "afc_scout_drone" as const;
 
 export const AFC_SCOUT_ACTION_DETAIL = "Pick a tile on the map to send your scout drone that way. It reveals land as it flies and claims nothing.";
 
-type PickingState = Pick<ClientState, "scoutDronePicking" | "scoutDroneFlight" | "tiles" | "me" | "allies">;
+type PickingState = ScoutPlanState & Pick<ClientState, "musterMarchTargeting" | "marchOriginPicking" | "buildingPlacement">;
 
 const droneOutReason = (landsAt: number, nowMs: number): string => `Scout drone is out, back in ${formatCooldownShort(landsAt - nowMs)}`;
 
@@ -53,14 +50,17 @@ export const dispatchAfcScoutAction = (actionId: string, state: ClientState, dep
   if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
   state.musterMarchTargeting.active = false;
   state.scoutDronePicking.active = true;
+  state.scoutDronePicking.stops = [];
   return true;
 };
 
-export const cancelScoutDronePicking = (state: Pick<ClientState, "scoutDronePicking">): void => {
-  state.scoutDronePicking.active = false;
-};
+export const cancelScoutDronePicking = (state: Pick<ClientState, "scoutDronePicking">): void => cancelScoutPlan(state);
 
-/** Map tap while picking; true when the tap was consumed. */
+/**
+ * Map tap: while planning, adds or removes a stop (client-scout-drone-plan.ts); otherwise a tap
+ * on unexplored ground starts a plan there, unless a march pick is waiting for that tap. True
+ * when the tap was consumed.
+ */
 export const handleScoutDronePickClick = (
   state: PickingState,
   wx: number,
@@ -68,14 +68,8 @@ export const handleScoutDronePickClick = (
   deps: ExploreDispatchDeps & { renderHud: () => void },
   nowMs: number = Date.now()
 ): boolean => {
-  if (!state.scoutDronePicking.active) return false;
-  const owner = state.tiles.get(`${wx},${wy}`)?.ownerId;
-  if (owner && (owner === state.me || state.allies.includes(owner))) {
-    deps.pushFeed("Pick a tile beyond your own and allied land to send the scout drone toward.", "info", "warn");
-  } else {
-    cancelScoutDronePicking(state);
-    dispatchExploreAction(EXPLORE_ACTION_ID, { x: wx, y: wy }, state.scoutDroneFlight, deps, nowMs);
-  }
+  if (!state.scoutDronePicking.active && (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.buildingPlacement.active)) return false;
+  if (!handleScoutPlanTap(state, wx, wy, nowMs)) return false;
   deps.renderHud();
   return true;
 };

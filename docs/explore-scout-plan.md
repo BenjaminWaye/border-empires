@@ -288,3 +288,26 @@ What shipped, and where it differs from the sections above:
   `SCOUT_NO_AFC`. The old unexplored-tile March To pick-origin code
   (`client-march-origin-picking/`) is now unreachable and can be removed.
 
+
+## 13. Waypoint routes and charges (2026-11-20)
+
+Owner design, built the same day. Supersedes the single straight flight, the
+unlimited range and Expand To pace.
+
+| Rule | Value |
+|---|---|
+| Start | Tap fog: a plan opens with that tile as stop 1. Send scout drone on an AFC opens an empty plan |
+| Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
+| Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
+| Charges | 1 per stop; 8 held; each back 4h after it was spent; kept in sim memory (a restart refunds) |
+| Pace | 1s per open tile, 0.5s over home ground |
+| Route | AFC → each stop → straight home (retraces when a rival border ends it or blocks the line home) |
+| Drones | One in the air per player |
+
+Guidance, with almost no text: the bottom dock's pips (placed cyan, ready brass,
+refilling with a clock fill), ✕ / ↶ / Go with the flight time; the next pip and Go
+pulse; the pips shake when a tap has no charge left. In true-3D the route glows on
+the ground before launch, a pulled-back stop's ring turns brass, the leg under a
+mouse pointer shows as ghost beads, and a beacon pulses on nearby fog until the
+player has flown a few flights. The 2D map shows the dock only (owner: 3D is the
+focus).
