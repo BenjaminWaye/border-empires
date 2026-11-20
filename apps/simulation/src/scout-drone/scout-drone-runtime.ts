@@ -222,9 +222,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       id: `scout-report:${active.commandId}`,
       playerId: active.playerId,
       occurredAt: nowMs,
-      x: targetX,
-      y: targetY,
       ...report,
+      // The activity card's Show jumps to x/y: the notable find, not where the drone was aimed.
+      x: report.focusX ?? targetX,
+      y: report.focusY ?? targetY,
       ...(blockedByPlayerId ? { blockedByPlayerId } : {})
     });
   };

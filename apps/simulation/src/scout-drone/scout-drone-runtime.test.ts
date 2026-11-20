@@ -109,8 +109,9 @@ describe("scout drone runtime", () => {
     expect(h.runtime.flightFor("me")).toBeUndefined();
     const landed = lastPayload(h);
     expect(landed.flight).toBeNull();
-    expect(landed.report).toMatchObject({ towns: 1, planetaryDefenseTiles: 1, targetX: 9, targetY: 10, empiresSighted: [] });
-    expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 9, y: 10 });
+    // The town (10,10) outranks Planetary Defense (12,11): Show jumps to the find, not the target (9,10).
+    expect(landed.report).toMatchObject({ towns: 1, planetaryDefenseTiles: 1, targetX: 9, targetY: 10, focusX: 10, focusY: 10, empiresSighted: [] });
+    expect(h.impacts.at(-1)).toMatchObject({ kind: "SCOUT_REPORT", playerId: "me", towns: 1, x: 10, y: 10 });
   });
 
   it("names visible deposits in the report and respects the viewer's research", () => {

@@ -28,29 +28,52 @@ export const createScoutFindings = (
   const empires = new Set<string>();
   const resourceCounts = new Map<string, number>();
   const r = SCOUT_DRONE_VISION_RADIUS;
+  // Lower rank = more notable; the report's focus is the first tile of the best rank seen.
+  let focus: { x: number; y: number; rank: number } | undefined;
+  const consider = (rank: number, x: number, y: number): void => {
+    if (!focus || rank < focus.rank) focus = { x, y, rank };
+  };
   return {
     observe: (x, y, viewer) => {
       for (let dy = -r; dy <= r; dy += 1) {
         for (let dx = -r; dx <= r; dx += 1) {
-          const key = `${wrap(x + dx, width)},${wrap(y + dy, height)}`;
+          const tx = wrap(x + dx, width);
+          const ty = wrap(y + dy, height);
+          const key = `${tx},${ty}`;
           if (seen.has(key)) continue;
           seen.add(key);
           const tile = tiles().get(key);
           if (!tile) continue;
           const owner = tile.ownerId;
           if (owner && (owner === viewer.id || viewer.allies.has(owner))) continue;
-          if (owner?.startsWith("barbarian-")) result.planetaryDefenseTiles += 1;
-          else if (owner && !empires.has(owner)) {
+          if (owner?.startsWith("barbarian-")) {
+            result.planetaryDefenseTiles += 1;
+            consider(6, tx, ty);
+          } else if (owner && !empires.has(owner)) {
             empires.add(owner);
             result.empiresSighted.push(owner);
+            consider(5, tx, ty);
           }
-          if (tile.town) result.towns += 1;
-          if (tile.dockId) result.docks += 1;
-          if (tile.waystation) result.waystations += 1;
-          if (tile.watchtower && !tile.watchtower.activated) result.watchtowers += 1;
+          if (tile.town) {
+            result.towns += 1;
+            consider(0, tx, ty);
+          }
+          if (tile.dockId) {
+            result.docks += 1;
+            consider(1, tx, ty);
+          }
+          if (tile.waystation) {
+            result.waystations += 1;
+            consider(2, tx, ty);
+          }
+          if (tile.watchtower && !tile.watchtower.activated) {
+            result.watchtowers += 1;
+            consider(3, tx, ty);
+          }
           const resource = revealedResourceValueForPlayer(tile.resource, viewer);
           if (resource) {
             result.resourceTiles += 1;
+            consider(4, tx, ty);
             resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
           }
         }
@@ -60,7 +83,8 @@ export const createScoutFindings = (
     counts: () => ({
       ...result,
       empiresSighted: [...result.empiresSighted],
-      resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count }))
+      resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count })),
+      ...(focus ? { focusX: focus.x, focusY: focus.y } : {})
     })
   };
 };
