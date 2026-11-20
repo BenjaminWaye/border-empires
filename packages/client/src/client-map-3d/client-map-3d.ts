@@ -739,7 +739,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // darkened + last-known-owner tint and the last-seen buildings (standing
         // still) before its own `continue`, so fogged tiles never reach the live
         // overlay code (roads, live structures, units, FX) further down this loop.
-        relicHintOverlay.addHint(deps.state.relicMapHints.get(tileKey), tile, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET);
+        relicHintOverlay.addHint(deps.state.relicMapHints.get(tileKey), tile, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET, (ownerId) => deps.state.playerColors.get(ownerId));
         if (visibility === "unexplored" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;

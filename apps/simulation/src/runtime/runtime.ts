@@ -608,7 +608,7 @@ export class SimulationRuntime {
   // refreshNeutralBeaconIndexForTileImpl; rebuilt from this.state.tiles in the
   // constructor.  Changes increment beaconGeneration so export caches can
   // detect staleness without re-scanning the set.
-  private readonly relicMapHintIndex = new RelicMapHintIndex();
+  private readonly relicMapHintIndex = new RelicMapHintIndex(() => { if (this.manpowerReady) for (const player of this.state.players.values()) if (!player.isAi) this.emitPlayerStateUpdate({ commandId: `relic-wake:${this.now()}:${player.id}`, playerId: player.id }); });
   private readonly neutralBeaconTileKeys = new Set<string>();
   private beaconGeneration = 0;
   // Per-player cache for the expansion objective selected from beacon indexes.

@@ -202,7 +202,16 @@ sealed conventional standby supply. It can produce a narrow locator column
 while the main aether-powered installation is dormant. Detecting it
 provides a location, not knowledge of who holds the site or whether its main
 machinery still works. This does not exempt operating machinery from the
-established risks of aether-work. Replenishment, signal detection range and
+established risks of aether-work.
+
+Operating the main machinery is not quiet. A running installation draws on
+the aether and leaves an **aether wake**, a disturbance House instruments can
+read across a whole world. The wake reveals where an installation is working
+and whose control codes are driving it, but not what kind of installation it
+is or what it still holds. A dormant installation, still on its standby
+supply, leaves no wake, and a spent one falls silent. Waking a relic therefore
+announces it: every rival House learns who now holds working Concordance
+machinery and where. Replenishment, signal detection range and
 force-field coverage are numerical rules in the [relic reference](../relics.md).
 
 ## 5. Why arriving is dangerous

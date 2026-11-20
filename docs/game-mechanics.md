@@ -311,7 +311,8 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 
 New worlds use the [relic installation rules](relics.md): seven seed-selected
 families, ordinary garrison activation, site-owned finite reserves, anonymous
-proximity signals and persistent depleted ruins. Existing unversioned wonders
+proximity signals, an aether wake that shows every other House where a relic
+is operating and who operates it, and persistent depleted ruins. Existing unversioned wonders
 retain their earlier behavior. The implementation contracts are in
 `packages/shared/src/relics/`, `apps/simulation/src/runtime-relics.ts` and
 `packages/game-domain/src/server-worldgen-natural-wonders.ts`.

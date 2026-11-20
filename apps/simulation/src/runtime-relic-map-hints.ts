@@ -1,15 +1,39 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { isRedesignedRelic, RELIC_MAP_HINT_LIMIT, RELIC_RULES, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type RelicMapHint, type RelicResource } from "@border-empires/shared";
+import { isRedesignedRelic, relicOperationalState, RELIC_MAP_HINT_LIMIT, RELIC_RULES, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type RelicMapHint, type RelicResource } from "@border-empires/shared";
 import { activeRelicTiles, type RelicReadContext } from "./runtime-relics.js";
 import { hasRevealedResourceForPlayer } from "./tech-domain-bridge/tech-resource-reveal.js";
+
+/**
+ * The House operating a relic, or undefined while it is dormant or depleted.
+ * Operating aether machinery gives off a wake every House can detect
+ * (docs/relics.md, "Aether wake"); the dormant standby transponder does not.
+ */
+export const relicWakeOwner = (tile: DomainTileState): string | undefined =>
+  tile.ownerId && tile.ownershipState === "SETTLED" && tile.naturalWonder && isRedesignedRelic(tile.naturalWonder) && relicOperationalState(tile.naturalWonder, true) === "active"
+    ? tile.ownerId
+    : undefined;
 
 /** Fixed world-site index, reconstructed at boot; no per-viewer discovery history. */
 export class RelicMapHintIndex {
   private readonly siteKeys = new Set<string>();
+  /** Site key -> the House whose wake it gives off (absent while silent). */
+  private readonly wakeOwners = new Map<string, string>();
+  private wakeChangePending = false;
+  /** `onWakeChanged` runs once, after the current task, when any relic starts, stops or changes hands operating. */
+  constructor(private readonly onWakeChanged?: () => void) {}
   refresh(key: string, tile: DomainTileState): void {
-    if (!isRedesignedRelic(tile.naturalWonder)) { this.siteKeys.delete(key); return; }
+    if (!isRedesignedRelic(tile.naturalWonder)) { this.siteKeys.delete(key); this.setWake(key, undefined); return; }
     if (!this.siteKeys.has(key) && this.siteKeys.size >= 9) throw new RangeError("World relic limit exceeded");
     this.siteKeys.add(key);
+    this.setWake(key, relicWakeOwner(tile));
+  }
+  private setWake(key: string, ownerId: string | undefined): void {
+    if (this.wakeOwners.get(key) === ownerId) return;
+    if (ownerId) this.wakeOwners.set(key, ownerId); else this.wakeOwners.delete(key);
+    // Coalesced: one capture writes the whole nine-tile site, and a burst of writes is one broadcast.
+    if (!this.onWakeChanged || this.wakeChangePending) return;
+    this.wakeChangePending = true;
+    queueMicrotask(() => { this.wakeChangePending = false; this.onWakeChanged?.(); });
   }
   hintsFor(context: RelicReadContext, player: DomainPlayer): RelicMapHint[] {
     const hints: RelicMapHint[] = [];
@@ -21,6 +45,9 @@ export class RelicMapHintIndex {
         const tile = context.tiles.get(`${x},${y}`);
         if (tile?.ownerId === player.id && tile.ownershipState === "SETTLED") close = true;
       });
+      // An operating relic's aether wake reaches every other House, with its operator; it replaces the beam.
+      const wakeOwner = relicWakeOwner(site);
+      if (wakeOwner && wakeOwner !== player.id) { hints.push({ x: site.x, y: site.y, kind: "WAKE", ownerId: wakeOwner }); continue; }
       // Anonymous stationary maintenance transponder. Its presence says nothing about operation.
       if (close) hints.push({ x: site.x, y: site.y, kind: "RELIC" });
     }
