@@ -6,10 +6,11 @@
 // Keep and Show on map on the card itself. Replaces the separate card table and
 // details list.
 import { HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY, type HouseChargeView } from "@border-empires/shared";
-import { houseChargeCardArtSvg } from "./client-house-charge-cards.js";
+import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-deck.css";
+import "./client-house-charges-deck-motion.css";
 
 export type HouseChargeDeckCardOptions = {
   /** The keep choice is open: the card carries a Keep button. */
@@ -60,9 +61,13 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
       </div>
       <div class="hcd-foot">${keep}<button class="hcd-map${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${esc(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></div>
     </div>
+    <div class="hcd-back" aria-hidden="true">${houseChargeCardBackHtml()}</div>
   </article>`;
 };
 
-/** The House's charges as a scrolling column of cards; `dealing` slides them in one by one. */
+/** How long the draw from the deck runs when the panel opens (the last card's delay plus its turn). */
+export const HOUSE_CHARGES_DRAW_MS = 1_200;
+
+/** The House's charges as a scrolling column of cards; `dealing` draws them from the deck one by one and turns them over. */
 export const houseChargesDeckHtml = (cards: readonly string[], dealing: boolean): string =>
   `<div class="hcd-deck${dealing ? " is-dealing" : ""}">${cards.join("")}</div>`;

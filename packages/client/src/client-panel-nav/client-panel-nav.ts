@@ -79,6 +79,7 @@ export const renderSidePanel = (
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen);
   deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains");
+  deps.sidePanelEl.classList.toggle("charges-panel-active", state.activePanel === "charges"); // widens the panel on desktop for the cards
   deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // centres Settings from its first frame
   deps.sidePanelEl.style.display = state.activePanel ? "grid" : "none";
   if (state.activePanel) deps.panelTitleEl.textContent = panelTitle(state.activePanel);

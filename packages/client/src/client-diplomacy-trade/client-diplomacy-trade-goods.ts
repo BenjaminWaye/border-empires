@@ -125,7 +125,13 @@ export const maxTradeTerms = (a: DiplomacyTerms, b: DiplomacyTerms): DiplomacyTe
     ask: { gold: 0 }
   } as DiplomacyTerms);
 
-export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean => TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec));
+/** Towns handed back count too (client-diplomacy-town-return.ts), in either order. */
+const townKeys = (terms: DiplomacyTerms, side: TradeSide): string =>
+  (terms[side].towns ?? []).map((town) => `${town.x},${town.y}`).sort().join(";");
+
+export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
+  TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec)) &&
+  townKeys(a, "give") === townKeys(b, "give") && townKeys(a, "ask") === townKeys(b, "ask");
 
 const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trade-good-row" data-trade-row="${spec.key}">
     <button type="button" class="diplomacy-trade-good" data-trade-good="${spec.key}" aria-expanded="false" aria-controls="diplomacy-trade-slider-${spec.key}">

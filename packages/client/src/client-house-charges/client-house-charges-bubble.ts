@@ -14,9 +14,10 @@
 // its title, and an x that clears the highlight (owner, 2026-11-19: pressing
 // Show on map left the panel open over the map). It replaced a one-time alert card that other alerts could
 // bury (owner, 2026-11-18). The flags are kept per deal in localStorage.
-import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
+import { HOUSE_CHARGES_KEPT, type HouseChargeView, type HouseChargesPayload } from "@border-empires/shared";
 // Shared pieces first, so the bubble's own rules come after them.
 import { houseChargeCardBackHtml } from "./client-house-charge-cards.js";
+import { houseChargeEmblemSvg } from "./client-house-charge-emblems.js";
 import "../client-callout/client-callout.css";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-bubble.css";
@@ -103,6 +104,10 @@ const MINI_CARD = houseChargeCardBackHtml({ mini: true });
 /** Three fanned, sealed charge cards. */
 const CARDS_HTML = `<span class="hcb-cards" aria-hidden="true">${MINI_CARD}${MINI_CARD}${MINI_CARD}</span>`;
 
+/** While Show on map highlights a charge, its card lies face up on top of the other two (client-house-charges-fold.ts). */
+const cardsWithFaceHtml = (charge: HouseChargeView): string =>
+  `<span class="hcb-cards has-face" aria-hidden="true">${MINI_CARD}<span class="hc-card is-mini is-face kind-${charge.kind.toLowerCase()}"><span class="hc-frame"><span class="hc-art">${houseChargeEmblemSvg(charge.kind)}</span></span></span>${MINI_CARD}</span>`;
+
 const closeHtml = '<button type="button" class="hcb-speech-close" data-hcb-action="dismiss-speech" aria-label="Hide message">&times;</button>';
 
 const escapeHtml = (text: string): string =>
@@ -130,7 +135,7 @@ export const houseChargesDockHtml = (payload: HouseChargesPayload, showNote: boo
         <button type="button" class="hcb-speech-open" data-hcb-action="open">Your charges stay here. Tap the cards to see them again.</button>${closeHtml}
       </div>`
     : "";
-  return `<button type="button" class="hcb-orb is-docked" data-hcb-action="open" aria-label="Your House charges: ${held} of ${kept.length} held">${CARDS_HTML}<span class="hcb-badge" aria-hidden="true">${held}/${kept.length}</span></button>${note}`;
+  return `<button type="button" class="hcb-orb is-docked" data-hcb-action="open" aria-label="Your House charges: ${held} of ${kept.length} held">${focused ? cardsWithFaceHtml(focused) : CARDS_HTML}<span class="hcb-badge" aria-hidden="true">${held}/${kept.length}</span></button>${note}`;
 };
 
 export const houseChargesBubbleHtml = (payload: HouseChargesPayload, showSpeech: boolean): string => {

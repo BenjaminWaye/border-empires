@@ -47,6 +47,10 @@ body.hud-v2-compact .hcb-root {
 .hcb-cards .hc-card:nth-child(1) { transform: rotate(-16deg); }
 .hcb-cards .hc-card:nth-child(3) { transform: rotate(16deg); }
 .hcb-cards .hc-card:nth-child(2) { z-index: 1; }
+/* The charge shown on the map lies face up on top, a little larger (client-house-charges-bubble.ts). */
+.hcb-cards .hc-card.is-face { width: 24px; left: 10px; top: -2px; z-index: 2; padding: 2px; border-radius: 3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.hcb-cards .hc-card.is-face .hc-frame { display: grid; padding: 1.5px; border-radius: 2px; grid-template-rows: 1fr; }
+.hcb-cards .hc-card.is-face .hc-art { aspect-ratio: auto; min-height: 0; border-radius: 1px; box-shadow: none; }
 .hcb-speech {
   position: relative;
   display: flex;

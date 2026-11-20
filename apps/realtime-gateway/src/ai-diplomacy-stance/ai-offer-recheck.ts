@@ -1,7 +1,7 @@
 // Free AI peace offers stand until expiry or combat withdraws them from
 // SocialState. Paid counters and alliances are rechecked before settlement:
 // an AI may no longer afford a payment or qualify for the resulting bloc.
-import { diplomacyTermsAreEmpty, emptyDiplomacyTerms, evaluateAiOffer, extensionPricing, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, emptyDiplomacyTerms, evaluateAiOffer, extensionPricing, returnsPricedTown, swapDiplomacyTerms, truceNeedsTownReturn, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -42,11 +42,13 @@ export const recheckAiOffer = async (
   });
   // Can't judge right now: refuse this time, but leave the offer standing.
   if (!evaluation) return { reason: `${offer.aiName} couldn't confirm the deal right now. Try again shortly.`, withdraw: false };
-  const refusal = offer.kind === "truce" ? evaluation.truceRefusal : evaluation.allianceRefusal;
-  if (refusal) return { reason: `${offer.aiName} withdrew its offer. ${refusal}`, withdraw: true };
   // The player's side of the deal is the AI's terms swapped.
   const playerTerms = offer.termsFromAi ? swapDiplomacyTerms(offer.termsFromAi) : emptyDiplomacyTerms();
   const pricing = offer.extendsTruce ? extensionPricing(evaluation.pricing) : evaluation.pricing;
+  const refusal = offer.kind === "truce" ? evaluation.truceRefusal : evaluation.allianceRefusal;
+  // A counter that asked for one of its towns back still stands while it can retake its land.
+  const townBuysIt = offer.kind === "truce" && truceNeedsTownReturn(pricing, offer.durationHours) && returnsPricedTown(pricing.townValues, playerTerms.give.towns);
+  if (refusal && !townBuysIt) return { reason: `${offer.aiName} withdrew its offer. ${refusal}`, withdraw: true };
   const verdict = evaluateAiOffer(pricing, offer.kind, offer.durationHours, playerTerms);
   if (verdict.accepts) return undefined;
   if (verdict.reason === "shortfall" && verdict.shortfall <= playerTerms.give.gold * COUNTER_PRICE_TOLERANCE) return undefined;
