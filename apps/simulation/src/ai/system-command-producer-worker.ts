@@ -1,7 +1,12 @@
 /**
  * Worker-backed system command producer.
  *
- * Offloads barbarian/truce/upkeep frontier decisions to system-job-worker.ts.
+ * Offloads truce/upkeep frontier decisions to system-job-worker.ts.
+ * Planetary Defense (barbarian) camps are planned on the main thread through
+ * runtime.barbarianBridge() instead: one camp's decision reads a few hundred
+ * tiles straight from the runtime, which is cheaper than keeping the worker's
+ * copy of an unbounded camp territory in sync (docs/planetary-defense-camps-plan.md).
+ * The barbarian is therefore never synced to the worker.
  * Backpressure: skips ticks when human or system backlog is non-empty.
  */
 
@@ -28,7 +33,7 @@ type WorkerSystemCommandProducerOptions = {
     | "onEvent"
     | "exportPlannerWorldView"
     | "exportPlannerPlayerViews"
-    | "exportBarbTilesSeenByAnyPlayer"
+    | "barbarianBridge"
   >;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
@@ -53,8 +58,6 @@ type WorkerSystemCommandProducerOptions = {
    */
   workerHost?: CombinedWorkerChannel;
   onTick?: (sample: { durationMs: number }) => void;
-  /** Minimum ms between recomputes of the barbarian "seen by a player" set. */
-  visionUnionMinRecomputeIntervalMs?: number;
 };
 
 const resolveWorkerScript = (given?: string): string | URL =>
@@ -71,7 +74,9 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const playerSyncDebounceMs = 500;
   const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(tickIntervalMs / 2)));
   const shouldRun = options.shouldRun ?? (() => true);
-  const systemPlayerIdSet = new Set(options.systemPlayerIds);
+  // Players the worker plans for: every system player except the barbarian.
+  const workerPlayerIds = options.systemPlayerIds.filter((id) => id !== BARBARIAN_PLAYER_ID);
+  const systemPlayerIdSet = new Set(workerPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
   let relevantTileKeys: ReadonlySet<string> = new Set<string>();
@@ -82,12 +87,12 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   );
   const pendingPlayers = new Set<string>();
   const pendingAddedAtMs = new Map<string, number>();
-  // Barbarians are exempt from the one-command-per-player gate below: each barb
-  // tile has its own in-flight/rest tracking in the worker's planner, fed by
-  // this relay with settle events. (postToWorker is assigned later.)
+  // Barbarians are exempt from the one-command-per-player gate below: each camp
+  // has its own in-flight/rest tracking in the main-thread planner, fed by this
+  // relay with settle events.
   const barbSettleRelay = createBarbSettleRelay({
     barbPlayerId: BARBARIAN_PLAYER_ID,
-    postToWorker: (msg) => postToWorker(msg),
+    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt),
     now
   });
   // System producer issues one command per non-barbarian player at a time. If neither
@@ -104,15 +109,6 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   const pendingRequests = new Map<string, (command: CommandEnvelope | null) => void>();
   let closed = false;
-  // Barbarian activation needs to know which barb tiles any non-barb player can
-  // see. The worker can't compute it (it doesn't receive non-barb player views),
-  // so we ship the set from here whenever it changes. It is read straight from
-  // the real fog-of-war coverage: O(barb tiles x viewers) lookups, ~0.1ms.
-  // (The old hand-rolled union scanned every non-barb owned tile: ~11ms per
-  // recompute, and 2879ms in one staging event_loop_blocked capture.)
-  let lastSentVisionKey: string | null = null;
-  const visionUnionMinRecomputeIntervalMs = Math.max(0, options.visionUnionMinRecomputeIntervalMs ?? 1000);
-  let lastVisionUnionComputedAtMs = 0;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
   let worker!: Worker; // only assigned/used in the self-spawned (no shared host) path
@@ -186,12 +182,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const runtimeInit = (): void => {
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
-    barbSettleRelay.clear();
-    // Force a fresh vision_union push after (re)spawn — the new worker has
-    // an empty default and the cached signature must not gate the first send.
-    lastSentVisionKey = null;
-    lastVisionUnionComputedAtMs = 0;
-    const worldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
+    const worldView = options.runtime.exportPlannerWorldView(workerPlayerIds);
     for (const player of worldView.players) plannerPlayersById.set(player.id, player);
     for (const tile of worldView.tiles) {
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
@@ -374,24 +365,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   const playerSyncInterval = setInterval(() => {
     const playerIds: string[] = [];
-    const batchSize = Math.min(periodicPlayerSyncBatchSize, options.systemPlayerIds.length);
+    const batchSize = Math.min(periodicPlayerSyncBatchSize, workerPlayerIds.length);
     for (let offset = 0; offset < batchSize; offset += 1) {
-      const playerId = options.systemPlayerIds[(nextPeriodicPlayerSyncIndex + offset) % options.systemPlayerIds.length];
+      const playerId = workerPlayerIds[(nextPeriodicPlayerSyncIndex + offset) % workerPlayerIds.length];
       if (playerId) playerIds.push(playerId);
     }
-    nextPeriodicPlayerSyncIndex = (nextPeriodicPlayerSyncIndex + batchSize) % Math.max(1, options.systemPlayerIds.length);
+    nextPeriodicPlayerSyncIndex = (nextPeriodicPlayerSyncIndex + batchSize) % Math.max(1, workerPlayerIds.length);
     syncPlayersImmediately(playerIds);
   }, playerSyncIntervalMs);
-
-  const ensureVisionUnionFresh = (): void => {
-    if (now() - lastVisionUnionComputedAtMs < visionUnionMinRecomputeIntervalMs) return;
-    lastVisionUnionComputedAtMs = now();
-    const keys = options.runtime.exportBarbTilesSeenByAnyPlayer().sort();
-    const key = keys.join("|");
-    if (key === lastSentVisionKey) return;
-    lastSentVisionKey = key;
-    postToWorker({ type: "vision_union", keys });
-  };
 
   const requestPlan = (
     playerId: string,
@@ -428,7 +409,6 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
           pendingAddedAtMs.delete(playerId);
         }
       }
-      ensureVisionUnionFresh();
       for (const playerId of options.systemPlayerIds) {
         const isBarb = playerId === BARBARIAN_PLAYER_ID;
         if (!isBarb && pendingPlayers.has(playerId)) continue;
@@ -436,7 +416,9 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         const issuedAt = now();
         let barbCommandId: string | undefined;
         try {
-          const command = await requestPlan(playerId, clientSeq, issuedAt);
+          const command = isBarb
+            ? options.runtime.barbarianBridge().choose(clientSeq, issuedAt) ?? null
+            : await requestPlan(playerId, clientSeq, issuedAt);
           if (!command) continue;
           if (isBarb) barbSettleRelay.onSubmitted((barbCommandId = command.commandId));
           else {

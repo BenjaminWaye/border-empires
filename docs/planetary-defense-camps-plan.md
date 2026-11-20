@@ -1,6 +1,10 @@
 # Planetary Defense camps (proposal)
 
-Status: **proposal, rules agreed with the owner 2026-11-20; not implemented.**
+Status: **stages 1, 2 and 4 implemented** (server rules, live-season
+conversion, docs and lore; see "Implementation status" below). **Stage 3
+(client) is not**: until it lands the client still draws soldiers on every
+Planetary Defense tile, still offers Hunt Planetary Defense (now a plain
+Advance), and has no camp marker, tap highlight or camp alert.
 Replaces the barbarian walk/multiply model described in
 [`game-mechanics.md`](game-mechanics.md) (the "Barbarians (rewrite model)"
 bullet) once built. Delete or fold into `game-mechanics.md` when shipped (see
@@ -50,9 +54,12 @@ everywhere.
    never attack each other.
 4. **Supply per camp.** A Planetary Defense frontier tile must connect to its
    own camp through tiles of the same `campId` (the normal encirclement rule,
-   applied per camp). When a camp is captured, every tile with its `campId` is
-   released to neutral directly, with no flood fill. A tile cut off from its
-   camp mid-territory decays as usual.
+   applied per camp). When a camp falls, its land is released to neutral by
+   `campId`, with no flood fill. A House that captures the camp first takes,
+   under the ordinary encirclement rule, the camp frontier its capture cut off
+   (as for any House's frontier); only what that rule leaves, for example tiles
+   touching another camp, goes neutral. A tile cut off from its camp
+   mid-territory is released the same way.
 5. **New camps come only from towns and docks.** When Planetary Defense
    captures a **town or a dock**, neutral or a House's, that tile becomes a
    new camp (SETTLED, its own new `campId`). Nothing else creates a camp, and a
@@ -139,11 +146,29 @@ that.
 Player attacks on Planetary Defense frontier are paid for in manpower, like
 any frontier attack, so players' own budgets limit them.
 
-To check before implementation: that the visibility cache
-(`visibility-coverage-cache.ts`) reports every "stopped seeing" edge, not only
-"started seeing" (`onFirstSeen` is documented for 0→1 edges). Gate: a bench
-next to `runtime-barb-activation-vision.bench.ts` with 100 camps and 3,000
-tiles must come in at or below today's numbers before merge.
+Checked: coverage only crosses zero in two places (`addFootprint`,
+`removeFootprint`), now in `visibility-coverage-raster.ts` with an
+`onCoverageEdge` hook on both. The awake counts are re-derived every 5
+minutes and any drift is counted (`sim_barbarian_camp_awake_drift_total`).
+
+Gate (`planetary-defense-camps/camp-awake.bench.ts`, 25 AI empires x 1,500
+tiles plus 100 camps x 30 tiles, all awake; dev container, mean):
+
+| Measure | Old (100 tiles) | Camps (3,000 tiles) |
+|---|---|---|
+| "Is anyone looking?" | ~0.09 ms per 1 s scan | ~0.0003 ms per lookup, no scan |
+| One planner decision | ~0.36 ms (worker thread) | ~0.07 ms (main thread) |
+| 1 s side tick (watcher sync, nobody logging in/out) | n/a | ~0.002 ms |
+
+**Planned on the main thread.** The worker only knew the tiles near
+barbarian land when it started plus what changed since, and keeping it in
+sync re-exported the barbarian's whole territory on every change (the reason
+for the old 100-tile cap). One camp's decision reads a few hundred tiles
+straight from the runtime, so both system producers now call the planner
+through `runtime-barbarian-planner-bridge.ts` and the barbarian is never
+synced to the worker: at most ~7 decisions a second x ~0.07 ms, and the
+O(territory) re-export, the seen-set posting and the worker-side barbarian
+tile copy are gone.
 
 ## Barbarian planner rewrite
 
@@ -200,6 +225,28 @@ tiles must come in at or below today's numbers before merge.
 - Taking a House's town makes a camp inside that House's land. The House's
   cut-off frontier goes neutral, not to Planetary Defense (barbarian pockets
   already go neutral).
+
+## Implementation status
+
+Built, with tests (`apps/simulation/src/planetary-defense-camps/`, planner and
+producer tests in `ai/`):
+
+- `campId` on tiles through save, event replay, proto (`camp_id = 39`),
+  gateway and tile deltas; `withoutStrayCampId` strips it from any tile
+  Planetary Defense no longer owns.
+- Capture rules (`camp-rules.ts`, `runtime-winning-capture.ts`,
+  `runtime-lock-resolution-lost-origin.ts`), camp index and collapse
+  (`camp-index.ts`, `camp-supply.ts`, `camp-runtime.ts`), awake counts
+  (`camp-awake-tracker.ts`), planner (`ai/system-job-barbarian-planner.ts`),
+  boot conversion (`camp-migration.ts`), bounty per camp, metrics.
+- Deleted: walk/multiply and release-on-launch (`runtime-barbarian-walk.ts`),
+  the seen-tile scan (`runtime-barb-activation-vision.ts`), the worker's
+  barbarian planner, Hunt on the server (the `hunt` field is accepted and
+  ignored).
+- Docks: a camp on a dock crosses like any House's dock (linked docks and
+  their landing ground); nothing barbarian-only remains.
+
+Not built: stage 3 (client).
 
 ## Staged implementation
 

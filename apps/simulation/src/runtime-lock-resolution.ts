@@ -29,7 +29,6 @@ export type RuntimeLockResolutionContext = {
   locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
-  barbarianTileProgress: Map<string, number>;
   now: () => number;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
@@ -45,7 +44,8 @@ export type RuntimeLockResolutionContext = {
   extendFortPatrolGrace: (tileKey: string, graceUntil: number) => void;
   clearFortPatrolGrace: (tileKey: string) => void;
   onCaptureRevealBuilt: ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void) | undefined;
-  applyBarbarianWalkOrMultiply: (lock: LockRecord, previousTarget: DomainTileState | undefined) => void;
+  /** Live Planetary Defense camps (a captured town/dock only founds a camp below the cap). */
+  planetaryDefenseCampCount: () => number;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
@@ -164,13 +164,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   });
   // The defender takes the origin tile on a loss -- unless it is no longer the
   // attacker's to lose (the defender, or someone else, captured it mid-fight).
-  // A barbarian released its origin when the attack started, so there the tile
-  // is still the attacker's to lose as long as nobody has claimed it since.
   const originOwnerId = context.tiles.get(lock.originKey)?.ownerId;
   const originLost =
     Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
-    (originOwnerId === lock.playerId || (lock.barbarianLaunch !== undefined && originOwnerId === undefined));
-  const bounty = attacker ? afcPlanetaryDefenseBounty({ attackerWon, actionType: lock.actionType, previousOwnerId, bountyPerTile: additiveEffectForPlayer(attacker, "barbarianCaptureCoinBonus") }) : 0;
+    originOwnerId === lock.playerId;
+  const bounty = attacker ? afcPlanetaryDefenseBounty({ attackerWon, actionType: lock.actionType, previousTarget, bountyPerCamp: additiveEffectForPlayer(attacker, "barbarianCaptureCoinBonus") }) : 0;
   const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder + bounty);
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which

@@ -234,6 +234,34 @@ truth in miniature: it resists quietly until a border reaches it, and once
 touched, either yields and is folded into the anchored world, or holds and
 reclaims what was pushed into it.
 
+### The planet's defense force
+
+Every Sector the Court opens was somebody's world first. Before the
+Proclamation, the Court strips it of whatever government it had, but not
+every garrison lays down its arms. What remains is the **Planetary
+Defense**: the remnant of the world's own defense force, holding out in
+fortified **camps** — old barracks, depots and strongpoints it never
+surrendered. A camp does not move. It holds the ground around it with
+patrols and pickets, and that ground is only as safe as its link back to
+the camp: cut a picket line off from its camp, or take the camp itself, and
+the ground it held falls away.
+
+The defense force fights for what a garrison needs. Seizing a town or a
+harbour gives it something to hold, and it digs in there as a new camp; open
+land it only pickets. It has no supply lines beyond the world and no way to
+raise new garrisons, so every camp a House takes is gone for good, and the
+force dwindles as the campaign goes on. The Court, which would rather its
+nobles finish the clearance than leave it half done, pays for every camp
+taken (§12, Campaign specialization).
+
+Like the Wardens, the defense force answers to what it can sense. Its
+remaining command sensors pick up active attention: a House's command
+studying its ground, or a drone overhead (§12). A camp stirs while it is
+watched and settles back into its works when nobody is looking, so a House
+whose command has stood down for the night is not what wakes it. Nothing
+about this is a judgement of the watcher: an unobserved camp simply has
+nothing to react to.
+
 ## 6. The end of an age: the fall of the Court
 
 No Duke rules forever, and no Court rules unchallenged forever either. The

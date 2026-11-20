@@ -5,7 +5,6 @@ import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
 import { scanAdvanceCandidates } from "./muster-advance-scan.js";
 import {
-  barbarianAttackInRangeResolvesAt,
   completeAdvanceClearing,
   isHumanFlagOwner,
   markAdvanceClearing,
@@ -15,7 +14,6 @@ import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
   ADVANCE_THROTTLE_DIST,
-  isStaleHuntCooldown,
   locksSourcedFromMusterTile,
   pickAdvanceTarget,
   syncMusterStatus
@@ -86,8 +84,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // of clearing it back to the generic "Planning next move" text for the
   // rest of the cooldown window.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
-  // A new hunt order must not sit out the previous order's cooldown.
-  if (input.nowMs < cooldownUntil && !isStaleHuntCooldown(musterTile.muster, cooldownUntil)) {
+  if (input.nowMs < cooldownUntil) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: inFlightLocks.length > 0,
       inFlightCount: inFlightLocks.length,
@@ -111,18 +108,8 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
     return;
   }
 
-  // Hunt Planetary Defense (MusterState.hunt): only barbarian tiles count,
-  // and the tile the player clicked (targetX/Y) goes first while it is still
-  // one. Re-scanned every search, so a patrol that walks off is followed.
-  const hunting = musterTile.muster?.hunt === true;
-  const huntTarget = musterTile.muster?.targetX !== undefined && musterTile.muster?.targetY !== undefined
-    ? simulationTileKey(musterTile.muster.targetX, musterTile.muster.targetY)
-    : undefined;
-  const scan = scanAdvanceCandidates(input, musterTile, playerId, availableMuster, hunting ? { preferKey: huntTarget } : undefined);
-  const { nearest, nearestAffordable } = scan;
-  // A hunted patrol that is mid-capture of our land stands on no tile until its
-  // attack lands; wait for that instead of declaring the area clear.
-  const engagedResolvesAt = scan.engagedResolvesAt ?? (hunting && !nearest ? barbarianAttackInRangeResolvesAt(input, musterTile, playerId) : undefined);
+  const scan = scanAdvanceCandidates(input, musterTile, playerId, availableMuster);
+  const { nearest, nearestAffordable, engagedResolvesAt } = scan;
 
   // The flag commits to its nearest target and saves up for it rather than
   // spending on a cheaper, farther one; only a target the flag can't hold
@@ -158,7 +145,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       // nearest such tile -- the next search then attacks it. Skipped while a
       // reachable target is merely unaffordable (saving up): expanding costs manpower too,
       // and the status line should say that the flag needs more.
-      const hostile = !waiting ? nearestHostileWithinSteps(input, musterTile, playerId, hunting) : undefined;
+      const hostile = !waiting ? nearestHostileWithinSteps(input, musterTile, playerId) : undefined;
       if (hostile) {
         if (maybeMarchFire(input, musterTile, playerId, { target: { x: hostile.x, y: hostile.y }, expandOnly: true })) {
           markAdvanceClearing(input, originKey, playerId);

@@ -1,5 +1,5 @@
 /**
- * System job worker core — the actual barbarian/truce/upkeep planning logic
+ * System job worker core — the actual truce/upkeep planning logic
  * that used to run directly inside system-job-worker.ts's top-level
  * `parentPort` handler.
  *
@@ -23,7 +23,6 @@ import {
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { BARBARIAN_PLAYER_ID, createBarbarianPlanner, type BarbarianPlayerRef } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -47,11 +46,6 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     tileCollectionVersion: number;
     ownedTiles: PlannerTileView[];
   }>();
-
-  // Union of tile keys currently inside at least one non-barb player's fog.
-  // Computed and shipped by the main process via `vision_union` — this core
-  // is a passive consumer because it does not receive non-barb player views.
-  let visibleToAnyNonBarbPlayer: ReadonlySet<string> = new Set();
 
   const parseTownSupport = (
     townJson: string | undefined
@@ -101,7 +95,7 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     tilesByKey.set(key, next);
   };
 
-  const resolveOwnedTiles = (player: BarbarianPlayerRef): PlannerTileView[] => {
+  const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
     const cached = playerTileCacheById.get(player.id);
     if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
       return cached.ownedTiles;
@@ -116,14 +110,6 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     return ownedTiles;
   };
 
-  const barbarianPlanner = createBarbarianPlanner({
-    tilesByKey,
-    resolveOwnedTiles,
-    // dockLinksByDockTileKey is replaced on every `init` — read it fresh per plan.
-    getDockLinksByDockTileKey: () => dockLinksByDockTileKey,
-    getVisibleToAnyNonBarbPlayer: () => visibleToAnyNonBarbPlayer
-  });
-
   const chooseSystemCommand = (
     playerId: string,
     clientSeq: number,
@@ -132,11 +118,8 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     const player = playersById.get(playerId);
     if (!player) return null;
 
-    // Barbarians are gated per tile inside the planner (in-flight + rest), not
-    // by the faction-wide lock flag — one tile's fight must not freeze the rest.
-    if (playerId === BARBARIAN_PLAYER_ID) {
-      return barbarianPlanner.choose(player, clientSeq, issuedAt);
-    }
+    // Planetary Defense (barbarian) camps are planned on the main thread
+    // (runtime-barbarian-planner-bridge.ts) and never reach this worker.
     if (player.hasActiveLock) return null;
 
     const ownedTiles = resolveOwnedTiles(player);
@@ -197,7 +180,6 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
         tilesByKey.clear();
         playersById.clear();
         playerTileCacheById.clear();
-        visibleToAnyNonBarbPlayer = new Set();
         for (const tile of worldView.tiles) {
           tilesByKey.set(`${tile.x},${tile.y}`, tile);
         }
@@ -225,17 +207,6 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
         for (const tileDelta of tileDeltas) {
           applyTileDelta(tileDelta);
         }
-        break;
-      }
-
-      case "barb_settled": {
-        barbarianPlanner.settle(message.commandId as string, message.settledAt as number);
-        break;
-      }
-
-      case "vision_union": {
-        const keys = (message.keys as string[]) ?? [];
-        visibleToAnyNonBarbPlayer = new Set(keys);
         break;
       }
     }

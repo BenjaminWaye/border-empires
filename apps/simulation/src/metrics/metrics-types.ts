@@ -140,9 +140,14 @@ export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;
-  /** Barbarian tiles (capped at MAX_BARBARIAN_TILES) and the size of the multiply-progress map; the latter must track the former. */
+  /** Planetary Defense tiles in camps, live camps (capped at MAX_PLANETARY_DEFENSE_CAMPS), awake camps, and
+   *  the camp index's dirty set; plus counters for awake-count drift (a missed coverage edge) and land collapsed. */
   simBarbarianTiles: number;
-  simBarbarianTileProgressEntries: number;
+  simBarbarianCamps: number;
+  simBarbarianAwakeCamps: number;
+  simBarbarianDirtyCamps: number;
+  simBarbarianCampAwakeDriftTotal: number;
+  simBarbarianCampTilesReleasedTotal: number;
   simManpowerCapBootstrapRestampedTotal: number;
   simTerritoryFlipLogEntries: number;
   simCombatManpowerLogEntries: number;

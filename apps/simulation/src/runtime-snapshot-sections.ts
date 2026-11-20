@@ -61,6 +61,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
   ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+  ...(typeof tile.campId === "string" ? { campId: tile.campId } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays come from the one shared key list: AFCs were once missing here,
   // so they were never saved and every restart re-placed them elsewhere.

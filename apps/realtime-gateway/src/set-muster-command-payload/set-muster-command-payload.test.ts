@@ -17,8 +17,8 @@ describe("setMusterCommandPayload", () => {
     expect(setMusterCommandPayload({ x: 1, y: 2, mode: "HOLD" })).toEqual({ x: 1, y: 2, mode: "HOLD" });
   });
 
-  it("forwards Hunt Planetary Defense on ADVANCE, and only there", () => {
-    expect(setMusterCommandPayload({ x: 1, y: 2, mode: "ADVANCE", hunt: true, targetX: 3, targetY: 4 })).toEqual({ x: 1, y: 2, mode: "ADVANCE", hunt: true, targetX: 3, targetY: 4 });
+  it("drops Hunt Planetary Defense from older clients (removed with Planetary Defense camps)", () => {
+    expect(setMusterCommandPayload({ x: 1, y: 2, mode: "ADVANCE", hunt: true, targetX: 3, targetY: 4 })).toEqual({ x: 1, y: 2, mode: "ADVANCE", targetX: 3, targetY: 4 });
     expect(setMusterCommandPayload({ x: 1, y: 2, mode: "HOLD", hunt: true })).toEqual({ x: 1, y: 2, mode: "HOLD" });
   });
 });

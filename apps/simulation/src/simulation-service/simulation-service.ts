@@ -1385,10 +1385,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              exportBarbTilesSeenByAnyPlayer: () =>
-                trackSyncMainThreadTaskWithMetrics("system_export_barb_tiles_seen", undefined, () =>
-                  runtime.exportBarbTilesSeenByAnyPlayer()
-                )
+              barbarianBridge: () => runtime.barbarianBridge()
             },
             systemPlayerIds,
             submitCommand: submitDurableCommand,

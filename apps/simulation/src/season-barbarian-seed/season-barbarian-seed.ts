@@ -1,13 +1,11 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, type TileKey } from "@border-empires/shared";
 import { key, parseKey } from "@border-empires/game-domain";
 
-// Barbarians start small and are separately capped in growth (see
-// MAX_BARBARIAN_TILES in ai/system-job-barbarian-planner.ts). An uncapped
-// barbarian on staging grew to 941 tiles, and the sim main thread re-exports
-// the barbarian's full planner view (O(territory)) on every one of those
-// tiles' ownership changes; with the barbarian constantly eaten by AI that
-// re-export churned continuously and became the dominant sim-thread cost,
-// starving gateway logins on the shared vCPU. Keep the start small.
+// Each seeded tile becomes a one-tile Planetary Defense camp at boot
+// (planetary-defense-camps/camp-migration.ts); new camps only come from towns
+// and docks they take, up to MAX_PLANETARY_DEFENSE_CAMPS. The barbarian is no
+// longer synced to a worker (it is planned on the main thread one camp at a
+// time), so the old O(territory) re-export cost no longer scales with it.
 // Start-site patrols (below) count against this budget first; the random
 // scatter only tops up to it, so a full 50-site roster seeds no random tiles.
 export const BARBARIAN_SEED_TARGET = 30;

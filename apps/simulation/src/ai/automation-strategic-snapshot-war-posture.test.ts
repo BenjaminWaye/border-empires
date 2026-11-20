@@ -36,11 +36,11 @@ const baseInput = {
 
 describe("WAR front posture", () => {
   it("latches WAR from a lone barbarian tile even with a healthy economy and no core-threatening pressure", () => {
-    // The actual production scenario this asymmetry exists for: barbarians
-    // walk and multiply (runtime-barbarian-walk.ts) starting from exactly
-    // one tile, so gating on pressureThreatensCore (which typically needs
-    // 2+ hostile tiles, or a high pressure score) would mean reacting only
-    // after the barbarian has already multiplied past the AI.
+    // The actual production scenario this asymmetry exists for: a Planetary
+    // Defense camp spreads from exactly one tile, so gating on
+    // pressureThreatensCore (which typically needs 2+ hostile tiles, or a
+    // high pressure score) would mean reacting only after the camp has
+    // already spread past the AI.
     const snapshot = buildAutomationStrategicSnapshot({
       ...baseInput,
       needsFood: false,

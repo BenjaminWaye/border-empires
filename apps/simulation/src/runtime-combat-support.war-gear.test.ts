@@ -24,7 +24,6 @@ const makeContext = (factoriesByOwner: Record<string, string[]>): RuntimeCombatS
   musterReservedByKey: new Map(),
   locksByTile: new CombatLockIndex(),
   locksByCommandId: new Map(),
-  barbarianTileProgress: new Map(),
   summaryForPlayer: () => ({ settledTileCount: 1, territoryTileKeys: new Set() }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
   replaceTileState: () => {},
   tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),

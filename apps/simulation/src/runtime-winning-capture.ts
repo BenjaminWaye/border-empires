@@ -8,6 +8,7 @@ import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automatio
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
 import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
 import { applyMusterFlagCapture } from "./muster-capture/muster-capture.js";
+import { isPlanetaryDefenseOwner, planetaryDefenseCaptureFields } from "./planetary-defense-camps/camp-rules.js";
 import type { SimulationTileWireDelta, LockRecord } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 /** One capture pipeline for regular wins and non-recursive Breakthrough capitulation. */
@@ -16,8 +17,18 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
   const attacker = context.players.get(lock.playerId);
     const townAftermath = capturedTownAftermath(previousTarget?.town, previousOwnerId, lock.playerId, context.now());
     const settlementRelocationPopulation = townAftermath.settlementRelocationPopulation;
-    // Barbarians resolve to SETTLED (below) and are never reach-gated.
-    const targetBeyondReach = lock.playerId !== "barbarian-1" && context.isTileBeyondReach(lock.playerId, lock.targetX, lock.targetY);
+    // Planetary Defense has no reach: its captures are never reach-gated.
+    const capturedByPlanetaryDefense = isPlanetaryDefenseOwner(lock.playerId);
+    const targetBeyondReach = !capturedByPlanetaryDefense && context.isTileBeyondReach(lock.playerId, lock.targetX, lock.targetY);
+    // A Planetary Defense win joins the camp it came from; a town or dock founds a new camp (camp-rules.ts).
+    const campFields = capturedByPlanetaryDefense
+      ? planetaryDefenseCaptureFields({
+          targetKey: lock.targetKey,
+          previousTarget,
+          sourceCampId: lock.campId ?? context.tiles.get(lock.originKey)?.campId,
+          campCount: context.planetaryDefenseCampCount()
+        })
+      : undefined;
     // Towns/docks (reach anchors) and forts/observatories/economic structures
     // (buildings) try to auto-settle instead of landing plain FRONTIER -- see
     // capturedTileWillAutoSettle's doc comment for why each qualifies.
@@ -49,7 +60,7 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       // autoSettleCapturedAnchor kicks off the same async settlement process
       // a manual SETTLE would (cost charged now, ownershipState flips once
       // startSettlementProcess's timer resolves).
-      ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
+      ...(campFields ?? { ownershipState: "FRONTIER" as const }),
       // Capture hold (shared capture-hold.ts): a tile won from another player
       // defends for a while instead of being a free 100% retake.
       ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
@@ -223,7 +234,5 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         tileDeltas: [{ x: resolvedTarget.x, y: resolvedTarget.y, ownerId: resolvedTarget.ownerId, ownershipState: resolvedTarget.ownershipState, musterJson: "" }]
       });
     }
-    if (lock.playerId === "barbarian-1") context.applyBarbarianWalkOrMultiply(lock, previousTarget);
-    else if (previousTarget?.ownerId === "barbarian-1") context.barbarianTileProgress.delete(lock.targetKey);
     return settlementRelocationPopulation;
 }

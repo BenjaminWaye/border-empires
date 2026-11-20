@@ -34,6 +34,7 @@ type RecoveredTileState = {
   warScarUntil?: DomainTileState["warScarUntil"];
   razedWreckUntil?: DomainTileState["razedWreckUntil"];
   razedWreck?: DomainTileState["razedWreck"];
+  campId?: DomainTileState["campId"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -121,6 +122,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
   ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+  ...(typeof tile.campId === "string" ? { campId: tile.campId } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -170,6 +172,14 @@ const recoverRazedWreck = (tileDelta: TileDelta, existing: RecoveredTileState | 
   const kind = "razedWreck" in tileDelta ? tileDelta.razedWreck : existing?.razedWreck;
   const until = "razedWreckUntil" in tileDelta ? tileDelta.razedWreckUntil : existing?.razedWreckUntil;
   return typeof kind === "string" && kind && typeof until === "number" ? { razedWreck: kind, razedWreckUntil: until } : {};
+};
+
+// Planetary Defense camp id: a present key wins ("" / undefined = cleared), else keep the existing one.
+// Only a barbarian-owned tile keeps one, since a persisted clear can drop out of JSON as undefined.
+const recoverCampId = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "campId"> => {
+  const ownerId = "ownerId" in tileDelta ? tileDelta.ownerId : existing?.ownerId;
+  const campId = "campId" in tileDelta ? tileDelta.campId : existing?.campId;
+  return typeof campId === "string" && campId && ownerId?.startsWith("barbarian-") ? { campId } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -232,6 +242,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         : {}),
     ...recoverWarScars(tileDelta, existing),
     ...recoverRazedWreck(tileDelta, existing),
+    ...recoverCampId(tileDelta, existing),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)
   });

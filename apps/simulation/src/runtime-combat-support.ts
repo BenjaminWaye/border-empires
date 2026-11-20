@@ -45,6 +45,7 @@ import {
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
 import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
+import { foundsCamp, isPlanetaryDefenseOwner } from "./planetary-defense-camps/camp-rules.js";
 
 export type RuntimeCombatSupportContext = {
   ownedTownKeys?: (playerId: string) => Iterable<string>;
@@ -65,7 +66,6 @@ export type RuntimeCombatSupportContext = {
   musterReservedByKey: ReadonlyMap<string, number>;
   locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
-  barbarianTileProgress: Map<string, number>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -374,9 +374,9 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     origin: { x: lock.originX, y: lock.originY },
     target: { x: lock.targetX, y: lock.targetY },
     changes: combat.attackerWon
-      ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
+      ? [{ x: lock.targetX, y: lock.targetY, ownerId: lock.playerId, ownershipState: isPlanetaryDefenseOwner(lock.playerId) && foundsCamp(previousTarget) ? "SETTLED" : "FRONTIER" }]
       : defenderOwnerId && !originHeldByFort
-        ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: defenderOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER" }]
+        ? [{ x: lock.originX, y: lock.originY, ownerId: defenderOwnerId, ownershipState: isPlanetaryDefenseOwner(defenderOwnerId) && foundsCamp(ctx.tiles.get(lock.originKey)) ? "SETTLED" : "FRONTIER" }]
         : [],
     pointsDelta: 0,
     manpowerDelta,
@@ -403,8 +403,6 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     ...(defenderGear ? { defenderGear } : {})
   };
 };
-
-export { applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 

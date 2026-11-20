@@ -28,7 +28,7 @@ const row = (overrides: Partial<DebugRow>): DebugRow =>
 const runtimeWith = (rows: DebugRow[]): SimulationRuntime =>
   ({
     exportPlayerDebugSnapshot: () => rows,
-    exportBarbTilesSeenByAnyPlayer: () => [],
+    exportAwakeCampIds: () => [],
     reachTileCountForPlayer: () => 3
   }) as unknown as SimulationRuntime;
 

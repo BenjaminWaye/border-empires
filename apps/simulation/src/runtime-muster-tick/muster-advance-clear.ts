@@ -57,8 +57,7 @@ const winsTie = (a: DomainTileState, b: DomainTileState): boolean => {
 export const nearestHostileWithinSteps = (
   input: MusterTickInput,
   flag: DomainTileState,
-  playerId: string,
-  huntOnly = false
+  playerId: string
 ): DomainTileState | undefined => {
   const actor = input.players.get(playerId);
   if (!actor) return undefined;
@@ -86,8 +85,6 @@ export const nearestHostileWithinSteps = (
       return;
     }
     if (!isAttackableState(tile.ownershipState) || isAlliedOrTruced(actor, tile.ownerId)) return;
-    // A hunting flag (MusterState.hunt) only goes after Planetary Defense.
-    if (huntOnly && tile.ownerId !== BARBARIAN_PLAYER_ID) return;
     // Only advance on what the player can see: a flag holds a front, it
     // doesn't scout, so a hostile out in the fog never pulls it off to expand.
     if (!input.isTileVisibleToPlayer(playerId, x, y)) return;
@@ -122,31 +119,6 @@ export const nearestHostileWithinSteps = (
 };
 
 /**
- * The soonest-resolving Planetary Defense attack on the player's own land
- * within the flag's range. A patrol that is mid-capture has already left the
- * tile it launched from (launchBarbarianAttack), so for those seconds it stands
- * on no tile at all: a hunting flag must wait for it to land rather than call
- * the area clear. Only hunting flags scan for this, and only when they have
- * nothing else to do, so the walk over the live locks stays off the hot path.
- */
-export const barbarianAttackInRangeResolvesAt = (input: MusterTickInput, flag: DomainTileState, playerId: string): number | undefined => {
-  let soonest: number | undefined;
-  for (const lock of input.locksByTile.values()) {
-    if (lock.playerId !== BARBARIAN_PLAYER_ID || lock.actionType !== "ATTACK") continue;
-    if (input.tiles.get(lock.targetKey)?.ownerId !== playerId) continue;
-    if (toroidalChebyshev(flag.x, flag.y, lock.targetX, lock.targetY) > ADVANCE_MAX_RANGE_TILES) continue;
-    if (soonest === undefined || lock.resolvesAt < soonest) soonest = lock.resolvesAt;
-  }
-  return soonest;
-};
-
-const toroidalChebyshev = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = Math.abs(ax - bx);
-  const dy = Math.abs(ay - by);
-  return Math.max(Math.min(dx, WORLD_WIDTH - dx), Math.min(dy, WORLD_HEIGHT - dy));
-};
-
-/**
  * Records that this human ADVANCE flag has engaged with something (see
  * MusterState.clearing) -- call it once a command was actually accepted, so a
  * rejected attack or expansion doesn't count. A no-op for AI flags, whose
@@ -176,7 +148,7 @@ export const markAdvanceClearing = (input: MusterTickInput, originKey: string, p
 export const completeAdvanceClearing = (input: MusterTickInput, originKey: string, playerId: string): void => {
   const tile = input.tiles.get(originKey);
   if (!tile?.muster) return;
-  // A hunt's clicked tile (targetX/Y) means nothing once the flag holds.
+  // A flag still carrying a pre-camp hunt order (MusterState.hunt) drops it and its clicked tile.
   const { targetX: _targetX, targetY: _targetY, ...musterWithoutTarget } = tile.muster;
   const holdTile: DomainTileState = {
     ...tile,
@@ -202,9 +174,7 @@ export const completeAdvanceClearing = (input: MusterTickInput, originKey: strin
   if (!player) return;
   appendPlayerEventLogEntry(player, {
     type: "AREA_CLEARED",
-    text: tile.muster.hunt
-      ? `Planetary Defense cleared near (${tile.x}, ${tile.y}). The flag is holding again.`
-      : `Area cleared near (${tile.x}, ${tile.y}). The flag is holding again.`,
+    text: `Area cleared near (${tile.x}, ${tile.y}). The flag is holding again.`,
     occurredAt: input.nowMs,
     x: tile.x,
     y: tile.y

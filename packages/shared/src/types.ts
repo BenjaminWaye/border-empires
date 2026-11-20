@@ -257,6 +257,8 @@ export interface Tile {
   warScarUntil?: number;
   razedWreckUntil?: number;
   razedWreck?: string;
+  // Planetary Defense camp (its camp tile key) a barbarian tile belongs to.
+  campId?: string;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;

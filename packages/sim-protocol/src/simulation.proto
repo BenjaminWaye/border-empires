@@ -264,6 +264,10 @@ message TileDelta {
   // (shared razed-wreck.ts): its kind ("" = none) and when it clears.
   optional string razed_wreck = 37;
   optional uint64 razed_wreck_until = 38;
+  // Planetary Defense camp a barbarian tile belongs to (its camp tile key,
+  // docs/planetary-defense-camps-plan.md); "" = none. optional for the same
+  // reason as capture_hold_until.
+  optional string camp_id = 39;
 }
 
 message DockRouteWaypoint {

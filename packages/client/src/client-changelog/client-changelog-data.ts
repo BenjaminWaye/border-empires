@@ -3,6 +3,7 @@ import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-wo
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
+import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
 import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
