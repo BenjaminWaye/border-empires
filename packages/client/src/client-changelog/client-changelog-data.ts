@@ -6,6 +6,7 @@ import { EXPAND_CREW_ENTRY } from "./client-changelog-expand-crew.js";
 import { FAIR_DIPLOMACY_ENTRY } from "./client-changelog-fair-diplomacy.js";
 import { ENVOY_PER_TRUCE_ENTRY } from "./client-changelog-envoy-per-truce.js";
 import { LOGIN_LORE_WORLD_ENGINE_ENTRY } from "./client-changelog-login-lore-world-engine.js";
+import { PLACE_ANOTHER_PLOTS_ENTRY } from "./client-changelog-place-another-plots.js";
 import { UNGARRISONED_TOWN_ENTRY } from "./client-changelog-ungarrisoned-town.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -488,6 +489,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...FOOD_SHORTAGE_GUIDANCE_ENTRY, createdAt: 1795105716456, },
   { ...EXPAND_CREW_ENTRY, createdAt: 1795105822191, },
   { ...FAIR_DIPLOMACY_ENTRY, createdAt: 1795121188927, },
+  { ...PLACE_ANOTHER_PLOTS_ENTRY, createdAt: 1795153409713 },
   { ...UNGARRISONED_TOWN_ENTRY, createdAt: 1795120690978, },
   { ...ENVOY_PER_TRUCE_ENTRY, createdAt: 1795123031402, },
   { ...LOGIN_LORE_WORLD_ENGINE_ENTRY, createdAt: 1795160318022, },
