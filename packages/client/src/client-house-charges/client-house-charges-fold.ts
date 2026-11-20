@@ -58,6 +58,11 @@ export const foldHouseChargeCards = (panelEl: HTMLElement, pressedId: string): v
     if (rect.width === 0) return done();
     const copy = card.cloneNode(true) as HTMLElement;
     copy.classList.add("is-folding");
+    // The copies are pictures: no live Keep / Show on map hooks for anything querying the document meanwhile.
+    copy.querySelectorAll("[data-house-charge-jump], [data-house-charge-pick]").forEach((button) => {
+      button.removeAttribute("data-house-charge-jump");
+      button.removeAttribute("data-house-charge-pick");
+    });
     Object.assign(copy.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     layer.appendChild(copy);
     const from = centre(rect);

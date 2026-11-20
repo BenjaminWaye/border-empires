@@ -14,7 +14,13 @@
   transform: rotateY(180deg) translateZ(1px);
 }
 .hcd-back .hc-card { max-width: none; width: 100%; height: 100%; aspect-ratio: auto; box-sizing: border-box; }
-/* isolation (set on every .hc-card) would flatten the turn, so it is lifted while the card turns over. */
+/* The full-width card's own frame rules (.hcd-card .hc-frame) would reach the back too; keep the shared back's own. */
+.hcd-card .hcd-back .hc-frame { gap: 4px; padding: 5px; }
+/* isolation (set on every .hc-card) would flatten the turn, so it is lifted while the card turns over. Clipping
+   keeps the cards rising from below from growing the scrolling panel for a moment. */
+.hcd-deck { perspective: 1400px; }
+.hcd-deck.is-dealing,
+.hcd-deck.is-drawing { overflow: clip; overflow-clip-margin: 24px; }
 .hcd-deck.is-dealing .hcd-card,
 .hcd-deck.is-drawing .hcd-card { transform-style: preserve-3d; isolation: auto; }
 .hcd-deck.is-dealing .hcd-card > .hc-frame,
@@ -43,12 +49,15 @@
 .hcd-fold-layer .hcd-card { position: fixed; margin: 0; max-width: none; animation: none; transform-origin: 50% 50%; }
 
 /* Desktop ("show the cards hovering freely"): no panel frame. The map dims and the cards float side by side in
-   the middle of the screen, bobbing gently and lifting under the pointer. #hud raises specificity over the side
-   panel's own placement rules (#hud.desktop-side-panel-open #side-panel). */
+   the middle of the screen, bobbing gently and lifting under the pointer. Keyed off the HUD's own compact flag as
+   well as the width, so a phone held sideways (compact, but wider than 900 px) keeps the phone panel. #hud raises
+   specificity over the side panel's own placement rules (#hud.desktop-side-panel-open #side-panel); z-index 45
+   puts the hand (and its dim) over the tracker column (z 38). */
 @media (min-width: 901px) {
-  #hud #side-panel.charges-panel-active {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active {
     left: 50%;
     right: auto;
+    z-index: 45;
     width: min(1040px, calc(100vw - 40px));
     transform: translateX(-50%);
     border: 0;
@@ -58,25 +67,29 @@
     backdrop-filter: none;
     box-shadow: 0 0 0 100vmax rgba(4, 3, 2, 0.62);
   }
-  #hud #side-panel.charges-panel-active #side-panel-head { border-bottom: 0; background: transparent; text-shadow: 0 2px 6px #000; }
-  #hud #side-panel.charges-panel-active .house-charges-card { border: 0; background: transparent; box-shadow: none; }
-  #hud #side-panel.charges-panel-active .house-charges-intro,
-  #hud #side-panel.charges-panel-active .house-charges-more { max-width: 640px; text-shadow: 0 1px 4px #000; }
-  #hud #side-panel.charges-panel-active .hcd-deck { gap: 28px; padding: 18px 8px 24px; perspective: 1400px; }
-  /* Three columns: the outer cards are drawn from the deck under the middle one. */
-  #hud #side-panel.charges-panel-active .hcd-card:nth-child(3n + 1) { --hcd-deck-x: calc(100% + 28px); }
-  #hud #side-panel.charges-panel-active .hcd-card:nth-child(3n) { --hcd-deck-x: calc(-100% - 28px); }
-  #hud #side-panel.charges-panel-active .hcd-card { box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.85); }
-  #hud #side-panel.charges-panel-active .hcd-card.is-kept { box-shadow: 0 0 0 2px var(--sp-brass-300, #d9ad52), 0 24px 44px -14px rgba(217, 173, 82, 0.55); }
-  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: hcd-float 5s ease-in-out infinite; }
-  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n + 2) { animation-delay: 0.6s; }
-  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n) { animation-delay: 1.2s; }
-  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:hover {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active #side-panel-head { border-bottom: 0; background: transparent; text-shadow: 0 2px 6px #000; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-card { border: 0; background: transparent; box-shadow: none; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-intro,
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-more { max-width: 640px; text-shadow: 0 1px 4px #000; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 28px;
+    padding: 18px 8px 24px;
+  }
+  /* A hand of three: the outer cards are drawn from the deck under the middle one. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(1):nth-last-child(3) { --hcd-deck-x: calc(100% + 28px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(3):nth-last-child(1) { --hcd-deck-x: calc(-100% - 28px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card { box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.85); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.is-kept { box-shadow: 0 0 0 2px var(--sp-brass-300, #d9ad52), 0 24px 44px -14px rgba(217, 173, 82, 0.55); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: hcd-float 5s ease-in-out infinite; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n + 2) { animation-delay: 0.6s; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n) { animation-delay: 1.2s; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:is(:hover, :focus-within) {
     animation: none;
     transform: translateY(-12px) scale(1.02);
     transition: transform 0.2s ease-out;
   }
-  #hud:has(#side-panel.charges-panel-active) #mini-map-wrap { visibility: hidden; }
+  body:not(.hud-v2-compact) #hud:has(#side-panel.charges-panel-active) #mini-map-wrap { visibility: hidden; }
 }
 @keyframes hcd-float {
   0%, 100% { transform: translateY(0); }
@@ -86,6 +99,7 @@
 @media (prefers-reduced-motion: reduce) {
   .hcd-deck.is-dealing .hcd-card,
   .hcd-deck.is-drawing .hcd-card { animation: none; }
-  .hcd-deck .hcd-back { visibility: hidden; }
-  #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: none; }
+  .hcd-deck.is-dealing .hcd-back,
+  .hcd-deck.is-drawing .hcd-back { visibility: hidden; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: none; }
 }

@@ -157,6 +157,23 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   </section>`;
 };
 
+/** Until when each panel's cards are being drawn from the deck (each opening; a first deal has its own, slower draw). */
+const drawingUntil = new WeakMap<HTMLElement, number>();
+
+/**
+ * Draws the cards from the deck when the panel opens. Kept on the deck for the whole draw, so a rewrite of the panel
+ * in the meantime (a pushed update, a Keep tap) carries the draw on rather than snapping the cards to rest.
+ */
+const syncHouseChargesDraw = (panelEl: HTMLElement, opening: boolean, nowMs: number): void => {
+  const deck = panelEl.querySelector<HTMLElement>(".hcd-deck");
+  if (!deck || deck.classList.contains("is-dealing")) return;
+  if (opening && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    drawingUntil.set(panelEl, nowMs + HOUSE_CHARGES_DRAW_MS);
+    window.setTimeout(() => panelEl.querySelector(".hcd-deck")?.classList.remove("is-drawing"), HOUSE_CHARGES_DRAW_MS);
+  }
+  deck.classList.toggle("is-drawing", nowMs < (drawingUntil.get(panelEl) ?? 0));
+};
+
 /** The HTML last written into each panel element. */
 const writtenHtml = new WeakMap<HTMLElement, string>();
 
@@ -177,12 +194,7 @@ export const renderHouseChargesPanel = (
     deps.panelEl.innerHTML = html;
     writtenHtml.set(deps.panelEl, html);
   }
-  // Each time the panel opens, the cards are drawn from the deck and turn over (a first deal has its own, slower draw).
-  const deck = deps.panelEl.querySelector<HTMLElement>(".hcd-deck");
-  if (opening && deck && !deck.classList.contains("is-dealing")) {
-    deck.classList.add("is-drawing");
-    window.setTimeout(() => deck.classList.remove("is-drawing"), HOUSE_CHARGES_DRAW_MS);
-  }
+  syncHouseChargesDraw(deps.panelEl, opening, deps.now());
   const more = deps.panelEl.querySelector<HTMLDetailsElement>("[data-house-charges-more]");
   if (more) {
     if (more.open !== rewardsOpen) more.open = rewardsOpen;
