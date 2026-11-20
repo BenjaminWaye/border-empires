@@ -28,7 +28,7 @@ type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playe
 type ScoutReport = ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const END_REASONS: readonly ScoutDroneEndReason[] = ["TARGET", "RANGE", "BLOCKED", "RECALLED"];
+const END_REASONS: readonly ScoutDroneEndReason[] = ["TARGET", "BLOCKED", "RECALLED"];
 
 /** Parses a wire flight, converting its server-clock times with `toLocal`. Undefined when malformed. */
 export const parseScoutDroneFlight = (value: unknown, toLocal: (serverTime: number) => number): ScoutDroneFlight | undefined => {
