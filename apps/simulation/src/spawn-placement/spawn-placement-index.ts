@@ -2,8 +2,14 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { starterSiteQuality } from "@border-empires/game-domain";
 import { computeCoastalLandKeys, computeFairSpawnSites, computeLandRegions, type FairSpawnSite } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+
+// Worldgen saves exactly 50 sites (FAIR_SPAWN_SITE_WORLDGEN_MINIMUM); a hard bound on what a snapshot can restore.
+const MAX_SAVED_FAIR_SPAWN_SITES = 50;
 
 export type SpawnPlacementCoord = { x: number; y: number };
+/** Which roster a claimed site came from; set only for seasons with a saved worldgen roster. */
+export type ClaimedFairSpawnSite = SpawnPlacementCoord & { rosterSource?: "saved" | "live" };
 
 /**
  * The spawn-search slice of RuntimeRespawnContext, bound to the live world by
@@ -24,7 +30,7 @@ export type SpawnSearchLookups = {
   // computeFairSpawnSites/SpawnPlacementIndex.claimFairSpawnSite). Tried
   // before falling back to chooseLegacySpawnPlacement's per-player random
   // search, which stays as the fallback once the roster is exhausted.
-  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: SpawnPlacementCoord) => SpawnPlacementCoord | undefined;
+  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: SpawnPlacementCoord) => ClaimedFairSpawnSite | undefined;
   // Reach-border owner of (x, y) — keeps a spawn's AFC disk out of a rival's
   // reach (see SpawnRequirements.avoidRivalReach).
   reachOwnerAt: (x: number, y: number) => string | undefined;
@@ -188,6 +194,11 @@ export class SpawnPlacementIndex {
   private foodGridCache: CoordGrid | undefined;
   private landRegionByTileKeyCache: ReadonlyMap<string, number> | undefined;
   private fairSpawnSitesCache: readonly FairSpawnSite[] | undefined;
+  // True once the cache holds the season's saved worldgen roster rather than a
+  // lazy recompute; only a saved roster is written back into snapshots.
+  private fairSpawnSitesPersisted = false;
+  // Live recompute, used only once every saved roster site is taken.
+  private liveFairSpawnSitesCache: readonly FairSpawnSite[] | undefined;
 
   /** Binds this index's lookups to `tiles` (and the caller's reach border) for one spawn/respawn context. */
   spawnSearchLookups(tiles: ReadonlyMap<string, DomainTileState>, reachOwnerAt: (x: number, y: number) => string | undefined): SpawnSearchLookups {
@@ -248,15 +259,42 @@ export class SpawnPlacementIndex {
     return this.landRegionByTileKeyCache.get(simulationTileKey(x, y));
   }
 
-  // Worldgen-time roster of pre-picked, equal-opportunity spawn sites — see
-  // computeFairSpawnSites. Computed once, lazily, on first real use (same
-  // caution as coastalLandKeysCache: never cache while the world hasn't
-  // hydrated yet), and reused for every player placement afterwards instead
-  // of each player running their own random search from scratch.
+  // Adopts the season's saved worldgen roster (RecoveredSimulationState.fairSpawnSites).
+  // Worldgen posts a Planetary Defense patrol around each of these sites, so
+  // live spawns must claim from this exact list: a recompute over live tiles
+  // shifts as soon as anything (AI land, those patrols) is owned. Seasons
+  // saved without a roster keep the lazy recompute below.
+  restoreFairSpawnSites(sites: readonly FairSpawnSite[] | undefined): void {
+    // Drop anything that can't be a tile (a corrupt or hand-edited snapshot)
+    // rather than carrying it forward in every checkpoint.
+    const valid = (sites ?? [])
+      .filter((site) => Number.isInteger(site.x) && Number.isInteger(site.y) && site.x >= 0 && site.y >= 0 && site.x < WORLD_WIDTH && site.y < WORLD_HEIGHT)
+      .slice(0, MAX_SAVED_FAIR_SPAWN_SITES);
+    if (valid.length === 0) return;
+    this.fairSpawnSitesCache = valid.map((site) => ({ x: site.x, y: site.y }));
+    this.fairSpawnSitesPersisted = true;
+  }
+
+  persistedFairSpawnSites(): readonly FairSpawnSite[] | undefined {
+    return this.fairSpawnSitesPersisted ? this.fairSpawnSitesCache : undefined;
+  }
+
+  // Roster of pre-picked, equal-opportunity spawn sites: the saved worldgen
+  // roster when there is one, otherwise computeFairSpawnSites over live tiles,
+  // computed once, lazily, on first real use (same caution as
+  // coastalLandKeysCache: never cache while the world hasn't hydrated yet),
+  // and reused for every player placement afterwards instead of each player
+  // running their own random search from scratch.
   fairSpawnSites(tiles: ReadonlyMap<string, DomainTileState>): readonly FairSpawnSite[] {
     if (tiles.size === 0) return this.fairSpawnSitesCache ?? [];
     if (!this.fairSpawnSitesCache) this.fairSpawnSitesCache = computeFairSpawnSites([...tiles.values()], 50, { requireStarterEconomy: true });
     return this.fairSpawnSitesCache;
+  }
+
+  private liveFairSpawnSites(tiles: ReadonlyMap<string, DomainTileState>): readonly FairSpawnSite[] {
+    if (tiles.size === 0) return this.liveFairSpawnSitesCache ?? [];
+    if (!this.liveFairSpawnSitesCache) this.liveFairSpawnSitesCache = computeFairSpawnSites([...tiles.values()], 50, { requireStarterEconomy: true });
+    return this.liveFairSpawnSitesCache;
   }
 
   // Picks the best still-available precomputed site: nearest to rallyAnchor
@@ -272,8 +310,24 @@ export class SpawnPlacementIndex {
     tiles: ReadonlyMap<string, DomainTileState>,
     isAvailable: (x: number, y: number) => boolean,
     rallyAnchor?: SpawnPlacementCoord
+  ): ClaimedFairSpawnSite | undefined {
+    const fromRoster = this.pickFairSpawnSite(tiles, this.fairSpawnSites(tiles), isAvailable, rallyAnchor);
+    // A saved worldgen roster only has the sites season-start AI left open;
+    // once those are all taken, fall back to sites recomputed from live
+    // tiles (what every join used before the roster was saved) rather than
+    // straight to the unqualified legacy search.
+    if (!this.fairSpawnSitesPersisted) return fromRoster;
+    if (fromRoster) return { ...fromRoster, rosterSource: "saved" };
+    const fromLive = this.pickFairSpawnSite(tiles, this.liveFairSpawnSites(tiles), isAvailable, rallyAnchor);
+    return fromLive ? { ...fromLive, rosterSource: "live" } : undefined;
+  }
+
+  private pickFairSpawnSite(
+    tiles: ReadonlyMap<string, DomainTileState>,
+    sites: readonly FairSpawnSite[],
+    isAvailable: (x: number, y: number) => boolean,
+    rallyAnchor?: SpawnPlacementCoord
   ): FairSpawnSite | undefined {
-    const sites = this.fairSpawnSites(tiles);
     const available = sites.filter((site) => isAvailable(site.x, site.y) && starterSiteQuality(tiles, site.x, site.y));
     if (available.length === 0) return undefined;
     if (rallyAnchor) {

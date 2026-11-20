@@ -79,12 +79,30 @@ describe("season worldgen", () => {
     );
 
     const barbarianTiles = generated.initialState.tiles.filter((tile) => tile.ownerId === "barbarian-1");
-    // Seed target is 30 (kept small vs. the old 80) so barbarians start
-    // small; growth is separately capped in the planner (MAX_BARBARIAN_TILES).
-    // Placement can fall a little short of target when land is scarce, so
-    // assert a band.
-    expect(barbarianTiles.length).toBeGreaterThanOrEqual(15);
-    expect(barbarianTiles.length).toBeLessThanOrEqual(30);
+    // One patrol is posted ~20 tiles out from each of the 50 predetermined
+    // start sites; those spend the 30-tile seed budget first, so a full
+    // roster seeds no random tiles. Growth is separately capped in the
+    // planner (MAX_BARBARIAN_TILES).
+    const roster = generated.initialState.fairSpawnSites ?? [];
+    expect(roster).toHaveLength(50);
+    const ringDistance = (site: { x: number; y: number }, tile: { x: number; y: number }): number => {
+      const dx = Math.abs(site.x - tile.x);
+      const dy = Math.abs(site.y - tile.y);
+      return Math.max(Math.min(dx, WORLD_WIDTH - dx), Math.min(dy, WORLD_HEIGHT - dy));
+    };
+    const sitesWithPatrol = roster.filter((site) => barbarianTiles.some((tile) => {
+      const distance = ringDistance(site, tile);
+      return distance >= 17 && distance <= 23;
+    }));
+    // On this islands map 39/50 get one: the rest sit on small islands with
+    // no land 17-23 tiles out, or that land is within 12 of another site.
+    // (Continents seed 12345: 49/50.)
+    expect(sitesWithPatrol.length).toBeGreaterThanOrEqual(35);
+    expect(barbarianTiles.length).toBeGreaterThanOrEqual(30);
+    expect(barbarianTiles.length).toBeLessThanOrEqual(50);
+    for (const site of roster) {
+      expect(barbarianTiles.every((tile) => ringDistance(site, tile) >= 12)).toBe(true);
+    }
     expect(barbarianTiles.every((tile) => tile.ownershipState === "SETTLED")).toBe(true);
     expect(barbarianTiles.every((tile) => tile.terrain === "LAND")).toBe(true);
     expect(barbarianTiles.every((tile) => !tile.town && !tile.dockId)).toBe(true);

@@ -3,7 +3,7 @@ import { applyRecoveredResourceTrade } from "./event-recovery-resource-trades.js
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState } from "@border-empires/game-domain";
+import { type DomainTileState, type FairSpawnSite } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
@@ -76,6 +76,8 @@ export type RecoveredSimulationState = {
   reachBorder?: ReachBorderSnapshot;
   /** Per-player explored-tile memory (explored-tiles-store.ts); carried through recovery unchanged. Absent on older snapshots. */
   exploredTiles?: ExploredTilesSnapshotEntry[];
+  /** The season's worldgen roster of starting sites (spawn-placement-index.ts); carried unchanged. Absent on seasons generated before it was saved. */
+  fairSpawnSites?: FairSpawnSite[];
 };
 
 type RecoveredSimulationAccumulator = {
@@ -97,6 +99,7 @@ type RecoveredSimulationAccumulator = {
    */
   reachBorder?: Map<string, string>;
   exploredTiles?: ExploredTilesSnapshotEntry[];
+  fairSpawnSites?: FairSpawnSite[];
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -149,7 +152,8 @@ export const createRecoveredSimulationAccumulator = (
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
     ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {}),
-    ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {})
+    ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {}),
+    ...(baseState.fairSpawnSites ? { fairSpawnSites: baseState.fairSpawnSites } : {})
   };
 };
 
@@ -446,7 +450,8 @@ export const finalizeRecoveredSimulationAccumulator = (
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
   ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {}),
-  ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {})
+  ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {}),
+  ...(accumulator.fairSpawnSites ? { fairSpawnSites: accumulator.fairSpawnSites } : {})
 });
 
 export const recoverSimulationStateFromEvents = (
