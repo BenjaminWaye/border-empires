@@ -58,7 +58,7 @@ it only acts where someone can see it.
    takes at most one action (EXPAND or ATTACK) per 15 s
    (`BARBARIAN_TILE_REST_MS`), measured from when the action settles, as today.
    The action may launch from any tile in that camp's group.
-8. **Camps don't move through each other** (owner decision 2026-11-20). Every
+7. **Camps don't move through each other** (owner decision 2026-11-20). Every
    Planetary Defense frontier tile belongs to exactly one camp: the nearest
    camp (land-gated steps) whose reach covers it, ties to the lower tile key.
    This is derived from positions each time, not saved. A camp acts only from
@@ -67,7 +67,7 @@ it only acts where someone can see it.
    camp falls, its frontier collapses, except tiles that lie inside a surviving
    camp's reach and connect to that camp, which simply become that camp's.
    Two camps can't attack each other (same owner).
-7. **Wake when seen** stays: a camp's group acts only while a non-barbarian
+8. **Wake when seen** stays: a camp's group acts only while a non-barbarian
    player can see at least one of its tiles. This keeps the server cheap and
    means no camp grows while everyone nearby is offline (core pillar 3). The
    global cap of `BARBARIAN_ATTACKS_PER_MINUTE` (12) stays for server cost.
