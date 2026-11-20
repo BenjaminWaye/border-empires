@@ -40,12 +40,11 @@ import {
 import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-balance.js";
 import { haveText } from "./client-diplomacy-trade-have-text.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
+import { renderTradeHeader } from "./client-diplomacy-trade-header.js";
+import { bindTownReturn, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, withTownToggled } from "./client-diplomacy-town-return.js";
 import {
   activeTruceLockoutReason,
-  attitudeSummary,
-  temperamentLine,
   tradeVerdict,
-  warTallyHtml,
   type DiplomacyStanceReply,
   type TradeSelection,
   type TradeVerdict
@@ -148,33 +147,7 @@ const render = (screen: OpenScreen): void => {
   screen.shownHoldings = own;
   screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
-  const stanceEl = overlay.querySelector<HTMLElement>("[data-trade-stance]");
-  if (stanceEl) {
-    stanceEl.textContent =
-      reply?.found && reply.ai && reply.stance
-        ? [attitudeSummary(reply), reply.stance.reason].filter(Boolean).join(". ")
-        : reply?.found && !reply.ai ? "Another player." : "";
-  }
-  const temperamentEl = overlay.querySelector<HTMLElement>("[data-trade-temperament]");
-  if (temperamentEl) {
-    temperamentEl.textContent = temperamentLine(reply);
-    temperamentEl.hidden = !temperamentEl.textContent;
-  }
-  // Civ-style breakdown of the attitude: what pleases or angers this empire.
-  const modifiersEl = overlay.querySelector<HTMLElement>("[data-trade-modifiers]");
-  if (modifiersEl) {
-    const modifiers = reply?.found && reply.ai ? (reply.attitude?.modifiers ?? []) : [];
-    modifiersEl.hidden = modifiers.length === 0;
-    modifiersEl.innerHTML = modifiers
-      .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
-      .join("");
-  }
-  // The war's tiles: as the Chronicle counts them when it has this empire, and as the AI weighs them.
-  const warEl = overlay.querySelector<HTMLElement>("[data-trade-war]");
-  if (warEl) {
-    warEl.innerHTML = warTallyHtml(reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
-    warEl.hidden = !warEl.innerHTML;
-  }
+  renderTradeHeader(overlay, reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === screen.treaty && (kind !== "truce" || Number(hours) === selection.durationHours)));
@@ -188,8 +161,10 @@ const render = (screen: OpenScreen): void => {
     hideEmptySupply: { give: true, ask: Boolean(theirs?.resources) },
     hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: true } : {}
   });
+  const towns = replyReturnableTowns(reply);
+  renderTownReturn(overlay, { towns, terms: selection.terms, kind: selection.kind });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
-  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined });
+  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup(towns) });
   const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
@@ -240,8 +215,8 @@ const sendGift = (screen: OpenScreen): void => {
       type: "DIPLOMACY_GIFT",
       targetPlayerName: screen.targetName,
       ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
-      // Coin only: resource supply is a standing deal, not a gift.
-      gift: { gold: screen.selection.terms.give.gold }
+      // Coin and towns handed back only: resource supply is a standing deal, not a gift.
+      gift: { gold: screen.selection.terms.give.gold, ...(screen.selection.terms.give.towns?.length ? { towns: screen.selection.terms.give.towns } : {}) }
     },
     "Finish sign-in before offering gifts."
   );
@@ -336,6 +311,7 @@ export const openDiplomacyTradeScreen = (
         </div>
         <h4 class="diplomacy-trade-subhead">Goods</h4>
         ${tradeGoodsHtml("give", withSupply)}
+        ${townReturnHtml()}
       </section>
       <section class="diplomacy-trade-deal" aria-label="In this deal">
         <h3>In this deal</h3>
@@ -405,6 +381,10 @@ export const openDiplomacyTradeScreen = (
       setDeal(screen, screen.treaty, terms);
       render(screen);
     }
+  });
+  bindTownReturn(overlay, (town) => {
+    setDeal(screen, screen.treaty, withTownToggled(screen.selection.terms, town));
+    render(screen);
   });
   // The middle column: ✕ takes an item out of the deal; pressing an item opens its slider.
   overlay.querySelector<HTMLElement>("[data-trade-deal]")?.addEventListener("click", (event) => {

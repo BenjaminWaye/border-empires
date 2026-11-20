@@ -10,6 +10,7 @@ import {
   giftToReach,
   netValueToAi,
   spendableCoin,
+  townsValueToAi,
   type DiplomacyGoods,
   type DiplomacyTerms
 } from "@border-empires/shared";
@@ -31,8 +32,9 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel: SEND_LABEL };
   if (reply?.found && !reply.ai) return { tone: "bad", text: "Only AI empires take gifts.", canSend: false, sendLabel: SEND_LABEL };
-  const value = netValueToAi({ give, ask: { gold: 0 } });
-  if (value <= 0) {
+  // A town handed back counts as the AI values getting it back (its priced towns).
+  const value = netValueToAi({ give: { gold: give.gold }, ask: { gold: 0 } }) + (reply?.found && reply.ai ? townsValueToAi(reply.pricing?.townValues, give.towns) : 0);
+  if (value <= 0 && !give.towns?.length) {
     return { tone: "neutral", text: `Set what you give. A gift raises ${targetName}'s opinion of you. ${FADE_NOTE}`, canSend: false, sendLabel: SEND_LABEL };
   }
   if (!reply?.found || !reply.ai || !reply.gift || !reply.attitude) {
