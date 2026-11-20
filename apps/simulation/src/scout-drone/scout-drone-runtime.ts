@@ -317,8 +317,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
     },
     sendTo: (playerId) => {
-      const flight = flights.get(playerId)?.flight;
-      if (flight) send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+      // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
+      // restart the client (and the gateway's replay of the last message) would otherwise keep a
+      // flight that no longer exists and block Explore until its old landing time, which on a
+      // long flight is over an hour.
+      const flight = flights.get(playerId)?.flight ?? null;
+      send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
     },
     flightFor: (playerId) => flights.get(playerId)?.flight,
     gauge: () => ({ activeFlights: flights.size, alertCooldownEntries: lastAlertAt.size, capRefusals, cooldownEvictions })

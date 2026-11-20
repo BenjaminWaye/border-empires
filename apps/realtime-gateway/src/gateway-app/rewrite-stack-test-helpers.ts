@@ -138,6 +138,11 @@ export const nextNonBootstrapMessage = async (
     if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES") {
       continue;
     }
+    // The subscribe also states the scout drone: `flight: null` while docked, so a client never
+    // keeps a flight the simulation lost in a restart (scout-drone-runtime.ts sendTo).
+    if (message.type === "SCOUT_DRONE" && message.flight === null) {
+      continue;
+    }
     if (message.type === "TILE_DELTA_BATCH" && typeof message.commandId === "string" && message.commandId.startsWith("bootstrap:")) {
       continue;
     }
