@@ -220,7 +220,7 @@ export const aiDiplomacyPricing = (input: {
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   // No tribute buys this one: allying would bind the AI to peace with its enemy's friend mid-war.
-  else if (enemyAllies.length > 0) allianceRefusal = `${aiName} won't ally with a friend of ${joinNames(enemyAllies)} while they are at war.`;
+  else if (enemyAllies.length > 0) allianceRefusal = `${aiName} is at war with ${joinNames(enemyAllies)} and won't ally with a friend of theirs.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;

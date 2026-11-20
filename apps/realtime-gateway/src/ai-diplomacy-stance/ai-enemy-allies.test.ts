@@ -54,7 +54,7 @@ describe("an AI won't ally with a friend of its enemy", () => {
 
   it("refuses the alliance while Rasmus is at war with Kara, whatever its attitude", async () => {
     const reply = await rasmusReads(HOUR);
-    expect(reply).toEqual(expect.objectContaining({ allianceRefusal: "Rasmus won't ally with a friend of Kara while they are at war." }));
+    expect(reply).toEqual(expect.objectContaining({ allianceRefusal: "Rasmus is at war with Kara and won't ally with a friend of theirs." }));
     expect(reply).toEqual(expect.objectContaining({ pricing: expect.objectContaining({ required: expect.objectContaining({ alliance: null }) }) }));
   });
 
