@@ -24,7 +24,7 @@ const CYAN = new Color("#4fd8ff");
 const CYAN_DIM = new Color("#2a7f99");
 const GHOST = new Color("#cfe9f2");
 const BRASS = new Color("#f2c66b");
-const BEAD_SPACING = 0.42;
+const BEAD_SPACING = 0.5;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
 const RISE = 0.09;
@@ -33,14 +33,14 @@ const HINT_FLIGHTS = 3;
 export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: PlanSource; readonly sceneFor: (x: number, y: number, out: ScoutDroneScenePoint) => void }): ScoutPlanOverlay => {
   const glow = makeGlowTexture();
   const beadMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", map: glow, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
-  const beadGeometry = new PlaneGeometry(0.24, 0.24);
+  const beadGeometry = new PlaneGeometry(0.42, 0.42);
   beadGeometry.rotateX(-Math.PI / 2);
   const beads = new InstancedMesh(beadGeometry, beadMaterial, MAX_BEADS);
   beads.frustumCulled = false;
   beads.setColorAt(0, CYAN);
   beads.count = 0;
   const ringMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
-  const ringGeometry = new RingGeometry(0.34, 0.5, 40);
+  const ringGeometry = new RingGeometry(0.5, 0.78, 40);
   ringGeometry.rotateX(-Math.PI / 2);
   const rings = new InstancedMesh(ringGeometry, ringMaterial, SCOUT_DRONE_MAX_STOPS + 3);
   rings.frustumCulled = false;
@@ -159,8 +159,8 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     const hint = wantsHint ? scoutHintTile(state) : undefined;
     if (hint) {
       const t = (nowMs % 1600) / 1600;
-      pushRing(hint, tint.copy(BRASS).multiplyScalar(1 - t), 0.6 + 1.6 * t);
-      pushRing(hint, BRASS, 0.55 + 0.08 * Math.sin(nowMs / 200));
+      pushRing(hint, tint.copy(BRASS).multiplyScalar(1 - t), 1 + 2.4 * t);
+      pushRing(hint, BRASS, 0.9 + 0.12 * Math.sin(nowMs / 200));
     }
     beads.count = beadCount;
     rings.count = ringCount;
