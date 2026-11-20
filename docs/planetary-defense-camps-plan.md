@@ -77,13 +77,16 @@ everywhere.
    covers the case rule 7 does not: an online neighbour wakes a camp that then
    attacks an offline House.
 
-### Alert: a camp woke at your border
+### Alert: an active camp in your vision
 
-- When a camp goes from asleep to awake and its land touches, or is within 2
-  tiles of, your land, you get a **prominent
-  persistent alert** ("Planetary Defense camp awake at your border") with a
+- When a camp is **active and any of its tiles is in your vision**, you get a
+  **prominent persistent alert** ("Planetary Defense camp active near you")
+  (owner decision 2026-11-20). It fires on whichever happens second: the camp
+  wakes while you see one of its tiles, or your vision reaches a tile of an
+  already active camp. Both are events the server already has (camp wake, vision
+  edge), so it costs one check per event, with no scanning. The alert has a
   locate button that jumps the camera to the camp
-  (`client-persistent-alerts/`). At most one alert per camp per manpower window,
+  (`client-persistent-alerts/`). At most one alert per camp per player per manpower window,
   so camps flickering awake and asleep as viewers come and go don't spam it.
 - Players who were offline get it on login as a summary: which camps woke near
   them, and what they took (frontier tiles and garrisoned tiles), via the event
