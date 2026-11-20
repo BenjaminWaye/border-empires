@@ -79,7 +79,8 @@ const chargeView = (
     ...(charge.startTier ? { startTier: charge.startTier } : {}),
     ...(charge.areaTiles !== undefined ? { areaTiles: charge.areaTiles } : {}),
     ...(charge.crossWater ? { crossWater: true } : {}),
-    ...(charge.areaTowns !== undefined ? { areaTowns: charge.areaTowns } : {})
+    ...(charge.areaTowns !== undefined ? { areaTowns: charge.areaTowns } : {}),
+    ...(charge.difficultyScored ? { difficultyScored: true as const } : {})
   };
   if (charge.kind === "CORRECTION") {
     // Never the rival's exact landing site: the House gets its rough search circle and finds the AFC by scouting.

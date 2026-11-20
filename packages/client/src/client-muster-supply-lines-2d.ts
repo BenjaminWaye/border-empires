@@ -7,6 +7,7 @@ import {
   type MusterSupplyLine
 } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterBadges2D } from "./client-muster-flag-badge/client-muster-flag-badge.js";
+import { drawExpandCrews2D } from "./client-expand-crew-2d/client-expand-crew-2d.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { pruneRouteSeenAt, routedSupplyLine, strokeRoutedSupplyLine } from "./client-muster-route-2d/client-muster-route-2d.js";
 
@@ -62,8 +63,10 @@ export function drawMusterSupplyLines2D(
 }
 
 // Everything muster-related the 2D map draws over the tiles, in one pass:
-// the supply lines, then each of our flags' progress badge on top
-// (client-muster-flag-badge.ts) so a line never crosses the number.
+// the expand crews claiming neutral tiles (client-expand-crew-2d.ts -- this
+// player's own EXPANDs as well as a flag's), the supply lines, then each of
+// our flags' progress badge on top (client-muster-flag-badge.ts) so a line
+// never crosses the number.
 export function drawMusterOverlays2D(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -75,6 +78,7 @@ export function drawMusterOverlays2D(
   halfH: number,
   nowMs: number
 ): void {
+  drawExpandCrews2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH);
   drawMusterSupplyLines2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawDockLandings2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH, nowMs);

@@ -17,6 +17,8 @@ import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { emitTownTierUpgrades } from "../client-town-tier-upgrade-fx/client-town-tier-upgrade-detect.js";
+import { detectWaystationOpenings, recordWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
+import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { emitSalvageDeliveries } from "../client-salvage-delivery-fx/client-salvage-delivery-detect.js";
 import { snapshotSalvageLoadsShipped } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
 
@@ -89,6 +91,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       );
     }
   }
+  // Before the merge: it deletes the collected rig, which the opening animation replaces.
+  const waystationOpenings = Array.isArray(tileUpdates) ? detectWaystationOpenings(state.tiles, tileUpdates, keyFor, state.me, Date.now() + serverClock.offsetMs()) : [];
   applyGatewayTileDeltaBatch(
     { state, keyFor, mergeIncomingTileDetail: deps.mergeIncomingTileDetail, mergeServerTileWithOptimisticState: deps.mergeServerTileWithOptimisticState, clearRenderCaches: deps.clearRenderCaches, buildMiniMapBase: deps.buildMiniMapBase },
     tileUpdates
@@ -179,6 +183,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     const lostAnAfc = [...myAfcKeysBefore].some((key) => state.tiles.get(key)?.afc?.ownerId !== state.me || state.tiles.get(key)?.ownerId !== state.me);
     if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
     emitTownTierUpgrades({ state, tileUpdates, previousTileByKey, keyFor, nowMs, pushFeed: deps.pushFeed });
+    if (waystationOpenings.length) recordWaystationOpenings(state, waystationOpenings, keyFor, nowMs);
     emitSalvageDeliveries({ state, tileUpdates, previousShippedByKey, keyFor, nowEpochMs: Date.now() });
     recordAfcModuleDeliveries(
       state,

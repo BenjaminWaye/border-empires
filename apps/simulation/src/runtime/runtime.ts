@@ -143,7 +143,7 @@ import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlaye
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { createRuntimeVisibilityCoverage } from "./runtime-visibility-coverage-factory.js";
-import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
+import { type ExploredTilesStore, createRuntimeExploredTilesStore, restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -217,7 +217,6 @@ import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-de
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
 import { refundSettleCost, settleRejectionForActor } from "../runtime-settlement-rules.js";
 import {
-  applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
@@ -277,8 +276,8 @@ import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
-import { barbTilesSeenByAnyPlayer } from "../runtime-barb-activation-vision.js";
-import { createRuntimeBarbarianBridge, type RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
+import type { RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
+import { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runtime.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
   type RuntimeVisibilityClassification
@@ -320,7 +319,6 @@ import {
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
   ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
-  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
@@ -491,7 +489,7 @@ import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
-import { updateTileSettledAt, withoutClearedRazedWreck, withoutFadedWarScars, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
+import { updateTileSettledAt, withoutClearedRazedWreck, withoutFadedWarScars, withoutStaleCaptureHold, withoutStrayCampId } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 import { ORPHAN_LOCK_GRACE_MS, RESPAWN_MINIMUM_GOLD } from "./runtime-lifecycle-constants.js";
 
 export type { VisibilityAuditSample };
@@ -535,7 +533,7 @@ export class SimulationRuntime {
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
-  private readonly exploredTiles = new ExploredTilesStore(WORLD_WIDTH, WORLD_HEIGHT); // per-player fog memory, saved in snapshots; see explored-tiles-store.ts
+  private readonly exploredTiles = createRuntimeExploredTilesStore(); // per-player fog memory, saved in snapshots; see explored-tiles-store.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
@@ -622,7 +620,16 @@ export class SimulationRuntime {
     objective: ExpansionObjective | undefined;
   }>();
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
-  private readonly barbarianTileProgress = new Map<string, number>();
+  // Planetary Defense camps: index, awake counts, collapse of cut-off land (planetary-defense-camps/camp-runtime.ts). Derived, rebuilt at boot.
+  private readonly planetaryDefenseCamps = new PlanetaryDefenseCamps({
+    tiles: () => this.state.tiles, dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey, now: () => this.now(), isLocked: (key) => this.state.locksByTile.has(key),
+    candidateWatcherIds: () => [...this.state.players.keys()].filter((id) => !id.startsWith("barbarian-")),
+    isWatcherNow: (id) => Boolean(this.state.players.get(id)?.isAi) || (this.isPlayerSubscribed?.(id) ?? false),
+    isVisible: (viewerId, key) => this.state.visibilityCoverage.isVisible(viewerId, key),
+    replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId),
+    emitTiles: (commandId, tiles) => this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: "barbarian-1", tileDeltas: tiles.map((tile) => ({ ...this.tileDeltaFromState(tile), ownerId: tile.ownerId, ownershipState: tile.ownershipState, campId: tile.campId })) }), // owner and camp always explicit: a replay rebuilds camps from these
+    logInfo: (payload, message) => runtimeLogInfo(payload, message)
+  });
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private readonly pendingSpawnBonuses: PendingSpawnBonuses;
   /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
@@ -649,7 +656,7 @@ export class SimulationRuntime {
   });
   // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.
   private readonly scoutDrones = createScoutDroneRuntime({ now: () => this.now(), worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, tiles: () => this.state.tiles, players: () => this.state.players,
-    afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
+    afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
     emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
@@ -780,7 +787,7 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: initDockLinksByDockTileKey,
       dockNetworkComponentByTileKey: buildDockNetworkComponentByTileKey(initDockLinksByDockTileKey),
       locksByTile: createLocksFromInitialState(options.initialState),
-      visibilityCoverage: createRuntimeVisibilityCoverage({ players: () => this.state.players, summaryForPlayer: (id) => this.summaryForPlayer(id), footprintTable: this.visionFootprintTable, onFirstSeen: (viewerId, key) => this.exploredTiles.markKey(viewerId, key) })
+      visibilityCoverage: createRuntimeVisibilityCoverage({ players: () => this.state.players, summaryForPlayer: (id) => this.summaryForPlayer(id), footprintTable: this.visionFootprintTable, onFirstSeen: (viewerId, key) => this.exploredTiles.markKey(viewerId, key), onCoverageEdge: this.planetaryDefenseCamps.onCoverageEdge })
     });
     if (this.afcUpgradeRuleset) for (const player of this.state.players.values()) player.afcUpgradeRuleset = this.afcUpgradeRuleset;
     this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -805,6 +812,7 @@ export class SimulationRuntime {
       player.afcRecovery ??= { globalLosses: this.state.afcGlobalLosses };
       player.afcRecovery.globalLosses = this.state.afcGlobalLosses;
     }
+    this.planetaryDefenseCamps.bootTiles(this.state.tiles);
     for (const [key, sourceTile] of this.state.tiles) { const tile = withAfcFortFacts(sourceTile, this.state.players); this.state.tiles.set(key, tile); this.snapshotTileCache.set(key, mapTile(tile)); }
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
@@ -913,7 +921,8 @@ export class SimulationRuntime {
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     // Restore the persisted reach border, then reconcile it with the loaded anchors
     // (indexes above are now fully populated) -- see runtime-reach-border-restore.ts.
-    this.exploredTiles.restore(options.initialState?.exploredTiles);
+    this.planetaryDefenseCamps.bootVision();
+    restoreRuntimeSnapshotSidecars({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex, planetaryDefenseCamps: this.planetaryDefenseCamps }, options.initialState);
     restoreReachBorder({ persisted: options.initialState?.reachBorder, tiles: this.state.tiles, gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, setReachBorder: (border) => { this.reachBorder = border; }, reachBorder: () => this.reachBorder, syncReachVision: (oldBorder, newBorder, changedKeys) => this.reachAnchorLifecycleDeps().syncReachVision(oldBorder, newBorder, changedKeys), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
     this.clearPersistedOutOfReachDecayTimers();
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
@@ -1128,6 +1137,7 @@ export class SimulationRuntime {
   /** Throttled inside; see side-tickers/runtime-side-tickers.ts. */
   tickSideTickers(nowMs: number = this.now(), force = false): void {
     this.sideTickers.tick(nowMs, force);
+    this.planetaryDefenseCamps.tick(nowMs);
   }
 
   /** Live-subscribe push of the player's scout drone (simulation-service/live-subscribe-reach-push.ts). */
@@ -1249,6 +1259,7 @@ export class SimulationRuntime {
   private combatSupportContext(): RuntimeCombatSupportContext {
     return {
       ownedTownKeys: id => this.summaryForPlayer(id).ownedTownTierByTile.keys(),
+      planetaryDefenseCampCount: () => this.planetaryDefenseCamps.campCount(),
       hasPendingClaim: key => this.pendingSettlementsByTile.has(key),
       isTileShieldedByAegisLock: (id, x, y) => this.isTileShieldedByAegisLock(id, x, y),
       now: this.now,
@@ -1256,7 +1267,6 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
-      barbarianTileProgress: this.barbarianTileProgress,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -1297,7 +1307,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       commandTrace: this.commandTrace, onMusterRemoteBlocked: this.onMusterRemoteBlocked,
-      onMusterRemoteAttack: this.onMusterRemoteAttack, replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), barbarianTileProgress: this.barbarianTileProgress,
+      onMusterRemoteAttack: this.onMusterRemoteAttack,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
       holdDevelopmentForAttack: (lock) => holdDevelopmentForAttack(this.attackDevelopmentHoldContext(), { targetKey: lock.targetKey, attackerId: lock.playerId, commandId: lock.commandId }),
@@ -1340,7 +1350,6 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       musterReservedByKey: this.musterReservedByKey,
-      barbarianTileProgress: this.barbarianTileProgress,
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -1358,7 +1367,7 @@ export class SimulationRuntime {
       extendFortPatrolGrace: (tileKey, graceUntil) => this.extendFortPatrolGrace(tileKey, graceUntil),
       clearFortPatrolGrace: (tileKey) => this.fortPatrolGraceUntilByTile.delete(tileKey),
       onCaptureRevealBuilt: this.onCaptureRevealBuilt,
-      applyBarbarianWalkOrMultiply: (lock, previousTarget) => this.applyBarbarianWalkOrMultiply(lock, previousTarget),
+      planetaryDefenseCampCount: () => this.planetaryDefenseCamps.campCount(),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       applyEncirclementForExpand: (targetKey, playerId, commandId, options) => this.applyEncirclementForExpand(targetKey, playerId, commandId, options),
       relocateSettlementForPlayer: (playerId, commandId, population) => this.relocateSettlementForPlayer(playerId, commandId, population),
@@ -1670,7 +1679,7 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     const fulfilledSupplyBefore = this.resourceSupply?.sourceWillChange(previous, nextTile);
-    let tile = withAfcFortFacts(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now()), this.state.players);
+    let tile = withAfcFortFacts(withoutStrayCampId(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now())), this.state.players);
     tile = prepareRelicTileWrite(previous, tile, { players: this.state.players, now: this.now(), resourceSlotSupplyForPlayer: id => this.resourceSlotSupplyForPlayer(id), resourceSlotDemandForPlayer: id => this.resourceSlotDemandForPlayer(id), playerManpowerCap: player => this.playerManpowerCap(player), commandId, emitEvent: event => this.emitEvent(event) });
     if (this.manpowerReady) settleResourceNetworkOwnersBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
@@ -1692,12 +1701,11 @@ export class SimulationRuntime {
     this.relicMapHintIndex.refresh(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));
     this.applyTileToPlayerSummaries(tileKey, tile);
+    this.planetaryDefenseCamps.onTileWrite(tileKey, tile, previous?.ownerId !== tile.ownerId);
     this.resourceSupply?.sourceDidChange(previous, tile);
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
-      // A tile leaving barbarian ownership by ANY route (walk release, erosion, capture) drops its multiply progress.
-      if (previous?.ownerId?.startsWith("barbarian-") && !tile.ownerId?.startsWith("barbarian-")) this.barbarianTileProgress.delete(tileKey);
     }
     // A FRONTIER tile holds no standing vision (see visibility-coverage-cache.ts's
     // tileOwnershipChanged), so the footprint must also be recomputed on a
@@ -1803,18 +1811,9 @@ export class SimulationRuntime {
 
   private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] { return existingTilesForKeys(this.state.tiles, keys); }
 
-  // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
-  private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
-
+  /** Planetary Defense planner on the main thread, used by both system producers (planetary-defense-camps/camp-runtime.ts). */
   barbarianBridge(): RuntimeBarbarianBridge {
-    return this.barbarianBridgeCache ??= createRuntimeBarbarianBridge({
-      tiles: this.state.tiles,
-      dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey,
-      territoryTileKeys: () => this.summaryForPlayer("barbarian-1").territoryTileKeys,
-      tileKeySetToTiles: (keys) => this.tileKeySetToTiles(keys),
-      seenBarbTileKeys: () => this.exportBarbTilesSeenByAnyPlayer(),
-      now: () => this.now()
-    });
+    return this.planetaryDefenseCamps.planner();
   }
 
   chooseNextOwnedFrontierCommand(
@@ -1901,7 +1900,7 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       reachBorder: () => this.reachBorder,
-      exploredTiles: () => { this.exploredTiles.retainOnly((id) => this.state.players.has(id)); return this.exploredTiles.exportSnapshot(); },
+      ...runtimeSnapshotSidecarExports({ exploredTiles: this.exploredTiles, spawnPlacementIndex: this.spawnPlacementIndex, planetaryDefenseCamps: this.planetaryDefenseCamps }, (id) => this.state.players.has(id)),
       prebuiltTiles: this.snapshotTileCache,
       plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
@@ -1962,7 +1961,7 @@ export class SimulationRuntime {
 
   /** GetPlayerTradeHoldings: coin and spare supply without a full subscribe (player-trade-holdings.ts). */
   getPlayerTradeHoldings(playerId: string): PlayerTradeHoldings | undefined {
-    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now() }, playerId);
+    return playerTradeHoldingsForRuntime({ players: this.state.players, supplyStateForPlayer: (id) => this.resourceSupply?.playerState(id) ?? {}, now: () => this.now(), townReturn: this.mapCommandContext() }, playerId);
   }
 
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
@@ -2001,18 +2000,10 @@ export class SimulationRuntime {
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
   afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, activeHijacks: this.activeHijackCount, globalLosses: this.state.afcGlobalLosses, aiRecoverySearches: afcRecoverySearchCount(this.playerSummaries.values()) }; }
 
-  barbarianStateSizes(): { tiles: number; progressEntries: number } {
-    return { tiles: this.summaryForPlayer("barbarian-1").territoryTileKeys.size, progressEntries: this.barbarianTileProgress.size };
-  }
+  barbarianStateSizes(): ReturnType<PlanetaryDefenseCamps["sizes"]> { return this.planetaryDefenseCamps.sizes(); }
 
-  /** Barbarian tile keys that at least one non-barbarian player can currently see (real fog of war). */
-  exportBarbTilesSeenByAnyPlayer(): string[] {
-    return barbTilesSeenByAnyPlayer({
-      playerIds: () => this.state.players.keys(),
-      territoryTileKeys: (id) => this.summaryForPlayer(id).territoryTileKeys,
-      isVisibleTo: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey)
-    });
-  }
+  /** Planetary Defense camps a watcher (an AI, or a human with the game open) can see now (planetary-defense-camps/camp-awake-tracker.ts). */
+  exportAwakeCampIds(): string[] { return this.planetaryDefenseCamps.awakeCampIds(); }
 
   /** Admin "why can this player see these tiles?" report -- see runtime-tile-visibility-debug.ts. */
   tileVisibilityDebug(query: TileVisibilityDebugQuery): TileVisibilityDebugReport {
@@ -2743,23 +2734,18 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
-      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
-        isTileBombardBlockedByRadarImpl(
-          this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-          actorId, targetX, targetY, this.now()
-        ),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
-      setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
+      setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs),
+      personalImpactEntries: () => this.activityLogs.personalImpactEntries(),
+      isTileLocked: (key) => this.state.locksByTile.has(key) || this.pendingSettlementsByTile.has(key),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
       onAutoSettlePrefsChanged: (playerId, switchedOn) => { this.autoSettleEligibilityRuntime().refillForOwner(playerId, switchedOn); }
     });
   }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number { return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey); }
-
-  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void { setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs); }
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.state.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
@@ -3076,7 +3062,6 @@ export class SimulationRuntime {
 
   private respawnPlayerOnUnownedLand(playerId: string, commandId: string): boolean { return respawnPlayerOnUnownedLandImpl(this.respawnContext(), playerId, commandId); }
 
-  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void { applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget); }
 
   private applySettledCapturePlunder(input: {
     attacker: DomainPlayer;

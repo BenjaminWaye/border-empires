@@ -3,12 +3,12 @@ import { afcAdditiveEffect, afcMultiplicativeEffect } from "@border-empires/shar
 // (with the modifiers behind it), the war between them, what it charges, and
 // what the requester can actually pay. Shared by the offer auto-responder
 // and the trade screen's stance query so both see the same numbers.
-import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
+import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods, type ReturnableTown } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
-import { atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
+import { AT_WAR_WINDOW_MS, atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
@@ -45,6 +45,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   seasonLeaderboard?: LeaderboardTiles;
   /** The victory check's bloc sizing: blocs well short of Dominance don't need the AI to lead. undefined: always strict. */
   dominance?: DominanceSizing;
+  /** Towns the requester could hand back (simulation GetPlayerTradeHoldings); the AI prices the ones it lost. */
+  returnableTowns?: readonly ReturnableTown[];
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -77,9 +79,10 @@ export const spareCoinPerHour = (snapshot: AiDiplomacySnapshot | undefined): num
 };
 
 export const warReason = (aiName: string, opinion: AiOpinion, outlook: AiWarOutlook, fallback: string): string => {
-  if (opinion.war.atWar && outlook.kind === "HOLD_FOR_REFILL") {
-    const minutes = Math.max(1, Math.ceil(outlook.refillInMs / 60_000));
-    return `${aiName} expects to win its land back when its armies reload in ${minutes} min.`;
+  // Don't announce when its armies reload. (Refill offsets are derivable from the
+  // player id, so this is flavour, not secrecy.)
+  if (opinion.war.atWar && (outlook.kind === "HOLD_FOR_REFILL" || outlook.kind === "RETAKE_NOW")) {
+    return `${aiName} means to win its land back and has more armies to throw at you.`;
   }
   if (opinion.war.aiLosing && outlook.kind === "SUE_FOR_PEACE") {
     return `${aiName} is losing ground fast and can't stop you before its armies reload, so it wants the war over.`;
@@ -146,6 +149,7 @@ export const evaluateAiDiplomacy = (input: {
     recentTilesLost: input.memory.recentTilesTakenFromAi ?? 0,
     recentTilesTaken: input.memory.recentTilesTakenByAi ?? 0,
     ...(input.memory.aiPaidForPeaceAt !== undefined ? { paidForPeaceAt: input.memory.aiPaidForPeaceAt } : {}),
+    rivalAttackedLately: input.memory.lastPlayerAttackAt !== undefined && input.now - input.memory.lastPlayerAttackAt < AT_WAR_WINDOW_MS,
     now: input.now
   });
   const opinion = computeAiOpinion({
@@ -177,6 +181,8 @@ export const evaluateAiDiplomacy = (input: {
     retaliation: aiRetaliationReadiness(stanceInput.ai, cooldownRemainingMs(input.memory.lastPlayerAttackAt, input.now)),
     temperament,
     outlook,
+    aiPlayerId: input.aiPlayerId,
+    ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
     now: input.now
   });
   return {

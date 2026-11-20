@@ -2,9 +2,9 @@ import type { User } from "firebase/auth";
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
+import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
-import { loadingLoreQuote, writeLoreQuote } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -100,7 +100,6 @@ export const syncAuthOverlay = (
     authBusyCopyEl: HTMLElement;
     /** World-download bar for the chunked INIT transfer; optional so partial test doms still render. */
     authBusyProgressEl?: HTMLElement;
-    /** Lore quote shown for the whole wait; optional so partial test doms still render. */
     authBusyQuoteEl?: HTMLElement;
     authBusyDiagnosticsBtn: HTMLButtonElement;
     authBusySeasonFullNotifyBtn: HTMLButtonElement;
@@ -148,6 +147,12 @@ export const syncAuthOverlay = (
   // The busy modal is centered in a viewport-tall card; scroll back so it is not left below the fold.
   if (busy) deps.authOverlayEl.scrollTop = 0;
   deps.authBusyModalEl.setAttribute("aria-hidden", busy ? "false" : "true");
+  // The quote stays for the whole load, slow-login diagnostics included.
+  // Only an error or a full Sector, which end the wait, take its place.
+  if (deps.authBusyQuoteEl) {
+    const waiting = busy && !state.authError && !state.seasonFull;
+    renderLoreQuoteFigure(deps.authBusyQuoteEl, waiting ? pickLoginLoreQuote(pageLoginLoreQuoteSeed()) : null);
+  }
   deps.authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -181,12 +186,6 @@ export const syncAuthOverlay = (
   // The transfer view carries its own "time left", which beats "elapsed".
   deps.authBusyCopyEl.textContent =
     authBusyElapsedSec > 0 && !state.authError && !stageView ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
-  // Same quote as the map-loading card, shown for the whole wait. Hidden only
-  // when the card stops being a wait: a sign-in error or a full Sector.
-  writeLoreQuote(
-    deps.authBusyQuoteEl ?? null,
-    busy && !state.authError && !state.seasonFull ? loadingLoreQuote() : null
-  );
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");

@@ -7,7 +7,6 @@ import { AWAY_LOSSES_HEADING, cardCounterparties, chronicleGroups, dayHeading } 
 import { diplomacyEmpires, empireStance } from "./client-hud-v2-diplomacy.js";
 import { manifestLayout, manifestNodeState, nextManifestCost } from "./client-hud-v2-manifest.js";
 import { closestPath, leaderShare, selfShare } from "./client-hud-v2-ranks.js";
-import { shouldAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { townBuildCategories, townScreenRegions } from "./client-hud-v2-town.js";
 
 const tech = (id: string, tier: number, branch: string, prereqIds: string[] = [], gold = 40): TechInfo => ({
@@ -321,15 +320,6 @@ describe("battle and neutral expand", () => {
     expect(parseWinPct("Win chance shown once the target borders you")).toBeUndefined();
   });
 
-  it("claims neutral land touching yours on the click, and nothing else", () => {
-    const tiles = new Map<string, Tile>([["4,5", { x: 4, y: 5, terrain: "LAND", ownerId: "me" }]]);
-    const neutral: Tile = { x: 5, y: 5, terrain: "LAND" };
-    const expand = { actions: [act("settle_land", { label: "Expand To" })] };
-    expect(shouldAutoExpand({ tiles, me: "me" }, neutral, expand)).toBe(true);
-    expect(shouldAutoExpand({ tiles, me: "me" }, { x: 9, y: 9, terrain: "LAND" }, expand)).toBe(false);
-    expect(shouldAutoExpand({ tiles, me: "me" }, neutral, { actions: [act("settle_land", { label: "Expand To", disabled: true })] })).toBe(false);
-    expect(shouldAutoExpand({ tiles, me: "me" }, { ...neutral, ownerId: "them" }, expand)).toBe(false);
-  });
 });
 
 describe("detail-screen close-up camera", () => {

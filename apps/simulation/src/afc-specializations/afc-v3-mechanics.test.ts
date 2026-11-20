@@ -15,11 +15,14 @@ import { grantColonialIncubationEngines, type ColonialCharterDeps } from "./afc-
 const player = (id: string, domains: string[] = []) => ({ ...createHumanRuntimePlayer(id), afcUpgradeRuleset: "afc-v1" as const, domainIds: new Set(domains) });
 
 describe("AFC v3 rules", () => {
-  it("Pacification Routines pays its bounty only for attacks that take Planetary Defense tiles", () => {
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousOwnerId: "barbarian-1", bountyPerTile: 25 })).toBe(25);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: false, actionType: "ATTACK", previousOwnerId: "barbarian-1", bountyPerTile: 25 })).toBe(0);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousOwnerId: "enemy", bountyPerTile: 25 })).toBe(0);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "EXPAND", previousOwnerId: undefined, bountyPerTile: 25 })).toBe(0);
+  it("Pacification Routines pays its bounty only for attacks that take a Planetary Defense camp", () => {
+    const camp = { ownerId: "barbarian-1", ownershipState: "SETTLED" as const };
+    const campFrontier = { ownerId: "barbarian-1", ownershipState: "FRONTIER" as const };
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: camp, bountyPerCamp: 25 })).toBe(25);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: false, actionType: "ATTACK", previousTarget: camp, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: campFrontier, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: { ownerId: "enemy", ownershipState: "SETTLED" }, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "EXPAND", previousTarget: undefined, bountyPerCamp: 25 })).toBe(0);
   });
 
   it("Breakthrough Protocol forces a second surrender only from a flag at full Momentum", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { HOUSE_CHARGE_TARGET_CAP, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
+import { HOUSE_CHARGE_REGION_GARRISON_SHARE, HOUSE_CHARGE_TARGET_CAP, houseChargeRarityForPips, keptHouseCharges, type HouseCharge } from "@border-empires/shared";
+import { houseChargePipsForScore } from "./house-charge-difficulty.js";
 import { buildBiomeRegionRegistry } from "./biome-region-registry.js";
 import { dealHouseCharges } from "./house-charge-dealing.js";
 import { charterRoadLength, houseChargeStanding } from "./house-charge-held.js";
@@ -55,7 +56,17 @@ describe("dealing", () => {
   it("offers three charges, always including the relic, and keeps two", () => {
     const state = deal()!;
     expect(state.offered).toHaveLength(3);
-    expect(state.offered[0]).toMatchObject({ kind: "RELIC", rarity: "MYTHIC", renown: 4, relicType: "FOUNDRY_HEART" });
+    expect(state.offered[0]).toMatchObject({ kind: "RELIC", relicType: "FOUNDRY_HEART" });
+    // Every kind's rarity follows its scored difficulty (house-charge-difficulty.ts); a relic is no longer Mythic by kind.
+    for (const charge of state.offered) {
+      expect(charge.difficultyScored).toBe(true);
+      expect(charge.rarity).toBe(houseChargeRarityForPips(charge.renown));
+      // Dealing feeds the target's real size into the score: never fewer pips than its garrison work alone earns.
+      if (charge.areaTiles !== undefined) {
+        const work = charge.kind === "SURVEY" ? charge.areaTiles : Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE);
+        expect(charge.renown).toBeGreaterThanOrEqual(houseChargePipsForScore(work));
+      }
+    }
     expect(state.keptIds).toEqual(state.offered.slice(0, 2).map((charge) => charge.id));
     for (const charge of state.offered) {
       const { x, y, radius } = charge.searchCircle;
@@ -152,7 +163,7 @@ describe("ticker pass and crowning", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.playerName).toBe("House Alden");
     const relicResult = results[0]!.charges.find((charge) => charge.id === relic.id)!;
-    expect(relicResult).toMatchObject({ held: true, hoursHeld: 5, size: 1, title: "A Concordance installation", rarity: "MYTHIC", relicType: "FOUNDRY_HEART" });
+    expect(relicResult).toMatchObject({ held: true, hoursHeld: 5, size: 1, title: "A Concordance installation", rarity: relic.rarity, relicType: "FOUNDRY_HEART" });
     expect(relicResult.places).toBeUndefined();
     expect(results[0]!.charges.filter((charge) => charge.id !== relic.id).every((charge) => (charge.places?.length ?? 0) > 0 && !charge.art)).toBe(true);
     expect(results[0]!.charges.filter((charge) => charge.id !== relic.id).every((charge) => !charge.held && charge.hoursHeld === 0)).toBe(true);

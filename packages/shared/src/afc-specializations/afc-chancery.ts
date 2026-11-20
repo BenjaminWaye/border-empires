@@ -6,12 +6,12 @@ export const AFC_CHANCERY = [
     "tier": 1,
     "branch": "chancery",
     "name": "Envoy Accreditation",
-    "description": "Earn 10% more Coin while you have at least one active truce or mutual alliance. Court-imposed truces qualify. Accredited envoys turn standing agreements into trade credit.",
-    "mechanicalSummary": "+10% Coin with an active truce or mutual alliance.",
+    "description": "Earn 20% more Coin for every House you hold an active truce or mutual alliance with, without limit. Court-imposed truces qualify. Accredited envoys turn standing agreements into trade credit.",
+    "mechanicalSummary": "+20% Coin per House with an active truce or mutual alliance.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "truceIncomeShare": 0.1
+      "truceIncomeShare": 0.2
     }
   },
   {

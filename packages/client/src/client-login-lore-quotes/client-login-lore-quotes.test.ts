@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
-import { LOGIN_LORE_QUOTES, loadingLoreQuote, pickLoginLoreQuote, renderMapLoadingCopy, writeLoreQuote } from "./client-login-lore-quotes.js";
+import { LOGIN_LORE_QUOTES, pageLoginLoreQuoteSeed, pickLoginLoreQuote, renderLoreQuoteFigure, renderMapLoadingCopy } from "./client-login-lore-quotes.js";
 
 const calmView: MapLoadingView = {
   title: "Syncing empire...",
@@ -74,8 +74,8 @@ describe("renderMapLoadingCopy", () => {
         <div id="map-loading-title"></div>
         <div id="map-loading-meta"></div>
         <figure id="map-loading-quote" hidden>
-          <blockquote id="map-loading-quote-text" data-lore-quote-text></blockquote>
-          <figcaption id="map-loading-quote-source" data-lore-quote-source></figcaption>
+          <blockquote id="map-loading-quote-text"></blockquote>
+          <figcaption id="map-loading-quote-source"></figcaption>
         </figure>
       </div>`;
     return {
@@ -90,7 +90,7 @@ describe("renderMapLoadingCopy", () => {
   it("writes the title, meta and quote", () => {
     const dom = mount();
     const quote = pickLoginLoreQuote(5);
-    renderMapLoadingCopy(dom, calmView, quote);
+    renderMapLoadingCopy(dom, calmView, 5);
     expect(dom.mapLoadingTitleEl.textContent).toBe("Syncing empire...");
     expect(dom.mapLoadingMetaEl.textContent).toBe("Connected");
     expect(quoteShown()).toBe(true);
@@ -107,7 +107,7 @@ describe("renderMapLoadingCopy", () => {
       { ...calmView, title: "Disconnected from server" }
     ];
     for (const view of waits) {
-      renderMapLoadingCopy(dom, view, quote);
+      renderMapLoadingCopy(dom, view, 5);
       expect(quoteShown(), view.title).toBe(true);
       expect(quoteText()).toBe(quote.text);
     }
@@ -119,7 +119,7 @@ describe("renderMapLoadingCopy", () => {
     vi.setSystemTime(1_763_000_000_000);
     renderMapLoadingCopy(dom, { ...calmView, title: "Connecting to server..." });
     const first = quoteText();
-    expect(first).toBe(loadingLoreQuote().text);
+    expect(first).toBe(pickLoginLoreQuote(pageLoginLoreQuoteSeed()).text);
     for (const [offset, title] of [[1_234, "Syncing empire..."], [2_717, "Loading nearby land..."], [9_001, "Loading world..."]] as const) {
       vi.setSystemTime(1_763_000_000_000 + offset);
       renderMapLoadingCopy(dom, { ...calmView, title });
@@ -128,12 +128,11 @@ describe("renderMapLoadingCopy", () => {
   });
 });
 
-describe("writeLoreQuote", () => {
-  it("hides the figure for a null quote and ignores a missing figure", () => {
-    document.body.innerHTML = `<figure id="q"><blockquote data-lore-quote-text></blockquote><figcaption data-lore-quote-source></figcaption></figure>`;
+describe("renderLoreQuoteFigure", () => {
+  it("hides the figure for a null quote", () => {
+    document.body.innerHTML = `<figure id="q"><blockquote></blockquote><figcaption></figcaption></figure>`;
     const figure = document.querySelector<HTMLElement>("#q")!;
-    writeLoreQuote(figure, null);
+    renderLoreQuoteFigure(figure, null);
     expect(figure.hidden).toBe(true);
-    expect(() => writeLoreQuote(null, pickLoginLoreQuote(1))).not.toThrow();
   });
 });

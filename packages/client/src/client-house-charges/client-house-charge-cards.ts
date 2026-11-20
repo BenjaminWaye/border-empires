@@ -4,6 +4,7 @@
 // real shape the House held (shared house-charge-art.ts), drawn as an SVG grid.
 import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, houseStyledName, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import { houseChargeEmblemSvg } from "./client-house-charge-emblems.js";
 import { HOUSE_CHARGE_KIND_LABEL } from "./client-house-charges-labels.js";
 
 export type HouseChargeCardView = {
@@ -75,7 +76,7 @@ const flavourFor = (card: Pick<HouseChargeCardView, "kind" | "id" | "seasonId">)
   return lines[hash(`${card.seasonId}:${card.id}`) % lines.length]!;
 };
 
-/** The card's art: the held shape as an SVG grid, or an emblem when there is no shape (Seat, relic). */
+/** The card's art: the held shape as an SVG grid, or the kind's emblem when there is no shape (client-house-charge-emblems.ts). */
 export const houseChargeCardArtSvg = (card: Pick<HouseChargeCardView, "kind" | "art">): string => {
   const bitmap = decodeChargeArt(card.art);
   if (bitmap) {
@@ -84,10 +85,7 @@ export const houseChargeCardArtSvg = (card: Pick<HouseChargeCardView, "kind" | "
       .join("");
     return `<svg class="hc-art-svg" viewBox="-1 -1 ${bitmap.width + 2} ${bitmap.height + 2}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="hc-art-cells">${cells}</g></svg>`;
   }
-  if (card.kind === "RELIC") {
-    return `<svg class="hc-art-svg" viewBox="0 0 24 16" aria-hidden="true"><rect class="hc-art-beam" x="11.3" y="0" width="1.4" height="9"/><g class="hc-art-cells"><rect x="7" y="13" width="10" height="2"/><rect x="8.5" y="11" width="7" height="2"/><rect x="10" y="9" width="4" height="2"/></g></svg>`;
-  }
-  return `<svg class="hc-art-svg" viewBox="0 0 24 16" aria-hidden="true"><g class="hc-art-cells"><rect x="6" y="7" width="12" height="7"/><polygon points="5,7 12,2 19,7"/><rect class="hc-art-gate" x="10.5" y="10" width="3" height="4"/></g></svg>`;
+  return houseChargeEmblemSvg(card.kind);
 };
 
 /** One trading card. */
@@ -143,6 +141,7 @@ export const parseHouseChargeCard = (value: unknown): HouseChargeCardView | unde
     ...(places ? { places } : {}),
     ...(typeof raw.art === "string" ? { art: raw.art } : {}),
     ...(typeof raw.relicType === "string" ? { relicType: raw.relicType } : {}),
+    ...(raw.difficultyScored === true ? { difficultyScored: true as const } : {}),
     seasonId: raw.seasonId,
     seasonSequence: finite(raw.seasonSequence),
     endedAt: typeof raw.endedAt === "number" ? raw.endedAt : null,

@@ -37,19 +37,21 @@ export const computeCourtStrength = (input: {
 
 // Domain Weight decides the throne (§21.5): Planet 10 + its Influence output,
 // Outpost 3 + its Influence output, Stability / 100, and Influence committed
-// to Move Against the Court / 5, plus Renown from grievances (§29.2). Wonders
-// and Developments are cut from the MVP.
+// to Move Against the Court / 5, plus Renown from grievances (§29.2) and the
+// Domain score banked from House Charges held at crownings (by card rarity).
+// Wonders and Developments are cut from the MVP.
 export const computeDomainWeight = (input: {
   holdings: ReadonlyArray<HeldSector>;
   totalStability: number;
   committedInfluence: number;
   renown?: number;
+  houseCharges?: number;
 }): number => {
   const holdingsWeight = input.holdings.reduce(
     (sum, h) => sum + (h.tier === "PLANET" ? 10 : 3) + influenceTrickleFor(h.specialization, h.tier),
     0
   );
-  const raw = holdingsWeight + input.totalStability / 100 + input.committedInfluence / MOVE_AGAINST_COURT_DIVISOR + (input.renown ?? 0);
+  const raw = holdingsWeight + input.totalStability / 100 + input.committedInfluence / MOVE_AGAINST_COURT_DIVISOR + (input.renown ?? 0) + (input.houseCharges ?? 0);
   return Math.round(raw * 10) / 10;
 };
 

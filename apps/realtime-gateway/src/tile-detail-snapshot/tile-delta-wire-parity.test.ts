@@ -102,6 +102,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "war_scar_until", wireValue: 1_893_456_180_000, camelField: "warScarUntil", normalized: 1_893_456_180_000 },
   { protoField: "razed_wreck", wireValue: "RELAY_BEACON", camelField: "razedWreck", normalized: "RELAY_BEACON" },
   { protoField: "razed_wreck_until", wireValue: 1_893_456_180_000, camelField: "razedWreckUntil", normalized: 1_893_456_180_000 },
+  { protoField: "camp_id", wireValue: "12,34", camelField: "campId", normalized: "12,34" },
   { protoField: "visibility_state", wireValue: "FOG", camelField: "visibilityState", normalized: "FOG" },
   { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true },
   { protoField: "combat_json", wireValue: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", camelField: "combatJson", normalized: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", presenceSensitive: true }

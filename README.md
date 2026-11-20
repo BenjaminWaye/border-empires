@@ -73,8 +73,8 @@ or withdraw and redeploy. See [AFC recovery](docs/afc-recovery-plan.md).
 
 ### Barbarians
 
-- Barbarian tiles are seeded far from player spawns at world gen. A barbarian tile acts only while some player (human or AI) can see it in their fog of war; each seen tile takes its own turns and rests 15s after an action finishes.
-- Barbarian tiles attack nearby players and can multiply or walk based on accumulated progress. Recapturing a tile clears its progress.
+- Barbarians ("Planetary Defense") hold **camps** (`docs/planetary-defense-camps-plan.md`). Worldgen seeds them far from player spawns; each seeded tile is a one-tile camp. A camp never moves: it spreads frontier around itself, and a town or dock it takes becomes a new camp (up to 100). Camps destroyed by players never come back.
+- A camp acts only while an AI player, or a human with the game open, can see one of its tiles; it takes one action at a time, rests 15s after it finishes, and may attack a given House's garrisoned tiles at most 10 times per manpower window. Taking a camp collapses its land.
 - Barbarians project no reach (a captured town or dock keeps its structure but anchors nothing), and a new player's AFC landing releases any barbarian tiles inside its reach back to neutral.
 
 ### Strategic Layers
@@ -111,7 +111,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
-- Town resource surveys found while you play open a popup that stays until dismissed; surveys and waystation activations from while you were away do not pop up on login (they are in the Chronicle). Dismissals are remembered across reloads in the same browser for each player and season; new survey reports can still appear. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
+- Town resource surveys found while you play open a popup that stays until dismissed; surveys and waystation activations from while you were away do not pop up on login (they are in the Chronicle). Dismissals are remembered across reloads in the same browser for each player and season; new survey reports can still appear. Chronicle → Yours lists unresolved survey clues under Resource surveys, beyond the 24-hour timeline, with View actions to locate them.
 - Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups; the map shows each win or loss. A MARCH step onto unclaimed land reads "Claiming (x, y)", not "Fighting".
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - Established sessions reconnect in place through server updates without an automatic page refresh. A reconnect restarts after a minute without login or initial-session download progress; active queue and download updates extend that deadline.

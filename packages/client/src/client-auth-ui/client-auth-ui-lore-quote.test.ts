@@ -1,107 +1,104 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { loadingLoreQuote } from "../client-login-lore-quotes/client-login-lore-quotes.js";
+import { hudMarkup } from "../client-dom-markup/client-dom-markup.js";
+import { LOGIN_LORE_QUOTES } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { syncAuthOverlay } from "./client-auth-ui.js";
 
-type OverlayState = Parameters<typeof syncAuthOverlay>[0];
+// Regression: lore quotes only rendered in the in-game map-loading overlay,
+// which a fresh login never shows (the sign-in busy card covers the whole
+// wait). Players saw quotes on reconnects but never while logging in.
 
-const baseState: OverlayState = {
-  authSessionReady: false,
-  initTransfer: null,
-  mapPrep: null,
-  profileSetupRequired: false,
-  authBusy: true,
-  authBusyStartedAt: 8_000,
-  authConfigured: true,
-  authError: "",
-  authReady: true,
-  authBusyTitle: "Securing session",
-  authBusyDetail: "Placing towns and structures...",
-  activeBackend: "gateway",
-  bridgeDebugWsUrl: "",
-  seasonFull: false,
-  seasonFullNotifyAcknowledged: false,
-  sectorWaitlistCount: -1,
-  sectorWaitlistJoinFailed: false,
-  authEmail: ""
+const makeButton = (): HTMLButtonElement => ({ disabled: false, style: { display: "" } } as unknown as HTMLButtonElement);
+const makeInput = (): HTMLInputElement => ({ disabled: false, value: "" } as HTMLInputElement);
+const makeElement = (): HTMLElement =>
+  ({ style: { display: "" }, dataset: {}, textContent: "", setAttribute: vi.fn() } as unknown as HTMLElement);
+
+const mountQuote = (): HTMLElement => {
+  document.body.innerHTML = hudMarkup;
+  const quote = document.querySelector<HTMLElement>("#auth-busy-modal #auth-busy-quote");
+  expect(quote, "sign-in busy card has a quote slot").not.toBeNull();
+  return quote!;
 };
 
-const el = <T extends HTMLElement = HTMLElement>(tag = "div"): T => document.createElement(tag) as T;
-
-const renderCard = (state: Partial<OverlayState>) => {
-  document.body.innerHTML = `<figure id="auth-busy-quote" hidden><blockquote data-lore-quote-text></blockquote><figcaption data-lore-quote-source></figcaption></figure>`;
-  const authBusyQuoteEl = document.querySelector<HTMLElement>("#auth-busy-quote")!;
-  const authBusyDiagnosticsBtn = el<HTMLButtonElement>("button");
-  authBusyDiagnosticsBtn.style.display = "none";
+const render = (quoteEl: HTMLElement, overrides: { authBusy?: boolean; authError?: string; seasonFull?: boolean; elapsedMs?: number } = {}) => {
+  vi.spyOn(Date, "now").mockReturnValue(10_000 + (overrides.elapsedMs ?? 2_000));
   syncAuthOverlay(
-    { ...baseState, ...state },
     {
-      authOverlayEl: el(),
-      authBusyModalEl: el(),
-      authLoginBtn: el("button"),
-      authRegisterBtn: el("button"),
-      authEmailLinkBtn: el("button"),
-      authGoogleBtn: el("button"),
-      authTwitchBtn: el("button"),
-      authDiscordBtn: el("button"),
-      authPlayNowBtn: el("button"),
-      authEmailEl: el("input"),
-      authPasswordEl: el("input"),
-      authDisplayNameEl: el("input"),
-      authEmailResetBtn: el("button"),
-      authProfileNameEl: el("input"),
-      authProfileColorEl: el("input"),
-      authProfileSaveBtn: el("button"),
-      authBusyTitleEl: el(),
-      authBusyCopyEl: el(),
-      authBusyQuoteEl,
-      authBusyDiagnosticsBtn,
-      authBusySeasonFullNotifyBtn: el("button"),
-      authStatusEl: el(),
-      authDebugRouteEl: el(),
+      authSessionReady: false,
+      initTransfer: null,
+      mapPrep: null,
+      profileSetupRequired: false,
+      authBusy: overrides.authBusy ?? true,
+      authBusyStartedAt: 10_000,
+      authConfigured: true,
+      authError: overrides.authError ?? "",
+      authReady: true,
+      authBusyTitle: "Connecting your empire...",
+      authBusyDetail: "",
+      activeBackend: "gateway",
+      bridgeDebugWsUrl: "",
+      seasonFull: overrides.seasonFull ?? false,
+      seasonFullNotifyAcknowledged: false,
+      sectorWaitlistCount: -1,
+      sectorWaitlistJoinFailed: false,
+      authEmail: ""
+    },
+    {
+      authOverlayEl: makeElement(),
+      authBusyModalEl: makeElement(),
+      authBusyQuoteEl: quoteEl,
+      authLoginBtn: makeButton(),
+      authRegisterBtn: makeButton(),
+      authEmailLinkBtn: makeButton(),
+      authGoogleBtn: makeButton(),
+      authTwitchBtn: makeButton(),
+      authDiscordBtn: makeButton(),
+      authPlayNowBtn: makeButton(),
+      authEmailEl: makeInput(),
+      authPasswordEl: makeInput(),
+      authDisplayNameEl: makeInput(),
+      authEmailResetBtn: makeButton(),
+      authProfileNameEl: makeInput(),
+      authProfileColorEl: makeInput(),
+      authProfileSaveBtn: makeButton(),
+      authBusyTitleEl: makeElement(),
+      authBusyCopyEl: makeElement(),
+      authBusyDiagnosticsBtn: makeButton(),
+      authBusySeasonFullNotifyBtn: makeButton(),
+      authStatusEl: makeElement(),
+      authDebugRouteEl: makeElement(),
       wsUrl: "wss://example.test/ws",
       syncAuthPanelState: vi.fn(),
       setAuthStatus: vi.fn()
     }
   );
-  return { quote: authBusyQuoteEl, diagnosticsBtn: authBusyDiagnosticsBtn };
 };
 
-describe("Securing session card lore quote", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+describe("sign-in busy card lore quote", () => {
+  afterEach(() => vi.restoreAllMocks());
 
-  it("shows the page's loading quote while sign-in and the world load run", () => {
-    const quote = loadingLoreQuote();
-    const { quote: figure } = renderCard({});
-    expect(figure.hidden).toBe(false);
-    expect(figure.querySelector("[data-lore-quote-text]")!.textContent).toBe(quote.text);
-    expect(figure.querySelector("[data-lore-quote-source]")!.textContent).toBe(quote.source);
+  it("shows a lore quote while the player is logging in", () => {
+    const quoteEl = mountQuote();
+    render(quoteEl);
+    expect(quoteEl.hidden).toBe(false);
+    const text = quoteEl.querySelector("blockquote")!.textContent;
+    const source = quoteEl.querySelector("figcaption")!.textContent;
+    expect(LOGIN_LORE_QUOTES).toContainEqual({ text, source });
   });
 
   it("keeps the quote once the slow-login diagnostics button appears", () => {
-    vi.spyOn(Date, "now").mockReturnValue(60_000);
-    const card = renderCard({ authBusyStartedAt: 1_000 });
-    expect(card.diagnosticsBtn.style.display).toBe("");
-    expect(card.quote.hidden).toBe(false);
+    const quoteEl = mountQuote();
+    render(quoteEl, { elapsedMs: 60_000 });
+    expect(quoteEl.hidden).toBe(false);
   });
 
-  it("keeps the quote while the 3D map is built after sign-in", () => {
-    const now = 100_000;
-    vi.spyOn(Date, "now").mockReturnValue(now);
-    const card = renderCard({
-      authBusy: false,
-      authSessionReady: true,
-      mapPrep: { stage: "terrain", index: 1, startedAt: now - 2_000, stageStartedAt: now - 500 }
-    });
-    expect(card.quote.hidden).toBe(false);
-  });
-
-  it("hides the quote when the card is no longer a wait", () => {
-    expect(renderCard({ authBusy: false }).quote.hidden).toBe(true);
-    expect(renderCard({ authError: "Sign-in failed." }).quote.hidden).toBe(true);
-    expect(renderCard({ seasonFull: true }).quote.hidden).toBe(true);
+  it("steps aside for an error, a full Sector, or when not busy", () => {
+    const quoteEl = mountQuote();
+    for (const overrides of [{ authError: "Sign-in failed" }, { seasonFull: true }, { authBusy: false }]) {
+      render(quoteEl);
+      expect(quoteEl.hidden).toBe(false);
+      render(quoteEl, overrides);
+      expect(quoteEl.hidden, JSON.stringify(overrides)).toBe(true);
+    }
   });
 });

@@ -1,6 +1,8 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
 import { profileHtml, type ProfileInput } from "../client-hud-v2/client-hud-v2-profile.js";
+import { houseChargeLetter } from "./client-house-charges-letters.js";
 import { houseChargeFocusPoint, houseChargesPanelHtml } from "./client-house-charges-panel.js";
 import { applyHouseChargesMessage, createInitialHouseChargesState } from "./client-house-charges-state.js";
 
@@ -10,6 +12,7 @@ const charge = (overrides: Partial<HouseChargeView>): HouseChargeView => ({
   title: "Road of Vell and Harrowmere",
   rarity: "COMMON",
   renown: 2,
+  difficultyScored: true,
   kept: true,
   held: false,
   size: 0,
@@ -54,31 +57,31 @@ describe("House Charges panel", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const open = houseChargesPanelHtml(panelState(charges), 5_000);
     // Nothing to save (possibly the default pair): say what is kept and how to swap, with no false "saved" tick.
-    expect(open).toContain("Keeping the 2 ticked of these 3. Tick another to swap");
+    expect(open).toContain("Keeping 2 of 3. You can swap until");
+    // The swap instructions live in How charges work, not above the cards.
+    expect(open).toContain("to swap, tap Kept on one card to set it aside, then Tap to keep on another");
     expect(open).not.toContain("✓");
     expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
     expect(changed).not.toMatch(/data-house-charges-save disabled/);
     const closed = houseChargesPanelHtml(panelState(charges), 20_000);
-    expect(closed).not.toContain("data-house-charge-keep");
+    expect(closed).not.toContain("data-house-charge-pick");
     expect(closed).toContain("Not kept");
   });
 
-  it("follows the tick boxes while choosing: a newly ticked charge is undimmed and marked, and the hint explains the button", () => {
+  it("follows the draft while choosing: a newly kept charge is undimmed and marked, and the hint explains the button", () => {
     const charges = [charge({}), { ...relic, kept: true }, desert];
     const swapped = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id, desert.id]), 5_000);
-    const desertCard = swapped.slice(swapped.indexOf("The Ashen Reach") - 400, swapped.indexOf("The Ashen Reach"));
+    const desertCard = swapped.slice(swapped.lastIndexOf("<article", swapped.indexOf("The Ashen Reach")), swapped.indexOf("The Ashen Reach"));
+    expect(desertCard).toContain("is-kept");
     expect(desertCard).not.toContain("is-unkept");
     expect(swapped).toContain("Will be kept");
     expect(swapped).toContain("Will be dropped");
     expect(swapped).toContain("Press Keep these 2 to confirm your new choice.");
 
-    const three = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, relic.id, desert.id]), 5_000);
-    expect(three).toContain("You have 3 ticked. Untick one: you can keep only 2.");
-    expect(three).toMatch(/data-house-charges-save disabled/);
-
     const one = houseChargesPanelHtml(panelState(charges, 10_000, [relic.id]), 5_000);
-    expect(one).toContain("Tick 1 more to keep 2.");
+    expect(one).toContain("Tap 1 more card to keep 2.");
+    expect(one).toMatch(/data-house-charges-save disabled/);
   });
 
   it("shows held charges and an undiscovered relic without naming its place", () => {
@@ -92,7 +95,55 @@ describe("House Charges panel", () => {
     const html = houseChargesPanelHtml(panelState([charge({ renown: 3 })], 0), 5_000);
     expect(html).toContain('aria-label="Difficulty 3 of 4"');
     expect(html).not.toContain("Renown");
-    expect(html).toContain("earn its charge card and a galaxy reward");
+    expect(html).toContain("Hold your kept charges when the winner is crowned to bank Domain score.");
+  });
+
+  // Owner 2026-11-19: the reward goes behind an underlined read-more, and each card says what it banks.
+  it("explains the payout behind How charges work, and puts each card's Domain score on the card", () => {
+    const html = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }], 0), 5_000);
+    expect(html).toContain("<summary>How charges work</summary>");
+    expect(html).toContain("banks Domain score by difficulty: +1 for each ◆, so +1 to +4.");
+    expect(html).toContain("Harder charges are rarer and pay more.");
+    expect(html).not.toContain("Influence");
+    expect(html).toContain("✦ Common · +2 Domain");
+    expect(html).toContain("✦ Mythic · +4 Domain");
+  });
+
+  // Review of #2897: a charge dealt before difficulty scoring still shows the pay it was dealt with.
+  it("shows the stored-rarity Domain on a charge dealt before difficulty scoring", () => {
+    const { difficultyScored: _scored, ...legacy } = charge({ rarity: "RARE", renown: 3 });
+    expect(houseChargesPanelHtml(panelState([legacy], 0), 5_000)).toContain("✦ Rare · +2 Domain");
+  });
+
+  // Review of #2878: a set-aside or dropped card banks nothing, so it must not show a Domain score.
+  it("shows the Domain score only on kept cards", () => {
+    const closed = houseChargesPanelHtml(panelState([charge({}), desert], 0), 5_000);
+    expect(closed).toContain("✦ Common · +2 Domain");
+    const desertCard = closed.slice(closed.lastIndexOf("<article", closed.indexOf("The Ashen Reach")));
+    expect(desertCard).toContain("Not kept");
+    expect(desertCard).not.toContain("Domain");
+    const choosing = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }, desert], 10_000, [charge({}).id, desert.id]), 5_000);
+    const relicCard = choosing.slice(choosing.lastIndexOf("<article", choosing.indexOf("A Concordance installation")), choosing.indexOf("The Ashen Reach"));
+    expect(relicCard).toContain("✦ Mythic</span>");
+    expect(relicCard).not.toContain("+4 Domain");
+  });
+
+  // Owner 2026-11-19: one card per charge with its description on it, not a card row plus a separate list.
+  it("puts each charge's objective, House reason, progress and buttons on its own card", () => {
+    const charges = [charge({}), { ...relic, kept: true }, desert];
+    const html = houseChargesPanelHtml(panelState(charges), 5_000);
+    document.body.innerHTML = html;
+    const cards = document.querySelectorAll(".hcd-card");
+    expect(cards).toHaveLength(3);
+    expect(document.querySelectorAll(".house-charge-card, .hcp-table")).toHaveLength(0);
+    const road = cards[0]!;
+    expect(road.querySelector(".hc-name")?.textContent).toBe("Road of Vell and Harrowmere");
+    expect(road.querySelector(".hcd-objective")?.textContent).toContain("Join Vell and Harrowmere");
+    expect(road.querySelector(".hc-flavour")?.textContent).toBe(`“${houseChargeLetter(charges[0]!)}”`);
+    expect(road.querySelector(".hcd-progress")?.textContent).toBe("No unbroken road yet");
+    expect(road.querySelector("[data-house-charge-pick]")?.textContent).toBe("✦ Kept");
+    expect(road.querySelector("[data-house-charge-jump]")?.textContent).toBe("Show on map");
+    expect(cards[2]!.querySelector("[data-house-charge-pick]")?.textContent).toBe("Tap to keep");
   });
 
   it("gives a rough bearing to a Charter town that has not been scouted yet", () => {

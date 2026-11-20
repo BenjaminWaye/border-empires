@@ -43,6 +43,7 @@ remain authoritative for runtime behavior.
 | Explore: AFC scout drones replace Expand To on unexplored tiles (implemented) | [`explore-scout-plan.md`](explore-scout-plan.md) |
 | Farm Plot: manpower-built food on town support tiles, so tall players can start without exploring (proposal) | [`farm-plot-plan.md`](farm-plot-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Planetary Defense camps: Civ-style camps replace barbarian walk/multiply (proposal) | [`planetary-defense-camps-plan.md`](planetary-defense-camps-plan.md) |
 | House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |

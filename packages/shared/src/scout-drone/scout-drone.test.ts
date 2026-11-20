@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   SCOUT_DRONE_HOME_STEP_MS,
-  SCOUT_DRONE_MAX_RANGE_TILES,
   SCOUT_DRONE_STEP_MS,
   planScoutDroneFlight,
   scoutDroneBlockAt,
   scoutDroneLine,
   scoutDronePositionAt,
   scoutDroneStepIndexAt,
+  speedUpScoutDroneFlight,
   turnScoutDroneFlightBack,
   type ScoutDroneWorld
 } from "./scout-drone.js";
@@ -48,20 +48,31 @@ describe("planScoutDroneFlight", () => {
     expect(flight.landsAt).toBe(1_000 + 2 * oneWay);
   });
 
-  it("turns back after the range limit past the player's land", () => {
-    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 40, y: 0 }, 0, world())!;
-    expect(flight.endReason).toBe("RANGE");
-    expect(flight.steps[flight.turnIndex]!.x).toBe(4 + SCOUT_DRONE_MAX_RANGE_TILES);
+  // Playtest 2026-11-20: a 15-tile range limit meant a drone never reached a rival
+  // ~70 tiles away, so an island start could never find anyone to fight.
+  it("has no range limit: a far target is reached, it just takes longer", () => {
+    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 45, y: 0 }, 0, world())!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]!.x).toBe(45);
+    // 4 home tiles quickly, 41 open tiles at Expand To pace, each way.
+    expect(flight.landsAt).toBe(2 * (4 * SCOUT_DRONE_HOME_STEP_MS + 41 * SCOUT_DRONE_STEP_MS));
   });
 
-  it("turns back at the range limit when that comes before a far border", () => {
+  it("crosses a wide own empire without turning back", () => {
+    const wide = world({ classify: (x) => (x < 90 ? { kind: "HOME" } : { kind: "OPEN" }) });
+    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 95, y: 0 }, 0, { ...wide, width: 200 })!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]!.x).toBe(95);
+  });
+
+  it("flies on until a far border turns it back", () => {
     const flight = planScoutDroneFlight({ x: 0, y: 10 }, { x: 40, y: 10 }, 0, world())!;
-    expect(flight.endReason).toBe("RANGE");
-    expect(flight.blockedByPlayerId).toBeUndefined();
-    expect(flight.steps[flight.turnIndex]!.x).toBe(19);
+    expect(flight.endReason).toBe("BLOCKED");
+    expect(flight).toMatchObject({ blockedByPlayerId: "rival", blockedAtX: 30, blockedAtY: 10 });
+    expect(flight.steps[flight.turnIndex]!.x).toBe(29);
   });
 
-  it("reports the blocking border when it comes before the range limit", () => {
+  it("reports the blocking border that turns it back", () => {
     const near = world({ classify: (x) => (x < 5 ? { kind: "HOME" } : x >= 9 ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" }) });
     const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 20, y: 0 }, 0, near)!;
     expect(flight.endReason).toBe("BLOCKED");
@@ -114,3 +125,31 @@ describe("rival borders the drone cannot slip through", () => {
   });
 });
 
+
+describe("ground that becomes home mid-flight", () => {
+  // AFC (2,10) -> 3,4 home -> 5..8 open, then back.
+  const plan = () => planScoutDroneFlight({ x: 2, y: 10 }, { x: 8, y: 10 }, 0, world())!;
+
+  it("jumps the drone forward over it, out and home, never past the tile it is flying toward", () => {
+    const flight = plan();
+    const legInto6 = flight.steps.findIndex((s) => s.x === 6);
+    const now = flight.steps[legInto6 - 1]!.at + 2_000; // 2s into the 7.5s leg toward x=6
+    const faster = speedUpScoutDroneFlight(flight, now, (x) => x <= 7)!;
+    expect(faster).toBeDefined();
+    // The leg in progress ends at least now (no snap past it), later legs over x<=7 take home pace.
+    expect(faster.steps[legInto6]!.at).toBe(now);
+    expect(faster.steps[legInto6 + 1]!.at - faster.steps[legInto6]!.at).toBe(SCOUT_DRONE_HOME_STEP_MS);
+    // x=8 is still open: the leg into it and the leg back out of it keep Expand To pace.
+    expect(faster.steps[faster.turnIndex]!.at - faster.steps[faster.turnIndex - 1]!.at).toBe(SCOUT_DRONE_STEP_MS);
+    expect(faster.steps[faster.turnIndex + 1]!.at - faster.steps[faster.turnIndex]!.at).toBe(SCOUT_DRONE_STEP_MS);
+    expect(faster.landsAt).toBe(faster.steps.at(-1)!.at);
+    expect(faster.landsAt).toBeLessThan(flight.landsAt);
+    expect(faster.steps.map((s) => [s.x, s.y])).toEqual(flight.steps.map((s) => [s.x, s.y]));
+    expect(scoutDronePositionAt(faster, now, W, H)!.x).toBeGreaterThanOrEqual(scoutDronePositionAt(flight, now, W, H)!.x);
+  });
+
+  it("changes nothing when no slow leg ahead is home", () => {
+    const flight = plan();
+    expect(speedUpScoutDroneFlight(flight, flight.steps[3]!.at, (x) => x < 5)).toBeUndefined();
+  });
+});

@@ -22,7 +22,7 @@ formations; they do not confer an unexplained permanent martial temperament.
 
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-vanguard-1` | **Pacification Routines** | ×2 attack against Planetary Defense/barbarian holdings; +25 Coin bounty per Planetary Defense tile an ATTACK captures (`barbarianCaptureCoinBonus`). | Command software loads assault patterns for the planet's residual defense positions, and the Court pays for every position cleared. |
+| I `afc-vanguard-1` | **Pacification Routines** | ×2 attack against Planetary Defense/barbarian holdings; +25 Coin bounty per Planetary Defense camp an ATTACK captures (`barbarianCaptureCoinBonus`; frontier pays nothing, docs/planetary-defense-camps-plan.md). | Command software loads assault patterns for the planet's residual defense positions, and the Court pays for every position cleared. |
 | II `afc-vanguard-2` | **Assault Command Lattice** | +1 muster flag; fights resolve in 10s instead of 15s (−5s, floored at 5s with other reductions). Travel time unchanged. | Additional command channels coordinate another formation while accelerated orders shorten the assault phase. |
 | III `afc-vanguard-3` | **Battlefield Momentum** | Garrisoned victories grant the launching flag +10% attack per stack, max five stacks (+50%). Frontier captures refresh the timer; one stack decays per five idle minutes; moving/disbanding clears it. | A formation's captured intelligence and coordinated advance produce a temporary local advantage. |
 | IV `afc-vanguard-4` | **Sapper Coordination** | Fort attack commitment requirement ×0.5, with consistent combat baseline and preview. | Breach crews identify access routes and demolition points, reducing the force needed to assault a fortified position. |
@@ -90,7 +90,7 @@ renderers through the shared AFC effects layer.
 
 | Tier / ID | Name | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-chancery-1` | **Envoy Accreditation** | +10% of the House's own Coin income while at least one truce or mutual alliance is active. Court armistices qualify. | Accredited envoys turn standing agreements into trade credit. |
+| I `afc-chancery-1` | **Envoy Accreditation** | +20% of the House's own Coin income per distinct House it holds an active truce or mutual alliance with, uncapped. Court armistices qualify. | Accredited envoys turn standing agreements into trade credit. |
 | II `afc-chancery-2` | **Diplomatic Corps** | AI empires judge the House +15 opinion warmer; truces bought from them cost 50% less. | A permanent diplomatic staff. |
 | III `afc-chancery-3` | **Allied Levies** | +15% manpower cap and regeneration per mutual ally, counting at most three (+45%). Scales the House's own numbers, never reads an ally's. | Allied Houses send ancillary contingents. |
 | IV `afc-chancery-4` | **Court Armistice Mandate** | Impose a binding 12h truce; 48h cooldown. With Envoy Accreditation it qualifies for the Coin bonus (🔗). | The Court enforces the armistice. |

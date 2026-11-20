@@ -395,7 +395,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   );
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
-  renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now });
+  renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now, closePanel: () => setActivePanel(null), viewport: () => dom.canvas });
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
   bindWeakDefensibilityToggle(dom.hud, state, { keyFor, wrapX, wrapY, terrainAt, pushFeed, requestViewRefresh, rerender: () => renderClientHud(deps) });
 
@@ -538,7 +538,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
-    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest"), wsUrl
+    ...seasonStartSenders(sendGameMessage), openGuestSave: () => openGuestSavePanel("next-contest"), wsUrl, firebaseAuth
   });
 
   syncAuthOverlay();

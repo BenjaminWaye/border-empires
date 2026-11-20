@@ -1,43 +1,40 @@
-// House Charges' galaxy reward (docs/house-charges-plan.md, "Rewards"):
-// a charge held at a crowning adds HOUSE_CHARGE_STIPEND_INFLUENCE to that
-// season's Stipend when the player was paid one (galaxy-stipend-payout.ts);
-// otherwise it adds HOUSE_CHARGE_DOMAIN_WEIGHT to the account's Domain Weight
-// while it holds territory (galaxy-dominion-weight.ts). Never both.
+// House Charges' galaxy reward (docs/house-charges-plan.md, "Rewards"): each
+// charge held at a crowning banks Domain score on the account, one per difficulty pip
+// (houseChargeDomain; charges dealt before 2026-11-20 by rarity). Every account banks it, with or
+// without territory in space; it counts in the Court's Domain Weight and in
+// Senate vote weight once the account holds territory there.
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
-import { heldHouseChargeCounts } from "@border-empires/shared";
+import { heldHouseChargeDomainWeights } from "@border-empires/shared";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 
-export type HeldChargeCountsDeps = {
+export type HeldChargeDomainDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getCurrentSeasonSummary?: () => Promise<CurrentSeasonSummary>;
   authBindingStore: Pick<GatewayAuthBindingStore, "getByPlayerId">;
 };
 
 /**
- * Domain Weight counts, per durable account (authUid): charges held at every
- * crowning so far, except a season where that player was paid a Stipend, whose
- * charges already paid out as Stipend Influence (no double reward). Unbound
- * players (AI) are skipped. Each player id is resolved once.
+ * Domain score banked from House Charges, per durable account (authUid),
+ * summed over every crowning so far (archived seasons plus an ended current
+ * season not yet archived). Unbound players (AI) are skipped. Each player id
+ * is resolved once.
  */
-export const heldChargeCountsByAuthUid = async (deps: HeldChargeCountsDeps): Promise<Map<string, number>> => {
-  type CrownedSeason = { seasonId: string; houses: SeasonArchiveRow["houseCharges"]; tiers: SeasonArchiveRow["galaxyTiers"] };
-  const seasons: CrownedSeason[] = [];
+export const chargeDomainWeightByAuthUid = async (deps: HeldChargeDomainDeps): Promise<Map<string, number>> => {
+  const seasons = new Map<string, SeasonArchiveRow["houseCharges"]>();
   for (const archive of await deps.listSeasonArchives()) {
-    if (archive.houseCharges) seasons.push({ seasonId: archive.seasonId, houses: archive.houseCharges, tiers: archive.galaxyTiers });
+    if (archive.houseCharges) seasons.set(archive.seasonId, archive.houseCharges);
   }
   const current = deps.getCurrentSeasonSummary ? await deps.getCurrentSeasonSummary().catch(() => undefined) : undefined;
-  if (current?.status === "ended" && current.seasonHouseCharges && !seasons.some((season) => season.seasonId === current.seasonId)) {
-    seasons.push({ seasonId: current.seasonId, houses: current.seasonHouseCharges, tiers: current.seasonGalaxyTiers });
+  if (current?.status === "ended" && current.seasonHouseCharges && !seasons.has(current.seasonId)) {
+    seasons.set(current.seasonId, current.seasonHouseCharges);
   }
   const uidByPlayerId = new Map<string, string | undefined>();
   const byAuthUid = new Map<string, number>();
-  for (const season of seasons) {
-    const stipendPlayers = new Set((season.tiers ?? []).filter((tier) => tier.tier === "STIPEND").map((tier) => tier.playerId));
-    for (const [playerId, held] of Object.entries(heldHouseChargeCounts(season.houses))) {
-      if (stipendPlayers.has(playerId)) continue;
+  for (const houses of seasons.values()) {
+    for (const [playerId, weight] of Object.entries(heldHouseChargeDomainWeights(houses))) {
       if (!uidByPlayerId.has(playerId)) uidByPlayerId.set(playerId, (await deps.authBindingStore.getByPlayerId(playerId))?.uid);
       const uid = uidByPlayerId.get(playerId);
-      if (uid) byAuthUid.set(uid, (byAuthUid.get(uid) ?? 0) + held);
+      if (uid) byAuthUid.set(uid, (byAuthUid.get(uid) ?? 0) + weight);
     }
   }
   return byAuthUid;

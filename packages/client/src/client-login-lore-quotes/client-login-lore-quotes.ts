@@ -1,6 +1,5 @@
-// In-world quotes shown for the whole time a player waits to get into the
-// game: on the "Securing session" card (sign-in, world download, map build)
-// and on the map-loading card that follows it. Every line is either quoted verbatim from canon
+// In-world quotes shown under the map-loading overlay while a player waits to
+// get into the game. Every line is either quoted verbatim from canon
 // (docs/lore/duke-memoir.md, the Writ of Sectors in docs/lore/galactic-lore.md
 // §2) or a short frontier saying that restates established canon (§3-§5) and
 // adds no new fact. The memoir quotes are checked against the memoir text in
@@ -23,10 +22,10 @@ export const LOGIN_LORE_QUOTES: readonly LoginLoreQuote[] = [
   { text: "The Court noticed before I did. That is, I have come to believe, always true.", source: SABLE },
   { text: "I was running a shipping concern that had grown teeth.", source: SABLE },
   { text: "Calling it a game and understanding what it actually was were two different things.", source: SABLE },
-  { text: "Crystal is aether that has gone quiet. Refining it wakes it up.", source: "Frontier saying" },
+  { text: "Crystal is aether that has gone quiet. Refining it puts it back to work.", source: "Frontier saying" },
   { text: "The frontier doesn't care who you are. It cares what you're doing.", source: "Frontier saying" },
-  { text: "Build more, and the frontier pushes back harder.", source: "Frontier saying" },
-  { text: "The Wardens were built to destroy the infestations. They could not tell them from their makers.", source: "Court histories" }
+  { text: "The Court forgot us for generations. Now it sends Houses.", source: "Frontier saying" },
+  { text: "The Wardens burned away the Bleed. Then they could not tell it from their makers.", source: "Court histories" }
 ];
 
 // Same seed, same quote.
@@ -36,28 +35,14 @@ export const pickLoginLoreQuote = (seed: number): LoginLoreQuote => {
   return LOGIN_LORE_QUOTES[index] ?? LOGIN_LORE_QUOTES[0]!;
 };
 
-// One quote per page load, shared by both loading cards so it carries over
-// from one to the next. The cards re-render every frame, and the client
-// resets mapLoadStartedAt several times during a single login (socket open,
-// init, auth retry), so seeding from that would swap the quote while the
-// player is reading it.
+// One quote per page load. The overlay re-renders every frame, and the
+// client resets mapLoadStartedAt several times during a single login (socket
+// open, init, auth retry), so seeding from that would swap the quote while
+// the player is reading it.
 let pageQuoteSeed: number | null = null;
-export const loadingLoreQuote = (): LoginLoreQuote => {
+export const pageLoginLoreQuoteSeed = (): number => {
   pageQuoteSeed ??= Date.now();
-  return pickLoginLoreQuote(pageQuoteSeed);
-};
-
-// Fills a quote <figure> that marks its parts with data-lore-quote-text and
-// data-lore-quote-source; null hides it. Writes only on change, since the
-// loading cards re-render every frame.
-export const writeLoreQuote = (figureEl: HTMLElement | null, quote: LoginLoreQuote | null): void => {
-  if (!figureEl) return;
-  figureEl.hidden = quote === null;
-  if (!quote) return;
-  const textEl = figureEl.querySelector<HTMLElement>("[data-lore-quote-text]");
-  const sourceEl = figureEl.querySelector<HTMLElement>("[data-lore-quote-source]");
-  if (textEl && textEl.textContent !== quote.text) textEl.textContent = quote.text;
-  if (sourceEl && sourceEl.textContent !== quote.source) sourceEl.textContent = quote.source;
+  return pageQuoteSeed;
 };
 
 type MapLoadingCopyElements = {
@@ -66,10 +51,21 @@ type MapLoadingCopyElements = {
   mapLoadingMetaEl: HTMLElement;
 };
 
-// The quote stays up through slow-load hints and recovery buttons too: the
-// player is still waiting, and the buttons sit below it.
-export const renderMapLoadingCopy = (dom: MapLoadingCopyElements, view: MapLoadingView, quote: LoginLoreQuote = loadingLoreQuote()): void => {
+// Fills a <figure> holding a <blockquote> and a <figcaption>, or hides it.
+// Shared by the sign-in loading card and the in-game map-loading overlay.
+export const renderLoreQuoteFigure = (figureEl: HTMLElement, quote: LoginLoreQuote | null): void => {
+  figureEl.hidden = quote === null;
+  if (!quote) return;
+  const textEl = figureEl.querySelector<HTMLElement>("blockquote");
+  const sourceEl = figureEl.querySelector<HTMLElement>("figcaption");
+  if (textEl && textEl.textContent !== quote.text) textEl.textContent = quote.text;
+  if (sourceEl && sourceEl.textContent !== quote.source) sourceEl.textContent = quote.source;
+};
+
+export const renderMapLoadingCopy = (dom: MapLoadingCopyElements, view: MapLoadingView, seed: number = pageLoginLoreQuoteSeed()): void => {
   dom.mapLoadingTitleEl.textContent = view.title;
   dom.mapLoadingMetaEl.textContent = view.meta;
-  writeLoreQuote(dom.mapLoadingOverlayEl.querySelector<HTMLElement>("#map-loading-quote"), quote);
+  const quoteEl = dom.mapLoadingOverlayEl.querySelector<HTMLElement>("#map-loading-quote");
+  // The quote stays for the whole load, warnings and recovery buttons included.
+  if (quoteEl) renderLoreQuoteFigure(quoteEl, pickLoginLoreQuote(seed));
 };

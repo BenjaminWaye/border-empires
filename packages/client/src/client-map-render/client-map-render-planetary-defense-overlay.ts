@@ -18,9 +18,19 @@ import { patrolPoseAt, SOLDIERS_PER_TILE } from "../client-map-3d-planetary-defe
 const VISOR_COLOR = "rgba(150, 205, 255, 0.9)";
 const OUTLINE_COLOR = "rgba(12, 14, 18, 0.85)";
 
-const drawSoldier = (ctx: CanvasRenderingContext2D, x: number, y: number, h: number, facingLeft: boolean, stride: number): void => {
+// Also the 2D expand crew's soldiers (client-expand-crew-2d.ts), in the
+// expanding empire's colour instead of the Planetary Defense grey.
+export const drawSoldierGlyph2D = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  h: number,
+  facingLeft: boolean,
+  stride: number,
+  armorColor: string = PLANETARY_DEFENSE_ARMOR_COLOR
+): void => {
   const w = h * 0.42;
-  ctx.fillStyle = PLANETARY_DEFENSE_ARMOR_COLOR;
+  ctx.fillStyle = armorColor;
   ctx.strokeStyle = OUTLINE_COLOR;
   ctx.lineWidth = Math.max(0.75, h * 0.06);
   ctx.lineCap = "round";
@@ -33,7 +43,7 @@ const drawSoldier = (ctx: CanvasRenderingContext2D, x: number, y: number, h: num
   ctx.lineTo(x + w * 0.18 - stride * w * 0.3, y);
   ctx.save();
   ctx.lineWidth = Math.max(1, h * 0.14);
-  ctx.strokeStyle = PLANETARY_DEFENSE_ARMOR_COLOR;
+  ctx.strokeStyle = armorColor;
   ctx.stroke();
   ctx.restore();
 
@@ -83,7 +93,7 @@ export const drawPlanetaryDefenseOverlay = (
     const x = px + size / 2 + pose.offsetX * size;
     const y = py + size / 2 + pose.offsetZ * size + h * 0.45;
     const stride = pose.walking ? Math.sin(nowMs * 0.012 + i * 1.7) : 0;
-    drawSoldier(ctx, x, y, h, Math.sin(pose.yaw) < 0, stride);
+    drawSoldierGlyph2D(ctx, x, y, h, Math.sin(pose.yaw) < 0, stride);
   }
   ctx.restore();
 };

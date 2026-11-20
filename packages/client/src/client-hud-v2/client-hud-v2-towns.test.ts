@@ -5,7 +5,7 @@ import type { TownListRow } from "../client-town-list/client-town-list.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
 
-const row = (x: number, name: string, goldPerMinute: number, isFed = true): TownListRow => ({
+const row = (x: number, name: string, goldPerMinute: number, isFed = true, garrisoned = true): TownListRow => ({
   x,
   y: 2,
   name,
@@ -16,6 +16,7 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   maxPopulation: 8000,
   growthPerMinute: 1.25,
   isFed,
+  garrisoned,
   openSlots: 3
 });
 
@@ -50,6 +51,13 @@ describe("HUD v2 towns screen", () => {
     expect(headers.every((h) => (h.title ?? "").length > 0)).toBe(true);
     // The short "Growth" header keeps its unit visible in the cell.
     expect(host.querySelectorAll(".v2l-row .v2l-num")[2]?.textContent).toMatch(/\/min$/);
+  });
+
+  it("flags a town that isn't garrisoned, ahead of unfed", () => {
+    const html = townsBodyHtml([row(1, "Brimvale", 0, false, false)], { key: "gold", descending: true });
+    expect(html).toContain("v2l-unfed");
+    expect(html).toContain("Town · Not garrisoned");
+    expect(html).not.toContain("Unfed");
   });
 
   it("flags unfed towns and escapes names", () => {

@@ -3,76 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import { computeAiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing, goodwillIncomePerHour, MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
-import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
-import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
+import { MIN_INCOME_PER_MINUTE } from "./ai-diplomacy-pricing.js";
+import { foughtLately, HOUR, memory, NOW, price } from "./ai-diplomacy-pricing-test-helpers.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { answerDiplomacyStanceQuery } from "./diplomacy-stance-query.js";
-
-const NOW = 100 * 60 * 60_000;
-const HOUR = 60 * 60_000;
-const memory = (overrides: Partial<DiplomacyMemoryView> = {}): DiplomacyMemoryView => ({
-  tilesTakenFromAi: 0,
-  tilesTakenByAi: 0,
-  battles: 0,
-  truceDeals: 0,
-  goodwillCoin: 0,
-  lastPlayerAttackAt: undefined,
-  lastCombatAt: undefined,
-  aiAlreadyPaidThisWar: false,
-  ...overrides
-});
-
-const price = (options: {
-  stanceKind?: AiDiplomacyStanceKind;
-  memory?: DiplomacyMemoryView;
-  bordersTouch?: boolean;
-  aiIncome?: number;
-  aiGold?: number;
-  brokeTruce?: boolean;
-  breaksWithOthers?: number;
-  brokeAlliance?: boolean;
-  /** Pass undefined explicitly for "sizes unknown". */
-  aiWouldLeadAlliance?: boolean | undefined;
-  giftToPleased?: number;
-  retaliation?: AiRetaliationReadiness;
-  temperament?: AiTemperament;
-}) => {
-  const stanceKind = options.stanceKind ?? "WARY";
-  const mem = options.memory ?? memory();
-  const bordersTouch = options.bordersTouch ?? true;
-  const aiIncome = options.aiIncome ?? 1;
-  const opinion = computeAiOpinion({
-    stanceKind,
-    memory: mem,
-    requesterBrokeTruceWithAi: options.brokeTruce ?? false,
-    requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
-    requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
-    bordersTouch,
-    incomePerHour: goodwillIncomePerHour(aiIncome),
-    ...(options.temperament ? { temperament: options.temperament } : {}),
-    now: NOW
-  });
-  return {
-    opinion,
-    ...aiDiplomacyPricing({
-      aiName: "Milo",
-      stanceKind,
-      opinion,
-      memory: mem,
-      bordersTouch,
-      aiIncomePerMinute: aiIncome,
-      aiHoldings: { gold: options.aiGold ?? 0 },
-      requesterBrokeTruceWithAi: options.brokeTruce ?? false,
-      aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
-      ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
-      ...(options.retaliation ? { retaliation: options.retaliation } : {}),
-      ...(options.temperament ? { temperament: options.temperament } : {}),
-      now: NOW
-    })
-  };
-};
 
 describe("AI truce pricing", () => {
   it("charges distant empires even when desperate or earning very little", () => {
@@ -82,25 +16,37 @@ describe("AI truce pricing", () => {
     expect(price({ ...options, aiIncome: 0 }).pricing.required.truce12).toBe(1);
   });
 
-  it("charges neighbours at peace 12h of income, 1.5x for a 24h truce", () => {
-    expect(price({}).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 60, truce24: 18 * 60 }));
+  it("charges neighbours who attacked it in the last day 12h of income, 1.5x for a 24h truce", () => {
+    // 12h base x Annoyed by the attack (1.5).
+    expect(price({ memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 12 * 1.5 * 60, truce24: 18 * 1.5 * 60 }));
+  });
+
+  // Playtest 2026-11-19: you only meet empires by reaching their border, so every known
+  // empire was a "neighbour" and paid 12h of the AI's income for peace it never broke.
+  it("charges peaceful neighbours the 2h price", () => {
+    expect(price({}).pricing.required).toEqual(expect.objectContaining({ truce12: 2 * 60, truce24: 3 * 60 }));
+  });
+
+  // Review of #2885: a House the AI raided paid the 12h neighbour price for the AI's own attack.
+  it("charges a neighbour the AI attacked the peace price", () => {
+    expect(price({ memory: memory({ lastCombatAt: NOW - 12 * HOUR }) }).pricing.required.truce12).toBe(2 * 60);
   });
 
   // Real incomes are a few hundred coin a day: a floor of 1,440 a day priced every neighbour truce at 720+ coin.
   it("prices low incomes on what the AI really earns", () => {
-    expect(price({ aiIncome: 0.24 }).pricing.required).toEqual(expect.objectContaining({ truce12: 173, truce24: 259 }));
+    expect(price({ aiIncome: 0.24, memory: foughtLately() }).pricing.required).toEqual(expect.objectContaining({ truce12: 259, truce24: 389 }));
   });
 
   it("floors income at 10 coin a day", () => {
     expect(MIN_INCOME_PER_MINUTE * 24 * 60).toBeCloseTo(10);
-    expect(price({ aiIncome: 0 }).pricing.required.truce12).toBe(5);
+    expect(price({ aiIncome: 0, memory: foughtLately() }).pricing.required.truce12).toBe(8);
   });
 
   // A strong economy buys off weak neighbours cheaply: only the AI's own income sets its price.
   it("prices on the AI's own income", () => {
-    const smallAi = { aiIncome: 72 / 1440 }; // 72 coin a day
-    expect(price(smallAi).pricing.required.truce12).toBe(36);
-    expect(price({ aiIncome: 533 / 1440 }).pricing.required.truce12).toBe(267);
+    const smallAi = { aiIncome: 72 / 1440, memory: foughtLately() }; // 72 coin a day
+    expect(price(smallAi).pricing.required.truce12).toBe(54);
+    expect(price({ aiIncome: 533 / 1440, memory: foughtLately() }).pricing.required.truce12).toBe(400);
     expect(price({ ...smallAi, bordersTouch: false, stanceKind: "OUTMATCHED", memory: memory({ goodwillCoin: 600 }) }).pricing.required.alliance).toBe(0);
   });
 
@@ -112,8 +58,14 @@ describe("AI truce pricing", () => {
     const winning = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - 2 * HOUR, tilesTakenByAi: 3 });
     expect(price({ memory: winning }).pricing.required.truce12).toBe(Math.round(48 * 1.5 * 60));
     const repeat = memory({ tilesTakenFromAi: 2, truceDeals: 1, lastPlayerAttackAt: NOW - 30 * HOUR });
-    // Annoyed by the 2 lost tiles (x1.5), plus 2h reparations, then x1.5 for one recent truce.
-    expect(price({ memory: repeat }).pricing.required.truce12).toBe((12 * 1.5 + 2) * 1.5 * 60);
+    // No fight in the last day (2h base), Annoyed by the 2 lost tiles (x1.5), plus 2h reparations,
+    // then x1.5 for one recent truce bought while taking its land.
+    expect(price({ memory: repeat }).pricing.required.truce12).toBe((2 * 1.5 + 2) * 1.5 * 60);
+  });
+
+  // Owner, 2026-11-19: renewing peace with a neighbour you never took land from shouldn't cost 50% more each time.
+  it("doesn't surcharge repeat truces from a House that hasn't taken the AI's land", () => {
+    expect(price({ memory: memory({ truceDeals: 3 }) }).pricing.required.truce12).toBe(price({}).pricing.required.truce12);
   });
 
   // Without a read on the AI's army it falls back to Civ's "too soon after declaring war".
@@ -241,8 +193,8 @@ describe("AI alliance pricing", () => {
     const cautious = price({ giftToPleased: 92 });
     expect(cautious.opinion.attitude).toBe("CAUTIOUS");
     expect(cautious).not.toHaveProperty("allianceRefusal");
-    // The coin that lifts it to Pleased, plus its Pleased price (24h of income).
-    expect(cautious.pricing.required.alliance).toBe(92 + 24 * 60);
+    // The coin that lifts it to Pleased; past that an alliance is earned, not bought.
+    expect(cautious.pricing.required.alliance).toBe(92);
     // Other refusals still hold.
     expect(price({ giftToPleased: 92, memory: memory({ lastCombatAt: NOW - HOUR }) }).pricing.required.alliance).toBeNull();
     expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
@@ -250,10 +202,10 @@ describe("AI alliance pricing", () => {
 
   it("needs at least Pleased, and the AI never pays", () => {
     expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
-    // Borders apart (+5) and fear (+10): Pleased, 24h of income.
+    // Borders apart (+5) and fear (+10): Pleased, and alliances aren't bought (playtest 2026-11-19: 625 coin).
     const pleased = price({ stanceKind: "OUTMATCHED", bordersTouch: false });
     expect(pleased.opinion.attitude).toBe("PLEASED");
-    expect(pleased.pricing.required.alliance).toBe(24 * 60);
+    expect(pleased.pricing.required.alliance).toBe(0);
     const friendly = price({ stanceKind: "OUTMATCHED", bordersTouch: false, memory: memory({ goodwillCoin: 600 }) });
     expect(friendly.opinion.attitude).toBe("FRIENDLY");
     expect(friendly.pricing.required.alliance).toBe(0);
@@ -288,57 +240,6 @@ describe("AI alliance pricing", () => {
   it("caps goodwill from payments", () => {
     const rich = price({ memory: memory({ goodwillCoin: 10_000_000 }) });
     expect(rich.opinion.modifiers).toContainEqual({ label: "Gifts and payments you've made us", value: 25 });
-  });
-});
-
-describe("AI temperaments", () => {
-  const { MERCHANT, WARLIKE, PEACEABLE, VENGEFUL } = AI_TEMPERAMENTS;
-  const atWar = (overrides: Partial<DiplomacyMemoryView> = {}): DiplomacyMemoryView =>
-    memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - 2 * HOUR, ...overrides });
-
-  it("leaves a Measured AI's prices alone", () => {
-    expect(price({ temperament: AI_TEMPERAMENTS.MEASURED }).pricing.required).toEqual(price({}).pricing.required);
-  });
-
-  it("scales only the base truce price, not reparations", () => {
-    expect(price({ temperament: MERCHANT }).pricing.required.truce12).toBe(9 * 60);
-    const fair = atWar({ tilesTakenFromAi: 1, tilesTakenByAi: 1 });
-    const baseline = price({ memory: fair }).pricing.required.truce12!;
-    const discount = price({ memory: fair, temperament: MERCHANT }).pricing.required.truce12!;
-    expect(discount).toBeGreaterThan(baseline * 0.75);
-    expect(discount).toBeLessThan(baseline);
-  });
-
-  // -10 for contested borders plus -5 crosses into Annoyed, where prices are 1.5x again.
-  it("makes a Warlike neighbour colder and dearer", () => {
-    const result = price({ temperament: WARLIKE });
-    expect(result.opinion.modifiers).toContainEqual({ label: "Warlike temperament", value: -5 });
-    expect(result.opinion.attitude).toBe("ANNOYED");
-    expect(result.pricing.required.truce12).toBe(12 * 1.25 * 1.5 * 60);
-  });
-
-  it("warms a Peaceable AI enough to ally without tribute when borders don't meet", () => {
-    const result = price({ temperament: PEACEABLE, bordersTouch: false });
-    expect(result.opinion.attitude).toBe("PLEASED");
-    expect(result.allianceRefusal).toBeUndefined();
-  });
-
-  it("weighs taken tiles by grudge, in opinion and in reparations", () => {
-    const took = memory({ tilesTakenFromAi: 2 });
-    const modifier = (temperament?: AiTemperament) =>
-      price({ memory: took, ...(temperament ? { temperament } : {}) }).opinion.modifiers.find((entry) => entry.label.startsWith("You took"))?.value;
-    expect(modifier()).toBe(-8);
-    expect(modifier(VENGEFUL)).toBe(-12);
-    expect(modifier(PEACEABLE)).toBe(-6);
-    const peacefulBorders = { bordersTouch: false, memory: took };
-    expect(price({ ...peacefulBorders, temperament: VENGEFUL }).pricing.required.truce12).toBe((2 + 3) * 60);
-  });
-
-  it("has a Warlike AI pay half as much to end a war it is losing", () => {
-    const losing = atWar({ tilesTakenFromAi: 5 });
-    const withCoin = { memory: losing, aiIncome: 100, aiGold: 1000 };
-    expect(price(withCoin).pricing.required.truce12).toBe(-250);
-    expect(price({ ...withCoin, temperament: WARLIKE }).pricing.required.truce12).toBe(-125);
   });
 });
 
@@ -389,7 +290,7 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      pricing: { required: { truce12: 240, truce24: 360, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
+      pricing: { required: { truce12: 240, truce24: 360, alliance: 92 }, aiHoldings: { gold: 40 } },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 },
       temperament: { label: "Measured", traits: "No strong leanings" }
     });

@@ -16,7 +16,7 @@ import { CombatLockIndex } from "../combat-lock-index/combat-lock-index.js";
 // The runtime's default world already owns tiles near (10,10), so scenarios
 // are written relative to BASE, in an empty part of the map.
 const BASE = 60;
-type TileInit = { x: number; y: number; terrain: "LAND" | "SEA" | "MOUNTAIN"; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED"; muster?: Record<string, unknown> };
+type TileInit = { x: number; y: number; terrain: "LAND" | "SEA" | "MOUNTAIN"; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED"; campId?: string; muster?: Record<string, unknown> };
 
 const barb = (x: number, y: number): TileInit => ({ x: x + BASE, y: y + BASE, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "FRONTIER" });
 const blocked = (x: number, y: number, terrain: "SEA" | "MOUNTAIN" = "SEA"): TileInit => ({ x: x + BASE, y: y + BASE, terrain });
@@ -214,7 +214,14 @@ describe("ADVANCE clearing enemies in range", () => {
   });
 
   it("attacks barbarians already touching its territory, from different border tiles, in parallel", () => {
-    const runtime = buildRuntime([owned(10, 10, advanceFlag()), owned(10, 11), owned(10, 12), barb(11, 12), barb(9, 12)]);
+    // Two Planetary Defense camps, each with frontier touching our border; the camps themselves sit back from it.
+    const campLand = (x: number, y: number, campX: number, campY: number): TileInit => ({ ...barb(x, y), campId: `${campX + BASE},${campY + BASE}` });
+    const campAt = (x: number, y: number): TileInit => ({ ...barb(x, y), ownershipState: "SETTLED", campId: `${x + BASE},${y + BASE}` });
+    const runtime = buildRuntime([
+      owned(10, 10, advanceFlag()), owned(10, 11), owned(10, 12),
+      campLand(11, 12, 13, 12), campLand(12, 12, 13, 12), campAt(13, 12),
+      campLand(9, 12, 7, 12), campLand(8, 12, 7, 12), campAt(7, 12)
+    ]);
     const seen: SimulationEvent[] = [];
     runtime.onEvent((event) => seen.push(event));
     runtime.tickMuster(1_000);

@@ -10,6 +10,7 @@ import {
   recallScoutDroneFlight,
   scoutDroneBlockAt,
   scoutDroneStepIndexAt,
+  speedUpScoutDroneFlight,
   turnScoutDroneFlightBack,
   type ScoutDroneFlight,
   type ScoutDronePayload,
@@ -54,6 +55,8 @@ export type ScoutDroneRuntimeDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   readonly afcTileKeys: (playerId: string) => Iterable<string>;
+  /** Owner of the authoritative reach border at a tile, if any: own and allied reach count as home ground. */
+  readonly reachOwnerAt: (x: number, y: number) => string | undefined;
   // Getters: the runtime builds its coverage tracker after this module is created.
   readonly visibilityCoverage: () => Pick<VisibilityCoverageTracker, "addTemporaryReveal" | "removeTemporaryReveal">;
   readonly visionTransitionCallbacks: () => VisibilityTransitionCallbacks;
@@ -111,17 +114,33 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
     deps.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
 
-  // Read live each time, so a border that appears or an alliance that ends mid-flight counts.
+  const isOwnOrAllied = (actorId: string, ownerId: string): boolean => ownerId === actorId || (deps.players().get(actorId)?.allies.has(ownerId) ?? false);
+
+  // Read live each time, so a border that appears, an alliance that ends or reach that grows mid-flight counts.
   const worldFor = (actorId: string): ScoutDroneWorld => ({
     width: deps.worldWidth,
     height: deps.worldHeight,
     classify: (x: number, y: number): { kind: ScoutDroneTileClass; ownerId?: string } => {
-      const ownerId = deps.tiles().get(keyOf(wrap(x, deps.worldWidth), wrap(y, deps.worldHeight)))?.ownerId;
-      if (!ownerId || isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
-      if (ownerId === actorId || deps.players().get(actorId)?.allies.has(ownerId)) return { kind: "HOME" };
-      return { kind: "BLOCKED", ownerId };
+      const wx = wrap(x, deps.worldWidth);
+      const wy = wrap(y, deps.worldHeight);
+      const ownerId = deps.tiles().get(keyOf(wx, wy))?.ownerId;
+      // Planetary Defense land stays open even inside reach: the drone still scouts it.
+      if (ownerId && isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
+      if (ownerId) return isOwnOrAllied(actorId, ownerId) ? { kind: "HOME" } : { kind: "BLOCKED", ownerId };
+      // Unclaimed ground inside the player's (or an ally's) reach is already in sight: fly it at home pace.
+      const reachOwnerId = deps.reachOwnerAt(wx, wy);
+      return reachOwnerId && isOwnOrAllied(actorId, reachOwnerId) ? { kind: "HOME" } : { kind: "OPEN" };
     }
   });
+
+  /** Ground ahead that became the player's reach or land mid-flight: the drone jumps forward over it. */
+  const speedUpOverHomeGround = (active: ActiveFlight, nowMs: number): void => {
+    const world = worldFor(active.playerId);
+    const faster = speedUpScoutDroneFlight(active.flight, nowMs, (x, y) => world.classify(x, y).kind === "HOME");
+    if (!faster) return;
+    active.flight = faster;
+    send(active.playerId, `scout-drone-sped-up:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: faster });
+  };
 
   const nearestAfc = (playerId: string, target: { x: number; y: number }): { x: number; y: number } | undefined => {
     let best: { x: number; y: number; d: number } | undefined;
@@ -224,6 +243,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   };
 
   const advance = (active: ActiveFlight, nowMs: number): void => {
+    speedUpOverHomeGround(active, nowMs);
     const { flight } = active;
     const index = scoutDroneStepIndexAt(flight, nowMs);
     if (index > active.lastStepIndex) {
@@ -261,7 +281,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       }
       const normalized = { x: wrap(target.x, deps.worldWidth), y: wrap(target.y, deps.worldHeight) };
       const world = worldFor(actor.id);
-      if (world.classify(normalized.x, normalized.y).kind === "HOME") return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
+      const targetOwnerId = deps.tiles().get(keyOf(normalized.x, normalized.y))?.ownerId;
+      if (targetOwnerId && isOwnOrAllied(actor.id, targetOwnerId)) return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
       const launch = nearestAfc(actor.id, normalized);
       if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from an active AFC");
       const now = deps.now();
@@ -296,8 +317,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
     },
     sendTo: (playerId) => {
-      const flight = flights.get(playerId)?.flight;
-      if (flight) send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+      // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
+      // restart the client (and the gateway's replay of the last message) would otherwise keep a
+      // flight that no longer exists and block Explore until its old landing time, which on a
+      // long flight is over an hour.
+      const flight = flights.get(playerId)?.flight ?? null;
+      send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
     },
     flightFor: (playerId) => flights.get(playerId)?.flight,
     gauge: () => ({ activeFlights: flights.size, alertCooldownEntries: lastAlertAt.size, capRefusals, cooldownEvictions })
