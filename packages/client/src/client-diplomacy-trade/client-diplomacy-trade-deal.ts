@@ -6,6 +6,8 @@
 import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, recurringCoinTermHours, diplomacyTermsAreEmpty, hasResourceSupplyOffer, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
+import { dealTownItemsHtml } from "./client-diplomacy-town-return.js";
+import type { DiplomacyTownRef } from "@border-empires/shared";
 import { TRADE_GOODS, tradeAmount, type TradeSide } from "./client-diplomacy-trade-goods.js";
 import type { TradeKind, TradeSelection, TradeVerdict } from "./client-diplomacy-trade-view.js";
 
@@ -15,7 +17,7 @@ export type DealTreaty = DiplomacyOfferKind | undefined;
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
-const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources);
+const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources) || Boolean(terms.ask.towns?.length);
 
 const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
 
@@ -64,7 +66,7 @@ const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number
 
 /** The "In this deal" list: the treaty, then each side's goods. */
 /** `locked`: a counter-offer keeps its treaty (it may switch truce/alliance, not drop it). */
-export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean }): string => {
+export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean; townName?: (town: DiplomacyTownRef) => string | undefined }): string => {
   const { selection, treaty, targetName } = input;
   const { terms } = selection;
   const treatyHtml = treaty
@@ -76,8 +78,8 @@ export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: Deal
   }
   // Coin per hour runs for the supply term, or a slot-free truce's own length.
   const coinHours = recurringCoinTermHours(selection.kind === "gift" ? "trade" : selection.kind, selection.durationHours, terms) ?? RESOURCE_SUPPLY_TRADE_DAYS * 24;
-  const give = sideItemsHtml(terms, "give", coinHours);
-  const ask = sideItemsHtml(terms, "ask", coinHours);
+  const give = sideItemsHtml(terms, "give", coinHours) + dealTownItemsHtml(terms, "give", input.townName);
+  const ask = sideItemsHtml(terms, "ask", coinHours) + dealTownItemsHtml(terms, "ask", input.townName);
   const sideBlock = (heading: string, items: string, side: TradeSide): string =>
     `<div class="diplomacy-deal-side" data-deal-side="${side}"><h4>${escapeHtml(heading)}</h4>${items ? `<ul>${items}</ul>` : `<p class="diplomacy-deal-none">Nothing</p>`}</div>`;
   const supplyNote = hasSupply(terms)

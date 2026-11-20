@@ -7,6 +7,7 @@ import { resourceSupplyCoinValue, missingResourceSupply, clampedResourceSupply, 
 // commitments, backed by actual production instead of stockpile deductions.
 import { z } from "zod";
 import { RESOURCE_SUPPLY_TRADE_DAYS, TradeCoinPerHourSchema, ResourceSupplyOfferSchema, hasResourceSupplyOffer, supplyResourceLabel, TRADABLE_SUPPLY_RESOURCES } from "../resource-supply-trades/resource-supply-trades.js";
+import { DiplomacyTownListSchema, hasTowns, returnsPricedTown, townsLabel, townsToCover, townsValueToAi, type DiplomacyTownRef, type PricedTown } from "./diplomacy-town-return.js";
 
 export type DiplomacyOfferKind = "truce" | "alliance";
 export type DiplomacyGoods = z.infer<typeof DiplomacyGoodsSchema>;
@@ -20,7 +21,9 @@ export const MAX_DIPLOMACY_TERM_AMOUNT = 1_000_000;
 export const DiplomacyGoodsSchema = z.object({
   gold: z.number().int().min(0).max(MAX_DIPLOMACY_TERM_AMOUNT),
   resources: ResourceSupplyOfferSchema.optional(),
-  coinPerHour: TradeCoinPerHourSchema.optional()
+  coinPerHour: TradeCoinPerHourSchema.optional(),
+  /** Towns handed back to the other side (diplomacy-town-return.ts): truces and gifts only. */
+  towns: DiplomacyTownListSchema.optional()
 });
 export const DiplomacyTermsSchema = z.object({
   give: DiplomacyGoodsSchema, ask: DiplomacyGoodsSchema,
@@ -75,19 +78,33 @@ export const recurringCoinTermHours = (kind: DiplomacyOfferKind | "trade", durat
 
 export const diplomacyTermsAreEmpty = (terms: DiplomacyTerms | undefined): boolean =>
   !terms || (terms.give.gold === 0 && terms.ask.gold === 0 && !hasRecurringCoin(terms) &&
-    !hasResourceSupplyOffer(terms.give.resources) && !hasResourceSupplyOffer(terms.ask.resources));
+    !hasResourceSupplyOffer(terms.give.resources) && !hasResourceSupplyOffer(terms.ask.resources) &&
+    !hasTowns(terms.give.towns) && !hasTowns(terms.ask.towns));
+
+/** Deals that hand back a town: only a truce or a gift may (never an alliance or a resource trade). */
+export const termsReturnTowns = (terms: DiplomacyTerms): boolean => hasTowns(terms.give.towns) || hasTowns(terms.ask.towns);
+export const TOWNS_ONLY_IN_TRUCES_MESSAGE = "Towns can only be returned in a truce or as a gift.";
+
+const copyGoods = (goods: DiplomacyGoods): DiplomacyGoods => ({
+  ...goods,
+  ...(goods.resources ? { resources: { ...goods.resources } } : {}),
+  ...(goods.towns ? { towns: goods.towns.map((town) => ({ ...town })) } : {})
+});
 
 /** The same deal seen from the other side. */
 export const swapDiplomacyTerms = (terms: DiplomacyTerms): DiplomacyTerms => ({
-  give: { ...terms.ask, ...(terms.ask.resources ? { resources: { ...terms.ask.resources } } : {}) },
-  ask: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
+  give: copyGoods(terms.ask),
+  ask: copyGoods(terms.give),
   ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {})
 });
 
 /** Deals with continuing terms label upfront Coin "lump sum" so it can't be read as Coin per hour. */
 const hasContinuingTerms = (terms: DiplomacyTerms): boolean =>
   hasRecurringCoin(terms) || hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
-const goodsLabel = (goods: DiplomacyGoods, lumpSum = false): string => {
+/** Looks up a town's name for deal text; the terms themselves carry only its tile. */
+export type TownNameLookup = (town: DiplomacyTownRef) => string | undefined;
+
+const goodsLabel = (goods: DiplomacyGoods, lumpSum = false, townName?: TownNameLookup): string => {
   const parts: string[] = [];
   if (goods.gold > 0) parts.push(`${goods.gold} coin${lumpSum ? " lump sum" : ""}`);
   if (goods.coinPerHour) parts.push(`up to ${goods.coinPerHour} coin/hour from income`);
@@ -95,32 +112,40 @@ const goodsLabel = (goods: DiplomacyGoods, lumpSum = false): string => {
     const count = goods.resources?.[resource] ?? 0;
     if (count > 0) parts.push(`${count} ${supplyResourceLabel(resource)} supply ${count === 1 ? "slot" : "slots"}`);
   }
+  if (hasTowns(goods.towns)) parts.push(townsLabel(goods.towns, townName));
   return parts.join(" and ");
 };
 
+/** "pays" for coin and supply; "offers" when the side hands back only towns ("you offer the return of ..."). */
+const payVerb = (goods: DiplomacyGoods, person: "you" | "they" = "they"): string => {
+  const onlyTowns = hasTowns(goods.towns) && goods.gold === 0 && !goods.coinPerHour && !hasResourceSupplyOffer(goods.resources);
+  if (onlyTowns) return person === "you" ? "offer" : "offers";
+  return person === "you" ? "pay" : "pays";
+};
+
 /** "Beejac pays 50 coin; you pay 20 coin" -- from the recipient's point of view. */
-export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undefined, proposerName: string): string => {
+export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undefined, proposerName: string, townName?: TownNameLookup): string => {
   if (diplomacyTermsAreEmpty(terms) || !terms) return "";
   const parts: string[] = [];
   const lumpSum = hasContinuingTerms(terms);
-  const theyPay = goodsLabel(terms.give, lumpSum);
-  const youPay = goodsLabel(terms.ask, lumpSum);
-  if (theyPay) parts.push(`${proposerName} pays ${theyPay}`);
-  if (youPay) parts.push(`you pay ${youPay}`);
+  const theyPay = goodsLabel(terms.give, lumpSum, townName);
+  const youPay = goodsLabel(terms.ask, lumpSum, townName);
+  if (theyPay) parts.push(`${proposerName} ${payVerb(terms.give)} ${theyPay}`);
+  if (youPay) parts.push(`you ${payVerb(terms.ask, "you")} ${youPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
     ? `${text}. Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance.` : text;
 };
 
 /** "you pay 50 coin; Milo pays 20 coin" -- from the proposer's point of view. */
-export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefined, targetName: string): string => {
+export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefined, targetName: string, townName?: TownNameLookup): string => {
   if (diplomacyTermsAreEmpty(terms) || !terms) return "";
   const parts: string[] = [];
   const lumpSum = hasContinuingTerms(terms);
-  const youPay = goodsLabel(terms.give, lumpSum);
-  const theyPay = goodsLabel(terms.ask, lumpSum);
-  if (youPay) parts.push(`you pay ${youPay}`);
-  if (theyPay) parts.push(`${targetName} pays ${theyPay}`);
+  const youPay = goodsLabel(terms.give, lumpSum, townName);
+  const theyPay = goodsLabel(terms.ask, lumpSum, townName);
+  if (youPay) parts.push(`you ${payVerb(terms.give, "you")} ${youPay}`);
+  if (theyPay) parts.push(`${targetName} ${payVerb(terms.ask)} ${theyPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
     ? `${text}. Supply lasts ${RESOURCE_SUPPLY_TRADE_DAYS} days from acceptance.` : text;
@@ -142,13 +167,34 @@ export type AiDiplomacyPricing = {
    * absent (unread), it counts none.
    */
   requesterSpareCoinPerHour?: number;
+  /** Towns the requester took from the AI recently and could hand back, with the coin the AI counts each for. */
+  townValues?: PricedTown[];
+  /**
+   * The truce price when the deal hands back at least one of `townValues`:
+   * set when the AI otherwise refuses a truce because it can still retake its
+   * land (a returned town is reparations that buys peace anyway).
+   */
+  townReturn?: { truce12: number | null; truce24: number | null };
+};
+
+/** Returning one of the AI's lost towns lifts a "can still retake" refusal to this price. */
+const townReturnPrice = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24, terms?: DiplomacyTerms): number | null => {
+  if (kind !== "truce" || !pricing.townReturn || !terms || !returnsPricedTown(pricing.townValues, terms.give.towns)) return null;
+  return durationHours === 24 ? pricing.townReturn.truce24 : pricing.townReturn.truce12;
 };
 
 // An AI never pays to join an alliance: its alliance price is never negative.
-export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24): number | null => {
+export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24, terms?: DiplomacyTerms): number | null => {
   if (kind === "alliance") return pricing.required.alliance === null ? null : Math.max(0, pricing.required.alliance);
-  return durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12;
+  const base = durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12;
+  return base ?? townReturnPrice(pricing, kind, durationHours, terms);
 };
+
+/** True when the AI refuses this truce outright but would sell it for one of its towns back. */
+export const truceNeedsTownReturn = (pricing: AiDiplomacyPricing, durationHours: 12 | 24): boolean =>
+  (durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12) === null &&
+  (durationHours === 24 ? pricing.townReturn?.truce24 : pricing.townReturn?.truce12) != null &&
+  Boolean(pricing.townValues && pricing.townValues.length > 0);
 
 const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources);
 
@@ -182,6 +228,14 @@ const pledgeAsCounted = (pricing: AiDiplomacyPricing, terms: DiplomacyTerms): Di
 export const aiCoinHours = (kind: DiplomacyOfferKind, durationHours: 12 | 24, terms: DiplomacyTerms): number =>
   recurringCoinTermHours(kind, durationHours, terms) ?? 0;
 
+/** What the AI counts the terms for: netValueToAi plus any of its own towns handed back. */
+const valueToAi = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24, terms: DiplomacyTerms): number =>
+  netValueToAi(pledgeAsCounted(pricing, terms), aiCoinHours(kind, durationHours, terms)) + townsValueToAi(pricing.townValues, terms.give.towns);
+
+/** An AI never hands towns over, and towns change hands only in a truce. */
+const townTermsRefused = (kind: DiplomacyOfferKind, terms: DiplomacyTerms): boolean =>
+  hasTowns(terms.ask.towns) || (kind !== "truce" && hasTowns(terms.give.towns));
+
 export type AiOfferVerdict =
   | { accepts: true }
   | { accepts: false; reason: "refuses" }
@@ -196,8 +250,8 @@ export const evaluateAiOffer = (
   durationHours: 12 | 24,
   terms: DiplomacyTerms
 ): AiOfferVerdict => {
-  const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null || !aiTakesRecurringCoin(kind, terms)) return { accepts: false, reason: "refuses" };
+  const required = requiredForOffer(pricing, kind, durationHours, terms);
+  if (required === null || !aiTakesRecurringCoin(kind, terms) || townTermsRefused(kind, terms)) return { accepts: false, reason: "refuses" };
   if (kind === "alliance" && asksAnything(terms)) return { accepts: false, reason: "aiWontPay" };
   const missing: DiplomacyGoods = {
     gold: Math.max(0, terms.ask.gold - pricing.aiHoldings.gold)
@@ -205,7 +259,7 @@ export const evaluateAiOffer = (
   const missingSupply = missingResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
   if (hasResourceSupplyOffer(missingSupply)) missing.resources = missingSupply;
   if (missing.gold > 0 || hasResourceSupplyOffer(missingSupply)) return { accepts: false, reason: "aiCannotPay", missing };
-  const shortfall = required - netValueToAi(pledgeAsCounted(pricing, terms), aiCoinHours(kind, durationHours, terms));
+  const shortfall = required - valueToAi(pricing, kind, durationHours, terms);
   return shortfall > 0 ? { accepts: false, reason: "shortfall", shortfall: Math.ceil(shortfall) } : { accepts: true };
 };
 
@@ -218,8 +272,11 @@ export type AiCounterOffer =
  * The smallest change to the requester's terms that the AI would accept,
  * never asking for more than the requester actually holds: first drop what
  * the requester asked the AI for, then ask for the requester's coin, then
- * their resource supply, then (truces only) Coin per hour from their spare income. If even everything they have isn't enough, the AI says so
- * instead of naming a price they can't pay.
+ * their resource supply, then (truces only) Coin per hour from their spare income,
+ * then (truces only) one of its own towns back. A truce the AI refuses while it
+ * can still retake its land (pricing.townReturn) asks for a town first. If even
+ * everything they have isn't enough, the AI says so instead of naming a price
+ * they can't pay.
  */
 export const aiCounterOffer = (
   pricing: AiDiplomacyPricing,
@@ -228,10 +285,11 @@ export const aiCounterOffer = (
   terms: DiplomacyTerms,
   requesterHoldings: DiplomacyGoods
 ): AiCounterOffer => {
-  const required = requiredForOffer(pricing, kind, durationHours);
-  if (required === null || !aiTakesRecurringCoin(kind, terms)) return { kind: "refuses" };
+  const mustReturnTown = kind === "truce" && truceNeedsTownReturn(pricing, durationHours);
+  const required = mustReturnTown ? (durationHours === 24 ? pricing.townReturn!.truce24 : pricing.townReturn!.truce12) : requiredForOffer(pricing, kind, durationHours);
+  if (required === null || required === undefined || !aiTakesRecurringCoin(kind, terms) || (kind !== "truce" && hasTowns(terms.give.towns))) return { kind: "refuses" };
   const next: DiplomacyTerms = {
-    give: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
+    give: copyGoods(terms.give),
     // Never counter by asking the AI to pay more than it holds, nor anything at all for an alliance.
     ask:
       kind === "alliance"
@@ -243,7 +301,12 @@ export const aiCounterOffer = (
     const resources = clampedResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
     if (hasResourceSupplyOffer(resources)) next.ask.resources = resources;
   }
-  let deficit = required - netValueToAi(pledgeAsCounted(pricing, next), aiCoinHours(kind, durationHours, next));
+  // A town buys the peace this AI otherwise refuses: name one first, then fill any gap.
+  if (mustReturnTown && !returnsPricedTown(pricing.townValues, next.give.towns)) {
+    const before = valueToAi(pricing, kind, durationHours, next);
+    addTowns(next, townsToCover(pricing.townValues ?? [], next.give.towns ?? [], required - before, true));
+  }
+  let deficit = required - valueToAi(pricing, kind, durationHours, next);
   if (deficit <= 0) return { kind: "counter", terms: next };
 
   const dropAskGold = Math.min(next.ask.gold, Math.ceil(deficit));
@@ -280,6 +343,17 @@ export const aiCounterOffer = (
       deficit -= add * perCoinPerHour;
     }
   }
+  // Still short: a truce can take back one of the AI's own towns (reparations in kind).
+  if (deficit > 0 && kind === "truce" && pricing.townValues) {
+    const towns = townsToCover(pricing.townValues, next.give.towns ?? [], deficit, false);
+    addTowns(next, towns);
+    deficit -= towns.reduce((sum, town) => sum + town.value, 0);
+  }
   if (deficit > 0) return { kind: "cannotAfford", shortfall: Math.ceil(deficit) };
   return { kind: "counter", terms: next };
+};
+
+const addTowns = (terms: DiplomacyTerms, towns: readonly PricedTown[]): void => {
+  if (towns.length === 0) return;
+  terms.give.towns = [...(terms.give.towns ?? []), ...towns.map(({ x, y }) => ({ x, y }))];
 };

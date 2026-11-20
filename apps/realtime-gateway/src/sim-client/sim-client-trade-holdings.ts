@@ -1,4 +1,4 @@
-import { ResourceSupplyOfferSchema, type DiplomacyGoods } from "@border-empires/shared";
+import { ResourceSupplyOfferSchema, ReturnableTownSchema, type DiplomacyGoods, type ReturnableTown } from "@border-empires/shared";
 
 // GetPlayerTradeHoldings: a player's coin, spare supply and active supply
 // agreement count, for the deal screen's other side. Asked for every human
@@ -13,6 +13,8 @@ export type ProtoPlayerTradeHoldingsAck = {
   resourceTradeHoldingsJson?: string;
   active_supply_agreements?: number;
   activeSupplyAgreements?: number;
+  returnable_towns_json?: string;
+  returnableTownsJson?: string;
 };
 export type GetPlayerTradeHoldingsRpc = (
   request: { player_id: string },
@@ -31,6 +33,23 @@ export type PlayerTradeHoldingsResult = {
   gold: number;
   resourceTradeHoldings?: DiplomacyGoods["resources"];
   activeSupplyAgreements: number;
+  /** Towns this player could hand back in a deal (simulation returnable-towns.ts). */
+  returnableTowns?: ReturnableTown[];
+};
+
+/** Malformed entries are dropped one by one: one bad town never hides the others. */
+export const parseReturnableTowns = (json: string | undefined): ReturnableTown[] => {
+  if (!json) return [];
+  try {
+    const raw: unknown = JSON.parse(json);
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((entry) => {
+      const parsed = ReturnableTownSchema.safeParse(entry);
+      return parsed.success ? [parsed.data] : [];
+    });
+  } catch {
+    return [];
+  }
 };
 
 const parseHoldings = (json: string | undefined): DiplomacyGoods["resources"] | undefined => {
@@ -65,10 +84,12 @@ export const getPlayerTradeHoldingsRpcCall = (
         return;
       }
       const resourceTradeHoldings = parseHoldings(response.resource_trade_holdings_json ?? response.resourceTradeHoldingsJson);
+      const returnableTowns = parseReturnableTowns(response.returnable_towns_json ?? response.returnableTownsJson);
       resolve({
         gold: finiteOrZero(response.gold),
         ...(resourceTradeHoldings ? { resourceTradeHoldings } : {}),
-        activeSupplyAgreements: finiteOrZero(response.active_supply_agreements ?? response.activeSupplyAgreements)
+        activeSupplyAgreements: finiteOrZero(response.active_supply_agreements ?? response.activeSupplyAgreements),
+        ...(returnableTowns.length > 0 ? { returnableTowns } : {})
       });
     });
   });
