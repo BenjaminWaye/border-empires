@@ -49,7 +49,7 @@ describe("AI valuation of a returned town", () => {
 describe("a returned town lifts the retake refusal", () => {
   it("refuses a truce while it can retake its land, but names a price for its town back", () => {
     const result = price({ outlook: { kind: "RETAKE_NOW" }, towns: [oak] });
-    expect(result.truceRefusal).toContain("It would make peace for the town you took back.");
+    expect(result.truceRefusal).toContain("It would make peace if you returned the town you took from it.");
     expect(result.pricing.required.truce12).toBeNull();
     expect(result.pricing.townReturn?.truce12).toBeGreaterThan(0);
     expect(evaluateAiOffer(result.pricing, "truce", 12, { give: { gold: 500 }, ask: { gold: 0 } })).toEqual({ accepts: false, reason: "refuses" });

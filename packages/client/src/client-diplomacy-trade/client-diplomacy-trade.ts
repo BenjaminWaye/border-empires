@@ -41,7 +41,7 @@ import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-ba
 import { haveText } from "./client-diplomacy-trade-have-text.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
 import { renderTradeHeader } from "./client-diplomacy-trade-header.js";
-import { bindTownReturn, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, withTownToggled } from "./client-diplomacy-town-return.js";
+import { bindTownReturn, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, townsAllowedFor, withTownToggled, withoutTowns } from "./client-diplomacy-town-return.js";
 import {
   activeTruceLockoutReason,
   tradeVerdict,
@@ -133,7 +133,10 @@ const targetIsAi = (reply: DiplomacyStanceReply | undefined): boolean => !reply?
 /** Sets the treaty and terms, deriving the offer kind from them. */
 const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms): void => {
   screen.treaty = treaty;
-  screen.selection = { ...screen.selection, terms, kind: dealKind(treaty, terms, targetIsAi(screen.reply)) };
+  const kind = dealKind(treaty, terms, targetIsAi(screen.reply));
+  // Only a truce or a gift carries towns: switching to anything else takes them out.
+  const kept = townsAllowedFor(kind) ? terms : withoutTowns(terms);
+  screen.selection = { ...screen.selection, terms: kept, kind: kept === terms ? kind : dealKind(treaty, kept, targetIsAi(screen.reply)) };
   if (!screen.giftPending) screen.notice = undefined;
 };
 

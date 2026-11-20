@@ -38,6 +38,14 @@ export const withTownToggled = (terms: DiplomacyTerms, town: DiplomacyTownRef): 
   return { ...terms, give: next.length > 0 ? { ...rest, towns: next } : rest };
 };
 
+/** `terms` with every town taken out of both sides (a deal that can't carry them). */
+export const withoutTowns = (terms: DiplomacyTerms): DiplomacyTerms => {
+  if (!terms.give.towns && !terms.ask.towns) return terms;
+  const { towns: _give, ...give } = terms.give;
+  const { towns: _ask, ...ask } = terms.ask;
+  return { ...terms, give, ask };
+};
+
 export const townReturnHtml = (): string =>
   `<div class="diplomacy-trade-towns" data-trade-towns hidden><h4 class="diplomacy-trade-subhead">Return a town</h4><div class="diplomacy-trade-goods" data-trade-town-list></div></div>`;
 

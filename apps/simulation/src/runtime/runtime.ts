@@ -320,7 +320,6 @@ import {
   isCoastalLand as isCoastalLandImpl,
   isStructurePowered as isStructurePoweredImpl,
   ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
-  isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
   isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
@@ -2743,16 +2742,12 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
-      isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
-        isTileBombardBlockedByRadarImpl(
-          this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-          actorId, targetX, targetY, this.now()
-        ),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs),
       personalImpactEntries: () => this.activityLogs.personalImpactEntries(),
+      isTileLocked: (key) => this.state.locksByTile.has(key) || this.pendingSettlementsByTile.has(key),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
       onAutoSettlePrefsChanged: (playerId, switchedOn) => { this.autoSettleEligibilityRuntime().refillForOwner(playerId, switchedOn); }
     });

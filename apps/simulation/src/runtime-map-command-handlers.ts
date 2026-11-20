@@ -27,7 +27,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { EconomicStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
-export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "resourceSupply" | "settleEconomy" | "emitEconomyUpdate" | "personalImpactEntries"> & {
+export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "resourceSupply" | "settleEconomy" | "emitEconomyUpdate" | "personalImpactEntries" | "isTileLocked"> & {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   now: () => number;

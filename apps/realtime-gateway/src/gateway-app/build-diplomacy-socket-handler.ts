@@ -180,14 +180,15 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.simulationReads.getCurrentSeasonSummary());
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
-    const sizes = await seasonLeaderboard();
+    // Both reads are bounded; run them side by side so the waits don't add up.
+    const [sizes, returnableTowns] = await Promise.all([seasonLeaderboard(), returnableTownsOf(requesterId)]);
     const dominance = dominanceSizingFor(sizes);
     const now = Date.now();
     return {
       ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
       now,
-      returnableTowns: await returnableTownsOf(requesterId),
+      returnableTowns,
       alliesOf,
       ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
       ...(dominance ? { dominance } : {})

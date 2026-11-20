@@ -149,7 +149,7 @@ export const aiDiplomacyPricing = (input: {
   else if (canRetake) {
     retakeOnly = true;
     truceRefusal = `${aiName} wants to see how this war goes first: it means to win its land back.` +
-      (townValues.length > 0 ? ` It would make peace for ${townValues.length === 1 ? "the town" : "the towns"} you took back.` : "");
+      (townValues.length > 0 ? ` It would make peace if you returned ${townValues.length === 1 ? "the town" : "a town"} you took from it.` : "");
   } else if (freshAttack && minutesSinceAttack !== undefined && strikesBack(input.retaliation, war.aiWinning)) {
     const minutesLeft = Math.max(1, Math.ceil(TRUCE_COOLDOWN_AFTER_ATTACK_MS / 60_000 - minutesSinceAttack));
     truceRefusal = input.retaliation

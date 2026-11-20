@@ -14,7 +14,7 @@ const TOWN = { x: 4, y: 4 };
 
 const townTile = (ownerId: string, extra: Partial<DomainTileState> = {}): DomainTileState => ({
   ...TOWN, terrain: "LAND", ownerId, ownershipState: "FRONTIER", captureHoldUntil: NOW + 60_000,
-  town: { name: "Oakridge", type: "FARMING", populationTier: "TOWN", population: 900 },
+  town: { name: "Oakridge", type: "FARMING", populationTier: "TOWN", population: 900, captureShockUntil: NOW + 300_000, populationBeforeCapture: 1_000 },
   fort: { ownerId, status: "active", activatedAt: 0 },
   ...extra
 });
@@ -25,7 +25,13 @@ const captured = (capturedAt: number, from = "player-2") => ({
   capturedStructureTypes: [], counterpartyPlayerId: from
 });
 
-const world = (options: { capturedAt?: number; from?: string; tile?: DomainTileState } = {}) => {
+// player-2's attack on the town, launched from its own land, still in flight.
+const retakeLock = {
+  commandId: "p2-retake", playerId: "player-2", actionType: "ATTACK" as const,
+  originX: 4, originY: 5, targetX: TOWN.x, targetY: TOWN.y, originKey: "4,5", targetKey: "4,4", resolvesAt: NOW + 60_000
+};
+
+const world = (options: { capturedAt?: number; from?: string; tile?: DomainTileState; locks?: (typeof retakeLock)[] } = {}) => {
   const runtime = new SimulationRuntime({
     now: () => NOW,
     seedTiles: new Map(),
@@ -39,7 +45,7 @@ const world = (options: { capturedAt?: number; from?: string; tile?: DomainTileS
         { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
-      activeLocks: []
+      activeLocks: options.locks ?? []
     }
   });
   runtime.restoreActivityLogs({ territory: [], combat: [], personalImpacts: [captured(options.capturedAt ?? NOW - 60_000, options.from)] } as never);
@@ -77,6 +83,8 @@ describe("simulation runtime — returning a captured town in a deal", () => {
     expect(tile?.captureHoldUntil).toBeUndefined();
     expect(JSON.parse(tile?.fortJson ?? "{}")).toMatchObject({ ownerId: "player-2", status: "active" });
     expect(JSON.parse(tile?.townJson ?? "{}")).toMatchObject({ name: "Oakridge", population: 900 });
+    // Handed back in peace: the capture's growth shock ends with it.
+    expect(JSON.parse(tile?.townJson ?? "{}")).not.toHaveProperty("captureShockUntil");
     expect(points(runtime, "player-1")).toBe(90);
     expect(points(runtime, "player-2")).toBe(110);
     // Returned once, it is no longer the giver's to return.
@@ -100,6 +108,25 @@ describe("simulation runtime — returning a captured town in a deal", () => {
     await settle(runtime, returnTown);
     expect(events.find((event) => event.eventType === "COMMAND_REJECTED")).toMatchObject({ message: "player-1 no longer holds the town at (4, 4)" });
     expect(points(runtime, "player-2")).toBe(100);
+  });
+
+  it("rejects the deal while a fight on the town is still in flight", async () => {
+    const runtime = world({ locks: [retakeLock] });
+    const events = collectEvents(runtime);
+    await settle(runtime, returnTown);
+    expect(events.find((event) => event.eventType === "COMMAND_REJECTED")).toMatchObject({ message: "the town at (4, 4) is being fought over or settled" });
+    expect(tileAt(runtime)?.ownerId).toBe("player-1");
+    expect(points(runtime, "player-1")).toBe(100);
+  });
+
+  it("still refunds the coin when a refunded town can no longer move", async () => {
+    // player-2 was handed the town, but player-3 has taken it since.
+    const runtime = world({ tile: townTile("player-3") });
+    const events = collectEvents(runtime);
+    await settle(runtime, { proposerPays: { gold: 0 }, targetPays: { gold: 10, towns: [TOWN] }, refund: true }, "diplomacy-settle:refund");
+    expect(events.map((event) => event.eventType)).toContain("COMMAND_RESOLVED");
+    expect(points(runtime, "player-1")).toBe(110);
+    expect(tileAt(runtime)?.ownerId).toBe("player-3");
   });
 
   it("pays a fell-through deal back: a refund returns the town without the capture check", async () => {

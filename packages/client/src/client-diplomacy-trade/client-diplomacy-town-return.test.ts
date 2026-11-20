@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AiDiplomacyPricing, ReturnableTown } from "@border-empires/shared";
+import { giftView, type AiDiplomacyPricing, type ReturnableTown } from "@border-empires/shared";
 
 import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacyStance } from "./client-diplomacy-trade.js";
+import { giftVerdict } from "./client-diplomacy-gift-view.js";
 import { withTownToggled } from "./client-diplomacy-town-return.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
@@ -19,7 +20,7 @@ const pricing: AiDiplomacyPricing = {
 };
 const reply: DiplomacyStanceReply = {
   found: true, targetPlayerName: "Milo", targetPlayerId: "ai-1", ai: true,
-  truceRefusal: "Milo wants to see how this war goes first: it means to win its land back. It would make peace for the town you took back.",
+  truceRefusal: "Milo wants to see how this war goes first: it means to win its land back. It would make peace if you returned the town you took from it.",
   pricing, returnableTowns: [oak]
 };
 
@@ -68,6 +69,27 @@ describe("trade screen: return a town", () => {
     townButton().click();
     document.querySelector<HTMLButtonElement>('[data-deal-remove-town="4,4"]')!.click();
     expect(townButton().getAttribute("aria-pressed")).toBe("false");
+  });
+
+  // Regression: the town's value (500) is past the gift goodwill cap (250 coin
+  // here), and the coin cap check refused every town gift.
+  it("lets a town go as a gift even past the goodwill cap, but holds back coin beyond it", () => {
+    const giftReply: DiplomacyStanceReply = { ...reply, attitude: { level: "CAUTIOUS", score: -10, modifiers: [] }, gift: giftView(0, 60) };
+    const gifting = (gold: number) => giftVerdict({
+      targetName: "Milo", reply: giftReply, own: { gold: 500 },
+      selection: { kind: "gift", durationHours: 12, terms: { give: { gold, towns: [{ x: 4, y: 4 }] }, ask: { gold: 0 } } }
+    });
+    expect(gifting(0)).toMatchObject({ canSend: true, tone: "good" });
+    expect(gifting(50)).toMatchObject({ canSend: false, text: expect.stringContaining("Give it without coin") });
+  });
+
+  // Regression: a town kept in the deal after switching to an alliance was sent and bounced as BAD_MSG.
+  it("takes the town out when the deal switches to an alliance", () => {
+    open();
+    townButton().click();
+    document.querySelector<HTMLButtonElement>('[data-trade-kind^="alliance"]')!.click();
+    expect(document.querySelector("[data-trade-deal]")?.textContent).not.toContain("Oakridge");
+    expect(townButton().disabled).toBe(true);
   });
 
   it("toggles a town in and out of what you give", () => {

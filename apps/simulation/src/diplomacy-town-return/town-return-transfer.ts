@@ -37,7 +37,9 @@ export const returnedTownState = (tile: DomainTileState, receiverId: string, now
     muster: _muster,
     ...rest
   } = tile;
-  return { ...rest, ...capturedStructureFields(tile, receiverId, now), ownerId: receiverId, ownershipState: "SETTLED" };
+  // The capture's growth shock ends with the handover (the town is back with its own empire).
+  const town = rest.town ? (({ captureShockUntil: _shock, populationBeforeCapture: _before, ...kept }) => kept)(rest.town) : undefined;
+  return { ...rest, ...(town ? { town } : {}), ...capturedStructureFields(tile, receiverId, now), ownerId: receiverId, ownershipState: "SETTLED" };
 };
 
 /** Hands each town to `receiverId` and tells both sides. Returns the tiles written. */

@@ -1,5 +1,5 @@
 import { DiplomacySettlementPayloadSchema, type DiplomacySettlementPayload } from "@border-empires/sim-protocol";
-import { RESOURCE_SUPPLY_TRADE_DURATION_MS, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreement } from "@border-empires/shared";
+import { RESOURCE_SUPPLY_TRADE_DURATION_MS, hasResourceSupplyOffer, type DiplomacyGoods, type DiplomacyTownRef, type ResourceSupplyAgreement } from "@border-empires/shared";
 import type { ResourceTradeJournalCursor } from "./resource-supply-trades/runtime-resource-supply.js";
 import type { SupplyLedgerResult } from "./resource-supply-trades/resource-supply-ledger.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
@@ -35,12 +35,17 @@ export type RuntimeDiplomacySettlementContext = {
   replaceTileState?: TownReturnWriteContext["replaceTileState"];
   tileDeltaFromState?: TownReturnWriteContext["tileDeltaFromState"];
   personalImpactEntries?: () => readonly PersonalImpactEvent[];
+  /** True while a fight or a settle is pending on the tile: such a town can't change hands. */
+  isTileLocked?: (tileKey: string) => boolean;
 };
 
 const townReturnContext = (context: RuntimeDiplomacySettlementContext): (TownReturnReadContext & TownReturnWriteContext) | undefined => {
-  const { tiles, replaceTileState, tileDeltaFromState, personalImpactEntries } = context;
+  const { tiles, replaceTileState, tileDeltaFromState, personalImpactEntries, isTileLocked } = context;
   if (!tiles || !replaceTileState || !tileDeltaFromState || !personalImpactEntries) return undefined;
-  return { tiles, replaceTileState, tileDeltaFromState, personalImpactEntries, emitEvent: context.emitEvent, now: () => context.now?.() ?? Date.now() };
+  return {
+    tiles, replaceTileState, tileDeltaFromState, personalImpactEntries, emitEvent: context.emitEvent, now: () => context.now?.() ?? Date.now(),
+    ...(isTileLocked ? { isTileLocked } : {})
+  };
 };
 
 type Goods = DiplomacyGoods;
@@ -80,14 +85,19 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   }
   const agreement = supplies || recurring;
   if (agreement && !context.resourceSupply) return reject("RESOURCE_TRADING_UNAVAILABLE", "Resource trading is unavailable in this world.");
-  const proposerTowns = payload.proposerPays.towns ?? [];
-  const targetTowns = payload.targetPays.towns ?? [];
-  const towns = proposerTowns.length > 0 || targetTowns.length > 0 ? townReturnContext(context) : undefined;
-  if ((proposerTowns.length > 0 || targetTowns.length > 0) && !towns) return reject("TOWN_RETURN_UNAVAILABLE", "Town returns are unavailable in this world.");
-  // A refund hands back what the deal just moved, so it only needs the towns still held.
+  const offeredProposerTowns = payload.proposerPays.towns ?? [];
+  const offeredTargetTowns = payload.targetPays.towns ?? [];
+  const towns = offeredProposerTowns.length > 0 || offeredTargetTowns.length > 0 ? townReturnContext(context) : undefined;
+  if ((offeredProposerTowns.length > 0 || offeredTargetTowns.length > 0) && !towns) return reject("TOWN_RETURN_UNAVAILABLE", "Town returns are unavailable in this world.");
+  // A refund hands back what the deal just moved: a town that can no longer
+  // move (lost, mustered, fought over) stays put, and the coin still goes back.
   const refund = Boolean(payload.refund || payload.refundOf);
-  const townProblem = towns
-    ? townReturnProblem(towns, proposer, target.id, proposerTowns, refund) ?? townReturnProblem(towns, target, proposer.id, targetTowns, refund)
+  const movable = (giver: DomainPlayer, receiverId: string, list: readonly DiplomacyTownRef[]): readonly DiplomacyTownRef[] =>
+    refund && towns ? list.filter((town) => !townReturnProblem(towns, giver, receiverId, [town], true)) : list;
+  const proposerTowns = movable(proposer, target.id, offeredProposerTowns);
+  const targetTowns = movable(target, proposer.id, offeredTargetTowns);
+  const townProblem = towns && !refund
+    ? townReturnProblem(towns, proposer, target.id, proposerTowns, false) ?? townReturnProblem(towns, target, proposer.id, targetTowns, false)
     : undefined;
   const missing = missingFor(proposer, payload.proposerPays) ?? missingFor(target, payload.targetPays) ?? townProblem;
   const targetCoinDelta = payload.proposerPays.gold - payload.targetPays.gold;

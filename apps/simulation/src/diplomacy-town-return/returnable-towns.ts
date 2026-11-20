@@ -20,6 +20,8 @@ export type TownReturnReadContext = {
   personalImpactEntries: () => readonly PersonalImpactEvent[];
   /** The town's own coin income, for the AI's valuation; undefined when unknown. */
   townGoldPerMinute?: (tile: DomainTileState) => number | undefined;
+  /** True while a fight or a settle is pending on the tile. */
+  isTileLocked?: (tileKey: string) => boolean;
 };
 
 const isBarbarian = (playerId: string): boolean => playerId.startsWith("barbarian-");
@@ -74,6 +76,7 @@ export const townReturnProblem = (
     if (!tile?.town || tile.ownerId !== giver.id) return `${giverName} no longer holds the town at ${where}`;
     if (eligible && !eligible.has(townRefKey(town))) return `the town at ${where} wasn't taken from them in the last day`;
     if (tile.muster) return `${giverName} has a muster flag in the town at ${where}`;
+    if (ctx.isTileLocked?.(townRefKey(town))) return `the town at ${where} is being fought over or settled`;
   }
   return undefined;
 };
