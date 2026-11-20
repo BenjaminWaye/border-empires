@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   SCOUT_DRONE_HOME_STEP_MS,
-  SCOUT_DRONE_MAX_RANGE_TILES,
   SCOUT_DRONE_STEP_MS,
   planScoutDroneFlight,
   scoutDroneBlockAt,
@@ -49,17 +48,28 @@ describe("planScoutDroneFlight", () => {
     expect(flight.landsAt).toBe(1_000 + 2 * oneWay);
   });
 
-  it("turns back after the range limit past the player's land", () => {
-    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 40, y: 0 }, 0, world())!;
-    expect(flight.endReason).toBe("RANGE");
-    expect(flight.steps[flight.turnIndex]!.x).toBe(4 + SCOUT_DRONE_MAX_RANGE_TILES);
+  // Playtest 2026-11-20: a 15-tile range limit meant a drone never reached a rival
+  // ~70 tiles away, so an island start could never find anyone to fight.
+  it("has no range limit: a far target is reached, it just takes longer", () => {
+    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 45, y: 0 }, 0, world())!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]!.x).toBe(45);
+    // 4 home tiles quickly, 41 open tiles at Expand To pace, each way.
+    expect(flight.landsAt).toBe(2 * (4 * SCOUT_DRONE_HOME_STEP_MS + 41 * SCOUT_DRONE_STEP_MS));
   });
 
-  it("turns back at the range limit when that comes before a far border", () => {
+  it("crosses a wide own empire without turning back", () => {
+    const wide = world({ classify: (x) => (x < 90 ? { kind: "HOME" } : { kind: "OPEN" }) });
+    const flight = planScoutDroneFlight({ x: 0, y: 0 }, { x: 95, y: 0 }, 0, { ...wide, width: 200 })!;
+    expect(flight.endReason).toBe("TARGET");
+    expect(flight.steps[flight.turnIndex]!.x).toBe(95);
+  });
+
+  it("flies on until a far border turns it back", () => {
     const flight = planScoutDroneFlight({ x: 0, y: 10 }, { x: 40, y: 10 }, 0, world())!;
-    expect(flight.endReason).toBe("RANGE");
-    expect(flight.blockedByPlayerId).toBeUndefined();
-    expect(flight.steps[flight.turnIndex]!.x).toBe(19);
+    expect(flight.endReason).toBe("BLOCKED");
+    expect(flight).toMatchObject({ blockedByPlayerId: "rival", blockedAtX: 30, blockedAtY: 10 });
+    expect(flight.steps[flight.turnIndex]!.x).toBe(29);
   });
 
   it("reports the blocking border when it comes before the range limit", () => {

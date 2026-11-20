@@ -14,10 +14,6 @@ import { FRONTIER_CLAIM_MS } from "../config.js";
 
 /** Live vision radius around the drone while it flies. */
 export const SCOUT_DRONE_VISION_RADIUS = 3;
-/** Tiles the drone may fly past the player's own land before it turns back. */
-export const SCOUT_DRONE_MAX_RANGE_TILES = 15;
-/** Home ground (own and allied land, and unclaimed own or allied reach) the drone may cross on one flight (bounds the plan's size). */
-export const SCOUT_DRONE_MAX_HOME_TILES = 80;
 /** Time per tile past the player's land: the same pace as Expand To. */
 export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
 /** Time per tile over home ground (own and allied land and reach), which the player already sees. */
@@ -34,13 +30,17 @@ export const SCOUT_SIGHTED_MESSAGE_TYPE = "SCOUT_SIGHTED";
 
 /** How the drone treats a tile on its line. */
 export type ScoutDroneTileClass =
-  | "HOME" // the player's own or allied land, or unclaimed own or allied reach: crossed quickly, not counted toward range
-  | "OPEN" // neutral land, sea or Planetary Defense land: counted toward range
+  | "HOME" // the player's own or allied land, or unclaimed own or allied reach: crossed quickly
+  | "OPEN" // neutral land, sea or Planetary Defense land: flown at Expand To pace
   | "BLOCKED"; // a non-allied player's land: the drone turns back before it
 
 export type ScoutDroneStep = { x: number; y: number; at: number };
 
-/** RECALLED: the owner called it home early (RECALL_SCOUT). */
+/**
+ * RECALLED: the owner called it home early (RECALL_SCOUT). RANGE is no longer
+ * produced (the drone has no range limit since 2026-11-20; a farther target
+ * only means a longer flight) but stays so flights saved before then still parse.
+ */
 export type ScoutDroneEndReason = "TARGET" | "RANGE" | "BLOCKED" | "RECALLED";
 
 export type ScoutDroneFlight = {
@@ -137,8 +137,10 @@ export const scoutDroneBlockAt = (
 
 /**
  * Plans a flight from the launch tile toward the target: outbound until the
- * target, the range limit, the home-land limit or a blocking border, then
- * straight back along the same tiles. Returns undefined when the drone could
+ * target or a blocking border, then straight back along the same tiles. There
+ * is no range limit: a farther target only takes longer (Expand To pace over
+ * open ground). The plan stays bounded because the line takes the short way
+ * round the wrapping map, so it is at most half the map's width or height. Returns undefined when the drone could
  * not leave at all (the very first tile past the AFC is blocked).
  */
 export const planScoutDroneFlight = (
@@ -149,8 +151,6 @@ export const planScoutDroneFlight = (
 ): ScoutDroneFlight | undefined => {
   const line = scoutDroneLine(launch, target, world.width, world.height);
   const outbound: Array<{ x: number; y: number; stepMs: number }> = [{ x: launch.x, y: launch.y, stepMs: 0 }];
-  let open = 0;
-  let home = 0;
   let endReason: ScoutDroneEndReason = "TARGET";
   let blocked: { ownerId?: string | undefined; x: number; y: number } | undefined;
   let prev = launch;
@@ -162,19 +162,6 @@ export const planScoutDroneFlight = (
       endReason = "BLOCKED";
       blocked = wall;
       break;
-    }
-    if (cls.kind === "HOME") {
-      if (home >= SCOUT_DRONE_MAX_HOME_TILES) {
-        endReason = "RANGE";
-        break;
-      }
-      home += 1;
-    } else {
-      if (open >= SCOUT_DRONE_MAX_RANGE_TILES) {
-        endReason = "RANGE";
-        break;
-      }
-      open += 1;
     }
     outbound.push({ x: tile.x, y: tile.y, stepMs: cls.kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
   }
