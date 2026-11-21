@@ -7,9 +7,9 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawOnboardingChecklistHighlights } from "../client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges-map.js";
+import { houseChargeAreaEdges, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges-search-guide.js";
-import { scoutFindingRingTiles } from "../client-scout-drone/client-scout-finding-highlight.js";
+import { mapGuideRingTiles } from "./client-map-guide-ring-tiles.js";
 
 export const CHARGE_TINT_GARRISONED = "rgba(95, 211, 106, 0.5)";
 /** Tiles still to take: a dark wash plus pale diagonal hatching, so they read by pattern on sand, grass or snow alike. */
@@ -97,6 +97,5 @@ export const drawMapGuideOverlays = (
     drawDots(deps, guide.ringDots, CHARGE_RING_DOT, CHARGE_RING_DOT_RADIUS);
     deps.ctx.restore();
   }
-  const markers = [...houseChargeMarkerTiles(state), ...scoutFindingRingTiles(state, Date.now())];
-  drawOnboardingChecklistHighlights(markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles, deps);
+  drawOnboardingChecklistHighlights(mapGuideRingTiles(state, Date.now()), deps);
 };

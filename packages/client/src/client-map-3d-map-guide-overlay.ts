@@ -1,11 +1,11 @@
 import { BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, DynamicDrawUsage, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges/client-house-charges-map.js";
+import { houseChargeAreaEdges, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges/client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges/client-house-charges-search-guide.js";
 import { CHARGE_LINK_DOT_RADIUS, CHARGE_RING_DOT_RADIUS } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHighlightTile } from "./client-map-3d-onboarding-checklist-highlight.js";
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
-import { scoutFindingRingTiles } from "./client-scout-drone/client-scout-finding-highlight.js";
+import { mapGuideRingTiles } from "./client-house-charges/client-map-guide-ring-tiles.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // True-3D map guidance, the counterpart of the 2D client-map-guide-overlays-2d.ts:
@@ -127,8 +127,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
       const guide = houseChargeSearchGuide(state, WORLD_WIDTH, WORLD_HEIGHT);
       placeDots(ringDots, guide.ringDots, toScene);
       placeDots(linkDots, guide.linkDots, toScene);
-      const markers = [...houseChargeMarkerTiles(state), ...scoutFindingRingTiles(state, Date.now())];
-      const ringTiles = markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles;
+      const ringTiles = mapGuideRingTiles(state, Date.now());
       rings.sync(ringTiles.map((tile) => toScene(tile.x, tile.y)), nowMs);
       const counts = { garrisoned: 0, open: 0 };
       const tintTiles = houseChargeTintTiles(state);

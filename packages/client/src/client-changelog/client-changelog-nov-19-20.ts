@@ -46,9 +46,9 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
   { ...SCOUT_REPORT_FOCUS_ENTRY, createdAt: 1795206346879 },
   { ...NEXT_STEP_NO_BRAINERS_ENTRY, createdAt: 1795209183293 },
-  { ...SCOUT_FINDING_LINKS_ENTRY, createdAt: 1795211957633 },
   { ...SCOUT_DRONE_WAYPOINTS_ENTRY, createdAt: 1795212180392 },
   { ...PLANETARY_DEFENSE_CAMP_GROWTH_ENTRY, createdAt: 1795250207519 }, // Date.now() captured once for this entry.
   { ...SCOUT_PLAN_MOBILE_ENTRY, createdAt: 1795250505942 },
   { ...SCOUT_DRONE_REPORTS_ENTRY, createdAt: 1795255054724 },
+  { ...SCOUT_FINDING_LINKS_ENTRY, createdAt: 1795263266032 }, // re-captured at merge: the first one predated entries already shipped
 ];
