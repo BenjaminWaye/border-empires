@@ -216,7 +216,10 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       stops.forEach((stop, i) => {
         const wanted = plan.stops[i];
         if (!stop.clamped || !wanted || (i === stops.length - 1 && sinceTap >= 0 && sinceTap < TOO_FAR_MS)) return;
-        beadPath(straightTiles(stop, wanted).slice(0, TOO_FAR_STUB_TILES + 1), TOO_FAR, 0.8, phase);
+        const stub = straightTiles(stop, wanted).slice(0, TOO_FAR_STUB_TILES + 1);
+        beadPath(stub, TOO_FAR, 0.8, phase);
+        // A small hollow ring caps it, so it reads as "you wanted this far", not a route carrying on (round 7).
+        pushRing(stub[stub.length - 1]!, TOO_FAR, 0.4);
       });
       // The pointer's leg ends in a soft dot, never a ring, so it cannot pass for a placed stop.
       if (ghostEnd) {
