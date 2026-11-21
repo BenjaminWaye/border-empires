@@ -3,6 +3,18 @@ import {
   showTownCaptureOverlay,
   type TownCaptureInfo
 } from "@client/client-town-capture/client-town-capture.js";
+import { installTownCaptureGarrison } from "@client/client-town-capture/client-town-capture-garrison.js";
+import type { ClientState } from "@client/client-state/client-state.js";
+
+// The card reads the town's garrison state live; this stub world has Quartzcrown ungarrisoned.
+installTownCaptureGarrison({
+  me: "me",
+  tiles: new Map([["481,75", { x: 481, y: 75, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", town: { name: "Quartzcrown", type: "FARMING", populationTier: "TOWN", population: 23_791 } }]]),
+  autoSettle: { status: "unloaded" },
+  developmentQueue: [],
+  settleProgressByTile: new Map(),
+  autoSettleTargets: new Set()
+} as unknown as ClientState, () => {});
 
 const DEFAULT_VARIANT = "Captured (Town)";
 
@@ -16,6 +28,20 @@ const VARIANTS: Record<string, TownCaptureInfo> = {
     coastal: true,
     population: 3200,
     maxPopulation: 4000,
+    empireName: "Your Empire",
+    ownedTownCount: 2,
+    destroyed: false,
+    onJumpToTown: () => {}
+  },
+  "Captured, not garrisoned": {
+    x: 481,
+    y: 75,
+    townName: "Quartzcrown",
+    populationTier: "TOWN",
+    terrainProfile: "GRASS",
+    coastal: true,
+    population: 23_791,
+    maxPopulation: 100_000,
     empireName: "Your Empire",
     ownedTownCount: 2,
     destroyed: false,
@@ -107,4 +133,5 @@ export default meta;
 type Story = StoryObj<{ variant: string }>;
 
 export const Captured: Story = { args: { variant: "Captured (Town)" } };
+export const NotGarrisoned: Story = { args: { variant: "Captured, not garrisoned" } };
 export const Destroyed: Story = { args: { variant: "Destroyed (Settlement)" } };
