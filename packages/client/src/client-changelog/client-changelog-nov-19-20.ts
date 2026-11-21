@@ -18,6 +18,7 @@ import { START_SITE_PATROLS_ISLANDS_ENTRY } from "./client-changelog-start-site-
 import { PLANETARY_DEFENSE_CAMPS_ENTRY } from "./client-changelog-planetary-defense-camps.js";
 import { RELIC_AETHER_WAKE_ENTRY } from "./client-changelog-relic-aether-wake.js";
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
+import { SCOUT_REPORT_FOCUS_ENTRY } from "./client-changelog-scout-report-focus.js";
 import { SCOUT_RADAR_RING_ENTRY } from "./client-changelog-scout-radar-ring.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
@@ -39,5 +40,6 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...PLANETARY_DEFENSE_CAMPS_ENTRY, createdAt: 1795178995450 },
   { ...RELIC_AETHER_WAKE_ENTRY, createdAt: 1795196290100 }, // Date.now() captured once for this entry.
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
+  { ...SCOUT_REPORT_FOCUS_ENTRY, createdAt: 1795206346879 },
   { ...SCOUT_RADAR_RING_ENTRY, createdAt: 1795212668070 },
 ];
