@@ -754,7 +754,7 @@ describe("rewrite stack integration", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       defaultHumanPlayerId: "player-1",
       firebaseTokenVerifier: testFirebaseTokenVerifier,
-      adminEmail: "fog-admin@example.com"
+      adminEmail: "fog-admin@example.com", fogLiveRefreshMinGapMs: 0 // skip prod 15s pacing between full-world refreshes
     });
     cleanup.push(() => gateway.close());
     const gatewayAddress = await gateway.start();
