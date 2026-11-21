@@ -14,10 +14,10 @@ import type { ScoutDroneCharges } from "./scout-drone-charges.js";
 
 /** Live vision radius around the drone while it flies. */
 export const SCOUT_DRONE_VISION_RADIUS = 3;
-/** Time per tile past the player's land (1s since 2026-11-20; was Expand To's 7.5s). */
-export const SCOUT_DRONE_STEP_MS = 1_000;
+/** Time per tile past the player's land (3s since 2026-11-21: 1s explored too fast; was Expand To's 7.5s before 2026-11-20). */
+export const SCOUT_DRONE_STEP_MS = 3_000;
 /** Time per tile over home ground (own and allied land and reach), which the player already sees. */
-export const SCOUT_DRONE_HOME_STEP_MS = 500;
+export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
 /** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
 export const SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS = 10 * 60_000;
 /** A rival is alerted at most once per scouting empire per this window. */

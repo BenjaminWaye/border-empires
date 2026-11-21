@@ -133,7 +133,7 @@ describe("ground that becomes home mid-flight", () => {
   it("jumps the drone forward over it, out and home, never past the tile it is flying toward", () => {
     const flight = plan();
     const legInto6 = flight.steps.findIndex((s) => s.x === 6);
-    const now = flight.steps[legInto6 - 1]!.at + 700; // 0.7s into the 1s leg toward x=6, past where a 0.5s home leg would end
+    const now = flight.steps[legInto6 - 1]!.at + 0.7 * SCOUT_DRONE_STEP_MS; // 70% into the open leg toward x=6, past where a home-pace leg would end
     const faster = speedUpScoutDroneFlight(flight, now, (x) => x <= 7)!;
     expect(faster).toBeDefined();
     // The leg in progress ends at least now (no snap past it), later legs over x<=7 take home pace.
