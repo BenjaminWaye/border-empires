@@ -2,6 +2,8 @@ import {
   BARBARIAN_ATTACKS_PER_MINUTE,
   BARBARIAN_INFLIGHT_TIMEOUT_MS,
   BARBARIAN_TILE_REST_MS,
+  MAX_PLANETARY_DEFENSE_CAMP_TILES,
+  PLANETARY_DEFENSE_EXPAND_REST_MS,
   PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW,
   lastManpowerRefillAtMs
 } from "@border-empires/shared";
@@ -11,7 +13,10 @@ import { candidateKeysForOrigin, createFrontierCommand, type PlannerTile, type P
 /**
  * Planetary Defense planner (docs/planetary-defense-camps-plan.md). Each camp
  * (its camp tile plus the frontier carrying its campId) takes at most one
- * action at a time and rests BARBARIAN_TILE_REST_MS after it settles. Only
+ * action at a time and rests after it settles: BARBARIAN_TILE_REST_MS after an
+ * attack, PLANETARY_DEFENSE_EXPAND_REST_MS after an expansion. A camp holding
+ * MAX_PLANETARY_DEFENSE_CAMP_TILES takes no more land, only towns and docks
+ * (which become new camps). Only
  * awake camps act: a watcher can see one of their tiles (the main thread's
  * camp-awake-tracker.ts sends the set). A camp acts only from its own tiles:
  *   1. attack a House tile next to its land, if the faction-wide attack budget
@@ -42,6 +47,8 @@ export type BarbarianPlannerDeps = {
   readonly getAwakeCampIds: () => ReadonlySet<string>;
   readonly now?: () => number;
   readonly restMs?: number;
+  readonly expandRestMs?: number;
+  readonly maxCampTiles?: number;
   readonly attacksPerMinute?: number;
   readonly raidsPerHousePerWindow?: number;
   readonly inFlightTimeoutMs?: number;
@@ -94,6 +101,8 @@ const targetValue = (tile: PlannerTile): number => (tile.town || tile.dockId ? 1
 export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPlanner => {
   const now = deps.now ?? (() => Date.now());
   const restMs = deps.restMs ?? BARBARIAN_TILE_REST_MS;
+  const expandRestMs = deps.expandRestMs ?? PLANETARY_DEFENSE_EXPAND_REST_MS;
+  const maxCampTiles = deps.maxCampTiles ?? MAX_PLANETARY_DEFENSE_CAMP_TILES;
   const attacksPerMinute = deps.attacksPerMinute ?? BARBARIAN_ATTACKS_PER_MINUTE;
   const raidsPerWindow = deps.raidsPerHousePerWindow ?? PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW;
   const inFlightTimeoutMs = deps.inFlightTimeoutMs ?? BARBARIAN_INFLIGHT_TIMEOUT_MS;
@@ -131,7 +140,8 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     if (!entry) return;
     inFlightByCommandId.delete(commandId);
     if (rejected) refundRejected(entry, settledAt);
-    restUntilByCamp.set(entry.campId, settledAt + restMs);
+    // A refused expansion took no land, so it rests like an attack.
+    restUntilByCamp.set(entry.campId, settledAt + (entry.attack || rejected ? restMs : expandRestMs));
   };
 
   const attackBudgetOpen = (t: number): boolean => {
@@ -176,11 +186,15 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     const avoid = avoidUntilByCamp.get(campId);
     let best: CampAction | undefined;
     let held = false;
-    for (const from of deps.campTiles(campId)) {
+    const tiles = deps.campTiles(campId);
+    // A full-size camp takes only towns and docks: those become new camps, not more of this one.
+    const full = tiles.length >= maxCampTiles;
+    for (const from of tiles) {
       for (const targetKey of candidateKeysForOrigin(from, dockLinks, deps.tilesByKey)) {
         if (busyTargets.has(targetKey)) continue;
         const target = deps.tilesByKey.get(targetKey);
         if (!target || target.terrain !== "LAND" || isBarbarian(target.ownerId)) continue;
+        if (full && !target.town && !target.dockId) continue;
         if ((avoid?.get(targetKey) ?? 0) > t) {
           held = true;
           continue;
@@ -252,7 +266,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     restUntilByCamp,
     exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, now()),
     // A saved rest can't outlast one full rest from now: a corrupt or far-future value must not silence a camp.
-    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp, now() + restMs)
+    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp, now() + Math.max(restMs, expandRestMs))
   };
 };
 

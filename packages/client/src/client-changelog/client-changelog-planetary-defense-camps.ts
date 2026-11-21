@@ -14,3 +14,14 @@ export const PLANETARY_DEFENSE_CAMPS_ENTRY: Omit<ClientChangelogEntry, "createdA
     "Hunt Planetary Defense now acts like a plain Advance order; with camps there is nothing left to chase"
   ]
 };
+
+export const PLANETARY_DEFENSE_CAMP_GROWTH_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.21",
+  title: "Planetary Defense camps grow slower and stand out",
+  why: "Planetary Defense spread across the map too quickly: AI empires keep most camps awake, and each camp took a neutral tile every 15 seconds with no limit on its size. Soldiers also stood on every one of its tiles, so you couldn't tell a camp from the land around it.",
+  changes: [
+    "A camp now rests a minute after taking neutral land instead of 15 seconds. Attacks on Houses keep their 15 second rest and raid limit",
+    "A camp stops growing at 20 tiles. A full camp can still take a town or a dock, which becomes a new camp",
+    "Soldiers now stand only on the camp itself, on both the 3D and 2D maps. The plain grey land around them is the camp's frontier: capture the camp and all of it falls"
+  ]
+};

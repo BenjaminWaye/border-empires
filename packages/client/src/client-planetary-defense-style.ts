@@ -8,6 +8,12 @@ export const PLANETARY_DEFENSE_ARMOR_COLOR = "#5c636b";
 export const isPlanetaryDefenseOwnerId = (ownerId: string | null | undefined): boolean =>
   typeof ownerId === "string" && ownerId.startsWith("barbarian");
 
+// A Planetary Defense camp is its garrisoned (SETTLED) tile; the FRONTIER around
+// it is the camp's land (docs/planetary-defense-camps-plan.md). Soldiers stand
+// only on camps, in both renderers, so a camp stands out from its land.
+export const isPlanetaryDefenseCampTile = (tile: { ownerId?: string | null; ownershipState?: string | null } | undefined): boolean =>
+  isPlanetaryDefenseOwnerId(tile?.ownerId) && tile?.ownershipState !== "FRONTIER";
+
 // Battle-squad tint for an owner: Planetary Defense always fights in its
 // dark grey armor; everyone else in their own overlay color.
 export const squadColorForOwner = (ownerId: string, playerColorFor: (ownerId: string) => string): string =>

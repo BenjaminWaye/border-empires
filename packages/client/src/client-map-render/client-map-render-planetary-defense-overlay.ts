@@ -12,7 +12,8 @@
 // reproduce the 3D overlay's jog between tiles on a capture (that needs
 // cross-frame tile diffing this draw call has nowhere to keep), and the 2D
 // path has no marine battle squads, so combat itself isn't shown here.
-import { PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
+import { isPlanetaryDefenseCampTile, PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
+import type { Tile } from "../client-types.js";
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "../client-map-3d-planetary-defense-patrol.js";
 
 const VISOR_COLOR = "rgba(150, 205, 255, 0.9)";
@@ -75,8 +76,10 @@ export const drawSoldierGlyph2D = (
   ctx.stroke();
 };
 
+// Soldiers stand only on a camp, not on the frontier it holds (same rule as the 3D map).
 export const drawPlanetaryDefenseOverlay = (
   ctx: CanvasRenderingContext2D,
+  tile: Tile,
   px: number,
   py: number,
   size: number,
@@ -84,7 +87,7 @@ export const drawPlanetaryDefenseOverlay = (
   wy: number,
   nowMs: number
 ): void => {
-  if (size < 10) return;
+  if (size < 10 || !isPlanetaryDefenseCampTile(tile)) return;
   const h = Math.max(5, size * 0.34);
   ctx.save();
   for (let i = 0; i < SOLDIERS_PER_TILE; i += 1) {

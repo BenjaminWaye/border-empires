@@ -38,6 +38,26 @@ const setup = (tiles: Tile[], options: { awake?: string[]; now?: () => number; d
   return { planner, choose, tilesByKey, advance: (ms: number) => { now += ms; }, now: () => now };
 };
 
+const setupWithCap = (maxCampTiles: number, tiles: Tile[]) => {
+  const tilesByKey = new Map(tiles.map((tile) => [key(tile.x, tile.y), tile]));
+  const planner = createBarbarianPlanner({
+    tilesByKey,
+    campIds: () => ["10,10"],
+    campTiles: (campId) => [...tilesByKey.values()].filter((t) => t.ownerId === "barbarian-1" && t.campId === campId),
+    getDockLinksByDockTileKey: () => new Map(),
+    getAwakeCampIds: () => new Set(["10,10"]),
+    now: () => 1_000,
+    maxCampTiles
+  });
+  const choose = () => {
+    const command = planner.choose(1, 1_000);
+    if (!command) return undefined;
+    const payload = JSON.parse(command.payloadJson) as { toX: number; toY: number };
+    return { type: command.type, to: key(payload.toX, payload.toY) };
+  };
+  return { choose };
+};
+
 describe("Planetary Defense planner", () => {
   it("expands from the camp's own land into neutral ground, towns and docks first", () => {
     const { choose } = setup([campTile(10, 10), campLand(11, 10, "10,10"), neutral(9, 10), neutral(12, 10, { town: {} })]);
@@ -56,15 +76,48 @@ describe("Planetary Defense planner", () => {
     expect(choose()).toBeUndefined(); // the awake camp is busy, the other camp sleeps
   });
 
-  it("one action per camp: busy until it settles, then rests", () => {
-    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+  it("one action per camp: busy until it settles, then rests 15 s after an attack", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), house(10, 11, "FRONTIER"), house(10, 9, "FRONTIER")]);
     const first = choose()!;
+    expect(first.type).toBe("ATTACK");
     expect(choose()).toBeUndefined();
     planner.settle(first.commandId, 1_000);
     advance(14_000);
     expect(choose()).toBeUndefined();
     advance(2_000);
     expect(choose()).toBeDefined();
+  });
+
+  // Regression: expansions rested only 15 s, and AI empires keep most camps awake, so every
+  // camp took four neutral tiles a minute and Planetary Defense swamped the map.
+  it("rests 60 s after taking neutral land", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+    const first = choose()!;
+    expect(first.type).toBe("EXPAND");
+    planner.settle(first.commandId, 1_000);
+    advance(59_000);
+    expect(choose()).toBeUndefined();
+    advance(2_000);
+    expect(choose()).toMatchObject({ type: "EXPAND" });
+  });
+
+  it("a refused expansion rests only the short rest", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+    const first = choose()!;
+    planner.settle(first.commandId, 1_000, true);
+    advance(16_000);
+    expect(choose()).toMatchObject({ type: "EXPAND" });
+  });
+
+  // Regression: nothing limited a camp's size, so an awake camp kept spreading forever.
+  it("a full-size camp takes no more land, only towns and docks", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER"), house(12, 11)]);
+    expect(choose()).toBeUndefined();
+    const withTown = setupWithCap(3, [...land, neutral(10, 11), neutral(13, 10, { town: {} })]);
+    expect(withTown.choose()).toMatchObject({ type: "EXPAND", to: "13,10" });
+    const below = setupWithCap(4, [...land, neutral(10, 11)]);
+    expect(below.choose()).toMatchObject({ type: "EXPAND", to: "10,11" });
   });
 
   it("the camp that has waited longest goes first", () => {
@@ -74,7 +127,7 @@ describe("Planetary Defense planner", () => {
     expect(first.from).not.toBe(second.from);
     planner.settle(first.commandId, 1_000);
     planner.settle(second.commandId, 1_000);
-    advance(20_000);
+    advance(61_000);
     expect(choose()?.from).toBe(first.from);
   });
 

@@ -2,9 +2,10 @@
 
 Status: **stages 1, 2 and 4 implemented** (server rules, live-season
 conversion, docs and lore; see "Implementation status" below). **Stage 3
-(client) is not**: until it lands the client still draws soldiers on every
-Planetary Defense tile, still offers Hunt Planetary Defense (now a plain
-Advance), and has no camp marker, tap highlight or camp alert.
+(client) is only started**: soldiers now stand only on camp tiles in both
+renderers (`isPlanetaryDefenseCampTile`), but the client still offers Hunt
+Planetary Defense (now a plain Advance) and has no separate camp marker, tap
+highlight or camp alert.
 Replaces the barbarian walk/multiply model described in
 [`game-mechanics.md`](game-mechanics.md) (the "Barbarians (rewrite model)"
 bullet) once built. Delete or fold into `game-mechanics.md` when shipped (see
@@ -64,10 +65,14 @@ everywhere.
    destroyed camp never comes back, so the force shrinks over a season as
    Houses clear it. At most **100 camps** (`MAX_BARBARIAN_TILES` is repurposed
    as the camp cap); at the cap a captured town or dock becomes FRONTIER. There
-   is **no cap on total tiles**. The progress / multiply rule is removed.
-6. **One action per camp every 15 s.** Each camp (the camp and its tiles)
-   takes at most one EXPAND or ATTACK per `BARBARIAN_TILE_REST_MS` (15 s),
-   counted from when the action settles. The global limit of
+   is no cap on total tiles, but **each camp holds at most 20 tiles**
+   (`MAX_PLANETARY_DEFENSE_CAMP_TILES`, camp included; added 2026-11-21 after
+   camps swamped the map): a full camp takes only towns and docks, which become
+   new camps. The progress / multiply rule is removed.
+6. **One action per camp at a time, then a rest.** Each camp (the camp and
+   its tiles) rests `BARBARIAN_TILE_REST_MS` (15 s) after an ATTACK and
+   `PLANETARY_DEFENSE_EXPAND_REST_MS` (60 s) after an EXPAND into neutral land
+   (a refused one rests 15 s), counted from when the action settles. The global limit of
    `BARBARIAN_ATTACKS_PER_MINUTE` (12) stays.
 7. **Only an online player wakes a camp** (option A). A camp acts only while a
    player who is **online** (map open; the simulation's `isPlayerSubscribed`)
@@ -255,19 +260,18 @@ producer tests in `ai/`):
   capture at the camp cap.
 
 Not built:
-- Stage 3 (client): no camp marker, soldier display rule or tap highlight in
+- Stage 3 (client): soldiers stand only on camps (not yet on a tracked camp's
+  land or while a camp expands); no separate camp marker or tap highlight in
   either renderer; Hunt is still offered (it is a plain Advance now).
 - The alert and login summary need server work too: an event when a camp
   becomes active in a player's vision, and a record of what a camp took from
   a House while it was offline. Neither exists yet.
 
 Known follow-ups (accepted for now):
-- A camp's size is unbounded (owner decision: no tile cap). Each decision walks
-  every tile of one camp; at about two decisions a second this stays small,
-  but a camp that grows to thousands of tiles makes its decisions, a human
-  login/logout re-count and the 5-minute verify scale with it. Watch
-  `sim_barbarian_tiles` and `system_barbarian_choose`; scanning only a camp's
-  border would bound it.
+- A camp's size was first left unbounded; since 2026-11-21 it is capped at
+  `MAX_PLANETARY_DEFENSE_CAMP_TILES` (20), which also bounds each decision's
+  scan. A town or dock taken at the camp cap still adds one plain frontier
+  tile to a full camp.
 - A collapsing camp drops buildings it captured (forts, observatories), as the
   old walk release did; keeping barbarian-owned structures on neutral ground
   needs its own rule.
