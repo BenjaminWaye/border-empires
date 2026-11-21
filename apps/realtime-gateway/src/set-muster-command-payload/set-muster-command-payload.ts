@@ -14,6 +14,7 @@ export type SetMusterClientMessage = {
   targetX?: number | undefined;
   targetY?: number | undefined;
   commitManpower?: number | undefined;
+  /** Hunt Planetary Defense, removed with Planetary Defense camps: still accepted from older clients, never forwarded. */
   hunt?: boolean | undefined;
 };
 
@@ -24,7 +25,6 @@ export type SetMusterCommandPayload = {
   targetX?: number;
   targetY?: number;
   commitManpower?: number;
-  hunt?: boolean;
 };
 
 export const setMusterCommandPayload = (message: SetMusterClientMessage): SetMusterCommandPayload => ({
@@ -33,9 +33,7 @@ export const setMusterCommandPayload = (message: SetMusterClientMessage): SetMus
   mode: message.mode,
   ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
   ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}),
-  ...(typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {}),
-  // Hunt Planetary Defense (MusterState.hunt) only means something on ADVANCE.
-  ...(message.mode === "ADVANCE" && message.hunt === true ? { hunt: true } : {})
+  ...(typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {})
 });
 
 // UPGRADE_MUSTER_CAP's payload, forwarded the same way so a manual attack's

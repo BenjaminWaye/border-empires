@@ -7,6 +7,7 @@
 import {
   SCOUT_DRONE_MESSAGE_TYPE,
   SCOUT_SIGHTED_MESSAGE_TYPE,
+  type ScoutDroneCharges,
   type ScoutDroneEndReason,
   type ScoutDroneFlight,
   type ScoutDroneStep,
@@ -19,8 +20,14 @@ import type { FeedEntry } from "../client-types.js";
 export const createInitialScoutDroneState = () => ({
   /** The player's drone while it is in the air (times in local clock), otherwise undefined. */
   scoutDroneFlight: undefined as ScoutDroneFlight | undefined,
-  /** Armed by Send scout drone on an AFC menu: the next map tap picks where to send it (client-scout-drone-picking.ts). */
-  scoutDronePicking: { active: false }
+  /** The charges as the server last sent them, spend times in local clock (client-scout-drone-plan.ts). */
+  scoutDroneCharges: undefined as ScoutDroneCharges | undefined,
+  /**
+   * A flight being planned (client-scout-drone-plan.ts): started by tapping fog or Send scout drone
+   * on an AFC. `stops` as tapped; `bumpAt` / `shakeAt` animate the dock; `launches` counts this
+   * session's flights, so the "tap the fog" hint stops once the player has the idea.
+   */
+  scoutDronePicking: { active: false, stops: [] as Array<{ x: number; y: number }>, bumpAt: 0, shakeAt: 0, launches: 0 }
 });
 
 type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playerNames: Map<string, string> };
@@ -55,8 +62,21 @@ export const parseScoutDroneFlight = (value: unknown, toLocal: (serverTime: numb
     endReason,
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {}),
     ...(isFiniteNumber(raw.blockedAtX) ? { blockedAtX: raw.blockedAtX } : {}),
-    ...(isFiniteNumber(raw.blockedAtY) ? { blockedAtY: raw.blockedAtY } : {})
+    ...(isFiniteNumber(raw.blockedAtY) ? { blockedAtY: raw.blockedAtY } : {}),
+    ...(Array.isArray(raw.waypoints)
+      ? { waypoints: raw.waypoints.flatMap((p: unknown) => (p && typeof p === "object" && isFiniteNumber((p as Point).x) && isFiniteNumber((p as Point).y) ? [{ x: (p as Point).x, y: (p as Point).y }] : [])) }
+      : {})
   };
+};
+
+type Point = { x: number; y: number };
+
+/** Parses the charges on a SCOUT_DRONE message into local clock. Undefined when absent or malformed. */
+export const parseScoutDroneCharges = (value: unknown, toLocal: (serverTime: number) => number): ScoutDroneCharges | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  if (!isFiniteNumber(raw.max) || !isFiniteNumber(raw.refillMs) || !Array.isArray(raw.usedAt)) return undefined;
+  return { max: raw.max, refillMs: raw.refillMs, usedAt: raw.usedAt.filter(isFiniteNumber).map(toLocal) };
 };
 
 const count = (value: unknown): number => (isFiniteNumber(value) && value > 0 ? Math.floor(value) : 0);
@@ -85,6 +105,7 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     resourcesSighted: readScoutResourceCounts(raw.resourcesSighted),
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
+    ...(isFiniteNumber(raw.focusX) && isFiniteNumber(raw.focusY) ? { focusX: raw.focusX, focusY: raw.focusY } : {}),
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
   };
 };
@@ -140,13 +161,15 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
+    const charges = parseScoutDroneCharges(msg.charges, toLocal);
+    if (charges) state.scoutDroneCharges = charges;
     // No "launched" popup: it only repeated the tap. The drone on the map, with its "Back in …"
     // pill (client-scout-drone-eta-label.ts), is the confirmation. A recall needs none either.
     if (next?.blockedByPlayerId && previous?.launchedAt === next.launchedAt && !previous.blockedByPlayerId) {
       push("Scout drone turned back", `Turned back at ${nameOf(next.blockedByPlayerId)}'s border.`, "warn", { x: next.blockedAtX ?? next.targetX, y: next.blockedAtY ?? next.targetY });
     }
     const report = parseScoutReport(msg.report);
-    if (report) push("Scout report", scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "success", { x: report.targetX, y: report.targetY });
+    if (report) push("Scout report", scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "success", { x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY });
     renderHud();
     return true;
   }

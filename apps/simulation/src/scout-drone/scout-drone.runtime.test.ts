@@ -53,7 +53,8 @@ describe("Explore in the runtime", () => {
     runtime.onEvent((event) => seen.push(event));
     expect(visibleKeys(runtime).has("30,20")).toBe(false);
 
-    runtime.submitCommand({ commandId: "explore-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: now, type: "EXPLORE", payloadJson: JSON.stringify({ x: 40, y: 20 }) });
+    // 20 open tiles past the border (x 15..34): a leg's full range, so the drone gets there.
+    runtime.submitCommand({ commandId: "explore-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: now, type: "EXPLORE", payloadJson: JSON.stringify({ x: 34, y: 20 }) });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(seen.find((event) => event.eventType === "COMMAND_REJECTED")).toBeUndefined();
     const launched = seen.find((event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SCOUT_DRONE");
@@ -72,7 +73,7 @@ describe("Explore in the runtime", () => {
     const landed = seen.filter((event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SCOUT_DRONE").at(-1);
     const payload = landed?.eventType === "PLAYER_MESSAGE" ? (JSON.parse(landed.payloadJson) as ScoutDronePayload) : undefined;
     expect(payload?.flight).toBeNull();
-    expect(payload?.report).toMatchObject({ targetX: 40, targetY: 20 });
+    expect(payload?.report).toMatchObject({ targetX: 34, targetY: 20 });
   });
 
   // Regression (playtest): land the drone revealed went back to fog within

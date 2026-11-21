@@ -2,7 +2,7 @@
  * Tests for the system job worker producer.
  *
  * Verifies that:
- *  - Barbarian / system planning is dispatched via a Worker thread
+ *  - System planning is dispatched via a Worker thread (barbarians are not: they plan on the main thread)
  *  - The producer skips ticks when ANY queue has a backlog
  *    (stricter than AI producer, which only blocks on human_interactive)
  *  - The worker receives "shutdown" on close
@@ -61,7 +61,7 @@ const makeRuntime = (depths: {
       tiles: [],
       players: [
         {
-          id: "barbarian-1",
+          id: "system-1",
           points: 500,
           manpower: 100,
           hasActiveLock: false,
@@ -80,7 +80,7 @@ const makeRuntime = (depths: {
       return () => eventEmitter.off("event", listener);
     },
     exportPlannerPlayerViews: () => [],
-    exportBarbTilesSeenByAnyPlayer: () => []
+    barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
   };
 };
 
@@ -102,7 +102,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime({ human_interactive: 1 }),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand,
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -119,7 +119,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime({ human_noninteractive: 3 }),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand,
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -136,7 +136,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime({ system: 2 }),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand,
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -153,7 +153,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand,
       shouldRun: () => false,
       tickIntervalMs: 10_000,
@@ -177,7 +177,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -195,7 +195,7 @@ describe("worker system command producer backpressure", () => {
     expect(planMessages.length).toBeGreaterThanOrEqual(1);
     expect(planMessages[0]).toMatchObject({
       type: "plan",
-      playerId: "barbarian-1",
+      playerId: "system-1",
       sessionPrefix: "system-runtime"
     });
   });
@@ -210,7 +210,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -224,9 +224,9 @@ describe("worker system command producer backpressure", () => {
 
   it("submits a command returned by the worker", async () => {
     const fakeCommand: CommandEnvelope = {
-      commandId: "system-runtime-barbarian-1-1-1000",
-      sessionId: "system-runtime:barbarian-1",
-      playerId: "barbarian-1",
+      commandId: "system-runtime-system-1-1-1000",
+      sessionId: "system-runtime:system-1",
+      playerId: "system-1",
       clientSeq: 1,
       issuedAt: 1000,
       type: "ATTACK",
@@ -248,7 +248,7 @@ describe("worker system command producer backpressure", () => {
     const submitted: CommandEnvelope[] = [];
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async (cmd) => { submitted.push(cmd); },
       tickIntervalMs: 10_000,
       workerScriptPath: "unused-by-mock.js"
@@ -263,9 +263,9 @@ describe("worker system command producer backpressure", () => {
 
     expect(submitted).toHaveLength(1);
     expect(submitted[0]).toMatchObject({
-      playerId: "barbarian-1",
+      playerId: "system-1",
       type: "ATTACK",
-      sessionId: "system-runtime:barbarian-1"
+      sessionId: "system-runtime:system-1"
     });
   });
 
@@ -298,7 +298,7 @@ describe("worker system command producer backpressure", () => {
 
     const producer = createWorkerSystemCommandProducer({
       runtime: makeRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async (command) => {
         submitted.push(command);
       },
@@ -314,7 +314,7 @@ describe("worker system command producer backpressure", () => {
     producer.close();
     MockWorker.prototype.postMessage = origPostMessage;
 
-    expect(submitted).toEqual([expect.objectContaining({ playerId: "barbarian-1", type: "EXPAND" })]);
+    expect(submitted).toEqual([expect.objectContaining({ playerId: "system-1", type: "EXPAND" })]);
   });
 
   it("does not forward irrelevant tile deltas to the system worker", async () => {
@@ -328,7 +328,7 @@ describe("worker system command producer backpressure", () => {
     const eventEmitter = new EventEmitter();
     const plannerPlayers = [
       {
-        id: "barbarian-1",
+        id: "system-1",
         points: 500,
         manpower: 100,
         hasActiveLock: false,
@@ -353,9 +353,9 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        exportBarbTilesSeenByAnyPlayer: () => []
+        barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
       },
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,
       tickIntervalMs: 50,
       workerScriptPath: "unused-by-mock.js"
@@ -386,7 +386,7 @@ describe("worker system command producer backpressure", () => {
     const eventEmitter = new EventEmitter();
     const plannerPlayers = [
       {
-        id: "barbarian-1",
+        id: "system-1",
         points: 500,
         manpower: 100,
         hasActiveLock: false,
@@ -411,9 +411,9 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        exportBarbTilesSeenByAnyPlayer: () => []
+        barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
       },
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async () => undefined,
       tickIntervalMs: 50,
       workerScriptPath: "unused-by-mock.js"

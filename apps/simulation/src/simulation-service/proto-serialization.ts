@@ -52,6 +52,7 @@ export type ProtoSimulationEvent = {
     war_scar_until?: number | undefined;
     razed_wreck_until?: number | undefined;
     razed_wreck?: string | undefined;
+    camp_id?: string | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -78,6 +79,7 @@ export type ProtoSimulationEvent = {
     warScarUntil?: number | null | undefined;
     razedWreckUntil?: number | null | undefined;
     razedWreck?: string | null | undefined;
+    campId?: string | null | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
@@ -175,6 +177,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("warScarUntil" in tile ? { war_scar_until: tile.warScarUntil ?? 0 } : {}),
           ...("razedWreckUntil" in tile ? { razed_wreck_until: tile.razedWreckUntil ?? 0 } : {}),
           ...("razedWreck" in tile ? { razed_wreck: tile.razedWreck ?? "" } : {}),
+          ...("campId" in tile ? { camp_id: tile.campId ?? "" } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -207,6 +210,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("warScarUntil" in tile ? { warScarUntil: tile.warScarUntil ?? null } : {}),
           ...("razedWreckUntil" in tile ? { razedWreckUntil: tile.razedWreckUntil ?? null } : {}),
           ...("razedWreck" in tile ? { razedWreck: tile.razedWreck ?? null } : {}),
+          ...("campId" in tile ? { campId: tile.campId ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
@@ -235,6 +239,7 @@ export const toFullSnapshotProtoTile = (tile: {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  campId?: string | undefined;
   yieldRate?: unknown;
 } & TileOverlayJsonFields) => ({
   x: tile.x,
@@ -259,5 +264,6 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(typeof tile.warScarUntil === "number" ? { war_scar_until: tile.warScarUntil } : {}),
   ...(typeof tile.razedWreckUntil === "number" ? { razed_wreck_until: tile.razedWreckUntil } : {}),
   ...(typeof tile.razedWreck === "string" ? { razed_wreck: tile.razedWreck } : {}),
+  ...(typeof tile.campId === "string" ? { camp_id: tile.campId } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

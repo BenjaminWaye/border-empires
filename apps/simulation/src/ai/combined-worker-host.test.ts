@@ -65,7 +65,7 @@ const makeSystemRuntime = () => ({
   exportPlannerWorldView: () => ({ tiles: [], players: [] }),
   exportPlannerPlayerViews: () => [],
   onEvent: () => () => undefined,
-  exportBarbTilesSeenByAnyPlayer: () => []
+  barbarianBridge: () => ({ choose: () => undefined, settle: () => {}, exportState: () => ({ camps: [] }) })
 });
 
 describe("createCombinedWorkerHost", () => {
@@ -82,11 +82,11 @@ describe("createCombinedWorkerHost", () => {
     const ai = host.channel("ai");
     const system = host.channel("system");
     ai.postMessage({ type: "plan", playerId: "ai-1" });
-    system.postMessage({ type: "plan", playerId: "barbarian-1" });
+    system.postMessage({ type: "plan", playerId: "system-1" });
 
     const worker = constructedWorkers[0]!;
     expect(worker.posted).toContainEqual({ type: "plan", playerId: "ai-1", channel: "ai" });
-    expect(worker.posted).toContainEqual({ type: "plan", playerId: "barbarian-1", channel: "system" });
+    expect(worker.posted).toContainEqual({ type: "plan", playerId: "system-1", channel: "system" });
 
     const aiMessages: WorkerMessage[] = [];
     const systemMessages: WorkerMessage[] = [];
@@ -94,10 +94,10 @@ describe("createCombinedWorkerHost", () => {
     system.onMessage((msg) => systemMessages.push(msg));
 
     worker.emit("message", { type: "command", playerId: "ai-1", command: null, channel: "ai" });
-    worker.emit("message", { type: "command", playerId: "barbarian-1", command: null, channel: "system" });
+    worker.emit("message", { type: "command", playerId: "system-1", command: null, channel: "system" });
 
     expect(aiMessages).toEqual([{ type: "command", playerId: "ai-1", command: null }]);
-    expect(systemMessages).toEqual([{ type: "command", playerId: "barbarian-1", command: null }]);
+    expect(systemMessages).toEqual([{ type: "command", playerId: "system-1", command: null }]);
     host.close();
   });
 
@@ -193,7 +193,7 @@ describe("createWorkerAiCommandProducer + createWorkerSystemCommandProducer shar
     const systemSubmitted: CommandEnvelope[] = [];
     const systemProducer = createWorkerSystemCommandProducer({
       runtime: makeSystemRuntime(),
-      systemPlayerIds: ["barbarian-1"],
+      systemPlayerIds: ["system-1"],
       submitCommand: async (cmd) => { systemSubmitted.push(cmd); },
       tickIntervalMs: 10_000,
       workerHost: host.channel("system")
@@ -229,9 +229,9 @@ describe("createWorkerAiCommandProducer + createWorkerSystemCommandProducer shar
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
     };
     const systemCommand: CommandEnvelope = {
-      commandId: "system-runtime-barbarian-1-1-1000",
-      sessionId: "system-runtime:barbarian-1",
-      playerId: "barbarian-1",
+      commandId: "system-runtime-system-1-1-1000",
+      sessionId: "system-runtime:system-1",
+      playerId: "system-1",
       clientSeq: 1,
       issuedAt: 1000,
       type: "ATTACK",
@@ -240,14 +240,14 @@ describe("createWorkerAiCommandProducer + createWorkerSystemCommandProducer shar
 
     // Reply to the SYSTEM plan first, tagged for the "system" channel — this
     // must resolve only the system producer's pending request, not the AI one.
-    worker.emit("message", { type: "command", playerId: "barbarian-1", command: systemCommand, channel: "system" });
+    worker.emit("message", { type: "command", playerId: "system-1", command: systemCommand, channel: "system" });
     worker.emit("message", { type: "command", playerId: "ai-1", command: aiCommand, channel: "ai" });
 
     await aiTick;
     await systemTick;
 
     expect(aiSubmitted.map((c) => c.playerId)).toEqual(["ai-1"]);
-    expect(systemSubmitted.map((c) => c.playerId)).toEqual(["barbarian-1"]);
+    expect(systemSubmitted.map((c) => c.playerId)).toEqual(["system-1"]);
 
     aiProducer.close();
     systemProducer.close();

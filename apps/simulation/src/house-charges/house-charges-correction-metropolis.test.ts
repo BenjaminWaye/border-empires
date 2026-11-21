@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { HouseCharge } from "@border-empires/shared";
+import { houseChargeRarityForPips, type HouseCharge } from "@border-empires/shared";
 import { dealHouseCharges } from "./house-charge-dealing.js";
 import { houseChargeExpansionObjective } from "./house-charge-ai-objective.js";
 import { houseChargeStanding } from "./house-charge-held.js";
@@ -56,7 +56,8 @@ describe("dealing the replacement charges", () => {
     const dealt = dealFor(world(), (key) => (key.startsWith("house:") ? 0 : 99))!;
     const writ = dealt.offered.find((charge) => charge.kind === "CORRECTION")!;
     expect(writ.targets).toEqual([{ key: "house:p2", name: "Varn", x: 36, y: 27 }]);
-    expect(writ.rarity).toBe("RARE");
+    expect(writ.renown).toBeGreaterThanOrEqual(2);
+    expect(writ.rarity).toBe(houseChargeRarityForPips(writ.renown));
   });
 
   it("deals no Correction once five Houses hold that rival, and no Metropolis charge on a landmass with fewer than three towns", () => {

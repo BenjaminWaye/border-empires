@@ -272,7 +272,7 @@ describe("answerDiplomacyStanceQuery", () => {
     isAutoRespondingAi: (id: string) => id === "ai-1",
     fetchAiSnapshot: async () => aiSnapshot,
     requesterSnapshot: async () => undefined,
-    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory(), now: NOW, alliesOf: () => [] })
+    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory(), now: NOW, alliesOf: () => [], requesterAlliesAtWarWithAi: [] })
   };
 
   it("includes the current social lockout in an otherwise valid AI preview", async () => {

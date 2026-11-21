@@ -112,7 +112,8 @@ export const seedLiveBarbarians = (input: {
       result.skippedNearBarb += 1;
       continue;
     }
-    const barbTile: DomainTileState = { ...tile, ownerId: "barbarian-1", ownershipState: "SETTLED" };
+    // Each seeded tile is its own one-tile Planetary Defense camp (planetary-defense-camps/camp-rules.ts).
+    const barbTile: DomainTileState = { ...tile, ownerId: "barbarian-1", ownershipState: "SETTLED", campId: tileKey };
     input.replaceTileState(tileKey, barbTile, input.commandId);
     placedDeltas.push(input.tileDeltaFromState(barbTile));
     barbAnchors.push({ x: tile.x, y: tile.y });

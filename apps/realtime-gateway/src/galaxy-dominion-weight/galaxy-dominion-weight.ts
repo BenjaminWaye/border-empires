@@ -28,7 +28,7 @@ export const resolveGalaxyDominionWeights = async (
     ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
     authBindingStore: deps.authBindingStore
   });
-  // Domain score banked from House Charges held at crownings (by rarity) counts once the account holds territory.
+  // Domain score banked from House Charges held at crownings (one per difficulty pip) counts once the account holds territory.
   const chargeWeight = await chargeDomainWeightByAuthUid({
     listSeasonArchives: deps.listSeasonArchives,
     ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),

@@ -68,6 +68,10 @@ never decide who wins the season.
 | **Garrison the {Tundra}** | As above, for a named tundra region | Rare | Tile `landBiome` (`TUNDRA`) |
 | **Reawakening** | Garrison and operate *{relic installation}* | Rare | Relic garrison activation |
 
+The Availability column records the rarity each kind had when it was
+proposed. Since 2026-11-20 rarity and pay follow one difficulty score for
+every kind instead (see [Difficulty](#difficulty)).
+
 Desert and tundra regions are **new world data**: connected biome regions in
 a size band (simulated with 30–400 tiles; regions above the band are split or
 skipped), named at worldgen from the town/island naming cultures and shown on
@@ -147,8 +151,13 @@ Charges pay out only after the season, so rewards are things that outlast it.
    (for example "Cartographer" for five Survey cards), never gameplay power.
    Cards are designed as **collectible trading cards** (see [Card design](#card-design)).
 3. **Galaxy reward**: each fulfilled charge banks **Domain score** on the
-   account by card rarity: **Common +1, Rare +2, Mythic +4**
-   (`HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY`). Decided 2026-11-18 by the owner:
+   account, **+1 per difficulty pip (+1 to +4)** (`houseChargeDomain`).
+   Decided 2026-11-20 by the owner, replacing pay by rarity (Common +1, Rare
+   +2, Mythic +4), which paid a 26-tile tundra twice a 342-tile Survey.
+   Difficulty is one score for every kind (see [Difficulty](#difficulty)).
+   Charges dealt before then keep pay by rarity, so crowned seasons are not
+   repriced.
+   Decided 2026-11-18 by the owner:
    every account banks it, with or without a Planet or Outpost, and it is the
    charge's only galaxy reward. It counts in the Court's Domain Weight (the
    race for Emperor) and in Senate vote weight (see the
@@ -167,6 +176,20 @@ Explicitly not proposed: mid-season bonuses (they contradict holding to the
 end), gameplay advantages in the next season (snowballing, and House
 equipment does not carry between worlds in the lore), or penalties for
 failure.
+
+### Difficulty
+
+Every charge kind is scored on one scale when it is dealt
+(`apps/simulation/src/house-charges/house-charge-difficulty.ts`): the tiles
+the House must garrison at the target, plus the distance from its landing
+site, plus a sea crossing, scaled up for rival landing sites near the target.
+Other Houses dealt the same target are not counted: Houses are dealt one after
+another, so that would score the same target differently by dealing order. The score sets the pips (1..4),
+the pips set rarity and the Domain score paid. Bands were set on the seeded
+100-empire continent and island worlds (2026-11-20) so that relics usually
+score 1-2 pips, Charters and Writs 2-3, Three Seats 3, and large Survey,
+Desert and Tundra targets up to 4. Numbers are in the
+[gameplay reference](game-mechanics.md#house-charges).
 
 ### Card design
 
@@ -200,9 +223,11 @@ game's card design.
 
 **Rarity** is shown by the colour of the set symbol:
 
-- **Common**: Charter, Seat, Survey and Desert charges.
-- **Rare**: Tundra charges, and common charges of the highest difficulty band.
-- **Mythic**: Reawakening (relic) charges.
+- **Common**: 1 or 2 difficulty pips.
+- **Rare**: 3 pips.
+- **Mythic**: 4 pips. Rarity follows difficulty, not the kind of charge
+  (decided 2026-11-20; before then Tundra was always Rare and relics always
+  Mythic, though relics are often the easiest charge to take).
 - **Legendary**: public titles held at game end (Longest Road, Royal
   Cartographer), if that companion ships. These use a distinct crowned frame.
 - **Foil treatment**: any card earned by the House that also won the season.
@@ -335,7 +360,7 @@ These are design expectations, not measurements.
 
 - Founding of a Seat (one town to City) is no longer dealt. Charges already
   dealt keep their rule until the season ends.
-- **Writ of Correction** (Rare): the House's elders press a grievance against
+- **Writ of Correction**: the House's elders press a grievance against
   a rival House whose landing site is 12–45 tiles away. Held while the House
   owns and garrisons **any AFC that rival founded**. Every AFC records its
   founder (`afc.foundedBy`), kept through captures and shown on the tile.
@@ -343,8 +368,8 @@ These are design expectations, not measurements.
 - **Founding of the Three Seats**: hold three towns on a named landmass, each
   a Metropolis. Any towns on the landmass count, rivals' landing towns
   included; one House per three of its towns may be dealt it. On continent
-  maps this is usually the House's own landmass (Common); a landmass elsewhere
-  is Rare. Growth from Town to Metropolis takes about 12–15 days of fed,
+  maps this is usually the House's own landmass; a landmass elsewhere scores
+  higher (sea crossing). Growth from Town to Metropolis takes about 12–15 days of fed,
   peaceful growth, so it must start early in a 30-day season.
 - Simulation (2026-11-18, `createSeasonSeedWorld`, 100 empires, the seeded
   test maps): every House is still dealt two charges on all four maps.

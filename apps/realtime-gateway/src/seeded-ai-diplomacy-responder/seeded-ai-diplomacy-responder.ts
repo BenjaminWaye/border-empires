@@ -12,6 +12,7 @@ import type { AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-st
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialAllianceRequest, SocialOfferOptions, SocialTruceRequest } from "../social-state/social-state-types.js";
+import { createKeyedSerialQueue } from "./keyed-serial-queue.js";
 
 const extractRequestFromPayloads = <T>(payloadsByPlayerId: Map<string, unknown[]>, playerId: string, payloadType: string): T | undefined => {
   for (const payload of payloadsByPlayerId.get(playerId) ?? []) {
@@ -173,6 +174,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     return { kind: "decline", reason, startCooldown: true };
   };
 
+  const allianceAnswers = createKeyedSerialQueue();
   const respond = async (offer: PendingOffer): Promise<void> => {
     if (!deps.seededAiPlayerIds.has(offer.toPlayerId)) return;
     if (deps.hasLiveSocket(offer.toPlayerId)) return;
@@ -286,8 +288,10 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     maybeAutoRespondToSeededAiTruce: async (request) => {
       if (request) await respond({ kind: "truce", ...request });
     },
+    // One at a time per requester, so the second answer sees the alliance the
+    // first formed (an AI won't ally with a friend of its enemy, ai-enemy-allies.ts).
     maybeAutoRespondToSeededAiAlliance: async (request) => {
-      if (request) await respond({ kind: "alliance", ...request });
+      if (request) await allianceAnswers(request.fromPlayerId, () => respond({ kind: "alliance", ...request }));
     }
   };
 };

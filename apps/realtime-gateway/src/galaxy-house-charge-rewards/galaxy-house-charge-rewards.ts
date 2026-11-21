@@ -1,6 +1,6 @@
 // House Charges' galaxy reward (docs/house-charges-plan.md, "Rewards"): each
-// charge held at a crowning banks Domain score on the account, by card rarity
-// (HOUSE_CHARGE_DOMAIN_WEIGHT_BY_RARITY). Every account banks it, with or
+// charge held at a crowning banks Domain score on the account, one per difficulty pip
+// (houseChargeDomain; charges dealt before 2026-11-20 by rarity). Every account banks it, with or
 // without territory in space; it counts in the Court's Domain Weight and in
 // Senate vote weight once the account holds territory there.
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";

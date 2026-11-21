@@ -8,6 +8,8 @@ import { createScoutGroundFx } from "./client-map-3d-scout-drone-ground-fx.js";
 import { createScoutTrails } from "./client-map-3d-scout-drone-trails.js";
 import { applyScoutDroneLights } from "./client-map-3d-scout-drone-lights.js";
 import { createScoutDroneEtaLabel, SCOUT_ETA_LABEL_LIFT } from "./client-map-3d-scout-drone-eta-label.js";
+import { createScoutPlanOverlay } from "./client-map-3d-scout-drone-plan-overlay.js";
+import type { ClientState } from "../client-state/client-state.js";
 import { scoutDroneEtaText } from "../client-scout-drone/client-scout-drone-eta-label.js";
 import { createScoutRunningLights, resetScoutRunningLights, updateScoutRunningLights, type ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
 
@@ -44,6 +46,8 @@ export type ScoutDroneOverlayDeps = {
    * Absent (stories, tests): lights stay on.
    */
   readonly homeSource?: ScoutHomeSource | undefined;
+  /** The client state, for the flight being planned (client-map-3d-scout-drone-plan-overlay.ts). Absent in stories and tests. */
+  readonly planSource?: ClientState | undefined;
 };
 
 export type ScoutDroneOverlay = {
@@ -114,7 +118,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     resetScoutRunningLights(runningLights);
   };
 
+  const plan = deps.planSource ? createScoutPlanOverlay(scene, { state: deps.planSource, sceneFor: deps.sceneFor }) : undefined;
   const sync: ScoutDroneOverlay["sync"] = (flight, nowMs) => {
+    plan?.sync(nowMs);
     gate.recordFrame(nowMs);
     if (!scoutDronePoseAt(flight, nowMs, deps.world.width, deps.world.height, pose) || !flight) {
       hide();
@@ -234,6 +240,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     sync,
     dispose: () => {
       scene.remove(model.root);
+      plan?.dispose();
       model.dispose();
       ground.dispose();
       trails.dispose();

@@ -323,7 +323,8 @@ export const createSeasonSeedWorld = (
     spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
   }
 
-  assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
+  const { islandIdByTile } = buildIslandMap(terrainRuntime.terrainAtRuntime);
+  assignMissingTownNames(townsByTile.values(), islandIdByTile, worldSeed);
 
   seedBarbarianTiles({
     spawnPositions,
@@ -333,7 +334,8 @@ export const createSeasonSeedWorld = (
     worldSeed,
     terrainAt,
     seeded01: terrainRuntime.seeded01,
-    startSites: fairSpawnSites
+    startSites: fairSpawnSites,
+    landmassAt: (x, y) => islandIdByTile.get(tileKey(x, y))
   });
 
   const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };

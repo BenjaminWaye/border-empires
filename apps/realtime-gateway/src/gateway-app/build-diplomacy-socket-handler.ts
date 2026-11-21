@@ -18,6 +18,7 @@ import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { requesterAlliesAtWarWithAi } from "../ai-diplomacy-stance/ai-enemy-allies.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createHumanTradeState } from "../ai-diplomacy-stance/human-trade-state.js";
@@ -190,6 +191,9 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       now,
       returnableTowns,
       alliesOf,
+      requesterAlliesAtWarWithAi: requesterAlliesAtWarWithAi({
+        requesterId, aiPlayerId, alliesOf, warMemory: memory.view, nameOf: socialState.playerNameOf, now
+      }),
       ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
       ...(dominance ? { dominance } : {})
     };

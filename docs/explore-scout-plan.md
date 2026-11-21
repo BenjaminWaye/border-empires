@@ -84,8 +84,9 @@ player gets the **foreign scouts sighted** alert (§5).
 
 ### 3.3 Planetary Defense
 
-Planetary Defense tiles act only while some player can see them
-(`runtime-barb-activation-vision.ts`). Drone vision counts as normal player
+Planetary Defense camps act only while a watcher can see one of their tiles
+(`planetary-defense-camps/camp-awake-tracker.ts`; this was per tile, via the
+since-removed `runtime-barb-activation-vision.ts`, when this plan was written). Drone vision counts as normal player
 vision, so tiles under the flight path wake for as long as the drone sees
 them, typically 30–45 seconds. With a 15s rest after each action
 (`BARBARIAN_TILE_REST_MS`) that is one or two moves per tile, usually a walk
@@ -210,7 +211,7 @@ mission state, and `docs/agents/implementation-rules.md` before source work.
 2. **Simulation** (`apps/simulation`): an EXPLORE command, a per-player
    mission record saved in snapshots and reloaded after restart, step-by-step
    movement, temporary vision feeding fog and barbarian activation
-   (`reach-border-vision.ts`, `runtime-barb-activation-vision.ts`), the
+   (`reach-border-vision.ts`; the camp awake counts follow the same coverage), the
    rival alert, and the report on landing.
 3. **Protocols** (`packages/sim-protocol`, `packages/client-protocol`): the
    command, mission state for the owner, the report and the alert.
@@ -253,7 +254,7 @@ What shipped, and where it differs from the sections above:
 - **Server**: `apps/simulation/src/scout-drone/`. The drone launches from the
   AFC **nearest the target**. Own and allied land is crossed at 1s per tile
   so a large empire's drone doesn't spend minutes reaching its border; tiles
-  past that land take Expand To's 7.5s. Since 2026-11-20 there is no range
+  past that land take 3s (§13 table; Expand To's 7.5s until 2026-11-20). Since 2026-11-20 there is no range
   or home-tile limit: the flight goes all the way to the target unless a
   rival border turns it back. Its vision is a temporary reveal moved tile by tile,
   so fog and Planetary Defense wake-up needed no new rule.
@@ -287,3 +288,28 @@ What shipped, and where it differs from the sections above:
   `SCOUT_NO_AFC`. The old unexplored-tile March To pick-origin code
   (`client-march-origin-picking/`) is now unreachable and can be removed.
 
+
+## 13. Waypoint routes and charges (2026-11-20)
+
+Owner design, built the same day. Supersedes the single straight flight, the
+unlimited range and Expand To pace.
+
+| Rule | Value |
+|---|---|
+| Start | Tap fog: a plan opens with that tile as stop 1. Send scout drone on an AFC opens an empty plan |
+| Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
+| Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
+| Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
+| Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
+| Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
+| Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
+
+Guidance, with almost no text: a small bottom dock with ✕, a drone and the number
+of charges still free to place, ↶ and Go with the flight time; the count pulses until
+the first stop and shakes when a tap has no charge left, and Go pulses once armed. It
+fits a phone beside the manpower gauge and takes the search lens's corner while planning
+(2026-11-21: the first version's eight pips overflowed a phone and covered the gauge). In true-3D the route glows on
+the ground before launch, a pulled-back stop's ring turns brass, the leg under a
+mouse pointer shows as ghost beads, and a soft brass glow breathes on nearby fog until the
+player has flown a few flights. The 2D map shows the dock only (owner: 3D is the
+focus).

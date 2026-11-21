@@ -85,6 +85,8 @@ export * from "./house-charges/house-charges.js";
 export * from "./afc-founder/afc-founder.js";
 export * from "./house-charges/house-charge-art.js";
 export * from "./scout-drone/scout-drone.js";
+export * from "./scout-drone/scout-drone-route.js";
+export * from "./scout-drone/scout-drone-charges.js";
 export * from "./muster-capture/muster-capture.js";
 export * from "./town-growth/town-growth.js";
 export * from "./town-growth/town-support-ring.js";

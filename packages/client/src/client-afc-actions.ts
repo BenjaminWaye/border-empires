@@ -12,7 +12,7 @@ type Availability = (enabled: boolean, reason: string, detail?: string) => Pick<
 export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availability: Availability, nowMs: number = Date.now()): TileActionDef[] => {
   const afc = tile.afc;
   if (afc?.ownerId !== state.me || afc.status !== "active") return [];
-  return [...afcScoutDroneActions(state, tile, nowMs), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
+  return [...afcScoutDroneActions(state, tile), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
     if (tech.manifestCategory !== "AFC_MODULE" || !state.techIds.includes(tech.id) || afc.houseModules?.includes(tech.id)) return [];
     const incoming = afc.incomingModules?.find((entry) => entry.techId === tech.id);
     const id = `redeploy_afc_module:${tech.id}` as const;

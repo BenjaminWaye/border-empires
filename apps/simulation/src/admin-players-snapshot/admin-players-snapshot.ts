@@ -22,12 +22,11 @@ export const handleGetAdminPlayers = (
  */
 export const buildAdminPlayerRows = (runtime: SimulationRuntime): AdminPlayerRow[] => {
   const playerSnapshot = runtime.exportPlayerDebugSnapshot();
-  // One combined count across every barbarian-* player (see
-  // exportBarbTilesSeenByAnyPlayer — it doesn't split the result out per
-  // barbarian id), computed once and stamped onto every barbarian-* row below. Skipped entirely when there's
-  // no barbarian player to report on.
-  const barbActivationVisibleTileCount = playerSnapshot.some((player) => player.id.startsWith("barbarian-"))
-    ? runtime.exportBarbTilesSeenByAnyPlayer().length
+  // One combined count across every barbarian-* player: how many Planetary
+  // Defense camps are awake (exportAwakeCampIds), computed once and stamped onto
+  // every barbarian-* row below. Skipped when there's no barbarian player.
+  const barbAwakeCampCount = playerSnapshot.some((player) => player.id.startsWith("barbarian-"))
+    ? runtime.exportAwakeCampIds().length
     : undefined;
   return playerSnapshot.map((player) => {
     const isBarbarian = player.id.startsWith("barbarian-");
@@ -46,11 +45,11 @@ export const buildAdminPlayerRows = (runtime: SimulationRuntime): AdminPlayerRow
       resourceSlotDemand: player.resourceSlotDemand,
       reachTiles: runtime.reachTileCountForPlayer(player.id),
       frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount),
-      // barbActivationVisibleTileCount is only ever undefined when no
+      // barbAwakeCampCount is only ever undefined when no
       // barbarian-* player exists at all, in which case isBarbarian is
       // false here too — so this never spreads an explicit `undefined`.
-      ...(isBarbarian && barbActivationVisibleTileCount !== undefined
-        ? { barbActivationVisibleTiles: barbActivationVisibleTileCount }
+      ...(isBarbarian && barbAwakeCampCount !== undefined
+        ? { barbAwakeCamps: barbAwakeCampCount }
         : {})
     };
   });
