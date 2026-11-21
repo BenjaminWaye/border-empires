@@ -143,12 +143,12 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(scoutDroneReadyToOffer(state, 1_000)).toBe(false);
   });
 
-  // Review 2026-11-21: a flight can last an hour; it must not hide the guide's next step all that time.
-  it("folds the guide while planning or reporting, but not for a flight alone", () => {
+  // Player review round 6: with the guide open in flight it covered the drone and the route for all three.
+  it("folds the guide while the drone flies, as while planning and reporting", () => {
     const state = baseState();
     state.scoutDroneFlight = { ...flight };
     renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 6_000 });
-    expect(document.body.classList.contains("scout-focus")).toBe(false);
+    expect(document.body.classList.contains("scout-focus")).toBe(true);
     expect(document.body.classList.contains("scout-flying")).toBe(true);
   });
 
