@@ -56,6 +56,21 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.body.classList.contains("scout-focus")).toBe(false);
   });
 
+  // Player report 2026-11-21: "?" opened the guide for the flight; the next fold must start folded again.
+  it("refolds a guide the player opened over the previous scout focus", () => {
+    const guideRoot = document.createElement("div");
+    guideRoot.id = "tutorial-guide-root";
+    guideRoot.classList.add("tg-scout-peek");
+    document.body.appendChild(guideRoot);
+    const state = baseState();
+    state.scoutDroneReport = { ...report };
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 });
+    expect(document.body.classList.contains("scout-focus")).toBe(true);
+    expect(guideRoot.classList.contains("tg-scout-peek")).toBe(false);
+    (document.querySelector("#scout-report-card .srs-close") as HTMLButtonElement).click();
+    guideRoot.remove();
+  });
+
   it("hides the report while planning, once the next drone is up, and after it times out", () => {
     const state = baseState();
     state.scoutDroneReport = { ...report };
