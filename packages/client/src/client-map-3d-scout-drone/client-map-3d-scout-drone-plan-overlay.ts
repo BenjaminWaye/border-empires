@@ -35,8 +35,8 @@ const LIMIT_RING_SCALE = 1.75;
 /** The "too far" line after a tap past the range: how long it shows, and its colour. */
 const TOO_FAR_MS = 1_400;
 const TOO_FAR = new Color("#ff8a5c");
-/** Tiles of the faint stub a pulled-back stop keeps once the line has faded. */
-const TOO_FAR_STUB_TILES = 3;
+/** Tiles of the stub a pulled-back stop keeps once the line has faded (round 6: three faint tiles went unseen). */
+const TOO_FAR_STUB_TILES = 6;
 const BEAD_SPACING = 0.42;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
@@ -211,12 +211,12 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       if (lastStop?.clamped && tapped && sinceTap >= 0 && sinceTap < TOO_FAR_MS) {
         beadPath(straightTiles(lastStop, tapped), tint.copy(TOO_FAR).multiplyScalar(1 - sinceTap / TOO_FAR_MS), 0.6, phase);
       }
-      // After the line fades, every pulled-back stop keeps a short faint stub pointing toward its tapped tile,
+      // After the line fades, every pulled-back stop keeps a short orange stub pointing toward its tapped tile,
       // so the cut stays readable on a second look (player review round 5, 2026-11-21).
       stops.forEach((stop, i) => {
         const wanted = plan.stops[i];
         if (!stop.clamped || !wanted || (i === stops.length - 1 && sinceTap >= 0 && sinceTap < TOO_FAR_MS)) return;
-        beadPath(straightTiles(stop, wanted).slice(0, TOO_FAR_STUB_TILES + 1), tint.copy(TOO_FAR).multiplyScalar(0.45), 0.55, phase);
+        beadPath(straightTiles(stop, wanted).slice(0, TOO_FAR_STUB_TILES + 1), TOO_FAR, 0.8, phase);
       });
       // The pointer's leg ends in a soft dot, never a ring, so it cannot pass for a placed stop.
       if (ghostEnd) {

@@ -217,14 +217,11 @@ body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: bord
 body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 calc(100% - 44px); gap: 8px 14px; }
 body.hud-v2-compact #scout-report-card .srs-show { margin-left: auto; }
 
-/* While planning or reporting: the guide card folds to its "?" launcher and the House charges
+/* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
    speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21). */
 body.scout-focus #tutorial-guide-root .tg-card { display: none !important; }
 body.scout-focus #tutorial-guide-root .tg-launcher { display: inline-flex !important; }
 body.scout-focus #house-charges-bubble .hcb-speech { display: none !important; }
-/* In flight the guide stays (a flight can outlast a guide step), but the House nudge, which has its own
-   card icon, steps aside: it sat over the drone on a phone (player review round 6). */
-body.scout-flying #house-charges-bubble .hcb-speech { display: none !important; }
 /* The launcher's step count read as "8 of something" beside the drone count. */
 body.scout-focus #tutorial-guide-root .tg-badge { display: none !important; }
 
