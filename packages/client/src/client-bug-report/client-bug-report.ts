@@ -3,6 +3,7 @@ import { snapshotPerformanceMetrics, initPerformanceMetrics } from "../client-pe
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { buildDiagnosticsBundle } from "../client-diagnostics.js";
 
 // ---------------------------------------------------------------------------
 // Report kinds -- bug reports and improvement suggestions share the same
@@ -86,6 +87,9 @@ export type ReportPayload = {
   clientEvents: ReturnType<typeof snapshotClientDebugEvents>;
   performanceMetrics: ReturnType<typeof snapshotPerformanceMetrics>;
   serverBundle: JsonFetchResult;
+  // The bundle the old "Download diagnostics" buttons saved to disk; now
+  // sent with every report instead.
+  diagnosticsBundle: Record<string, unknown>;
 };
 
 // ---------------------------------------------------------------------------
@@ -93,6 +97,8 @@ export type ReportPayload = {
 // ---------------------------------------------------------------------------
 
 const CLIENT_EVENT_LIMIT = 100;
+// Keeps the POST well under the gateway's 1 MiB default body limit.
+export const MAX_DIAGNOSTICS_BUNDLE_CHARS = 400_000;
 const MAX_DESCRIPTION_LENGTH = 1_000;
 
 // ---------------------------------------------------------------------------
@@ -120,6 +126,20 @@ const buildMetadata = (wsUrl: string): ReportMetadata => ({
   renderer: isTrue3DRendererActive() ? "true-3d" : "2d-canvas"
 });
 
+export const boundedDiagnosticsBundle = (build: () => Record<string, unknown>): Record<string, unknown> => {
+  try {
+    const bundle = build();
+    const length = JSON.stringify(bundle).length;
+    if (length <= MAX_DIAGNOSTICS_BUNDLE_CHARS) return bundle;
+    // Keep the small scalar triage fields; drop the bulky tile/event logs.
+    const { recentTileMessages: _tiles, ...rest } = bundle;
+    if (JSON.stringify(rest).length <= MAX_DIAGNOSTICS_BUNDLE_CHARS) return { ...rest, truncated: { omitted: ["recentTileMessages"], originalLength: length } };
+    return { truncated: { omitted: ["*"], originalLength: length } };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Payload builder
 // ---------------------------------------------------------------------------
@@ -138,7 +158,8 @@ export const buildReportPayload = async (args: {
     clientContext: buildClientContext(args.state),
     clientEvents: snapshotClientDebugEvents(CLIENT_EVENT_LIMIT),
     performanceMetrics: snapshotPerformanceMetrics(),
-    serverBundle
+    serverBundle,
+    diagnosticsBundle: boundedDiagnosticsBundle(() => buildDiagnosticsBundle(args.state, args.wsUrl))
   };
 };
 

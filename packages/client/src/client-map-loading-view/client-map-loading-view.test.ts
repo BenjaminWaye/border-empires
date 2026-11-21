@@ -27,7 +27,7 @@ describe("buildMapLoadingView", () => {
       meta: "The game server is still starting. Retrying sign-in shortly... Attempt 2 starts in 3s.",
       showRetry: true,
       showReload: true,
-      showDiagnostics: true,
+      showReportBug: true,
       tone: "warn"
     });
   });
@@ -55,7 +55,7 @@ describe("buildMapLoadingView", () => {
     expect(view.meta).toBe("Elapsed 3.5s · chunks 2");
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
-    expect(view.showDiagnostics).toBe(false);
+    expect(view.showReportBug).toBe(false);
   });
 
   it("does not duplicate retry countdown already present in auth detail", () => {
@@ -104,7 +104,7 @@ describe("buildMapLoadingView", () => {
       meta: "Your session initialized, but nearby land has not arrived from the server. Retry now or reload the client.",
       showRetry: true,
       showReload: true,
-      showDiagnostics: true,
+      showReportBug: true,
       tone: "warn"
     });
   });
@@ -136,7 +136,7 @@ describe("buildMapLoadingView", () => {
     // Diagnostics appear at the soft-hint threshold itself (not just at the
     // later 25s action-affordance threshold) so a login stuck anywhere in
     // the 8-25s band — the common slow-login shape — can always grab logs.
-    expect(view.showDiagnostics).toBe(true);
+    expect(view.showReportBug).toBe(true);
   });
 
   it("exposes retry/reload/diagnostics at ~25s when connected but auth still has not landed", () => {
@@ -163,7 +163,7 @@ describe("buildMapLoadingView", () => {
     expect(view.tone).toBe("warn");
     expect(view.showRetry).toBe(true);
     expect(view.showReload).toBe(true);
-    expect(view.showDiagnostics).toBe(true);
+    expect(view.showReportBug).toBe(true);
   });
 
   it("surfaces authBusyDetail as meta when server sends LOGIN_PHASE during normal loading", () => {
@@ -213,7 +213,7 @@ describe("buildMapLoadingView", () => {
     expect(view.title).toBe("Syncing empire...");
     expect(view.tone).toBe("normal");
     expect(view.showRetry).toBe(false);
-    expect(view.showDiagnostics).toBe(false);
+    expect(view.showReportBug).toBe(false);
   });
 
   it("shows calm deployment message when disconnected and serverDeploying is true", () => {
@@ -240,7 +240,7 @@ describe("buildMapLoadingView", () => {
     expect(view.tone).toBe("normal");
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
-    expect(view.showDiagnostics).toBe(false);
+    expect(view.showReportBug).toBe(false);
   });
 
   it("shows calm reconnecting message when connecting and serverDeploying is true", () => {
@@ -266,7 +266,7 @@ describe("buildMapLoadingView", () => {
     expect(view.tone).toBe("normal");
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
-    expect(view.showDiagnostics).toBe(false);
+    expect(view.showReportBug).toBe(false);
   });
 });
 

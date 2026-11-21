@@ -6,7 +6,7 @@ export type MapLoadingView = {
   meta: string;
   showRetry: boolean;
   showReload: boolean;
-  showDiagnostics: boolean;
+  showReportBug: boolean;
   tone: "normal" | "warn";
 };
 
@@ -95,7 +95,7 @@ export const buildMapLoadingView = (
         meta: "Reconnecting automatically — updates usually complete in 1–2 minutes.",
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        showReportBug: false,
         tone: "normal"
       };
     }
@@ -105,7 +105,7 @@ export const buildMapLoadingView = (
         meta: retryMeta,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -114,7 +114,7 @@ export const buildMapLoadingView = (
       meta: "Retrying connection...",
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -125,7 +125,7 @@ export const buildMapLoadingView = (
         meta: "Waiting for the updated server to come back online.",
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        showReportBug: false,
         tone: "normal"
       };
     }
@@ -134,7 +134,7 @@ export const buildMapLoadingView = (
       meta: "Retrying connection...",
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -145,7 +145,7 @@ export const buildMapLoadingView = (
         meta: retryMeta,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -155,7 +155,7 @@ export const buildMapLoadingView = (
         meta: "Your session initialized, but nearby land has not arrived from the server. Retry now or reload the client.",
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -171,7 +171,7 @@ export const buildMapLoadingView = (
         meta: `The server hasn't acknowledged sign-in in ${elapsedSeconds}s. It may be restarting (~90s) — try again or grab diagnostics.`,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -187,7 +187,7 @@ export const buildMapLoadingView = (
         // ACTION_AFFORDANCE (25s, where retry/reload appear). Waiting until
         // 25s to offer diagnostics meant anything in the 8-25s band (a very
         // common slow-login shape) had no way to grab logs.
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "normal"
       };
     }
@@ -198,7 +198,7 @@ export const buildMapLoadingView = (
         : (state.authBusyDetail || `Connected to ${wsUrl}`),
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -207,7 +207,7 @@ export const buildMapLoadingView = (
     meta: "Finalizing map render...",
     showRetry: false,
     showReload: false,
-    showDiagnostics: false,
+    showReportBug: false,
     tone: "normal"
   };
 };

@@ -2,9 +2,11 @@
 /* Bug report modal                                                       */
 /* ---------------------------------------------------------------------- */
 
-/* #hud #suggestion-overlay needs its own pointer-events: auto (style.css
-   only opts #bug-report-overlay in, and that file is at its line cap). */
-#hud #suggestion-overlay {
+/* The report overlays mount on <body> (client-bug-report-hud.ts) so they
+   stack above the map-loading/auth overlays; they no longer inherit #hud's
+   text colour, so set it here (the steampunk theme overrides it). */
+.player-report-overlay {
+  color: #e9f2ff;
   pointer-events: auto;
 }
 
@@ -25,12 +27,10 @@
   opacity: 1;
 }
 
-/* Overrides #hud #bug-report-overlay/#suggestion-overlay's unconditional
-   pointer-events: auto (style.css) -- without this, the emptied-but-still-
-   in-the-DOM overlay div keeps intercepting clicks over the whole screen
-   after it's closed. */
-#hud #bug-report-overlay:not([data-open="true"]),
-#hud #suggestion-overlay:not([data-open="true"]) {
+/* Without this, the emptied-but-still-in-the-DOM overlay div keeps
+   intercepting clicks over the whole screen after it's closed. */
+#bug-report-overlay:not([data-open="true"]),
+#suggestion-overlay:not([data-open="true"]) {
   pointer-events: none;
 }
 
