@@ -11,6 +11,7 @@ import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
+import { chronicleScoutFindClick } from "./client-hud-v2-chronicle-scout-chips.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 
 // The newest release note the Chronicle has been opened past. Opening the Chronicle answers the button's badge:
@@ -86,6 +87,7 @@ export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
 /** Tab and release-note clicks inside the Chronicle; true when handled. */
 export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => {
   if (chronicleSurveyClick(deps, target)) return true;
+  if (chronicleScoutFindClick(deps, target, () => renderChronicle(deps))) return true;
   const update = target.closest<HTMLElement>("[data-v2-update]")?.dataset.v2Update;
   if (update) {
     const baseline = screen.chronicleUpdatesBaseline ?? deps.state.changelog.seenAt;

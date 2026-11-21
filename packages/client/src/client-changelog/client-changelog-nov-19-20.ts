@@ -21,6 +21,7 @@ import { RELIC_AETHER_WAKE_ENTRY } from "./client-changelog-relic-aether-wake.js
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
 import { SCOUT_REPORT_FOCUS_ENTRY } from "./client-changelog-scout-report-focus.js";
 import { NEXT_STEP_NO_BRAINERS_ENTRY } from "./client-changelog-next-step-no-brainers.js";
+import { SCOUT_FINDING_LINKS_ENTRY } from "./client-changelog-scout-finding-links.js";
 import { SCOUT_DRONE_WAYPOINTS_ENTRY } from "./client-changelog-scout-drone-waypoints.js";
 import { SCOUT_PLAN_MOBILE_ENTRY } from "./client-changelog-scout-plan-mobile.js";
 import { SCOUT_DRONE_REPORTS_ENTRY } from "./client-changelog-scout-drone-reports.js";
@@ -51,4 +52,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...PLANETARY_DEFENSE_CAMP_GROWTH_ENTRY, createdAt: 1795250207519 }, // Date.now() captured once for this entry.
   { ...SCOUT_PLAN_MOBILE_ENTRY, createdAt: 1795250505942 },
   { ...SCOUT_DRONE_REPORTS_ENTRY, createdAt: 1795255054724 },
+  { ...SCOUT_FINDING_LINKS_ENTRY, createdAt: 1795263266032 }, // re-captured at merge: the first one predated entries already shipped
 ];
