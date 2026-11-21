@@ -171,6 +171,13 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.querySelector("#scout-drone-dock .sd-go-word")?.textContent).toBe("Tap fog");
   });
 
+  it("steps aside while a tile's menu is open", () => {
+    const state = baseState();
+    state.tileActionMenu = { ...state.tileActionMenu, visible: true };
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 1_000 });
+    expect(document.getElementById("scout-drone-pill")?.style.display ?? "none").toBe("none");
+  });
+
   it("does not offer the drone once a charge is spent", () => {
     const state = baseState();
     state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: [0] };

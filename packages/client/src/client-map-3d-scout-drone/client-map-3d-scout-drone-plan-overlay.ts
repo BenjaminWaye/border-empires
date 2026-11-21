@@ -28,6 +28,8 @@ const CYAN = new Color("#4fd8ff");
 const CYAN_DIM = new Color("#2a7f99");
 const GHOST = new Color("#cfe9f2");
 const BRASS = new Color("#f2c66b");
+/** The white drone badge shows only zoomed out past this (px per tile; default 22): closer in, the drone itself reads (owner 2026-11-21). */
+export const SCOUT_DRONE_BADGE_MAX_ZOOM = 16;
 /**
  * A stop pulled back to the leg's range is still a good stop: the same cyan ring with a thin outer ring for
  * "at the limit". Gold read as "chosen" and orange with a trail as an error (player reviews 2026-11-21).
@@ -257,7 +259,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
         // A soft glow under the drone badge, no ring: a ring made the drone look like one more stop.
         deps.sceneFor(at.x, at.y, a);
         pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, CYAN, 1.6 + 0.3 * beat);
-        droneBadge.place(a.sceneX, a.surfaceY + RISE, a.sceneZ);
+        if (state.zoom < SCOUT_DRONE_BADGE_MAX_ZOOM) droneBadge.place(a.sceneX, a.surfaceY + RISE, a.sceneZ);
       }
     }
     // What the drone spots as it flies pops over the map, with a quick gold ring on the spot (client-scout-drone-finds.ts).

@@ -85,3 +85,11 @@
 
 .afc-upgrade-synergy { font-size: 0.85em; opacity: 0.9; }
 .afc-upgrade-synergy span { opacity: 0.7; white-space: nowrap; }
+
+/* The scout drone's charges and next refill (client-scout-drone-charge-status.ts): the AFC menu is where
+   players look for the drone's economy (owner, 2026-11-21). */
+.afc-scout-charges {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--hud-text-muted, rgba(233, 214, 168, 0.8));
+}

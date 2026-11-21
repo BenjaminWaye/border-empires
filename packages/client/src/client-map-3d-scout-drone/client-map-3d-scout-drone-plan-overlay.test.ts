@@ -57,8 +57,9 @@ describe("createScoutPlanOverlay", () => {
   });
 
   // Player review 2026-11-21: the bright marker alone read as one more stop.
-  it("puts the drone's own badge over it while it flies, and takes it away once it lands", () => {
+  it("puts the drone's own badge over it while it flies zoomed out, and takes it away once it lands", () => {
     const state = createInitialState();
+    state.zoom = 12;
     state.scoutDroneFlight = { launchedAt: 0, landsAt: 9_000, targetX: 13, targetY: 10, turnIndex: 3, endReason: "TARGET", steps: [10, 11, 12, 13, 12, 11, 10].map((x, i) => ({ x, y: 10, at: i * 1_500 })) };
     const scene = new Scene();
     const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
@@ -68,6 +69,21 @@ describe("createScoutPlanOverlay", () => {
     expect(scene.getObjectByName("scout-drone-badge")!.visible).toBe(false);
     overlay.dispose();
     expect(scene.getObjectByName("scout-drone-badge")).toBeUndefined();
+  });
+
+  // Owner 2026-11-21: the badge is only needed zoomed out; closer in the drone model itself reads.
+  it("leaves the badge off at gameplay zoom", () => {
+    const state = createInitialState();
+    state.zoom = 22;
+    state.scoutDroneFlight = { launchedAt: 0, landsAt: 9_000, targetX: 13, targetY: 10, turnIndex: 3, endReason: "TARGET", steps: [10, 11, 12, 13, 12, 11, 10].map((x, i) => ({ x, y: 10, at: i * 1_500 })) };
+    const scene = new Scene();
+    const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
+    overlay.sync(2_000);
+    expect(scene.getObjectByName("scout-drone-badge")!.visible).toBe(false);
+    state.zoom = 12;
+    overlay.sync(2_100);
+    expect(scene.getObjectByName("scout-drone-badge")!.visible).toBe(true);
+    overlay.dispose();
   });
 
   // Review 2026-11-21: a route crossing a later stop's tile on an earlier leg hid that stop too soon.
