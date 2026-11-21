@@ -27,6 +27,7 @@ import { SCOUT_PLAN_MOBILE_ENTRY } from "./client-changelog-scout-plan-mobile.js
 import { SCOUT_DRONE_REPORTS_ENTRY } from "./client-changelog-scout-drone-reports.js";
 import { SCOUT_FIND_POPS_ENTRY } from "./client-changelog-scout-find-pops.js";
 import { SCOUT_CLOSING_TAPS_ENTRY } from "./client-changelog-scout-closing-taps.js";
+import { SCOUT_UNSEEN_REPORT_ENTRY } from "./client-changelog-scout-unseen-report.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -57,4 +58,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...SCOUT_FINDING_LINKS_ENTRY, createdAt: 1795263266032 }, // re-captured at merge: the first one predated entries already shipped
   { ...SCOUT_FIND_POPS_ENTRY, createdAt: 1795263604318 },
   { ...SCOUT_CLOSING_TAPS_ENTRY, createdAt: 1795272768763 },
+  { ...SCOUT_UNSEEN_REPORT_ENTRY, createdAt: 1795275456437 },
 ];

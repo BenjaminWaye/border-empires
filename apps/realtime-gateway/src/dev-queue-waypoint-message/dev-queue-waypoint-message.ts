@@ -7,7 +7,7 @@
 // even though it isn't itself a dev/waypoint-queue command -- its payload
 // shape (durable-command payload plus a `type` tag) is identical. So does
 // CHOOSE_HOUSE_CHARGES (`{ keptIds }`, simulation house-charges/), and
-// RECALL_SCOUT (empty payload, simulation scout-drone/).
+// RECALL_SCOUT (empty payload) and SCOUT_REPORT_SEEN (`{ id }`), simulation scout-drone/.
 export const DEV_QUEUE_WAYPOINT_MESSAGE_TYPES = [
   "DEV_QUEUE_ENQUEUE",
   "DEV_QUEUE_CANCEL",
@@ -17,7 +17,8 @@ export const DEV_QUEUE_WAYPOINT_MESSAGE_TYPES = [
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
   "CHOOSE_HOUSE_CHARGES",
-  "RECALL_SCOUT"
+  "RECALL_SCOUT",
+  "SCOUT_REPORT_SEEN"
 ] as const;
 
 export type DevQueueWaypointMessageType = (typeof DEV_QUEUE_WAYPOINT_MESSAGE_TYPES)[number];

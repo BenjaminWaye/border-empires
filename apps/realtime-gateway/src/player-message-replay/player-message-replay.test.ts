@@ -88,6 +88,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null }]);
   });
 
+  // Player report 2026-11-21: a report that landed into a socket not yet known dead was lost on the reconnect.
+  it("replays a landed drone's report when it carries an id (the client shows each id once)", () => {
+    const { replay, sent, send } = createHarness();
+    const report = { towns: 1, targetX: 5, targetY: 5, id: "explore-1", landedAt: 9 };
+    replay.observe("p1", { type: "SCOUT_DRONE", flight: null, report }, [{ id: "tab-1" }]);
+    replay.replayTo("p1", { id: "tab-2" }, send);
+    expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null, report }]);
+  });
+
   it("ignores payloads of other types and malformed replayed ones", () => {
     const { replay } = createHarness();
     replay.observe("p1", { type: "PLAYER_UPDATE", gold: 5 }, []);
