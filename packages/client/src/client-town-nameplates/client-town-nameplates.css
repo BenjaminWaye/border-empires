@@ -84,3 +84,16 @@
   width: 17px;
   height: 17px;
 }
+/* Ungarrisoned: the one state where the town gives nothing, so it is spelled out and the badge is ringed amber. */
+.town-plate-tag {
+  padding: 2px 5px;
+  font: 700 9.5px/1 var(--sp-font-mono, "Space Mono", monospace);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1c1206;
+  background: #f0b04f;
+}
+.town-plate-badge[data-status="ungarrisoned"] {
+  border-color: #f0b04f;
+  box-shadow: 0 0 0 2px rgba(240, 176, 79, 0.35), 0 4px 8px rgba(0, 0, 0, 0.55);
+}

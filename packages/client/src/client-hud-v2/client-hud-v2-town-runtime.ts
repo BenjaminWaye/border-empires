@@ -17,7 +17,8 @@ import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
-import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { TOWN_SCREEN_SKELETON, townScreenRegions, type TownGarrisonState } from "./client-hud-v2-town.js";
+import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-growth/client-town-growth.js";
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
@@ -72,6 +73,12 @@ export const forgetMyTowns = (): void => {
  * the town screen re-renders on every view update, Place press and work action.
  */
 let biotaStepsCache: { key: string; steps: BiotaStep[] } | undefined;
+/** Your town still on FRONTIER: nobody has sent a garrison ("none"), or one is under way, queued or planned. */
+const townGarrisonState = (state: HudV2Deps["state"], town: Tile): TownGarrisonState | undefined => {
+  if (town.ownerId !== state.me || town.ownershipState !== "FRONTIER") return undefined;
+  return isOwnTownUngarrisoned(town, state.me, garrisonPlannedTileKeys(state)) ? "none" : "on_its_way";
+};
+
 const townBiotaSteps = (state: HudV2Deps["state"], town: Tile, townKey: string): BiotaStep[] => {
   const techId = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
   const otherTownsSlots = (state.manpowerBreakdown.biotaTowns ?? [])
@@ -111,6 +118,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
+    garrison: townGarrisonState(deps.state, town),
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),

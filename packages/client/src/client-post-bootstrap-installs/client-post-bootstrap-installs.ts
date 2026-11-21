@@ -21,13 +21,14 @@ import { installWaystationActivation } from "../client-waystation-site/client-wa
 import { installRefineryPickers } from "../client-refineries/refinery-picker-flow.js";
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { createIdentityOwnerColor } from "../client-owner-colors/client-identity-owner-color.js";
+import { installTownCaptureGarrison } from "../client-town-capture/client-town-capture-garrison.js";
 
 type PostBootstrapDeps = {
   state: ClientState;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
-  actionFlow: HudV2ActionFlow & Pick<ReturnType<typeof createClientActionFlow>, "sendDevelopmentBuild">;
+  actionFlow: HudV2ActionFlow & Pick<ReturnType<typeof createClientActionFlow>, "sendDevelopmentBuild" | "settleSelected">;
 } & Pick<DiscoveryTipCenterDeps, "wrapX" | "wrapY" | "requestViewRefresh">;
 
 export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, setActivePanel, actionFlow, wrapX, wrapY, requestViewRefresh }: PostBootstrapDeps): void => {
@@ -48,6 +49,7 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, s
     actionFlow.sendDevelopmentBuild(payload, () => undefined, { x: payload.x, y: payload.y, label, optimisticKind: payload.structureType }) });
   installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
   installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
+  installTownCaptureGarrison(state, actionFlow.settleSelected); // the capture card's Garrison now
   installAutoImproveOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-improve."));
   // One-time "name this landmass" prompt once the player garrisons a whole landmass (throttled inside).
   const landmassNamePrompt = createLandmassNamePrompt({ state, sendGameMessage });
