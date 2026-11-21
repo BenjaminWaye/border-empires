@@ -4,6 +4,7 @@ import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type Mo
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
+import { incubationBurstAlreadyGranted } from "./incubation-burst-guard.js";
 import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtime-monument-claim.js";
 
 // Extracted out of runtime-structure-command-handlers.ts so that file stays
@@ -62,10 +63,12 @@ export function grantIncubationEnginePopulationBurst(
   if (!townKey) return undefined;
   const townTile = context.tiles.get(townKey);
   if (!townTile?.town || townTile.ownerId !== ownerId) return undefined;
+  if (incubationBurstAlreadyGranted(townTile.town, ownerId)) return undefined;
   const updatedTownTile: DomainTileState = {
     ...townTile,
     town: {
       ...townTile.town,
+      incubationBurstGrantedTo: ownerId,
       population: (townTile.town.population ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
       maxPopulation: (townTile.town.maxPopulation ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST
     }
@@ -139,8 +142,8 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     announceMonumentClaim(context, structureType, ownerId, commandId, completedTile.x, completedTile.y);
     consumeMonumentParts(context, ownerId, structureType, commandId);
   }
-  // Incubation Engine (tech-tree redesign): instant one-time
-  // INCUBATION_ENGINE_INSTANT_POPULATION_BURST population burst on build completion, applied to both the
+  // Incubation Engine: instant population burst (once per owner per town,
+  // incubation-burst-guard.ts) on build completion, applied to both the
   // town's current population AND its cap (a burst that gets silently
   // absorbed into existing headroom wouldn't read as a "burst" at all).
   const populationBurst = structureType === "INCUBATION_ENGINE"
