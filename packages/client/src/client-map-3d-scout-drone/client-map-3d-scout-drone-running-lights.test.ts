@@ -91,7 +91,7 @@ describe("running dark in both renderers", () => {
       out.sceneZ = y;
       out.surfaceY = 0;
     };
-    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, homeSource: source, motionGate: { recordFrame: () => undefined, shouldAnimate: () => true } });
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, homeSource: source, motionGate: { recordFrame: () => undefined, shouldAnimate: () => true, prefersReducedMotion: () => false } });
     const glows = (): Sprite[] => {
       const found: Sprite[] = [];
       scene.getObjectByName("scout-drone")!.traverse((object) => {
