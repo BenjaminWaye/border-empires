@@ -38,6 +38,27 @@ const setup = (tiles: Tile[], options: { awake?: string[]; now?: () => number; d
   return { planner, choose, tilesByKey, advance: (ms: number) => { now += ms; }, now: () => now };
 };
 
+const setupWithCap = (maxCampTiles: number, tiles: Tile[], maxCamps?: number) => {
+  const tilesByKey = new Map(tiles.map((tile) => [key(tile.x, tile.y), tile]));
+  const planner = createBarbarianPlanner({
+    tilesByKey,
+    campIds: () => ["10,10"],
+    campTiles: (campId) => [...tilesByKey.values()].filter((t) => t.ownerId === "barbarian-1" && t.campId === campId),
+    getDockLinksByDockTileKey: () => new Map(),
+    getAwakeCampIds: () => new Set(["10,10"]),
+    now: () => 1_000,
+    maxCampTiles,
+    ...(maxCamps !== undefined ? { maxCamps } : {})
+  });
+  const choose = () => {
+    const command = planner.choose(1, 1_000);
+    if (!command) return undefined;
+    const payload = JSON.parse(command.payloadJson) as { toX: number; toY: number };
+    return { type: command.type, to: key(payload.toX, payload.toY) };
+  };
+  return { choose };
+};
+
 describe("Planetary Defense planner", () => {
   it("expands from the camp's own land into neutral ground, towns and docks first", () => {
     const { choose } = setup([campTile(10, 10), campLand(11, 10, "10,10"), neutral(9, 10), neutral(12, 10, { town: {} })]);
@@ -56,15 +77,62 @@ describe("Planetary Defense planner", () => {
     expect(choose()).toBeUndefined(); // the awake camp is busy, the other camp sleeps
   });
 
-  it("one action per camp: busy until it settles, then rests", () => {
-    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+  it("one action per camp: busy until it settles, then rests 15 s after an attack", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), house(10, 11, "FRONTIER"), house(10, 9, "FRONTIER")]);
     const first = choose()!;
+    expect(first.type).toBe("ATTACK");
     expect(choose()).toBeUndefined();
     planner.settle(first.commandId, 1_000);
     advance(14_000);
     expect(choose()).toBeUndefined();
     advance(2_000);
     expect(choose()).toBeDefined();
+  });
+
+  // Regression: expansions rested only 15 s, and AI empires keep most camps awake, so every
+  // camp took four neutral tiles a minute and Planetary Defense swamped the map.
+  it("rests 60 s after taking neutral land", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+    const first = choose()!;
+    expect(first.type).toBe("EXPAND");
+    planner.settle(first.commandId, 1_000);
+    advance(59_000);
+    expect(choose()).toBeUndefined();
+    advance(2_000);
+    expect(choose()).toMatchObject({ type: "EXPAND" });
+  });
+
+  it("a refused expansion rests only the short rest", () => {
+    const { planner, choose, advance } = setup([campTile(10, 10), neutral(10, 11), neutral(10, 9)]);
+    const first = choose()!;
+    planner.settle(first.commandId, 1_000, true);
+    advance(16_000);
+    expect(choose()).toMatchObject({ type: "EXPAND" });
+  });
+
+  // Regression: nothing limited a camp's size, so an awake camp kept spreading forever.
+  it("a full-size camp neither expands nor attacks frontier", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER")]);
+    expect(choose()).toBeUndefined();
+    const below = setupWithCap(4, [...land, neutral(10, 11)]);
+    expect(below.choose()).toMatchObject({ type: "EXPAND", to: "10,11" });
+  });
+
+  // Review regression: the size cap also stopped full camps raiding Houses at all.
+  it("a full-size camp still raids garrisoned House land", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER"), house(12, 11)]);
+    expect(choose()).toMatchObject({ type: "ATTACK", to: "12,11" });
+  });
+
+  // Review regression: at the camp cap a captured town or dock becomes more of the capturing camp
+  // (camp-rules.ts), so letting a full camp take one grew it past the size cap without limit.
+  it("a full-size camp takes a neutral town or dock only while it would found a new camp", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const tiles = [...land, neutral(13, 10, { town: {} }), neutral(10, 11, { dockId: "dock-a" })];
+    expect(["13,10", "10,11"]).toContain(setupWithCap(3, tiles, 2).choose()?.to);
+    expect(setupWithCap(3, tiles, 1).choose()).toBeUndefined();
   });
 
   it("the camp that has waited longest goes first", () => {
@@ -74,7 +142,7 @@ describe("Planetary Defense planner", () => {
     expect(first.from).not.toBe(second.from);
     planner.settle(first.commandId, 1_000);
     planner.settle(second.commandId, 1_000);
-    advance(20_000);
+    advance(61_000);
     expect(choose()?.from).toBe(first.from);
   });
 
@@ -141,6 +209,43 @@ describe("Planetary Defense planner", () => {
     expect(second.choose()).toBeUndefined(); // still resting
     second.advance(16_000);
     expect(second.choose()).toBeUndefined(); // raid limit for player-1 already spent this window
+  });
+
+  // Raid limit compounding: every camp got its own raid allowance, so a camp founded from a House's
+  // captured town attacked that House's garrisoned land again in the same window.
+  it("a camp founded mid-window waits for the House's next window before raiding it", () => {
+    const { choose, tilesByKey, advance, now } = setup([campTile(10, 10)]);
+    expect(choose()).toBeUndefined(); // the planner has seen the camps that were already there
+    advance(1_000);
+    tilesByKey.set("30,30", campTile(30, 30));
+    tilesByKey.set("30,29", house(30, 29));
+    expect(choose()).toBeUndefined(); // new camp, garrisoned target held back
+    advance(lastManpowerRefillAtMs("player-1", now()) + MANPOWER_REFILL_WINDOW_MS - now() + 1);
+    expect(choose()).toMatchObject({ type: "ATTACK", from: "30,30", to: "30,29" });
+  });
+
+  it("a new camp may still take frontier and neutral land at once", () => {
+    const { choose, tilesByKey } = setup([campTile(10, 10)]);
+    choose();
+    tilesByKey.set("30,30", campTile(30, 30));
+    tilesByKey.set("30,29", house(30, 29, "FRONTIER"));
+    expect(choose()).toMatchObject({ type: "ATTACK", to: "30,29" });
+  });
+
+  it("a camp's founding time survives a restart", () => {
+    const first = setup([campTile(10, 10)]);
+    first.choose();
+    first.advance(1_000);
+    first.tilesByKey.set("30,30", campTile(30, 30));
+    first.tilesByKey.set("30,29", house(30, 29));
+    expect(first.choose()).toBeUndefined();
+    const saved = JSON.parse(JSON.stringify(first.planner.exportState())) as ReturnType<typeof first.planner.exportState>;
+    expect(saved.camps).toEqual([{ campId: "30,30", foundedAt: first.now() }]);
+
+    const second = setup([campTile(10, 10), campTile(30, 30), house(30, 29)]);
+    second.advance(1_000);
+    second.planner.restoreState(saved);
+    expect(second.choose()).toBeUndefined(); // still waiting, although the restarted planner saw it at boot
   });
 
   it("restoreState ignores malformed entries", () => {

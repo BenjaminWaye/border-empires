@@ -10,12 +10,12 @@
 // launch time and how each tile on the line is classified, so the client can
 // draw exactly the flight the server runs.
 
-import { FRONTIER_CLAIM_MS } from "../config.js";
+import type { ScoutDroneCharges } from "./scout-drone-charges.js";
 
 /** Live vision radius around the drone while it flies. */
 export const SCOUT_DRONE_VISION_RADIUS = 3;
-/** Time per tile past the player's land: the same pace as Expand To. */
-export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
+/** Time per tile past the player's land (3s since 2026-11-21: 1s explored too fast; was Expand To's 7.5s before 2026-11-20). */
+export const SCOUT_DRONE_STEP_MS = 3_000;
 /** Time per tile over home ground (own and allied land and reach), which the player already sees. */
 export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
 /** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
@@ -52,6 +52,8 @@ export type ScoutDroneFlight = {
   /** Index in `steps` of the turnaround tile (the last outbound tile). */
   turnIndex: number;
   landsAt: number;
+  /** The stops of a waypoint flight as the drone reaches them (scout-drone-route.ts); absent on a single-target flight. */
+  waypoints?: Array<{ x: number; y: number }>;
   endReason: ScoutDroneEndReason;
   /** Owner of the border that turned the drone back, when endReason is BLOCKED. */
   blockedByPlayerId?: string;
@@ -78,6 +80,8 @@ export type ScoutDronePayload = {
   type: typeof SCOUT_DRONE_MESSAGE_TYPE;
   /** The drone in the air, or null when it is docked. */
   flight: ScoutDroneFlight | null;
+  /** Every SCOUT_DRONE carries the player's charges (scout-drone-charges.ts), server clock. */
+  charges?: ScoutDroneCharges;
   /** Set on the landing message: what the finished flight found. */
   report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 };
