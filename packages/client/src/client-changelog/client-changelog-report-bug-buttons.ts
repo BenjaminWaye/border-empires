@@ -5,7 +5,9 @@ export const REPORT_BUG_BUTTONS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
   title: "Report Bug replaces Download Diagnostics",
   why: "A downloaded diagnostics file still had to be found and sent to us by hand, so most never arrived.",
   changes: [
-    "Every Download diagnostics button (loading screen, sign-in screen, the slow-3D prompt and Settings) is now a Report bug button.",
-    "Describe what went wrong and the same diagnostics are sent with your report automatically. There is no file to save."
+    "The Download diagnostics buttons on the loading screen, sign-in screen and slow-3D prompt are now Report bug buttons. In Settings, use the existing Report Bug button.",
+    "Describe what went wrong and your diagnostics are sent with the report automatically. A report needs a short description.",
+    "Your description may be posted publicly in our issue tracker, so leave out personal details.",
+    "If the report can't be sent (for example the server is down), you can still download the diagnostics file from the report window."
   ]
 };

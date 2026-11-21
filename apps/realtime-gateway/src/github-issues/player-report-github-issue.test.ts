@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
-import { buildPlayerReportIssue, createPlayerReportGithubIssue } from "./player-report-github-issue.js";
+import {
+  MAX_ISSUES_PER_WINDOW,
+  buildPlayerReportIssue,
+  createPlayerReportGithubIssue,
+  resetPlayerReportIssueBudgetForTests
+} from "./player-report-github-issue.js";
 
 const report = (description = "Map stuck loading after login.\nSecond line @someone #12"): BugReportInput => ({
   reportId: "abc-123",
@@ -44,6 +49,22 @@ describe("buildPlayerReportIssue", () => {
     expect(body).toContain("~~~~~text\nbefore\n~~~~\n@everyone ping\n~~~~~");
   });
 
+  it("strips bidi overrides and zero-width characters from the title", () => {
+    const { title } = buildPlayerReportIssue("bug", report("ok\u202Egnp.exe\u200B end"), "p");
+    expect(title).toBe("[Bug] ok gnp.exe end");
+  });
+
+  it("lists only the reporter's own client event names; server events (which can be other players') as counts only", () => {
+    const { body } = buildPlayerReportIssue("bug", report(), "production");
+    expect(body).toContain("[error] map/chunk_timeout");
+    expect(body).toContain("Server events: 1 total (0 errors, 1 warnings)");
+    expect(body).not.toContain("command_rejected");
+  });
+
+  it("does not claim an email copy exists unconditionally", () => {
+    expect(buildPlayerReportIssue("bug", report(), "p").body).toContain("when email alerts are configured");
+  });
+
   it("truncates long descriptions in the title", () => {
     const { title } = buildPlayerReportIssue("bug", report("x".repeat(500)), "p");
     expect(title.length).toBeLessThanOrEqual("[Bug] ".length + 80);
@@ -51,6 +72,8 @@ describe("buildPlayerReportIssue", () => {
 });
 
 describe("createPlayerReportGithubIssue", () => {
+  beforeEach(() => resetPlayerReportIssueBudgetForTests());
+
   it("posts the issue to the configured repo with the token", async () => {
     const fetchImpl = vi.fn(async () => okResponse());
     await createPlayerReportGithubIssue("bug", report(), { token: "tok", repo: "acme/game", fetchImpl });
@@ -70,6 +93,27 @@ describe("createPlayerReportGithubIssue", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(JSON.parse(String((fetchImpl.mock.calls[1] as [string, RequestInit])[1].body)).labels).toBeUndefined();
     expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a 403 (permission or rate limit)", async () => {
+    const fetchImpl = vi.fn(async () => new Response("forbidden", { status: 403 }));
+    const error = vi.fn();
+    await createPlayerReportGithubIssue("bug", report(), { token: "tok", repo: "acme/game", fetchImpl, log: { error } });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(expect.anything(), "failed to create bug report GitHub issue");
+  });
+
+  it("caps issue creation per hour process-wide, so rotating IPs cannot spam the repo", async () => {
+    let now = 1_000_000;
+    const fetchImpl = vi.fn(async () => okResponse());
+    const warn = vi.fn();
+    const deps = { token: "tok", repo: "acme/game", fetchImpl, log: { warn }, now: () => now };
+    for (let i = 0; i < MAX_ISSUES_PER_WINDOW + 5; i++) await createPlayerReportGithubIssue("bug", report(), deps);
+    expect(fetchImpl).toHaveBeenCalledTimes(MAX_ISSUES_PER_WINDOW);
+    expect(warn).toHaveBeenCalledTimes(5);
+    now += 60 * 60_000 + 1;
+    await createPlayerReportGithubIssue("bug", report(), deps);
+    expect(fetchImpl).toHaveBeenCalledTimes(MAX_ISSUES_PER_WINDOW + 1);
   });
 
   it("never throws and logs when GitHub is unreachable", async () => {

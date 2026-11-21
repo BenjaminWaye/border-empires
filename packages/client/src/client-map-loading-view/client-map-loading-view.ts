@@ -168,7 +168,7 @@ export const buildMapLoadingView = (
     if (stuckOnAuth && elapsedMs >= ACTION_AFFORDANCE_THRESHOLD_MS) {
       return {
         title: state.authBusyTitle || "Securing session",
-        meta: `The server hasn't acknowledged sign-in in ${elapsedSeconds}s. It may be restarting (~90s) — try again or grab diagnostics.`,
+        meta: `The server hasn't acknowledged sign-in in ${elapsedSeconds}s. It may be restarting (~90s) — try again or report a bug.`,
         showRetry: true,
         showReload: true,
         showReportBug: true,

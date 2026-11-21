@@ -297,3 +297,14 @@
   color: rgba(6, 33, 15, 0.7);
   box-shadow: none;
 }
+
+/* Shown only after a failed submit (gateway unreachable): saves the
+   diagnostics bundle locally instead. */
+.bug-report-fallback-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.bug-report-fallback-btn[hidden] {
+  display: none;
+}

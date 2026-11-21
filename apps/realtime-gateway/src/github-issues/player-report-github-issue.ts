@@ -18,7 +18,11 @@ export type PlayerReportGithubIssueConfig = {
 type IssueDeps = PlayerReportGithubIssueConfig & {
   appLabel?: string;
   fetchImpl?: typeof fetch;
-  log?: { error?: (payload: unknown, message?: string) => void };
+  log?: {
+    error?: (payload: unknown, message?: string) => void;
+    warn?: (payload: unknown, message?: string) => void;
+  };
+  now?: () => number;
 };
 
 export type PlayerReportIssue = { title: string; body: string; labels: string[] };
@@ -29,6 +33,19 @@ const TITLE_DESCRIPTION_CHARS = 80;
 const NOTABLE_EVENTS_IN_BODY = 10;
 const DEFAULT_APP_LABEL = "border-empires";
 // GitHub owners are alphanumeric/hyphen; repo names can't be "." or "..".
+// The report endpoint is unauthenticated and its per-IP limit can be dodged
+// by rotating IPs, so cap issue creation process-wide: past this, reports
+// still reach email/logs but stop opening issues until the window rolls.
+export const MAX_ISSUES_PER_WINDOW = 20;
+const ISSUE_WINDOW_MS = 60 * 60_000;
+let issueTimestamps: number[] = [];
+const takeIssueSlot = (now: number): boolean => {
+  issueTimestamps = issueTimestamps.filter((t) => now - t < ISSUE_WINDOW_MS);
+  if (issueTimestamps.length >= MAX_ISSUES_PER_WINDOW) return false;
+  issueTimestamps.push(now);
+  return true;
+};
+export const resetPlayerReportIssueBudgetForTests = (): void => { issueTimestamps = []; };
 const REPO_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*\/(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
 
 const LABELS_BY_KIND: Record<PlayerReportIssueKind, string[]> = {
@@ -56,14 +73,18 @@ const fenced = (text: string): string => {
 // Titles render @mentions as plain text, but strip control characters and
 // collapse whitespace so a multi-line description makes a one-line title.
 const titleSnippet = (description: string): string => {
-  const oneLine = description.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  // \p{Cc} control chars and \p{Cf} format chars (bidi overrides, zero-width).
+  const oneLine = description.replace(/[\p{Cc}\p{Cf}]+/gu, " ").replace(/\s+/g, " ").trim();
   return oneLine.length > TITLE_DESCRIPTION_CHARS ? `${oneLine.slice(0, TITLE_DESCRIPTION_CHARS - 1)}…` : oneLine;
 };
 
-const eventLines = (label: string, events: LeveledEvent[]): string[] => {
+// Server events can include other players' activity (an unauthenticated
+// reporter gets gateway-wide warnings), so the public issue lists names only
+// for the reporter's own client events and gives server events as counts.
+const eventLines = (label: string, events: LeveledEvent[], listNotable: boolean): string[] => {
   const errors = events.filter((e) => e.level === "error").length;
   const warnings = events.filter((e) => e.level === "warn").length;
-  const notable = events.filter((e) => e.level !== "info").slice(-NOTABLE_EVENTS_IN_BODY);
+  const notable = listNotable ? events.filter((e) => e.level !== "info").slice(-NOTABLE_EVENTS_IN_BODY) : [];
   return [
     `${label} events: ${events.length} total (${errors} errors, ${warnings} warnings)`,
     ...notable.map((e) => {
@@ -85,8 +106,8 @@ export const buildPlayerReportIssue = (kind: PlayerReportIssueKind, report: BugR
     `Renderer: ${contextString(report.metadata, "renderer")}`,
     `User agent: ${contextString(report.metadata, "userAgent")}`,
     "",
-    ...eventLines("Server", report.serverEvents),
-    ...eventLines("Client", report.clientEvents)
+    ...eventLines("Server", report.serverEvents, false),
+    ...eventLines("Client", report.clientEvents, true)
   ].join("\n");
   const body = [
     `Submitted in-game by a player via **${kind === "bug" ? "Report Bug" : "Suggest Improvement"}**.`,
@@ -97,7 +118,7 @@ export const buildPlayerReportIssue = (kind: PlayerReportIssueKind, report: BugR
     "### Context",
     fenced(context),
     "",
-    `The full report (all event payloads, client context and diagnostics bundle) was emailed to the admin inbox and logged by the gateway as \`player_bug_report\` with report id \`${report.reportId}\`.`
+    `Full report (event payloads, client context, diagnostics bundle): admin report email, when email alerts are configured, and the gateway's \`player_bug_report\` log line, both keyed by report id \`${report.reportId}\`.`
   ].join("\n");
   return { title, body, labels: LABELS_BY_KIND[kind] };
 };
@@ -120,7 +141,11 @@ const postIssue = async (fetchImpl: typeof fetch, config: IssueDeps, issue: Reco
       body: JSON.stringify(issue),
       signal: ac.signal
     });
-    if (response.ok) return { ok: true };
+    if (response.ok) {
+      // Release the connection; the created issue's JSON isn't needed.
+      await response.body?.cancel().catch(() => undefined);
+      return { ok: true };
+    }
     const text = await response.text().catch(() => "");
     return { ok: false, status: response.status, error: `github returned ${response.status}: ${text.slice(0, 200)}` };
   } catch (error) {
@@ -138,13 +163,17 @@ export const createPlayerReportGithubIssue = async (
 ): Promise<void> => {
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
   if (!config.token || !REPO_PATTERN.test(config.repo) || !fetchImpl) return;
+  if (!takeIssueSlot((config.now ?? Date.now)())) {
+    config.log?.warn?.({ reportId: report.reportId }, `${kind} report GitHub issue skipped: hourly issue cap reached`);
+    return;
+  }
   try {
     const issue = buildPlayerReportIssue(kind, report, config.appLabel ?? DEFAULT_APP_LABEL);
     const withLabels = await postIssue(fetchImpl, config, issue);
     if (withLabels.ok) return;
-    // A token that can open issues but not create labels gets a 422/403 for
-    // unknown labels; don't drop the report over that — retry without them.
-    if (withLabels.status !== 422 && withLabels.status !== 403) throw new Error(withLabels.error);
+    // Only a validation failure (422) is retried without labels; a 403 is a
+    // permission or rate-limit problem that an immediate retry would worsen.
+    if (withLabels.status !== 422) throw new Error(withLabels.error);
     config.log?.error?.({ err: withLabels.error, reportId: report.reportId }, `${kind} report issue with labels rejected; retrying without`);
     const plain = await postIssue(fetchImpl, config, { title: issue.title, body: issue.body });
     if (!plain.ok) throw new Error(plain.error);
