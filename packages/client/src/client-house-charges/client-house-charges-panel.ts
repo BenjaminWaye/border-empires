@@ -129,10 +129,9 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // Only an unsaved swap puts anything above the cards (its Keep button); what is kept and until when sits in
-  // How charges work, behind the "?" beside the title.
-  // Both float over the cards as a popover (owner 2026-11-21: the bar pushed the cards down and cut off their
-  // bottoms): the unsaved swap's Keep button, and once it is saved, where to find the charges from now on.
+  // Only two things show over the cards, as a popover (owner 2026-11-21: an in-flow bar pushed the cards down and
+  // cut off their bottoms): an unsaved swap's Keep button, then once it is saved, where to find the charges later.
+  // What is kept and until when sits in How charges work, behind the "?" beside the title.
   const choice = choosing && changed
     ? `<div class="house-charges-popover house-charges-choice">
         <div class="house-charges-popover-text">
