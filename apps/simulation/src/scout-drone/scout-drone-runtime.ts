@@ -3,6 +3,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import {
   SCOUT_DRONE_MESSAGE_TYPE,
   SCOUT_DRONE_VISION_RADIUS,
+  SCOUT_FINDS_MESSAGE_TYPE,
   SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS,
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
@@ -18,6 +19,8 @@ import {
   type ScoutDroneTileClass,
   type ScoutReportFindings,
   type ScoutDroneWorld,
+  type ScoutFind,
+  type ScoutFindsPayload,
   type ScoutSightedPayload
 } from "@border-empires/shared";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
@@ -86,6 +89,8 @@ export type ScoutDroneGauge = {
   noChargeRefusals: number;
   /** EXPLOREs that would take a flying drone past SCOUT_DRONE_MAX_ROUTE_STOPS (SCOUT_ROUTE_FULL). */
   routeFullRefusals: number;
+  /** Finds sent mid-flight in SCOUT_FINDS (the client's pops). */
+  findsSent: number;
 };
 
 /** Stops one flight may hold once extended mid-flight (EXPLORE while the drone is out). */
@@ -124,6 +129,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   let capRefusals = 0;
   let noChargeRefusals = 0;
   let routeFullRefusals = 0;
+  let findsSent = 0;
   let cooldownEvictions = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
@@ -273,15 +279,28 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       // and the way home too: a straight return flies over new ground. Only outbound steps can turn it
       // back: the way home was checked clear at planning, and a border that appears on it later must
       // not strand the drone, so it keeps flying home.
+      // What the steps passed this tick found, sent as it happens so the client can pop it over the map:
+      // players waited 2-3 minutes with nothing to show until the landing report (review 2026-11-21).
+      const found: ScoutFind[] = [];
+      const sendFound = (): void => {
+        if (found.length === 0) return;
+        const payload: ScoutFindsPayload = { type: SCOUT_FINDS_MESSAGE_TYPE, launchedAt: flight.launchedAt, finds: found };
+        // One id per flight, as for the drone's vision batches: the gateway records each player message by
+        // commandId, and an id per tick would grow that store with every find.
+        deps.emitPlayerMessage({ commandId: `scout-finds:${active.commandId}`, playerId: active.playerId }, payload);
+        findsSent += found.length;
+      };
       for (let i = Math.max(0, active.lastStepIndex + 1); i <= index; i += 1) {
         if (i <= flight.turnIndex && turnBackIfBlocked(active, i, nowMs)) {
           const turn = active.flight.steps[active.flight.turnIndex]!;
           moveReveal(active, { x: turn.x, y: turn.y });
+          sendFound();
           return;
         }
         const step = flight.steps[i]!;
-        if (owner) active.findings.observe(step.x, step.y, owner);
+        if (owner) found.push(...active.findings.observe(step.x, step.y, owner));
       }
+      sendFound();
       if (index >= flight.turnIndex && flight.endReason === "BLOCKED") alertRival(active, nowMs);
       active.lastStepIndex = index;
     }
@@ -386,7 +405,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       capRefusals,
       cooldownEvictions,
       routeFullRefusals,
-      noChargeRefusals
+      noChargeRefusals,
+      findsSent
     })
   };
 };

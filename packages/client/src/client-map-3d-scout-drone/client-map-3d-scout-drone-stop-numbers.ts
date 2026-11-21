@@ -1,6 +1,6 @@
 import { CanvasTexture, Group, SRGBColorSpace, Sprite, SpriteMaterial, type Scene } from "three";
 
-// Numbers over the planned scout stops in true-3D, and the drone's own badge in flight, (client-map-3d-scout-drone-plan-overlay.ts), so the
+// Numbers over the planned scout stops in true-3D, the drone's own badge in flight, a pin on a framed find, (client-map-3d-scout-drone-plan-overlay.ts), so the
 // order of a route reads at a glance: first-time players could not tell which stop came first once a
 // route crossed itself (player review 2026-11-21). One small camera-facing sprite per stop; each
 // number's texture is painted once, the first time it is needed, never per frame.
@@ -140,6 +140,78 @@ export const createScoutDroneBadge = (scene: Scene): { readonly place: (sceneX: 
   return {
     place: (sceneX, sceneY, sceneZ) => {
       sprite.position.set(sceneX, sceneY + LIFT * 2, sceneZ);
+      sprite.visible = true;
+    },
+    hide: () => {
+      sprite.visible = false;
+    },
+    dispose: () => {
+      scene.remove(sprite);
+      sprite.material.dispose();
+      texture?.dispose();
+    }
+  };
+};
+
+/**
+ * A gold map pin standing over a find framed from the landing card: the ring on the ground alone could hide
+ * under a town's name label (player review round 9). Same screen-size sprite as the badges.
+ */
+export const createScoutFindPin = (scene: Scene): { readonly place: (sceneX: number, sceneY: number, sceneZ: number) => void; readonly hide: () => void; readonly dispose: () => void } => {
+  let texture: CanvasTexture | null = null;
+  if (typeof document !== "undefined") {
+    // Twice as tall as wide: a round head on a long stem down to the find. A short teardrop lost its point
+    // under a town label and its head read as a gold coin (player review round 10).
+    const canvas = document.createElement("canvas");
+    canvas.width = SIZE;
+    canvas.height = SIZE * 2;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const cx = SIZE / 2;
+      const headY = SIZE * 0.42;
+      ctx.lineCap = "round";
+      // Stem: dark outline, then gold.
+      ctx.strokeStyle = "#2a1a06";
+      ctx.lineWidth = 18;
+      ctx.beginPath();
+      ctx.moveTo(cx, headY);
+      ctx.lineTo(cx, SIZE * 1.96);
+      ctx.stroke();
+      ctx.strokeStyle = "#f2c14e";
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      // Head: gold ring around a dark centre with a light dot, so it reads as a pin head, not a coin.
+      ctx.beginPath();
+      ctx.arc(cx, headY, SIZE * 0.34, 0, Math.PI * 2);
+      ctx.fillStyle = "#f2c14e";
+      ctx.strokeStyle = "#2a1a06";
+      ctx.lineWidth = 7;
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, headY, SIZE * 0.16, 0, Math.PI * 2);
+      ctx.fillStyle = "#3a2408";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx - SIZE * 0.05, headY - SIZE * 0.05, SIZE * 0.05, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff4d2";
+      ctx.fill();
+      texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+    }
+  }
+  const sprite = new Sprite(new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false }));
+  sprite.name = "scout-drone-find-pin";
+  sprite.scale.set(SCREEN_SIZE * 1.3, SCREEN_SIZE * 2.6, 1);
+  // The stem's foot sits on the find: anchor the sprite at its bottom centre.
+  sprite.center.set(0.5, 0.02);
+  sprite.renderOrder = 33;
+  sprite.frustumCulled = false;
+  sprite.visible = false;
+  scene.add(sprite);
+  return {
+    place: (sceneX, sceneY, sceneZ) => {
+      sprite.position.set(sceneX, sceneY, sceneZ);
       sprite.visible = true;
     },
     hide: () => {

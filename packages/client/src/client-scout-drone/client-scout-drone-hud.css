@@ -106,21 +106,31 @@
 
 #scout-report-card .srs-chip-row { display: inline-flex; align-items: center; gap: 4px; }
 
+/* Chips that frame their finds on the map: buttons dressed as chips, the label underlined to say "tap me". */
+#scout-report-card button.srs-chip {
+  border: 0;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+#scout-report-card button.srs-chip .srs-chip-label {
+  text-decoration: underline dotted rgba(246, 228, 180, 0.6);
+  text-underline-offset: 3px;
+}
+
+#scout-report-card button.srs-chip:active,
+#scout-report-card button.srs-chip:hover { background: rgba(255, 231, 166, 0.1); }
+
 #scout-report-card .srs-chip-label {
   font: 600 11px/1 Georgia, serif;
   color: rgba(246, 228, 180, 0.8);
   white-space: nowrap;
 }
-
-#scout-report-card .srs-show {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-#scout-report-card .srs-show-icon { width: 18px; height: 18px; display: inline-grid; }
-#scout-report-card .srs-show-icon svg,
-#scout-report-card .srs-show-icon .resource-icon-img { width: 18px; height: 18px; }
 
 #scout-report-card .srs-chip-icon {
   width: 24px;
@@ -138,18 +148,6 @@
 }
 
 #scout-report-card .srs-turned { color: #ffb38a; }
-
-#scout-report-card .srs-show {
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: none;
-  flex: none;
-  font: 700 15px/1 "Cinzel", Georgia, serif;
-  color: #2a1f12;
-  background: linear-gradient(180deg, #f7d88f, #d0a043);
-  cursor: pointer;
-}
 
 #scout-report-card .srs-close {
   width: 34px;
@@ -212,10 +210,9 @@ body.hud-v2-compact #scout-report-card {
   max-width: none;
 }
 
-body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: border-box; flex-wrap: wrap; row-gap: 8px; }
-/* Phone: the finds get the full width in a row, Show and ✕ go on a row below. */
-body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 calc(100% - 44px); gap: 8px 14px; }
-body.hud-v2-compact #scout-report-card .srs-show { margin-left: auto; }
+body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: border-box; align-items: flex-start; }
+/* Phone: the finds take the width between the drone and ✕, which stays top right. */
+body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 auto; gap: 8px 14px; }
 
 /* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
    speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21). */

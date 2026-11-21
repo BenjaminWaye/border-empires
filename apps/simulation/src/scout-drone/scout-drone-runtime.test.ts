@@ -75,8 +75,8 @@ const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player(
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
 const homeRow = (afcStatus: "active" | "inactive" = "active"): DomainTileState[] =>
   [0, 1, 2, 3, 4].map((x) => land(x, 10, { ownerId: "me", ...(x === 2 ? { afc: { ownerId: "me", status: afcStatus } } : {}) }));
-const lastPayload = (h: Harness, playerId = "me"): ScoutDronePayload =>
-  h.messages.filter((m) => m.playerId === playerId).at(-1)!.payload as unknown as ScoutDronePayload;
+const lastPayload = (h: Harness, playerId = "me"): ScoutDronePayload => // the last message other than mid-flight SCOUT_FINDS
+  h.messages.filter((m) => m.playerId === playerId && m.payload.type !== "SCOUT_FINDS").at(-1)!.payload as unknown as ScoutDronePayload;
 
 describe("scout drone runtime", () => {
   it("launches from the AFC, resolves the command and starts its reveal there", () => {

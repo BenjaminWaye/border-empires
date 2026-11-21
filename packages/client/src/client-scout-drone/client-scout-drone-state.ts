@@ -16,6 +16,7 @@ import {
 import { resourceLabel } from "../client-map-display.js";
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { FeedEntry } from "../client-types.js";
+import { createInitialScoutFindsState, handleScoutFindsMessage } from "./client-scout-drone-finds.js";
 
 export const createInitialScoutDroneState = () => ({
   /** The player's drone while it is in the air (times in local clock), otherwise undefined. */
@@ -31,7 +32,9 @@ export const createInitialScoutDroneState = () => ({
   /** The last landing's report, shown as a card until dismissed, for 90 s, and not while planning or flying (client-scout-drone-hud.ts). */
   scoutDroneReport: undefined as ScoutDroneLandingReport | undefined,
   /** How many tiles the player had explored when the drone in the air launched: the report counts the new ones. */
-  scoutDroneExploredAtLaunch: undefined as number | undefined
+  scoutDroneExploredAtLaunch: undefined as number | undefined,
+  // What the drone spots as it flies: pops over the map, and the card's chips frame them (client-scout-drone-finds.ts).
+  ...createInitialScoutFindsState()
 });
 
 /** What a landed drone found, as the report card shows it. `at` is local time of landing. */
@@ -160,6 +163,7 @@ export const handleScoutDroneMessage = (
   toLocal: (serverTime: number) => number = serverClock.toLocal,
   nowMs: number = Date.now()
 ): boolean => {
+  if (handleScoutFindsMessage(msg, state, nowMs)) return true;
   const nameOf = (playerId: string): string => state.playerNames.get(playerId) ?? "another empire";
   // The Alerts feed is admin-only (client-feed-alert-surface.ts), so launch and report lines set
   // `alert`: a player who pressed Explore otherwise saw no drone message at all (2026-11-14 playtest).
@@ -169,8 +173,12 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
-    // A new flight: remember the explored count, so the landing card can say how much it uncovered.
-    if (next && previous?.launchedAt !== next.launchedAt && state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
+    // A new flight: remember the explored count, so the landing card can say how much it uncovered, and
+    // drop the last flight's finds (the new flight's SCOUT_FINDS start its own list).
+    if (next && previous?.launchedAt !== next.launchedAt) {
+      if (state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
+      state.scoutDroneFinds = undefined;
+    }
     const charges = parseScoutDroneCharges(msg.charges, toLocal);
     if (charges) state.scoutDroneCharges = charges;
     // No "launched" popup: it only repeated the tap. The drone on the map, with its "Back in …"
