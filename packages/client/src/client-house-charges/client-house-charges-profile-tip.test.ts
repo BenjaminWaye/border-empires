@@ -31,7 +31,8 @@ const openPanel = () => {
   const closePanel = vi.fn(() => {
     state.activePanel = null;
   });
-  const sendGameMessage = vi.fn((message: { keptIds: string[] }) => {
+  const sendGameMessage = vi.fn((payload: unknown, _message?: string): boolean => {
+    const message = payload as { keptIds: string[] };
     state.houseCharges = { ...state.houseCharges, charges: state.houseCharges.charges.map((entry) => ({ ...entry, kept: message.keptIds.includes(entry.id) })) };
     state.houseChargesDraftKeep = undefined;
     deps.rerender();

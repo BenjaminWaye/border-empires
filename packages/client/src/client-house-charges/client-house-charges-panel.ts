@@ -13,6 +13,7 @@ import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } 
 import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
+import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
 import {
   dismissHouseChargesProfileTip,
   forgetHouseChargesSave,
@@ -49,7 +50,7 @@ export type HouseChargesPanelDeps = {
 let rewardsOpen = false;
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> &
-  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "me" | "activePlayerProfileId">>;
+  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "me" | "activePlayerProfileId" | "playerNames">>;
 type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
 
 /**
@@ -116,7 +117,8 @@ const choiceHintHtml = (ticked: number, wanted: number): string => {
 };
 
 export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string => {
-  const payload = state.houseCharges;
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) {
     return `<section class="card house-charges-card"><p class="house-charges-intro">Your House's sealed charges arrive once your AFC has landed.</p></section>`;
   }
@@ -217,7 +219,8 @@ export const renderHouseChargesPanel = (
   setHelpOpen(rewardsOpen);
   if (more) more.onclick = () => setHelpOpen(false);
   if (help) help.onclick = () => setHelpOpen(!rewardsOpen);
-  const payload = state.houseCharges;
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) return;
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
     card.onclick = () => {
