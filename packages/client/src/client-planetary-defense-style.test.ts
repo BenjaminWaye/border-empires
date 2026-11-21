@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { syncBattleOverlayFx } from "./client-map-3d-capture-overlays.js";
-import { PLANETARY_DEFENSE_ARMOR_COLOR, squadColorForOwner } from "./client-planetary-defense-style.js";
+import { isPlanetaryDefenseCampTile, PLANETARY_DEFENSE_ARMOR_COLOR, squadColorForOwner } from "./client-planetary-defense-style.js";
 import type { BattleOverlayRenderEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { ClientState } from "./client-state/client-state.js";
 
@@ -10,6 +10,16 @@ describe("squadColorForOwner", () => {
     expect(squadColorForOwner("barbarian-1", colorFor)).toBe(PLANETARY_DEFENSE_ARMOR_COLOR);
     expect(squadColorForOwner("barbarian", colorFor)).toBe(PLANETARY_DEFENSE_ARMOR_COLOR);
     expect(squadColorForOwner("player-1", colorFor)).toBe("#player-1");
+  });
+});
+
+describe("isPlanetaryDefenseCampTile", () => {
+  it("is a garrisoned Planetary Defense tile, not its frontier or anyone else's land", () => {
+    expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1", ownershipState: "SETTLED" })).toBe(true);
+    expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1", ownershipState: "FRONTIER" })).toBe(false);
+    expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1" })).toBe(false);
+    expect(isPlanetaryDefenseCampTile({ ownerId: "player-1", ownershipState: "SETTLED" })).toBe(false);
+    expect(isPlanetaryDefenseCampTile(undefined)).toBe(false);
   });
 });
 
