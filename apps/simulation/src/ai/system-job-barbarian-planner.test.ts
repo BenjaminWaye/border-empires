@@ -38,7 +38,7 @@ const setup = (tiles: Tile[], options: { awake?: string[]; now?: () => number; d
   return { planner, choose, tilesByKey, advance: (ms: number) => { now += ms; }, now: () => now };
 };
 
-const setupWithCap = (maxCampTiles: number, tiles: Tile[]) => {
+const setupWithCap = (maxCampTiles: number, tiles: Tile[], maxCamps?: number) => {
   const tilesByKey = new Map(tiles.map((tile) => [key(tile.x, tile.y), tile]));
   const planner = createBarbarianPlanner({
     tilesByKey,
@@ -47,7 +47,8 @@ const setupWithCap = (maxCampTiles: number, tiles: Tile[]) => {
     getDockLinksByDockTileKey: () => new Map(),
     getAwakeCampIds: () => new Set(["10,10"]),
     now: () => 1_000,
-    maxCampTiles
+    maxCampTiles,
+    ...(maxCamps !== undefined ? { maxCamps } : {})
   });
   const choose = () => {
     const command = planner.choose(1, 1_000);
@@ -110,14 +111,28 @@ describe("Planetary Defense planner", () => {
   });
 
   // Regression: nothing limited a camp's size, so an awake camp kept spreading forever.
-  it("a full-size camp takes no more land, only towns and docks", () => {
+  it("a full-size camp neither expands nor attacks frontier", () => {
     const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
-    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER"), house(12, 11)]);
+    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER")]);
     expect(choose()).toBeUndefined();
-    const withTown = setupWithCap(3, [...land, neutral(10, 11), neutral(13, 10, { town: {} })]);
-    expect(withTown.choose()).toMatchObject({ type: "EXPAND", to: "13,10" });
     const below = setupWithCap(4, [...land, neutral(10, 11)]);
     expect(below.choose()).toMatchObject({ type: "EXPAND", to: "10,11" });
+  });
+
+  // Review regression: the size cap also stopped full camps raiding Houses at all.
+  it("a full-size camp still raids garrisoned House land", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const { choose } = setupWithCap(3, [...land, neutral(10, 11), house(11, 11, "FRONTIER"), house(12, 11)]);
+    expect(choose()).toMatchObject({ type: "ATTACK", to: "12,11" });
+  });
+
+  // Review regression: at the camp cap a captured town or dock becomes more of the capturing camp
+  // (camp-rules.ts), so letting a full camp take one grew it past the size cap without limit.
+  it("a full-size camp takes a neutral town or dock only while it would found a new camp", () => {
+    const land = [campTile(10, 10), campLand(11, 10, "10,10"), campLand(12, 10, "10,10")];
+    const tiles = [...land, neutral(13, 10, { town: {} }), neutral(10, 11, { dockId: "dock-a" })];
+    expect(["13,10", "10,11"]).toContain(setupWithCap(3, tiles, 2).choose()?.to);
+    expect(setupWithCap(3, tiles, 1).choose()).toBeUndefined();
   });
 
   it("the camp that has waited longest goes first", () => {

@@ -17,6 +17,7 @@ describe("isPlanetaryDefenseCampTile", () => {
   it("is a garrisoned Planetary Defense tile, not its frontier or anyone else's land", () => {
     expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1", ownershipState: "SETTLED" })).toBe(true);
     expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1", ownershipState: "FRONTIER" })).toBe(false);
+    expect(isPlanetaryDefenseCampTile({ ownerId: "barbarian-1" })).toBe(false);
     expect(isPlanetaryDefenseCampTile({ ownerId: "player-1", ownershipState: "SETTLED" })).toBe(false);
     expect(isPlanetaryDefenseCampTile(undefined)).toBe(false);
   });

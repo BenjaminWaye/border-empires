@@ -4,7 +4,7 @@
 // SETTLED Planetary Defense tile; its land is FRONTIER carrying its campId.
 // New camps come only from captured towns and docks, up to this many; at the
 // cap a captured town or dock becomes plain FRONTIER. There is no cap on the
-// total number of Planetary Defense tiles.
+// total number of Planetary Defense tiles, only per camp (below).
 export const MAX_PLANETARY_DEFENSE_CAMPS = 100;
 // A camp rests this long after its action SETTLES (combat resolved, claim
 // resolved, or command rejected) before it may act again. Counted from settle,
@@ -15,8 +15,9 @@ export const BARBARIAN_TILE_REST_MS = 15_000;
 // most camps awake all the time, so at the attack rest every camp took four
 // tiles a minute and Planetary Defense swamped the map.
 export const PLANETARY_DEFENSE_EXPAND_REST_MS = 60_000;
-// A camp stops taking land once it holds this many tiles, its camp included.
-// It still takes towns and docks, which become new camps rather than more land.
+// A camp holding this many tiles, its camp included, stops expanding and stops
+// attacking frontier. It still raids garrisoned House land (raid-limited) and
+// takes towns and docks while they found new camps (below MAX_PLANETARY_DEFENSE_CAMPS).
 export const MAX_PLANETARY_DEFENSE_CAMP_TILES = 20;
 // Faction-wide budget of barbarian ATTACKS started per rolling minute (all
 // camps on the map combined). Attacks are the expensive action (~15ms main

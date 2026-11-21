@@ -3,6 +3,7 @@ import {
   BARBARIAN_INFLIGHT_TIMEOUT_MS,
   BARBARIAN_TILE_REST_MS,
   MAX_PLANETARY_DEFENSE_CAMP_TILES,
+  MAX_PLANETARY_DEFENSE_CAMPS,
   PLANETARY_DEFENSE_EXPAND_REST_MS,
   PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW,
   lastManpowerRefillAtMs
@@ -15,8 +16,9 @@ import { candidateKeysForOrigin, createFrontierCommand, type PlannerTile, type P
  * (its camp tile plus the frontier carrying its campId) takes at most one
  * action at a time and rests after it settles: BARBARIAN_TILE_REST_MS after an
  * attack, PLANETARY_DEFENSE_EXPAND_REST_MS after an expansion. A camp holding
- * MAX_PLANETARY_DEFENSE_CAMP_TILES takes no more land, only towns and docks
- * (which become new camps). Only
+ * MAX_PLANETARY_DEFENSE_CAMP_TILES stops expanding and stops attacking frontier;
+ * it still raids garrisoned House land (raid-limited) and takes towns and docks
+ * while they would found new camps (below MAX_PLANETARY_DEFENSE_CAMPS). Only
  * awake camps act: a watcher can see one of their tiles (the main thread's
  * camp-awake-tracker.ts sends the set). A camp acts only from its own tiles:
  *   1. attack a House tile next to its land, if the faction-wide attack budget
@@ -49,6 +51,7 @@ export type BarbarianPlannerDeps = {
   readonly restMs?: number;
   readonly expandRestMs?: number;
   readonly maxCampTiles?: number;
+  readonly maxCamps?: number;
   readonly attacksPerMinute?: number;
   readonly raidsPerHousePerWindow?: number;
   readonly inFlightTimeoutMs?: number;
@@ -103,6 +106,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   const restMs = deps.restMs ?? BARBARIAN_TILE_REST_MS;
   const expandRestMs = deps.expandRestMs ?? PLANETARY_DEFENSE_EXPAND_REST_MS;
   const maxCampTiles = deps.maxCampTiles ?? MAX_PLANETARY_DEFENSE_CAMP_TILES;
+  const maxCamps = deps.maxCamps ?? MAX_PLANETARY_DEFENSE_CAMPS;
   const attacksPerMinute = deps.attacksPerMinute ?? BARBARIAN_ATTACKS_PER_MINUTE;
   const raidsPerWindow = deps.raidsPerHousePerWindow ?? PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW;
   const inFlightTimeoutMs = deps.inFlightTimeoutMs ?? BARBARIAN_INFLIGHT_TIMEOUT_MS;
@@ -181,20 +185,22 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
    * is held back for now (attack budget spent, raid limit reached, a recent
    * rejection), so the camp should look again soon rather than sleep.
    */
-  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, t: number): { best?: CampAction; held: boolean } => {
+  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, campsFull: boolean, t: number): { best?: CampAction; held: boolean } => {
     const dockLinks = deps.getDockLinksByDockTileKey();
     const avoid = avoidUntilByCamp.get(campId);
     let best: CampAction | undefined;
     let held = false;
     const tiles = deps.campTiles(campId);
-    // A full-size camp takes only towns and docks: those become new camps, not more of this one.
+    // A full-size camp neither expands nor attacks frontier. It still raids garrisoned House land
+    // (raid-limited), and takes a town or dock only while that founds a new camp; at the camp cap
+    // a captured town or dock would become more of this camp (camp-rules.ts).
     const full = tiles.length >= maxCampTiles;
     for (const from of tiles) {
       for (const targetKey of candidateKeysForOrigin(from, dockLinks, deps.tilesByKey)) {
         if (busyTargets.has(targetKey)) continue;
         const target = deps.tilesByKey.get(targetKey);
         if (!target || target.terrain !== "LAND" || isBarbarian(target.ownerId)) continue;
-        if (full && !target.town && !target.dockId) continue;
+        if (full && !(target.ownerId && target.ownershipState === "SETTLED") && (campsFull || (!target.town && !target.dockId))) continue;
         if ((avoid?.get(targetKey) ?? 0) > t) {
           held = true;
           continue;
@@ -239,7 +245,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     eligible.sort((a, b) => a.lastActed - b.lastActed || (a.campId < b.campId ? -1 : 1));
     const canAttack = attackBudgetOpen(t);
     for (const { campId } of eligible) {
-      const { best: pick, held } = pickFor(campId, busyTargets, canAttack, t);
+      const { best: pick, held } = pickFor(campId, busyTargets, canAttack, live.size >= maxCamps, t);
       if (!pick) {
         // Nothing to take at all: sleep until a neighbour changes. Only held back: look again next time.
         if (!held) sleepingUntilByCamp.set(campId, t + NO_TARGET_RETRY_MS);

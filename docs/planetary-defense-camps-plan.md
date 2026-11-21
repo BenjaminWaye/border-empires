@@ -67,8 +67,10 @@ everywhere.
    as the camp cap); at the cap a captured town or dock becomes FRONTIER. There
    is no cap on total tiles, but **each camp holds at most 20 tiles**
    (`MAX_PLANETARY_DEFENSE_CAMP_TILES`, camp included; added 2026-11-21 after
-   camps swamped the map): a full camp takes only towns and docks, which become
-   new camps. The progress / multiply rule is removed.
+   camps swamped the map): a full camp stops expanding and stops attacking
+   frontier. It still raids a House's garrisoned land (raid limit, rule 8) and
+   takes towns and docks only while they found new camps (below the camp cap).
+   The progress / multiply rule is removed.
 6. **One action per camp at a time, then a rest.** Each camp (the camp and
    its tiles) rests `BARBARIAN_TILE_REST_MS` (15 s) after an ATTACK and
    `PLANETARY_DEFENSE_EXPAND_REST_MS` (60 s) after an EXPAND into neutral land
@@ -269,9 +271,11 @@ Not built:
 
 Known follow-ups (accepted for now):
 - A camp's size was first left unbounded; since 2026-11-21 it is capped at
-  `MAX_PLANETARY_DEFENSE_CAMP_TILES` (20), which also bounds each decision's
-  scan. A town or dock taken at the camp cap still adds one plain frontier
-  tile to a full camp.
+  `MAX_PLANETARY_DEFENSE_CAMP_TILES` (20). The cap stops growth but does not
+  shrink a camp that is already larger (boot migration can hand a camp a whole
+  legacy cluster), and each decision still walks every tile of the camp. A full
+  camp can still grow by its raids on garrisoned land, which the raid limit
+  bounds.
 - A collapsing camp drops buildings it captured (forts, observatories), as the
   old walk release did; keeping barbarian-owned structures on neutral ground
   needs its own rule.
