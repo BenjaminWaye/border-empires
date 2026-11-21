@@ -85,7 +85,7 @@ const PIN_RELEASE_EVENTS = ["pointerdown", "wheel", "keydown", "touchstart"] as 
 // mode lives inside #hud, which the photo-mode CSS then hides along with
 // everything else, so there is otherwise no way back to it. This id is
 // carved out of that hider rule (see client-photo-mode-style.css) so it
-// stays visible and clickable the whole time photo mode is active.
+// stays clickable the whole time photo mode is active (faded out while idle).
 export const PHOTO_MODE_EXIT_CONTROL_ID = "photo-mode-exit-control";
 
 let removeExitControl: (() => void) | undefined;
@@ -110,7 +110,7 @@ const showExitControl = (onExit: () => void): void => {
   const handleEscape = (event: KeyboardEvent): void => {
     if (event.key === "Escape") handleExit();
   };
-  // Hidden (and not clickable) while idle; any input brings it back, so the first tap never exits by accident.
+  // Faded while idle but still clickable (client-photo-mode-style.css): on a phone, a tap on it is the only way out.
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const wake = (event?: Event): void => {
     // A modifier alone (Cmd+Shift+4, Win+Shift+S) is a screenshot shortcut starting, not a request for the button.
