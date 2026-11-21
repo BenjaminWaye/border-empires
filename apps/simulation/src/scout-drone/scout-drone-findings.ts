@@ -85,6 +85,9 @@ export const createScoutFindings = (
       ...result,
       empiresSighted: [...result.empiresSighted],
       resourcesSighted: Array.from(resourceCounts, ([resource, count]) => ({ resource, count })),
+      // Every tile the drone saw, out and home: the report card's "+N Tiles" (review 2026-11-21: a client-side
+      // count of newly discovered tiles mixed in other reveals and reset on reload).
+      tilesSeen: seen.size,
       ...(focus ? { focusX: focus.x, focusY: focus.y } : {})
     })
   };

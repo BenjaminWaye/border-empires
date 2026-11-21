@@ -1,14 +1,13 @@
 // The "Back in 2m 51s" pill over the player's scout drone while it flies, so the time until it
-// docks (and Explore frees up) is read off the drone itself rather than a launch popup. One text
-// rule and one pill drawing for both renderers: the 2D canvas draws it straight onto the map
-// (client-map-render-2d-scout-drone/), true-3D paints it into a sprite texture over the drone
-// (client-map-3d-scout-drone/client-map-3d-scout-drone-eta-label.ts).
+// docks (and Explore frees up) is read off the drone itself rather than a launch popup. Drawn by the
+// 2D canvas only (client-map-render-2d-scout-drone/); true-3D dropped its copy for the bottom flight
+// pill (client-scout-drone-hud.ts) after players found it unreadably small (review 2026-11-21).
 import type { ScoutDroneFlight } from "@border-empires/shared";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 
 const CYAN = "#4fd8ff";
 
-// Both renderers call these every frame, so the text and font strings are rebuilt only when they
+// The 2D renderer calls these every frame, so the text and font strings are rebuilt only when they
 // change (once a second, or on a new tile size), keeping the drone's draw path allocation-free.
 let lastLandsAt = Number.NaN;
 let lastSeconds = -1;

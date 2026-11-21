@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE,
+  INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
   NETWORK_RESOURCES,
   NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY,
   RESOURCE_NETWORKS,
@@ -122,5 +123,14 @@ describe("Hydroworks detail text", () => {
     const detail = buildDetailTextForAction("build_hydroworks", tile) ?? "";
     expect(detail).not.toMatch(/this support tile|supported town|settled tile/);
     expect(detail).toContain("no town, support or resource tile needed");
+  });
+});
+
+describe("buildDetailTextForAction — build_incubation_engine", () => {
+  it("states the 50,000 population burst from the shared constant, not a stale hardcoded number", () => {
+    const text = buildDetailTextForAction("build_incubation_engine", baseTile);
+    expect(INCUBATION_ENGINE_INSTANT_POPULATION_BURST).toBe(50_000);
+    expect(text).toContain(`+${INCUBATION_ENGINE_INSTANT_POPULATION_BURST.toLocaleString("en-US")} population burst on completion`);
+    expect(text).not.toContain("+10,000");
   });
 });

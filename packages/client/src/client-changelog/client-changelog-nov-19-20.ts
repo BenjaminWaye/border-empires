@@ -19,8 +19,10 @@ import { PLANETARY_DEFENSE_CAMP_GROWTH_ENTRY, PLANETARY_DEFENSE_CAMPS_ENTRY } fr
 import { RELIC_AETHER_WAKE_ENTRY } from "./client-changelog-relic-aether-wake.js";
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
 import { SCOUT_REPORT_FOCUS_ENTRY } from "./client-changelog-scout-report-focus.js";
+import { NEXT_STEP_NO_BRAINERS_ENTRY } from "./client-changelog-next-step-no-brainers.js";
 import { SCOUT_DRONE_WAYPOINTS_ENTRY } from "./client-changelog-scout-drone-waypoints.js";
 import { SCOUT_PLAN_MOBILE_ENTRY } from "./client-changelog-scout-plan-mobile.js";
+import { SCOUT_DRONE_REPORTS_ENTRY } from "./client-changelog-scout-drone-reports.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -42,7 +44,9 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...RELIC_AETHER_WAKE_ENTRY, createdAt: 1795196290100 }, // Date.now() captured once for this entry.
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
   { ...SCOUT_REPORT_FOCUS_ENTRY, createdAt: 1795206346879 },
+  { ...NEXT_STEP_NO_BRAINERS_ENTRY, createdAt: 1795209183293 },
   { ...SCOUT_DRONE_WAYPOINTS_ENTRY, createdAt: 1795212180392 },
   { ...PLANETARY_DEFENSE_CAMP_GROWTH_ENTRY, createdAt: 1795250207519 }, // Date.now() captured once for this entry.
   { ...SCOUT_PLAN_MOBILE_ENTRY, createdAt: 1795250505942 },
+  { ...SCOUT_DRONE_REPORTS_ENTRY, createdAt: 1795255054724 },
 ];

@@ -2,9 +2,10 @@
 // waiting for a tap: Aether Wall, the other Crystal abilities, and Send scout
 // drone from an AFC's menu (client-scout-drone/client-scout-drone-picking.ts).
 // Each card has a Cancel button; Escape cancels too (client-map-input.ts).
-// Planning a scout flight shows the bottom dock instead (client-scout-drone-dock.ts).
+// Scout flights use the bottom slot instead: dock, flight pill, report card (client-scout-drone-hud.ts).
 import type { ClientState } from "../client-state/client-state.js";
-import { renderScoutDroneDock } from "../client-scout-drone/client-scout-drone-dock.js";
+import { renderScoutDroneHud } from "../client-scout-drone/client-scout-drone-hud.js";
+import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 
 export type TargetingOverlayDeps = {
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
@@ -15,10 +16,18 @@ export type TargetingOverlayDeps = {
   rerender: () => void;
   /** Sends the planned scout flight (the dock's Go). */
   send?: (payload: unknown) => boolean;
+  /** Frames a tile: the scout flight pill and report card (client-scout-drone-hud.ts). */
+  camera?: { wrapX: (x: number) => number; wrapY: (y: number) => number; requestViewRefresh: () => void };
 };
 
 export const renderTargetingOverlay = (state: ClientState, overlayEl: HTMLElement, deps: TargetingOverlayDeps): void => {
-  renderScoutDroneDock(state, { send: deps.send ?? (() => false), rerender: deps.rerender });
+  const camera = deps.camera;
+  renderScoutDroneHud(state, { send: deps.send ?? (() => false), rerender: deps.rerender, focus: (x, y, options) => {
+    if (!camera) return;
+    const selected = state.selected;
+    focusCameraOnTile(state, x, y, camera);
+    if (options?.select === false) state.selected = selected;
+  } });
   const { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey } = deps;
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
