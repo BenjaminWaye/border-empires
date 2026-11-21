@@ -85,10 +85,10 @@ const removePopup = (): void => {
   releaseCardSlot = undefined;
   release?.();
 };
+// The next clue waits for its own pin tap: one card never opens another on its own (owner, 2026-11-21).
 const dismissPopup = (): void => {
   removePopup();
   active = queue.shift();
-  if (active && !capturePanelOpen) showPopup(active);
 };
 const acknowledgePopup = (): void => {
   if (active && reportScope !== undefined) rememberSurveyDismissal(reportScope, active.resource, active.id);
@@ -170,10 +170,25 @@ export const occupationSurveyController = {
       if (active?.id === report.id) active = queue.shift();
     }
   },
+  /** Each frame: drops clues a researched Manifest has revealed, and closes the card while a screen covers the map. */
   sync(state: SurveyState, _worldToScreen: WorldToScreen, _size: number, _halfW: number, _halfH: number): void {
     if (state.techIds) filterRevealedReports(state.techIds);
-    if (state.presentationReady === false) { removePopup(); return; }
-    if (active && !capturePanelOpen) showPopup(active);
+    if (state.presentationReady === false) removePopup();
+  },
+  /** Clues not yet acknowledged, one per resource at most: each is a pin on the map (client-map-tip-pins.ts). */
+  pendingReports(): OccupationSurveyReport[] {
+    return capturePanelOpen ? [] : active ? [active, ...queue] : [...queue];
+  },
+  /** A pin tap: shows that clue's card. View survey or Got it acknowledges it and removes its pin. */
+  open(reportId: string): void {
+    if (capturePanelOpen) return;
+    const queued = queue.findIndex((report) => report.id === reportId);
+    if (queued >= 0) {
+      const [report] = queue.splice(queued, 1);
+      if (active) queue.unshift(active);
+      active = report;
+    }
+    if (active?.id === reportId) showPopup(active);
   },
   installViewHandler(handler: (report: OccupationSurveyReport) => void): void { viewHandler = handler; },
   /**

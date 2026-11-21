@@ -42,7 +42,9 @@ const popupVisible = (): boolean => document.querySelector(".occupation-survey-o
 describe("createPersistentAlertsFrame town survey popup", () => {
   afterEach(() => occupationSurveyController.reconcile([], [], `reset-${crypto.randomUUID()}`));
 
-  it("holds the survey popup while What's New is open and shows it once closed", () => {
+  // Owner, 2026-11-21: survey cards that opened on their own got in the way of play. A clue is a map pin
+  // (client-map-tip-pins.ts) and its card opens only on a tap.
+  it("never opens the survey card on its own, with What's New open or after it closes", () => {
     const state = signedInState();
     state.changelog.open = true;
     const frame = createPersistentAlertsFrame(state);
@@ -51,20 +53,20 @@ describe("createPersistentAlertsFrame town survey popup", () => {
     expect(popupVisible()).toBe(false);
     state.changelog.open = false;
     frame(2, drawDeps);
-    expect(popupVisible()).toBe(true);
+    expect(popupVisible()).toBe(false);
+    expect(occupationSurveyController.pendingReports().map((report) => report.id)).toEqual([surveyEntry.id]);
   });
 
-  it("hides an already-shown survey popup when the Activity dashboard opens over it", () => {
+  it("closes an opened survey card when the Activity dashboard opens over it, keeping its pin", () => {
     const state = signedInState();
     const frame = createPersistentAlertsFrame(state);
     occupationSurveyController.reconcile([surveyEntry], [], "me:season-b");
     frame(1, drawDeps);
+    occupationSurveyController.open(surveyEntry.id);
     expect(popupVisible()).toBe(true);
     state.activityDashboard.open = true;
     frame(2, drawDeps);
     expect(popupVisible()).toBe(false);
-    state.activityDashboard.open = false;
-    frame(3, drawDeps);
-    expect(popupVisible()).toBe(true);
+    expect(occupationSurveyController.pendingReports().map((report) => report.id)).toEqual([surveyEntry.id]);
   });
 });

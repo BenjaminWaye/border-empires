@@ -60,7 +60,7 @@ describe("INIT event-log backfill", () => {
     expect(hasWaystationActivationBeenShown({ me: "login-player" }, 458, 288)).toBe(true);
   });
 
-  it("still shows cards for entries that land during an in-place reconnect", () => {
+  it("still presents entries that land during an in-place reconnect (survey clues as map pins)", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     bind(state, ws);
@@ -68,6 +68,7 @@ describe("INIT event-log backfill", () => {
     ws.emit("message", init("reconnect-player", loginLog));
     sync();
     expect(surveyDialog()).toBeNull();
+    expect(occupationSurveyController.pendingReports()).toEqual([]);
     expect(waystationCard()).toBeNull();
 
     ws.emit("message", init("reconnect-player", [...loginLog, activation("waystation-2", 2, 2)]));
@@ -76,7 +77,8 @@ describe("INIT event-log backfill", () => {
 
     ws.emit("message", init("reconnect-player", [...loginLog, activation("waystation-2", 2, 2), survey("reconnect-survey", "GEMS")]));
     sync();
-    expect(surveyDialog()?.textContent).toContain("Signs of Crystal nearby");
+    expect(surveyDialog()).toBeNull();
+    expect(occupationSurveyController.pendingReports().map((report) => report.id)).toEqual(["reconnect-survey"]);
     expect(waystationCard()).toBeNull();
   });
 });

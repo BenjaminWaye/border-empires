@@ -1,95 +1,110 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { announceDiscoveryTip, renderDiscoveryTipOverlay, setDiscoveryTipCenterHandler } from "./client-discovery-tip-overlay.js";
-import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { announceDiscoveryTip, discoveryTipPins, openDiscoveryTipPin, renderDiscoveryTipOverlay, resetDiscoveryTipPinsForTests } from "./client-discovery-tip-overlay.js";
+import { DISCOVERY_TIPS, enqueueDiscoveryTip, type DiscoveryTipId } from "./client-discovery-tips.js";
+
+const card = (): HTMLElement | null => document.getElementById("discovery-tip-overlay");
+
+/** A queue holding `id` with a target tile, as every live enqueue path builds it. */
+const queued = (id: DiscoveryTipId, at = { x: 4, y: 6 }): DiscoveryTipId[] => {
+  const queue: DiscoveryTipId[] = [];
+  enqueueDiscoveryTip(queue, id, "a@example.com", at);
+  return queue;
+};
 
 beforeEach(() => {
   window.localStorage.clear();
   document.body.innerHTML = "";
-  // `currentOverlayTipId` is module-level singleton state (mirrors the single
-  // real toast on screen at a time) — reset it between tests via the
-  // empty-queue branch so one test's shown tip doesn't suppress the next.
-  renderDiscoveryTipOverlay([], "reset@example.com", vi.fn());
+  resetDiscoveryTipPinsForTests();
 });
 
-afterEach(() => {
-  document.getElementById("discovery-tip-overlay")?.remove();
-});
+describe("discovery tips as map pins", () => {
+  // Owner, 2026-11-21: the card that opened on its own over the map got in the way of play.
+  it("pins a tip at its tile instead of opening a card", () => {
+    renderDiscoveryTipOverlay(queued("TOWN"), "a@example.com", vi.fn());
 
-describe("renderDiscoveryTipOverlay onShow", () => {
-  it("fires onShow once with the tip def when a new toast is first displayed", () => {
-    const queue: DiscoveryTipId[] = ["TOWN"];
+    expect(discoveryTipPins()).toEqual([{ id: "TOWN", x: 4, y: 6 }]);
+    expect(card()).toBeNull();
+  });
+
+  it("records each tip in the Chronicle once, when its pin first appears", () => {
+    const queue = queued("TOWN");
     const onShow = vi.fn();
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow);
     renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow);
 
     expect(onShow).toHaveBeenCalledTimes(1);
     expect(onShow).toHaveBeenCalledWith(DISCOVERY_TIPS.TOWN);
-    expect(document.getElementById("discovery-tip-overlay")).not.toBeNull();
   });
 
-  it("does not re-fire onShow on a re-render for the same still-queued tip", () => {
-    const queue: DiscoveryTipId[] = ["TOWN"];
+  it("sends a tip with no tile straight to the Chronicle and dismisses it", () => {
+    const queue: DiscoveryTipId[] = [];
+    enqueueDiscoveryTip(queue, "FIRST_MUSTER", "a@example.com");
     const onShow = vi.fn();
     renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow);
-    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow);
 
-    expect(onShow).toHaveBeenCalledTimes(1);
+    expect(onShow).toHaveBeenCalledWith(DISCOVERY_TIPS.FIRST_MUSTER);
+    expect(queue).toEqual([]);
+    expect(discoveryTipPins()).toEqual([]);
+    expect(card()).toBeNull();
   });
 
-  it("does not fire onShow when the player has muted discovery tips", () => {
-    const queue: DiscoveryTipId[] = ["TOWN"];
+  it("shows no pins while muted or deferred, and keeps the queue", () => {
+    const queue = queued("TOWN");
     const onShow = vi.fn();
-    window.localStorage.setItem(`be-discovery-tips-muted-until:a@example.com`, String(Date.now()));
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow, true);
+    expect(discoveryTipPins()).toEqual([]);
 
+    window.localStorage.setItem("be-discovery-tips-muted-until:a@example.com", String(Date.now() + 60_000));
     renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), onShow);
-
+    expect(discoveryTipPins()).toEqual([]);
     expect(onShow).not.toHaveBeenCalled();
-    expect(document.getElementById("discovery-tip-overlay")).toBeNull();
+    expect(queue).toEqual(["TOWN"]);
   });
 
-  it("clicking Got it dismisses the toast without calling onShow again", () => {
-    const queue: DiscoveryTipId[] = ["TOWN"];
+  it("opens the card on a pin tap; Got it dismisses that tip and removes its pin", () => {
+    const queue = queued("TOWN");
+    enqueueDiscoveryTip(queue, "DOCK", "a@example.com", { x: 9, y: 2 });
     const onDismiss = vi.fn();
-    const onShow = vi.fn();
-    renderDiscoveryTipOverlay(queue, "a@example.com", onDismiss, onShow);
+    renderDiscoveryTipOverlay(queue, "a@example.com", onDismiss);
 
+    openDiscoveryTipPin("DOCK");
+    expect(document.getElementById("discovery-tip-title")?.textContent).toBe(DISCOVERY_TIPS.DOCK.title);
+    expect(document.getElementById("discovery-tip-center")).toBeNull();
     (document.getElementById("discovery-tip-ack") as HTMLButtonElement).click();
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
-    expect(document.getElementById("discovery-tip-overlay")).toBeNull();
-    expect(queue).toEqual([]);
-    expect(onShow).toHaveBeenCalledTimes(1);
+    expect(card()).toBeNull();
+    expect(queue).toEqual(["TOWN"]);
+    expect(discoveryTipPins()).toEqual([{ id: "TOWN", x: 4, y: 6 }]);
+  });
+
+  it("closes an open card when the map is covered", () => {
+    const queue = queued("TOWN");
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn());
+    openDiscoveryTipPin("TOWN");
+    expect(card()).not.toBeNull();
+
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn(), undefined, true);
+    expect(card()).toBeNull();
+    expect(queue).toEqual(["TOWN"]);
+  });
+
+  it("drops a pin as soon as another path takes its tip out of the queue", () => {
+    const queue = queued("WAYSTATION");
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn());
+    queue.splice(0, 1);
+    expect(discoveryTipPins()).toEqual([]);
   });
 });
 
-describe("announceDiscoveryTip onShow", () => {
-  it("forwards onShow through to the rendered toast", () => {
+describe("announceDiscoveryTip", () => {
+  it("pins a player-action tip at once and records it", () => {
     const queue: DiscoveryTipId[] = [];
     const onShow = vi.fn();
-    announceDiscoveryTip(queue, "FIRST_MUSTER", "a@example.com", vi.fn(), onShow);
+    announceDiscoveryTip(queue, "FIRST_MUSTER", "a@example.com", vi.fn(), onShow, false, { x: 7, y: 9 });
 
     expect(onShow).toHaveBeenCalledWith(DISCOVERY_TIPS.FIRST_MUSTER);
-  });
-});
-
-describe("discovery tip Center button", () => {
-  afterEach(() => setDiscoveryTipCenterHandler(undefined));
-
-  it("jumps to the tile the tip was announced for, without dismissing the toast", () => {
-    const center = vi.fn();
-    setDiscoveryTipCenterHandler(center);
-    announceDiscoveryTip([], "FIRST_MUSTER", "a@example.com", vi.fn(), undefined, false, { x: 7, y: 9 });
-
-    (document.getElementById("discovery-tip-center") as HTMLButtonElement).click();
-
-    expect(center).toHaveBeenCalledWith({ x: 7, y: 9 });
-    expect(document.getElementById("discovery-tip-overlay")).not.toBeNull();
-  });
-
-  it("omits the Center button for a tip with no target tile", () => {
-    announceDiscoveryTip([], "FIRST_MUSTER", "a@example.com", vi.fn());
-
-    expect(document.getElementById("discovery-tip-overlay")).not.toBeNull();
-    expect(document.getElementById("discovery-tip-center")).toBeNull();
+    expect(discoveryTipPins()).toEqual([{ id: "FIRST_MUSTER", x: 7, y: 9 }]);
   });
 });

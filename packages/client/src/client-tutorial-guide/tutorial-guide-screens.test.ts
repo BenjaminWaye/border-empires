@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { tileKey } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { discoveryTipPins, resetDiscoveryTipPinsForTests } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { enqueueDiscoveryTip } from "../client-discovery-tips/client-discovery-tips.js";
 import { isDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { resetOnboardingChecklistOverlayForTests } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import {
@@ -54,7 +55,10 @@ const card = () => document.getElementById("tutorial-guide-root");
 const cardTitle = () => card()?.querySelector(".tg-title")?.textContent ?? "";
 const click = (action: string) => (card()?.querySelector(`[data-guide-action="${action}"]`) as HTMLElement | null)?.click();
 const styles = () => Array.from(document.head.querySelectorAll("style")).map((s) => s.textContent).join("\n");
-const toast = () => document.getElementById("discovery-tip-overlay");
+const pinned = (): string[] => discoveryTipPins().map((pin) => pin.id);
+const queueTips = (state: { discoveryTipQueue: Parameters<typeof enqueueDiscoveryTip>[0] }, ...ids: Parameters<typeof enqueueDiscoveryTip>[1][]): void => {
+  for (const id of ids) enqueueDiscoveryTip(state.discoveryTipQueue, id, EMAIL, { x: 2, y: 2 });
+};
 
 /** Starts the guide and skips to the step `skips` steps after Look around's first. */
 const startAt = (state: ReturnType<typeof footholdDoneState>, skips: number): void => {
@@ -70,7 +74,7 @@ beforeEach(() => {
   document.body.innerHTML = "";
   document.body.className = "";
   document.head.innerHTML = "";
-  renderDiscoveryTipOverlay([], "reset@example.com", vi.fn());
+  resetDiscoveryTipPinsForTests();
   resetGuideStorageMemoryForTests();
   resetGuideInputSignalsForTests();
   resetGuideInputCacheForTests();
@@ -207,39 +211,40 @@ describe("discovery tips while the guide runs", () => {
   it("retires tips the guide teaches, holds the rest, and shows them once the guide is hidden", () => {
     const state = footholdDoneState();
     startAt(state, 0);
-    state.discoveryTipQueue.push("TOWN", "DOCK");
+    queueTips(state, "TOWN", "DOCK");
     renderDiscoveryTipOverlayForState(state, vi.fn());
-    expect(toast()).toBeNull();
+    expect(pinned()).toEqual([]);
     // The guide's town step covers "First Town Discovered!": dropped, as if dismissed.
     expect(state.discoveryTipQueue).toEqual(["DOCK"]);
     expect(isDiscoveryTipSeen("TOWN", EMAIL)).toBe(true);
 
     click("hide");
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(toast()?.textContent).toMatch(/Dock Discovered/);
+    expect(pinned()).toEqual(["DOCK"]);
   });
 
   it("lets tips through while the card is minimised", () => {
     const state = footholdDoneState();
     startAt(state, 0);
-    state.discoveryTipQueue.push("DOCK");
+    queueTips(state, "DOCK");
     renderDiscoveryTipOverlayForState(state, vi.fn());
-    expect(toast()).toBeNull();
+    expect(pinned()).toEqual([]);
     click("toggle"); // minimise
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(toast()?.textContent).toMatch(/Dock Discovered/);
+    expect(pinned()).toEqual(["DOCK"]);
   });
 
   it("never holds urgent feedback, and keeps first contact and muster tips rather than retiring them", () => {
     const state = footholdDoneState();
     startAt(state, 0);
-    state.discoveryTipQueue.push("DOCK");
+    queueTips(state, "DOCK");
     renderDiscoveryTipOverlayForState(state, vi.fn());
     announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", vi.fn(), { x: 9, y: 9 });
-    expect(toast()?.textContent).toMatch(/Beyond Your Reach/);
-    expect(state.discoveryTipQueue).toEqual(["OUT_OF_REACH_EXPAND", "DOCK"]);
+    // The urgent tip is pinned now; the dock tip waits for the guide.
+    expect(pinned()).toEqual(["OUT_OF_REACH_EXPAND"]);
+    expect(state.discoveryTipQueue).toEqual(["DOCK", "OUT_OF_REACH_EXPAND"]);
 
-    state.discoveryTipQueue.push("ENEMY_EMPIRE");
+    queueTips(state, "ENEMY_EMPIRE");
     renderDiscoveryTipOverlayForState(state, vi.fn());
     expect(state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
     expect(isDiscoveryTipSeen("ENEMY_EMPIRE", EMAIL)).toBe(false);

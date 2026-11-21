@@ -1,0 +1,56 @@
+/* "!" pins for discovery tips and town-survey clues (client-map-tip-pins.ts). Brass like the salvage toasts;
+   a survey clue is verdigris so the two read apart at a glance. */
+.map-tip-pin-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.map-tip-pin {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 6px));
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--sp-brass-300, #d9ad52);
+  border-radius: 50%;
+  color: var(--sp-brass-100, #f4dfa6);
+  background: #241812f0;
+  box-shadow: 0 3px 8px #000a;
+  font: 800 14px/1 var(--sp-font-body, Georgia, serif);
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+  animation: map-tip-pin-bob 2.4s ease-in-out infinite;
+}
+/* A short tail points at the tile. */
+.map-tip-pin::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  bottom: -6px;
+  width: 8px;
+  height: 8px;
+  rotate: 45deg;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-color: inherit;
+  background: inherit;
+  z-index: -1;
+}
+.map-tip-pin.is-survey { border-color: #6fb8a4; color: #d6f2e8; }
+/* A finger-sized tap target around the small pin. */
+.map-tip-pin::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.map-tip-pin:focus-visible { outline: 2px solid var(--sp-brass-100, #f4dfa6); outline-offset: 2px; }
+@keyframes map-tip-pin-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-tip-pin { animation: none; }
+}

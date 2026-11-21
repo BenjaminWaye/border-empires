@@ -8,6 +8,7 @@ import { createSalvageReadyToasts } from "../client-salvage-tribute/client-salva
 import { createTownNameplates } from "../client-town-nameplates/client-town-nameplates.js";
 import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
+import { createMapTipPins } from "../client-map-tip-pins/client-map-tip-pins.js";
 import { advanceWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 import { isMapCoveredByRewardCard } from "../client-waystation-holo-crates/holo-crate-map-covered.js";
 
@@ -15,7 +16,7 @@ type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
 type MapOverlayTiles = Parameters<AfcMapOverlays["render"]>[0];
 type MapOverlayProjection = Parameters<AfcMapOverlays["render"]>[1];
 
-/** Screen overlays for visible tiles: 2D battle markers, town plates, AFC signals, salvage and refinery toasts. */
+/** Screen overlays for visible tiles: 2D battle markers, town plates, AFC signals, salvage and refinery toasts, tip pins. */
 export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void): {
   render: (tiles: MapOverlayTiles, projection: MapOverlayProjection) => void;
 } {
@@ -24,6 +25,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
   const salvageToasts = createSalvageReadyToasts(canvas, state);
   const waystationToasts = createWaystationReadyToasts(canvas, state);
   const refineryToasts = createRefineryFieldToasts(canvas, state);
+  const tipPins = createMapTipPins(canvas);
   return {
     render(tiles, projection) {
       // Collected waystations: one clock for both renderers, on screen or not.
@@ -48,6 +50,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       salvageToasts.render(tiles, projection);
       refineryToasts.render(tiles, projection);
       waystationToasts.render(tiles, projection);
+      tipPins.render(projection);
     }
   };
 }
