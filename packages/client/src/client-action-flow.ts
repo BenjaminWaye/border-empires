@@ -25,7 +25,7 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
-import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js";
+import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js"; import { takeMenuClosingPress } from "./client-scout-drone/client-scout-drone-closing-press.js";
 import { handleCrystalTargetingClick } from "./client-tile-action-logic/client-crystal-targeting.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
@@ -1328,7 +1328,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       mapInteractionFlags.suppressNextClick = false;
       return;
     }
-    const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)
+    const confirmTap = tapConfirm.take(wx, wy); const menuWasOpen = takeMenuClosingPress() || state.tileActionMenu.visible; // select first, then confirm (client-tile-interaction.ts); a closing tap never starts a scout plan
     hideTileActionMenu();
     confirmButton.notePoint(clientX, clientY);
     const reTap = (): void => { mapInteractionFlags.suppressNextClick = false; handleTileSelection(wx, wy, clientX, clientY); }; // the prompt confirms exactly like a second tap
@@ -1398,7 +1398,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
+    if (handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }, Date.now(), menuWasOpen) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
     if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement(); // re-tapping a valid previewed tile confirms
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderPlacementOverlay(); renderHud(); return; }
     // Local reach approximation (client-reach-overlay.ts MOCK-DATA SEAM); only logged by the tile-sync debug below.

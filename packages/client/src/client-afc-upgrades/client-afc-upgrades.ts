@@ -7,8 +7,10 @@ import { formatDomainBenefitSummary, formatDomainCost } from "../client-tech-htm
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import "./client-afc-upgrades.css";
 
+import { scoutChargeStatus } from "../client-scout-drone/client-scout-drone-charge-status.js";
+
 type UpgradeState = AfcActionState & Pick<ClientState, "me" | "domainCatalog" | "domainIds" | "domainChoices" | "techIds" |
-  "domainUiSelectedId" | "domainDetailOpen" | "gold" | "strategicResources" | "pendingDomainUnlockId" | "chosenTrickleResource" | "techCatalog" | "joinSeasonId">;
+  "domainUiSelectedId" | "domainDetailOpen" | "gold" | "strategicResources" | "pendingDomainUnlockId" | "chosenTrickleResource" | "techCatalog" | "joinSeasonId" | "scoutDroneCharges">;
 interface UpgradeView { selectedId: string; expanded: boolean; identity: string; html?: string }
 const views = new WeakMap<HTMLElement, UpgradeView>();
 const escape = (value: string): string => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
@@ -81,6 +83,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
     <div class="afc-upgrade-summary">
       <p role="status"${complete ? ' data-afc-upgrade-complete tabindex="-1"' : ""}>${complete ? '<span class="afc-upgrade-check" aria-hidden="true"></span>' : ""}${progress}</p>
       ${tier !== undefined ? `<span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span>` : ""}
+      <span class="afc-scout-charges">Scout drone · ${scoutChargeStatus(state, Date.now())}</span>
     </div>
     ${chosen.length ? `<section class="afc-upgrade-history" aria-label="Installed upgrades">
       ${complete ? "" : "<h3>Installed upgrades</h3>"}

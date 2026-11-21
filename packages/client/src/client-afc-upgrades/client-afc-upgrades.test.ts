@@ -18,6 +18,12 @@ describe("single-level AFC upgrade management", () => {
     renderAfcUpgradePanels(state, panel, install);
     return { state, panel, install };
   };
+  // Owner 2026-11-21: the scout drone's charges and next refill live in the AFC menu.
+  it("shows the scout drone's charges and when the next one comes back", () => {
+    const { panel } = setup();
+    expect(panel.querySelector(".afc-scout-charges")?.textContent).toBe("Scout drone · 8/8");
+  });
+
   it("shows inline details without a sub-tab bar or a second screen", () => {
     const { panel, install } = setup();
     expect(panel.querySelector('[role="tablist"]')).toBeNull();

@@ -4,6 +4,7 @@ import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { afcScoutDroneActions, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { launchScoutPlan } from "./client-scout-drone-plan.js";
+import { noteMenuClosingPress, takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
 
 const flight = (landsAt: number): ScoutDroneFlight => ({
   launchedAt: 0,
@@ -38,10 +39,19 @@ describe("afcScoutDroneActions", () => {
   const afc = (ownerId: string, status: "active" | "inactive"): Tile => ({ ...tile(1, 1, ownerId), afc: { ownerId, status } }) as Tile;
 
   it("is offered only on your own active AFC, and never disabled (a drone out takes more stops)", () => {
-    expect(afcScoutDroneActions({ me: "me" }, afc("me", "active"))).toEqual([{ id: "afc_scout_drone", label: "Send scout drone", detail: expect.any(String) }]);
-    expect(afcScoutDroneActions({ me: "me" }, afc("me", "inactive"))).toEqual([]);
-    expect(afcScoutDroneActions({ me: "me" }, afc("rival", "active"))).toEqual([]);
-    expect(afcScoutDroneActions({ me: "me" }, tile(1, 1, "me"))).toEqual([]);
+    const me = { me: "me", scoutDroneCharges: undefined };
+    expect(afcScoutDroneActions(me, afc("me", "active"))).toEqual([{ id: "afc_scout_drone", label: "Send scout drone", cost: "8/8", detail: expect.any(String) }]);
+    expect(afcScoutDroneActions(me, afc("me", "inactive"))).toEqual([]);
+    expect(afcScoutDroneActions(me, afc("rival", "active"))).toEqual([]);
+    expect(afcScoutDroneActions(me, tile(1, 1, "me"))).toEqual([]);
+  });
+
+  // Player reviews 2026-11-21: nothing said charges come back, or when; the owner asked for it in the AFC menu.
+  it("shows charges left and when the next one comes back", () => {
+    const me = { me: "me", scoutDroneCharges: { max: 8, refillMs: 14_400_000, usedAt: [1_000, 2_000, 3_000] } };
+    const [row] = afcScoutDroneActions(me, afc("me", "active"), 1_000 + 2 * 60 * 60_000);
+    expect(row?.cost).toBe("5/8"); // the bar button has room for the count only
+    expect(row?.detail).toContain("Charges: 5/8 · +1 in 2h 00m.");
   });
 });
 
@@ -131,5 +141,42 @@ describe("planning a scout flight", () => {
 
   it("ignores other action ids", () => {
     expect(dispatchAfcScoutAction("explore_scout", pickingState())).toBe(false);
+  });
+});
+
+// Player report 2026-11-21: taps meant to close a card landed on the fog and started a plan, and each further
+// "closing" tap added a stop. A tap that closes something now only closes it.
+describe("a closing tap never starts a scout plan", () => {
+  it("only closes an open tile menu", () => {
+    const state = pickingState();
+    expect(handleScoutDronePickClick(state, 20, 20, deps(), 1_000, true)).toBe(true);
+    expect(state.scoutDronePicking.active).toBe(false);
+    expect(handleScoutDronePickClick(state, 20, 20, deps(), 1_100)).toBe(true);
+    expect(state.scoutDronePicking).toMatchObject({ active: true, stops: [{ x: 20, y: 20 }] });
+  });
+
+  it("only closes the landing report card", () => {
+    const state = pickingState();
+    state.scoutDroneReport = { targetX: 9, targetY: 9, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], at: 1_000 };
+    expect(handleScoutDronePickClick(state, 20, 20, deps(), 2_000)).toBe(true);
+    expect(state.scoutDronePicking.active).toBe(false);
+    expect(state.scoutDroneReport).toBeUndefined();
+    expect(handleScoutDronePickClick(state, 20, 20, deps(), 2_100)).toBe(true);
+    expect(state.scoutDronePicking.active).toBe(true);
+  });
+
+  it("knows a click whose press closed the menu (the map closes it on mousedown, before the click)", () => {
+    noteMenuClosingPress(5_000);
+    expect(takeMenuClosingPress(5_400)).toBe(true);
+    expect(takeMenuClosingPress(5_500)).toBe(false);
+    noteMenuClosingPress(5_000);
+    expect(takeMenuClosingPress(9_000)).toBe(false);
+  });
+
+  it("still adds stops to an open plan, menu or not", () => {
+    const state = pickingState();
+    state.scoutDronePicking = { ...state.scoutDronePicking, active: true, stops: [{ x: 20, y: 20 }] };
+    expect(handleScoutDronePickClick(state, 22, 20, deps(), 1_000, true)).toBe(true);
+    expect(state.scoutDronePicking.stops).toHaveLength(2);
   });
 });

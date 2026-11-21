@@ -149,7 +149,8 @@ const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardU
   const flight = state.scoutDroneFlight;
   const flying = Boolean(flight && nowMs < flight.landsAt && !state.scoutDronePicking.active);
   const ready = !flying && !cardUp && scoutDroneReadyToOffer(state, nowMs);
-  if (!flying && !ready) {
+  // A tile's menu owns the bottom while it is open: the pill sat over the AFC's action bar (2026-11-21).
+  if ((!flying && !ready) || state.tileActionMenu.visible) {
     hide(PILL_ID);
     return false;
   }
