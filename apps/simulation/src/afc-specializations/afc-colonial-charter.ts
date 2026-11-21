@@ -14,6 +14,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST } from "@border-empires/shared";
 import { economicStructureForSupportedTown, openTownSupportNeighborTiles } from "../town-support-lookup.js";
+import { incubationBurstAlreadyGranted } from "../incubation-burst-guard.js";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -43,10 +44,12 @@ export function grantColonialIncubationEngines(deps: ColonialCharterDeps, player
     if (!site) continue; // no open support tile yet: retried on the next sweep
     const engineTile: DomainTileState = { ...site, economicStructure: { ownerId: player.id, type: "INCUBATION_ENGINE", status: "active", activatedAt: now } };
     deps.replaceTileState(`${site.x},${site.y}`, engineTile, commandId);
+    // A burst this owner already took from a self-built engine is not paid again.
+    const burst = incubationBurstAlreadyGranted(townTile.town, player.id) ? 0 : INCUBATION_ENGINE_INSTANT_POPULATION_BURST;
     const grownTown: DomainTileState = { ...townTile, town: {
-      ...townTile.town, colonialIncubationGrantedTo: player.id,
-      population: (townTile.town.population ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
-      maxPopulation: (townTile.town.maxPopulation ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST
+      ...townTile.town, colonialIncubationGrantedTo: player.id, incubationBurstGrantedTo: player.id,
+      population: (townTile.town.population ?? 0) + burst,
+      maxPopulation: (townTile.town.maxPopulation ?? 0) + burst
     } };
     deps.replaceTileState(townKey, grownTown, commandId);
     deltas.push(deps.tileDeltaFromState(engineTile), deps.tileDeltaFromState(grownTown));

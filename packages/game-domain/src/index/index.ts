@@ -228,6 +228,7 @@ export type DomainTileState = {
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"
             | "colonialIncubationGrantedTo"
+            | "incubationBurstGrantedTo"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
