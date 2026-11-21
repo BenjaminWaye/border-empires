@@ -5,7 +5,8 @@ import { CanvasTexture, Group, SRGBColorSpace, Sprite, SpriteMaterial, type Scen
 // route crossed itself (player review 2026-11-21). One small camera-facing sprite per stop; each
 // number's texture is painted once, the first time it is needed, never per frame.
 
-const SIZE = 64;
+/** Canvas size: 128 keeps the digit and the drone crisp at their on-screen size. */
+const SIZE = 128;
 /**
  * Badge size as a fraction of the screen's height, the same at every zoom: sized in world units it
  * shrank to an unreadable dot at phone zoom (2026-11-21). With the map's 45° camera that is about
@@ -29,18 +30,20 @@ const paintNumber = (n: number): CanvasTexture | null => {
   canvas.height = SIZE;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.fillStyle = "rgba(8, 24, 33, 0.92)";
-  ctx.strokeStyle = "#7fe6ff";
-  ctx.lineWidth = 5;
+  // A solid disc with a white digit: drawn over the route with see-through fill, the beads and ring art
+  // ran through the numbers and "3" read as "8" (player review 2026-11-21).
+  ctx.fillStyle = "#1d8fb5";
+  ctx.strokeStyle = "#e8fbff";
+  ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 4, 0, Math.PI * 2);
+  ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 6, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "#e8fbff";
-  ctx.font = `700 ${n > 9 ? 28 : 36}px ui-monospace, Menlo, monospace`;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${n > 9 ? 56 : 72}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(String(n), SIZE / 2, SIZE / 2 + 2);
+  ctx.fillText(String(n), SIZE / 2, SIZE / 2 + 4);
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return texture;
@@ -61,7 +64,7 @@ export const createScoutStopNumbers = (scene: Scene, max: number): ScoutStopNumb
       // No depth test, so terrain never hides a number; drawn over the route's beads and rings.
       sprite = new Sprite(new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false }));
       sprite.scale.set(SCREEN_SIZE, SCREEN_SIZE, 1);
-      sprite.renderOrder = 27;
+      sprite.renderOrder = 30;
       sprite.frustumCulled = false;
       sprites[n - 1] = sprite;
       group.add(sprite);
@@ -99,23 +102,28 @@ export const createScoutDroneBadge = (scene: Scene): { readonly place: (sceneX: 
     canvas.height = SIZE;
     const ctx = canvas.getContext("2d");
     if (ctx && typeof Path2D !== "undefined") {
-      ctx.fillStyle = "rgba(8, 24, 33, 0.92)";
-      ctx.strokeStyle = "#7fe6ff";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      // The icon's 24-unit viewBox, scaled into the badge (client-scout-drone-icons.ts SCOUT_DRONE_ICON).
+      // A bold white drone with a dark outline and no disc: a thin-line icon on a ring read as a blob, and
+      // as a fourth stop (player review 2026-11-21).
       ctx.save();
-      ctx.translate(SIZE * 0.2, SIZE * 0.2);
-      ctx.scale((SIZE * 0.6) / 24, (SIZE * 0.6) / 24);
-      ctx.strokeStyle = "#7fe6ff";
-      ctx.lineWidth = 1.8;
+      ctx.translate(SIZE * 0.08, SIZE * 0.08);
+      ctx.scale((SIZE * 0.84) / 24, (SIZE * 0.84) / 24);
       ctx.lineCap = "round";
-      ctx.stroke(new Path2D("M2.5 7h6M15.5 7h6M5.5 7v3h13V7M9.5 16l-1.5 3M14.5 16l1.5 3"));
-      ctx.fillStyle = "#7fe6ff";
-      ctx.fill(new Path2D("M10.5 10h3a2.5 2.5 0 0 1 2.5 2.5v1a2.5 2.5 0 0 1-2.5 2.5h-3A2.5 2.5 0 0 1 8 13.5v-1A2.5 2.5 0 0 1 10.5 10z"));
+      ctx.lineJoin = "round";
+      const arms = new Path2D("M2.5 7h6M15.5 7h6M5.5 7v3h13V7M9.5 16l-1.5 3M14.5 16l1.5 3");
+      const body = new Path2D("M10.5 10h3a2.5 2.5 0 0 1 2.5 2.5v1a2.5 2.5 0 0 1-2.5 2.5h-3A2.5 2.5 0 0 1 8 13.5v-1A2.5 2.5 0 0 1 10.5 10z");
+      ctx.strokeStyle = "#0b1720";
+      ctx.lineWidth = 4.6;
+      ctx.stroke(arms);
+      ctx.stroke(body);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.4;
+      ctx.stroke(arms);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill(body);
+      ctx.fillStyle = "#1d8fb5";
+      ctx.beginPath();
+      ctx.arc(12, 13, 1.3, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
       texture = new CanvasTexture(canvas);
       texture.colorSpace = SRGBColorSpace;
@@ -123,8 +131,9 @@ export const createScoutDroneBadge = (scene: Scene): { readonly place: (sceneX: 
   }
   const sprite = new Sprite(new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false }));
   sprite.name = "scout-drone-badge";
-  sprite.scale.set(SCREEN_SIZE * 1.15, SCREEN_SIZE * 1.15, 1);
-  sprite.renderOrder = 27;
+  // Bigger than a stop badge, so the moving thing never reads as one of them.
+  sprite.scale.set(SCREEN_SIZE * 1.7, SCREEN_SIZE * 1.7, 1);
+  sprite.renderOrder = 31;
   sprite.frustumCulled = false;
   sprite.visible = false;
   scene.add(sprite);

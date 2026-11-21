@@ -229,9 +229,11 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
   const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
   const offering = pill && scoutDroneReadyToOffer(state, nowMs);
-  // Planning and the report fold the guide and House popups; a flight alone does not (it can last an hour,
-  // and the guide's next step must not vanish for it). The offer leaves them be too.
-  document.body.classList.toggle("scout-focus", state.scoutDronePicking.active || card);
+  // Planning, the flight and the report fold the guide to its "?" launcher and hide the House nudge. The code
+  // review worried a long flight would hide a guide step; the players disagreed: with the guide open in flight
+  // it covered the drone and the route for all three (round 6). The step stays one tap away on the launcher.
+  // The offer leaves them be.
+  document.body.classList.toggle("scout-focus", state.scoutDronePicking.active || (pill && !offering) || card);
   // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
   document.body.classList.toggle("scout-flying", pill && !offering);
   // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.

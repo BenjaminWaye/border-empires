@@ -45,13 +45,14 @@ describe("createScoutPlanOverlay", () => {
     overlay.dispose();
   });
 
-  // Player reviews 2026-11-21: orange with a trail read as an error; a pulled-back stop is a normal ring plus a limit ring.
-  it("draws a pulled-back stop as a normal ring with one extra limit ring", () => {
+  // Player reviews 2026-11-21: orange with a trail read as an error, and a ring under a number bled through it.
+  // Stops are numbered discs; only a pulled-back stop adds a ring, its limit ring.
+  it("draws one limit ring for a pulled-back stop and none under numbered stops", () => {
     const scene = new Scene();
     const overlay = createScoutPlanOverlay(scene, { state: planned(), sceneFor });
     overlay.sync(1_000);
     const rings = scene.getObjectByName("scout-drone-plan")!.children[1] as InstancedMesh;
-    expect(rings.count).toBe(3);
+    expect(rings.count).toBe(1);
     overlay.dispose();
   });
 
