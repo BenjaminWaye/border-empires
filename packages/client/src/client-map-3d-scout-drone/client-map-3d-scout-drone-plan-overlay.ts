@@ -171,10 +171,10 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     const wantsHint = (plan.active ? plan.stops.length === 0 : plan.launches < HINT_FLIGHTS) && !flying && scoutChargesReady(state, nowMs) > 0;
     const hint = wantsHint ? scoutHintTile(state) : undefined;
     if (hint) {
-      // A soft breathing glow, about a tile wide: a hint, not a target (owner, 2026-11-21).
+      // A soft breathing glow, under two tiles wide: a hint, not a target (owner, 2026-11-21).
       deps.sceneFor(hint.x, hint.y, a);
       const breath = 0.5 + 0.5 * Math.sin(nowMs / 420);
-      pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, tint.copy(BRASS).multiplyScalar(0.35 + 0.35 * breath), 2.2 + 0.4 * breath);
+      pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, tint.copy(BRASS).multiplyScalar(0.5 + 0.4 * breath), 2.2 + 0.4 * breath);
     }
     beads.count = beadCount;
     rings.count = ringCount;

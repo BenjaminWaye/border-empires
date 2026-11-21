@@ -254,7 +254,7 @@ What shipped, and where it differs from the sections above:
 - **Server**: `apps/simulation/src/scout-drone/`. The drone launches from the
   AFC **nearest the target**. Own and allied land is crossed at 1s per tile
   so a large empire's drone doesn't spend minutes reaching its border; tiles
-  past that land take Expand To's 7.5s. Since 2026-11-20 there is no range
+  past that land take 3s (§13 table; Expand To's 7.5s until 2026-11-20). Since 2026-11-20 there is no range
   or home-tile limit: the flight goes all the way to the target unless a
   rival border turns it back. Its vision is a temporary reveal moved tile by tile,
   so fog and Planetary Defense wake-up needed no new rule.
@@ -307,8 +307,8 @@ unlimited range and Expand To pace.
 Guidance, with almost no text: a small bottom dock with ✕, a drone and the number
 of charges still free to place, ↶ and Go with the flight time; the count pulses until
 the first stop and shakes when a tap has no charge left, and Go pulses once armed. It
-fits a 375px phone and hides the manpower gauge and search button while planning
-(2026-11-21: the first version's eight pips overflowed a phone). In true-3D the route glows on
+fits a phone beside the manpower gauge and takes the search lens's corner while planning
+(2026-11-21: the first version's eight pips overflowed a phone and covered the gauge). In true-3D the route glows on
 the ground before launch, a pulled-back stop's ring turns brass, the leg under a
 mouse pointer shows as ghost beads, and a soft brass glow breathes on nearby fog until the
 player has flown a few flights. The 2D map shows the dock only (owner: 3D is the

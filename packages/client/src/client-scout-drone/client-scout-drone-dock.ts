@@ -58,7 +58,7 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
   const base = { count: `${DRONE_SVG}<b>${left}</b>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
-  return { ...base, goClass: `sd-go${stops > 0 ? " is-armed" : ""}`, goEnabled: stops > 0, goHtml: `Go${stops > 0 ? `<span class="sd-time">${scoutClock(flightMs)}</span>` : ""}` };
+  return { ...base, goClass: `sd-go${stops > 0 ? " is-armed" : ""}`, goEnabled: stops > 0, goHtml: `<span class="sd-go-word">Go</span>${stops > 0 ? `<span class="sd-time">${scoutClock(flightMs)}</span>` : ""}` };
 };
 
 /**
@@ -69,9 +69,9 @@ const buildDock = (el: HTMLElement): void => {
   el.innerHTML = `
     <div class="sd-bar">
       <button class="sd-icon sd-cancel" type="button" aria-label="Cancel">✕</button>
-      <span class="sd-count"></span>
+      <span class="sd-count" role="img" aria-label="Scout charges left"></span>
       <button class="sd-icon sd-undo" type="button" aria-label="Undo">↶</button>
-      <button class="sd-go" type="button">Go</button>
+      <button class="sd-go" type="button" aria-label="Go"><span class="sd-go-word">Go</span></button>
     </div>`;
   const on = (selector: string, handler: (state: ClientState, deps: ScoutDockDeps) => void): void => {
     const button = el.querySelector(selector) as HTMLButtonElement;
@@ -108,7 +108,7 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
   const el = ensureDock();
   if (!el.querySelector(".sd-bar")) buildDock(el);
   el.style.display = "flex";
-  // Hides the search lens, whose corner the dock takes while a flight is planned.
+  // On a phone the dock takes the search lens's corner while a flight is planned (the CSS hides it).
   document.body.classList.add("scout-planning");
   const view = dockView(state, now());
   el.querySelector(".sd-bar")!.classList.toggle("is-shaking", view.shaking);

@@ -128,9 +128,15 @@
 }
 
 @media (max-width: 520px) {
-  #scout-drone-dock .sd-bar { gap: 6px; padding: 6px 8px; }
+  #scout-drone-dock .sd-bar { gap: 4px; padding: 5px 6px; }
   #scout-drone-dock .sd-icon { width: 36px; height: 36px; }
-  #scout-drone-dock .sd-go { min-width: 76px; padding: 0 12px; }
+  #scout-drone-dock .sd-count { padding: 0 6px; }
+  #scout-drone-dock .sd-go { min-width: 0; padding: 0 10px; gap: 6px; }
+}
+
+/* Very narrow phones: the flight time alone says Go. */
+@media (max-width: 359px) {
+  #scout-drone-dock .sd-go:has(.sd-time) .sd-go-word { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -139,18 +145,20 @@
   #scout-drone-dock .sd-bar.is-shaking .sd-count { animation: none; }
 }
 
-/* While planning, the dock takes the search lens's corner. */
-body.scout-planning .hud-v2-lens-btn {
+/* Phone: the dock takes the search lens's corner while a flight is planned. */
+body.hud-v2-compact.scout-planning .hud-v2-lens-btn {
   visibility: hidden;
 }
 
-/* Phone: sit above the tab bar (client-hud-v2-compact-bottom-reserve.test.ts), left-aligned
-   so the manpower gauge in the right corner stays visible beside it. */
+/* Phone: sit above the tab bar (client-hud-v2-compact-bottom-reserve.test.ts), left-aligned so
+   the manpower gauge in the right corner stays visible beside it. The gauge is 84px wide and 8px
+   in from the right safe area; 116px keeps 8px clear of it plus the 8px left gutter and 8px spare
+   (client-scout-drone-dock-layout.test.ts). */
 body.hud-v2-compact #scout-drone-dock {
   bottom: calc(var(--v2c-bottom) + 10px);
-  left: 12px;
+  left: calc(var(--v2c-safe-left) + 8px);
   transform: none;
-  max-width: calc(100vw - 120px);
+  max-width: calc(100vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 116px);
 }
 
 /* Taps always land on the button itself, even while its time text refreshes. */
