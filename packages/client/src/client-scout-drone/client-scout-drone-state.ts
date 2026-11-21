@@ -86,6 +86,7 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     resourcesSighted: readScoutResourceCounts(raw.resourcesSighted),
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
+    ...(isFiniteNumber(raw.focusX) && isFiniteNumber(raw.focusY) ? { focusX: raw.focusX, focusY: raw.focusY } : {}),
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
   };
 };
@@ -161,7 +162,7 @@ export const handleScoutDroneMessage = (
       push("Scout drone turned back", `Turned back at ${nameOf(next.blockedByPlayerId)}'s border.`, "warn", { x: next.blockedAtX ?? next.targetX, y: next.blockedAtY ?? next.targetY });
     }
     const report = parseScoutReport(msg.report);
-    if (report) push("Scout report", scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "success", { x: report.targetX, y: report.targetY });
+    if (report) push("Scout report", scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "success", { x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY });
     renderHud();
     return true;
   }

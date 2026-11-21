@@ -236,7 +236,8 @@ export type PersonalActivityBuildingCard = {
 };
 
 // A scout drone's flight landed (docs/explore-scout-plan.md): what it saw.
-// x/y is the tile it was sent toward. Counts are of things not owned by the
+// x/y is its most notable find, or the tile it was sent toward when it found
+// nothing. Counts are of things not owned by the
 // viewer; empiresSighted lists the other empires whose land it saw.
 export type PersonalActivityScoutReportCard = {
   kind: "SCOUT_REPORT";

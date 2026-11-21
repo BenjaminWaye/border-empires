@@ -41,6 +41,12 @@ export const createScoutFindings = (
   const empires = new Set<string>();
   const resourceCounts = new Map<string, number>();
   const r = SCOUT_DRONE_VISION_RADIUS;
+  // Lower rank = more notable. Ties go to the latest tile seen: the flight is observed outbound,
+  // so a later tile is farther from home, and a known town by the border never hides a new find.
+  let focus: { x: number; y: number; rank: number } | undefined;
+  const consider = (rank: number, x: number, y: number): void => {
+    if (!focus || rank <= focus.rank) focus = { x, y, rank };
+  };
   return {
     observe: (x, y, viewer) => {
       for (let dy = -r; dy <= r; dy += 1) {
@@ -57,32 +63,39 @@ export const createScoutFindings = (
           if (owner?.startsWith("barbarian-")) {
             result.planetaryDefenseTiles += 1;
             keep(sites.planetaryDefense, tx, ty);
+            consider(6, tx, ty);
           } else if (owner) {
             if (!empires.has(owner)) {
               empires.add(owner);
               result.empiresSighted.push(owner);
+              consider(5, tx, ty);
             }
             keepKeyed(sites.empires, owner, tx, ty);
           }
           if (tile.town) {
             result.towns += 1;
             keep(sites.towns, tx, ty);
+            consider(0, tx, ty);
           }
           if (tile.dockId) {
             result.docks += 1;
             keep(sites.docks, tx, ty);
+            consider(1, tx, ty);
           }
           if (tile.waystation) {
             result.waystations += 1;
             keep(sites.waystations, tx, ty);
+            consider(2, tx, ty);
           }
           if (tile.watchtower && !tile.watchtower.activated) {
             result.watchtowers += 1;
             keep(sites.watchtowers, tx, ty);
+            consider(3, tx, ty);
           }
           const resource = revealedResourceValueForPlayer(tile.resource, viewer);
           if (resource) {
             result.resourceTiles += 1;
+            consider(4, tx, ty);
             resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
             keepKeyed(sites.resources, resource, tx, ty);
           }
@@ -102,7 +115,8 @@ export const createScoutFindings = (
         planetaryDefense: sites.planetaryDefense.map((t) => ({ ...t })),
         resources: copyKeyed(sites.resources),
         empires: copyKeyed(sites.empires)
-      }
+      },
+      ...(focus ? { focusX: focus.x, focusY: focus.y } : {})
     })
   };
 };

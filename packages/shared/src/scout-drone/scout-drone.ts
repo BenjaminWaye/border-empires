@@ -71,6 +71,9 @@ export type ScoutReportFindings = {
   empiresSighted: string[];
   /** Where each counted find is, so the report can jump to it. Absent on reports from before it existed. */
   sites?: ScoutFindingSites;
+  /** The most notable find (first town, else dock, waystation, watchtower, resource, empire, Planetary Defense); absent when nothing was found. */
+  focusX?: number;
+  focusY?: number;
 };
 
 /** Most tiles kept per find group; the counts above stay exact past it. */
