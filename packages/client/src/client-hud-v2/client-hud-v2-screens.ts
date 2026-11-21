@@ -367,7 +367,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     return true;
   }
   if (manifestClick(deps, target, () => renderScreen(deps), () => closeScreen(deps, { toMap: true }))) return true;
-  if (dealPactClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
+  if (dealPactClick(deps, target)) return true;
   const open = target.closest<HTMLElement>("[data-v2-dip-open]");
   if (open) {
     rememberDiplomacyListScroll();

@@ -34,7 +34,6 @@ import "./client-steampunk-modals-style.css";
 import "./client-steampunk-settings-style.css";
 import "./client-hud/client-settings-controls-style.css";
 import "./client-steampunk-economy-domain-tech-style.css";
-import "./client-steampunk-alliance-style.css";
 import "./client-steampunk-tile-menu-style.css";
 import "./client-afc-module-tab/client-afc-module-tab.css";
 import "./client-manifest-detail/client-manifest-detail.css";

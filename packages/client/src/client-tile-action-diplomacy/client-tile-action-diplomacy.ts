@@ -41,20 +41,16 @@ export const diplomacyActionForOwner = (
 };
 
 /**
- * Opens the Alliances panel (desktop side panel, or the mobile social sheet)
- * and marks the player to scroll to, highlight and expand there. Sets panel state
- * directly rather than via the toggling setActivePanel, so pressing Diplomacy
- * while the panel is already open does not close it. The caller re-renders.
+ * Asks the v2 HUD to open the Diplomacy deal with this player (client-hud-v2.ts
+ * frame consumes and clears the request). The caller re-renders.
  */
-export const openDiplomacyForPlayer = (
-  state: Pick<ClientState, "activePanel" | "socialFocus" | "expandedSocialPlayerId">,
-  playerId: string,
-  nowMs: number = Date.now()
-): void => {
-  state.activePanel = "alliance";
-  state.socialFocus = { playerId, until: nowMs + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true };
-  // Open the player's row so its Propose / Truce buttons are ready to tap.
-  state.expandedSocialPlayerId = playerId;
+export const openDiplomacyForPlayer = (state: Pick<ClientState, "requestedDiplomacyTargetId">, playerId: string): void => {
+  state.requestedDiplomacyTargetId = playerId;
 };
 
-export const SOCIAL_FOCUS_HIGHLIGHT_MS = 8_000;
+/** The pending Diplomacy request, cleared so it opens once. */
+export const takeRequestedDiplomacyTarget = (state: Pick<ClientState, "requestedDiplomacyTargetId">): string | undefined => {
+  const targetId = state.requestedDiplomacyTargetId;
+  state.requestedDiplomacyTargetId = undefined;
+  return targetId;
+};

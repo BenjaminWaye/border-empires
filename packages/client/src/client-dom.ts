@@ -79,7 +79,7 @@ export const initClientDom = () => {
   const sidePanelBodyEl = requireElement<HTMLDivElement>("#side-panel-body");
   const panelTitleEl = requireElement<HTMLHeadingElement>("#panel-title");
   const panelCloseBtn = requireElement<HTMLButtonElement>("#panel-close");
-  const panelChargesEl = requireElement<HTMLDivElement>("#panel-charges"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"), panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance"),
+  const panelChargesEl = requireElement<HTMLDivElement>("#panel-charges"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"),
     panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
     panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
@@ -93,8 +93,6 @@ export const initClientDom = () => {
   const techDetailCardEl = requireElement<HTMLDivElement>("#tech-detail-card");
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
-  const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
-  const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
   const techViewToggleEl = requireElement<HTMLButtonElement>("#tech-view-toggle");
@@ -109,8 +107,6 @@ export const initClientDom = () => {
   const miniMapBase = document.createElement("canvas");
 
   return {
-    alliancePlayerInspectEl,
-    alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
     authEmailEl,
@@ -174,7 +170,6 @@ export const initClientDom = () => {
     miniMapEl,
     miniMapLabelEl,
     miniMapWrapEl,
-    panelAllianceEl,
     panelCloseBtn,
     panelDefensibilityEl,
     panelEconomyEl,

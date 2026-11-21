@@ -140,8 +140,7 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
     : `<div class="v2s-empty">No empires met yet${unmet.length > 0 ? ". You can still offer a deal to any empire below." : ""}</div>`;
   // One scrolling column (data-v2-scroll keeps its place across repaints). Playtest 2026-11-13: each
   // section scrolled on its own, so a Sent list squeezed the met and unmet grids into overlapping slivers.
-  const links = `<div class="v2d-list-links"><button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-alliances="">Alliances &amp; supply ▸</button></div>`;
-  return `<div class="v2d-list" data-v2-scroll="diplomacy">${links}${endingHtml}${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2>${grid}</section>${unmetHtml}</div>`;
+  return `<div class="v2d-list" data-v2-scroll="diplomacy">${endingHtml}${reqHtml}${sentHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2>${grid}</section>${unmetHtml}</div>`;
 };
 
 /**

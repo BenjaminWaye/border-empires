@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
 import type { Tile } from "../client-types.js";
-import { openDiplomacyForPlayer, SOCIAL_FOCUS_HIGHLIGHT_MS } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
+import { openDiplomacyForPlayer, takeRequestedDiplomacyTarget } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -199,15 +199,22 @@ describe("tile action diplomacy", () => {
 });
 
 describe("openDiplomacyForPlayer", () => {
-  it("opens the Alliances panel on the player's card without toggling it closed", () => {
+  // 2026-11-21: this opened the old pre-v2 Alliances side panel (activePanel "alliance"), now deleted.
+  it("requests the v2 Diplomacy deal for the player instead of the old Alliances panel", () => {
     const state = createInitialState();
-    state.activePanel = "alliance";
 
-    openDiplomacyForPlayer(state, "ai-1", 1_000);
+    openDiplomacyForPlayer(state, "ai-1");
 
-    expect(state.activePanel).toBe("alliance");
-    expect(state.socialFocus).toEqual({ playerId: "ai-1", until: 1_000 + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true });
-    expect(state.expandedSocialPlayerId).toBe("ai-1");
+    expect(state.requestedDiplomacyTargetId).toBe("ai-1");
+    expect(state.activePanel).toBeNull();
   });
+});
 
+describe("takeRequestedDiplomacyTarget", () => {
+  it("hands the request over once", () => {
+    const state = createInitialState();
+    openDiplomacyForPlayer(state, "ai-2");
+    expect(takeRequestedDiplomacyTarget(state)).toBe("ai-2");
+    expect(takeRequestedDiplomacyTarget(state)).toBeUndefined();
+  });
 });

@@ -1,5 +1,4 @@
 import { renderAfcRecovery } from "../client-afc-recovery/client-afc-recovery.js";
-import { bindRequestActionButtons } from "./client-hud-request-actions.js";
 import { renderTargetingOverlay } from "./client-hud-targeting-overlay.js";
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
 import { updateManifestDetail } from "../client-manifest-detail/client-manifest-detail-dom.js";
@@ -28,16 +27,12 @@ import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay, seasonStartSenders } from "../client-season-end-overlay.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { bindAdminSettingsControls } from "./client-hud-admin-settings.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
-import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { renderAllianceLists } from "./client-hud-alliance-lists.js";
-import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
-import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
@@ -103,7 +98,6 @@ type HudDeps = {
   domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: ChosenTrickleResource) => string;
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
-  renderSocialInspectCardHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderSocialInspectCardHtml;
   playerNameForOwner: (ownerId?: string | null) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -153,8 +147,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     chooseTech,
     chooseDomain,
     sendGameMessage,
-    renderSocialInspectCardHtml,
-    playerNameForOwner,
     wrapX,
     wrapY,
     terrainAt,
@@ -373,19 +365,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (!upgradesRendered) {
     dom.panelDomainsContentEl.innerHTML = fallbackCard("AFC upgrades");
   }
-  renderAllianceLists(state, dom, safeValue, fallbackCard("Alliances"));
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
-  const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
-    renderSocialInspectCardHtml({
-      socialInspectPlayerId: state.socialInspectPlayerId,
-      leaderboardOverall: state.leaderboard.overall,
-      allies: state.allies,
-      playerNameForOwner
-    })
-  );
-  dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
   renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now, closePanel: () => setActivePanel(null), viewport: () => dom.canvas });
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
@@ -469,17 +451,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   // into between renders and no focus-preserving guard is needed.
   dom.panelSettingsEl.innerHTML = settingsPanelHtml(state, wsUrl, firebaseAuth);
 
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to truces.");
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
-  bindRequestActionButtons(dom.hud, sendGameMessage, ".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
-  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
-  bindMetPlayerRowToggles(dom.hud, state);
-  const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
-  breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 
   bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
