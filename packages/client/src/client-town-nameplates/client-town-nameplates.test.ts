@@ -37,6 +37,17 @@ describe("createTownNameplates (2D path)", () => {
     expect(plate?.getAttribute("title")).toBe("Town1: Unfed");
   });
 
+  // Playtest 2026-11-21: the struck coin alone didn't tell the player their captured town was giving nothing.
+  it("spells out Not garrisoned on an ungarrisoned town's plate", () => {
+    const { host, plates } = mount();
+    plates.render([at({ ...townTile(1), ownershipState: "FRONTIER" }, 100, 200)], { size: 40, project });
+    const plate = host.querySelector<HTMLElement>(".town-plate");
+    expect(plate?.querySelector('[data-status="ungarrisoned"]')).not.toBeNull();
+    expect(plate?.querySelector(".town-plate-tag")?.textContent).toBe("Not garrisoned");
+    plates.render([at(townTile(1), 100, 200)], { size: 40, project });
+    expect(host.querySelector(".town-plate-tag")).toBeNull();
+  });
+
   it("strikes through the biota icon on an unruly town short of biota", () => {
     const { host, plates } = mount(false, [
       { tileKey: "1,0", received: 1, needed: 3, manpowerTier: "CITY" },

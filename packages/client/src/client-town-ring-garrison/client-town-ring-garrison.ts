@@ -10,6 +10,8 @@
 // TOWN_RING_GARRISON_TTL_MS, and after TOWN_RING_AFTER_SETTLE_WINDOW_MS once its town is garrisoned.
 import { SETTLE_COST, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+// Re-exported for client-action-flow.ts (at its line cap): its town Garrison is registered for the capture card.
+export { registerTownCaptureGarrison } from "../client-town-capture/client-town-capture-garrison.js";
 
 export type TownRingGarrison = { ringKeys: string[]; startedAt: number; townSettledAt?: number };
 
