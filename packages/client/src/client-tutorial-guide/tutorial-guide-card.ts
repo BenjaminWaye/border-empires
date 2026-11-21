@@ -40,6 +40,28 @@ const lookForHtml = (icons: ReadonlyArray<GuideLookForIcon> | undefined): string
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
+/**
+ * Set on the root once the player taps "?" while a scout drone holds the map
+ * (body.scout-focus folds the card, client-scout-drone-hud.css). Without it
+ * the tap only flipped a card the fold kept hidden, so "?" did nothing.
+ */
+const SCOUT_PEEK_CLASS = "tg-scout-peek";
+
+/** The launcher was tapped over a scout fold: lets the card show again. True when it did, so the caller opens the card. */
+export const openGuideCardOverScoutFold = (): boolean => {
+  if (typeof document === "undefined" || !document.body.classList.contains("scout-focus")) return false;
+  const root = document.getElementById(ROOT_ID);
+  if (!root || root.classList.contains(SCOUT_PEEK_CLASS)) return false;
+  root.classList.add(SCOUT_PEEK_CLASS);
+  return true;
+};
+
+/** The scout phase changed (plan, flight, report, or none): the next one folds the card again. */
+export const clearGuideScoutPeek = (): void => {
+  if (typeof document === "undefined") return;
+  document.getElementById(ROOT_ID)?.classList.remove(SCOUT_PEEK_CLASS);
+};
+
 export const removeGuideCard = (): void => {
   if (typeof document === "undefined") return;
   document.getElementById(ROOT_ID)?.remove();
