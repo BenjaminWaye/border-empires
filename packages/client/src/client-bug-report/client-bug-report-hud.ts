@@ -9,10 +9,19 @@ type HudDom = {
   hud: HTMLElement;
 };
 
+type ReportOverlayArgs = {
+  kind: ReportKind;
+  state: ClientState;
+  wsUrl: string;
+  renderHud: () => void;
+};
+
 // ---------------------------------------------------------------------------
-// Overlay rendering (renders inside the HUD element, which already has the
-// correct z-index and fixed positioning context). Shared by the bug-report
-// and suggestion overlays, which differ only in kind/DOM ids/trigger selector.
+// Overlay rendering. The overlay is mounted on <body>, not inside #hud: the
+// "Report bug" buttons on the map-loading, auth-busy and renderer-prompt
+// screens open it while those full-screen overlays are up, and #hud's
+// stacking context sits underneath them. Shared by the bug-report and
+// suggestion overlays, which differ only in kind/DOM ids/trigger selector.
 // ---------------------------------------------------------------------------
 
 const CLOSE_TRANSITION_MS = 200;
@@ -20,27 +29,17 @@ const CLOSE_TRANSITION_MS = 200;
 const overlayIdFor = (kind: ReportKind): string => kind === "bug" ? "bug-report-overlay" : "suggestion-overlay";
 const triggerSelectorFor = (kind: ReportKind): string => kind === "bug" ? "[data-settings-report-bug]" : "[data-settings-suggest-improvement]";
 
-const renderReportOverlay = (args: {
-  kind: ReportKind;
-  state: ClientState;
-  dom: HudDom;
-  wsUrl: string;
-  renderHud: () => void;
-}): void => {
-  const { kind, state, dom, wsUrl, renderHud } = args;
+const renderReportOverlay = (args: ReportOverlayArgs): void => {
+  const { kind, state, wsUrl, renderHud } = args;
   const overlayId = overlayIdFor(kind);
 
-  const triggerButtons = dom.hud.querySelectorAll(triggerSelectorFor(kind)) as NodeListOf<HTMLButtonElement>;
-  triggerButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = (): void => { setReportOpen(kind, true); renderHud(); };
-  });
-
-  let overlayEl = dom.hud.querySelector<HTMLDivElement>(`#${overlayId}`);
+  let overlayEl = document.getElementById(overlayId) as HTMLDivElement | null;
   if (isReportOpen(kind)) {
     if (!overlayEl) {
       overlayEl = document.createElement("div");
       overlayEl.id = overlayId;
-      dom.hud.appendChild(overlayEl);
+      overlayEl.className = "player-report-overlay";
+      document.body.appendChild(overlayEl);
     }
     // Rebuild whenever there's no live, non-closing instance. This covers a
     // reopen that lands while the previous instance's close transition (and
@@ -50,7 +49,9 @@ const renderReportOverlay = (args: {
       overlayEl.innerHTML = reportModalHtml(kind);
       overlayEl.dataset.rendered = "true";
       delete overlayEl.dataset.closing;
-      bindReportModal({ kind, state, wsUrl, overlayEl, onClose: renderHud });
+      // Re-render this overlay directly on close: when opened from a
+      // pre-HUD screen (auth busy) the HUD render loop may not be running.
+      bindReportModal({ kind, state, wsUrl, overlayEl, onClose: () => { renderReportOverlay(args); renderHud(); } });
       requestAnimationFrame(() => { overlayEl?.setAttribute("data-open", "true"); });
     }
   } else if (overlayEl && overlayEl.dataset.rendered && overlayEl.dataset.closing !== "true") {
@@ -66,12 +67,26 @@ const renderReportOverlay = (args: {
   }
 };
 
+// Opens the report dialog from anywhere (settings, map-loading overlay,
+// auth-busy overlay, renderer prompt). The report attaches recent client and
+// server logs plus the full diagnostics bundle, which replaced the old
+// "Download diagnostics" buttons.
+export const openReportDialog = (args: Omit<ReportOverlayArgs, "renderHud"> & { renderHud?: () => void }): void => {
+  setReportOpen(args.kind, true);
+  renderReportOverlay({ ...args, renderHud: args.renderHud ?? ((): void => undefined) });
+};
+
 export const renderBugReportOverlay = (args: {
   state: ClientState;
   dom: HudDom;
   wsUrl: string;
   renderHud: () => void;
 }): void => {
-  renderReportOverlay({ kind: "bug", ...args });
-  renderReportOverlay({ kind: "suggestion", ...args });
+  const { state, dom, wsUrl, renderHud } = args;
+  for (const kind of ["bug", "suggestion"] as const) {
+    (dom.hud.querySelectorAll(triggerSelectorFor(kind)) as NodeListOf<HTMLButtonElement>).forEach((btn) => {
+      btn.onclick = (): void => openReportDialog({ kind, state, wsUrl, renderHud });
+    });
+    renderReportOverlay({ kind, state, wsUrl, renderHud });
+  }
 };
