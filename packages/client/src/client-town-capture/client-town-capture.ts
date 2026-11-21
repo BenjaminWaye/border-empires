@@ -3,7 +3,7 @@ import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMul
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
-import type { TownCaptureGarrisonOffer } from "./client-town-capture-garrison.js";
+import { garrisonCapturedTown, townCaptureGarrisonStatus, type TownCaptureGarrisonStatus } from "./client-town-capture-garrison.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -23,8 +23,6 @@ export type TownCaptureInfo = {
   /** True when combat destroyed the town on capture (SETTLEMENT-tier towns don't survive an attack) — no manpower was actually gained. */
   destroyed: boolean;
   surveyReports?: OccupationSurveyReport[];
-  /** Absent when the town is already garrisoned (or razed): then there's nothing to prompt. */
-  garrison?: TownCaptureGarrisonOffer | undefined;
   onJumpToTown: () => void;
 };
 
@@ -77,7 +75,8 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
 
   const overlay = document.createElement("div");
   overlay.id = "town-capture-overlay";
-  overlay.innerHTML = overlayHtml(info);
+  // Read live: the card may show minutes after the capture, by when the town may be garrisoned or lost.
+  overlay.innerHTML = overlayHtml(info, info.destroyed ? undefined : townCaptureGarrisonStatus(info.x, info.y));
   occupationSurveyController.beginCapture();
 
   injectStyles();
@@ -103,11 +102,10 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
 
   overlay.querySelector("#town-capture-close")?.addEventListener("click", dismiss);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dismiss(); });
-  const garrison = info.garrison;
   overlay.querySelector("#town-capture-garrison")?.addEventListener("click", () => {
-    // Off to the town either way: its screen shows the Garrison button's state if this one was refused.
-    if (garrison?.kind === "manual") garrison.garrison();
-    info.onJumpToTown();
+    // Selecting the town is the jump; off to the town either way, where its screen shows the Garrison
+    // button's state (cost, or why it was refused).
+    if (!garrisonCapturedTown(info.x, info.y, info.onJumpToTown)) info.onJumpToTown();
     dismiss();
   });
   overlay.querySelector("#town-capture-jump")?.addEventListener("click", () => {
@@ -117,7 +115,7 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
   return overlay;
 };
 
-const overlayHtml = (info: TownCaptureInfo): string => {
+const overlayHtml = (info: TownCaptureInfo, garrison: TownCaptureGarrisonStatus | undefined): string => {
   const surveyReports = info.surveyReports ?? [];
   const tier = tierLabel(info.populationTier);
   const townName = info.townName || tier;
@@ -172,7 +170,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        ${garrisonNoteHtml(info.garrison)}`;
+        ${garrisonNoteHtml(garrison)}`;
       })();
   const surveyHtml = !info.destroyed && surveyReports.length > 0
     ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`
@@ -198,21 +196,25 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         ${surveyHtml}
       </div>
       <div id="town-capture-footer">
-        ${!info.destroyed && info.garrison?.kind === "manual" ? `<button id="town-capture-garrison" class="town-capture-garrison-btn" type="button">Garrison now</button>` : ""}
+        ${garrison?.status === "ungarrisoned" ? `<button id="town-capture-garrison" class="town-capture-garrison-btn" type="button">Garrison now</button>` : ""}
         <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
 };
 
+const OUTPUT_NOTE = "These are the town's terrain-adjusted base outputs. Support tiles and structures can improve the coin rate further.";
 const BASE_OUTPUT_NOTE = "These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is garrisoned; support tiles and structures can then improve the coin rate further.";
 
 /** Ungarrisoned is the state that costs the player: it gets a warning, not the closing footnote. */
-const garrisonNoteHtml = (offer: TownCaptureGarrisonOffer | undefined): string =>
-  offer?.kind === "manual"
-    ? `<div id="town-capture-garrison-warning" role="status"><strong>Not garrisoned</strong><span>No coin or manpower until you garrison it.</span></div>`
-    : offer?.kind === "auto"
-      ? `<div id="town-capture-note">Auto-garrison is on: coin and manpower start once it's garrisoned.</div>`
-      : `<div id="town-capture-note">${BASE_OUTPUT_NOTE}</div>`;
+const garrisonNoteHtml = (garrison: TownCaptureGarrisonStatus | undefined): string => {
+  if (garrison?.status === "ungarrisoned") {
+    // Auto-garrison still waits on coin and manpower, so the warning and button stay; the line says it's on.
+    const detail = garrison.auto ? "Auto-garrison picks it up once you can afford it." : "No coin or manpower until you garrison it.";
+    return `<div id="town-capture-garrison-warning" role="status"><strong>Not garrisoned</strong><span>${detail}</span></div>`;
+  }
+  if (garrison?.status === "on_its_way") return `<div id="town-capture-note">Garrison on its way: coin and manpower start once it lands.</div>`;
+  return `<div id="town-capture-note">${garrison?.status === "garrisoned" ? OUTPUT_NOTE : BASE_OUTPUT_NOTE}</div>`;
+};
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);

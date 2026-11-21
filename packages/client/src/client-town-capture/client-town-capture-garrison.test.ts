@@ -1,69 +1,89 @@
 // @vitest-environment happy-dom
 // Playtest 2026-11-21: a captured town lands ungarrisoned and gives no coin or manpower, and the capture card
-// only mentioned that in its closing footnote. It now warns and offers "Garrison now" unless auto-garrison is on.
+// only mentioned that in its closing footnote. It now warns and offers "Garrison now", reading the town's
+// state live when it shows (it can show minutes after the capture) and again on the press.
 import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
-import { emitTownCaptureIfCaptured } from "./client-town-capture-detect.js";
-import { registerTownCaptureGarrison, resetTownCaptureGarrisonForTest } from "./client-town-capture-garrison.js";
+import { installTownCaptureGarrison, resetTownCaptureGarrisonForTest } from "./client-town-capture-garrison.js";
 
 const town = { name: "Quartzcrown", type: "FARMING", populationTier: "TOWN", population: 23_791 } as NonNullable<Tile["town"]>;
-const captured = (ownershipState: Tile["ownershipState"]): Tile => ({ x: 481, y: 75, terrain: "LAND", ownerId: "me", ownershipState, town } as Tile);
-const autoSettle = (towns: boolean): Pick<ClientState, "autoSettle"> => ({ autoSettle: loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns }) });
+const tile = (extra: Partial<Tile> = {}): Tile => ({ x: 481, y: 75, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", town, ...extra } as Tile);
+const info = (extra: Partial<TownCaptureInfo> = {}): TownCaptureInfo => ({
+  x: 481, y: 75, townName: "Quartzcrown", populationTier: "TOWN", terrainProfile: "GRASS", coastal: true,
+  population: 23_791, maxPopulation: 100_000, empireName: "House Me", ownedTownCount: 1, destroyed: false, onJumpToTown: () => undefined,
+  ...extra
+});
 
-/** The info the capture detector would hand the card for a tile that just flipped to "me". */
-const detect = (tile: Tile): TownCaptureInfo | undefined => {
-  let shown: TownCaptureInfo | undefined;
-  emitTownCaptureIfCaptured(
-    {
-      tileUpdates: [{ x: tile.x, y: tile.y }],
-      previousTileByKey: new Map([["481,75", { ownerId: "rival", town }]]),
-      tiles: new Map([["481,75", tile]]),
-      me: "me", meName: "House Me", keyFor: (x, y) => `${x},${y}`, onJumpToTown: () => undefined
-    },
-    { showOverlay: (info) => { shown = info; } }
-  );
-  return shown;
+const install = (t: Tile, opts: { towns?: boolean; queued?: boolean } = {}) => {
+  const state = {
+    me: "me",
+    tiles: new Map([["481,75", t]]),
+    autoSettle: loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: opts.towns ?? false }),
+    developmentQueue: opts.queued ? [{ kind: "SETTLE", tileKey: "481,75" }] : [],
+    settleProgressByTile: new Map(),
+    autoSettleTargets: new Set<string>()
+  } as unknown as ClientState;
+  const garrisonSelected = vi.fn();
+  installTownCaptureGarrison(state, garrisonSelected);
+  return { state, garrisonSelected };
 };
+const el = (id: string) => document.getElementById(id);
 
 describe("town capture card garrison prompt", () => {
   afterEach(() => {
-    document.getElementById("town-capture-overlay")?.remove();
+    el("town-capture-overlay")?.remove();
     resetTownCaptureGarrisonForTest();
   });
 
-  it("offers Garrison now for an ungarrisoned capture, and it garrisons the town then jumps there", () => {
-    const garrisonAt = vi.fn(() => true);
-    registerTownCaptureGarrison(autoSettle(false), garrisonAt);
-    const info = detect(captured("FRONTIER"));
-    expect(info?.garrison?.kind).toBe("manual");
+  it("warns and garrisons the town after selecting it, then closes", () => {
+    const { state, garrisonSelected } = install(tile());
+    const select = vi.fn(() => { state.selected = { x: 481, y: 75 }; });
+    showTownCaptureOverlay(info({ onJumpToTown: select }));
+    expect(el("town-capture-garrison-warning")?.textContent).toContain("No coin or manpower until you garrison it.");
+    el("town-capture-garrison")?.click();
+    expect(select).toHaveBeenCalledOnce();
+    expect(garrisonSelected).toHaveBeenCalledOnce();
+    expect(select.mock.invocationCallOrder[0]).toBeLessThan(garrisonSelected.mock.invocationCallOrder[0]!);
+    expect(el("town-capture-overlay")).toBeNull();
+  });
+
+  it("keeps the button with auto-garrison on, which still waits on coin and manpower", () => {
+    install(tile(), { towns: true });
+    showTownCaptureOverlay(info());
+    expect(el("town-capture-garrison")).not.toBeNull();
+    expect(el("town-capture-garrison-warning")?.textContent).toContain("Auto-garrison picks it up");
+  });
+
+  it("only jumps when the town got garrisoned between the card showing and the press", () => {
+    const { state, garrisonSelected } = install(tile());
     const jump = vi.fn();
-    showTownCaptureOverlay({ ...info!, onJumpToTown: jump });
-    expect(document.getElementById("town-capture-garrison-warning")?.textContent).toContain("Not garrisoned");
-    document.getElementById("town-capture-garrison")?.click();
-    expect(garrisonAt).toHaveBeenCalledWith(481, 75);
+    showTownCaptureOverlay(info({ onJumpToTown: jump }));
+    state.tiles.set("481,75", tile({ ownershipState: "SETTLED" }));
+    el("town-capture-garrison")?.click();
+    expect(garrisonSelected).not.toHaveBeenCalled();
     expect(jump).toHaveBeenCalledOnce();
-    expect(document.getElementById("town-capture-overlay")).toBeNull();
   });
 
-  it("says auto-garrison will handle it instead of a button when the towns pref is on", () => {
-    registerTownCaptureGarrison(autoSettle(true), () => true);
-    const info = detect(captured("FRONTIER"));
-    expect(info?.garrison).toEqual({ kind: "auto" });
-    showTownCaptureOverlay(info!);
-    expect(document.getElementById("town-capture-garrison")).toBeNull();
-    expect(document.getElementById("town-capture-note")?.textContent).toContain("Auto-garrison is on");
-  });
+  it("shows no prompt for a town already garrisoned, one with a garrison queued, or a razed settlement", () => {
+    install(tile({ ownershipState: "SETTLED" }));
+    showTownCaptureOverlay(info());
+    expect(el("town-capture-garrison")).toBeNull();
+    expect(el("town-capture-note")?.textContent).not.toContain("once the town is garrisoned");
+    el("town-capture-close")?.click();
 
-  it("prompts nothing for a town that is already garrisoned", () => {
-    registerTownCaptureGarrison(autoSettle(false), () => true);
-    const info = detect(captured("SETTLED"));
-    expect(info?.garrison).toBeUndefined();
-    showTownCaptureOverlay(info!);
-    expect(document.getElementById("town-capture-garrison")).toBeNull();
-    expect(document.getElementById("town-capture-garrison-warning")).toBeNull();
+    install(tile(), { queued: true });
+    showTownCaptureOverlay(info());
+    expect(el("town-capture-garrison")).toBeNull();
+    expect(el("town-capture-note")?.textContent).toContain("Garrison on its way");
+    el("town-capture-close")?.click();
+
+    install(tile());
+    showTownCaptureOverlay(info({ destroyed: true, populationTier: "SETTLEMENT" }));
+    expect(el("town-capture-garrison")).toBeNull();
+    expect(el("town-capture-garrison-warning")).toBeNull();
   });
 });

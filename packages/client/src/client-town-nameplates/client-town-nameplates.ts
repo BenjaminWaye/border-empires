@@ -52,7 +52,7 @@ const GROWTH_MARK: Record<TownNameplateGrowth, string> = {
 // px (at scale 1) hold for the greedy overlap cull below.
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
 // The struck coin alone was missed (2026-11-21 playtest): an ungarrisoned town spells it out on its plate.
-const UNGARRISONED_TAG = "Not garrisoned", UNGARRISONED_TAG_W = 96;
+const UNGARRISONED_TAG = "Not garrisoned", UNGARRISONED_TAG_W = 106;
 const plateWidth = (plate: TownNameplate): number =>
   22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0) +
   (plate.status === "ungarrisoned" ? UNGARRISONED_TAG_W : 0);

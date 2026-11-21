@@ -74,7 +74,7 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
-import { registerTownCaptureGarrison, requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
+import { requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
 import { processAutoSettleTargetsForState } from "./client-auto-settle-targets/client-process-auto-settle-targets.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
@@ -673,11 +673,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
-  // A town's Garrison also garrisons the tiles around it once the town lands (client-town-ring-garrison.ts); the town-capture card's "Garrison now" calls it too.
-  const requestGarrison = registerTownCaptureGarrison(state, (x: number, y: number): boolean => {
+  // A town's Garrison also garrisons the tiles around it once the town lands (client-town-ring-garrison.ts).
+  const requestGarrison = (x: number, y: number): boolean => {
     const tile = state.tiles.get(keyFor(x, y));
     return tile ? requestGarrisonWithTownRing(state, tile, (tx, ty) => requestSettlement(tx, ty), Date.now()) : requestSettlement(x, y);
-  });
+  };
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement: requestGarrison });
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });

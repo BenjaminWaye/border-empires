@@ -3,7 +3,6 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
 import { occupationSurveyReportsForCapture } from "../client-occupation-survey.js";
 import { townPopulationTarget } from "../client-town-growth/client-town-growth.js";
-import { townCaptureGarrisonOffer } from "./client-town-capture-garrison.js";
 
 export type TownCaptureUpdate = { x: number; y: number };
 
@@ -66,8 +65,6 @@ export const emitTownCaptureIfCaptured = (
       ownedTownCount: settledTownCountExcluding(input.tiles, input.me, key),
       destroyed: !survivingTown,
       surveyReports: occupationSurveyReportsForCapture(input.techIds),
-      // A captured town lands as your frontier: nothing until it is garrisoned, so the card offers it.
-      garrison: survivingTown && tile.ownershipState !== "SETTLED" ? townCaptureGarrisonOffer(update.x, update.y) : undefined,
       onJumpToTown: () => input.onJumpToTown(update.x, update.y)
     });
     return;
