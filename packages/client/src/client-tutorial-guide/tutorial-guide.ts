@@ -18,6 +18,7 @@ import { evaluateGuide, GUIDE_STEPS, guideBeaconSite, needsTownForBuild, guideRe
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
 import {
   guideCardCoversScreenCentre,
+  openGuideCardOverScoutFold,
   removeGuideCard,
   renderGuideCard,
   renderGuideCompleteCard,
@@ -146,7 +147,8 @@ const handlers: GuideCardHandlers = {
     removeTutorialGuideUi();
   },
   onToggle: () => {
-    expanded = !expanded;
+    // Over a scout fold the card was hidden whatever `expanded` said: "?" opens it.
+    expanded = openGuideCardOverScoutFold() ? true : !expanded;
     forceRerender();
   }
 };
