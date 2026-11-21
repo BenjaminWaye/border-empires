@@ -33,6 +33,8 @@ export const createInitialScoutDroneState = () => ({
   scoutDroneReport: undefined as ScoutDroneLandingReport | undefined,
   /** How many tiles the player had explored when the drone in the air launched: the report counts the new ones. */
   scoutDroneExploredAtLaunch: undefined as number | undefined,
+  /** The flight in the air's launch time on the server's clock: identifies "the same flight" across messages. */
+  scoutDroneLaunchedAtServer: undefined as number | undefined,
   // What the drone spots as it flies: pops over the map, and the card's chips frame them (client-scout-drone-finds.ts).
   ...createInitialScoutFindsState()
 });
@@ -173,11 +175,17 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
-    // A new flight: remember the explored count, so the landing card can say how much it uncovered, and
-    // drop the last flight's finds (the new flight's SCOUT_FINDS start its own list).
-    if (next && previous?.launchedAt !== next.launchedAt) {
+    // A new flight, judged on the server's own launch time: the local conversion moves with the clock
+    // offset, so a mid-flight message (sped up, turned, replayed on reconnect) read as a new flight and wiped
+    // its finds (review 2026-11-21). Then: remember the explored count, drop the last flight's finds unless
+    // they already belong to this one (the launch tick's SCOUT_FINDS arrive before this message), and clear
+    // the last report's framed find.
+    const serverLaunchedAt = next && msg.flight && typeof msg.flight === "object" ? (msg.flight as { launchedAt?: unknown }).launchedAt : undefined;
+    if (next && typeof serverLaunchedAt === "number" && serverLaunchedAt !== state.scoutDroneLaunchedAtServer) {
+      state.scoutDroneLaunchedAtServer = serverLaunchedAt;
       if (state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
-      state.scoutDroneFinds = undefined;
+      if (state.scoutDroneFinds?.launchedAt !== serverLaunchedAt) state.scoutDroneFinds = undefined;
+      state.scoutFindFocus = undefined;
     }
     const charges = parseScoutDroneCharges(msg.charges, toLocal);
     if (charges) state.scoutDroneCharges = charges;
@@ -198,6 +206,7 @@ export const handleScoutDroneMessage = (
       // discovered since launch (rougher: other reveals mix in, and a reload resets the baseline).
       const explored = report.tilesSeen ?? (baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined);
       state.scoutDroneReport = { ...report, ...(blockedBy ? { blockedBy } : {}), ...(explored ? { explored } : {}), at: nowMs };
+      state.scoutFindFocus = undefined;
       state.scoutDroneExploredAtLaunch = undefined;
     }
     renderHud();

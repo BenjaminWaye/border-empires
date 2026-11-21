@@ -78,6 +78,8 @@ export type ScoutDroneRuntimeDeps = {
   readonly emitEvent: (event: SimulationEvent) => void;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   readonly recordPersonalImpact: (event: PersonalImpactEvent) => void;
+  /** Whether the player has a live socket: SCOUT_FINDS is transient UI, sent only to someone watching. */
+  readonly isPlayerSubscribed?: (playerId: string) => boolean;
 };
 
 export type ScoutDroneGauge = {
@@ -283,7 +285,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       // players waited 2-3 minutes with nothing to show until the landing report (review 2026-11-21).
       const found: ScoutFind[] = [];
       const sendFound = (): void => {
-        if (found.length === 0) return;
+        if (found.length === 0 || deps.isPlayerSubscribed?.(active.playerId) === false) return;
         const payload: ScoutFindsPayload = { type: SCOUT_FINDS_MESSAGE_TYPE, launchedAt: flight.launchedAt, finds: found };
         // One id per flight, as for the drone's vision batches: the gateway records each player message by
         // commandId, and an id per tick would grow that store with every find.

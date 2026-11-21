@@ -138,6 +138,19 @@ describe("handleScoutDroneMessage", () => {
     expect(state.scoutDroneReport?.explored).toBe(311);
   });
 
+  // Review 2026-11-21: the launch tick's SCOUT_FINDS arrive before the launch SCOUT_DRONE, and a mid-flight
+  // SCOUT_DRONE parsed with a moved clock offset looked like a new flight; both wiped the flight's finds.
+  it("keeps a flight's finds across its launch message and later messages with a different clock offset", () => {
+    const state = { ...stateWith(), discoveredTiles: new Set<string>() };
+    handleScoutDroneMessage({ type: "SCOUT_FINDS", launchedAt: wireFlight.launchedAt, finds: [{ kind: "dock", x: 2, y: 2 }] }, state, vi.fn(), vi.fn(), shiftBack);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneFinds?.all).toHaveLength(1);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), (t) => t - 900);
+    expect(state.scoutDroneFinds?.all).toHaveLength(1);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: { ...wireFlight, launchedAt: wireFlight.launchedAt + 60_000 } }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneFinds).toBeUndefined();
+  });
+
   it("ignores other messages", () => {
     expect(handleScoutDroneMessage({ type: "ISLAND_NAMES" }, stateWith(), vi.fn(), vi.fn())).toBe(false);
   });

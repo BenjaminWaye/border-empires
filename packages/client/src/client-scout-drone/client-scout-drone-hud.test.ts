@@ -123,6 +123,20 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.querySelector('#scout-report-card button.srs-chip[data-find-kind="dock"]')).toBeNull();
   });
 
+  // Review 2026-11-21: with Show gone, a reload (no SCOUT_FINDS kept) left nothing to tap; the main find's chip
+  // falls back to the server's focus.
+  it("frames the server's main find from its chip when no finds were spotted on this client", () => {
+    const state = baseState();
+    state.scoutDroneFinds = undefined;
+    state.scoutDroneReport = { ...report, at: 30_000 };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 30_500 });
+    const town = document.querySelector<HTMLButtonElement>('#scout-report-card .srs-chip[data-find-kind="town"]')!;
+    town.click();
+    expect(focus).toHaveBeenCalledWith(15, 7, { select: false });
+    expect(document.querySelector('#scout-report-card button.srs-chip[data-find-kind="dock"]')).toBeNull();
+  });
+
   it("labels every report icon with one word", () => {
     expect(scoutReportChips(report).map((chip) => chip.label)).toEqual(["Town", "Docks", "Waystations", "Empire"]);
   });

@@ -7,33 +7,37 @@ import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.j
 // keep one size on screen at any zoom, like the stop badges: world-sized text was unreadable on a phone.
 // Each pop's texture is painted once, when it first appears.
 
-const WIDTH = 384;
 const HEIGHT = 96;
 /** Height on screen as a fraction of its height: about 34px on an 812px phone. */
 const SCREEN_HEIGHT = 0.042;
 const RISE = 1.6;
 
-type Live = { sprite: Sprite; material: SpriteMaterial; texture: CanvasTexture | null };
+type Live = { sprite: Sprite; material: SpriteMaterial; texture: CanvasTexture | null; aspect: number };
 
-const paint = (text: string): CanvasTexture | null => {
+const FONT = "800 60px ui-sans-serif, system-ui, sans-serif";
+
+/** The pop's texture, as wide as its text needs: a fixed canvas cut off "+2 Waystations" (review 2026-11-21). */
+const paint = (text: string): { texture: CanvasTexture; aspect: number } | null => {
   if (typeof document === "undefined") return null; // node tests: no canvas
   const canvas = document.createElement("canvas");
-  canvas.width = WIDTH;
+  const measure = canvas.getContext("2d");
+  if (!measure) return null;
+  measure.font = FONT;
+  canvas.width = Math.max(HEIGHT, Math.ceil(measure.measureText(text).width) + 32);
   canvas.height = HEIGHT;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.font = "800 60px ui-sans-serif, system-ui, sans-serif";
+  const ctx = canvas.getContext("2d")!;
+  ctx.font = FONT;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
   ctx.lineWidth = 12;
   ctx.strokeStyle = "rgba(24, 14, 4, 0.95)";
-  ctx.strokeText(text, WIDTH / 2, HEIGHT / 2);
+  ctx.strokeText(text, canvas.width / 2, HEIGHT / 2);
   ctx.fillStyle = "#ffd76a";
-  ctx.fillText(text, WIDTH / 2, HEIGHT / 2);
+  ctx.fillText(text, canvas.width / 2, HEIGHT / 2);
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
-  return texture;
+  return { texture, aspect: canvas.width / HEIGHT };
 };
 
 export type ScoutFindPopLayer = {
@@ -68,20 +72,21 @@ export const createScoutFindPopLayer = (scene: Scene, sceneFor: (x: number, y: n
         current.add(pop.id);
         let entry = live.get(pop.id);
         if (!entry) {
-          const texture = paint(pop.text);
+          const painted = paint(pop.text);
+          const texture = painted?.texture ?? null;
           const material = new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false });
           const sprite = new Sprite(material);
           sprite.name = "scout-drone-find-pop";
           sprite.renderOrder = 32;
           sprite.frustumCulled = false;
           group.add(sprite);
-          entry = { sprite, material, texture };
+          entry = { sprite, material, texture, aspect: painted?.aspect ?? 4 };
           live.set(pop.id, entry);
         }
         // Pops in over the first tenth, rises, fades out over the last third.
         const grow = Math.min(1, t / 0.1);
         const scale = SCREEN_HEIGHT * (0.6 + 0.4 * grow);
-        entry.sprite.scale.set((scale * WIDTH) / HEIGHT, scale, 1);
+        entry.sprite.scale.set(scale * entry.aspect, scale, 1);
         entry.material.opacity = t < 0.66 ? 1 : 1 - (t - 0.66) / 0.34;
         sceneFor(pop.x, pop.y, at);
         entry.sprite.position.set(at.sceneX, at.surfaceY + 0.8 + RISE * t, at.sceneZ);

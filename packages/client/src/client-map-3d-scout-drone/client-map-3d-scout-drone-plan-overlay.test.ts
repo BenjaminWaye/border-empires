@@ -105,8 +105,8 @@ describe("createScoutPlanOverlay", () => {
     const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
     overlay.sync(5_000);
     expect(scene.getObjectByName("scout-drone-find-pin")!.visible).toBe(true);
-    state.scoutDroneReport = undefined;
-    overlay.sync(5_100);
+    // Review 2026-11-21: the pin outlived the card's 90 s timeout.
+    overlay.sync(91_000);
     expect(scene.getObjectByName("scout-drone-find-pin")!.visible).toBe(false);
     overlay.dispose();
   });

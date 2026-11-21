@@ -193,14 +193,22 @@ const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): bool
   const key = String(report.at);
   if (el.dataset.reportAt !== key) {
     el.dataset.reportAt = key;
-    el.innerHTML = reportCardHtml(report, (id) => state.playerNames.get(id) ?? "another empire", (chip) => Boolean(chip.find && scoutFindPlaces(state, chip.find.kind, chip.find.resource).length > 0));
+    // Where a chip's finds are: the ones spotted mid-flight (SCOUT_FINDS), or, when none reached this client
+    // (reload, dropped socket), the server's main find for the chip it belongs to (review 2026-11-21).
+    const mainKind = scoutReportChips(report).find((chip) => chip.find)?.find;
+    const placesFor = (live: ClientState, kind: ScoutFind["kind"], resource?: string): Array<{ x: number; y: number }> => {
+      const spotted = scoutFindPlaces(live, kind, resource);
+      if (spotted.length > 0) return spotted;
+      return mainKind && mainKind.kind === kind && mainKind.resource === resource ? [{ x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY }] : [];
+    };
+    el.innerHTML = reportCardHtml(report, (id) => state.playerNames.get(id) ?? "another empire", (chip) => Boolean(chip.find && placesFor(state, chip.find.kind, chip.find.resource).length > 0));
     // Each framable chip steps the camera through its finds, one per tap, keeping the card open.
     el.querySelectorAll<HTMLButtonElement>(".srs-chip.is-framable").forEach((chip) => {
       chip.onclick = (event: MouseEvent) => {
         event.stopPropagation();
         const live = current;
         if (!live) return;
-        const places = scoutFindPlaces(live.state, chip.dataset.findKind as ScoutFind["kind"], chip.dataset.findResource);
+        const places = placesFor(live.state, chip.dataset.findKind as ScoutFind["kind"], chip.dataset.findResource);
         if (places.length === 0) return;
         const next = Number(chip.dataset.step ?? "0") % places.length;
         chip.dataset.step = String(next + 1);
