@@ -69,6 +69,9 @@ export type ScoutReportFindings = {
   planetaryDefenseTiles: number;
   /** Other empires whose land the drone saw. */
   empiresSighted: string[];
+  /** The most notable find (first town, else dock, waystation, watchtower, resource, empire, Planetary Defense); absent when nothing was found. */
+  focusX?: number;
+  focusY?: number;
 };
 
 export type ScoutDronePayload = {
