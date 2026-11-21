@@ -28,7 +28,7 @@ export const createInitialScoutDroneState = () => ({
    * session's flights, so the "tap the fog" hint stops once the player has the idea.
    */
   scoutDronePicking: { active: false, stops: [] as Array<{ x: number; y: number }>, bumpAt: 0, shakeAt: 0, launches: 0 },
-  /** The last landing's report, shown as a card until dismissed or a new plan starts (client-scout-drone-report-card.ts). */
+  /** The last landing's report, shown as a card until dismissed, for 90 s, and not while planning or flying (client-scout-drone-hud.ts). */
   scoutDroneReport: undefined as ScoutDroneLandingReport | undefined,
   /** How many tiles the player had explored when the drone in the air launched: the report counts the new ones. */
   scoutDroneExploredAtLaunch: undefined as number | undefined
@@ -112,6 +112,7 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     resourcesSighted: readScoutResourceCounts(raw.resourcesSighted),
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
+    ...(isFiniteNumber(raw.tilesSeen) && raw.tilesSeen > 0 ? { tilesSeen: Math.floor(raw.tilesSeen) } : {}),
     ...(isFiniteNumber(raw.focusX) && isFiniteNumber(raw.focusY) ? { focusX: raw.focusX, focusY: raw.focusY } : {}),
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
   };
@@ -180,12 +181,14 @@ export const handleScoutDroneMessage = (
     const report = parseScoutReport(msg.report);
     if (report) {
       const blockedBy = report.blockedByPlayerId ?? previous?.blockedByPlayerId;
-      // The landing is the reward, so it gets its own card on top of the HUD (client-scout-drone-report-card.ts)
+      // The landing is the reward, so it gets its own card on top of the HUD (client-scout-drone-hud.ts)
       // rather than the shared alert card, where guide and House popups buried it (player review 2026-11-21).
       // The feed keeps the line for history.
       pushEntry({ title: "Scout report", text: scoutReportFeedText(report, nameOf, blockedBy), type: "info", severity: "success", at: nowMs, focusX: report.focusX ?? report.targetX, focusY: report.focusY ?? report.targetY, actionLabel: "Show" });
       const baseline = state.scoutDroneExploredAtLaunch;
-      const explored = baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined;
+      // The server's count of tiles the drone saw; older servers send none, so fall back to the tiles
+      // discovered since launch (rougher: other reveals mix in, and a reload resets the baseline).
+      const explored = report.tilesSeen ?? (baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined);
       state.scoutDroneReport = { ...report, ...(blockedBy ? { blockedBy } : {}), ...(explored ? { explored } : {}), at: nowMs };
       state.scoutDroneExploredAtLaunch = undefined;
     }

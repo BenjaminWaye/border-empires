@@ -22,7 +22,12 @@ export type TargetingOverlayDeps = {
 
 export const renderTargetingOverlay = (state: ClientState, overlayEl: HTMLElement, deps: TargetingOverlayDeps): void => {
   const camera = deps.camera;
-  renderScoutDroneHud(state, { send: deps.send ?? (() => false), rerender: deps.rerender, focus: (x, y) => { if (camera) focusCameraOnTile(state, x, y, camera); } });
+  renderScoutDroneHud(state, { send: deps.send ?? (() => false), rerender: deps.rerender, focus: (x, y, options) => {
+    if (!camera) return;
+    const selected = state.selected;
+    focusCameraOnTile(state, x, y, camera);
+    if (options?.select === false) state.selected = selected;
+  } });
   const { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey } = deps;
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;

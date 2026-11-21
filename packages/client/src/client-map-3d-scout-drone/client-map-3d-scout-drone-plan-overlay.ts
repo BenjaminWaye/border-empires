@@ -3,7 +3,7 @@ import { SCOUT_DRONE_MAX_STOPS, WORLD_HEIGHT, WORLD_WIDTH, scoutDroneLeg, scoutD
 import type { ClientState } from "../client-state/client-state.js";
 import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
-import { createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
+import { createScoutDroneBadge, createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
 import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
 
 // The planned scout flight in the true-3D map (docs/explore-scout-plan.md §13), drawn while the
@@ -30,7 +30,11 @@ const BRASS = new Color("#f2c66b");
  * "at the limit". Gold read as "chosen" and orange with a trail as an error (player reviews 2026-11-21).
  */
 const LIMIT_RING = new Color("#2f9fc2");
-const LIMIT_RING_SCALE = 1.6;
+/** Scaled so the outer ring (0.55-0.95 at 1x) sits just outside the stop's ring, not over it. */
+const LIMIT_RING_SCALE = 1.75;
+/** The "too far" line after a tap past the range: how long it shows, and its colour. */
+const TOO_FAR_MS = 1_400;
+const TOO_FAR = new Color("#ff8a5c");
 const BEAD_SPACING = 0.42;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
@@ -49,6 +53,15 @@ export const scoutPlanRouteKey = (state: PlanSource, nowMs: number): string => {
   const flying = flyingScoutDrone(state, nowMs);
   const flyingKey = flying ? `${flying.launchedAt}:${flying.landsAt}:${scoutDroneStepIndexAt(flying, nowMs)}` : "";
   return `${plan.stops.map((s) => `${s.x},${s.y}`).join(";")}|${hover ? `${hover.x},${hover.y}` : ""}|${state.tilesRevision}|${state.serverReachRevision}|${flyingKey}|${scoutPlanCapacity(state, nowMs)}|${state.me}|${state.allies.join(",")}`;
+};
+
+/** Points a tile apart on the straight line from `a` to `b`, the short way round the wrapping map. */
+export const straightTiles = (a: Point, b: Point): Point[] => {
+  const wrap = (d: number, size: number): number => ((((d + size / 2) % size) + size) % size) - size / 2;
+  const dx = wrap(b.x - a.x, WORLD_WIDTH);
+  const dy = wrap(b.y - a.y, WORLD_HEIGHT);
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy)));
+  return Array.from({ length: n + 1 }, (_, i) => ({ x: a.x + (dx * i) / n, y: a.y + (dy * i) / n }));
 };
 
 export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: PlanSource; readonly sceneFor: (x: number, y: number, out: ScoutDroneScenePoint) => void }): ScoutPlanOverlay => {
@@ -76,6 +89,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   group.add(beads, rings);
   scene.add(group);
   const numbers = createScoutStopNumbers(scene, SCOUT_DRONE_MAX_STOPS * 2);
+  const droneBadge = createScoutDroneBadge(scene);
 
   const matrix = new Matrix4();
   const a: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
@@ -169,6 +183,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     beadCount = 0;
     ringCount = 0;
     numbers.begin();
+    droneBadge.hide();
     const flying = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs;
     if (plan.active) {
       rebuildRoute(state, nowMs);
@@ -177,13 +192,23 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       beadPath(home, CYAN_DIM, 0.7, phase);
       beadPath(ghost, GHOST, 0.75, phase);
       const bump = Math.max(0, 1 - (nowMs - plan.bumpAt) / 350);
+      const addedAfter = flying ? state.scoutDroneFlight!.waypoints?.length ?? 0 : 0;
       stops.forEach((stop, i) => {
         const last = i === stops.length - 1;
         const pulse = last ? 1 + 0.12 * Math.sin(nowMs / 220) + 0.5 * bump : 1;
         pushRing(stop, CYAN, pulse);
         if (stop.clamped) pushRing(stop, LIMIT_RING, pulse * LIMIT_RING_SCALE);
-        numberStop(i + 1, stop);
+        // Stops added to a drone in the air continue its numbering (review 2026-11-21).
+        numberStop(addedAfter + i + 1, stop);
       });
+      // Right after a tap past the range, a fading line runs on from the stop toward the tapped tile for a
+      // moment: the limit is shown when it bites, and the route stays clean after (player review 2026-11-21).
+      const sinceTap = nowMs - plan.bumpAt;
+      const lastStop = stops.at(-1);
+      const tapped = plan.stops[stops.length - 1];
+      if (lastStop?.clamped && tapped && sinceTap >= 0 && sinceTap < TOO_FAR_MS) {
+        beadPath(straightTiles(lastStop, tapped), tint.copy(TOO_FAR).multiplyScalar(1 - sinceTap / TOO_FAR_MS), 0.6, phase);
+      }
       // The pointer's leg ends in a soft dot, never a ring, so it cannot pass for a placed stop.
       if (ghostEnd) {
         deps.sceneFor(ghostEnd.x, ghostEnd.y, a);
@@ -197,9 +222,15 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       const from = Math.max(0, scoutDroneStepIndexAt(air, nowMs));
       beadPath(air.steps.slice(from, air.turnIndex + 1), CYAN, 0.85, phase);
       beadPath(air.steps.slice(Math.max(from, air.turnIndex)), CYAN_DIM, 0.65, phase);
+      // Each stop's step, found in flight order: a route that crosses a later stop's tile on an earlier
+      // leg must not count that stop as reached (review 2026-11-21).
+      let cursor = 0;
       (air.waypoints ?? []).forEach((stop, i) => {
-        const reachedAt = air.steps.findIndex((step) => step.x === stop.x && step.y === stop.y);
-        if (reachedAt > from && reachedAt <= air.turnIndex) {
+        let at = cursor;
+        while (at <= air.turnIndex && (air.steps[at]!.x !== stop.x || air.steps[at]!.y !== stop.y)) at += 1;
+        if (at > air.turnIndex) return;
+        cursor = at + 1;
+        if (at > from) {
           pushRing(stop, CYAN, 0.9);
           numberStop(i + 1, stop);
         }
@@ -211,6 +242,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
         pushRing(at, CYAN, 1.15 + 0.15 * beat);
         deps.sceneFor(at.x, at.y, a);
         pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, CYAN, 1.6 + 0.3 * beat);
+        droneBadge.place(a.sceneX, a.surfaceY + RISE, a.sceneZ);
       }
     }
     // The main find of a fresh landing report gets a short gold burst (player review 2026-11-21: the new
@@ -238,6 +270,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     dispose: () => {
       scene.remove(group);
       numbers.dispose();
+      droneBadge.dispose();
       beadGeometry.dispose();
       beadMaterial.dispose();
       ringGeometry.dispose();

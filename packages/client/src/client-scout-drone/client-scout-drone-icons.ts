@@ -12,7 +12,7 @@ export const SCOUT_DRONE_ICON = svg(
   `<path d="M2.5 7h6M15.5 7h6"/><path d="M5.5 7v3h13V7"/><rect x="8" y="10" width="8" height="6" rx="2.5" fill="currentColor" stroke="none"/><circle cx="12" cy="13" r="1.4" fill="#0b1720" stroke="none"/><path d="M9.5 16l-1.5 3M14.5 16l1.5 3"/>`
 );
 
-/** One icon per kind of find in a scout report (client-scout-drone-report-card.ts). */
+/** One icon per kind of find in a scout report (client-scout-drone-hud.ts). */
 export const SCOUT_FIND_ICONS = {
   explored: svg(`<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>`),
   town: svg(`<path d="M4 20V10l4-3 4 3v10M12 20v-7l4-3 4 3v7M3 20h18"/><path d="M8 20v-3M16 20v-3"/>`),

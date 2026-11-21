@@ -54,4 +54,32 @@ describe("createScoutPlanOverlay", () => {
     expect(rings.count).toBe(3);
     overlay.dispose();
   });
+
+  // Player review 2026-11-21: the bright marker alone read as one more stop.
+  it("puts the drone's own badge over it while it flies, and takes it away once it lands", () => {
+    const state = createInitialState();
+    state.scoutDroneFlight = { launchedAt: 0, landsAt: 9_000, targetX: 13, targetY: 10, turnIndex: 3, endReason: "TARGET", steps: [10, 11, 12, 13, 12, 11, 10].map((x, i) => ({ x, y: 10, at: i * 1_500 })) };
+    const scene = new Scene();
+    const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
+    overlay.sync(2_000);
+    expect(scene.getObjectByName("scout-drone-badge")!.visible).toBe(true);
+    overlay.sync(9_500);
+    expect(scene.getObjectByName("scout-drone-badge")!.visible).toBe(false);
+    overlay.dispose();
+    expect(scene.getObjectByName("scout-drone-badge")).toBeUndefined();
+  });
+
+  // Review 2026-11-21: a route crossing a later stop's tile on an earlier leg hid that stop too soon.
+  it("keeps a later stop numbered when an earlier leg crosses its tile", () => {
+    const state = createInitialState();
+    // Out 10 -> 14 (stop 1 at 14), back to 12 (stop 2 at 12), home. Tile 12 is crossed on leg 1 first.
+    const xs = [10, 11, 12, 13, 14, 13, 12, 11, 10];
+    state.scoutDroneFlight = { launchedAt: 0, landsAt: 12_000, targetX: 12, targetY: 10, turnIndex: 6, endReason: "TARGET", waypoints: [{ x: 14, y: 10 }, { x: 12, y: 10 }], steps: xs.map((x, i) => ({ x, y: 10, at: i * 1_500 })) };
+    const scene = new Scene();
+    const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
+    overlay.sync(4_000); // past tile 12 on the way out, before stop 1
+    const numbers = scene.getObjectByName("scout-drone-stop-numbers")!;
+    expect(numbers.children.filter((sprite) => sprite.visible)).toHaveLength(2);
+    overlay.dispose();
+  });
 });

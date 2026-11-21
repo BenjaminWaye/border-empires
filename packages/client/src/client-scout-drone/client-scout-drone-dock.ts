@@ -6,7 +6,7 @@
 // It must fit a 375px phone (owner, 2026-11-21: eight pips overflowed it).
 import { nextScoutChargeAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
 import "./client-scout-drone-dock.css";
 
@@ -29,8 +29,10 @@ export const scoutClock = (ms: number): string => {
   if (total < 60) return `${total}s`;
   const minutes = Math.floor(total / 60);
   if (minutes < 10) return `${minutes}m ${String(total % 60).padStart(2, "0")}s`;
-  if (minutes < 60) return `${Math.ceil(total / 60)}m`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+  // Whole minutes round up, so 59m 30s reads "1h 00m", never "60m" (review 2026-11-21).
+  const wholeMinutes = Math.ceil(total / 60);
+  if (wholeMinutes < 60) return `${wholeMinutes}m`;
+  return `${Math.floor(wholeMinutes / 60)}h ${String(wholeMinutes % 60).padStart(2, "0")}m`;
 };
 
 /** Charges still free to place as stops: the one number the dock shows. */
@@ -62,7 +64,7 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const flightMs = preview?.flight ? preview.flight.landsAt - nowMs : 0;
   const noCharges = scoutChargesReady(state, nowMs) === 0 && plan.stops.length === 0;
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
-  const base = { count: `${DRONE_SVG}<b>${left}</b>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
+  const base = { count: `${DRONE_SVG}<b>${left}</b><small>/${scoutChargesMax(state)}</small>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
   // With the drone already out the stops join its route, so the button says Add, not Go (player review 2026-11-21).
   // An empty plan says what to do: the one place the dock spends words (player review 2026-11-21).

@@ -37,6 +37,7 @@ describe("scout drone dock", () => {
     renderScoutDroneDock(state, deps);
     expect(scoutDockChargesLeft(state, 1_000)).toBe(5);
     expect(document.querySelector("#scout-drone-dock .sd-count b")?.textContent).toBe("5");
+    expect(document.querySelector("#scout-drone-dock .sd-count small")?.textContent).toBe("/8");
     expect(document.querySelectorAll("#scout-drone-dock .sd-pip")).toHaveLength(0);
   });
 });

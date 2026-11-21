@@ -130,6 +130,14 @@ describe("handleScoutDroneMessage", () => {
     expect(state.scoutDroneReport?.explored).toBe(40);
   });
 
+  it("prefers the server's count of tiles the drone saw", () => {
+    const state = { ...stateWith(), discoveredTiles: new Set(["1,1"]) };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], tilesSeen: 311 };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneReport?.explored).toBe(311);
+  });
+
   it("ignores other messages", () => {
     expect(handleScoutDroneMessage({ type: "ISLAND_NAMES" }, stateWith(), vi.fn(), vi.fn())).toBe(false);
   });

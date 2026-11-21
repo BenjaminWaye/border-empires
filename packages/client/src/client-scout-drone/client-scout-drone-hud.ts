@@ -18,8 +18,8 @@ import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
 import "./client-scout-drone-hud.css";
 
 export type ScoutHudDeps = ScoutDockDeps & {
-  /** Centres the camera on a tile (focusCameraOnTile). */
-  readonly focus: (x: number, y: number) => void;
+  /** Centres the camera on a tile (focusCameraOnTile); `select: false` leaves the selection alone. */
+  readonly focus: (x: number, y: number, options?: { select?: boolean }) => void;
 };
 
 const PILL_ID = "scout-drone-pill";
@@ -41,29 +41,32 @@ const FIND_LABEL: Record<ScoutFindKind, string> = {
   defense: "Defense"
 };
 
+/** "Town" -> "Towns" past one ("2 Waystation" read as a typo, review 2026-11-21). */
+const plural = (label: string, count: number): string => (count === 1 ? label : `${label}s`);
+
 /** "FISH" -> "Fish", "Luxury Biota" stays. */
 const titleCase = (text: string): string => text.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
 const escapeHtml = (text: string): string => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** The report's finds as chips, most valuable first. Resources show their own icons, up to three. */
+/** The report's finds as chips: tiles explored, then the most valuable finds first, each resource on its own. */
 export const scoutReportChips = (report: ScoutDroneLandingReport): Chip[] => {
   const chips: Chip[] = [];
   // Every flight uncovers map, so the card always has something to show, even on open sea (review 2026-11-21).
   if (report.explored) chips.push({ kind: "explored", count: report.explored, label: FIND_LABEL.explored });
-  if (report.towns > 0) chips.push({ kind: "town", count: report.towns, label: FIND_LABEL.town });
-  if (report.docks > 0) chips.push({ kind: "dock", count: report.docks, label: FIND_LABEL.dock });
-  if (report.waystations > 0) chips.push({ kind: "waystation", count: report.waystations, label: FIND_LABEL.waystation });
-  if (report.watchtowers > 0) chips.push({ kind: "watchtower", count: report.watchtowers, label: FIND_LABEL.watchtower });
-  // Resources with their own icon get a chip each (up to three); the rest share one gem chip, since
-  // a resource with no icon fell back to a bare dot.
+  if (report.towns > 0) chips.push({ kind: "town", count: report.towns, label: plural(FIND_LABEL.town, report.towns) });
+  if (report.docks > 0) chips.push({ kind: "dock", count: report.docks, label: plural(FIND_LABEL.dock, report.docks) });
+  if (report.waystations > 0) chips.push({ kind: "waystation", count: report.waystations, label: plural(FIND_LABEL.waystation, report.waystations) });
+  if (report.watchtowers > 0) chips.push({ kind: "watchtower", count: report.watchtowers, label: plural(FIND_LABEL.watchtower, report.watchtowers) });
+  // Each resource sighted gets its own chip, named, so no count is a vague catch-all (review 2026-11-21);
+  // a resource without its own icon shows the gem. Older servers send only a total.
   const sighted = report.resourcesSighted ?? [];
-  const iconed = sighted.filter(({ resource }) => isResourceIconKey(resource)).slice(0, 3);
-  for (const { resource, count } of iconed) chips.push({ kind: "resource-icon", count, label: titleCase(resourceLabel(resource)), html: resourceIconHtml(resource) });
-  const shownTiles = iconed.reduce((sum, { count }) => sum + count, 0);
-  const otherTiles = sighted.length > 0 ? sighted.reduce((sum, { count }) => sum + count, 0) - shownTiles : report.resourceTiles;
-  if (otherTiles > 0) chips.push({ kind: "resource", count: otherTiles, label: FIND_LABEL.resource });
-  if (report.empiresSighted.length > 0) chips.push({ kind: "empire", count: report.empiresSighted.length, label: FIND_LABEL.empire, tone: "warn" });
+  for (const { resource, count } of sighted.slice(0, 4)) {
+    const label = titleCase(resourceLabel(resource));
+    chips.push(isResourceIconKey(resource) ? { kind: "resource-icon", count, label, html: resourceIconHtml(resource) } : { kind: "resource", count, label });
+  }
+  if (sighted.length === 0 && report.resourceTiles > 0) chips.push({ kind: "resource", count: report.resourceTiles, label: FIND_LABEL.resource });
+  if (report.empiresSighted.length > 0) chips.push({ kind: "empire", count: report.empiresSighted.length, label: plural(FIND_LABEL.empire, report.empiresSighted.length), tone: "warn" });
   if (report.planetaryDefenseTiles > 0) chips.push({ kind: "defense", count: report.planetaryDefenseTiles, label: FIND_LABEL.defense, tone: "warn" });
   return chips;
 };
@@ -85,13 +88,15 @@ const reportCardHtml = (report: ScoutDroneLandingReport, nameOf: (id: string) =>
   const chips = scoutReportChips(report);
   // Show frames the server's main find, the first find chip (the explored count is not a place).
   const main = chips.find((chip) => chip.kind !== "explored");
+  // The server frames its own pick of resource tile, which need not be the first resource chip: no icon then.
+  const showIcon = main && main.kind !== "resource-icon" && main.kind !== "resource" ? SCOUT_FIND_ICONS[main.kind] : "";
   const body = chips.length > 0 ? chips.map(chipHtml).join("") : `<span class="srs-empty">Nothing new</span>`;
   const turned = report.blockedBy ? `<span class="srs-turned">⟲ ${escapeHtml(nameOf(report.blockedBy))}</span>` : "";
   return `
     <div class="srs-card${chips.length > 0 ? " has-finds" : ""}" role="status">
       <span class="srs-drone" aria-hidden="true">${SCOUT_DRONE_ICON}</span>
       <div class="srs-finds">${body}${turned}</div>
-      ${main ? `<button type="button" class="srs-show" aria-label="Show on map"><span class="srs-show-icon" aria-hidden="true">${main.kind === "resource-icon" ? main.html ?? "" : SCOUT_FIND_ICONS[main.kind]}</span>Show</button>` : ""}
+      ${main ? `<button type="button" class="srs-show" aria-label="Show on map">${showIcon ? `<span class="srs-show-icon" aria-hidden="true">${showIcon}</span>` : ""}Show</button>` : ""}
       <button type="button" class="srs-close" aria-label="Close">✕</button>
     </div>`;
 };
@@ -135,6 +140,12 @@ let current: { state: ClientState; deps: ScoutHudDeps } | undefined;
  */
 export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boolean =>
   !state.scoutDronePicking.active &&
+  // Never while another map pick is armed: one armed pick at a time (client-scout-drone-picking.ts).
+  !state.crystalTargeting.active &&
+  !state.aetherWallTargeting.active &&
+  !state.marchOriginPicking.active &&
+  !state.musterMarchTargeting.active &&
+  !state.buildingPlacement.active &&
   !(state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) &&
   canPlanScoutFlight(state) &&
   scoutChargesReady(state, nowMs) >= scoutChargesMax(state);
@@ -158,7 +169,8 @@ const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardU
       const air = live.state.scoutDroneFlight;
       if (air && now < air.landsAt) {
         const at = scoutDronePositionAt(air, now, WORLD_WIDTH, WORLD_HEIGHT);
-        if (at) live.deps.focus(Math.round(at.x), Math.round(at.y));
+        // Frames the drone without selecting the fog tile under it, whose sheet would cover the drone.
+        if (at) live.deps.focus(Math.round(at.x), Math.round(at.y), { select: false });
         return;
       }
       live.state.scoutDronePicking = { ...live.state.scoutDronePicking, active: true, stops: [] };
@@ -168,7 +180,7 @@ const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardU
   const button = el.querySelector("button") as HTMLButtonElement;
   button.classList.toggle("is-ready", ready);
   el.classList.toggle("is-offer", ready);
-  button.setAttribute("aria-label", ready ? "Send the scout drone" : "Find the scout drone");
+  button.setAttribute("aria-label", ready ? `Explore: send the scout drone, ${scoutChargesReady(state, nowMs)} charges` : `Find the scout drone, back in ${scoutClock(flight!.landsAt - nowMs)}`);
   el.style.display = "flex";
   const time = el.querySelector(".sdp-time")!;
   const text = ready ? String(scoutChargesReady(state, nowMs)) : scoutClock(flight!.landsAt - nowMs);
@@ -217,8 +229,11 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
   const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
   const offering = pill && scoutDroneReadyToOffer(state, nowMs);
-  // The "drone ready" offer sits above the search lens and leaves the guide and House popups be.
-  document.body.classList.toggle("scout-focus", state.scoutDronePicking.active || (pill && !offering) || card);
+  // Planning and the report fold the guide and House popups; a flight alone does not (it can last an hour,
+  // and the guide's next step must not vanish for it). The offer leaves them be too.
+  document.body.classList.toggle("scout-focus", state.scoutDronePicking.active || card);
+  // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
+  document.body.classList.toggle("scout-flying", pill && !offering);
   // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.
   if ((pill || card) && !ticker) {
     ticker = setInterval(() => {

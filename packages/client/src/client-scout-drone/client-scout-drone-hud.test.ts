@@ -4,7 +4,7 @@ import type { ScoutDroneFlight } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { scoutClock } from "./client-scout-drone-dock.js";
-import { SCOUT_REPORT_CARD_MS, renderScoutDroneHud, scoutReportCardVisible, scoutReportChips } from "./client-scout-drone-hud.js";
+import { SCOUT_REPORT_CARD_MS, renderScoutDroneHud, scoutDroneReadyToOffer, scoutReportCardVisible, scoutReportChips } from "./client-scout-drone-hud.js";
 
 const report = { targetX: 12, targetY: 4, focusX: 15, focusY: 7, towns: 1, docks: 3, waystations: 2, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: ["rival"], at: 1_000 };
 
@@ -27,7 +27,7 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
 
   it("gives resources without an icon a shared gem chip, never a bare dot", () => {
     const withResources = { ...report, empiresSighted: [], towns: 0, docks: 0, waystations: 0, resourceTiles: 5, resourcesSighted: [{ resource: "FISH", count: 2 }, { resource: "NOT_A_RESOURCE", count: 3 }] };
-    expect(scoutReportChips(withResources).map((chip) => `${chip.kind}:${chip.count}`)).toEqual(["resource-icon:2", "resource:3"]);
+    expect(scoutReportChips(withResources).map((chip) => `${chip.kind}:${chip.count}:${chip.label}`)).toEqual(["resource-icon:2:Fish", "resource:3:Not_a_resource"]);
   });
 
   it("shows the landing report on its own card, and Show frames the find and closes it", () => {
@@ -109,7 +109,7 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
   });
 
   it("labels every report icon with one word", () => {
-    expect(scoutReportChips(report).map((chip) => chip.label)).toEqual(["Town", "Dock", "Waystation", "Empire"]);
+    expect(scoutReportChips(report).map((chip) => chip.label)).toEqual(["Town", "Docks", "Waystations", "Empire"]);
   });
 
   // The owner had the "tap here" marker on the map removed; the bottom slot offers the drone instead.
@@ -136,7 +136,34 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.getElementById("scout-drone-pill")?.style.display ?? "none").toBe("none");
   });
 
+  // Review 2026-11-21: the offer armed a plan on top of another armed pick (Aether Wall, marches, placement).
+  it("does not offer the drone while another map pick is armed", () => {
+    const state = baseState();
+    state.aetherWallTargeting = { ...state.aetherWallTargeting, active: true };
+    expect(scoutDroneReadyToOffer(state, 1_000)).toBe(false);
+  });
+
+  // Review 2026-11-21: a flight can last an hour; it must not hide the guide's next step all that time.
+  it("folds the guide while planning or reporting, but not for a flight alone", () => {
+    const state = baseState();
+    state.scoutDroneFlight = { ...flight };
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 6_000 });
+    expect(document.body.classList.contains("scout-focus")).toBe(false);
+    expect(document.body.classList.contains("scout-flying")).toBe(true);
+  });
+
+  // Review 2026-11-21: finding the drone selected the fog tile under it, whose sheet then covered the drone.
+  it("frames the drone without selecting a tile", () => {
+    const state = baseState();
+    state.scoutDroneFlight = { ...flight };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 6_000 });
+    (document.querySelector("#scout-drone-pill button") as HTMLButtonElement).click();
+    expect(focus).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), { select: false });
+  });
+
   it("puts units on dock times, short enough for a phone", () => {
+    expect(scoutClock(3_570_000)).toBe("1h 00m"); // review 2026-11-21: read "60m"
     expect(scoutClock(48_000)).toBe("48s");
     expect(scoutClock(207_000)).toBe("3m 27s");
     expect(scoutClock(762_000)).toBe("13m");

@@ -311,8 +311,9 @@ time); a pill with the time left while the drone flies (tap to frame it); and a
 report card after landing, led by "+N Tiles", icons with counts and one word each,
 above every other popup. Planning, flying and reporting fold the guide card and hide the House
 speech bubble. In true-3D the route glows before launch with numbered stops, a pulled-back stop
-keeps its ring and gains a thin outer limit ring, the rest of the route
-stays drawn in flight with a marker under the drone, and the main find gets a
+keeps its ring and gains a thin outer limit ring (a fading line shows the cut for a
+moment after the tap), the rest of the route
+stays drawn in flight with a marker and a drone badge over the drone, and the main find gets a
 short gold burst on landing. No "tap here" marker on the map (owner removed it)
 and no label over the 3D drone. The 2D map shows the bottom slot only (owner: 3D
 is the focus). Three first-time player profiles reviewed each round

@@ -9,7 +9,8 @@
   z-index: 40;
 }
 
-/* The report is the reward: above every other popup, the guide included. */
+/* The report is the reward: above tips, cards and the folded guide (z 30-40), but under full-screen
+   screens and sheets (z 44 and up), which it covered while they were open (review 2026-11-21). */
 #scout-report-card {
   position: fixed;
   left: 50%;
@@ -17,7 +18,7 @@
   transform: translateX(-50%);
   display: none;
   pointer-events: auto;
-  z-index: 70;
+  z-index: 42;
   max-width: calc(100vw - 24px);
 }
 
@@ -216,7 +217,7 @@ body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: bord
 body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 calc(100% - 44px); gap: 8px 14px; }
 body.hud-v2-compact #scout-report-card .srs-show { margin-left: auto; }
 
-/* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
+/* While planning or reporting: the guide card folds to its "?" launcher and the House charges
    speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21). */
 body.scout-focus #tutorial-guide-root .tg-card { display: none !important; }
 body.scout-focus #tutorial-guide-root .tg-launcher { display: inline-flex !important; }
@@ -227,20 +228,6 @@ body.scout-focus #tutorial-guide-root .tg-badge { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   #scout-report-card .srs-card,
   #scout-report-card .srs-chip,
-  /* "Drone ready": brass, breathing, with the number of charges. */
-#scout-drone-pill .sdp-pill.is-ready {
-  border-color: rgba(242, 198, 107, 0.85);
-  background: linear-gradient(180deg, rgba(48, 36, 18, 0.95), rgba(24, 17, 9, 0.97));
-  color: #ffe7a6;
-  animation: sdp-offer 2.4s ease-in-out infinite;
-}
-
-#scout-drone-pill .sdp-pill.is-ready .sdp-drone { color: #ffd479; }
-
-/* "Explore" shows only on the offer; in flight the pill carries just the time. */
-#scout-drone-pill .sdp-word { display: none; font: 700 15px/1 "Cinzel", Georgia, serif; letter-spacing: 0.04em; }
-#scout-drone-pill .sdp-pill.is-ready .sdp-word { display: inline; }
-#scout-drone-pill .sdp-pill.is-ready .sdp-time { opacity: 0.75; font-size: 13px; }
-
-#scout-drone-pill .sdp-drone { animation: none; }
+  #scout-drone-pill .sdp-pill.is-ready,
+  #scout-drone-pill .sdp-drone { animation: none; }
 }
