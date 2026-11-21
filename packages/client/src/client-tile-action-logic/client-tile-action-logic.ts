@@ -1,5 +1,5 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
-import { OUT_OF_REACH_LABEL, frontierBuildBlockedByReach, RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
+import { OUT_OF_REACH_LABEL, frontierBuildBlockedByReach, RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, INCUBATION_ENGINE_INSTANT_POPULATION_BURST } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { supportPlacementBlockedReason } from "./client-town-tile-support-gate.js";
 import { structureCommandActions } from "../client-structure-command-actions.js";
@@ -1091,7 +1091,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("pottery")
                   ? "Requires Kiln Craft"
                   : missingResourceSlotReason(state, "INCUBATION_ENGINE") ?? "Unavailable",
-            `${deps.structureCostText("INCUBATION_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "INCUBATION_ENGINE"))} • +10,000 population burst on completion (one-time)${upkeepSuffixFor("INCUBATION_ENGINE")}`
+            `${deps.structureCostText("INCUBATION_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "INCUBATION_ENGINE"))} • +${INCUBATION_ENGINE_INSTANT_POPULATION_BURST.toLocaleString("en-US")} population burst on completion (one-time)${upkeepSuffixFor("INCUBATION_ENGINE")}`
           )
         )
       });
