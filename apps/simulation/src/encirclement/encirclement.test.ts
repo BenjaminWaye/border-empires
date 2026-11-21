@@ -264,7 +264,9 @@ describe("encirclement attack guard", () => {
             frontierDecayKind: "ENCIRCLEMENT"
           },
           // player-2 target
-          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // Distant settled land keeps player-1 alive when the cut-off origin decays.
+          { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
@@ -360,7 +362,9 @@ describe("encirclement attack guard", () => {
         frontierDecayKind: "ENCIRCLEMENT"
       },
       // neutral target adjacent to origin
-      { x: 11, y: 10, terrain: "LAND" }
+      { x: 11, y: 10, terrain: "LAND" },
+      // Distant settled land keeps player-1 alive when the cut-off origin decays.
+      { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
     ]);
     const events: SimulationEvent[] = [];
     runtime.onEvent((e) => events.push(e));
