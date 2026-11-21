@@ -3,7 +3,10 @@ import { SCOUT_DRONE_MAX_STOPS, WORLD_HEIGHT, WORLD_WIDTH, scoutDroneLeg, scoutD
 import type { ClientState } from "../client-state/client-state.js";
 import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
-import { createScoutDroneBadge, createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
+import { createScoutDroneBadge, createScoutFindPin, createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
+import { createScoutFindPopLayer } from "./client-map-3d-scout-drone-find-pops.js";
+import { scoutReportCardVisible } from "../client-scout-drone/client-scout-drone-hud.js";
+import { SCOUT_FIND_POP_MS } from "../client-scout-drone/client-scout-drone-finds.js";
 import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
 
 // The planned scout flight in the true-3D map (docs/explore-scout-plan.md §13), drawn while the
@@ -92,6 +95,8 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   scene.add(group);
   const numbers = createScoutStopNumbers(scene, SCOUT_DRONE_MAX_STOPS * 2);
   const droneBadge = createScoutDroneBadge(scene);
+  const findPin = createScoutFindPin(scene);
+  const findPops = createScoutFindPopLayer(scene, deps.sceneFor);
 
   const matrix = new Matrix4();
   const a: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
@@ -186,6 +191,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     ringCount = 0;
     numbers.begin();
     droneBadge.hide();
+    findPin.hide();
     const flying = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs;
     if (plan.active) {
       rebuildRoute(state, nowMs);
@@ -254,6 +260,22 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
         droneBadge.place(a.sceneX, a.surfaceY + RISE, a.sceneZ);
       }
     }
+    // What the drone spots as it flies pops over the map, with a quick gold ring on the spot (client-scout-drone-finds.ts).
+    // Expired pops leave the list, so an idle map does no pop work at all.
+    if (state.scoutFindPops.length > 0 && state.scoutFindPops.every((pop) => nowMs - pop.at >= SCOUT_FIND_POP_MS)) state.scoutFindPops = [];
+    findPops.sync(state.scoutFindPops, nowMs);
+    for (const pop of state.scoutFindPops) {
+      const t = (nowMs - pop.at) / 700;
+      if (t >= 0 && t < 1) pushRing(pop, tint.copy(BRASS).multiplyScalar(1 - t), 0.8 + 0.9 * t);
+    }
+    // The find a report-card chip framed keeps a breathing gold ring while the card is up.
+    // Only while the card itself is up: the ring and pin stayed on the map after the card timed out (review 2026-11-21).
+    const focusFind = state.scoutFindFocus;
+    if (focusFind && scoutReportCardVisible(state, nowMs)) {
+      pushRing(focusFind, BRASS, 1.8 + 0.2 * Math.sin(nowMs / 240));
+      deps.sceneFor(focusFind.x, focusFind.y, a);
+      findPin.place(a.sceneX, a.surfaceY + RISE + 0.15 * Math.abs(Math.sin(nowMs / 300)), a.sceneZ);
+    }
     // The main find of a fresh landing report gets a short gold burst (player review 2026-11-21: the new
     // land felt uncovered, not discovered). No marker otherwise: the owner had the "tap here" one removed.
     const report = state.scoutDroneReport;
@@ -280,6 +302,8 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       scene.remove(group);
       numbers.dispose();
       droneBadge.dispose();
+      findPin.dispose();
+      findPops.dispose();
       beadGeometry.dispose();
       beadMaterial.dispose();
       ringGeometry.dispose();

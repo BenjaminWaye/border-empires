@@ -30,19 +30,27 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(scoutReportChips(withResources).map((chip) => `${chip.kind}:${chip.count}:${chip.label}`)).toEqual(["resource-icon:2:Fish", "resource:3:Not_a_resource"]);
   });
 
-  it("shows the landing report on its own card, and Show frames the find and closes it", () => {
+  // Review round 8: Grain (FARM) showed the gem; deposits map to their own icon.
+  it("gives a deposit its resource's icon", () => {
+    const grain = { ...report, empiresSighted: [], towns: 0, docks: 0, waystations: 0, resourceTiles: 8, resourcesSighted: [{ resource: "FARM", count: 8 }] };
+    expect(scoutReportChips(grain).map((chip) => `${chip.kind}:${chip.label}`)).toEqual(["resource-icon:Grain"]);
+  });
+
+  it("shows the landing report on its own card until it is closed", () => {
     const state = baseState();
     state.scoutDroneReport = { ...report };
-    const focus = vi.fn();
-    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 2_000 };
+    state.scoutFindFocus = { x: 1, y: 1 };
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 };
     renderScoutDroneHud(state, deps);
     const card = document.getElementById("scout-report-card")!;
     expect(card.style.display).toBe("flex");
     expect(card.querySelectorAll(".srs-chip")).toHaveLength(4);
     expect(document.body.classList.contains("scout-focus")).toBe(true);
-    (card.querySelector(".srs-show") as HTMLButtonElement).click();
-    expect(focus).toHaveBeenCalledWith(15, 7);
+    // Review round 8: Show duplicated the tappable chips; only ✕ remains.
+    expect(card.querySelector(".srs-show")).toBeNull();
+    (card.querySelector(".srs-close") as HTMLButtonElement).click();
     expect(state.scoutDroneReport).toBeUndefined();
+    expect(state.scoutFindFocus).toBeUndefined();
     renderScoutDroneHud(state, deps);
     expect(card.style.display).toBe("none");
     expect(document.body.classList.contains("scout-focus")).toBe(false);
@@ -89,23 +97,57 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.getElementById("scout-drone-pill")!.style.display).toBe("none");
   });
 
-  it("leads with the tiles explored, and Show still carries the main find's icon", () => {
+  it("leads with the tiles explored", () => {
     const state = baseState();
     state.scoutDroneReport = { ...report, explored: 142, at: 5_000 };
     renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 6_000 });
     const card = document.getElementById("scout-report-card")!;
     expect(card.querySelector(".srs-chip b")?.textContent).toBe("+142");
     expect(card.querySelector(".srs-chip-label")?.textContent).toBe("Tiles");
-    expect(card.querySelector(".srs-show-icon")?.innerHTML).toContain("M4 20V10");
   });
 
-  it("has no Show button when the flight found nothing to frame", () => {
+  it("lets a chip step the camera through that kind's finds, keeping the card open", () => {
     const state = baseState();
-    state.scoutDroneReport = { ...report, towns: 0, docks: 0, waystations: 0, empiresSighted: [], explored: 60, at: 7_000 };
-    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 7_500 });
-    const card = document.getElementById("scout-report-card")!;
-    expect(card.querySelector(".srs-show")).toBeNull();
-    expect(card.querySelector(".srs-chip-label")?.textContent).toBe("Tiles");
+    state.scoutDroneFinds = { launchedAt: 1, all: [{ kind: "town", x: 3, y: 4 }, { kind: "town", x: 8, y: 9 }] };
+    state.scoutDroneReport = { ...report, at: 20_000 };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 20_500 });
+    const town = document.querySelector<HTMLButtonElement>('#scout-report-card .srs-chip[data-find-kind="town"]')!;
+    town.click();
+    town.click();
+    town.click();
+    expect(focus.mock.calls.map((call) => [call[0], call[1]])).toEqual([[3, 4], [8, 9], [3, 4]]);
+    expect(state.scoutDroneReport).toBeDefined();
+    expect(state.scoutFindFocus).toEqual({ x: 3, y: 4 });
+    // Docks were reported but never spotted mid-flight (older server): that chip stays plain.
+    expect(document.querySelector('#scout-report-card button.srs-chip[data-find-kind="dock"]')).toBeNull();
+  });
+
+  // Review 2026-11-21: with Show gone, a reload (no SCOUT_FINDS kept) left nothing to tap; the main find's chip
+  // falls back to the server's focus.
+  it("frames the server's main find from its chip when no finds were spotted on this client", () => {
+    const state = baseState();
+    state.scoutDroneFinds = undefined;
+    state.scoutDroneReport = { ...report, at: 30_000 };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 30_500 });
+    const town = document.querySelector<HTMLButtonElement>('#scout-report-card .srs-chip[data-find-kind="town"]')!;
+    town.click();
+    expect(focus).toHaveBeenCalledWith(15, 7, { select: false });
+    expect(document.querySelector('#scout-report-card button.srs-chip[data-find-kind="dock"]')).toBeNull();
+  });
+
+  it("steps through the report's own sites when no finds were spotted on this client", () => {
+    const state = baseState();
+    state.scoutDroneFinds = undefined;
+    const sites = { towns: [], docks: [{ x: 40, y: 41 }, { x: 42, y: 43 }], waystations: [], watchtowers: [], planetaryDefense: [], resources: {}, empires: {} };
+    state.scoutDroneReport = { ...report, sites, at: 40_000 };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 40_500 });
+    const dock = document.querySelector<HTMLButtonElement>('#scout-report-card .srs-chip[data-find-kind="dock"]')!;
+    dock.click();
+    dock.click();
+    expect(focus.mock.calls.map((call) => [call[0], call[1]])).toEqual([[40, 41], [42, 43]]);
   });
 
   it("labels every report icon with one word", () => {

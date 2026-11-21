@@ -11,12 +11,14 @@ import {
   type ScoutDroneEndReason,
   type ScoutDroneFlight,
   type ScoutDroneStep,
+  type ScoutFindingSites,
   type ScoutFindingTile,
   type ScoutReportFindings
 } from "@border-empires/shared";
 import { resourceLabel } from "../client-map-display.js";
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { FeedEntry } from "../client-types.js";
+import { createInitialScoutFindsState, handleScoutFindsMessage, parseScoutFindingSites } from "./client-scout-drone-finds.js";
 
 export const createInitialScoutDroneState = () => ({
   /** The player's drone while it is in the air (times in local clock), otherwise undefined. */
@@ -32,7 +34,11 @@ export const createInitialScoutDroneState = () => ({
   /** The last landing's report, shown as a card until dismissed, for 90 s, and not while planning or flying (client-scout-drone-hud.ts). */
   scoutDroneReport: undefined as ScoutDroneLandingReport | undefined,
   /** How many tiles the player had explored when the drone in the air launched: the report counts the new ones. */
-  scoutDroneExploredAtLaunch: undefined as number | undefined
+  scoutDroneExploredAtLaunch: undefined as number | undefined,
+  /** The flight in the air's launch time on the server's clock: identifies "the same flight" across messages. */
+  scoutDroneLaunchedAtServer: undefined as number | undefined,
+  // What the drone spots as it flies: pops over the map, and the card's chips frame them (client-scout-drone-finds.ts).
+  ...createInitialScoutFindsState()
 });
 
 /** What a landed drone found, as the report card shows it. `at` is local time of landing. */
@@ -98,6 +104,8 @@ const readScoutResourceCounts = (value: unknown): NonNullable<ScoutReportFinding
   });
 };
 
+const withSites = (sites: ScoutFindingSites | undefined): { sites?: ScoutFindingSites } => (sites ? { sites } : {});
+
 const parseScoutReport = (value: unknown): ScoutReport | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Record<string, unknown>;
@@ -114,6 +122,7 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
     ...(isFiniteNumber(raw.tilesSeen) && raw.tilesSeen > 0 ? { tilesSeen: Math.floor(raw.tilesSeen) } : {}),
+    ...withSites(parseScoutFindingSites(raw.sites)),
     ...(isFiniteNumber(raw.focusX) && isFiniteNumber(raw.focusY) ? { focusX: raw.focusX, focusY: raw.focusY } : {}),
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
   };
@@ -175,6 +184,7 @@ export const handleScoutDroneMessage = (
   toLocal: (serverTime: number) => number = serverClock.toLocal,
   nowMs: number = Date.now()
 ): boolean => {
+  if (handleScoutFindsMessage(msg, state, nowMs)) return true;
   const nameOf = (playerId: string): string => state.playerNames.get(playerId) ?? "another empire";
   // The Alerts feed is admin-only (client-feed-alert-surface.ts), so launch and report lines set
   // `alert`: a player who pressed Explore otherwise saw no drone message at all (2026-11-14 playtest).
@@ -184,8 +194,18 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
-    // A new flight: remember the explored count, so the landing card can say how much it uncovered.
-    if (next && previous?.launchedAt !== next.launchedAt && state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
+    // A new flight, judged on the server's own launch time: the local conversion moves with the clock
+    // offset, so a mid-flight message (sped up, turned, replayed on reconnect) read as a new flight and wiped
+    // its finds (review 2026-11-21). Then: remember the explored count, drop the last flight's finds unless
+    // they already belong to this one (the launch tick's SCOUT_FINDS arrive before this message), and clear
+    // the last report's framed find.
+    const serverLaunchedAt = next && msg.flight && typeof msg.flight === "object" ? (msg.flight as { launchedAt?: unknown }).launchedAt : undefined;
+    if (next && typeof serverLaunchedAt === "number" && serverLaunchedAt !== state.scoutDroneLaunchedAtServer) {
+      state.scoutDroneLaunchedAtServer = serverLaunchedAt;
+      if (state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
+      if (state.scoutDroneFinds?.launchedAt !== serverLaunchedAt) state.scoutDroneFinds = undefined;
+      state.scoutFindFocus = undefined;
+    }
     const charges = parseScoutDroneCharges(msg.charges, toLocal);
     if (charges) state.scoutDroneCharges = charges;
     // No "launched" popup: it only repeated the tap. The drone on the map, with its "Back in …"
@@ -205,6 +225,7 @@ export const handleScoutDroneMessage = (
       // discovered since launch (rougher: other reveals mix in, and a reload resets the baseline).
       const explored = report.tilesSeen ?? (baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined);
       state.scoutDroneReport = { ...report, ...(blockedBy ? { blockedBy } : {}), ...(explored ? { explored } : {}), at: nowMs };
+      state.scoutFindFocus = undefined;
       state.scoutDroneExploredAtLaunch = undefined;
     }
     renderHud();

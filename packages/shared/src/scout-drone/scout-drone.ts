@@ -27,6 +27,8 @@ export const SCOUT_SIGHTED_ALERT_COOLDOWN_MS = 60 * 60_000;
 export const SCOUT_DRONE_MESSAGE_TYPE = "SCOUT_DRONE";
 /** PLAYER_MESSAGE: a rival's drone was turned back at this player's border. */
 export const SCOUT_SIGHTED_MESSAGE_TYPE = "SCOUT_SIGHTED";
+/** PLAYER_MESSAGE: what the owner's drone just spotted, sent as it flies (not replayed). */
+export const SCOUT_FINDS_MESSAGE_TYPE = "SCOUT_FINDS";
 
 /** How the drone treats a tile on its line. */
 export type ScoutDroneTileClass =
@@ -106,6 +108,22 @@ export type ScoutDronePayload = {
   charges?: ScoutDroneCharges;
   /** Set on the landing message: what the finished flight found. */
   report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
+};
+
+/** One thing a flying drone spotted: the client pops it over the map and lets the report card frame it. */
+export type ScoutFind = {
+  kind: "town" | "dock" | "waystation" | "watchtower" | "resource" | "empire" | "defense";
+  x: number;
+  y: number;
+  /** The resource, for `kind: "resource"`. */
+  resource?: string;
+};
+
+export type ScoutFindsPayload = {
+  type: typeof SCOUT_FINDS_MESSAGE_TYPE;
+  /** The flight these belong to (its launch time, server clock). */
+  launchedAt: number;
+  finds: ScoutFind[];
 };
 
 export type ScoutSightedPayload = {

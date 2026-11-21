@@ -83,4 +83,31 @@ describe("createScoutPlanOverlay", () => {
     expect(numbers.children.filter((sprite) => sprite.visible)).toHaveLength(2);
     overlay.dispose();
   });
+
+  it("pops what the drone spots over the map, then retires the sprite", () => {
+    const state = createInitialState();
+    state.scoutFindPops = [{ id: 1, x: 12, y: 10, text: "+1 Town", at: 1_000 }];
+    const scene = new Scene();
+    const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
+    overlay.sync(1_500);
+    expect(scene.getObjectByName("scout-drone-find-pop")).toBeDefined();
+    overlay.sync(1_000 + 60_000);
+    expect(scene.getObjectByName("scout-drone-find-pop")).toBeUndefined();
+    overlay.dispose();
+  });
+
+  // Player review round 9: the ring on a framed find hid under a town's name label; a pin stands above it.
+  it("stands a pin over a find framed from the report card while the card is up", () => {
+    const state = createInitialState();
+    state.scoutFindFocus = { x: 12, y: 10 };
+    state.scoutDroneReport = { targetX: 12, targetY: 10, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], at: 0 };
+    const scene = new Scene();
+    const overlay = createScoutPlanOverlay(scene, { state, sceneFor });
+    overlay.sync(5_000);
+    expect(scene.getObjectByName("scout-drone-find-pin")!.visible).toBe(true);
+    // Review 2026-11-21: the pin outlived the card's 90 s timeout.
+    overlay.sync(91_000);
+    expect(scene.getObjectByName("scout-drone-find-pin")!.visible).toBe(false);
+    overlay.dispose();
+  });
 });

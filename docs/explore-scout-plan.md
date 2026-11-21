@@ -318,7 +318,9 @@ speech bubble. In true-3D the route glows before launch with numbered stops, a p
 keeps its ring and gains a thin outer limit ring (a fading line shows the cut for a
 moment after the tap), the rest of the route
 stays drawn in flight with a marker and a drone badge over the drone, and the main find gets a
-short gold burst on landing. No "tap here" marker on the map (owner removed it)
+short gold burst on landing. While the drone flies, what it spots pops over the map in
+gold ("+1 Town", "+3 Grain", from `SCOUT_FINDS`), and on landing each chip on the card
+steps the camera through those finds. No "tap here" marker on the map (owner removed it)
 and no label over the 3D drone. The 2D map shows the bottom slot only (owner: 3D
 is the focus). Three first-time player profiles reviewed each round
 (2026-11-21); their scores drove these changes.

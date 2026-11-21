@@ -113,4 +113,36 @@ describe("Explore in the runtime", () => {
     // persists by commandId, so a fresh id per step flooded its dedupe set.
     expect(visionBatchIds).toEqual(new Set(["scout-drone-vision:explore-2"]));
   });
+
+  // Player reviews 2026-11-21: nothing happened during a 2-3 minute flight until the landing report.
+  // What the drone spots is sent as it flies, under one commandId per flight.
+  it("sends what the drone spots while it flies, once per find", async () => {
+    let now = 1_000;
+    const tiles = worldTiles().map((tile) => (tile.x === 25 && tile.y === 20 ? { ...tile, town: { type: "SETTLEMENT", populationTier: "SETTLEMENT" } as unknown as DomainTileState["town"] } : tile));
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([["player-1", humanPlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const finds: Array<{ commandId: string; payload: Record<string, unknown> }> = [];
+    let flight: ScoutDronePayload["flight"] = null;
+    runtime.onEvent((event) => {
+      if (event.eventType !== "PLAYER_MESSAGE") return;
+      if (event.messageType === "SCOUT_FINDS") finds.push({ commandId: event.commandId, payload: JSON.parse(event.payloadJson) });
+      if (event.messageType === "SCOUT_DRONE" && !flight) flight = (JSON.parse(event.payloadJson) as ScoutDronePayload).flight;
+    });
+    runtime.submitCommand({ commandId: "explore-3", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: now, type: "EXPLORE", payloadJson: JSON.stringify({ x: 34, y: 20 }) });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const steps = flight!.steps;
+    // Step by step to the landing, so every tick sees only what is new.
+    for (const step of steps) {
+      now = step.at;
+      runtime.tickWatchtowerReveals(now);
+    }
+    const towns = finds.flatMap((find) => (find.payload.finds as Array<{ kind: string; x: number; y: number }>).filter((f) => f.kind === "town"));
+    expect(towns).toEqual([{ kind: "town", x: 25, y: 20 }]);
+    expect(new Set(finds.map((find) => find.commandId))).toEqual(new Set(["scout-finds:explore-3"]));
+    expect(finds[0]!.payload).toMatchObject({ type: "SCOUT_FINDS", launchedAt: flight!.launchedAt });
+  });
 });
