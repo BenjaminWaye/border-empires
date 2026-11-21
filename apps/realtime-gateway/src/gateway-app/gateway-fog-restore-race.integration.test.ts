@@ -28,7 +28,7 @@ describe("gateway fog restore race", () => {
     while (cleanup.length > 0) await cleanup.pop()?.();
   });
 
-  it("does not re-reveal the map when a live refresh resolves after fog was restored", async () => {
+  const startRevealedAdmin = async (options: { failRestore?: boolean } = {}) => {
     let emit: ((event: SimulationClientEvent) => void) | undefined;
     const fullVisibilityCalls: Array<ReturnType<typeof deferred<Snapshot>>> = [];
     const app = await createRealtimeGatewayApp({
@@ -43,7 +43,8 @@ describe("gateway fog restore race", () => {
         preparePlayer: async (playerId: string) => ({ playerId, spawned: false }),
         submitCommand: async () => undefined,
         subscribePlayer: async (playerId: string, json?: string) => {
-          const request = JSON.parse(json ?? "{}") as { fullVisibility?: boolean };
+          const request = JSON.parse(json ?? "{}") as { fullVisibility?: boolean; trigger?: string };
+          if (request.trigger === "gateway_fog_restore" && options.failRestore === true) throw new Error("subscribe timed out");
           if (request.fullVisibility !== true) return { playerId, tiles: foggedTiles };
           const call = deferred<Snapshot>();
           fullVisibilityCalls.push(call);
@@ -52,9 +53,9 @@ describe("gateway fog restore race", () => {
         unsubscribePlayer: async () => undefined,
         getSubscriptionNamespace: async () => "1",
         ping: async () => undefined,
-        streamEvents: (listener: (event: SimulationClientEvent) => void, options?: { onConnect?: () => void }) => {
+        streamEvents: (listener: (event: SimulationClientEvent) => void, opts?: { onConnect?: () => void }) => {
           emit = listener;
-          options?.onConnect?.();
+          opts?.onConnect?.();
           return () => undefined;
         }
       } as never
@@ -68,10 +69,12 @@ describe("gateway fog restore race", () => {
     client.socket.addEventListener("message", (event: { data: string }) => {
       received.push(JSON.parse(event.data) as Record<string, unknown>);
     });
-    const waitFor = (label: string, predicate: (message: Record<string, unknown>) => boolean): Promise<void> =>
+    const poll = (label: string, ready: () => boolean): Promise<void> =>
       withTimeout(label, (async () => {
-        while (!received.some(predicate)) await new Promise((r) => setTimeout(r, 10));
+        while (!ready()) await new Promise((r) => setTimeout(r, 10));
       })());
+    const waitFor = (label: string, predicate: (message: Record<string, unknown>) => boolean): Promise<void> =>
+      poll(label, () => received.some(predicate));
 
     client.socket.send(JSON.stringify({
       type: "AUTH",
@@ -80,15 +83,21 @@ describe("gateway fog restore race", () => {
     await waitFor("init", (message) => message.type === "INIT");
     const playerId = String((received.find((message) => message.type === "INIT") as { player?: { id?: string } }).player?.id ?? "player-1");
 
-    // Reveal the map.
     client.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: true }));
-    await withTimeout("reveal subscribe", (async () => { while (fullVisibilityCalls.length < 1) await new Promise((r) => setTimeout(r, 10)); })());
+    await poll("reveal subscribe", () => fullVisibilityCalls.length >= 1);
     fullVisibilityCalls[0]!.resolve({ playerId, tiles: revealedTiles });
     await waitFor("fog disabled", (message) => message.type === "FOG_UPDATE" && message.fogDisabled === true);
+    const worldChange = (commandId: string): void =>
+      emit?.({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [{ x: 0, y: 0 }] } as SimulationClientEvent);
+    return { client, received, fullVisibilityCalls, playerId, poll, waitFor, worldChange };
+  };
+
+  it("does not re-reveal the map when a live refresh resolves after fog was restored", async () => {
+    const { client, received, fullVisibilityCalls, playerId, poll, waitFor, worldChange } = await startRevealedAdmin();
 
     // A world change starts a slow full-visibility live refresh.
-    emit?.({ eventType: "TILE_DELTA_BATCH", commandId: "world-change-1", playerId, tileDeltas: [{ x: 0, y: 0 }] } as SimulationClientEvent);
-    await withTimeout("live refresh subscribe", (async () => { while (fullVisibilityCalls.length < 2) await new Promise((r) => setTimeout(r, 10)); })());
+    worldChange("world-change-1");
+    await poll("live refresh subscribe", () => fullVisibilityCalls.length >= 2);
 
     // Restore fog while that refresh is still in flight.
     client.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: false }));
@@ -99,7 +108,7 @@ describe("gateway fog restore race", () => {
     fullVisibilityCalls[1]!.resolve({ playerId, tiles: revealedTiles });
     await new Promise((r) => setTimeout(r, 150));
     // Another world change must not start a new full-world resubscribe.
-    emit?.({ eventType: "TILE_DELTA_BATCH", commandId: "world-change-2", playerId, tileDeltas: [{ x: 0, y: 0 }] } as SimulationClientEvent);
+    worldChange("world-change-2");
     await new Promise((r) => setTimeout(r, 150));
 
     const afterRestore = received.slice(restoredAt);
@@ -108,5 +117,20 @@ describe("gateway fog restore race", () => {
       afterRestore.filter((message) => message.type === "TILE_SNAPSHOT_REPLACE" && Array.isArray(message.tiles) && message.tiles.length === revealedTiles.length)
     ).toEqual([]);
     expect(fullVisibilityCalls).toHaveLength(2);
+  });
+
+  it("keeps the map revealed and in sync when the restore snapshot fails", async () => {
+    const { client, received, fullVisibilityCalls, playerId, poll, waitFor, worldChange } = await startRevealedAdmin({ failRestore: true });
+
+    client.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: false }));
+    await waitFor("restore error", (message) => message.type === "ERROR" && message.code === "SIMULATION_UNAVAILABLE");
+    // The client never got FOG_UPDATE false, so it still shows the revealed map. The
+    // server must agree: a world change refreshes the full-world view (not a
+    // fogged delta merged into the stale revealed snapshot).
+    expect(received.some((message) => message.type === "FOG_UPDATE" && message.fogDisabled === false)).toBe(false);
+    worldChange("world-change-after-failed-restore");
+    await poll("full-visibility refresh after failed restore", () => fullVisibilityCalls.length >= 2);
+    fullVisibilityCalls[1]!.resolve({ playerId, tiles: revealedTiles });
+    expect(received.some((message) => message.type === "TILE_DELTA_BATCH")).toBe(false);
   });
 });

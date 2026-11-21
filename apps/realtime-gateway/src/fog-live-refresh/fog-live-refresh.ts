@@ -23,7 +23,6 @@ export type FogIntentTracker = {
   bump: (playerId: string) => number;
   current: (playerId: string) => number;
   isCurrent: (playerId: string, generation: number) => boolean;
-  forget: (playerId: string) => void;
 };
 
 export const createFogIntentTracker = (): FogIntentTracker => {
@@ -36,10 +35,9 @@ export const createFogIntentTracker = (): FogIntentTracker => {
       return next;
     },
     current,
-    isCurrent: (playerId, generation) => current(playerId) === generation,
-    forget: (playerId) => {
-      generationByPlayerId.delete(playerId);
-    }
+    // Entries are never deleted (one small number per fog admin): resetting a
+    // counter to 0 could make a refresh captured before the reset look current.
+    isCurrent: (playerId, generation) => current(playerId) === generation
   };
 };
 
@@ -110,5 +108,37 @@ export const createFogLiveRefreshScheduler = (deps: FogLiveRefreshSchedulerDeps)
       lastFinishedAtByPlayerId.delete(playerId);
     },
     inflight: (playerId) => inflightByPlayerId.get(playerId)
+  };
+};
+
+export const DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS = 15_000;
+
+/** Option wins over env; a non-numeric env value falls back to the default instead of NaN (which would disable pacing). */
+export const resolveFogLiveRefreshMinGapMs = (option: number | undefined, envValue: string | undefined): number => {
+  const fromEnv = Number(envValue ?? DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS);
+  return Math.max(0, option ?? (Number.isFinite(fromEnv) ? fromEnv : DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS));
+};
+
+/**
+ * Marks every socket of the player fog-restored and returns an undo that puts back each
+ * socket's previous fogDisabled value — for when the restore snapshot then fails, so the
+ * server keeps agreeing with clients that never received FOG_UPDATE false.
+ */
+export const clearFogDisabledForRestore = <Socket, Session extends { fogDisabled: boolean }>(
+  sockets: Iterable<Socket>,
+  sessionFor: (socket: Socket) => Session | undefined
+): (() => void) => {
+  const previous = new Map<Socket, boolean>();
+  for (const socket of sockets) {
+    const session = sessionFor(socket);
+    if (!session) continue;
+    previous.set(socket, session.fogDisabled);
+    session.fogDisabled = false;
+  }
+  return () => {
+    for (const [socket, fogDisabled] of previous) {
+      const session = sessionFor(socket);
+      if (session) session.fogDisabled = fogDisabled;
+    }
   };
 };

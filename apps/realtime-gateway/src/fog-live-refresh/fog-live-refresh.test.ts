@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFogIntentTracker, createFogLiveRefreshScheduler, type FogLiveRefreshSchedulerDeps } from "./fog-live-refresh.js";
+import { clearFogDisabledForRestore, createFogIntentTracker, createFogLiveRefreshScheduler, resolveFogLiveRefreshMinGapMs, type FogLiveRefreshSchedulerDeps } from "./fog-live-refresh.js";
 
 const deferred = (): { promise: Promise<void>; resolve: () => void } => {
   let resolve!: () => void;
@@ -85,5 +85,23 @@ describe("fog live refresh scheduler", () => {
     expect(onRefreshFailed).toHaveBeenCalledTimes(2);
     expect(h.sleeps).toEqual([15_000]);
     expect(scheduler.inflight("p1")).toBeUndefined();
+  });
+});
+
+describe("fog live refresh helpers", () => {
+  it("never lets a bad env value disable pacing", () => {
+    expect(resolveFogLiveRefreshMinGapMs(undefined, undefined)).toBe(15_000);
+    expect(resolveFogLiveRefreshMinGapMs(undefined, "abc")).toBe(15_000);
+    expect(resolveFogLiveRefreshMinGapMs(undefined, "5000")).toBe(5_000);
+    expect(resolveFogLiveRefreshMinGapMs(0, "abc")).toBe(0);
+    expect(resolveFogLiveRefreshMinGapMs(undefined, "-1")).toBe(0);
+  });
+
+  it("clears fogDisabled on every socket and can restore each previous value", () => {
+    const sessions = new Map([["a", { fogDisabled: true }], ["b", { fogDisabled: false }]]);
+    const undo = clearFogDisabledForRestore(["a", "b", "gone"], (socket) => sessions.get(socket));
+    expect([...sessions.values()].map((s) => s.fogDisabled)).toEqual([false, false]);
+    undo();
+    expect([...sessions.values()].map((s) => s.fogDisabled)).toEqual([true, false]);
   });
 });

@@ -114,7 +114,7 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
-import { createFogIntentTracker, createFogLiveRefreshScheduler } from "../fog-live-refresh/fog-live-refresh.js";
+import { clearFogDisabledForRestore, createFogIntentTracker, createFogLiveRefreshScheduler, resolveFogLiveRefreshMinGapMs } from "../fog-live-refresh/fog-live-refresh.js";
 import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import { createSimulationRpcRetry, resolveSimulationRpcRetryConfig } from "../simulation-rpc-retry/simulation-rpc-retry.js";
 import { createPlayerMessageReplay, isReplayedPlayerMessage } from "../player-message-replay/player-message-replay.js";
@@ -783,7 +783,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // Fog-disabled sessions get a coalesced full-world resubscribe when the world changes
   // (never inline in the per-batch handler — that starved logins in prod on 2026-05-23).
   // Pacing + stale-result rules live in fog-live-refresh.ts.
-  const FOG_LIVE_REFRESH_MIN_INTERVAL_MS = Math.max(0, options.fogLiveRefreshMinGapMs ?? Number(process.env.GATEWAY_FOG_LIVE_REFRESH_MIN_GAP_MS ?? 15_000));
+  const FOG_LIVE_REFRESH_MIN_INTERVAL_MS = resolveFogLiveRefreshMinGapMs(options.fogLiveRefreshMinGapMs, process.env.GATEWAY_FOG_LIVE_REFRESH_MIN_GAP_MS);
   const fogIntent = createFogIntentTracker();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
@@ -1243,8 +1243,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
           // Do NOT await — a full-world resubscribe inside the per-batch handler
           // blocks the gateway event loop and starves bootstrap_subscribe /
-          // live_subscribe for incoming logins. The fog admin's view will lag
-          // by at most FOG_LIVE_REFRESH_MIN_INTERVAL_MS.
+          // live_subscribe for incoming logins. The fog admin's view lags by up to
+          // FOG_LIVE_REFRESH_MIN_INTERVAL_MS plus one full-world rebuild.
           scheduleFogLiveRefresh(playerId, event.commandId);
           return;
         }
@@ -2250,15 +2250,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             const fogDisabled = message.disabled === true;
             const intentGeneration = fogIntent.bump(session.playerId);
-            if (!fogDisabled) {
-              // Stop full-world live refreshes now, not after the (slow) restore snapshot
-              // lands — even if that snapshot fails, the sim stops rebuilding the world.
-              for (const playerSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
-                const playerSession = sessionsBySocket.get(playerSocket);
-                if (playerSession) playerSession.fogDisabled = false;
-              }
-              fogLiveRefresh.cancelPending(session.playerId);
-            }
+            // Restoring stops full-world live refreshes now, not after the (slow) restore snapshot lands.
+            const undoRestore = fogDisabled ? undefined : clearFogDisabledForRestore(playerSubscriptions.socketsForPlayer(session.playerId), (s) => sessionsBySocket.get(s));
+            if (!fogDisabled) fogLiveRefresh.cancelPending(session.playerId);
             try {
               await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
                 includeFogUpdate: true,
@@ -2267,6 +2261,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 intentGeneration
               });
             } catch (error) {
+              // Clients never got FOG_UPDATE false; keep the server agreeing they are still revealed.
+              if (undoRestore && fogIntent.isCurrent(session.playerId, intentGeneration)) undoRestore();
               sendJson(socket, { type: "ERROR", code: "SIMULATION_UNAVAILABLE", message: "fog toggle temporarily unavailable" });
             }
             return;
