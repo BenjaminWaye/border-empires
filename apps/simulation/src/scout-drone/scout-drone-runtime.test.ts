@@ -155,8 +155,8 @@ describe("scout drone runtime", () => {
     h.explore(6, 10);
     const flight = h.runtime.flightFor("me")!;
     // AFC (2,10) -> 3,4 home -> 5,6 open, then straight home: each leg home is paced by the tile it
-    // flies into, so only 6 -> 5 is at scouting pace.
-    expect(flight.landsAt - flight.launchedAt).toBe(2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS + SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_HOME_STEP_MS);
+    // flies out of, so 6 -> 5 and 5 -> 4 are at scouting pace, 4 -> 3 and 3 -> 2 at home pace.
+    expect(flight.landsAt - flight.launchedAt).toBe(2 * SCOUT_DRONE_HOME_STEP_MS + 2 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
   });
 
   it("flies the player's unclaimed reach at home pace, and may target a tile in it", () => {
@@ -212,8 +212,8 @@ describe("scout drone runtime", () => {
     h.reach.set("5,10", "me");
     h.explore(5, 10);
     const flight = h.runtime.flightFor("me")!;
-    // Out: 3,4 home, 5 scouting pace; straight home into 4,3,2, all home.
-    expect(flight.landsAt - flight.launchedAt).toBe(2 * SCOUT_DRONE_HOME_STEP_MS + SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_HOME_STEP_MS);
+    // Out: 3,4 home, 5 scouting pace; home: out of 5 (Planetary Defense, scouting pace), then out of 4 and 3 (home).
+    expect(flight.landsAt - flight.launchedAt).toBe(2 * SCOUT_DRONE_HOME_STEP_MS + SCOUT_DRONE_STEP_MS + SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
   });
 
   // Owner, 2026-11-20: Planetary Defense land never blocks the drone, even on a long flight.
@@ -335,8 +335,8 @@ describe("scout drone runtime", () => {
       // Between x=6 and x=7 when recalled: it turns over x=7, the tile it was flying toward.
       expect(flight.steps[flight.turnIndex]).toMatchObject({ x: 7, y: 10, at: outAtX6 + SCOUT_DRONE_STEP_MS });
       expect(flight.steps.map((s) => s.x)).toEqual([2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2]);
-      // Straight home, each leg paced by the tile it flies into: 6 and 5 open, then 4, 3 and the AFC's 2 home.
-      expect(flight.landsAt).toBe(outAtX6 + SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_HOME_STEP_MS);
+      // Straight home, each leg paced by the tile it flies out of: out of 7, 6 and 5 (open), then 4 and 3 (home).
+      expect(flight.landsAt).toBe(outAtX6 + SCOUT_DRONE_STEP_MS + 3 * SCOUT_DRONE_STEP_MS + 2 * SCOUT_DRONE_HOME_STEP_MS);
       expect(h.runtime.flightFor("me")?.endReason).toBe("RECALLED");
       h.advanceTo(flight.landsAt);
       expect(h.runtime.flightFor("me")).toBeUndefined();

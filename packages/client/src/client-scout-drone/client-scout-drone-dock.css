@@ -172,3 +172,8 @@
 body.hud-v2-compact #scout-drone-dock {
   bottom: calc(var(--v2c-bottom) + 10px);
 }
+
+/* Taps always land on the button itself, even while its time text refreshes. */
+#scout-drone-dock button * {
+  pointer-events: none;
+}

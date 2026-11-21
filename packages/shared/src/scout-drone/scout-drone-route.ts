@@ -44,13 +44,12 @@ export const scoutDroneLeg = (from: Point, to: Point, world: ScoutDroneWorld): S
   let prev = from;
   let open = 0;
   for (const tile of scoutDroneLine(from, to, world.width, world.height).slice(1)) {
+    const home = world.classify(tile.x, tile.y).kind === "HOME";
+    // Range first: a rival border just past the leg's limit is never reached, so it must not end the route.
+    if (!home && open >= SCOUT_DRONE_MAX_LEG_TILES) return { tiles, end: prev, clamped: true };
     const wall = scoutDroneBlockAt(prev, tile, world);
     if (wall) return { tiles, end: prev, clamped: false, blocked: wall };
-    const home = world.classify(tile.x, tile.y).kind === "HOME";
-    if (!home) {
-      if (open >= SCOUT_DRONE_MAX_LEG_TILES) return { tiles, end: prev, clamped: true };
-      open += 1;
-    }
+    if (!home) open += 1;
     tiles.push({ x: tile.x, y: tile.y, stepMs: home ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
     prev = tile;
   }
@@ -83,7 +82,9 @@ const straightHome = (from: Point, launch: Point, world: ScoutDroneWorld): LegTi
   let prev = from;
   for (const tile of scoutDroneLine(from, launch, world.width, world.height).slice(1)) {
     if (scoutDroneBlockAt(prev, tile, world)) return undefined;
-    tiles.push({ x: tile.x, y: tile.y, stepMs: world.classify(tile.x, tile.y).kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
+    // Each homeward leg is paced by the tile it flies out of, as speedUpScoutDroneFlight judges
+    // return legs; pacing by the tile flown into made it re-time the flight on its first tick.
+    tiles.push({ x: tile.x, y: tile.y, stepMs: world.classify(prev.x, prev.y).kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
     prev = tile;
   }
   return tiles;
@@ -149,6 +150,7 @@ export const turnScoutDroneFlightHome = (
   const outbound = flight.steps.slice(0, Math.max(0, Math.min(turnIndex, flight.turnIndex)) + 1).map((step) => ({ ...step }));
   const turn = outbound.at(-1)!;
   const launch = flight.steps[0]!;
+  const reachedStopIndexes = stopStepIndexes(flight).map((index) => (index >= 0 && index < outbound.length ? index : -1));
   const steps: ScoutDroneStep[] = [...outbound];
   let at = Math.max(nowMs, turn.at);
   const home = straightHome(turn, launch, world);
@@ -170,6 +172,8 @@ export const turnScoutDroneFlightHome = (
     turnIndex: outbound.length - 1,
     landsAt: at,
     endReason: blocked ? "BLOCKED" : "RECALLED",
+    // Stops past the turn are abandoned: adding stops later must not bring them back.
+    ...(flight.waypoints ? { waypoints: flight.waypoints.filter((_, i) => (reachedStopIndexes[i] ?? -1) >= 0) } : {}),
     ...(blocked?.ownerId ? { blockedByPlayerId: blocked.ownerId, blockedAtX: blocked.x, blockedAtY: blocked.y } : {})
   };
 };

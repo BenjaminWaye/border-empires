@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ScoutDroneWorld } from "./scout-drone.js";
+import { speedUpScoutDroneFlight, type ScoutDroneWorld } from "./scout-drone.js";
 import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg, turnScoutDroneFlightHome, extendScoutDroneFlight } from "./scout-drone-route.js";
 import { SCOUT_DRONE_CHARGE_REFILL_MS, SCOUT_DRONE_MAX_CHARGES, nextScoutChargeAt, scoutChargesAvailable } from "./scout-drone-charges.js";
 
@@ -56,9 +56,10 @@ describe("planScoutDroneWaypointFlight", () => {
     expect(home.at(-1)).toMatchObject({ x: 2, y: 5 });
     expect(home.some((step) => step.x === 15 && step.y === 5)).toBe(false);
     expect(flight.endReason).toBe("TARGET");
-    // 1s per open tile, 0.5s over own land (x < 5).
-    const homeSteps = flight.steps.slice(1).filter((step) => step.x < 5).length;
-    expect(flight.landsAt).toBe((flight.steps.length - 1 - homeSteps) * 1000 + homeSteps * 500);
+    // 1s per open tile, 0.5s over own land (x < 5): out, a leg is paced by the tile it flies into;
+    // home, by the tile it flies out of.
+    const legMs = flight.steps.slice(1).map((step, i) => ((i + 1 <= flight.turnIndex ? step : flight.steps[i]!).x < 5 ? 500 : 1000));
+    expect(flight.landsAt).toBe(legMs.reduce((sum, ms) => sum + ms, 0));
   });
 
   it("retraces its route home when a rival border ends it", () => {
@@ -134,5 +135,35 @@ describe("extendScoutDroneFlight", () => {
   it("does nothing once landed", () => {
     const flight = base();
     expect(extendScoutDroneFlight(flight, flight.landsAt, [{ x: 15, y: 15 }], world)).toBeUndefined();
+  });
+});
+
+describe("review regressions", () => {
+  it("a rival border just past the range limit doesn't end the route", () => {
+    // Rival land from x = 31 on row 5: the first leg is pulled back at x = 30 before it.
+    const edge: ScoutDroneWorld = { width: W, height: H, classify: (x, y) => (x < 5 ? { kind: "HOME" } : y === 5 && x >= 31 ? { kind: "BLOCKED", ownerId: "rival" } : { kind: "OPEN" }) };
+    const leg = scoutDroneLeg({ x: 10, y: 5 }, { x: 60, y: 5 }, edge);
+    expect(leg).toMatchObject({ clamped: true, end: { x: 30, y: 5 } });
+    expect(leg.blocked).toBeUndefined();
+    const route = planScoutDroneRoute({ x: 10, y: 5 }, [{ x: 60, y: 5 }, { x: 30, y: 15 }], edge);
+    expect(route.stops).toEqual([{ x: 30, y: 5 }, { x: 30, y: 15 }]);
+  });
+
+  it("stops abandoned by a turn-back don't come back when stops are added", () => {
+    const flight = planScoutDroneWaypointFlight({ x: 2, y: 5 }, [{ x: 15, y: 5 }, { x: 15, y: 15 }], 0, world)!;
+    const turnAt = flight.steps.findIndex((step) => step.x === 10 && step.y === 5);
+    const recalled = turnScoutDroneFlightHome(flight, turnAt, flight.steps[turnAt]!.at, world);
+    expect(recalled.waypoints).toEqual([]);
+    const extended = extendScoutDroneFlight(recalled, flight.steps[turnAt]!.at + 10, [{ x: 10, y: 20 }], world)!;
+    expect(extended.flight.waypoints).toEqual([{ x: 10, y: 20 }]);
+  });
+
+  it("the straight flight home is paced so the speed-up check finds nothing to change", () => {
+    // An allied strip at x 8..9 mid-way home: the leg off it onto open ground must already be at the
+    // pace speedUpScoutDroneFlight would give it (it judges a return leg by the tile flown out of).
+    const strip: ScoutDroneWorld = { width: W, height: H, classify: (x) => (x < 5 || x === 8 || x === 9 ? { kind: "HOME" } : { kind: "OPEN" }) };
+    const flight = planScoutDroneWaypointFlight({ x: 2, y: 5 }, [{ x: 15, y: 5 }, { x: 15, y: 25 }], 0, strip)!;
+    const isHome = (x: number, y: number): boolean => strip.classify(x, y).kind === "HOME";
+    expect(speedUpScoutDroneFlight(flight, flight.steps[flight.turnIndex]!.at, isHome)).toBeUndefined();
   });
 });

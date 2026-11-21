@@ -1,7 +1,7 @@
 import { AdditiveBlending, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, RingGeometry, type Scene } from "three";
-import { SCOUT_DRONE_MAX_STOPS, scoutDroneLeg } from "@border-empires/shared";
+import { SCOUT_DRONE_MAX_STOPS, scoutDroneLeg, scoutDroneStepIndexAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { clientScoutWorld, ownActiveAfcs, scoutChargesReady, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
+import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutChargesReady, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { scoutHintTile } from "../client-scout-drone/client-scout-drone-hint.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
 import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
@@ -29,6 +29,19 @@ const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
 const RISE = 0.09;
 const HINT_FLIGHTS = 3;
+
+/**
+ * Everything the planned route reads. While the drone is out the new legs start where it will take
+ * them on, which moves step by step, and stops mattering once it lands (review 2026-11-21: a key
+ * without these kept drawing the route from where the drone used to be).
+ */
+export const scoutPlanRouteKey = (state: PlanSource, nowMs: number): string => {
+  const plan = state.scoutDronePicking;
+  const hover = state.hover;
+  const flying = flyingScoutDrone(state, nowMs);
+  const flyingKey = flying ? `${flying.launchedAt}:${flying.landsAt}:${scoutDroneStepIndexAt(flying, nowMs)}` : "";
+  return `${plan.stops.map((s) => `${s.x},${s.y}`).join(";")}|${hover ? `${hover.x},${hover.y}` : ""}|${state.tilesRevision}|${state.serverReachRevision}|${flyingKey}|${scoutPlanCapacity(state, nowMs)}|${state.me}|${state.allies.join(",")}`;
+};
 
 export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: PlanSource; readonly sceneFor: (x: number, y: number, out: ScoutDroneScenePoint) => void }): ScoutPlanOverlay => {
   const glow = makeGlowTexture();
@@ -72,7 +85,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   const rebuildRoute = (state: PlanSource, nowMs: number): void => {
     const plan = state.scoutDronePicking;
     const hover = state.hover;
-    const key = `${plan.stops.map((s) => `${s.x},${s.y}`).join(";")}|${hover ? `${hover.x},${hover.y}` : ""}|${state.tilesRevision}|${state.serverReachRevision}`;
+    const key = scoutPlanRouteKey(state, nowMs);
     if (key === cacheKey) return;
     cacheKey = key;
     const preview: ScoutPlanPreview | undefined = scoutPlanPreview(state, plan.stops, nowMs);
@@ -82,7 +95,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     home = flight ? flight.steps.slice(flight.turnIndex) : [];
     ghost = [];
     ghostEnd = undefined;
-    const canAdd = plan.stops.length < Math.min(SCOUT_DRONE_MAX_STOPS, scoutChargesReady(state, nowMs));
+    const canAdd = plan.stops.length < scoutPlanCapacity(state, nowMs);
     const blocked = preview?.route.legs.at(-1)?.blocked;
     const world = clientScoutWorld(state);
     if (hover && canAdd && !blocked && world.classify(hover.x, hover.y).kind !== "HOME") {
