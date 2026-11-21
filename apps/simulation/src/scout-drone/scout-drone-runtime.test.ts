@@ -173,7 +173,7 @@ describe("scout drone runtime", () => {
     h.explore(9, 10);
     const before = h.runtime.flightFor("me")!;
     const into6 = before.steps.findIndex((s) => s.x === 6);
-    const now = before.steps[into6 - 1]!.at + 750; // over x=5, heading for x=6
+    const now = before.steps[into6 - 1]!.at + 0.75 * SCOUT_DRONE_STEP_MS; // over x=5, heading for x=6
     for (const x of [5, 6, 7, 8]) h.reach.set(`${x},10`, "me");
     h.advanceTo(now);
     const after = h.runtime.flightFor("me")!;

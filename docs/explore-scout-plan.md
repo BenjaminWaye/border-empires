@@ -300,14 +300,16 @@ unlimited range and Expand To pace.
 | Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
 | Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
 | Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
-| Pace | 1s per open tile, 0.5s over home ground |
+| Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
 | Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
 | Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
-Guidance, with almost no text: the bottom dock's pips (placed cyan, ready brass,
-refilling with a clock fill), ✕ / ↶ / Go with the flight time; the next pip and Go
-pulse; the pips shake when a tap has no charge left. In true-3D the route glows on
+Guidance, with almost no text: a small bottom dock with ✕, a drone and the number
+of charges still free to place, ↶ and Go with the flight time; the count pulses until
+the first stop and shakes when a tap has no charge left, and Go pulses once armed. It
+fits a 375px phone and hides the manpower gauge and search button while planning
+(2026-11-21: the first version's eight pips overflowed a phone). In true-3D the route glows on
 the ground before launch, a pulled-back stop's ring turns brass, the leg under a
-mouse pointer shows as ghost beads, and a beacon pulses on nearby fog until the
+mouse pointer shows as ghost beads, and a soft brass glow breathes on nearby fog until the
 player has flown a few flights. The 2D map shows the dock only (owner: 3D is the
 focus).
