@@ -48,7 +48,7 @@ export type RuntimeLockResolutionContext = {
   onCaptureRevealBuilt: ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void) | undefined;
   /** Live Planetary Defense camps (a captured town/dock only founds a camp below the cap). */
   planetaryDefenseCampCount: () => number;
-  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }) => void;
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;

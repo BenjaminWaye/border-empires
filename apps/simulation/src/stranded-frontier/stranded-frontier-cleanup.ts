@@ -75,6 +75,8 @@ export function createStrandedFrontierCleanup(
     if (tileDeltas.length > 0) {
       context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas });
       incrementStrandedFrontierCounter("tilesReleased", tileDeltas.length);
+      // Losing the last stranded frontier is a wipe-out like any other.
+      context.respawnIfEliminated?.(ownerId, commandId);
     }
     return tileDeltas.length;
   };
