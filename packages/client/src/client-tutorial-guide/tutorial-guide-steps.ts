@@ -404,7 +404,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "turn-finish",
     chapter: "turn",
-    title: (i) => turnFinishTitle(i.manpower),
+    title: () => turnFinishTitle(),
     why: (i) => turnFinishWhy(i.manpower, i.hudV2 ? "Chronicle" : "Activity dashboard"),
     isDone: () => false,
     acknowledge: true

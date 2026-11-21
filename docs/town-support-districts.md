@@ -96,7 +96,7 @@ before making its visual brief:
    saved copy is dropped on boot (`legacy-structure-kind-migration.ts`).
 2. `packages/shared/src/config.ts`, simulation build-completion/population
    modules and the `game-domain/structure-modifier-catalog/` establish effects.
-   Incubation Engine grants +10,000 population once and +10% ongoing growth;
+   Incubation Engine grants +50,000 population once and +10% ongoing growth;
    FOOD is its input slot, not an output or food-efficiency effect.
 3. The lore bible establishes fiction. Current Project component descriptions
    identify the commissioned part: Orbital Array is a tracking dish, Shield
