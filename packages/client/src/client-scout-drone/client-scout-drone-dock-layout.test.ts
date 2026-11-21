@@ -9,6 +9,7 @@ const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, 
 const dockCss = read("./client-scout-drone-dock.css");
 const compactCss = read("../client-hud-v2/client-hud-v2-compact.css");
 const hudCss = read("./client-scout-drone-hud.css");
+const overlaysCss = read("../client-hud-v2/client-hud-v2-compact-overlays.css");
 
 const ruleBody = (css: string, selector: string): string => {
   const at = css.indexOf(`${selector} {`);
@@ -41,5 +42,16 @@ describe("scout drone dock on a phone", () => {
     const block = hudCss.slice(hudCss.indexOf("@media (prefers-reduced-motion: reduce)"));
     expect(block).toMatch(/#scout-report-card \.srs-card,\s*#scout-report-card \.srs-chip,\s*#scout-drone-pill \.sdp-pill\.is-ready,\s*#scout-drone-pill \.sdp-drone \{ animation: none; \}/);
     expect(block).not.toMatch(/animation: sdp-/);
+  });
+
+  // Owner screenshot 2026-11-21: in flight, the pill (z 40) sat on the First Contact tip's Center and
+  // Got it buttons, since both docked just above the tab bar. While it flies the tip stands above it.
+  it("lifts a discovery tip clear of the in-flight pill", () => {
+    const pill = ruleBody(hudCss, "body.hud-v2-compact #scout-drone-pill");
+    const pillHeight = px(ruleBody(hudCss, "#scout-drone-pill .sdp-pill"), /height:\s*(\d+)px/);
+    const pillBottom = px(pill, /bottom:\s*calc\(var\(--v2c-bottom\)\s*\+\s*(\d+)px\)/);
+    const lifted = ruleBody(overlaysCss, 'body.hud-v2-compact:has(#scout-drone-pill:not(.is-offer)[style*="flex"]) #discovery-tip-overlay');
+    const tipBottom = px(lifted, /bottom:\s*calc\(var\(--v2c-bottom\)\s*\+\s*(\d+)px\)/);
+    expect(tipBottom - (pillBottom + pillHeight)).toBeGreaterThanOrEqual(8);
   });
 });
