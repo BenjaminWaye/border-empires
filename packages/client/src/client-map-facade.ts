@@ -297,8 +297,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   };
-  const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
-    drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
+  const drawPlanetaryDefenseOverlay = (tile: Tile, px: number, py: number, size: number, wx: number, wy: number): void =>
+    drawPlanetaryDefenseOverlayOnCanvas(ctx, tile, px, py, size, wx, wy, performance.now());
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {
     const nowMs = Date.now();
     const claim = incomingFrontierClaimAt(state, keyFor(wx, wy), nowMs);
