@@ -217,7 +217,7 @@ body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: bord
 body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 calc(100% - 44px); gap: 8px 14px; }
 body.hud-v2-compact #scout-report-card .srs-show { margin-left: auto; }
 
-/* While planning or reporting: the guide card folds to its "?" launcher and the House charges
+/* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
    speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21). */
 body.scout-focus #tutorial-guide-root .tg-card { display: none !important; }
 body.scout-focus #tutorial-guide-root .tg-launcher { display: inline-flex !important; }

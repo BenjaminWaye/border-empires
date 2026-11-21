@@ -162,9 +162,13 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     deps.renderHud();
     return;
   }
-  // Tracker next step "Build a Relay Beacon": straight into beacon placement.
-  if (target.closest("[data-hud-v2-beacon]")) {
-    startRelayBeaconPlacement(deps);
+  // A tracker row "Relay Beacon to grain/fish": straight into beacon placement.
+  const beacon = target.closest<HTMLElement>("[data-hud-v2-beacon]");
+  if (beacon) {
+    // A food row's beacon starts placement on your land nearest the grain or fish it names.
+    const x = Number(beacon.dataset.hudV2BeaconX);
+    const y = Number(beacon.dataset.hudV2BeaconY);
+    startRelayBeaconPlacement(deps, beacon.dataset.hudV2BeaconX !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined);
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
@@ -342,7 +346,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
-    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs, trackerScan.nextStep),
+    nextSteps: nextStepsForState(state, trackerScan.nextStep),
     food: foodShortageForState(state, trackerScan.nextStep.food),
     foodOpen: foodFold.open,
     nowMs
