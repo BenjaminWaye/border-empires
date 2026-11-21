@@ -79,6 +79,49 @@
     gap: 28px;
     padding: 18px 8px 24px;
   }
+  /* Trading-card proportions (owner 2026-11-21: the cards had grown so tall they no longer read as cards). The
+     card keeps its shape and its text scrolls inside it when a House's letter runs long, instead of the whole
+     hand stretching to the longest card. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { align-items: start; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { height: auto; min-height: 0; aspect-ratio: 2 / 3; max-width: 340px; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card > .hc-frame { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: 3 / 1; }
+  /* The House's letter shrinks and scrolls first, so the objective, progress and whether it is held show; if even
+     those run long (a House named by its account id), the whole text scrolls. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(90, 70, 40, 0.5) transparent;
+    font-size: 14px;
+  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > p { flex: none; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour {
+    flex: 0 1 auto;
+    min-height: 2.8em;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(90, 70, 40, 0.5) transparent;
+    font-size: 13px;
+  }
+  /* The Keep bar and the profile tip float in the title row, between the title and Close, over the hand. The
+     panel's centring transform makes it the box `fixed` is placed in, so the popover stays put as the cards scroll. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: max(300px, calc(100% - 560px));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover > .panel-btn { flex: none; }
   /* A hand of three: the outer cards are drawn from the deck under the middle one. */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(1):nth-last-child(3) { --hcd-deck-x: calc(100% + 28px); }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(3):nth-last-child(1) { --hcd-deck-x: calc(-100% - 28px); }
@@ -110,7 +153,7 @@
    first; on the shortest screens the italic quote goes too. */
 @media (min-width: 901px) and (max-height: 900px) {
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { padding: 8px 8px 12px; }
-  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100vh - 720px), 132px); height: clamp(40px, calc(100dvh - 720px), 132px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100vh - 720px), 96px); height: clamp(40px, calc(100dvh - 720px), 96px); }
 }
 @media (min-width: 901px) and (max-height: 760px) {
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text .hc-flavour { display: none; }
