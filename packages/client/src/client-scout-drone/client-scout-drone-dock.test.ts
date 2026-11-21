@@ -30,7 +30,7 @@ describe("scout drone dock", () => {
   });
 
   // Owner 2026-11-21: eight charge pips overflowed a 375px phone; one counter replaces them.
-  it("shows one count of charges still free to place, and frees the lens corner only while planning", () => {
+  it("shows one count of charges still free to place", () => {
     const state = planningState();
     state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: [0, 0] };
     const deps = { send: vi.fn(() => true), rerender: vi.fn(), now: () => 1_000 };
@@ -38,9 +38,5 @@ describe("scout drone dock", () => {
     expect(scoutDockChargesLeft(state, 1_000)).toBe(5);
     expect(document.querySelector("#scout-drone-dock .sd-count b")?.textContent).toBe("5");
     expect(document.querySelectorAll("#scout-drone-dock .sd-pip")).toHaveLength(0);
-    expect(document.body.classList.contains("scout-planning")).toBe(true);
-    state.scoutDronePicking.active = false;
-    renderScoutDroneDock(state, deps);
-    expect(document.body.classList.contains("scout-planning")).toBe(false);
   });
 });

@@ -29,8 +29,8 @@ describe("scout drone dock on a phone", () => {
     expect(reserved - dockLeft - orbWidth - orbInset).toBeGreaterThanOrEqual(8);
   });
 
-  it("hides the search lens only on a phone, where the dock takes its corner", () => {
-    expect(dockCss).toContain("body.hud-v2-compact.scout-planning .hud-v2-lens-btn");
-    expect(dockCss).not.toMatch(/(^|\n)body\.scout-planning \.hud-v2-lens-btn/);
+  it("hides the search lens only on a phone, where the dock, pill or report takes its corner", () => {
+    expect(dockCss).toContain("body.hud-v2-compact.scout-focus .hud-v2-lens-btn");
+    expect(dockCss).not.toMatch(/(^|\n)body\.scout-(planning|focus) \.hud-v2-lens-btn/);
   });
 });

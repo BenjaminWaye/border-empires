@@ -304,12 +304,16 @@ unlimited range and Expand To pace.
 | Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
 | Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
-Guidance, with almost no text: a small bottom dock with ✕, a drone and the number
-of charges still free to place, ↶ and Go with the flight time; the count pulses until
-the first stop and shakes when a tap has no charge left, and Go pulses once armed. It
-fits a phone beside the manpower gauge and takes the search lens's corner while planning
-(2026-11-21: the first version's eight pips overflowed a phone and covered the gauge). In true-3D the route glows on
-the ground before launch, a pulled-back stop's ring turns brass, the leg under a
-mouse pointer shows as ghost beads, and a soft brass glow breathes on nearby fog until the
-player has flown a few flights. The 2D map shows the dock only (owner: 3D is the
-focus).
+Guidance, with almost no text, in one bottom slot (`client-scout-drone-hud.ts`):
+a brass "Explore" pill while every charge is unused (opens a plan); the dock
+while planning (✕, drone count, ↶, and "Tap fog" / "Go" / "Add" with the flight
+time); a pill with the time left while the drone flies (tap to frame it); and a
+report card after landing, led by "+N Tiles", icons with counts and one word each,
+above every other popup. Planning, flying and reporting fold the guide card and hide the House
+speech bubble. In true-3D the route glows before launch with numbered stops, a pulled-back stop
+keeps its ring and gains a thin outer limit ring, the rest of the route
+stays drawn in flight with a marker under the drone, and the main find gets a
+short gold burst on landing. No "tap here" marker on the map (owner removed it)
+and no label over the 3D drone. The 2D map shows the bottom slot only (owner: 3D
+is the focus). Three first-time player profiles reviewed each round
+(2026-11-21); their scores drove these changes.

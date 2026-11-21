@@ -1,12 +1,13 @@
 // The scout drone dock (docs/explore-scout-plan.md §13): a small bar at the bottom of
 // the screen while a flight is being planned (client-scout-drone-plan.ts). No words:
 // Cancel (✕), a drone with the number of charges still free to place, Undo (↶),
-// and Go with the flight time (or the refill clock when no charge is ready). The
+// and Go (Add while the drone is out) with the flight time, or the refill clock when no charge is ready. The
 // count pulses until the first stop is placed and shakes when a tap finds no charge.
 // It must fit a 375px phone (owner, 2026-11-21: eight pips overflowed it).
 import { nextScoutChargeAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { cancelScoutPlan, launchScoutPlan, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
 import "./client-scout-drone-dock.css";
 
 export type ScoutDockDeps = {
@@ -16,15 +17,20 @@ export type ScoutDockDeps = {
 };
 
 const DOCK_ID = "scout-drone-dock";
-const DRONE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="18" r="2.6"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>`;
+const DRONE_SVG = SCOUT_DRONE_ICON;
 
-/** m:ss, or h:mm:ss past an hour. */
+/**
+ * A time with units, as short as the phone dock allows: "48s", "3m 27s", then whole minutes from ten
+ * minutes ("12m"), then "1h 05m". The first dock showed "1:48", which read as hours or minutes
+ * (player review 2026-11-21).
+ */
 export const scoutClock = (ms: number): string => {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+  const total = Math.max(1, Math.ceil(ms / 1000));
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  if (minutes < 10) return `${minutes}m ${String(total % 60).padStart(2, "0")}s`;
+  if (minutes < 60) return `${Math.ceil(total / 60)}m`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 };
 
 /** Charges still free to place as stops: the one number the dock shows. */
@@ -58,7 +64,10 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
   const base = { count: `${DRONE_SVG}<b>${left}</b>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
-  return { ...base, goClass: `sd-go${stops > 0 ? " is-armed" : ""}`, goEnabled: stops > 0, goHtml: `<span class="sd-go-word">Go</span>${stops > 0 ? `<span class="sd-time">${scoutClock(flightMs)}</span>` : ""}` };
+  // With the drone already out the stops join its route, so the button says Add, not Go (player review 2026-11-21).
+  // An empty plan says what to do: the one place the dock spends words (player review 2026-11-21).
+  const word = stops === 0 ? "Tap fog" : flyingScoutDrone(state, nowMs) ? "Add" : "Go";
+  return { ...base, goClass: `sd-go${stops > 0 ? " is-armed" : " is-prompt"}`, goEnabled: stops > 0, goHtml: `<span class="sd-go-word">${word}</span>${stops > 0 ? `<span class="sd-time">${scoutClock(flightMs)}</span>` : ""}` };
 };
 
 /**
@@ -100,7 +109,6 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
   if (!state.scoutDronePicking.active) {
     const el = document.getElementById(DOCK_ID);
     if (el) el.style.display = "none";
-    document.body.classList.remove("scout-planning");
     if (ticker) clearInterval(ticker);
     ticker = undefined;
     return;
@@ -108,8 +116,6 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
   const el = ensureDock();
   if (!el.querySelector(".sd-bar")) buildDock(el);
   el.style.display = "flex";
-  // On a phone the dock takes the search lens's corner while a flight is planned (the CSS hides it).
-  document.body.classList.add("scout-planning");
   const view = dockView(state, now());
   el.querySelector(".sd-bar")!.classList.toggle("is-shaking", view.shaking);
   const count = el.querySelector(".sd-count")!;

@@ -27,10 +27,17 @@ export const createInitialScoutDroneState = () => ({
    * on an AFC. `stops` as tapped; `bumpAt` / `shakeAt` animate the dock; `launches` counts this
    * session's flights, so the "tap the fog" hint stops once the player has the idea.
    */
-  scoutDronePicking: { active: false, stops: [] as Array<{ x: number; y: number }>, bumpAt: 0, shakeAt: 0, launches: 0 }
+  scoutDronePicking: { active: false, stops: [] as Array<{ x: number; y: number }>, bumpAt: 0, shakeAt: 0, launches: 0 },
+  /** The last landing's report, shown as a card until dismissed or a new plan starts (client-scout-drone-report-card.ts). */
+  scoutDroneReport: undefined as ScoutDroneLandingReport | undefined,
+  /** How many tiles the player had explored when the drone in the air launched: the report counts the new ones. */
+  scoutDroneExploredAtLaunch: undefined as number | undefined
 });
 
-type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playerNames: Map<string, string> };
+/** What a landed drone found, as the report card shows it. `at` is local time of landing. */
+export type ScoutDroneLandingReport = ScoutReportFindings & { targetX: number; targetY: number; blockedBy?: string; at: number; explored?: number };
+
+type ScoutDroneState = ReturnType<typeof createInitialScoutDroneState> & { playerNames: Map<string, string>; discoveredTiles?: ReadonlySet<string> };
 
 type ScoutReport = ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
 
@@ -161,6 +168,8 @@ export const handleScoutDroneMessage = (
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);
     state.scoutDroneFlight = next;
+    // A new flight: remember the explored count, so the landing card can say how much it uncovered.
+    if (next && previous?.launchedAt !== next.launchedAt && state.discoveredTiles) state.scoutDroneExploredAtLaunch = state.discoveredTiles.size;
     const charges = parseScoutDroneCharges(msg.charges, toLocal);
     if (charges) state.scoutDroneCharges = charges;
     // No "launched" popup: it only repeated the tap. The drone on the map, with its "Back in …"
@@ -169,7 +178,17 @@ export const handleScoutDroneMessage = (
       push("Scout drone turned back", `Turned back at ${nameOf(next.blockedByPlayerId)}'s border.`, "warn", { x: next.blockedAtX ?? next.targetX, y: next.blockedAtY ?? next.targetY });
     }
     const report = parseScoutReport(msg.report);
-    if (report) push("Scout report", scoutReportFeedText(report, nameOf, report.blockedByPlayerId ?? previous?.blockedByPlayerId), "success", { x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY });
+    if (report) {
+      const blockedBy = report.blockedByPlayerId ?? previous?.blockedByPlayerId;
+      // The landing is the reward, so it gets its own card on top of the HUD (client-scout-drone-report-card.ts)
+      // rather than the shared alert card, where guide and House popups buried it (player review 2026-11-21).
+      // The feed keeps the line for history.
+      pushEntry({ title: "Scout report", text: scoutReportFeedText(report, nameOf, blockedBy), type: "info", severity: "success", at: nowMs, focusX: report.focusX ?? report.targetX, focusY: report.focusY ?? report.targetY, actionLabel: "Show" });
+      const baseline = state.scoutDroneExploredAtLaunch;
+      const explored = baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined;
+      state.scoutDroneReport = { ...report, ...(blockedBy ? { blockedBy } : {}), ...(explored ? { explored } : {}), at: nowMs };
+      state.scoutDroneExploredAtLaunch = undefined;
+    }
     renderHud();
     return true;
   }

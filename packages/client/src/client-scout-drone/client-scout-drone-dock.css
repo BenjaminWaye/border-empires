@@ -94,6 +94,20 @@
   cursor: default;
 }
 
+/* No stops yet: "Tap fog" is a prompt, not a disabled button (player review 2026-11-21). */
+#scout-drone-dock .sd-go.is-prompt:disabled {
+  background: transparent;
+  box-shadow: none;
+  color: #f4d58c;
+  font-style: italic;
+  animation: sd-prompt 1.6s ease-in-out infinite;
+}
+
+@keyframes sd-prompt {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
 #scout-drone-dock .sd-go.is-armed {
   animation: sd-glow 1.4s ease-in-out infinite;
 }
@@ -142,11 +156,12 @@
 @media (prefers-reduced-motion: reduce) {
   #scout-drone-dock .sd-count.is-next,
   #scout-drone-dock .sd-go.is-armed,
+  #scout-drone-dock .sd-go.is-prompt:disabled,
   #scout-drone-dock .sd-bar.is-shaking .sd-count { animation: none; }
 }
 
-/* Phone: the dock takes the search lens's corner while a flight is planned. */
-body.hud-v2-compact.scout-planning .hud-v2-lens-btn {
+/* Phone: the dock, flight pill or report card takes the search lens's corner (client-scout-drone-hud.ts). */
+body.hud-v2-compact.scout-focus .hud-v2-lens-btn {
   visibility: hidden;
 }
 

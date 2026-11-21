@@ -1,19 +1,20 @@
 import { AdditiveBlending, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, RingGeometry, type Scene } from "three";
-import { SCOUT_DRONE_MAX_STOPS, scoutDroneLeg, scoutDroneStepIndexAt } from "@border-empires/shared";
+import { SCOUT_DRONE_MAX_STOPS, WORLD_HEIGHT, WORLD_WIDTH, scoutDroneLeg, scoutDronePositionAt, scoutDroneStepIndexAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutChargesReady, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
-import { scoutHintTile } from "../client-scout-drone/client-scout-drone-hint.js";
+import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
+import { createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
 import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
 
 // The planned scout flight in the true-3D map (docs/explore-scout-plan.md §13), drawn while the
 // player plans it (client-scout-drone-plan.ts): glowing cyan beads flowing from the AFC through
-// each stop, a ring on every stop (brass when the tap was out of range and the stop was pulled
-// back to the leg's limit), and fainter beads for the straight flight home. With a mouse, the leg
-// to the tile under the pointer shows as ghost beads ending where a tap would put the stop, so the
-// range is felt on the route itself -- nothing is drawn on the fog. Outside planning, until the
-// player has sent a few flights, a soft brass glow on nearby fog says "tap here".
-// Only the true-3D map draws this; the 2D map shows the dock alone.
+// each stop, a numbered ring on every stop (with a thin outer ring when the tap was out of range and
+// the stop was pulled back to the leg's limit), and fainter beads for the straight flight home. With a
+// mouse, the leg to the tile under the pointer shows as ghost beads ending in a soft dot where a tap
+// would put the stop, so the range is felt on the route itself -- nothing is drawn
+// on the fog. While the drone flies, the rest of its route stays drawn with a bright marker under the
+// drone, and a landing report's main find gets a short gold burst.
+// Only the true-3D map draws this; the 2D map shows the bottom HUD alone.
 
 type Point = { x: number; y: number };
 type PlanSource = ClientState;
@@ -24,11 +25,18 @@ const CYAN = new Color("#4fd8ff");
 const CYAN_DIM = new Color("#2a7f99");
 const GHOST = new Color("#cfe9f2");
 const BRASS = new Color("#f2c66b");
+/**
+ * A stop pulled back to the leg's range is still a good stop: the same cyan ring with a thin outer ring for
+ * "at the limit". Gold read as "chosen" and orange with a trail as an error (player reviews 2026-11-21).
+ */
+const LIMIT_RING = new Color("#2f9fc2");
+const LIMIT_RING_SCALE = 1.6;
 const BEAD_SPACING = 0.42;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
 const RISE = 0.09;
-const HINT_FLIGHTS = 3;
+/** How long the gold burst on a landing report's main find lasts. */
+const LANDING_BURST_MS = 3_000;
 
 /**
  * Everything the planned route reads. While the drone is out the new legs start where it will take
@@ -55,7 +63,8 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   const ringMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
   const ringGeometry = new RingGeometry(0.55, 0.95, 40);
   ringGeometry.rotateX(-Math.PI / 2);
-  const rings = new InstancedMesh(ringGeometry, ringMaterial, SCOUT_DRONE_MAX_STOPS + 3);
+  // Each stop can carry two rings (the limit ring), and a flight extended mid-air holds up to twice the stops.
+  const rings = new InstancedMesh(ringGeometry, ringMaterial, SCOUT_DRONE_MAX_STOPS * 4 + 8);
   rings.frustumCulled = false;
   rings.setColorAt(0, CYAN);
   rings.count = 0;
@@ -66,6 +75,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   rings.renderOrder = 26;
   group.add(beads, rings);
   scene.add(group);
+  const numbers = createScoutStopNumbers(scene, SCOUT_DRONE_MAX_STOPS * 2);
 
   const matrix = new Matrix4();
   const a: ScoutDroneScenePoint = { sceneX: 0, sceneZ: 0, surfaceY: 0 };
@@ -147,11 +157,18 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     ringCount += 1;
   };
 
+  /** A number badge over a stop, so the route's order reads at a glance. */
+  const numberStop = (n: number, p: Point): void => {
+    deps.sceneFor(p.x, p.y, a);
+    numbers.place(n, a.sceneX, a.surfaceY + RISE, a.sceneZ);
+  };
+
   const sync: ScoutPlanOverlay["sync"] = (nowMs) => {
     const state = deps.state;
     const plan = state.scoutDronePicking;
     beadCount = 0;
     ringCount = 0;
+    numbers.begin();
     const flying = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs;
     if (plan.active) {
       rebuildRoute(state, nowMs);
@@ -163,18 +180,49 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       stops.forEach((stop, i) => {
         const last = i === stops.length - 1;
         const pulse = last ? 1 + 0.12 * Math.sin(nowMs / 220) + 0.5 * bump : 1;
-        pushRing(stop, stop.clamped ? BRASS : CYAN, pulse);
+        pushRing(stop, CYAN, pulse);
+        if (stop.clamped) pushRing(stop, LIMIT_RING, pulse * LIMIT_RING_SCALE);
+        numberStop(i + 1, stop);
       });
-      if (ghostEnd) pushRing(ghostEnd, ghostEnd.clamped ? BRASS : tint.copy(GHOST).multiplyScalar(0.8), 0.85);
+      // The pointer's leg ends in a soft dot, never a ring, so it cannot pass for a placed stop.
+      if (ghostEnd) {
+        deps.sceneFor(ghostEnd.x, ghostEnd.y, a);
+        pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, tint.copy(GHOST).multiplyScalar(0.6), 1.1);
+      }
+    } else if (flying) {
+      // In the air: the rest of the route stays drawn bright, so the drone and where it is going are easy to
+      // find (players lost it in a faint trail, review 2026-11-21).
+      const air = state.scoutDroneFlight!;
+      const phase = ((nowMs / 1000) * FLOW_TILES_PER_SECOND) % 1;
+      const from = Math.max(0, scoutDroneStepIndexAt(air, nowMs));
+      beadPath(air.steps.slice(from, air.turnIndex + 1), CYAN, 0.85, phase);
+      beadPath(air.steps.slice(Math.max(from, air.turnIndex)), CYAN_DIM, 0.65, phase);
+      (air.waypoints ?? []).forEach((stop, i) => {
+        const reachedAt = air.steps.findIndex((step) => step.x === stop.x && step.y === stop.y);
+        if (reachedAt > from && reachedAt <= air.turnIndex) {
+          pushRing(stop, CYAN, 0.9);
+          numberStop(i + 1, stop);
+        }
+      });
+      // A bright marker under the drone itself, which is a speck at phone zoom.
+      const at = scoutDronePositionAt(air, nowMs, WORLD_WIDTH, WORLD_HEIGHT);
+      if (at) {
+        const beat = 0.5 + 0.5 * Math.sin(nowMs / 260);
+        pushRing(at, CYAN, 1.15 + 0.15 * beat);
+        deps.sceneFor(at.x, at.y, a);
+        pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, CYAN, 1.6 + 0.3 * beat);
+      }
     }
-    // "Tap here": until the player has flown a few flights this session, on nearby fog.
-    const wantsHint = (plan.active ? plan.stops.length === 0 : plan.launches < HINT_FLIGHTS) && !flying && scoutChargesReady(state, nowMs) > 0;
-    const hint = wantsHint ? scoutHintTile(state) : undefined;
-    if (hint) {
-      // A soft breathing glow, under two tiles wide: a hint, not a target (owner, 2026-11-21).
-      deps.sceneFor(hint.x, hint.y, a);
-      const breath = 0.5 + 0.5 * Math.sin(nowMs / 420);
-      pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, tint.copy(BRASS).multiplyScalar(0.5 + 0.4 * breath), 2.2 + 0.4 * breath);
+    // The main find of a fresh landing report gets a short gold burst (player review 2026-11-21: the new
+    // land felt uncovered, not discovered). No marker otherwise: the owner had the "tap here" one removed.
+    const report = state.scoutDroneReport;
+    const sinceLanding = report ? nowMs - report.at : Infinity;
+    if (report && sinceLanding >= 0 && sinceLanding < LANDING_BURST_MS && !plan.active) {
+      const focus = { x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY };
+      for (let k = 0; k < 2; k += 1) {
+        const t = ((sinceLanding / 1_000 + k * 0.5) % 1 + 1) % 1;
+        pushRing(focus, tint.copy(BRASS).multiplyScalar(1 - t), 1 + 1.2 * t);
+      }
     }
     beads.count = beadCount;
     rings.count = ringCount;
@@ -189,6 +237,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     sync,
     dispose: () => {
       scene.remove(group);
+      numbers.dispose();
       beadGeometry.dispose();
       beadMaterial.dispose();
       ringGeometry.dispose();
