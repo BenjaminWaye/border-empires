@@ -1,6 +1,7 @@
 /* House Charges panel (client-house-charges-panel.ts). Frame colours follow
    the charge-card design in docs/house-charges-plan.md. */
 .house-charges-card {
+  position: relative;
   display: grid;
   gap: 12px;
 }
@@ -26,29 +27,73 @@
   background: #2a2014;
 }
 
-/* "How charges pay out": an underlined read-more under the intro. */
+/* How charges work: a popup over the top of the cards from the "?" beside the panel title, so opening it never
+   pushes the cards down into a scroll (owner 2026-11-20). */
 .house-charges-more {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: min(640px, 100%);
+  box-sizing: border-box;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(217, 178, 92, 0.45);
+  border-radius: 8px;
+  background: #2a2014;
   font-size: 13px;
   line-height: 1.45;
   color: rgba(214, 226, 240, 0.82);
 }
 
-.house-charges-more summary {
-  display: inline-block;
-  padding: 12px 0;
-  cursor: pointer;
-  list-style: none;
-  color: #f0cf82;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.house-charges-more summary::-webkit-details-marker {
+.house-charges-more[hidden] {
   display: none;
 }
 
 .house-charges-more p {
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+#side-panel.charges-panel-active #panel-title {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.panel-help {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 10px;
+  padding: 0;
+  vertical-align: middle;
+  border: 1px solid rgba(217, 178, 92, 0.7);
+  border-radius: 50%;
+  background: rgba(42, 32, 20, 0.85);
+  color: #f0cf82;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Beats the compact HUD's 40px button floor (body.hud-v2-compact #side-panel button), which made the ? an oval. */
+#side-panel-head #panel-help {
+  min-width: 26px;
+  min-height: 26px;
+}
+
+.panel-help[hidden] {
+  display: none;
+}
+
+.panel-help[aria-expanded="true"] {
+  background: #f0cf82;
+  color: #2a2014;
 }
 
 .house-charges-hint {
@@ -66,6 +111,6 @@
   color: #f0b45c;
 }
 
-.house-charges-choice > p.house-charges-saved {
+.house-charges-saved {
   color: #8fd18a;
 }

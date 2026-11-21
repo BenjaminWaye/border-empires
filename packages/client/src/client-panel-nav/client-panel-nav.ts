@@ -90,6 +90,10 @@ export const renderSidePanel = (
     hintEl.textContent = hint;
     hintEl.hidden = hint === "";
   }
+  // The "?" beside the title only explains House Charges: hidden on every other panel here, and shown by
+  // client-house-charges-panel.ts once there are charges to explain.
+  const helpEl = deps.panelTitleEl.parentElement?.querySelector<HTMLElement>("#panel-help");
+  if (helpEl && state.activePanel !== "charges") helpEl.hidden = true;
 };
 
 export const bindTechTreeDragScroll = (
