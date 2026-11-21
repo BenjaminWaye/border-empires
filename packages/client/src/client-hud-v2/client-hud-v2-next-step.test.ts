@@ -34,7 +34,7 @@ describe("tracker next step when manpower runs low", () => {
   it("lists a town, then a waystation, then salvage, each focusing its tile", () => {
     const steps = nextSteps({ ...base, manpower: 19, sources: lowSources });
     expect(steps.map((s) => s.title)).toEqual(["Take a neutral town", "Activate a waystation", "Ship salvage to the Court"]);
-    expect(steps[0]).toMatchObject({ sub: "Kettlenook · +300 max MP · +100 MP per batch", focus: { x: 7, y: 8 } });
+    expect(steps[0]).toMatchObject({ sub: "Kettlenook · +300 MP now · +100 per batch", focus: { x: 7, y: 8 } });
     expect(steps[1]).toMatchObject({ sub: "1 in 6 chance of +1,000 MP", focus: { x: 5, y: 6 } });
     expect(steps[2]).toMatchObject({ sub: "+1,000 MP · 2 of 3 loads left", focus: { x: 3, y: 4 } });
     expect(nextStepsHtml(steps)).toContain('data-hud-v2-focus-x="7" data-hud-v2-focus-y="8"');

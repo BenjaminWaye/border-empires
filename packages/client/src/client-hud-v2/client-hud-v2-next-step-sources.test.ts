@@ -48,7 +48,7 @@ describe("next-step sources scan", () => {
       tile(1, 1, { ...town("TOWN", "Hidden"), fogged: true }),
       tile(2, 2, { ...town("TOWN", "Rival"), ownerId: "them" })
     ]));
-    // A TOWN adds 300 max MP and 300 per 12h of regen: 100 per 4h batch while you hold under five towns.
+    // A TOWN adds 300 max MP (credited to the pool at once) and 300 per 12h of regen: 100 per 4h batch while you hold under five towns.
     expect(sources.neutralTown).toEqual({ x: 3, y: 3, name: "Near", capAdded: 300, perBatch: 100 });
   });
 
