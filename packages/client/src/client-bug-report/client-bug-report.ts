@@ -3,6 +3,8 @@ import { snapshotPerformanceMetrics, initPerformanceMetrics } from "../client-pe
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { serializeReportPayloadWithinLimit } from "./client-bug-report-payload-size.js";
 
 // ---------------------------------------------------------------------------
 // Report kinds -- bug reports and improvement suggestions share the same
@@ -28,7 +30,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
     endpoint: "/api/bug-reports",
     title: "Report a Bug",
     icon: "⚠\uFE0E",
-    hint: "Describe what went wrong. Recent client and server logs are attached automatically.",
+    hint: "Describe what went wrong. Recent client and server logs are attached automatically. Your description may be posted publicly in our issue tracker, so don't include personal details.",
     placeholder: "What happened? What did you expect?",
     submitLabel: "Submit Report",
     submittingLabel: "Submitting…",
@@ -38,7 +40,7 @@ const REPORT_KIND_CONFIG: Record<ReportKind, ReportKindConfig> = {
     endpoint: "/api/suggestions",
     title: "Suggest an Improvement",
     icon: "✦",
-    hint: "Share an idea to make the game better. Recent client and server logs are attached automatically.",
+    hint: "Share an idea to make the game better. Recent client and server logs are attached automatically. Your description may be posted publicly in our issue tracker, so don't include personal details.",
     placeholder: "What would you like to see added or improved?",
     submitLabel: "Submit Suggestion",
     submittingLabel: "Submitting…",
@@ -86,6 +88,9 @@ export type ReportPayload = {
   clientEvents: ReturnType<typeof snapshotClientDebugEvents>;
   performanceMetrics: ReturnType<typeof snapshotPerformanceMetrics>;
   serverBundle: JsonFetchResult;
+  // The bundle the old "Download diagnostics" buttons saved to disk; now
+  // sent with every report instead.
+  diagnosticsBundle: Record<string, unknown>;
 };
 
 // ---------------------------------------------------------------------------
@@ -93,6 +98,8 @@ export type ReportPayload = {
 // ---------------------------------------------------------------------------
 
 const CLIENT_EVENT_LIMIT = 100;
+// Keeps the POST well under the gateway's 1 MiB default body limit.
+export const MAX_DIAGNOSTICS_BUNDLE_CHARS = 400_000;
 const MAX_DESCRIPTION_LENGTH = 1_000;
 
 // ---------------------------------------------------------------------------
@@ -120,6 +127,20 @@ const buildMetadata = (wsUrl: string): ReportMetadata => ({
   renderer: isTrue3DRendererActive() ? "true-3d" : "2d-canvas"
 });
 
+export const boundedDiagnosticsBundle = (build: () => Record<string, unknown>): Record<string, unknown> => {
+  try {
+    const bundle = build();
+    const length = JSON.stringify(bundle).length;
+    if (length <= MAX_DIAGNOSTICS_BUNDLE_CHARS) return bundle;
+    // Keep the small scalar triage fields; drop the bulky tile/event logs.
+    const { recentTileMessages: _tiles, ...rest } = bundle;
+    if (JSON.stringify(rest).length <= MAX_DIAGNOSTICS_BUNDLE_CHARS) return { ...rest, truncated: { omitted: ["recentTileMessages"], originalLength: length } };
+    return { truncated: { omitted: ["*"], originalLength: length } };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Payload builder
 // ---------------------------------------------------------------------------
@@ -138,7 +159,8 @@ export const buildReportPayload = async (args: {
     clientContext: buildClientContext(args.state),
     clientEvents: snapshotClientDebugEvents(CLIENT_EVENT_LIMIT),
     performanceMetrics: snapshotPerformanceMetrics(),
-    serverBundle
+    serverBundle,
+    diagnosticsBundle: boundedDiagnosticsBundle(() => buildDiagnosticsBundle(args.state, args.wsUrl))
   };
 };
 
@@ -158,7 +180,7 @@ export const submitReport = async (args: {
     const response = await fetch(`${serverOrigin}${REPORT_KIND_CONFIG[args.kind].endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(args.payload),
+      body: serializeReportPayloadWithinLimit(args.payload),
       signal: controller.signal
     });
     if (!response.ok) {
@@ -208,6 +230,7 @@ export const reportModalHtml = (kind: ReportKind): string => {
         <button type="button" class="panel-btn bug-report-submit-btn" data-bug-report-submit>${cfg.submitLabel}</button>
       </div>
       <div class="bug-report-status" data-bug-report-status></div>
+      <button type="button" class="panel-btn bug-report-fallback-btn" data-bug-report-download hidden>Download diagnostics instead</button>
     </div>
   </div>
 `;
@@ -232,6 +255,22 @@ export const bindReportModal = (args: {
   const cancelButtons = overlayEl.querySelectorAll<HTMLButtonElement>("[data-bug-report-cancel]");
   const backdrop = overlayEl.querySelector<HTMLDivElement>("[data-bug-report-backdrop]");
   const statusEl = overlayEl.querySelector<HTMLDivElement>("[data-bug-report-status]");
+  const downloadBtn = overlayEl.querySelector<HTMLButtonElement>("[data-bug-report-download]");
+
+  // Offline escape hatch: when the report can't reach the gateway (often the
+  // very outage being reported), let the player save the diagnostics bundle
+  // locally instead, as the old Download diagnostics buttons did.
+  const offerDownloadFallback = (): void => {
+    if (!downloadBtn) return;
+    downloadBtn.hidden = false;
+    downloadBtn.onclick = (): void => {
+      try {
+        downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
+      } catch (error) {
+        console.error("[diagnostics] download fallback failed", error);
+      }
+    };
+  };
 
   if (textarea && charCount) {
     textarea.addEventListener("input", () => {
@@ -286,11 +325,13 @@ export const bindReportModal = (args: {
           setTimeout(close, 1_200);
         } else {
           setStatus(`Failed: ${result.error ?? "unknown error"}`, "error");
+          offerDownloadFallback();
           submitBtn.disabled = false;
           submitBtn.textContent = cfg.submitLabel;
         }
       } catch (error) {
         setStatus(`Failed: ${error instanceof Error ? error.message : "unknown error"}`, "error");
+        offerDownloadFallback();
         submitBtn.disabled = false;
         submitBtn.textContent = cfg.submitLabel;
       }

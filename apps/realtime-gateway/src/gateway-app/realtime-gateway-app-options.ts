@@ -13,6 +13,7 @@ import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js";
 import type { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js";
 import type { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js";
+import type { PlayerReportGithubIssueConfig } from "../github-issues/player-report-github-issue.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
 
@@ -28,6 +29,7 @@ export type RealtimeGatewayAppOptions = {
   aiPlayerCount?: number; snapshotDir?: string; createCommandId?: () => string; now?: () => number;
   simulationPrepareTimeoutMs?: number; simulationSubscribeTimeoutMs?: number; simulationSubmitTimeoutMs?: number;
   simulationRpcRetryAttempts?: number; adminApiToken?: string; adminEmail?: string; emailAlerts?: EmailAlertConfig;
+  playerReportGithubIssues?: PlayerReportGithubIssueConfig;
   playOrigin?: string; simMetricsUrl?: string; simDiagnostics?: () => unknown[]; wsHeartbeatIntervalMs?: number;
   /** Quiet gap between fog-admin full-world live refreshes (default 15s; env GATEWAY_FOG_LIVE_REFRESH_MIN_GAP_MS). */
   fogLiveRefreshMinGapMs?: number;

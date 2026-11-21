@@ -137,6 +137,19 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.querySelector('#scout-report-card button.srs-chip[data-find-kind="dock"]')).toBeNull();
   });
 
+  it("steps through the report's own sites when no finds were spotted on this client", () => {
+    const state = baseState();
+    state.scoutDroneFinds = undefined;
+    const sites = { towns: [], docks: [{ x: 40, y: 41 }, { x: 42, y: 43 }], waystations: [], watchtowers: [], planetaryDefense: [], resources: {}, empires: {} };
+    state.scoutDroneReport = { ...report, sites, at: 40_000 };
+    const focus = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus, now: () => 40_500 });
+    const dock = document.querySelector<HTMLButtonElement>('#scout-report-card .srs-chip[data-find-kind="dock"]')!;
+    dock.click();
+    dock.click();
+    expect(focus.mock.calls.map((call) => [call[0], call[1]])).toEqual([[40, 41], [42, 43]]);
+  });
+
   it("labels every report icon with one word", () => {
     expect(scoutReportChips(report).map((chip) => chip.label)).toEqual(["Town", "Docks", "Waystations", "Empire"]);
   });

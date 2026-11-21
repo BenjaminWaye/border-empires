@@ -108,6 +108,10 @@ to hunt for what changed. On landing the drone files a report.
   Planetary Defense (6 tiles)."*
 - Each line can be tapped to move the camera there. A town or dock line
   offers its next action, such as *"Expand To path: 5 tiles, 50 MP"*.
+  Built (2026-11-20): the report carries `sites`, up to 24 tiles per find
+  group, and each find in the Chronicle row is a link that moves the camera
+  to it and rings its tiles for 8 s on both map renderers
+  (`client-hud-v2-chronicle-scout-chips.ts`). The next-action offer is not built.
 - It appears in the Activity dashboard (`docs/activity-dashboard-plan.md`),
   so a player who launched and logged off sees it on their next visit.
 - A report naming a town or dock can feed the existing email or push alerts.

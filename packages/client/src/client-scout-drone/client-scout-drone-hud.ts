@@ -15,7 +15,7 @@ import { canPlanScoutFlight, scoutChargesMax, scoutChargesReady } from "./client
 import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client-scout-drone-icons.js";
 import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
 import { SCOUT_FIND_LABEL as FIND_LABEL, pluralLabel as plural, scoutResourceLabel } from "./client-scout-drone-find-labels.js";
-import { scoutFindPlaces } from "./client-scout-drone-finds.js";
+import { scoutFindPlaces, scoutSitesFor } from "./client-scout-drone-finds.js";
 import "./client-scout-drone-hud.css";
 
 export type ScoutHudDeps = ScoutDockDeps & {
@@ -193,12 +193,14 @@ const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): bool
   const key = String(report.at);
   if (el.dataset.reportAt !== key) {
     el.dataset.reportAt = key;
-    // Where a chip's finds are: the ones spotted mid-flight (SCOUT_FINDS), or, when none reached this client
-    // (reload, dropped socket), the server's main find for the chip it belongs to (review 2026-11-21).
+    // Where a chip's finds are: the ones spotted mid-flight (SCOUT_FINDS); else the report's own sites, which
+    // survive a reload or a dropped socket; else the server's main find for the chip it belongs to (review 2026-11-21).
     const mainKind = scoutReportChips(report).find((chip) => chip.find)?.find;
     const placesFor = (live: ClientState, kind: ScoutFind["kind"], resource?: string): Array<{ x: number; y: number }> => {
       const spotted = scoutFindPlaces(live, kind, resource);
       if (spotted.length > 0) return spotted;
+      const sited = scoutSitesFor(report.sites, kind, resource);
+      if (sited.length > 0) return sited;
       return mainKind && mainKind.kind === kind && mainKind.resource === resource ? [{ x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY }] : [];
     };
     el.innerHTML = reportCardHtml(report, (id) => state.playerNames.get(id) ?? "another empire", (chip) => Boolean(chip.find && placesFor(state, chip.find.kind, chip.find.resource).length > 0));

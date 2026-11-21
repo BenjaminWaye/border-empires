@@ -921,7 +921,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
-      authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache,
+      authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache, ...(options.playerReportGithubIssues ? { playerReportGithubIssues: options.playerReportGithubIssues } : {}),
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },

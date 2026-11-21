@@ -2,7 +2,7 @@
 // Each message pops over the map as it arrives -- "+1 Town", "+3 Fish" -- so a 2-3 minute flight pays
 // out as it goes instead of only at the landing report (player reviews 2026-11-21). The finds are kept
 // for the flight, so the landing card's chips can each frame where those finds are.
-import { SCOUT_FINDS_MESSAGE_TYPE, type ScoutFind } from "@border-empires/shared";
+import { SCOUT_FINDS_MESSAGE_TYPE, type ScoutFind, type ScoutFindingSites, type ScoutFindingTile } from "@border-empires/shared";
 import { SCOUT_FIND_LABEL, pluralLabel, scoutResourceLabel } from "./client-scout-drone-find-labels.js";
 
 /** How long a pop stays on the map (the 3D layer animates it, client-map-3d-scout-drone-find-pops.ts). */
@@ -70,3 +70,43 @@ export const handleScoutFindsMessage = (msg: Record<string, unknown>, state: Sco
 /** Where the flight's finds of one kind (and resource) are, in the order spotted: the card's chips step through them. */
 export const scoutFindPlaces = (state: ScoutFindsState, kind: ScoutFind["kind"], resource?: string): Array<{ x: number; y: number }> =>
   (state.scoutDroneFinds?.all ?? []).filter((find) => find.kind === kind && (resource === undefined || find.resource === resource));
+
+const parseTiles = (value: unknown): ScoutFindingTile[] =>
+  Array.isArray(value)
+    ? value.flatMap((tile) => (tile && typeof tile === "object" && Number.isFinite((tile as ScoutFindingTile).x) && Number.isFinite((tile as ScoutFindingTile).y) ? [{ x: (tile as ScoutFindingTile).x, y: (tile as ScoutFindingTile).y }] : []))
+    : [];
+
+const parseKeyed = (value: unknown): Record<string, ScoutFindingTile[]> => {
+  const out: Record<string, ScoutFindingTile[]> = {};
+  if (value && typeof value === "object") for (const [key, tiles] of Object.entries(value)) out[key] = parseTiles(tiles);
+  return out;
+};
+
+/** The landing report's per-find tiles (scout-drone-findings.ts), when the server sends them. */
+export const parseScoutFindingSites = (value: unknown): ScoutFindingSites | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    towns: parseTiles(raw.towns),
+    docks: parseTiles(raw.docks),
+    waystations: parseTiles(raw.waystations),
+    watchtowers: parseTiles(raw.watchtowers),
+    planetaryDefense: parseTiles(raw.planetaryDefense),
+    resources: parseKeyed(raw.resources),
+    empires: parseKeyed(raw.empires)
+  };
+};
+
+/** A find kind's tiles in the landing report's sites (capped there at SCOUT_FINDING_SITES_MAX_TILES). */
+export const scoutSitesFor = (sites: ScoutFindingSites | undefined, kind: ScoutFind["kind"], resource?: string): ScoutFindingTile[] => {
+  if (!sites) return [];
+  switch (kind) {
+    case "town": return sites.towns;
+    case "dock": return sites.docks;
+    case "waystation": return sites.waystations;
+    case "watchtower": return sites.watchtowers;
+    case "defense": return sites.planetaryDefense;
+    case "resource": return resource ? sites.resources[resource] ?? [] : Object.values(sites.resources).flat();
+    case "empire": return Object.values(sites.empires).map((tiles) => tiles[0]).filter((tile): tile is ScoutFindingTile => Boolean(tile));
+  }
+};

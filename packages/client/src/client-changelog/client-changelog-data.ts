@@ -5,6 +5,7 @@ import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
 import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
+import { REPORT_BUG_BUTTONS_ENTRY } from "./client-changelog-report-bug-buttons.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
@@ -479,6 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   ...NOV_19_20_CHANGELOG,
   { ...INCUBATION_ENGINE_BURST_ENTRY, createdAt: 1795257240525, },
+  { ...REPORT_BUG_BUTTONS_ENTRY, createdAt: 1795258066508, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
