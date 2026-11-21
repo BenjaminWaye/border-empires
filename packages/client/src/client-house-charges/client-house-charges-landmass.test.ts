@@ -32,7 +32,7 @@ const seats: HouseChargeView = {
 };
 
 const land = (x: number, y: number, extra: Partial<Tile> = {}): [string, Tile] => [`${x},${y}`, { x, y, terrain: "LAND", ...extra }];
-const town = { name: "Vell", populationTier: "CITY" } as unknown as Tile["town"];
+const town = { name: "Vell", populationTier: "CITY" } as unknown as NonNullable<Tile["town"]>;
 
 const stateWith = (tiles: Array<[string, Tile]>, tilesRevision = 1) => ({
   onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
