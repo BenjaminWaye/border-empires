@@ -102,7 +102,8 @@ describe("renderSidePanel", () => {
     // Owner 2026-11-20: no line above the charge cards, only a ? beside the title.
     renderSidePanel({ ...base, activePanel: "charges" }, deps);
     expect(hint.hidden).toBe(true);
-    expect(help.hidden).toBe(false);
+    // The charges panel shows the ? once it has charges to explain (client-house-charges-panel.ts).
+    help.hidden = false;
     // Owner 2026-11-19: on desktop the charges float side by side; the class lets the panel widen and lose its frame.
     expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(true);
     renderSidePanel({ ...base, activePanel: "settings" }, deps);

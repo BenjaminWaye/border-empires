@@ -81,6 +81,12 @@
   cursor: pointer;
 }
 
+/* Beats the compact HUD's 40px button floor (body.hud-v2-compact #side-panel button), which made the ? an oval. */
+#side-panel-head #panel-help {
+  min-width: 26px;
+  min-height: 26px;
+}
+
 .panel-help[hidden] {
   display: none;
 }

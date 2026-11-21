@@ -177,6 +177,8 @@ export const renderHouseChargesPanel = (
   if (state.activePanel !== "charges") {
     if (deps.panelEl.innerHTML !== "") deps.panelEl.innerHTML = "";
     writtenHtml.delete(deps.panelEl);
+    // Closing the panel closes the help, so reopening it shows the cards with nothing over them.
+    rewardsOpen = false;
     return;
   }
   const html = houseChargesPanelHtml(state, deps.now());
@@ -191,10 +193,12 @@ export const renderHouseChargesPanel = (
   const more = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
   const help = deps.root.querySelector<HTMLButtonElement>("#panel-help");
   // The help is a popup over the cards: the "?" toggles it and a tap on it closes it.
+  // With no charges dealt yet there is no help to open, so the "?" is hidden (panel-nav only hides it elsewhere).
+  if (help && help.hidden !== !more) help.hidden = !more;
   const setHelpOpen = (open: boolean): void => {
-    rewardsOpen = open;
-    if (more) more.hidden = !open;
-    help?.setAttribute("aria-expanded", String(open));
+    rewardsOpen = open && more !== null;
+    if (more && more.hidden !== !rewardsOpen) more.hidden = !rewardsOpen;
+    if (help && help.getAttribute("aria-expanded") !== String(rewardsOpen)) help.setAttribute("aria-expanded", String(rewardsOpen));
   };
   setHelpOpen(rewardsOpen);
   if (more) more.onclick = () => setHelpOpen(false);

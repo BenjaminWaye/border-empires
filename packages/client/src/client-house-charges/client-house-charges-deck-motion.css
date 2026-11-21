@@ -110,7 +110,7 @@
    first; on the shortest screens the italic quote goes too. */
 @media (min-width: 901px) and (max-height: 900px) {
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { padding: 8px 8px 12px; }
-  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100dvh - 720px), 132px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100vh - 720px), 132px); height: clamp(40px, calc(100dvh - 720px), 132px); }
 }
 @media (min-width: 901px) and (max-height: 760px) {
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text .hc-flavour { display: none; }

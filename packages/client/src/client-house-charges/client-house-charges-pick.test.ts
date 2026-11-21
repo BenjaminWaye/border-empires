@@ -101,4 +101,41 @@ describe("House Charges keep choice", () => {
     expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
     expect(help.getAttribute("aria-expanded")).toBe("false");
   });
+
+  // Review of #2906: with no charges dealt there was no help, but the ? still showed and latched open.
+  it("hides the ? until there are charges to explain, so a tap cannot latch the help open", () => {
+    const panelEl = document.createElement("div");
+    const root = document.createElement("div");
+    root.innerHTML = '<button id="panel-help" type="button">?</button>';
+    const help = root.querySelector<HTMLButtonElement>("#panel-help")!;
+    const state = { activePanel: "charges" as const, houseCharges: undefined as undefined | { type: "HOUSE_CHARGES"; dealtAt: number; choiceClosesAt: number; charges: HouseChargeView[] }, houseChargesDraftKeep: undefined as string[] | undefined, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 22, houseChargeFocusId: undefined };
+    const deps = { root, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000, closePanel: () => {}, viewport: () => ({ width: 800, height: 600 }) };
+    renderHouseChargesPanel(state, deps);
+    expect(help.hidden).toBe(true);
+    help.click();
+    expect(help.getAttribute("aria-expanded")).not.toBe("true");
+    state.houseCharges = { type: "HOUSE_CHARGES", dealtAt: 1_000, choiceClosesAt: 10_000, charges };
+    renderHouseChargesPanel(state, deps);
+    expect(help.hidden).toBe(false);
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
+  });
+
+  // Review of #2906: the help stayed open across closing the panel, so it reopened over the cards.
+  it("closes the help when the panel closes, so reopening shows only the cards", () => {
+    const panelEl = document.createElement("div");
+    const root = document.createElement("div");
+    root.innerHTML = '<button id="panel-help" type="button">?</button>';
+    const help = root.querySelector<HTMLButtonElement>("#panel-help")!;
+    const state = { activePanel: "charges" as "charges" | null, houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 1_000, choiceClosesAt: 10_000, charges }, houseChargesDraftKeep: undefined as string[] | undefined, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 22, houseChargeFocusId: undefined };
+    const deps = { root, panelEl, rerender: () => renderHouseChargesPanel(state, deps), requestViewRefresh: () => {}, sendGameMessage: () => true, wrapX: (x: number) => x, wrapY: (y: number) => y, now: () => 5_000, closePanel: () => {}, viewport: () => ({ width: 800, height: 600 }) };
+    renderHouseChargesPanel(state, deps);
+    help.click();
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(false);
+    state.activePanel = null;
+    renderHouseChargesPanel(state, deps);
+    state.activePanel = "charges";
+    renderHouseChargesPanel(state, deps);
+    expect(panelEl.querySelector<HTMLElement>("[data-house-charges-more]")!.hidden).toBe(true);
+    expect(help.getAttribute("aria-expanded")).toBe("false");
+  });
 });
