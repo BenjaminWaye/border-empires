@@ -21,6 +21,7 @@ import type { Tile } from "../client-types.js";
 import { freeSlotsOf } from "../client-tile-action-logic/client-resource-slot-reason.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { hasFreeResourceSlotsForRelayBeacon } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { townIdentityForTile } from "../client-town-identity.js";
@@ -57,7 +58,7 @@ export type FoodShortage = FoodScan & {
   plotsToQueue: number;
   /** Hyperfeed Seedstock commissioned: a Farm Plot upgrades to a Hydrogarden Plot, and grain takes a Hydrogarden. */
   hyperfeed: boolean;
-  /** A Relay Beacon can be placed now: a tile passes the build rule and a FOOD slot is free when it needs one. */
+  /** A Relay Beacon can be placed now: its MP in hand, a tile passes the build rule and a FOOD slot is free when it needs one. */
   beaconReady: boolean;
 };
 
@@ -136,7 +137,8 @@ export const foodShortageForState = (state: ClientState, scan: FoodScan | undefi
     plotsToQueue: Math.min(free, affordable),
     hyperfeed: state.techIds.includes(FARM_PLOT_UPGRADE_TECH_ID),
     // Only checked when a beacon row could show (the build-tile check walks every tile).
-    beaconReady: Boolean(scan?.outside) && hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me)
+    beaconReady: Boolean(scan?.outside) && state.manpower >= relayBeaconManpowerCostForState(state) &&
+      hasFreeResourceSlotsForRelayBeacon(state) && hasRelayBeaconBuildTile(state.tiles, state.me)
   };
 };
 
@@ -174,7 +176,7 @@ export const foodShortageSteps = (food: FoodShortage): FoodStep[] => {
   }
   if (outside && !expand) {
     const out = `${yieldText(outside.resource, food.hyperfeed)} · ${plural(outside.distance, "tile")} out`;
-    // No beacon can go down (no build tile, or no FOOD slot for it): show where the food is, with nothing to start.
+    // No beacon can go down (short of its MP, no build tile, or no FOOD slot for it): show where the food is, with nothing to start.
     steps.push(food.beaconReady
       ? { title: `Relay Beacon to ${FOOD_NAME[outside.resource]}`, sub: `${out} · outside reach`, beacon: { x: outside.x, y: outside.y } }
       : { title: `${FOOD_TITLE[outside.resource]} outside reach`, sub: `${out} · needs a Relay Beacon`, focus: { x: outside.x, y: outside.y } });

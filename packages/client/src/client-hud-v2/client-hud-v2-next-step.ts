@@ -95,7 +95,7 @@ const manpowerSourceSteps = (sources: NextStepSources): NextStep[] => {
   const steps: NextStep[] = [];
   const { salvage, waystation, neutralTown, explore } = sources;
   if (neutralTown) {
-    steps.push({ title: "Take a neutral town", sub: `${place(neutralTown)} · +${mp(neutralTown.capAdded)} MP now · +${mp(neutralTown.perBatch)} per batch`, focus: at(neutralTown) });
+    steps.push({ title: "Take a neutral town", sub: `${place(neutralTown)} · +${mp(neutralTown.capAdded)} MP once settled · +${mp(neutralTown.perBatch)} per batch`, focus: at(neutralTown) });
   }
   if (waystation) {
     steps.push(waystation.owned

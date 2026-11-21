@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { scanNextStepSources } from "./client-hud-v2-next-step-sources.js";
 
 const tile = (x: number, y: number, extra: Record<string, unknown> = {}): Tile => ({ x, y, terrain: "LAND", ...extra }) as unknown as Tile;
@@ -16,8 +17,12 @@ const state = (tiles: Tile[], manpower = 19, techIds: string[] = []) => {
   s.techIds = techIds;
   s.resourceSlots = { supply: { FOOD: 2, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } };
   s.tiles = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+  s.discoveredTiles = new Set(s.tiles.keys());
   return s;
 };
+/** Steps from (0,0), across the world seam where shorter. */
+const fromOrigin = (at: { x: number; y: number } | undefined): number | undefined =>
+  at && Math.min(at.x, WORLD_WIDTH - at.x) + Math.min(at.y, WORLD_HEIGHT - at.y);
 const works = (shipped = 0) => ({ resource: "PRECURSOR_SALVAGE", economicStructure: { type: "RECLAMATION_WORKS", ownerId: "me", status: "active", salvageLoadsShipped: shipped } });
 
 describe("next-step sources scan", () => {
@@ -48,7 +53,7 @@ describe("next-step sources scan", () => {
       tile(1, 1, { ...town("TOWN", "Hidden"), fogged: true }),
       tile(2, 2, { ...town("TOWN", "Rival"), ownerId: "them" })
     ]));
-    // A TOWN adds 300 max MP (credited to the pool at once) and 300 per 12h of regen: 100 per 4h batch while you hold under five towns.
+    // A TOWN adds 300 max MP (credited to the pool once it settles) and 300 per 12h of regen: 100 per 4h batch while you hold under five towns.
     expect(sources.neutralTown).toEqual({ x: 3, y: 3, name: "Near", capAdded: 300, perBatch: 100 });
   });
 
@@ -61,11 +66,23 @@ describe("next-step sources scan", () => {
   it("points explore at the unexplored tile nearest home", () => {
     // Known: a 3x3 block round home plus a far strip; (2,0) is the nearest coordinate missing from the map.
     const known: Tile[] = [];
-    for (let y = -1; y <= 1; y += 1) for (let x = -1; x <= 1; x += 1) known.push(tile(x, y));
+    for (let y = -1; y <= 1; y += 1) for (let x = -1; x <= 1; x += 1) known.push(tile((x + WORLD_WIDTH) % WORLD_WIDTH, (y + WORLD_HEIGHT) % WORLD_HEIGHT));
     known.push(tile(30, 30));
     const explore = scanNextStepSources(state(known)).explore;
-    expect(explore && Math.abs(explore.x) + Math.abs(explore.y)).toBe(2);
+    expect(fromOrigin(explore)).toBe(2);
     expect(known.some((t) => t.x === explore?.x && t.y === explore?.y)).toBe(false);
+  });
+
+  // Review of #2903: after a reload, remembered ground is discovered but not in state.tiles; tapping it
+  // offers no Explore, so it must not be suggested.
+  it("skips discovered ground missing from the map, ranks across the world seam, and only runs with no other source", () => {
+    const s = state([tile(0, 0)]);
+    for (const key of ["1,0", "0,1", "0,-1"]) s.discoveredTiles.add(key);
+    expect(scanNextStepSources(s).explore).toEqual({ x: WORLD_WIDTH - 1, y: 0 });
+    // Home sits on the seam: ground just west of it is 2 steps away, not a world away.
+    const seam = state([tile(0, 0), tile(WORLD_WIDTH - 1, 0), tile(1, 0), tile(0, 1), tile(0, WORLD_HEIGHT - 1)]);
+    expect(fromOrigin(scanNextStepSources(seam).explore)).toBe(2);
+    expect(scanNextStepSources(state([tile(0, 0), tile(3, 3, town("TOWN", "Near"))])).explore).toBeUndefined();
   });
 
   it("offers a Manufactory town only when the town menu's action would be enabled", () => {

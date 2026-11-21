@@ -75,6 +75,13 @@ describe("tracker FOOD shortage", () => {
     expect(foodShortageHtml(food, true)).not.toContain("data-hud-v2-beacon");
   });
 
+  // Review of #2903: a live beacon button with too little MP opens a placement the server refuses.
+  it("doesn't offer the beacon with less manpower than it costs", () => {
+    const tiles = [town, ...ring(), tile(14, 14, { resource: "FISH" }), afc];
+    expect(shortage(state(tiles, short))!.beaconReady).toBe(true);
+    expect(shortage(state(tiles, short, 1))!.beaconReady).toBe(false);
+  });
+
   it("offers the drone only when no grain or fish is known nearby", () => {
     const far = tile(10 + FOOD_NEARBY_TILES + 1, 10, { resource: "FARM" });
     const steps = foodShortageSteps(shortage(state([town, ...ring(), far, afc], short))!);

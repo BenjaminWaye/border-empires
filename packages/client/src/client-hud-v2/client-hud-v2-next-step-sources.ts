@@ -39,7 +39,7 @@ export type NextStepSources = {
    * Manufactories stack, so a town that already has one still counts.
    */
   manufactoryTown?: NextStepSite;
-  /** The nearest unexplored tile (absent from the client's map) beside known ground: tap it to Explore. */
+  /** With no town, waystation or salvage: the nearest undiscovered tile beside known ground (tap it to Explore). */
   explore?: NextStepSite;
 };
 
@@ -55,7 +55,9 @@ export const scanNextStepSources = (state: ClientState): NextStepSources => {
   const me = state.me;
   if (!me) return {};
   const home = state.homeTile;
-  const distance = (t: { x: number; y: number }): number => (home ? Math.abs(t.x - home.x) + Math.abs(t.y - home.y) : 0);
+  // Wrap-aware, so ground just across the world seam ranks as near as it is.
+  const gap = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
+  const distance = (t: { x: number; y: number }): number => (home ? gap(t.x, home.x, WORLD_WIDTH) + gap(t.y, home.y, WORLD_HEIGHT) : 0);
   const nearer = <T extends { x: number; y: number }>(best: T | undefined, next: T): T => (!best || distance(next) < distance(best) ? next : best);
   let salvage: NextStepSources["salvage"];
   let ownedWaystation: Tile | undefined;
@@ -67,12 +69,6 @@ export const scanNextStepSources = (state: ClientState): NextStepSources => {
   const manufactoryTech = TECH_REQUIREMENTS_BY_STRUCTURE.MANUFACTORY;
   const manufactoryUnlocked = Boolean(manufactoryTech && state.techIds.includes(manufactoryTech)) && hasFreeResourceSlots(state, "MANUFACTORY");
   for (const tile of state.tiles.values()) {
-    // Unexplored ground is absent from the map (fogged tiles were seen before); check beside every known tile.
-    for (const [dx, dy] of NEIGHBOURS) {
-      const x = wrapX(tile.x + dx, WORLD_WIDTH);
-      const y = wrapY(tile.y + dy, WORLD_HEIGHT);
-      if (!state.tiles.has(`${x},${y}`)) explore = nearer(explore, { x, y });
-    }
     if (tile.fogged) continue;
     if (tile.waystation && !tile.waystation.activated) {
       if (tile.ownerId === me) ownedWaystation = nearer(ownedWaystation, tile);
@@ -88,6 +84,18 @@ export const scanNextStepSources = (state: ClientState): NextStepSources => {
         !townTileOpenPlotReason(state, tile)) manufactoryTown = nearer(manufactoryTown, tile);
   }
   const waystation = ownedWaystation ?? openWaystation;
+  // Explore only shows when nothing else does, so skip the neighbour walk otherwise. Unexplored means not in
+  // discoveredTiles (what the map draws as unexplored, client-map-facade.ts): remembered ground restored after
+  // a reload is discovered but may be missing from state.tiles.
+  if (!salvage && !waystation && !neutralTown) {
+    for (const tile of state.tiles.values()) {
+      for (const [dx, dy] of NEIGHBOURS) {
+        const x = wrapX(tile.x + dx, WORLD_WIDTH);
+        const y = wrapY(tile.y + dy, WORLD_HEIGHT);
+        if (!state.discoveredTiles.has(`${x},${y}`)) explore = nearer(explore, { x, y });
+      }
+    }
+  }
   const townValue = (town: Tile): { capAdded: number; perBatch: number } => {
     if (!town.town) return { capAdded: 0, perBatch: 0 };
     const { terrainProfile, coastal } = townTerrainForTile(town, town.town);

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { relayBeaconStartTile, startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
@@ -21,6 +22,12 @@ describe("tracker Relay Beacon step", () => {
     const state = { tiles: tiles(tile(0, 0), tile(10, 10), tile(5, 5, { ownershipState: "FRONTIER" })), me: "me", serverReach: undefined, serverReachRevision: 0 };
     expect(relayBeaconStartTile(state as never, { x: 12, y: 11 })).toEqual({ x: 10, y: 10 });
     expect(relayBeaconStartTile(state as never, { x: 1, y: 0 })).toEqual({ x: 0, y: 0 });
+  });
+
+  // Review of #2903: the nearest site must be found across the world seam, not ~a world away.
+  it("finds the site nearest a target across the world seam", () => {
+    const state = { tiles: tiles(tile(1, 0), tile(40, 0)), me: "me", serverReach: undefined, serverReachRevision: 0 };
+    expect(relayBeaconStartTile(state as never, { x: WORLD_WIDTH - 2, y: 0 })).toEqual({ x: 1, y: 0 });
   });
 
   it("arms Relay Beacon placement, centres on it and shows the placement bar", () => {

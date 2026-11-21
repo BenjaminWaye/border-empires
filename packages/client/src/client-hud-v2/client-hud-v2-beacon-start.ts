@@ -12,19 +12,13 @@ type At = { x: number; y: number };
 
 /**
  * Where placement starts: a buildable tile, preferring the site that adds the most new reach -- or, with
- * `toward` (a food row's grain or fish), the buildable tile nearest it.
+ * `toward` (a food row's grain or fish), a site whose reach covers it, else the site nearest it.
  */
 export const relayBeaconStartTile = (state: Parameters<typeof resolveMyReach>[0] & Pick<ClientState, "tiles" | "me">, toward?: At): At | undefined => {
   const buildable = (x: number, y: number): boolean => isRelayBeaconBuildTile(state.tiles, state.tiles.get(`${x},${y}`), state.me);
-  if (toward) {
-    const gap = (t: At): number => Math.abs(t.x - toward.x) + Math.abs(t.y - toward.y);
-    let nearest: At | undefined;
-    for (const tile of state.tiles.values()) {
-      if ((!nearest || gap(tile) < gap(nearest)) && isRelayBeaconBuildTile(state.tiles, tile, state.me)) nearest = { x: tile.x, y: tile.y };
-    }
-    if (nearest) return nearest;
-  }
-  const best = bestRelayBeaconSites(state.tiles, state.me, { reach: resolveMyReach(state), limit: 5 }).find((site) => buildable(site.x, site.y));
+  // With `toward`, the site scorer ranks sites whose reach covers it first, then the nearest (wrap-aware).
+  const best = bestRelayBeaconSites(state.tiles, state.me, { reach: resolveMyReach(state), limit: 5, ...(toward ? { targets: [toward] } : {}) })
+    .find((site) => buildable(site.x, site.y));
   if (best) return { x: best.x, y: best.y };
   for (const tile of state.tiles.values()) if (isRelayBeaconBuildTile(state.tiles, tile, state.me)) return { x: tile.x, y: tile.y };
   return undefined;
