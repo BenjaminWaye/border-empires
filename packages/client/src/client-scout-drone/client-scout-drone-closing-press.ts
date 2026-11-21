@@ -1,20 +1,19 @@
-// A map press that closed an open tile menu (client-map-input.ts closes it on mousedown, before the tap's click
-// reaches the map handler). The click then knows it was a closing tap, and must not also start a scout plan
-// (player report 2026-11-21: taps meant to close a card started drone routes and added stops).
+// Whether the map press now being committed closed an open tile menu. The map closes the menu when a press
+// starts (mousedown, client-map-input.ts), before the tap reaches the map handler, so the handler can't see it
+// was open. A closing tap must not also start a scout plan (player report 2026-11-21: taps meant to close a card
+// started drone routes and added stops). Every press overwrites this, so a press that never became a tap (a
+// pan, a release off the map) can't leave it set for a later tap (review 2026-11-21).
 
-/** How long after its press a closing tap still counts: a slow tap, well short of a second one. */
-const CLOSING_PRESS_WINDOW_MS = 1_500;
+let pressClosedMenu = false;
 
-let closingPressAt: number | undefined;
-
-/** Call when a press closes an open tile menu. */
-export const noteMenuClosingPress = (nowMs: number = Date.now()): void => {
-  closingPressAt = nowMs;
+/** Call when a primary press starts: true when it found a tile menu open (and so closes it). */
+export const noteMapPress = (closesMenu: boolean): void => {
+  pressClosedMenu = closesMenu;
 };
 
-/** True (once) when the tap now being handled ended a press that closed a menu. */
-export const takeMenuClosingPress = (nowMs: number = Date.now()): boolean => {
-  const at = closingPressAt;
-  closingPressAt = undefined;
-  return at !== undefined && nowMs - at <= CLOSING_PRESS_WINDOW_MS;
+/** True (once) when the tap being handled began with a press that closed a menu. */
+export const takeMenuClosingPress = (): boolean => {
+  const closed = pressClosedMenu;
+  pressClosedMenu = false;
+  return closed;
 };

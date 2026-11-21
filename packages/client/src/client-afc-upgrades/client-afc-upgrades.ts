@@ -83,7 +83,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
     <div class="afc-upgrade-summary">
       <p role="status"${complete ? ' data-afc-upgrade-complete tabindex="-1"' : ""}>${complete ? '<span class="afc-upgrade-check" aria-hidden="true"></span>' : ""}${progress}</p>
       ${tier !== undefined ? `<span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span>` : ""}
-      <span class="afc-scout-charges">Scout drone · ${scoutChargeStatus(state, Date.now())}</span>
+      <span class="afc-scout-charges"></span>
     </div>
     ${chosen.length ? `<section class="afc-upgrade-history" aria-label="Installed upgrades">
       ${complete ? "" : "<h3>Installed upgrades</h3>"}
@@ -123,7 +123,7 @@ export function renderAfcUpgradePanels(
   // HUD renders before INIT. Do not remember an empty catalogue's provisional tier.
   if (state.domainCatalog.length) views.set(root, view);
   else views.delete(root);
-  const repaint = (): void => {
+  const repaintPage = (): void => {
     const html = renderAfcUpgradesHtml(state, view, "afc-upgrade-0");
     // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
     if (view.html === html && root.firstElementChild) return;
@@ -146,6 +146,12 @@ export function renderAfcUpgradePanels(
       if (control) control.focus({ preventScroll: true });
       else root.querySelector<HTMLElement>("[data-afc-upgrade-current-tier], [data-afc-upgrade-complete]")?.focus();
     }
+  };
+  // The scout line's clock ticks every minute: written as text, so it never rebuilds the page (review 2026-11-21).
+  const repaint = (): void => {
+    repaintPage();
+    const charges = root.querySelector(".afc-scout-charges");
+    if (charges) charges.textContent = `Scout drone · ${scoutChargeStatus(state, Date.now())}`;
   };
   repaint();
   if (actions) bindAfcActions(root, actions);

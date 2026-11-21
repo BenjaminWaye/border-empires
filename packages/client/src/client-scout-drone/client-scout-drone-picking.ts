@@ -11,6 +11,7 @@ import type { Tile, TileActionDef } from "../client-types.js";
 import type { ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
 import { cancelScoutPlan, handleScoutPlanTap, scoutPlanTapStarts, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { scoutChargeCount, scoutChargeStatus } from "./client-scout-drone-charge-status.js";
+import { takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
 import { scoutReportCardVisible } from "./client-scout-drone-hud.js";
 
 export const AFC_SCOUT_ACTION_ID = "afc_scout_drone" as const;
@@ -52,8 +53,8 @@ export const handleScoutDronePickClick = (
   wy: number,
   deps: ExploreDispatchDeps & { renderHud: () => void },
   nowMs: number = Date.now(),
-  /** True when this tap also closed an open tile menu (client-action-flow.ts). */
-  closedMenu = false
+  /** True when this tap's press closed an open tile menu (noted by client-map-input.ts). */
+  closedMenu: boolean = takeMenuClosingPress()
 ): boolean => {
   if (!state.scoutDronePicking.active && (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.buildingPlacement.active)) return false;
   // A tap that closes something never also starts a plan: players dismissing a tile menu or the landing

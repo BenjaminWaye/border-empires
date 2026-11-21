@@ -329,8 +329,6 @@ describe("client action flow regressions", () => {
   it("disarms when the tile sheet is dismissed, and reads the confirm before the tap's own sheet close", () => {
     const source = actionFlowSource();
     expect(source).toContain("  const hideTileActionMenu = (): void => {\n    sheetDismiss.sheetHidden();");
-    // The menu's open state is read on the same line, before the close, so a closing tap never starts a scout plan.
-    expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy); const menuWasOpen = takeMenuClosingPress() || state.tileActionMenu.visible; // select first, then confirm (client-tile-interaction.ts); a closing tap never starts a scout plan\n    hideTileActionMenu();");
-    expect(source).toContain("handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }, Date.now(), menuWasOpen)");
+    expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)\n    hideTileActionMenu();");
   });
 });

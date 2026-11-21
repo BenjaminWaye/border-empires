@@ -4,7 +4,7 @@ import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { afcScoutDroneActions, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { launchScoutPlan } from "./client-scout-drone-plan.js";
-import { noteMenuClosingPress, takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
+import { noteMapPress, takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
 
 const flight = (landsAt: number): ScoutDroneFlight => ({
   launchedAt: 0,
@@ -165,12 +165,20 @@ describe("a closing tap never starts a scout plan", () => {
     expect(state.scoutDronePicking.active).toBe(true);
   });
 
-  it("knows a click whose press closed the menu (the map closes it on mousedown, before the click)", () => {
-    noteMenuClosingPress(5_000);
-    expect(takeMenuClosingPress(5_400)).toBe(true);
-    expect(takeMenuClosingPress(5_500)).toBe(false);
-    noteMenuClosingPress(5_000);
-    expect(takeMenuClosingPress(9_000)).toBe(false);
+  it("knows a tap whose press closed the menu, once, and each new press starts over", () => {
+    noteMapPress(true);
+    expect(takeMenuClosingPress()).toBe(true);
+    expect(takeMenuClosingPress()).toBe(false);
+    noteMapPress(true); // a pan that never became a tap...
+    noteMapPress(false); // ...and the next press finds no menu
+    expect(takeMenuClosingPress()).toBe(false);
+  });
+
+  it("reads the press by default when the map handler passes nothing", () => {
+    const state = pickingState();
+    noteMapPress(true);
+    expect(handleScoutDronePickClick(state, 20, 20, deps(), 1_000)).toBe(true);
+    expect(state.scoutDronePicking.active).toBe(false);
   });
 
   it("still adds stops to an open plan, menu or not", () => {

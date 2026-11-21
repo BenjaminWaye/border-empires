@@ -24,6 +24,21 @@ describe("single-level AFC upgrade management", () => {
     expect(panel.querySelector(".afc-scout-charges")?.textContent).toBe("Scout drone · 8/8");
   });
 
+  it("ticks the refill clock without rebuilding the page", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const { state, panel, install } = setup();
+    state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: [10_000, 10_000, 10_000] };
+    const card = panel.querySelector('[data-afc-upgrade-card="first"]');
+    renderAfcUpgradePanels(state, panel, install);
+    expect(panel.querySelector(".afc-scout-charges")?.textContent).toBe("Scout drone · 5/8 · +1 in 4h 00m");
+    vi.setSystemTime(10_000 + 61_000);
+    renderAfcUpgradePanels(state, panel, install);
+    expect(panel.querySelector(".afc-scout-charges")?.textContent).toBe("Scout drone · 5/8 · +1 in 3h 59m");
+    expect(panel.querySelector('[data-afc-upgrade-card="first"]')).toBe(card);
+    vi.useRealTimers();
+  });
+
   it("shows inline details without a sub-tab bar or a second screen", () => {
     const { panel, install } = setup();
     expect(panel.querySelector('[role="tablist"]')).toBeNull();
