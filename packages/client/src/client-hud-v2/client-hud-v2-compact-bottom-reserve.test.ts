@@ -28,6 +28,7 @@ const VERDICTS: Record<string, Verdict> = {
   "client-effort-confirm-sheet/client-effort-confirm-sheet-style.css :: .effort-confirm-overlay": { kind: "above" },
   "client-garrison-many/client-garrison-many.css :: .garrison-many-sheet": { kind: "above" },
   "client-guest-save-style.css :: .guest-save-badge": { kind: "lifted", token: ".guest-save-badge" },
+  "client-scout-drone/client-scout-drone-dock.css :: #scout-drone-dock": { kind: "lifted", token: "#scout-drone-dock" },
   "client-hud-v2/client-hud-v2-compact.css :: body.hud-v2-compact .hud-v2-nav": { kind: "exempt", why: "it is the tab bar" },
   "client-hud-v2/client-hud-v2-compact.css :: .hud-v2-sheet": { kind: "above" },
   "client-hud-v2/client-hud-v2-screens.css :: .v2s-body": { kind: "lifted", token: ".v2s-body" },

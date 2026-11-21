@@ -15,7 +15,7 @@ const makeState = () => ({
   hover: undefined as { x: number; y: number } | undefined,
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   marchOriginPicking: { active: false, targetX: 0, targetY: 0 },
-  scoutDronePicking: { active: false },
+  scoutDronePicking: { active: false, stops: [], bumpAt: 0, shakeAt: 0, launches: 0 },
   arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined,
   pendingArrowGestureConfirm: undefined,
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
