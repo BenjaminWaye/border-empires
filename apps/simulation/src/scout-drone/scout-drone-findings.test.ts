@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { SCOUT_FINDING_SITES_MAX_TILES } from "@border-empires/shared";
+import { SCOUT_DRONE_VISION_RADIUS, SCOUT_FINDING_SITES_MAX_TILES } from "@border-empires/shared";
 
 import { createScoutFindings } from "./scout-drone-findings.js";
 
@@ -42,5 +42,19 @@ describe("scout drone findings sites", () => {
     expect(report.resourceTiles).toBe(49);
     expect(report.sites?.resources.FARM).toHaveLength(SCOUT_FINDING_SITES_MAX_TILES);
     expect(report.sites?.resources.FARM?.[0]).toEqual({ x: 97, y: 0 });
+  });
+});
+
+describe("createScoutFindings tiles seen", () => {
+  // Review 2026-11-21: the report card's "+N Tiles" was a client count of newly discovered tiles, which
+  // mixed in other reveals and reset on reload. The server now counts what the drone itself saw.
+  it("reports every tile the drone saw, each once, out and home", () => {
+    const findings = createScoutFindings(() => new Map<string, DomainTileState>(), 100, 100);
+    const viewer = { id: "me", allies: new Set<string>() } as unknown as DomainPlayer;
+    findings.observe(10, 10, viewer);
+    findings.observe(11, 10, viewer);
+    findings.observe(10, 10, viewer);
+    const side = 2 * SCOUT_DRONE_VISION_RADIUS + 1;
+    expect(findings.counts().tilesSeen).toBe(side * side + side);
   });
 });
