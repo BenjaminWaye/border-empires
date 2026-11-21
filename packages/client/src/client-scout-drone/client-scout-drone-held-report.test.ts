@@ -18,6 +18,7 @@ const mapState = () => {
   state.authSessionReady = true;
   state.mapPrep = null;
   state.changelog.open = false;
+  state.connection = "initialized";
   state.tiles.set("1,1", { x: 1, y: 1, terrain: "LAND", ownerId: "me", afc: { ownerId: "me", status: "active" } } as Tile);
   return state;
 };
@@ -62,15 +63,40 @@ describe("a scout report the player was away for", () => {
     expect(seenSends(send)).toHaveLength(2);
   });
 
-  it("keeps trying to tell the server while the socket is down", () => {
+  it("tells the server once the session is back, without trying while it is down", () => {
     const state = mapState();
-    const send = vi.fn(() => false);
+    state.connection = "disconnected";
+    const send = vi.fn(() => true);
     handleScoutDroneMessage(message, state, vi.fn(), vi.fn(), (t) => t, 1_000);
     renderScoutDroneHud(state, { send, rerender: vi.fn(), focus: vi.fn(), now: () => 1_000 });
     expect(state.scoutReportUnacked).toBe("explore-7");
-    send.mockReturnValue(true);
+    expect(send).not.toHaveBeenCalled(); // the send path would raise an auth error on every render
+    state.connection = "initialized";
     renderScoutDroneHud(state, { send, rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 });
     expect(state.scoutReportUnacked).toBeUndefined();
+    expect(seenSends(send)).toHaveLength(1);
+  });
+
+  // Review 2026-11-21: a locked phone held the report while the desktop showed it; unlocking popped it again.
+  it("drops a report it hasn't shown yet once another device has seen it", () => {
+    const state = mapState();
+    setHidden(true);
+    handleScoutDroneMessage(message, state, vi.fn(), vi.fn(), (t) => t, 1_000);
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null }, state, vi.fn(), vi.fn(), (t) => t, 2_000); // the server's resend after the desktop's SEEN
+    expect(state.scoutDroneReport).toBeUndefined();
+  });
+
+  it("doesn't count as seen while its card can't show (planning the next flight)", () => {
+    const state = mapState();
+    const send = vi.fn(() => true);
+    state.scoutDronePicking = { ...state.scoutDronePicking, active: true };
+    handleScoutDroneMessage(message, state, vi.fn(), vi.fn(), (t) => t, 1_000);
+    renderScoutDroneHud(state, { send, rerender: vi.fn(), focus: vi.fn(), now: () => 1_000 });
+    expect(seenSends(send)).toHaveLength(0);
+    state.scoutDronePicking = { ...state.scoutDronePicking, active: false };
+    renderScoutDroneHud(state, { send, rerender: vi.fn(), focus: vi.fn(), now: () => 200_000 });
+    expect(scoutReportCardVisible(state, 200_000)).toBe(true);
+    expect(seenSends(send)).toHaveLength(1);
   });
 
   it("starts its card when a hidden tab comes back, and only then counts as seen", () => {

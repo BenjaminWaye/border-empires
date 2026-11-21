@@ -224,6 +224,9 @@ export const handleScoutDroneMessage = (
     // already showed isn't shown again; telling the server is retried instead (the last try may not have gone out).
     const shownHere = Boolean(reportId && (state.scoutDroneReport?.id === reportId || scoutReportShownHere(reportId)));
     if (reportId && shownHere && state.scoutDroneReport?.viewed !== false) state.scoutReportUnacked = reportId;
+    // A resend without the report the player hasn't looked at here yet: another device showed it (SCOUT_REPORT_SEEN
+    // cleared it on the server), so this one drops it instead of popping it up later (review 2026-11-21).
+    if (!msg.report && state.scoutDroneReport?.viewed === false && state.scoutDroneReport.id) state.scoutDroneReport = undefined;
     if (report && !shownHere) {
       const landedAt = isFiniteNumber(rawReport.landedAt) ? Math.min(nowMs, toLocal(rawReport.landedAt)) : nowMs;
       const blockedBy = report.blockedByPlayerId ?? previous?.blockedByPlayerId;

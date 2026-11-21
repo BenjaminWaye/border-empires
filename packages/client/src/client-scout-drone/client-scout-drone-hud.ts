@@ -259,7 +259,9 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // starts its 90 s when the player can first see it, and only then counts as seen, for every device: the
   // server keeps it on the player until told (player report 2026-11-21).
   const report = state.scoutDroneReport;
-  if (report?.viewed === false && mapUp && document.visibilityState !== "hidden") {
+  // Only when its card can actually show: not while planning or with the next drone up (scoutReportCardVisible).
+  const cardCanShow = !state.scoutDronePicking.active && !(state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt);
+  if (report?.viewed === false && mapUp && cardCanShow && document.visibilityState !== "hidden") {
     report.viewed = true;
     report.at = nowMs;
     if (report.id) {
@@ -267,7 +269,8 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
       state.scoutReportUnacked = report.id;
     }
   }
-  if (state.scoutReportUnacked && deps.send({ type: "SCOUT_REPORT_SEEN", id: state.scoutReportUnacked })) state.scoutReportUnacked = undefined;
+  // Only on a live session: the send path reports an auth error otherwise, and this retries on every render.
+  if (state.scoutReportUnacked && state.connection === "initialized" && deps.send({ type: "SCOUT_REPORT_SEEN", id: state.scoutReportUnacked })) state.scoutReportUnacked = undefined;
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
   const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
   const offering = pill && scoutDroneReadyToOffer(state, nowMs);
