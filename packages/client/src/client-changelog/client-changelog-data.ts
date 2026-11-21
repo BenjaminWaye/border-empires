@@ -8,6 +8,7 @@ import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
 import { REPORT_BUG_BUTTONS_ENTRY } from "./client-changelog-report-bug-buttons.js";
 import { TIP_OVER_DRONE_PILL_ENTRY } from "./client-changelog-tip-over-drone-pill.js";
 import { GUIDE_LAUNCHER_SCOUT_ENTRY } from "./client-changelog-guide-launcher-scout.js";
+import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garrison-prompt.js";
 import { TIP_PINS_ENTRY } from "./client-changelog-tip-pins.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
@@ -486,6 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...REPORT_BUG_BUTTONS_ENTRY, createdAt: 1795258066508, },
   { ...TIP_OVER_DRONE_PILL_ENTRY, createdAt: 1795288791904, },
   { ...GUIDE_LAUNCHER_SCOUT_ENTRY, createdAt: 1795288846909, },
+  { ...CAPTURE_GARRISON_PROMPT_ENTRY, createdAt: 1795294115079, },
   { ...TIP_PINS_ENTRY, createdAt: 1795294290244, },
 ];
 
