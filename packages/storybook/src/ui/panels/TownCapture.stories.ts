@@ -21,6 +21,21 @@ const VARIANTS: Record<string, TownCaptureInfo> = {
     destroyed: false,
     onJumpToTown: () => {}
   },
+  "Captured, not garrisoned": {
+    x: 481,
+    y: 75,
+    townName: "Quartzcrown",
+    populationTier: "TOWN",
+    terrainProfile: "GRASS",
+    coastal: true,
+    population: 23_791,
+    maxPopulation: 100_000,
+    empireName: "Your Empire",
+    ownedTownCount: 2,
+    destroyed: false,
+    garrison: { kind: "manual", garrison: () => true },
+    onJumpToTown: () => {}
+  },
   "Destroyed (Settlement)": {
     x: 90,
     y: 40,
@@ -107,4 +122,5 @@ export default meta;
 type Story = StoryObj<{ variant: string }>;
 
 export const Captured: Story = { args: { variant: "Captured (Town)" } };
+export const NotGarrisoned: Story = { args: { variant: "Captured, not garrisoned" } };
 export const Destroyed: Story = { args: { variant: "Destroyed (Settlement)" } };
