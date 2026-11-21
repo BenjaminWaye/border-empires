@@ -79,7 +79,8 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
   "EXPLORE",
-  "RECALL_SCOUT"
+  "RECALL_SCOUT",
+  "SCOUT_REPORT_SEEN"
 ];
 
 export const migratedDurableCommandTypes: ReadonlySet<string> = new Set(migratedDurableCommandTypesList);

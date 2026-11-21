@@ -106,9 +106,18 @@ export type ScoutDronePayload = {
   flight: ScoutDroneFlight | null;
   /** Every SCOUT_DRONE carries the player's charges (scout-drone-charges.ts), server clock. */
   charges?: ScoutDroneCharges;
-  /** Set on the landing message: what the finished flight found. */
-  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
+  /**
+   * What the last flight found: on the landing message, and on every resend until the player has seen it on any
+   * device (SCOUT_REPORT_SEEN), for at most a day. `id` names the flight; `landedAt` is server clock.
+   */
+  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string; id?: string; landedAt?: number };
 };
+
+/** A landing report as kept on the player until they have seen it (DomainPlayer.scoutLastReport). */
+export type ScoutHeldReport = NonNullable<ScoutDronePayload["report"]> & { id: string; landedAt: number };
+
+/** Client -> server: the player has seen the report with this id, on whichever device; it stops riding along. */
+export const SCOUT_REPORT_SEEN_COMMAND_TYPE = "SCOUT_REPORT_SEEN";
 
 /** One thing a flying drone spotted: the client pops it over the map and lets the report card frame it. */
 export type ScoutFind = {

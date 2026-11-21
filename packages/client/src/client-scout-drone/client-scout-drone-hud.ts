@@ -6,6 +6,7 @@
 // While any of them is up, the body carries `scout-focus`, which tucks away the guide card and the House
 // charges speech bubble (client-scout-drone-hud.css): first-time players found the landing report buried
 // under both, and the drone lost behind them (player review 2026-11-21).
+import { noteScoutReportShownHere } from "./client-scout-drone-seen-reports.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, scoutDronePositionAt, type ScoutFind } from "@border-empires/shared";
 import { depositIconKey, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -236,6 +237,16 @@ const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): bool
   return true;
 };
 
+let visibilityHooked = false;
+/** Coming back to the tab redraws, so a report that landed while it was hidden shows at once. */
+const hookVisibility = (): void => {
+  if (visibilityHooked || typeof document === "undefined") return;
+  visibilityHooked = true;
+  document.addEventListener("visibilitychange", () => {
+    if (current && document.visibilityState !== "hidden") renderScoutDroneHud(current.state, current.deps);
+  });
+};
+
 /** Draws the dock, the flight pill or the report card. Call on every HUD render. */
 export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): void => {
   current = { state, deps };
@@ -243,6 +254,20 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   renderScoutDroneDock(state, deps);
   // Only over the map itself: a flight replayed on reconnect drew the pill over the loading screen.
   const mapUp = isMapUnobstructed(state);
+  hookVisibility();
+  // A report that arrived while the page was hidden or loading (a backgrounded tab, a locked phone, a login)
+  // starts its 90 s when the player can first see it, and only then counts as seen, for every device: the
+  // server keeps it on the player until told (player report 2026-11-21).
+  const report = state.scoutDroneReport;
+  if (report?.viewed === false && mapUp && document.visibilityState !== "hidden") {
+    report.viewed = true;
+    report.at = nowMs;
+    if (report.id) {
+      noteScoutReportShownHere(report.id);
+      state.scoutReportUnacked = report.id;
+    }
+  }
+  if (state.scoutReportUnacked && deps.send({ type: "SCOUT_REPORT_SEEN", id: state.scoutReportUnacked })) state.scoutReportUnacked = undefined;
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
   const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
   const offering = pill && scoutDroneReadyToOffer(state, nowMs);

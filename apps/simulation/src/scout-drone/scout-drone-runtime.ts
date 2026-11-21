@@ -25,6 +25,7 @@ import {
 } from "@border-empires/shared";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "../visibility-coverage-cache.js";
+import { holdScoutReport, markScoutReportSeen, unseenScoutReport } from "./scout-drone-held-report.js";
 import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
@@ -93,16 +94,13 @@ export type ScoutDroneGauge = {
   routeFullRefusals: number;
   /** Finds sent mid-flight in SCOUT_FINDS (the client's pops). */
   findsSent: number;
-  /** Landing reports held for a player who was offline when the drone landed. */
-  unseenReports: number;
-  /** Held reports handed over on the player's next subscribe. */
-  unseenReportsDelivered: number;
-  /** Held reports dropped: too old, replaced by a new flight, or evicted at the cap. */
-  unseenReportsDropped: number;
+  /** Resends that carried the player's unseen landing report (scout-drone-held-report.ts). */
+  heldReportsResent: number;
+  /** SCOUT_REPORT_SEEN that cleared a report. */
+  heldReportsSeen: number;
+  /** Unseen reports dropped after a day. */
+  heldReportsExpired: number;
 };
-
-/** How long a landing report waits for an offline player: past this, the Activity log card is enough. */
-export const SCOUT_UNSEEN_REPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Stops one flight may hold once extended mid-flight (EXPLORE while the drone is out). */
 export const SCOUT_DRONE_MAX_ROUTE_STOPS = SCOUT_DRONE_MAX_STOPS * 2;
@@ -111,6 +109,8 @@ export type ScoutDroneRuntime = {
   readonly handleExplore: (command: CommandEnvelope) => void;
   /** RECALL_SCOUT: turn the drone back over the outbound tile it is over now. */
   readonly handleRecall: (command: CommandEnvelope) => void;
+  /** SCOUT_REPORT_SEEN: the player saw their last report on some device, so it stops riding along (scout-drone-held-report.ts). */
+  readonly handleReportSeen: (command: CommandEnvelope) => void;
   readonly tick: (nowMs: number) => void;
   /** Push the player their drone (live subscribe / reconnect), `flight: null` while docked, with their charges. */
   readonly sendTo: (playerId: string) => void;
@@ -118,12 +118,17 @@ export type ScoutDroneRuntime = {
   readonly gauge: () => ScoutDroneGauge;
 };
 
-/** The runtime's EXPLORE and RECALL_SCOUT dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
+/** The runtime's EXPLORE, RECALL_SCOUT and SCOUT_REPORT_SEEN dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
 export const scoutDroneCommandDispatchHandlers = (
-  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall">
-): { handleExploreCommand: (command: CommandEnvelope) => void; handleRecallScoutCommand: (command: CommandEnvelope) => void } => ({
+  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall" | "handleReportSeen">
+): {
+  handleExploreCommand: (command: CommandEnvelope) => void;
+  handleRecallScoutCommand: (command: CommandEnvelope) => void;
+  handleScoutReportSeenCommand: (command: CommandEnvelope) => void;
+} => ({
   handleExploreCommand: (command) => drones().handleExplore(command),
-  handleRecallScoutCommand: (command) => drones().handleRecall(command)
+  handleRecallScoutCommand: (command) => drones().handleRecall(command),
+  handleScoutReportSeenCommand: (command) => drones().handleReportSeen(command)
 });
 
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
@@ -142,11 +147,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   let routeFullRefusals = 0;
   let findsSent = 0;
   let cooldownEvictions = 0;
-  // A drone that lands while its owner is offline would send its report to nobody (player report 2026-11-21:
-  // logging back in after a run showed no report). Held here, in memory like the flights, until the next subscribe.
-  const unseenReports = new Map<string, { at: number; report: NonNullable<ScoutDronePayload["report"]> }>();
-  let unseenReportsDelivered = 0;
-  let unseenReportsDropped = 0;
+  // The last landing report stays on the player until they have seen it on some device (scout-drone-held-report.ts).
+  let heldReportsResent = 0;
+  let heldReportsSeen = 0;
+  let heldReportsExpired = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
     deps.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
@@ -232,6 +236,18 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     deps.recordPersonalImpact({ kind: "SCOUT_SIGHTED", id: `scout-sighted:${active.commandId}`, playerId: rivalId, occurredAt: nowMs, x: blockedAtX, y: blockedAtY, scoutPlayerId: active.playerId });
   };
 
+  const sendTo = (playerId: string): void => {
+    // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
+    // restart the client (and the gateway's replay of the last message) would otherwise keep a
+    // flight that no longer exists and block Explore until its old landing time, which on a
+    // long flight is over an hour.
+    const flight = flights.get(playerId)?.flight ?? null;
+    const unseen = unseenScoutReport(deps.players().get(playerId), deps.now(), () => { heldReportsExpired += 1; });
+    const report = flight ? undefined : unseen;
+    if (report) heldReportsResent += 1;
+    send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight, ...(report ? { report } : {}) });
+  };
+
   const land = (active: ActiveFlight, nowMs: number): void => {
     moveReveal(active, undefined);
     flights.delete(active.playerId);
@@ -249,19 +265,9 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       lastReportActivityAt.set(active.playerId, nowMs);
       recordReport(active, nowMs, report);
     }
-    const landed = { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}) };
+    const landed = { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}), id: active.commandId, landedAt: nowMs };
+    holdScoutReport(deps.players().get(active.playerId), landed);
     send(active.playerId, `scout-drone-landed:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: null, report: landed });
-    if (deps.isPlayerSubscribed?.(active.playerId) === false) holdUnseenReport(active.playerId, nowMs, landed);
-  };
-
-  const holdUnseenReport = (playerId: string, nowMs: number, report: NonNullable<ScoutDronePayload["report"]>): void => {
-    if (unseenReports.delete(playerId)) unseenReportsDropped += 1;
-    else if (unseenReports.size >= SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES) {
-      const oldest = unseenReports.keys().next().value;
-      if (oldest !== undefined) unseenReports.delete(oldest);
-      unseenReportsDropped += 1;
-    }
-    unseenReports.set(playerId, { at: nowMs, report });
   };
 
   const recordReport = (active: ActiveFlight, nowMs: number, report: ScoutReportFindings): void => {
@@ -392,6 +398,21 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
+    handleReportSeen: (command) => {
+      let id: unknown;
+      try {
+        id = (JSON.parse(command.payloadJson) as { id?: unknown }).id;
+      } catch {
+        id = undefined;
+      }
+      // Seen on one device: resend without it, so the player's other devices and the gateway's replay copy drop it too.
+      if (markScoutReportSeen(deps.players().get(command.playerId), id)) {
+        heldReportsSeen += 1;
+        sendTo(command.playerId);
+      }
+      // A repeat or a stale id is fine: another device may have said so first.
+      deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    },
     handleRecall: (command) => {
       const active = flights.get(command.playerId);
       if (!active) return reject(command, "SCOUT_DRONE_DOCKED", "your scout drone is not out");
@@ -413,21 +434,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const active of [...flights.values()]) advance(active, nowMs);
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
-      for (const [key, held] of unseenReports) if (nowMs - held.at >= SCOUT_UNSEEN_REPORT_MAX_AGE_MS) { unseenReports.delete(key); unseenReportsDropped += 1; }
     },
-    sendTo: (playerId) => {
-      // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
-      // restart the client (and the gateway's replay of the last message) would otherwise keep a
-      // flight that no longer exists and block Explore until its old landing time, which on a
-      // long flight is over an hour.
-      const flight = flights.get(playerId)?.flight ?? null;
-      const unseen = unseenReports.get(playerId);
-      unseenReports.delete(playerId);
-      const fresh = unseen && !flight && deps.now() - unseen.at < SCOUT_UNSEEN_REPORT_MAX_AGE_MS ? unseen.report : undefined;
-      if (fresh) unseenReportsDelivered += 1;
-      else if (unseen) unseenReportsDropped += 1;
-      send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight, ...(fresh ? { report: fresh } : {}) });
-    },
+    sendTo,
     flightFor: (playerId) => flights.get(playerId)?.flight,
     gauge: () => ({
       activeFlights: flights.size,
@@ -437,9 +445,9 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       routeFullRefusals,
       noChargeRefusals,
       findsSent,
-      unseenReports: unseenReports.size,
-      unseenReportsDelivered,
-      unseenReportsDropped
+      heldReportsResent,
+      heldReportsSeen,
+      heldReportsExpired
     })
   };
 };

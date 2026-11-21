@@ -63,7 +63,8 @@ const DURABLE_COMMAND_TYPES = [
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
   "EXPLORE",
-  "RECALL_SCOUT"
+  "RECALL_SCOUT",
+  "SCOUT_REPORT_SEEN"
 ] as const;
 
 // DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/

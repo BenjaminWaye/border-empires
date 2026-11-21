@@ -65,6 +65,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CHOOSE_HOUSE_CHARGES":
     case "EXPLORE":
     case "RECALL_SCOUT":
+    case "SCOUT_REPORT_SEEN":
     case "UPGRADE_TOWN_TIER":
     case "WATCH_MUSTER":
     case "UNWATCH_MUSTER":
