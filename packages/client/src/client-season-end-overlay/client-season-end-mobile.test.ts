@@ -70,13 +70,13 @@ describe("season summary recovery", () => {
     expect(notice?.querySelector(`[id="${descriptionId}"]`)?.textContent).toBe(message);
     button!.click();
     expect(isReportOpen("bug")).toBe(true);
-    const description = hud.querySelector<HTMLTextAreaElement>("[data-bug-report-description]")!;
+    const description = document.querySelector<HTMLTextAreaElement>("[data-bug-report-description]")!;
     expect(description.value).toContain(`historical data: ${record}.`);
     expect(description.value).toContain(`Observed: ${message}`);
     expect(description.value).toContain("winner");
-    expect(hud.querySelector("[data-bug-report-char-count]")?.textContent).toBe(String(description.value.length));
+    expect(document.querySelector("[data-bug-report-char-count]")?.textContent).toBe(String(description.value.length));
     expect(state.seasonEndDismissed).toBe(false);
-    hud.querySelector<HTMLButtonElement>("[data-bug-report-cancel]")!.click();
+    document.querySelector<HTMLButtonElement>("[data-bug-report-cancel]")!.click();
     expect(isReportOpen("bug")).toBe(false);
     expect(overlayEl.style.display).toBe("grid");
   });

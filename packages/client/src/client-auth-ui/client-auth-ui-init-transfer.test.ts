@@ -74,7 +74,7 @@ const render = (
       authProfileSaveBtn: makeButton(),
       authBusyTitleEl,
       authBusyCopyEl,
-      authBusyDiagnosticsBtn: makeButton(),
+      authBusyReportBugBtn: makeButton(),
       authBusySeasonFullNotifyBtn: makeButton(),
       authStatusEl: makeElement(),
       authDebugRouteEl: makeElement(),

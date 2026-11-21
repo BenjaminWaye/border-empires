@@ -11,6 +11,7 @@ import {
   type ScoutDroneEndReason,
   type ScoutDroneFlight,
   type ScoutDroneStep,
+  type ScoutFindingTile,
   type ScoutReportFindings
 } from "@border-empires/shared";
 import { resourceLabel } from "../client-map-display.js";
@@ -120,22 +121,36 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
 
-/** The findings as a short list, e.g. "1 town, 2 waystations, Planetary Defense (6 tiles)". Empty when nothing was found. */
-export const scoutFindingsText = (findings: ScoutReportFindings, nameOf: (playerId: string) => string): string => {
-  const parts: string[] = [];
-  if (findings.towns > 0) parts.push(plural(findings.towns, "town"));
-  if (findings.docks > 0) parts.push(plural(findings.docks, "dock"));
-  if (findings.waystations > 0) parts.push(plural(findings.waystations, "waystation"));
-  if (findings.watchtowers > 0) parts.push(plural(findings.watchtowers, "watchtower"));
+/** One find group as the report words it, and where it is (empty when the report predates sites). */
+export type ScoutFindingPart = { text: string; tiles: ScoutFindingTile[] };
+
+/** The findings, one part per group, e.g. "1 town", "GRAIN (10 tiles)", in the report's order. */
+export const scoutFindingParts = (findings: ScoutReportFindings, nameOf: (playerId: string) => string): ScoutFindingPart[] => {
+  const sites = findings.sites;
+  const parts: ScoutFindingPart[] = [];
+  const add = (text: string, tiles: ScoutFindingTile[] | undefined): void => {
+    parts.push({ text, tiles: tiles ?? [] });
+  };
+  if (findings.towns > 0) add(plural(findings.towns, "town"), sites?.towns);
+  if (findings.docks > 0) add(plural(findings.docks, "dock"), sites?.docks);
+  if (findings.waystations > 0) add(plural(findings.waystations, "waystation"), sites?.waystations);
+  if (findings.watchtowers > 0) add(plural(findings.watchtowers, "watchtower"), sites?.watchtowers);
   if (findings.resourcesSighted?.length) {
-    parts.push(...findings.resourcesSighted.map(({ resource, count }) => `${resourceLabel(resource)} (${plural(count, "tile")})`));
+    for (const { resource, count } of findings.resourcesSighted) add(`${resourceLabel(resource)} (${plural(count, "tile")})`, sites?.resources[resource]);
   } else if (findings.resourceTiles > 0) {
-    parts.push(plural(findings.resourceTiles, "resource tile"));
+    add(plural(findings.resourceTiles, "resource tile"), sites ? Object.values(sites.resources).flat() : undefined);
   }
-  if (findings.planetaryDefenseTiles > 0) parts.push(`Planetary Defense (${plural(findings.planetaryDefenseTiles, "tile")})`);
-  if (findings.empiresSighted.length > 0) parts.push(`the borders of ${findings.empiresSighted.map(nameOf).join(", ")}`);
-  return parts.join(", ");
+  if (findings.planetaryDefenseTiles > 0) add(`Planetary Defense (${plural(findings.planetaryDefenseTiles, "tile")})`, sites?.planetaryDefense);
+  findings.empiresSighted.forEach((id, index) => {
+    const name = nameOf(id);
+    add(index === 0 ? `the borders of ${name}` : name, sites?.empires[id]);
+  });
+  return parts;
 };
+
+/** The findings as a short list, e.g. "1 town, 2 waystations, Planetary Defense (6 tiles)". Empty when nothing was found. */
+export const scoutFindingsText = (findings: ScoutReportFindings, nameOf: (playerId: string) => string): string =>
+  scoutFindingParts(findings, nameOf).map((part) => part.text).join(", ");
 
 /** The feed line for a landed drone. `blockedBy` names the empire whose border turned it back. */
 export const scoutReportFeedText = (report: ScoutReport, nameOf: (playerId: string) => string, blockedBy?: string): string => {

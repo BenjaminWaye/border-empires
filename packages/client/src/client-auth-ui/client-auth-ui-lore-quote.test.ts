@@ -63,7 +63,7 @@ const render = (quoteEl: HTMLElement, overrides: { authBusy?: boolean; authError
       authProfileSaveBtn: makeButton(),
       authBusyTitleEl: makeElement(),
       authBusyCopyEl: makeElement(),
-      authBusyDiagnosticsBtn: makeButton(),
+      authBusyReportBugBtn: makeButton(),
       authBusySeasonFullNotifyBtn: makeButton(),
       authStatusEl: makeElement(),
       authDebugRouteEl: makeElement(),

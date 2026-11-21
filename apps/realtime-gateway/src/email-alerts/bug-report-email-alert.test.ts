@@ -115,3 +115,15 @@ describe("sendPlayerReportEmail", () => {
     expect(errors).toEqual(["bug report email with attachment rejected; retrying without"]);
   });
 });
+
+describe("report attachment size fallback", () => {
+  it("drops the oversized diagnostics bundle before discarding events and context", () => {
+    const big = { ...report(), diagnostics: { recentTileMessages: ["x".repeat(MAX_REPORT_ATTACHMENT_CHARS)] } };
+    const { attachment } = buildPlayerReportEmail("bug", big, "staging");
+    const decoded = JSON.parse(Buffer.from(attachment.content, "base64").toString("utf8"));
+    expect(decoded.diagnostics).toBeUndefined();
+    expect(decoded.diagnosticsOmitted).toBe("too_large");
+    expect(decoded.clientEvents).toHaveLength(2);
+    expect(decoded.serverEvents[0].payload.commandId).toBe("cmd-9");
+  });
+});

@@ -53,6 +53,9 @@
 }
 
 /* ---- Bug report / suggestion modal ---- */
+.player-report-overlay {
+  color: var(--sp-parchment-100);
+}
 .bug-report-modal,
 .suggestion-modal {
   border: 1px solid var(--sp-brass-700);

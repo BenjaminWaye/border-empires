@@ -192,8 +192,8 @@ describe("last step names the Chronicle on the new HUD", () => {
     const view = evaluateGuide({ ...stepInput(), manpower }, doneExcept(["turn-finish"]));
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("turn-finish");
-    expect(view.title).toBe("That's the basics. Spend your 2,712 manpower.");
-    expect(view.why).not.toContain("Come back");
+    expect(view.title).toBe("That's the basics.");
+    expect(view.why).toMatch(/^Spend your 2,712 manpower/);
   });
 });
 
