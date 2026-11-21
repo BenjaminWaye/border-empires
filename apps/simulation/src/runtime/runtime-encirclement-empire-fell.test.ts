@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
+import { applyCombatEncirclement } from "../runtime-lock-resolution-encirclement.js";
+import type { LockRecord } from "../runtime-types.js";
 
 // A player who loses their last land to encirclement or frontier decay (a
 // stranded-frontier release) gets the same "empire fell" notice and email as
@@ -22,9 +24,9 @@ const buildRuntime = (tiles: TileSeed[]): SimulationRuntime =>
     initialState: { tiles: [...openGround, ...tiles], activeLocks: [] }
   });
 
-const respawnedMessages = (seen: SimulationEvent[]): Array<Record<string, unknown>> =>
+const respawnedMessages = (seen: SimulationEvent[], playerId = "player-1"): Array<Record<string, unknown>> =>
   seen.flatMap((event) =>
-    event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED" && event.playerId === "player-1"
+    event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED" && event.playerId === playerId
       ? [JSON.parse(event.payloadJson) as Record<string, unknown>]
       : []
   );
@@ -85,5 +87,53 @@ describe("empire fell after encirclement or frontier decay", () => {
 
     expect(runtime.wireDeltaForTileKey("30,30", "player-1")?.ownerId).toBeUndefined();
     expect(respawnedMessages(seen)).toHaveLength(0);
+  });
+
+  it("Aether Lance: purging the tile a player's last frontier hung off respawns them with the eliminated notice", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: 500 } })],
+        ["player-2", buildPlayer("player-2", { points: 5_000, manpower: 100 })]
+      ]),
+      initialState: {
+        tiles: [
+          ...openGround,
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          // player-2's whole empire: one settled tile and the frontier hanging off it.
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ] as never,
+        activeLocks: []
+      }
+    });
+    const seen = collectEvents(runtime);
+    runtime.submitCommand({
+      commandId: "lance-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "AETHER_LANCE", payloadJson: JSON.stringify({ x: 5, y: 0 })
+    });
+
+    await vi.waitFor(() => expect(respawnedMessages(seen, "player-2")).toHaveLength(1));
+    expect(runtime.wireDeltaForTileKey("6,0", "player-2")?.ownerId).toBeUndefined();
+    expect(respawnedMessages(seen, "player-2")[0]).toMatchObject({ reason: "eliminated" });
+    expect(runtime.peekRespawnNoticeForPlayer("player-2")).toMatchObject({ reasonCode: "eliminated" });
+  });
+
+  it("combat encirclement always asks applyEncirclement to defer the wipe-out check to resolveLock", () => {
+    const calls: Array<{ playerId: string; deferEliminationCheck: boolean | undefined }> = [];
+    const context = {
+      applyEncirclement: (_keys: string[], playerId: string, _commandId: string, options?: { deferEliminationCheck?: boolean }) =>
+        void calls.push({ playerId, deferEliminationCheck: options?.deferEliminationCheck }),
+      applyEncirclementForExpand: () => {}
+    };
+    const lock = { actionType: "ATTACK", targetKey: "11,10", originKey: "10,10", playerId: "attacker", commandId: "attack-1" } as LockRecord;
+
+    applyCombatEncirclement(context, lock, true, false, "defender");
+    applyCombatEncirclement(context, lock, false, true, "defender");
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((call) => call.deferEliminationCheck === true)).toBe(true);
   });
 });

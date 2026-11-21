@@ -483,7 +483,7 @@ import {
   type RallySpawnOutcome, type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
-import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
+import { buildRelocatedSettlementTile, firstTownlessOwnedLandKey } from "../runtime-relocated-settlement-tile.js";
 import { publishOwnershipChange } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
@@ -1337,7 +1337,9 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
-      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), hasTileLock: (tileKey) => this.state.locksByTile.has(tileKey), respawnIfEliminated: (playerId, commandId) => { if (!playerId.startsWith("barbarian-")) this.respawnIfEliminated(playerId, commandId); } // encirclement wipe-outs get the same notice as attack ones
+      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), hasTileLock: (tileKey) => this.state.locksByTile.has(tileKey),
+      // Encirclement / stranded-frontier wipe-outs get the same "empire fell" respawn as attack ones.
+      respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId)
     };
   }
 
@@ -3036,16 +3038,7 @@ export class SimulationRuntime {
     population: number,
     options: { namePrefix: string }
   ): boolean {
-    const summary = this.summaryForPlayer(playerId);
-    // Use the oldest remaining owned land tile that does not already have a town.
-    let targetKey: string | undefined;
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.state.tiles.get(tileKey);
-      if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
-      if (tile.town) continue;
-      targetKey = tileKey;
-      break;
-    }
+    const targetKey = firstTownlessOwnedLandKey(this.state.tiles, this.summaryForPlayer(playerId).territoryTileKeys, playerId);
     if (!targetKey) return false;
     const target = this.state.tiles.get(targetKey);
     if (!target) return false;

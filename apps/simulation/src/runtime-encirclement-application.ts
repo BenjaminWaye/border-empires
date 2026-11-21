@@ -38,6 +38,19 @@ export type RuntimeEncirclementApplicationContext = {
   respawnIfEliminated?: (playerId: string, commandId: string) => void;
 };
 
+// Barbarian territory is not supply-connected the way player territory is,
+// and a barbarian never respawns with an AFC landing.
+export const isBarbarianOwner = (ownerId: string): boolean => ownerId.startsWith("barbarian-");
+
+/** Respawns `playerId` if this release left them landless (barbarians excepted). */
+export const respawnIfEliminatedAfterRelease = (
+  context: Pick<RuntimeEncirclementApplicationContext, "respawnIfEliminated">,
+  playerId: string,
+  commandId: string
+): void => {
+  if (!isBarbarianOwner(playerId)) context.respawnIfEliminated?.(playerId, commandId);
+};
+
 export function activeAetherBridgeNeighborKeysForPlayer(
   context: Pick<RuntimeEncirclementApplicationContext, "activeAetherBridgesForPlayer">,
   playerId: string
@@ -255,7 +268,7 @@ export function applyEncirclement(
   // Combat runs its own wipe-out check after settlement relocation
   // (runtime-lock-resolution.ts), so it defers; every other caller (Aether
   // Lance, bombardment, Create Mountain, hijack, abandon) checks here.
-  if (!options?.deferEliminationCheck) context.respawnIfEliminated?.(playerId, commandId);
+  if (!options?.deferEliminationCheck) respawnIfEliminatedAfterRelease(context, playerId, commandId);
 }
 
 /**

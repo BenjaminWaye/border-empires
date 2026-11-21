@@ -20,6 +20,8 @@ import { CHUNK_SIZE, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-emp
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import {
   clearCutOffFrontierTiles,
+  isBarbarianOwner,
+  respawnIfEliminatedAfterRelease,
   supplyLinkNeighborKeysForPlayer,
   type RuntimeEncirclementApplicationContext
 } from "../runtime-encirclement-application.js";
@@ -38,9 +40,8 @@ export type StrandedFrontierCleanup = {
   checkRegion: (cx: unknown, cy: unknown, commandId: string) => number;
 };
 
-// Barbarian territory is not supply-connected the way player territory is,
-// so it is never swept here (fail open: leaving a tile owned is the safe side).
-const isBarbarianOwner = (ownerId: string): boolean => ownerId.startsWith("barbarian-");
+// Barbarian territory is never swept here (fail open: leaving a tile owned is
+// the safe side); see isBarbarianOwner.
 
 export const isValidStrandedRegion = (cx: unknown, cy: unknown): cx is number =>
   Number.isInteger(cx) && Number.isInteger(cy) &&
@@ -76,7 +77,7 @@ export function createStrandedFrontierCleanup(
       context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas });
       incrementStrandedFrontierCounter("tilesReleased", tileDeltas.length);
       // Losing the last stranded frontier is a wipe-out like any other.
-      context.respawnIfEliminated?.(ownerId, commandId);
+      respawnIfEliminatedAfterRelease(context, ownerId, commandId);
     }
     return tileDeltas.length;
   };
