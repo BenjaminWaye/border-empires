@@ -85,9 +85,12 @@ everywhere.
    Planetary Defense-adjacent FRONTIER, but **attacks on a House's garrisoned
    (SETTLED) tiles are limited per House per manpower window**
    (`MANPOWER_REFILL_WINDOW_MS`, 4 h). Every attack counts, won or lost. Limit:
-   **10 per camp per House per window** (owner decision 2026-11-20). This
-   covers the case rule 7 does not: an online neighbour wakes a camp that then
-   attacks an offline House.
+   **3 per camp per House per window** (owner decision 2026-11-21; was 10).
+   A camp founded during a House's window gets **no raids on that House until
+   its next window** (owner decision 2026-11-21): otherwise each camp born from
+   a captured town added a fresh allowance and the raids compounded. The
+   founding time is saved in the planner snapshot. This covers the case rule 7
+   does not: an online neighbour wakes a camp that then attacks an offline House.
 
 ### Alert: an active camp in your vision
 

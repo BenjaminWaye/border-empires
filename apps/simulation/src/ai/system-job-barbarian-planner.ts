@@ -6,7 +6,8 @@ import {
   MAX_PLANETARY_DEFENSE_CAMPS,
   PLANETARY_DEFENSE_EXPAND_REST_MS,
   PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW,
-  lastManpowerRefillAtMs
+  lastManpowerRefillAtMs,
+  MANPOWER_REFILL_WINDOW_MS
 } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { candidateKeysForOrigin, createFrontierCommand, type PlannerTile, type PlannerTileLookup } from "./frontier-scoring.js";
@@ -58,13 +59,13 @@ export type BarbarianPlannerDeps = {
 };
 
 /**
- * What survives a restart: when each camp may act again and its raids per
- * House in that House's current manpower window. Saved in snapshots
+ * What survives a restart: when each camp may act again, when a recently founded
+ * camp was founded, and its raids per House in that House's current manpower window. Saved in snapshots
  * (runtime-snapshot-sidecars.ts); bounded by camps x Houses raided. In-flight
  * commands are not saved: a recovered lock resolves without settling one.
  */
 export type PlanetaryDefensePlannerSnapshot = {
-  camps: Array<{ campId: string; restUntil?: number; raids?: Array<{ houseId: string; windowStart: number; count: number }> }>;
+  camps: Array<{ campId: string; restUntil?: number; foundedAt?: number; raids?: Array<{ houseId: string; windowStart: number; count: number }> }>;
 };
 
 export type BarbarianPlanner = {
@@ -122,6 +123,10 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   const attackIssuedAt: number[] = [];
   // campId -> target key -> until when that camp skips it (after a rejection); small per camp.
   const avoidUntilByCamp = new Map<string, Map<string, number>>();
+  // campId -> when this planner first saw the camp (-Infinity: already there when the planner started).
+  // A camp founded inside a House's manpower window may not raid that House until its next one.
+  const foundedAtByCamp = new Map<string, number>();
+  let campsSeeded = false;
 
   const refundRejected = (entry: InFlight, settledAt: number): void => {
     if (entry.attack) {
@@ -154,8 +159,15 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   };
 
   const raidAllowed = (campId: string, houseId: string, t: number): boolean => {
+    const windowStart = lastManpowerRefillAtMs(houseId, t);
+    if ((foundedAtByCamp.get(campId) ?? Number.NEGATIVE_INFINITY) > windowStart) return false;
     const entry = raidsByCamp.get(campId)?.get(houseId);
-    return !entry || entry.windowStart !== lastManpowerRefillAtMs(houseId, t) || entry.count < raidsPerWindow;
+    return !entry || entry.windowStart !== windowStart || entry.count < raidsPerWindow;
+  };
+
+  const recordNewCamps = (live: ReadonlySet<string>, t: number): void => {
+    for (const campId of live) if (!foundedAtByCamp.has(campId)) foundedAtByCamp.set(campId, campsSeeded ? t : Number.NEGATIVE_INFINITY);
+    campsSeeded = true;
   };
 
   const recordRaid = (campId: string, houseId: string, t: number): void => {
@@ -178,6 +190,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     dropDeadCamps(sleepingUntilByCamp, live);
     dropDeadCamps(raidsByCamp, live);
     dropDeadCamps(avoidUntilByCamp, live);
+    dropDeadCamps(foundedAtByCamp, live);
   };
 
   /**
@@ -229,6 +242,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     const t = now();
     const live = new Set(deps.campIds());
     prune(live, t);
+    recordNewCamps(live, t);
     const awake = deps.getAwakeCampIds();
     const busyCamps = new Set<string>();
     const busyTargets = new Set<string>();
@@ -270,17 +284,29 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     },
     inFlightCount: () => inFlightByCommandId.size,
     restUntilByCamp,
-    exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, now()),
+    exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, foundedAtByCamp, now()),
     // A saved rest can't outlast one full rest from now: a corrupt or far-future value must not silence a camp.
-    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp, now() + Math.max(restMs, expandRestMs))
+    restoreState: (snapshot) => restorePlannerState(snapshot, { restUntilByCamp, raidsByCamp, foundedAtByCamp }, now(), now() + Math.max(restMs, expandRestMs))
   };
 };
 
 type RaidsByCamp = Map<string, Map<string, { windowStart: number; count: number }>>;
 
-/** Live entries only: a rest that has ended or a raid window with no raids carries nothing. */
-const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsByCamp: RaidsByCamp, t: number): PlanetaryDefensePlannerSnapshot => {
-  const campIds = new Set([...restUntilByCamp.keys(), ...raidsByCamp.keys()]);
+/**
+ * Live entries only: a rest that has ended, a raid window with no raids, or a founding time
+ * older than any manpower window it could still fall in carries nothing.
+ */
+const exportPlannerState = (
+  restUntilByCamp: ReadonlyMap<string, number>,
+  raidsByCamp: RaidsByCamp,
+  foundedAtByCamp: ReadonlyMap<string, number>,
+  t: number
+): PlanetaryDefensePlannerSnapshot => {
+  const recentlyFounded = (campId: string): number | undefined => {
+    const foundedAt = foundedAtByCamp.get(campId);
+    return foundedAt !== undefined && Number.isFinite(foundedAt) && t - foundedAt < MANPOWER_REFILL_WINDOW_MS ? foundedAt : undefined;
+  };
+  const campIds = new Set([...restUntilByCamp.keys(), ...raidsByCamp.keys(), ...[...foundedAtByCamp.keys()].filter((id) => recentlyFounded(id) !== undefined)]);
   const camps: PlanetaryDefensePlannerSnapshot["camps"] = [];
   for (const campId of [...campIds].sort()) {
     const restUntil = restUntilByCamp.get(campId);
@@ -288,21 +314,21 @@ const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsB
       .filter(([houseId, entry]) => entry.count > 0 && entry.windowStart === lastManpowerRefillAtMs(houseId, t))
       .map(([houseId, entry]) => ({ houseId, windowStart: entry.windowStart, count: entry.count }));
     const live = restUntil !== undefined && restUntil > t;
-    if (!live && raids.length === 0) continue;
-    camps.push({ campId, ...(live ? { restUntil } : {}), ...(raids.length > 0 ? { raids } : {}) });
+    const foundedAt = recentlyFounded(campId);
+    if (!live && raids.length === 0 && foundedAt === undefined) continue;
+    camps.push({ campId, ...(live ? { restUntil } : {}), ...(foundedAt !== undefined ? { foundedAt } : {}), ...(raids.length > 0 ? { raids } : {}) });
   }
   return { camps };
 };
 
-/** Ignores malformed entries rather than failing a boot; a rest is clamped to `maxRestUntil`. */
-const restorePlannerState = (
-  snapshot: PlanetaryDefensePlannerSnapshot | undefined,
-  restUntilByCamp: Map<string, number>,
-  raidsByCamp: RaidsByCamp,
-  maxRestUntil: number
-): void => {
+type PlannerStateMaps = { restUntilByCamp: Map<string, number>; raidsByCamp: RaidsByCamp; foundedAtByCamp: Map<string, number> };
+
+/** Ignores malformed entries rather than failing a boot; a rest is clamped to `maxRestUntil`, a founding time to `t`. */
+const restorePlannerState = (snapshot: PlanetaryDefensePlannerSnapshot | undefined, maps: PlannerStateMaps, t: number, maxRestUntil: number): void => {
+  const { restUntilByCamp, raidsByCamp, foundedAtByCamp } = maps;
   for (const camp of snapshot?.camps ?? []) {
     if (typeof camp?.campId !== "string") continue;
+    if (typeof camp.foundedAt === "number" && Number.isFinite(camp.foundedAt)) foundedAtByCamp.set(camp.campId, Math.min(camp.foundedAt, t));
     if (typeof camp.restUntil === "number" && Number.isFinite(camp.restUntil)) restUntilByCamp.set(camp.campId, Math.min(camp.restUntil, maxRestUntil));
     const byHouse = new Map<string, { windowStart: number; count: number }>();
     for (const raid of camp.raids ?? []) {

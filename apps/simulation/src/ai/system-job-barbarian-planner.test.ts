@@ -211,6 +211,43 @@ describe("Planetary Defense planner", () => {
     expect(second.choose()).toBeUndefined(); // raid limit for player-1 already spent this window
   });
 
+  // Raid limit compounding: every camp got its own raid allowance, so a camp founded from a House's
+  // captured town attacked that House's garrisoned land again in the same window.
+  it("a camp founded mid-window waits for the House's next window before raiding it", () => {
+    const { choose, tilesByKey, advance, now } = setup([campTile(10, 10)]);
+    expect(choose()).toBeUndefined(); // the planner has seen the camps that were already there
+    advance(1_000);
+    tilesByKey.set("30,30", campTile(30, 30));
+    tilesByKey.set("30,29", house(30, 29));
+    expect(choose()).toBeUndefined(); // new camp, garrisoned target held back
+    advance(lastManpowerRefillAtMs("player-1", now()) + MANPOWER_REFILL_WINDOW_MS - now() + 1);
+    expect(choose()).toMatchObject({ type: "ATTACK", from: "30,30", to: "30,29" });
+  });
+
+  it("a new camp may still take frontier and neutral land at once", () => {
+    const { choose, tilesByKey } = setup([campTile(10, 10)]);
+    choose();
+    tilesByKey.set("30,30", campTile(30, 30));
+    tilesByKey.set("30,29", house(30, 29, "FRONTIER"));
+    expect(choose()).toMatchObject({ type: "ATTACK", to: "30,29" });
+  });
+
+  it("a camp's founding time survives a restart", () => {
+    const first = setup([campTile(10, 10)]);
+    first.choose();
+    first.advance(1_000);
+    first.tilesByKey.set("30,30", campTile(30, 30));
+    first.tilesByKey.set("30,29", house(30, 29));
+    expect(first.choose()).toBeUndefined();
+    const saved = JSON.parse(JSON.stringify(first.planner.exportState())) as ReturnType<typeof first.planner.exportState>;
+    expect(saved.camps).toEqual([{ campId: "30,30", foundedAt: first.now() }]);
+
+    const second = setup([campTile(10, 10), campTile(30, 30), house(30, 29)]);
+    second.advance(1_000);
+    second.planner.restoreState(saved);
+    expect(second.choose()).toBeUndefined(); // still waiting, although the restarted planner saw it at boot
+  });
+
   it("restoreState ignores malformed entries", () => {
     const { planner, choose } = setup([campTile(10, 10), neutral(10, 11)]);
     planner.restoreState({ camps: [{ campId: 5 as unknown as string }, { campId: "10,10", raids: [{ houseId: "x", windowStart: Number.NaN, count: 2 }] }] });

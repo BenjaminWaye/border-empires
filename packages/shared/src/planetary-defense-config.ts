@@ -26,8 +26,10 @@ export const MAX_PLANETARY_DEFENSE_CAMP_TILES = 20;
 export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
 // Raid limit: one camp may launch at most this many attacks on any one House's
 // garrisoned (SETTLED) tiles per manpower window (MANPOWER_REFILL_WINDOW_MS),
-// won or lost. Attacks on frontier don't count.
-export const PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW = 10;
+// won or lost. Attacks on frontier don't count. A camp founded during a House's
+// window gets no raids on that House until its next window, so a camp born from
+// a captured town doesn't add fresh raids to the window it was taken in.
+export const PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW = 3;
 // Safety net if no settle event ever arrives for an in-flight barb command.
 // Longer than COMBAT_LOCK_MS.
 export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
