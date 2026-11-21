@@ -51,6 +51,7 @@ export const townReturnHtml = (): string =>
 
 const townRowHtml = (town: ReturnableTown, chosen: boolean, disabled: boolean): string =>
   `<button type="button" class="diplomacy-trade-good" data-trade-town="${townRefKey(town)}" aria-pressed="${chosen}" data-chosen="${chosen}"${disabled ? " disabled" : ""}>
+    <span class="diplomacy-trade-good-icon" aria-hidden="true"><img src="/icons/nav/towns.svg" alt="" draggable="false"></span>
     <span class="diplomacy-trade-good-name"><span class="diplomacy-trade-good-label">${escapeHtml(town.name ?? "Town")}</span>
       <span class="diplomacy-trade-good-have">${TIER_LABEL[town.tier]} · ${town.x}, ${town.y}</span></span>
     <span class="diplomacy-trade-good-amount">${chosen ? "✓" : ""}</span>

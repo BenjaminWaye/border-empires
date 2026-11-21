@@ -69,6 +69,7 @@ export const diplomacyTradeStyles = `
     font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
   }
   .diplomacy-trade-subhead:first-of-type { margin-top: 0; }
+  .diplomacy-trade-towns { margin-top: 12px; }
   .diplomacy-trade-kinds { display: grid; gap: 6px; }
   .diplomacy-trade-allied-note { margin: 0; font-size: 13px; color: var(--sp-parchment-muted, #bda880); }
   .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-suggest {
