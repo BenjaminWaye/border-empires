@@ -34,7 +34,9 @@ describe("encirclement after non-combat tile loss", () => {
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 5, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 6, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          { x: 7, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // Distant land keeps player-2 alive, so no elimination respawn lands on the cut-off tiles.
+          { x: 40, y: 40, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ] as never,
         activeLocks: []
       }

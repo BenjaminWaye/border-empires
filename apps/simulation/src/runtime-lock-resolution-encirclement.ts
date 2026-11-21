@@ -2,7 +2,7 @@ import type { LockRecord } from "./runtime-types.js";
 
 /** The subset of {@link RuntimeLockResolutionContext} applyCombatEncirclement needs. */
 export type RuntimeLockResolutionEncirclementContext = {
-  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }) => void;
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
 };
 
@@ -37,6 +37,7 @@ export function applyCombatEncirclement(
         : undefined;
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, {
         bfsCap: 2000,
+        deferEliminationCheck: true, // resolveLock calls respawnIfEliminated itself
         ...(claimantId ? { claimantId } : {})
       });
     }
