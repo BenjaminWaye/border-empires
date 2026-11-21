@@ -14,7 +14,8 @@ import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.j
 import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
 import { resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
 import { resetTutorialGuideForTests } from "./tutorial-guide.js";
-import { clearGuideScoutPeek } from "./tutorial-guide-card.js";
+import { clearGuideScoutPeek, renderGuideCompleteCard } from "./tutorial-guide-card.js";
+import { GUIDE_STEPS } from "./tutorial-guide-steps.js";
 
 const EMAIL = "new@example.com";
 
@@ -52,34 +53,46 @@ beforeEach(() => {
   resetOnboardingChecklistOverlayForTests();
 });
 
+const scoutHudCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../client-scout-drone/client-scout-drone-hud.css"), "utf8");
+/** The guide's own styles are injected by the card; add the scout HUD's so the fold applies as in the game. */
+const addScoutCss = (): void => {
+  const style = document.createElement("style");
+  style.textContent = scoutHudCss;
+  document.head.appendChild(style);
+};
+const shown = (el: Element): string => getComputedStyle(el).display;
+
 describe("guide launcher over a scout drone fold", () => {
-  it("opens the card when '?' is tapped while the scout fold hides it", () => {
+  it("opens the card when '?' is tapped while the scout fold hides it, with the '?' centred", () => {
     setGuideStatus("active", EMAIL);
     const state = playerState();
     refreshOnboardingChecklistHighlight(state);
+    addScoutCss();
     document.body.classList.add("scout-focus");
-    expect(cardEl().hasAttribute("hidden")).toBe(false); // open, but folded away by the scout CSS
+    expect(shown(cardEl())).toBe("none"); // folded by the scout fold
+    expect(shown(launcher())).toBe("grid"); // grid centres the "?"
     launcher().click();
     refreshOnboardingChecklistHighlight(state);
-    expect(root().classList.contains("tg-scout-peek")).toBe(true);
-    expect(cardEl().hasAttribute("hidden")).toBe(false);
+    expect(shown(cardEl())).not.toBe("none");
+    expect(shown(launcher())).toBe("none");
     // Minimise from the card: back to the launcher.
     root().querySelector<HTMLElement>(".tg-collapse")!.click();
     refreshOnboardingChecklistHighlight(state);
-    expect(cardEl().hasAttribute("hidden")).toBe(true);
+    expect(shown(cardEl())).toBe("none");
+    expect(shown(launcher())).toBe("grid");
     // And "?" opens it again.
     launcher().click();
     refreshOnboardingChecklistHighlight(state);
-    expect(cardEl().hasAttribute("hidden")).toBe(false);
-    // The next flight folds it again.
+    expect(shown(cardEl())).not.toBe("none");
+    // The next scout phase folds it again.
     clearGuideScoutPeek();
-    expect(root().classList.contains("tg-scout-peek")).toBe(false);
+    expect(shown(cardEl())).toBe("none");
   });
 
-  it("only folds the card until '?' is tapped, and keeps the launcher's '?' centred", () => {
-    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../client-scout-drone/client-scout-drone-hud.css"), "utf8");
-    expect(css).toContain("body.scout-focus #tutorial-guide-root:not(.tg-scout-peek) .tg-card { display: none !important; }");
-    expect(css).toContain("body.scout-focus #tutorial-guide-root:not(.tg-scout-peek) .tg-launcher { display: grid !important; }");
-    expect(css).not.toMatch(/tutorial-guide-root[^{]*\.tg-launcher \{ display: inline-flex/);
+  it("shows the Guide complete card even under the fold (Finish can now be tapped in flight)", () => {
+    addScoutCss();
+    document.body.classList.add("scout-focus");
+    renderGuideCompleteCard(GUIDE_STEPS.length);
+    expect(shown(root().querySelector(".tg-card-complete")!)).not.toBe("none");
   });
 });

@@ -129,6 +129,8 @@ const hide = (id: string): void => {
 
 let ticker: ReturnType<typeof setInterval> | undefined;
 let current: { state: ClientState; deps: ScoutHudDeps } | undefined;
+/** The scout phase that last folded the guide ("" for none); see clearGuideScoutPeek below. */
+let lastFocusPhase = "";
 
 /**
  * "Drone ready": while every charge is unused and nothing else holds the slot, the pill offers the drone,
@@ -279,10 +281,12 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // review worried a long flight would hide a guide step; the players disagreed: with the guide open in flight
   // it covered the drone and the route for all three (round 6). The step stays one tap away on the launcher.
   // The offer leaves them be.
-  const focus = state.scoutDronePicking.active || (pill && !offering) || card;
-  // A tap on "?" opens the guide for this focus only; the next plan or flight folds it again.
-  if (focus !== document.body.classList.contains("scout-focus")) clearGuideScoutPeek();
-  document.body.classList.toggle("scout-focus", focus);
+  const focusPhase = state.scoutDronePicking.active ? "plan" : pill && !offering ? "flight" : card ? "report" : "";
+  // A tap on "?" opens the guide for this phase only. The phases can follow one another with no gap
+  // (report, then the next plan), so a change of phase, not of scout-focus, folds it again.
+  if (focusPhase !== lastFocusPhase) clearGuideScoutPeek();
+  lastFocusPhase = focusPhase;
+  document.body.classList.toggle("scout-focus", focusPhase !== "");
   // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
   document.body.classList.toggle("scout-flying", pill && !offering);
   // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.

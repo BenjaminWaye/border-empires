@@ -56,19 +56,31 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.body.classList.contains("scout-focus")).toBe(false);
   });
 
-  // Player report 2026-11-21: "?" opened the guide for the flight; the next fold must start folded again.
-  it("refolds a guide the player opened over the previous scout focus", () => {
+  // Player report 2026-11-21: "?" opened the guide for one scout phase; the next phase must start folded,
+  // even when it follows with no gap (report, then the next plan keeps scout-focus on throughout).
+  it("refolds a guide the player opened when the scout phase changes", () => {
     const guideRoot = document.createElement("div");
     guideRoot.id = "tutorial-guide-root";
-    guideRoot.classList.add("tg-scout-peek");
     document.body.appendChild(guideRoot);
     const state = baseState();
     state.scoutDroneReport = { ...report };
-    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 });
-    expect(document.body.classList.contains("scout-focus")).toBe(true);
-    expect(guideRoot.classList.contains("tg-scout-peek")).toBe(false);
-    (document.querySelector("#scout-report-card .srs-close") as HTMLButtonElement).click();
-    guideRoot.remove();
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 };
+    try {
+      renderScoutDroneHud(state, deps);
+      expect(document.body.classList.contains("scout-focus")).toBe(true);
+      guideRoot.classList.add("tg-scout-peek"); // the player taps "?" over the report
+      renderScoutDroneHud(state, deps);
+      expect(guideRoot.classList.contains("tg-scout-peek")).toBe(true); // same phase: stays open
+      state.scoutDronePicking.active = true; // straight into planning the next drone
+      renderScoutDroneHud(state, deps);
+      expect(document.body.classList.contains("scout-focus")).toBe(true);
+      expect(guideRoot.classList.contains("tg-scout-peek")).toBe(false);
+    } finally {
+      state.scoutDronePicking.active = false;
+      state.scoutDroneReport = undefined;
+      renderScoutDroneHud(state, deps);
+      guideRoot.remove();
+    }
   });
 
   it("hides the report while planning, once the next drone is up, and after it times out", () => {

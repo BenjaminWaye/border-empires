@@ -217,8 +217,9 @@ body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 auto; gap: 8px 14p
 /* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
    speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21).
    Tapping the launcher adds .tg-scout-peek (tutorial-guide-card.ts), which hands the card back to its
-   own open/minimised state until the focus ends. The launcher keeps its grid so the "?" stays centred. */
-body.scout-focus #tutorial-guide-root:not(.tg-scout-peek) .tg-card { display: none !important; }
+   own open/minimised state until the scout phase changes. The launcher keeps its grid so the "?" stays
+   centred. The short "Guide complete" card is left alone: a Finish tapped in flight must show it. */
+body.scout-focus #tutorial-guide-root:not(.tg-scout-peek) .tg-card:not(.tg-card-complete) { display: none !important; }
 body.scout-focus #tutorial-guide-root:not(.tg-scout-peek) .tg-launcher { display: grid !important; }
 body.scout-focus #house-charges-bubble .hcb-speech { display: none !important; }
 /* The launcher's step count read as "8 of something" beside the drone count. */

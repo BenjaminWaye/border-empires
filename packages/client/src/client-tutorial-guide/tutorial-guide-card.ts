@@ -56,7 +56,7 @@ export const openGuideCardOverScoutFold = (): boolean => {
   return true;
 };
 
-/** A scout focus started or ended: the next one folds the card again. */
+/** The scout phase changed (plan, flight, report, or none): the next one folds the card again. */
 export const clearGuideScoutPeek = (): void => {
   if (typeof document === "undefined") return;
   document.getElementById(ROOT_ID)?.classList.remove(SCOUT_PEEK_CLASS);
