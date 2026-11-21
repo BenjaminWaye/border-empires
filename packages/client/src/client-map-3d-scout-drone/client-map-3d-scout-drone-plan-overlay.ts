@@ -35,6 +35,8 @@ const LIMIT_RING_SCALE = 1.75;
 /** The "too far" line after a tap past the range: how long it shows, and its colour. */
 const TOO_FAR_MS = 1_400;
 const TOO_FAR = new Color("#ff8a5c");
+/** Tiles of the faint stub a pulled-back stop keeps once the line has faded. */
+const TOO_FAR_STUB_TILES = 3;
 const BEAD_SPACING = 0.42;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
@@ -196,7 +198,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       stops.forEach((stop, i) => {
         const last = i === stops.length - 1;
         const pulse = last ? 1 + 0.12 * Math.sin(nowMs / 220) + 0.5 * bump : 1;
-        pushRing(stop, CYAN, pulse);
+        // The numbered disc is the stop's marker: a bright ring under it bled through the digit (review round 5).
         if (stop.clamped) pushRing(stop, LIMIT_RING, pulse * LIMIT_RING_SCALE);
         // Stops added to a drone in the air continue its numbering (review 2026-11-21).
         numberStop(addedAfter + i + 1, stop);
@@ -209,6 +211,13 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       if (lastStop?.clamped && tapped && sinceTap >= 0 && sinceTap < TOO_FAR_MS) {
         beadPath(straightTiles(lastStop, tapped), tint.copy(TOO_FAR).multiplyScalar(1 - sinceTap / TOO_FAR_MS), 0.6, phase);
       }
+      // After the line fades, every pulled-back stop keeps a short faint stub pointing toward its tapped tile,
+      // so the cut stays readable on a second look (player review round 5, 2026-11-21).
+      stops.forEach((stop, i) => {
+        const wanted = plan.stops[i];
+        if (!stop.clamped || !wanted || (i === stops.length - 1 && sinceTap >= 0 && sinceTap < TOO_FAR_MS)) return;
+        beadPath(straightTiles(stop, wanted).slice(0, TOO_FAR_STUB_TILES + 1), tint.copy(TOO_FAR).multiplyScalar(0.45), 0.55, phase);
+      });
       // The pointer's leg ends in a soft dot, never a ring, so it cannot pass for a placed stop.
       if (ghostEnd) {
         deps.sceneFor(ghostEnd.x, ghostEnd.y, a);
@@ -230,16 +239,13 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
         while (at <= air.turnIndex && (air.steps[at]!.x !== stop.x || air.steps[at]!.y !== stop.y)) at += 1;
         if (at > air.turnIndex) return;
         cursor = at + 1;
-        if (at > from) {
-          pushRing(stop, CYAN, 0.9);
-          numberStop(i + 1, stop);
-        }
+        if (at > from) numberStop(i + 1, stop);
       });
       // A bright marker under the drone itself, which is a speck at phone zoom.
       const at = scoutDronePositionAt(air, nowMs, WORLD_WIDTH, WORLD_HEIGHT);
       if (at) {
         const beat = 0.5 + 0.5 * Math.sin(nowMs / 260);
-        pushRing(at, CYAN, 1.15 + 0.15 * beat);
+        // A soft glow under the drone badge, no ring: a ring made the drone look like one more stop.
         deps.sceneFor(at.x, at.y, a);
         pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, CYAN, 1.6 + 0.3 * beat);
         droneBadge.place(a.sceneX, a.surfaceY + RISE, a.sceneZ);
