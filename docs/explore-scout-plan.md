@@ -254,7 +254,7 @@ What shipped, and where it differs from the sections above:
 - **Server**: `apps/simulation/src/scout-drone/`. The drone launches from the
   AFC **nearest the target**. Own and allied land is crossed at 1s per tile
   so a large empire's drone doesn't spend minutes reaching its border; tiles
-  past that land take Expand To's 7.5s. Since 2026-11-20 there is no range
+  past that land take 3s (§13 table; Expand To's 7.5s until 2026-11-20). Since 2026-11-20 there is no range
   or home-tile limit: the flight goes all the way to the target unless a
   rival border turns it back. Its vision is a temporary reveal moved tile by tile,
   so fog and Planetary Defense wake-up needed no new rule.
@@ -300,14 +300,21 @@ unlimited range and Expand To pace.
 | Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
 | Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
 | Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
-| Pace | 1s per open tile, 0.5s over home ground |
+| Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
 | Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
 | Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
-Guidance, with almost no text: the bottom dock's pips (placed cyan, ready brass,
-refilling with a clock fill), ✕ / ↶ / Go with the flight time; the next pip and Go
-pulse; the pips shake when a tap has no charge left. In true-3D the route glows on
-the ground before launch, a pulled-back stop's ring turns brass, the leg under a
-mouse pointer shows as ghost beads, and a beacon pulses on nearby fog until the
-player has flown a few flights. The 2D map shows the dock only (owner: 3D is the
-focus).
+Guidance, with almost no text, in one bottom slot (`client-scout-drone-hud.ts`):
+a brass "Explore" pill while every charge is unused (opens a plan); the dock
+while planning (✕, drone count, ↶, and "Tap fog" / "Go" / "Add" with the flight
+time); a pill with the time left while the drone flies (tap to frame it); and a
+report card after landing, led by "+N Tiles", icons with counts and one word each,
+above every other popup. Planning, flying and reporting fold the guide card and hide the House
+speech bubble. In true-3D the route glows before launch with numbered stops, a pulled-back stop
+keeps its ring and gains a thin outer limit ring (a fading line shows the cut for a
+moment after the tap), the rest of the route
+stays drawn in flight with a marker and a drone badge over the drone, and the main find gets a
+short gold burst on landing. No "tap here" marker on the map (owner removed it)
+and no label over the 3D drone. The 2D map shows the bottom slot only (owner: 3D
+is the focus). Three first-time player profiles reviewed each round
+(2026-11-21); their scores drove these changes.
