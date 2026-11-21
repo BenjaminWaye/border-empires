@@ -127,17 +127,13 @@ describe("createScoutDroneOverlay", () => {
     overlay.dispose();
   });
 
-  it("floats the \"Back in …\" pill over the drone while it flies, and hides it once landed", () => {
+  // Player review 2026-11-21: the label over the drone was unreadably small; the bottom pill carries the time.
+  it("draws no \"Back in …\" label over the drone", () => {
     const scene = new Scene();
     const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
-    const drone = scene.getObjectByName("scout-drone")!;
-    const label = scene.getObjectByName("scout-drone-eta-label")!;
     overlay.sync(flight, midFlight);
-    expect(label.visible).toBe(true);
-    expect(label.position.x).toBeCloseTo(drone.position.x);
-    expect(label.position.y).toBeGreaterThan(drone.position.y);
-    overlay.sync(flight, flight.landsAt);
-    expect(label.visible).toBe(false);
+    expect(scene.getObjectByName("scout-drone-eta-label")).toBeUndefined();
+    overlay.dispose();
   });
 
   it("removes everything it added on dispose", () => {
