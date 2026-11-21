@@ -93,7 +93,16 @@ export type ScoutDroneGauge = {
   routeFullRefusals: number;
   /** Finds sent mid-flight in SCOUT_FINDS (the client's pops). */
   findsSent: number;
+  /** Landing reports held for a player who was offline when the drone landed. */
+  unseenReports: number;
+  /** Held reports handed over on the player's next subscribe. */
+  unseenReportsDelivered: number;
+  /** Held reports dropped: too old, replaced by a new flight, or evicted at the cap. */
+  unseenReportsDropped: number;
 };
+
+/** How long a landing report waits for an offline player: past this, the Activity log card is enough. */
+export const SCOUT_UNSEEN_REPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Stops one flight may hold once extended mid-flight (EXPLORE while the drone is out). */
 export const SCOUT_DRONE_MAX_ROUTE_STOPS = SCOUT_DRONE_MAX_STOPS * 2;
@@ -133,6 +142,11 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   let routeFullRefusals = 0;
   let findsSent = 0;
   let cooldownEvictions = 0;
+  // A drone that lands while its owner is offline would send its report to nobody (player report 2026-11-21:
+  // logging back in after a run showed no report). Held here, in memory like the flights, until the next subscribe.
+  const unseenReports = new Map<string, { at: number; report: NonNullable<ScoutDronePayload["report"]> }>();
+  let unseenReportsDelivered = 0;
+  let unseenReportsDropped = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
     deps.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
@@ -235,11 +249,19 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       lastReportActivityAt.set(active.playerId, nowMs);
       recordReport(active, nowMs, report);
     }
-    send(active.playerId, `scout-drone-landed:${active.commandId}`, {
-      type: SCOUT_DRONE_MESSAGE_TYPE,
-      flight: null,
-      report: { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}) }
-    });
+    const landed = { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}) };
+    send(active.playerId, `scout-drone-landed:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: null, report: landed });
+    if (deps.isPlayerSubscribed?.(active.playerId) === false) holdUnseenReport(active.playerId, nowMs, landed);
+  };
+
+  const holdUnseenReport = (playerId: string, nowMs: number, report: NonNullable<ScoutDronePayload["report"]>): void => {
+    if (unseenReports.delete(playerId)) unseenReportsDropped += 1;
+    else if (unseenReports.size >= SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES) {
+      const oldest = unseenReports.keys().next().value;
+      if (oldest !== undefined) unseenReports.delete(oldest);
+      unseenReportsDropped += 1;
+    }
+    unseenReports.set(playerId, { at: nowMs, report });
   };
 
   const recordReport = (active: ActiveFlight, nowMs: number, report: ScoutReportFindings): void => {
@@ -391,6 +413,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       for (const active of [...flights.values()]) advance(active, nowMs);
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
+      for (const [key, held] of unseenReports) if (nowMs - held.at >= SCOUT_UNSEEN_REPORT_MAX_AGE_MS) { unseenReports.delete(key); unseenReportsDropped += 1; }
     },
     sendTo: (playerId) => {
       // A docked drone is sent as `flight: null` too: flights live only in memory, so after a
@@ -398,7 +421,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       // flight that no longer exists and block Explore until its old landing time, which on a
       // long flight is over an hour.
       const flight = flights.get(playerId)?.flight ?? null;
-      send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
+      const unseen = unseenReports.get(playerId);
+      unseenReports.delete(playerId);
+      const fresh = unseen && !flight && deps.now() - unseen.at < SCOUT_UNSEEN_REPORT_MAX_AGE_MS ? unseen.report : undefined;
+      if (fresh) unseenReportsDelivered += 1;
+      else if (unseen) unseenReportsDropped += 1;
+      send(playerId, `scout-drone:${playerId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight, ...(fresh ? { report: fresh } : {}) });
     },
     flightFor: (playerId) => flights.get(playerId)?.flight,
     gauge: () => ({
@@ -408,7 +436,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       cooldownEvictions,
       routeFullRefusals,
       noChargeRefusals,
-      findsSent
+      findsSent,
+      unseenReports: unseenReports.size,
+      unseenReportsDelivered,
+      unseenReportsDropped
     })
   };
 };
