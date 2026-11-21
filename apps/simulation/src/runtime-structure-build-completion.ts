@@ -140,7 +140,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     consumeMonumentParts(context, ownerId, structureType, commandId);
   }
   // Incubation Engine (tech-tree redesign): instant one-time
-  // +10,000 population burst on build completion, applied to both the
+  // INCUBATION_ENGINE_INSTANT_POPULATION_BURST population burst on build completion, applied to both the
   // town's current population AND its cap (a burst that gets silently
   // absorbed into existing headroom wouldn't read as a "burst" at all).
   const populationBurst = structureType === "INCUBATION_ENGINE"

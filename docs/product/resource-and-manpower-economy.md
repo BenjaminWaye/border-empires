@@ -95,7 +95,7 @@ defines what these systems mean in the fiction; follow the
 
 ### Incubation Engine and Census Hall
 
-Incubation Engine grants **+10,000 population once on completion** and **+10%
+Incubation Engine grants **+50,000 population once on completion** and **+10%
 ongoing population growth** to its supported town. It does not boost Hydrogarden
 output or reduce FOOD demand; it consumes a FOOD slot. Census Hall adds
 **20,000 population capacity per connected town with an active Incubation Engine**

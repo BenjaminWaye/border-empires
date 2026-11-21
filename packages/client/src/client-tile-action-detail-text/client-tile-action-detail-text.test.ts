@@ -124,3 +124,11 @@ describe("Hydroworks detail text", () => {
     expect(detail).toContain("no town, support or resource tile needed");
   });
 });
+
+describe("buildDetailTextForAction — build_incubation_engine", () => {
+  it("states the 50,000 population burst from the shared constant, not a stale hardcoded number", () => {
+    const text = buildDetailTextForAction("build_incubation_engine", baseTile);
+    expect(text).toContain("+50,000 population burst on completion");
+    expect(text).toContain("+10% ongoing population growth");
+  });
+});
