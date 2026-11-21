@@ -5,6 +5,8 @@ import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { scoutClock } from "./client-scout-drone-dock.js";
 import { SCOUT_REPORT_CARD_MS, renderScoutDroneHud, scoutDroneReadyToOffer, scoutReportCardVisible, scoutReportChips } from "./client-scout-drone-hud.js";
+/** Same selector as the compact tip lift rule; client-scout-drone-dock-layout.test.ts pins the CSS side. */
+const IN_FLIGHT_PILL = '#scout-drone-pill:not(.is-offer)[style*="flex"]';
 
 const report = { targetX: 12, targetY: 4, focusX: 15, focusY: 7, towns: 1, docks: 3, waystations: 2, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: ["rival"], at: 1_000 };
 
@@ -56,6 +58,33 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.body.classList.contains("scout-focus")).toBe(false);
   });
 
+  // Player report 2026-11-21: "?" opened the guide for one scout phase; the next phase must start folded,
+  // even when it follows with no gap (report, then the next plan keeps scout-focus on throughout).
+  it("refolds a guide the player opened when the scout phase changes", () => {
+    const guideRoot = document.createElement("div");
+    guideRoot.id = "tutorial-guide-root";
+    document.body.appendChild(guideRoot);
+    const state = baseState();
+    state.scoutDroneReport = { ...report };
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 2_000 };
+    try {
+      renderScoutDroneHud(state, deps);
+      expect(document.body.classList.contains("scout-focus")).toBe(true);
+      guideRoot.classList.add("tg-scout-peek"); // the player taps "?" over the report
+      renderScoutDroneHud(state, deps);
+      expect(guideRoot.classList.contains("tg-scout-peek")).toBe(true); // same phase: stays open
+      state.scoutDronePicking.active = true; // straight into planning the next drone
+      renderScoutDroneHud(state, deps);
+      expect(document.body.classList.contains("scout-focus")).toBe(true);
+      expect(guideRoot.classList.contains("tg-scout-peek")).toBe(false);
+    } finally {
+      state.scoutDronePicking.active = false;
+      state.scoutDroneReport = undefined;
+      renderScoutDroneHud(state, deps);
+      guideRoot.remove();
+    }
+  });
+
   it("hides the report while planning, once the next drone is up, and after it times out", () => {
     const state = baseState();
     state.scoutDroneReport = { ...report };
@@ -76,6 +105,8 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     const pill = document.getElementById("scout-drone-pill")!;
     expect(pill.style.display).toBe("flex");
     expect(pill.querySelector(".sdp-time")?.textContent).toBe("3m 14s");
+    // The compact discovery tip lifts above exactly this state (client-hud-v2-compact-overlays.css).
+    expect(pill.matches(IN_FLIGHT_PILL)).toBe(true);
     (pill.querySelector("button") as HTMLButtonElement).click();
     expect(focus).toHaveBeenCalledTimes(1);
   });
@@ -162,6 +193,7 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     const pill = document.getElementById("scout-drone-pill")!;
     expect(pill.style.display).toBe("flex");
     expect(pill.classList.contains("is-offer")).toBe(true);
+    expect(pill.matches(IN_FLIGHT_PILL)).toBe(false);
     expect(pill.querySelector(".sdp-time")?.textContent).toBe("8");
     (pill.querySelector("button") as HTMLButtonElement).click();
     expect(state.scoutDronePicking.active).toBe(true);
