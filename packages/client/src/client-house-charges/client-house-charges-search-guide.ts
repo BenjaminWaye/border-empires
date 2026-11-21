@@ -9,12 +9,13 @@
 // wrapped), so both renderers can draw it without their own wrap handling.
 import { HOUSE_CHARGE_SEARCH_RADIUS, type HouseChargeTarget, type HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { metropolisHighlight } from "./client-house-charges-landmass.js";
 import { focusedHouseCharge, type ChargeMapPoint } from "./client-house-charges-map.js";
 
 export type ChargeSearchCircle = ChargeMapPoint & { radius: number };
 export type ChargeSearchGuide = { circles: ChargeSearchCircle[]; ringDots: ChargeMapPoint[]; linkDots: ChargeMapPoint[] };
 
-type GuideState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles">;
+type GuideState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles"> & Partial<Pick<ClientState, "tilesRevision">>;
 
 /** Spacing between dots, in tiles. */
 const RING_DOT_SPACING = 0.75;
@@ -140,5 +141,7 @@ export const houseChargeGuideCentre = (
 export const houseChargeSearchGuide = (state: GuideState, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
   const charge = focusedHouseCharge(state);
   if (!charge) return EMPTY;
+  // Three Metropolises: once any of the landmass is explored, its shaded area and town rings take over from the circle.
+  if (charge.kind === "METROPOLIS" && metropolisHighlight(charge, state).area.length > 0) return EMPTY;
   return guideFor(charge, (key) => state.tiles.has(key), worldWidth, worldHeight);
 };

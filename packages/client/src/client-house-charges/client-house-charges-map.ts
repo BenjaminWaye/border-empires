@@ -6,14 +6,21 @@
 // (client-house-charges-search-guide.ts).
 import type { HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { metropolisHighlight } from "./client-house-charges-landmass.js";
 
 export type ChargeMapPoint = { x: number; y: number };
-export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean };
+/** `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning). */
+export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true };
 
-type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
+type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
 
-/** Upper bound on shaded tiles (a Survey landmass is at most 600 LAND tiles plus mountains). */
-const MAX_TINT_TILES = 1_200;
+/**
+ * Upper bound on shaded tiles, shared with the true-3D overlay's instance buffers. A Survey landmass
+ * is at most 600 LAND tiles plus mountains; the explored part of a Three Metropolises landmass can be larger.
+ */
+export const MAX_TINT_TILES = 6_000;
+/** Town rings for a Three Metropolises landmass (the 3D ring overlay draws at most 32 markers in all). */
+const MAX_TOWN_MARKERS = 24;
 
 const wrap = (value: number, size: number): number => ((value % size) + size) % size;
 
@@ -25,9 +32,12 @@ const explored = (state: ChargeMapState, x: number, y: number): boolean => state
 /** Ring markers for the focused charge: its point targets the player has explored. Unscouted ones get a rough circle instead (client-house-charges-search-guide.ts). */
 export const houseChargeMarkerTiles = (state: ChargeMapState): ChargeMapPoint[] => {
   const charge = focusedHouseCharge(state);
-  // A Three Metropolises target is only the middle of the landmass's nearest towns, and a Correction's is the
-  // centre of its search circle (the server never sends the rival's landing site): neither is a spot to mark.
-  if (!charge || charge.areaTileKeys || charge.kind === "METROPOLIS" || charge.kind === "CORRECTION") return [];
+  if (!charge) return [];
+  // A Three Metropolises target is only the middle of the landmass's nearest towns, not a spot to mark:
+  // ring the explored towns on the landmass instead, since any of them counts.
+  if (charge.kind === "METROPOLIS") return metropolisHighlight(charge, state).towns.slice(0, MAX_TOWN_MARKERS);
+  // A Correction's target is the centre of its search circle (the server never sends the rival's landing site).
+  if (charge.areaTileKeys || charge.kind === "CORRECTION") return [];
   return charge.targets.filter((target) => explored(state, target.x, target.y)).map(({ x, y }) => ({ x, y }));
 };
 
@@ -61,9 +71,22 @@ export const houseChargeUnscoutedHint = (
   return `${unseen.name}: not scouted yet, about ${distance} tiles ${COMPASS[octant]} of ${seen.name}.`;
 };
 
-/** Shaded tiles for a focused landmass, desert or tundra charge: explored tiles only, marked garrisoned when the player holds them. */
+/**
+ * Shaded tiles for a focused landmass, desert or tundra charge: explored tiles only, marked garrisoned when the
+ * player holds them. A Three Metropolises charge shades the explored part of its landmass, plain.
+ */
 export const houseChargeTintTiles = (state: ChargeMapState): ChargeTintTile[] => {
   const charge = focusedHouseCharge(state);
+  if (charge?.kind === "METROPOLIS") {
+    // Drawn every frame: reuse the list (and its outline, below) until the highlight itself changes.
+    const highlight = metropolisHighlight(charge, state);
+    let tint = plainTintByHighlight.get(highlight);
+    if (!tint) {
+      tint = highlight.area.slice(0, MAX_TINT_TILES).map(({ x, y }) => ({ x, y, garrisoned: false, plain: true as const }));
+      plainTintByHighlight.set(highlight, tint);
+    }
+    return tint;
+  }
   if (!charge?.areaTileKeys) return [];
   const tiles: ChargeTintTile[] = [];
   for (const key of charge.areaTileKeys) {
@@ -75,10 +98,15 @@ export const houseChargeTintTiles = (state: ChargeMapState): ChargeTintTile[] =>
   return tiles;
 };
 
+const plainTintByHighlight = new WeakMap<object, ChargeTintTile[]>();
+const edgesByTint = new WeakMap<readonly ChargeTintTile[], ChargeAreaEdge[]>();
+
 export type ChargeAreaEdge = ChargeMapPoint & { side: "N" | "E" | "S" | "W" };
 
 /** Tile sides on the outline of the shaded area: sides whose neighbour is not shaded. */
 export const houseChargeAreaEdges = (tiles: readonly ChargeTintTile[], worldWidth: number, worldHeight: number): ChargeAreaEdge[] => {
+  const cached = edgesByTint.get(tiles);
+  if (cached) return cached;
   const shaded = new Set(tiles.map((tile) => `${tile.x},${tile.y}`));
   const edges: ChargeAreaEdge[] = [];
   const sides = [["N", 0, -1], ["E", 1, 0], ["S", 0, 1], ["W", -1, 0]] as const;
@@ -87,5 +115,6 @@ export const houseChargeAreaEdges = (tiles: readonly ChargeTintTile[], worldWidt
       if (!shaded.has(`${wrap(tile.x + dx, worldWidth)},${wrap(tile.y + dy, worldHeight)}`)) edges.push({ x: tile.x, y: tile.y, side });
     }
   }
+  edgesByTint.set(tiles, edges);
   return edges;
 };
