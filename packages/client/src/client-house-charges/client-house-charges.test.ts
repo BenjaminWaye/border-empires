@@ -60,6 +60,10 @@ describe("House Charges panel", () => {
     expect(open).toContain("Keeping 2 of 3. You can swap until");
     // The swap instructions live in How charges work, not above the cards.
     expect(open).toContain("to swap, tap Kept on one card to set it aside, then Tap to keep on another");
+    // Owner 2026-11-20: nothing above the cards; the kept count and swap window sit in the hidden help.
+    const beforeCards = open.slice(0, open.indexOf("hcd-deck"));
+    expect(beforeCards.replace(/<div class="house-charges-more"[\s\S]*?<\/div>/, "")).not.toMatch(/<p|house-charges-choice/);
+    expect(open).toMatch(/data-house-charges-more hidden>/);
     expect(open).not.toContain("✓");
     expect(open).not.toContain("data-house-charges-save");
     const changed = houseChargesPanelHtml(panelState(charges, 10_000, [charge({}).id, desert.id]), 5_000);
@@ -96,12 +100,13 @@ describe("House Charges panel", () => {
     expect(html).toContain('aria-label="Difficulty 3 of 4"');
     expect(html).not.toContain("Renown");
     expect(html).toContain("Hold your kept charges when the winner is crowned to bank Domain score.");
+    expect(html).not.toContain("house-charges-intro");
   });
 
   // Owner 2026-11-19: the reward goes behind an underlined read-more, and each card says what it banks.
   it("explains the payout behind How charges work, and puts each card's Domain score on the card", () => {
     const html = houseChargesPanelHtml(panelState([charge({}), { ...relic, kept: true }], 0), 5_000);
-    expect(html).toContain("<summary>How charges work</summary>");
+    expect(html).toContain('id="house-charges-help"');
     expect(html).toContain("banks Domain score by difficulty: +1 for each ◆, so +1 to +4.");
     expect(html).toContain("Harder charges are rarer and pay more.");
     expect(html).not.toContain("Influence");

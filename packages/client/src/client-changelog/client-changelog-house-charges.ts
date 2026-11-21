@@ -100,5 +100,17 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "Relics are no longer always Mythic: a close relic nobody else is after is an easy charge and pays like one.",
       "Charges you were already dealt keep their ◆ and the pay they were dealt with."
     ]
+  },
+  {
+    createdAt: 1795210487066, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.20",
+    title: "House Charges: just the cards",
+    why: "The text above the charge cards pushed them off the bottom of the screen.",
+    changes: [
+      "Nothing sits above your charge cards any more: open them and you see the hand.",
+      "The bottoms of the cards are no longer cut off: on a shorter screen the cards shrink to fit.",
+      "Tap the ? beside the House Charges title for how charges work and how long you can still swap. It opens over the cards; tap it again to close.",
+      "The Keep button still appears above the cards while you have an unsaved swap."
+    ]
   }
 ];

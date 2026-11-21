@@ -222,7 +222,7 @@ export const hudMarkup = `
     <div id="side-panel-head">
       <div>
         <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
-        <h3 id="panel-title">Panel</h3>
+        <h3 id="panel-title">Panel</h3><button id="panel-help" class="panel-help" type="button" aria-label="How charges work" aria-controls="house-charges-help" aria-expanded="false" hidden>?</button>
         <p id="panel-hint" class="panel-hint" hidden></p>
       </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
