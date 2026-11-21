@@ -122,7 +122,7 @@ type StartClientRuntimeLoopDeps = {
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;
   formatCountdownClock: (ms: number) => string;
   drawStartingExpansionArrow: (px: number, py: number, size: number, dx: number, dy: number) => void;
-  drawPlanetaryDefenseOverlay: (px: number, py: number, size: number, wx: number, wy: number) => void;
+  drawPlanetaryDefenseOverlay: (tile: Tile, px: number, py: number, size: number, wx: number, wy: number) => void;
   shouldDrawOwnershipBorder: (tile: Tile) => boolean;
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
@@ -368,7 +368,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
       }
 
-      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(px, py, size, wx, wy);
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(t, px, py, size, wx, wy);
 
       drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
         ctx: deps.ctx,
@@ -591,7 +591,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(px, py, size, wx, wy);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(t, px, py, size, wx, wy);
 
         drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
           ctx: deps.ctx,

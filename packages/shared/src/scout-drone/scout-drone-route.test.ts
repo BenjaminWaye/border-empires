@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { speedUpScoutDroneFlight, type ScoutDroneWorld } from "./scout-drone.js";
+import { SCOUT_DRONE_HOME_STEP_MS, SCOUT_DRONE_STEP_MS, speedUpScoutDroneFlight, type ScoutDroneWorld } from "./scout-drone.js";
 import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg, turnScoutDroneFlightHome, extendScoutDroneFlight } from "./scout-drone-route.js";
 import { SCOUT_DRONE_CHARGE_REFILL_MS, SCOUT_DRONE_MAX_CHARGES, nextScoutChargeAt, scoutChargesAvailable } from "./scout-drone-charges.js";
 
@@ -56,9 +56,9 @@ describe("planScoutDroneWaypointFlight", () => {
     expect(home.at(-1)).toMatchObject({ x: 2, y: 5 });
     expect(home.some((step) => step.x === 15 && step.y === 5)).toBe(false);
     expect(flight.endReason).toBe("TARGET");
-    // 1s per open tile, 0.5s over own land (x < 5): out, a leg is paced by the tile it flies into;
-    // home, by the tile it flies out of.
-    const legMs = flight.steps.slice(1).map((step, i) => ((i + 1 <= flight.turnIndex ? step : flight.steps[i]!).x < 5 ? 500 : 1000));
+    // SCOUT_DRONE_STEP_MS per open tile, SCOUT_DRONE_HOME_STEP_MS over own land (x < 5): out, a leg
+    // is paced by the tile it flies into; home, by the tile it flies out of.
+    const legMs = flight.steps.slice(1).map((step, i) => ((i + 1 <= flight.turnIndex ? step : flight.steps[i]!).x < 5 ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS));
     expect(flight.landsAt).toBe(legMs.reduce((sum, ms) => sum + ms, 0));
   });
 

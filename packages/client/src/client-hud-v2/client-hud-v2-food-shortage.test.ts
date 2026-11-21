@@ -43,7 +43,7 @@ describe("tracker FOOD shortage", () => {
     expect(nextStepScanForState(s).food).toBeUndefined();
   });
 
-  it("lists the fixes cheapest first: garrison, expand, then Farm Plots", () => {
+  it("lists the fixes cheapest first: garrison, beacon to food outside reach, then Farm Plots", () => {
     const s = state([
       town, ...ring(),
       mine(13, 10, { resource: "FARM", ownershipState: "FRONTIER" }),
@@ -54,10 +54,32 @@ describe("tracker FOOD shortage", () => {
     const food = shortage(s);
     expect(food?.short).toBe(5);
     const steps = foodShortageSteps(food!);
-    expect(steps.map((step) => step.title)).toEqual(["Garrison grain", "Expand to fish", "Build 6 Farm Plots (8 plots free)"]);
+    expect(steps.map((step) => step.title)).toEqual(["Garrison grain", "Relay Beacon to fish", "Build 6 Farm Plots (8 plots free)"]);
     expect(steps[0]).toMatchObject({ sub: "+1 FOOD · 2 in reach", focus: { x: 13, y: 10 } });
-    expect(steps[1]).toMatchObject({ sub: "+2 FOOD · 8 tiles out · or beacon", focus: { x: 14, y: 14 } });
+    expect(steps[1]).toMatchObject({ sub: "+2 FOOD · 8 tiles out · outside reach", beacon: { x: 14, y: 14 } });
+    expect(foodShortageHtml(food!, true)).toContain('data-hud-v2-beacon="RELAY_BEACON" data-hud-v2-beacon-x="14" data-hud-v2-beacon-y="14"');
     expect(steps[2]).toMatchObject({ sub: "150 MP · +1 FOOD each · Bryn", plots: { x: 10, y: 10, count: 6 } });
+  });
+
+  // Owner call 2026-11-20: food in reach -> claim and garrison it; outside reach -> a Relay Beacon toward it.
+  it("says expand for unowned food inside your reach, and prefers it to a beacon", () => {
+    const s = state([town, ...ring(), tile(12, 11, { resource: "FISH" }), tile(14, 14, { resource: "FARM" }), afc], short);
+    const steps = foodShortageSteps(shortage(s)!);
+    expect(steps[0]).toMatchObject({ title: "Expand to fish", sub: "+2 FOOD · then garrison", focus: { x: 12, y: 11 } });
+    expect(steps.some((step) => step.title.startsWith("Relay Beacon"))).toBe(false);
+  });
+
+  it("shows food outside reach without a tap target when no beacon can go down", () => {
+    const food = { ...shortage(state([town, ...ring(), tile(14, 14, { resource: "FISH" }), afc], short))!, beaconReady: false };
+    expect(foodShortageSteps(food)[0]).toEqual({ title: "Fish outside reach", sub: "+2 FOOD · 8 tiles out · needs a Relay Beacon", focus: { x: 14, y: 14 } });
+    expect(foodShortageHtml(food, true)).not.toContain("data-hud-v2-beacon");
+  });
+
+  // Review of #2903: a live beacon button with too little MP opens a placement the server refuses.
+  it("doesn't offer the beacon with less manpower than it costs", () => {
+    const tiles = [town, ...ring(), tile(14, 14, { resource: "FISH" }), afc];
+    expect(shortage(state(tiles, short))!.beaconReady).toBe(true);
+    expect(shortage(state(tiles, short, 1))!.beaconReady).toBe(false);
   });
 
   it("offers the drone only when no grain or fish is known nearby", () => {
@@ -102,7 +124,7 @@ describe("tracker FOOD shortage", () => {
     const steps = foodShortageSteps(shortage(s)!);
     expect(steps[0]?.sub).toBe("+1 FOOD · 3 with Hydrogarden");
     // Hyperfeed (agriculture) also adds +1 on every fish tile (review of #2881).
-    expect(steps[1]?.sub).toBe("+3 FOOD · 4 tiles out · or beacon");
+    expect(steps[1]?.sub).toBe("+3 FOOD · 4 tiles out · outside reach");
     expect(steps.at(-1)?.sub).toBe("150 MP · +1 FOOD each, 3 upgraded · Bryn");
   });
 
