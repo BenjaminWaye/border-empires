@@ -193,7 +193,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const replayPanelHtml = (): string => "";
 
-  renderTargetingOverlay(state, dom.targetingOverlayEl, { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey, rerender: () => renderClientHud(deps) });
+  renderTargetingOverlay(state, dom.targetingOverlayEl, { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey, rerender: () => renderClientHud(deps), send: sendGameMessage });
 
   const selected = selectedTile();
   if (selected) requestTileDetailIfNeeded(selected);

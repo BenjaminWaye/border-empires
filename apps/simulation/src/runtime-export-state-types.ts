@@ -66,6 +66,7 @@ export type RuntimeExportState = {
     lifetimeGarrisons?: number;
     islandNames?: IslandNameClaim[];
     houseCharges?: import("@border-empires/shared").HouseChargesState;
+    scoutChargeSpends?: number[];
     autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see
     // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.

@@ -19,6 +19,7 @@ import { PLANETARY_DEFENSE_CAMPS_ENTRY } from "./client-changelog-planetary-defe
 import { RELIC_AETHER_WAKE_ENTRY } from "./client-changelog-relic-aether-wake.js";
 import { ALLY_ENEMY_REFUSAL_ENTRY } from "./client-changelog-ally-enemy-refusal.js";
 import { SCOUT_REPORT_FOCUS_ENTRY } from "./client-changelog-scout-report-focus.js";
+import { SCOUT_DRONE_WAYPOINTS_ENTRY } from "./client-changelog-scout-drone-waypoints.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -40,4 +41,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...RELIC_AETHER_WAKE_ENTRY, createdAt: 1795196290100 }, // Date.now() captured once for this entry.
   { ...ALLY_ENEMY_REFUSAL_ENTRY, createdAt: 1795198148971 },
   { ...SCOUT_REPORT_FOCUS_ENTRY, createdAt: 1795206346879 },
+  { ...SCOUT_DRONE_WAYPOINTS_ENTRY, createdAt: 1795212180392 },
 ];
