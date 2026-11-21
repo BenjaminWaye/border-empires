@@ -59,10 +59,10 @@ describe("handleScoutDroneMessage", () => {
       title: "Scout report",
       text: "Scout drone returned from (12, 4): 1 town, 2 waystations, TITANIUM (4 tiles), Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
       severity: "success",
-      alert: true,
       focusX: 12,
       focusY: 4
     }));
+    expect(state.scoutDroneReport).toMatchObject({ towns: 1, waystations: 2, blockedBy: "rival", at: expect.any(Number) });
   });
 
   it("points Show at the find the server named, not where the drone was sent", () => {
@@ -106,16 +106,36 @@ describe("handleScoutDroneMessage", () => {
   });
 
   // 2026-11-14 playtest: the report went only to the admin-only Alerts feed, so a player who pressed
-  // Explore saw no message at all. It must reach the on-screen alert card.
-  it("shows the report on the alert card, not only in the admin feed", () => {
+  // Explore saw no message at all. 2026-11-21 player review: on the shared alert card it was buried
+  // under the guide and House popups. It now gets its own card (client-scout-drone-hud.ts).
+  it("keeps the report for its own card instead of the shared alert card", () => {
     const state: ReturnType<typeof stateWith> & FeedMutableState = { ...stateWith(), feed: [], captureAlert: undefined };
     const push = (entry: FeedEntry): void => pushFeedEntry(state, entry);
     const open = { ...wireFlight, endReason: "TARGET", blockedByPlayerId: undefined };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: open }, state, push, vi.fn(), shiftBack, 600);
-    expect(state.captureAlert).toBeUndefined();
     const report = { targetX: 12, targetY: 4, towns: 1, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
     handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, push, vi.fn(), shiftBack, 9_000);
-    expect(state.captureAlert).toMatchObject({ title: "Scout report", detail: "Scout drone returned from (12, 4): 1 town." });
+    expect(state.scoutDroneReport).toMatchObject({ targetX: 12, targetY: 4, towns: 1, at: 9_000 });
+    expect(state.captureAlert).toBeUndefined();
+  });
+
+  // 2026-11-21 player review: a flight over open sea reported "Nothing new"; it now counts the tiles it uncovered.
+  it("counts the tiles explored since the flight launched", () => {
+    const discoveredTiles = new Set(["1,1", "2,2"]);
+    const state = { ...stateWith(), discoveredTiles };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    for (let i = 0; i < 40; i += 1) discoveredTiles.add(`9,${i}`);
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneReport?.explored).toBe(40);
+  });
+
+  it("prefers the server's count of tiles the drone saw", () => {
+    const state = { ...stateWith(), discoveredTiles: new Set(["1,1"]) };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], tilesSeen: 311 };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneReport?.explored).toBe(311);
   });
 
   it("ignores other messages", () => {

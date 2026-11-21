@@ -66,6 +66,8 @@ export type TownWireSummary = {
   forcedAncillarificationCooldownUntil?: number;
   // House whose Colonial Charter (AFC Dominion II) delivered this town's free Incubation Engine; a new owner earns its own.
   colonialIncubationGrantedTo?: string;
+  // Owner that already received this town's one Incubation Engine population burst (built or chartered).
+  incubationBurstGrantedTo?: string;
   nearbyWarPausedUntil?: number;
   nearbyWarLastAt?: number;
   growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;

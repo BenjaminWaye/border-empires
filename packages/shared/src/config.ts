@@ -41,7 +41,8 @@ export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
 // reveal on instead -- falls back to the waystation's own tile if none is
 // within range. See grantWaystationVision in runtime-waystation-activation.ts.
 export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
-// Half of INCUBATION_ENGINE_INSTANT_POPULATION_BURST (see below).
+// Waystation's smaller one-off population burst (Incubation Engine grants
+// INCUBATION_ENGINE_INSTANT_POPULATION_BURST, see below).
 export const WAYSTATION_POP_BURST = 5_000;
 // Pooled resource-slot supply bump granted once per activation.
 export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
@@ -416,9 +417,10 @@ export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY = 0.1;
 // Census Directorate monument: +0.1/min manpower regen per Manpower-branch
 // building owned, empire-wide, simple linear count.
 export const CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING = 0.1;
-// Incubation Engine (Incubation Engine): instant one-time population burst on build
-// completion.
-export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 10_000;
+// Incubation Engine: instant population burst on build completion, once per owner
+// per town (apps/simulation incubation-burst-guard.ts). Sizing rationale (raised
+// from 10,000 on 2026-11-21): docs/product/resource-and-manpower-economy.md.
+export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 50_000;
 // Incubation Engine (Incubation Engine): ongoing population growth-rate multiplier for
 // its own town, on top of the instant burst above. Reintroduced 2026-08-26,
 // per explicit user decision, at a lower value than the pre-redesign flat

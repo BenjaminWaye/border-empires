@@ -1,0 +1,233 @@
+/* Scout drone flight pill and landing report card (client-scout-drone-hud.ts). Same bottom slot as the dock. */
+#scout-drone-pill {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: none;
+  pointer-events: auto;
+  z-index: 40;
+}
+
+/* The report is the reward: above tips, cards and the folded guide (z 30-40), but under full-screen
+   screens and sheets (z 44 and up), which it covered while they were open (review 2026-11-21). */
+#scout-report-card {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: none;
+  pointer-events: auto;
+  z-index: 42;
+  max-width: calc(100vw - 24px);
+}
+
+#scout-drone-pill .sdp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 226, 255, 0.7);
+  background: linear-gradient(180deg, rgba(14, 40, 54, 0.95), rgba(8, 22, 31, 0.97));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 14px rgba(79, 216, 255, 0.35);
+  color: #dff8ff;
+  font: 700 15px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  cursor: pointer;
+}
+
+/* "Drone ready": brass, breathing, with the number of charges. */
+#scout-drone-pill .sdp-pill.is-ready {
+  border-color: rgba(242, 198, 107, 0.85);
+  background: linear-gradient(180deg, rgba(48, 36, 18, 0.95), rgba(24, 17, 9, 0.97));
+  color: #ffe7a6;
+  animation: sdp-offer 2.4s ease-in-out infinite;
+}
+
+#scout-drone-pill .sdp-pill.is-ready .sdp-drone { color: #ffd479; }
+
+/* "Explore" shows only on the offer; in flight the pill carries just the time. */
+#scout-drone-pill .sdp-word { display: none; font: 700 15px/1 "Cinzel", Georgia, serif; letter-spacing: 0.04em; }
+#scout-drone-pill .sdp-pill.is-ready .sdp-word { display: inline; }
+#scout-drone-pill .sdp-pill.is-ready .sdp-time { opacity: 0.75; font-size: 13px; }
+
+#scout-drone-pill .sdp-drone {
+  width: 26px;
+  height: 26px;
+  color: #6fe3ff;
+  animation: sdp-hover 1.6s ease-in-out infinite;
+}
+
+#scout-drone-pill svg,
+#scout-report-card .srs-drone svg,
+#scout-report-card .srs-chip-icon svg { width: 100%; height: 100%; display: block; }
+
+#scout-report-card .srs-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(242, 198, 107, 0.85);
+  background: linear-gradient(180deg, rgba(48, 36, 18, 0.97), rgba(24, 17, 9, 0.98));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 26px rgba(242, 198, 107, 0.45);
+  color: #f6e4b4;
+  animation: srs-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+#scout-report-card .srs-drone {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  color: #6fe3ff;
+}
+
+#scout-report-card .srs-finds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+#scout-report-card .srs-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font: 700 18px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color: #ffe7a6;
+  animation: srs-chip-in 0.4s ease-out both;
+  animation-delay: calc(0.25s + var(--i, 0) * 0.12s);
+}
+
+#scout-report-card .srs-chip.is-warn { color: #ffb38a; }
+
+#scout-report-card .srs-chip-row { display: inline-flex; align-items: center; gap: 4px; }
+
+#scout-report-card .srs-chip-label {
+  font: 600 11px/1 Georgia, serif;
+  color: rgba(246, 228, 180, 0.8);
+  white-space: nowrap;
+}
+
+#scout-report-card .srs-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#scout-report-card .srs-show-icon { width: 18px; height: 18px; display: inline-grid; }
+#scout-report-card .srs-show-icon svg,
+#scout-report-card .srs-show-icon .resource-icon-img { width: 18px; height: 18px; }
+
+#scout-report-card .srs-chip-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+}
+
+#scout-report-card .srs-chip-icon .resource-icon-img { width: 24px; height: 24px; }
+
+#scout-report-card .srs-empty,
+#scout-report-card .srs-turned {
+  font: 600 14px/1.2 Georgia, serif;
+  color: rgba(246, 228, 180, 0.75);
+}
+
+#scout-report-card .srs-turned { color: #ffb38a; }
+
+#scout-report-card .srs-show {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: none;
+  flex: none;
+  font: 700 15px/1 "Cinzel", Georgia, serif;
+  color: #2a1f12;
+  background: linear-gradient(180deg, #f7d88f, #d0a043);
+  cursor: pointer;
+}
+
+#scout-report-card .srs-close {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid rgba(216, 178, 90, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9d6a8;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+#scout-report-card button *,
+#scout-drone-pill button * { pointer-events: none; }
+
+@keyframes srs-pop {
+  0% { opacity: 0; transform: translateY(24px) scale(0.85); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes srs-chip-in {
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.25); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sdp-offer {
+  0%, 100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 6px rgba(242, 198, 107, 0.25); }
+  50% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 18px rgba(242, 198, 107, 0.7); }
+}
+
+@keyframes sdp-hover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Phone: above the tab bar (client-hud-v2-compact-bottom-reserve.test.ts). The pill sits where the dock
+   does, beside the manpower gauge; the report card spans the width over it, since it is the moment. */
+body.hud-v2-compact #scout-drone-pill {
+  bottom: calc(var(--v2c-bottom) + 10px);
+  left: calc(var(--v2c-safe-left) + 8px);
+  transform: none;
+}
+
+/* The offer is a nudge, not news: tips and cards (z-index 30 and up) sit over it. */
+#scout-drone-pill.is-offer { z-index: 25; }
+
+/* The pill offering the drone sits above the search lens instead of over it. */
+body.hud-v2-compact #scout-drone-pill.is-offer {
+  bottom: calc(var(--v2c-bottom) + 66px);
+}
+
+/* Above the manpower gauge (84px + 8px inset), never over it: its outline showed behind the card. */
+body.hud-v2-compact #scout-report-card {
+  bottom: calc(var(--v2c-bottom) + 102px);
+  left: calc(var(--v2c-safe-left) + 12px);
+  right: calc(var(--v2c-safe-right) + 12px);
+  transform: none;
+  max-width: none;
+}
+
+body.hud-v2-compact #scout-report-card .srs-card { width: 100%; box-sizing: border-box; flex-wrap: wrap; row-gap: 8px; }
+/* Phone: the finds get the full width in a row, Show and ✕ go on a row below. */
+body.hud-v2-compact #scout-report-card .srs-finds { flex: 1 1 calc(100% - 44px); gap: 8px 14px; }
+body.hud-v2-compact #scout-report-card .srs-show { margin-left: auto; }
+
+/* While planning, flying or reporting: the guide card folds to its "?" launcher and the House charges
+   speech bubble hides, so neither covers the route, the drone or the report (player review 2026-11-21). */
+body.scout-focus #tutorial-guide-root .tg-card { display: none !important; }
+body.scout-focus #tutorial-guide-root .tg-launcher { display: inline-flex !important; }
+body.scout-focus #house-charges-bubble .hcb-speech { display: none !important; }
+/* The launcher's step count read as "8 of something" beside the drone count. */
+body.scout-focus #tutorial-guide-root .tg-badge { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  #scout-report-card .srs-card,
+  #scout-report-card .srs-chip,
+  #scout-drone-pill .sdp-pill.is-ready,
+  #scout-drone-pill .sdp-drone { animation: none; }
+}
