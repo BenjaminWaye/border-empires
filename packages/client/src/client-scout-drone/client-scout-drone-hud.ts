@@ -17,6 +17,7 @@ import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client
 import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
 import { SCOUT_FIND_LABEL as FIND_LABEL, pluralLabel as plural, scoutResourceLabel } from "./client-scout-drone-find-labels.js";
 import { scoutFindPlaces, scoutSitesFor } from "./client-scout-drone-finds.js";
+import { clearGuideScoutPeek } from "../client-tutorial-guide/tutorial-guide-card.js";
 import "./client-scout-drone-hud.css";
 
 export type ScoutHudDeps = ScoutDockDeps & {
@@ -128,6 +129,8 @@ const hide = (id: string): void => {
 
 let ticker: ReturnType<typeof setInterval> | undefined;
 let current: { state: ClientState; deps: ScoutHudDeps } | undefined;
+/** The scout phase that last folded the guide ("" for none); see clearGuideScoutPeek below. */
+let lastFocusPhase = "";
 
 /**
  * "Drone ready": while every charge is unused and nothing else holds the slot, the pill offers the drone,
@@ -278,7 +281,12 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // review worried a long flight would hide a guide step; the players disagreed: with the guide open in flight
   // it covered the drone and the route for all three (round 6). The step stays one tap away on the launcher.
   // The offer leaves them be.
-  document.body.classList.toggle("scout-focus", state.scoutDronePicking.active || (pill && !offering) || card);
+  const focusPhase = state.scoutDronePicking.active ? "plan" : pill && !offering ? "flight" : card ? "report" : "";
+  // A tap on "?" opens the guide for this phase only. The phases can follow one another with no gap
+  // (report, then the next plan), so a change of phase, not of scout-focus, folds it again.
+  if (focusPhase !== lastFocusPhase) clearGuideScoutPeek();
+  lastFocusPhase = focusPhase;
+  document.body.classList.toggle("scout-focus", focusPhase !== "");
   // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
   document.body.classList.toggle("scout-flying", pill && !offering);
   // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.
