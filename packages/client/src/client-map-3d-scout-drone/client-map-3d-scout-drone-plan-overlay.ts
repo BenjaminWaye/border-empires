@@ -12,7 +12,7 @@ import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.j
 // back to the leg's limit), and fainter beads for the straight flight home. With a mouse, the leg
 // to the tile under the pointer shows as ghost beads ending where a tap would put the stop, so the
 // range is felt on the route itself -- nothing is drawn on the fog. Outside planning, until the
-// player has sent a few flights, a pulsing beacon on nearby fog says "tap here".
+// player has sent a few flights, a soft brass glow on nearby fog says "tap here".
 // Only the true-3D map draws this; the 2D map shows the dock alone.
 
 type Point = { x: number; y: number };
@@ -24,7 +24,7 @@ const CYAN = new Color("#4fd8ff");
 const CYAN_DIM = new Color("#2a7f99");
 const GHOST = new Color("#cfe9f2");
 const BRASS = new Color("#f2c66b");
-const BEAD_SPACING = 0.5;
+const BEAD_SPACING = 0.42;
 const FLOW_TILES_PER_SECOND = 1.4;
 const MAX_BEADS = 4000;
 const RISE = 0.09;
@@ -46,14 +46,14 @@ export const scoutPlanRouteKey = (state: PlanSource, nowMs: number): string => {
 export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: PlanSource; readonly sceneFor: (x: number, y: number, out: ScoutDroneScenePoint) => void }): ScoutPlanOverlay => {
   const glow = makeGlowTexture();
   const beadMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", map: glow, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
-  const beadGeometry = new PlaneGeometry(0.42, 0.42);
+  const beadGeometry = new PlaneGeometry(0.7, 0.7);
   beadGeometry.rotateX(-Math.PI / 2);
   const beads = new InstancedMesh(beadGeometry, beadMaterial, MAX_BEADS);
   beads.frustumCulled = false;
   beads.setColorAt(0, CYAN);
   beads.count = 0;
   const ringMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
-  const ringGeometry = new RingGeometry(0.5, 0.78, 40);
+  const ringGeometry = new RingGeometry(0.55, 0.95, 40);
   ringGeometry.rotateX(-Math.PI / 2);
   const rings = new InstancedMesh(ringGeometry, ringMaterial, SCOUT_DRONE_MAX_STOPS + 3);
   rings.frustumCulled = false;
@@ -171,9 +171,10 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     const wantsHint = (plan.active ? plan.stops.length === 0 : plan.launches < HINT_FLIGHTS) && !flying && scoutChargesReady(state, nowMs) > 0;
     const hint = wantsHint ? scoutHintTile(state) : undefined;
     if (hint) {
-      const t = (nowMs % 1600) / 1600;
-      pushRing(hint, tint.copy(BRASS).multiplyScalar(1 - t), 1 + 2.4 * t);
-      pushRing(hint, BRASS, 0.9 + 0.12 * Math.sin(nowMs / 200));
+      // A soft breathing glow, under two tiles wide: a hint, not a target (owner, 2026-11-21).
+      deps.sceneFor(hint.x, hint.y, a);
+      const breath = 0.5 + 0.5 * Math.sin(nowMs / 420);
+      pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, tint.copy(BRASS).multiplyScalar(0.5 + 0.4 * breath), 2.2 + 0.4 * breath);
     }
     beads.count = beadCount;
     rings.count = ringCount;
