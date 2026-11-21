@@ -26,10 +26,10 @@ a time.
 - **Expand To is used as a paid peek.** Expand To into unexplored land costs
   manpower (10 MP and up, `expandManpowerCostForFrontierCount`) and 7.5s per
   tile (`FRONTIER_CLAIM_MS`). Unless the path ends on a town or dock, those
-  tiles decay after 5 minutes (`docs/core-loop.md` §2). Part of that spending
-  is really a scouting tax, and the decaying tiles flash on neighbours' maps.
-  *(Hypothesis: the share of Expand To claims that decay can be measured in
-  PostHog before and after launch.)*
+  tiles stay unsettleable FRONTIER outside reach (`docs/core-loop.md` §2).
+  Part of that spending is really a scouting tax.
+  *(Hypothesis: the share of Expand To claims made into unexplored land can be
+  measured in PostHog before and after launch.)*
 - **The opening has a step with no button.** The new-player checklist starts
   "find a town → Expand To it → find food → Expand To 4 food slots"
   (`docs/core-loop.md` §8). Explore gives "find" an action.
