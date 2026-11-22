@@ -23,6 +23,7 @@
 - Before deploys or operational cloud CLI work, read `docs/agents/deploys.md`. Ordinary source searches and local Git commands do not require deployment docs.
 - Before adding a cache/map or snapshot state, read `docs/agents/state-and-persistence-discipline.md`. Before AI planner changes, read `docs/agents/ai-guardrails.md` and `docs/agents/topics/ai-planner.md`.
 - Before gameplay/fiction changes, read `docs/lore/README.md` and affected `docs/lore/galactic-lore.md` sections. Update canon in the same branch for changes to meaning; keep numerical balance in gameplay docs. Otherwise report "Lore reviewed; no canon change". Full maintenance requirements: `docs/agents/implementation-rules.md`.
+- `docs/gdd.md` records owner decisions. When the owner changes audience, priorities, scope, launch plan or business model, or a merged change contradicts it, update it in the same branch and date the change. Never change its decisions without the owner's say.
 - Update `AGENTS.md`, `README.md`, and affected docs when workflow, entrypoints, or layout change. Check README accuracy before a PR.
 
 ## Load only the relevant guide
