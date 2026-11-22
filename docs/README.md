@@ -30,6 +30,7 @@ remain authoritative for runtime behavior.
 | AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
 | AI economic synergy: stacking Manufactory/Depot, Clearing House, Trade Nexus, Neural Works, Reserve Lattice (implemented) | [`ai-economic-synergy-plan.md`](ai-economic-synergy-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
+| Game design north star (audience, priorities, scope, business model) | [`gdd.md`](gdd.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
 | AFC loss, replacement deliveries and withdrawal | [`afc-recovery-plan.md`](afc-recovery-plan.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
