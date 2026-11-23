@@ -46,11 +46,15 @@ for (const backend of ["memory", "sqlite"] as const) {
           expect((kind === "truce" ? after.rejectTruce("b", offer.id) : after.rejectAlliance("b", offer.id)).ok).toBe(false);
           const recheck = vi.fn(async () => ({ reason: "Stale AI opinion", withdraw: true }));
           const second = accept(after, recheck);
-          expect((await (kind === "truce" ? second.acceptTruce("b", offer.id) : second.acceptAlliance("b", offer.id))).ok).toBe(true);
+          // A truce runs from its offer: resumed 48h later its 12h window has closed, so the
+          // same payment completes and is refunded rather than recording an ended truce.
+          expect((await (kind === "truce" ? second.acceptTruce("b", offer.id) : second.acceptAlliance("b", offer.id))).ok).toBe(kind !== "truce");
           expect(recheck).not.toHaveBeenCalled();
           expect(submitted[1]).toEqual(submitted[0]);
           expect(submitted[0]).toMatchObject({ commandId: `diplomacy-settle:${kind}:${offer.id}`, issuedAt: 1_000, refundIfLate: false });
-          expect(payments.size).toBe(1);
+          if (kind === "truce") expect(submitted[2]).toMatchObject({ refundOf: `diplomacy-settle:truce:${offer.id}` });
+          expect(payments.size).toBe(kind === "truce" ? 2 : 1);
+          if (kind === "truce") expect(after.snapshotForPlayer("a").activeTruces).toEqual([]);
           expect(after.isTreatySupplySettling(`diplomacy-settle:${kind}:${offer.id}`, "b")).toBe(false);
           expect(store.loadSnapshot()[kind === "truce" ? "truceRequests" : "allianceRequests"]).toHaveLength(0);
         } finally { db?.close(); }
