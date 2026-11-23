@@ -7,25 +7,45 @@
 }
 
 .house-charges-intro,
-.house-charges-choice > p {
+.house-charges-popover p {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
   color: rgba(214, 226, 240, 0.82);
 }
 
-/* Stays in view while the player scrolls through the cards. */
-.house-charges-choice {
+/* The unsaved swap's Keep button and the after-save profile tip (client-house-charges-panel.ts). On a phone it
+   stays in view while the cards scroll; on desktop it floats in the title row over the hand
+   (client-house-charges-deck-motion.css), so it never pushes the cards down. */
+.house-charges-popover {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 6;
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid rgba(217, 178, 92, 0.45);
+  border: 1px solid rgba(217, 178, 92, 0.6);
   border-radius: 8px;
   background: #2a2014;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
 }
+.house-charges-popover-text { display: grid; gap: 2px; min-width: 0; }
+.house-charges-popover-actions { display: flex; flex: none; gap: 8px; }
+.house-charges-popover .panel-btn { white-space: nowrap; }
+.house-charges-popover-actions [data-house-charges-tip-show] { flex: 1 1 auto; }
+.house-charges-popover-close { flex: none; min-width: 40px; font-size: 18px; line-height: 1; }
+
+/* "Show me" from the tip: Manage charges in your profile glows for a few seconds (client-house-charges-profile-tip.ts). */
+.hc-manage.is-callout {
+  border-color: #f0cf82;
+  box-shadow: 0 0 0 2px #f0cf82, 0 0 18px 4px rgba(240, 207, 130, 0.55);
+  animation: hc-manage-callout 1.2s ease-in-out infinite;
+}
+@keyframes hc-manage-callout {
+  0%, 100% { box-shadow: 0 0 0 2px #f0cf82, 0 0 18px 4px rgba(240, 207, 130, 0.55); }
+  50% { box-shadow: 0 0 0 2px #f0cf82, 0 0 6px 1px rgba(240, 207, 130, 0.25); }
+}
+@media (prefers-reduced-motion: reduce) { .hc-manage.is-callout { animation: none; } }
 
 /* How charges work: a popup over the top of the cards from the "?" beside the panel title, so opening it never
    pushes the cards down into a scroll (owner 2026-11-20). */
@@ -33,7 +53,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 5;
+  /* Over the Keep popover (z 6): the player opened it on purpose. */
+  z-index: 7;
   width: min(640px, 100%);
   box-sizing: border-box;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
