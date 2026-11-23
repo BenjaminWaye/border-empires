@@ -79,4 +79,15 @@ describe("createUnitMotionGate", () => {
     reduced.value = false;
     expect(gate.shouldAnimate()).toBe(true);
   });
+
+  it("reports reduced motion live and ignores the slow-device latch", () => {
+    const reduced = { value: false };
+    const gate = createUnitMotionGate({ prefersReducedMotion: () => reduced.value });
+    const afterWarmup = runFrames(gate, 0, WARMUP_MS, 16.7);
+    runFrames(gate, afterWarmup, SLOW_SUSTAIN_MS + 500, 70);
+    expect(gate.shouldAnimate()).toBe(false);
+    expect(gate.prefersReducedMotion()).toBe(false);
+    reduced.value = true;
+    expect(gate.prefersReducedMotion()).toBe(true);
+  });
 });

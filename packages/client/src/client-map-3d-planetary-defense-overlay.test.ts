@@ -147,7 +147,7 @@ describe("createPlanetaryDefenseOverlay", () => {
   });
 
   describe("standing still (slow device / reduced motion)", () => {
-    const gate = (animate: { value: boolean }): UnitMotionGate => ({ recordFrame: () => {}, shouldAnimate: () => animate.value });
+    const gate = (animate: { value: boolean }): UnitMotionGate => ({ recordFrame: () => {}, shouldAnimate: () => animate.value, prefersReducedMotion: () => false });
     const spots = (scene: Scene): string[] => visibleSoldiers(scene).map((s) => `${s.position.x.toFixed(4)},${s.position.z.toFixed(4)}`);
 
     it("keeps the soldiers in one spot inside the tile over time", async () => {
