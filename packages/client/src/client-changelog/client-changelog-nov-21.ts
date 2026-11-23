@@ -1,4 +1,4 @@
-// 2026.11.21-23 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
+// 2026.11.21 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { REPORT_BUG_BUTTONS_ENTRY } from "./client-changelog-report-bug-buttons.js";
@@ -10,9 +10,9 @@ import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garris
 import { TIP_PINS_ENTRY } from "./client-changelog-tip-pins.js";
 import { THREE_SEATS_MAP_ENTRY } from "./client-changelog-three-seats-map.js";
 import { OLD_ALLIANCES_PANEL_REMOVED_ENTRY } from "./client-changelog-old-alliances-panel-removed.js";
-import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
+import { SCOUT_STOP_TAPS_ENTRY } from "./client-changelog-scout-stop-taps.js";
 
-export const NOV_21_23_CHANGELOG: ClientChangelogEntry[] = [
+export const NOV_21_CHANGELOG: ClientChangelogEntry[] = [
   { ...INCUBATION_ENGINE_BURST_ENTRY, createdAt: 1795257240525, },
   { ...REPORT_BUG_BUTTONS_ENTRY, createdAt: 1795258066508, },
   { ...TIP_OVER_DRONE_PILL_ENTRY, createdAt: 1795288791904, },
@@ -23,5 +23,5 @@ export const NOV_21_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...TIP_PINS_ENTRY, createdAt: 1795294290244, },
   { ...THREE_SEATS_MAP_ENTRY, createdAt: 1795296228795, },
   { ...OLD_ALLIANCES_PANEL_REMOVED_ENTRY, createdAt: 1795296477203, },
-  { ...SCOUT_SHORTEST_HOME_ENTRY, createdAt: 1795418080546, },
+  { ...SCOUT_STOP_TAPS_ENTRY, createdAt: 1795294345014, },
 ];
