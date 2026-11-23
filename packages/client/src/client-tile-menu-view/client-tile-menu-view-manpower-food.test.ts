@@ -361,7 +361,7 @@ describe("menuOverviewForTile — town stat grid", () => {
     );
 
     const html = statGridHtml(lines);
-    expect(html).not.toContain("Fertile Town");
+    expect(html).not.toContain("Standard Town");
     expect(html).not.toContain("gold +0%");
     expect(html).not.toContain("capacity · +0% regeneration");
   });

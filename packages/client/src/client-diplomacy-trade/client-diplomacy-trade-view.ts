@@ -205,11 +205,11 @@ export const tradeVerdict = (input: {
     return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
   }
   if (hasRecurringCoin(selection.terms)) {
-    // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
+    // An AI takes Coin per day only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
     if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
-      return { tone: "bad", text: "AI Houses accept Coin per hour only from you, and only for a truce.", canSend: false, sendLabel };
+      return { tone: "bad", text: "AI Houses accept Coin per day only from you, and only for a truce.", canSend: false, sendLabel };
     if (recurringCoinTermHours(kind, selection.durationHours, selection.terms) === null)
-      return { tone: "neutral", text: "Add a resource slot to pledge Coin per hour outside a truce.", canSend: false, sendLabel };
+      return { tone: "neutral", text: "Add a resource slot to pledge Coin per day outside a truce.", canSend: false, sendLabel };
   }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
@@ -231,9 +231,9 @@ export const tradeVerdict = (input: {
 
   const pricing = pricingFor(reply.pricing, selection);
   const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
-  // An AI counts Coin per hour only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
+  // An AI counts Coin per day only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
   const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
-  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per hour only up to your spare income (${spare}/h).` : "");
+  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per day only up to your spare income (${spare * 24}/day).` : "");
   if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;

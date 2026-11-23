@@ -227,8 +227,11 @@ export const parkOrReuseMusterFlagForAttack = (
   const needsNewFlag = !nearbyOwned && state.tiles.get(originKey)?.muster?.ownerId !== state.me && pendingAtOrigin === undefined;
   const slotsInUse = ourMusterCount + pendingPlacements.size;
   if (needsNewFlag && slotsInUse >= state.musterFlagLimit) {
+    // A flag still being placed takes a slot but isn't on the Tracker yet; name it, or "2/2" reads wrong
+    // next to a Tracker showing one flag (Playtest Run 4).
+    const placing = pendingPlacements.size > 0 ? `, ${pendingPlacements.size} still being placed` : "";
     deps.pushFeed(
-      `Muster flags full (${slotsInUse}/${state.musterFlagLimit}) · no flag near (${to.x}, ${to.y}) to reuse. Attack cancelled.`,
+      `Muster flags full (${slotsInUse}/${state.musterFlagLimit}${placing}) · no flag near (${to.x}, ${to.y}) to reuse. Attack cancelled.`,
       "combat", "error"
     );
     deps.renderHud();

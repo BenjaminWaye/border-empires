@@ -58,6 +58,13 @@ describe("Chronicle headline", () => {
     expect(chronicleHeadlineHtml(input(t, { respawn: { at: 700, reasonCode: "auth_recovery", spawnTileKey: "1,1" } }))).toBe("");
   });
 
+  it("is labelled since the player last looked, not since they left: it also fires mid-session (Playtest Run 4)", () => {
+    const t = timeline([{ kind: "TERRITORY_FLIP_GROUP", id: "t", occurredAt: 610, direction: "GAINED", counterpartyPlayerId: undefined, tileCount: 3, x: 1, y: 1 }]);
+    const html = chronicleHeadlineHtml(input(t));
+    expect(html).toContain("Since you last looked");
+    expect(html).not.toContain("Since you left");
+  });
+
   it("says when a rival broke the truce, and gains alone", () => {
     const t = timeline([
       { kind: "DIPLOMACY", id: "d", occurredAt: 600, event: "TRUCE_BROKEN", counterpartyPlayerId: "konrad", counterpartyName: "Konrad", byPlayerId: "konrad" },

@@ -419,8 +419,9 @@ Planetary Defense has no such field.
 
 Losing the last AFC leaves a House unable to fabricate new structures. Its
 forces and productive holdings remain. It must commission a replacement and
-hold the landing site until delivery. Every AFC lost on a world raises the
-shared replacement price. A cancelled landing is refunded.
+hold the landing site until delivery. The replacement comes at one fixed
+price, however many AFCs the world has already lost (changed 2026-11-23; it
+used to rise with every loss). A cancelled landing is refunded.
 
 A House may instead **withdraw and redeploy**: give up its territory, reserves
 and treasury here and land fresh elsewhere on the same world, keeping its

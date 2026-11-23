@@ -78,6 +78,19 @@ describe("planning a scout flight", () => {
     expect(state.scoutDronePicking).toMatchObject({ active: true, stops: [{ x: 40, y: 40 }] });
   });
 
+  // Playtest Run 4: mid-flight, stray map taps kept opening plans and adding stops.
+  it("a tap on fog while the drone flies opens no plan, but Send scout drone still does", () => {
+    const state = pickingState(flight(10_000));
+    expect(handleScoutDronePickClick(state, 40, 40, deps(), 0, false)).toBe(false);
+    expect(state.scoutDronePicking.active).toBe(false);
+    expect(dispatchAfcScoutAction("afc_scout_drone", state)).toBe(true);
+    expect(handleScoutDronePickClick(state, 40, 40, deps(), 0, false)).toBe(true);
+    expect(state.scoutDronePicking.stops).toEqual([{ x: 40, y: 40 }]);
+    // Once it has landed, fog taps plan again.
+    const landed = pickingState(flight(10_000));
+    expect(handleScoutDronePickClick(landed, 40, 40, deps(), 10_000, false)).toBe(true);
+  });
+
   it("pulls a stop that is too far back to the leg's range when sent", () => {
     const state = pickingState();
     const d = deps();
@@ -172,21 +185,17 @@ describe("planning a scout flight", () => {
       expect(state.scoutDronePicking.stops).toEqual([{ x: 20, y: 20 }, { x: 7, y: 5 }]);
     });
 
-    it("are taps like any other on the 2D map, which numbers no stops", () => {
+    // Owner, Playtest Run 4: mid-flight no fog tap starts a plan, on either map, near the route or away from it;
+    // Send scout drone on the AFC adds stops instead, and fog taps plan again once the drone lands.
+    it("start no plan on the 2D map either, nor on fog away from the route, until the drone lands", () => {
       setTrue3DRendererActive(false);
       const state = pickingState(routeFlight());
-      expect(handleScoutDronePickClick(state, 7, 6, deps(), 0)).toBe(true);
-      expect(state.scoutDronePicking.stops).toEqual([{ x: 7, y: 6 }]);
-    });
-
-    it("still plan on fog away from the route, and a stop already passed is no obstacle", () => {
-      const state = pickingState(routeFlight());
-      expect(handleScoutDronePickClick(state, 30, 30, deps(), 0)).toBe(true);
+      expect(handleScoutDronePickClick(state, 7, 6, deps(), 0, false)).toBe(false);
+      setTrue3DRendererActive(true);
+      expect(handleScoutDronePickClick(state, 30, 30, deps(), 0, false)).toBe(false);
+      expect(state.scoutDronePicking).toMatchObject({ active: false, stops: [] });
+      expect(handleScoutDronePickClick(state, 30, 30, deps(), 60_000, false)).toBe(true);
       expect(state.scoutDronePicking.stops).toEqual([{ x: 30, y: 30 }]);
-      cancelScoutDronePicking(state);
-      // Past (1,5) at 4s: a tap there plans again.
-      expect(handleScoutDronePickClick(state, 1, 6, deps(), 6_000)).toBe(true);
-      expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 6 }]);
     });
   });
 
