@@ -7,7 +7,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
-import { injectDockNavigatorRow } from "../client-dock-navigator/client-dock-navigator.js";
+import { injectDockCrossAction, injectDockNavigatorRow } from "../client-dock-navigator/client-dock-navigator.js";
 import { injectOnboardingRelayBeaconRecommendation } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
 import { injectGuideManufactoryRecommendation } from "../client-tutorial-guide/tutorial-guide-manufactory-recommendation.js";
 import { injectMarchAttackActions } from "../client-march-attack-actions/client-march-attack-actions.js";
@@ -18,6 +18,7 @@ export const injectTileMenuExtras = (view: TileMenuView, tile: Tile, state: Clie
   injectMarchAttackActions(view, tile, state);
   injectDebugDownloadRow(view, tile, state.authEmail);
   injectDockNavigatorRow(view, tile, state);
+  injectDockCrossAction(view, tile, state);
   injectMusterCombatReports(view, tile, state);
   injectOnboardingRelayBeaconRecommendation(view, tile);
   injectGuideManufactoryRecommendation(view, tile);
