@@ -1,8 +1,10 @@
 import { RUN4_QUICK_FIXES_ENTRY } from "./client-changelog-run4-quick-fixes.js";
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
+import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
 import { UNSETTLED_ENCIRCLEMENT_ENTRY } from "./client-changelog-unsettled-encirclement.js";
+import { CAPTURED_TOWN_FIST_ENTRY } from "./client-changelog-captured-town-fist.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -482,9 +484,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   ...NOV_19_20_CHANGELOG,
   ...NOV_21_CHANGELOG,
+  ...NOV_23_CHANGELOG,
   { ...SCOUT_SHORTEST_HOME_ENTRY, createdAt: 1795418080546, },
   { ...UNSETTLED_ENCIRCLEMENT_ENTRY, createdAt: 1795418149833, },
   { ...RUN4_QUICK_FIXES_ENTRY, createdAt: 1795422082667, },
+  { ...CAPTURED_TOWN_FIST_ENTRY, createdAt: 1795424975001, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

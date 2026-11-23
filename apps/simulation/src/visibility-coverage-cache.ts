@@ -227,6 +227,25 @@ export class VisibilityCoverageTracker {
     this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter, "temporary-reveal");
   }
 
+  /**
+   * addTemporaryReveal that returns the exact cells it covered, for a reveal
+   * that lasts long enough for a mountain edit to land in between (a
+   * waystation VISION look, a watchtower pulse). Remove it with
+   * removeTemporaryRevealCells on the returned list, never by (x, y, radius).
+   */
+  addTemporaryRevealCells(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): string[] {
+    if (this.isBarbarian(viewerId)) return [];
+    const keys = this.cache.footprintCellKeys(x, y, radius);
+    this.cache.addCells(viewerId, keys, callbacks?.onEnter, "temporary-reveal");
+    return keys;
+  }
+
+  /** Reverses addTemporaryRevealCells for the same cell list. */
+  removeTemporaryRevealCells(viewerId: string, keys: readonly string[], callbacks?: VisibilityTransitionCallbacks): void {
+    if (this.isBarbarian(viewerId)) return;
+    this.cache.removeCells(viewerId, keys, callbacks?.onLeave, "temporary-reveal");
+  }
+
   /** Reverses addTemporaryReveal once the timed effect expires. */
   removeTemporaryReveal(viewerId: string, x: number, y: number, radius: number, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(viewerId)) return;

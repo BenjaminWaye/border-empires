@@ -4,13 +4,19 @@ import { WATCHTOWER_REVEAL_RADIUS, WATCHTOWER_REVEAL_TTL_MS } from "@border-empi
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
-export type PendingWatchtowerReveal = { tileKey: string; x: number; y: number; playerId: string; expiresAt: number };
+/**
+ * A queued temporary reveal: a watchtower pulse or a waystation VISION look.
+ * `cellKeys` are the exact cells covered when it was added; expiry removes
+ * those, so a mountain created or removed in range meanwhile can't leave a
+ * cell counted forever (permanent sight) or fog someone else's.
+ */
+export type PendingWatchtowerReveal = { kind: "watchtower" | "waystation-vision"; tileKey: string; playerId: string; expiresAt: number; cellKeys: readonly string[] };
 
 export type WatchtowerRevealRuntimeInput = {
   now: () => number;
   tiles: Map<string, DomainTileState>;
   pendingWatchtowerReveals: PendingWatchtowerReveal[];
-  visibilityCoverage: Pick<VisibilityCoverageTracker, "addTemporaryReveal" | "removeTemporaryReveal">;
+  visibilityCoverage: Pick<VisibilityCoverageTracker, "addTemporaryRevealCells" | "removeTemporaryRevealCells">;
   visionTransitionCallbacks: VisibilityTransitionCallbacks;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
@@ -40,11 +46,11 @@ export const activateWatchtowerAt = (
   const updated: DomainTileState = { ...tile, watchtower: { activated: true, activatedByPlayerId: playerId, revealUntil } };
   input.replaceTileState(targetKey, updated, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
-  input.visibilityCoverage.addTemporaryReveal(playerId, x, y, WATCHTOWER_REVEAL_RADIUS, input.visionTransitionCallbacks);
-  input.pendingWatchtowerReveals.push({ tileKey: targetKey, x, y, playerId, expiresAt: revealUntil });
+  const cellKeys = input.visibilityCoverage.addTemporaryRevealCells(playerId, x, y, WATCHTOWER_REVEAL_RADIUS, input.visionTransitionCallbacks);
+  input.pendingWatchtowerReveals.push({ kind: "watchtower", tileKey: targetKey, playerId, expiresAt: revealUntil, cellKeys });
 };
 
-/** Expires any watchtower reveal pulses whose 10s window has elapsed. */
+/** Expires queued temporary reveals (watchtower pulses, waystation VISION looks) whose window has elapsed. */
 export const tickWatchtowerReveals = (input: WatchtowerRevealRuntimeInput, nowMs: number): void => {
   if (input.pendingWatchtowerReveals.length === 0) return;
   const remaining: PendingWatchtowerReveal[] = [];
@@ -53,8 +59,8 @@ export const tickWatchtowerReveals = (input: WatchtowerRevealRuntimeInput, nowMs
       remaining.push(entry);
       continue;
     }
-    input.visibilityCoverage.removeTemporaryReveal(entry.playerId, entry.x, entry.y, WATCHTOWER_REVEAL_RADIUS, input.visionTransitionCallbacks);
-    const tile = input.tiles.get(entry.tileKey);
+    input.visibilityCoverage.removeTemporaryRevealCells(entry.playerId, entry.cellKeys, input.visionTransitionCallbacks);
+    const tile = entry.kind === "watchtower" ? input.tiles.get(entry.tileKey) : undefined;
     if (tile?.watchtower?.revealUntil) {
       const cleared: DomainTileState = { ...tile, watchtower: { ...tile.watchtower, revealUntil: undefined } };
       input.replaceTileState(entry.tileKey, cleared);
@@ -64,6 +70,10 @@ export const tickWatchtowerReveals = (input: WatchtowerRevealRuntimeInput, nowMs
         playerId: entry.playerId,
         tileDeltas: [input.tileDeltaFromState(cleared)]
       });
+    } else if (entry.kind === "waystation-vision") {
+      // A waystation look has no tile to update, but the fanout only sends the
+      // FOG edges above on a TILE_DELTA_BATCH: an empty one flushes them now.
+      input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `waystation-vision-expire:${entry.tileKey}:${nowMs}`, playerId: entry.playerId, tileDeltas: [] });
     }
   }
   input.pendingWatchtowerReveals.length = 0;

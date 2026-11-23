@@ -62,7 +62,9 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "scout-drone:",
   "scout-report:",
   "scout-sighted:",
-  "scout-finds:"
+  "scout-finds:",
+  // Waystation VISION look expiry flush (runtime-watchtower-reveal-tick.ts).
+  "waystation-vision-expire:"
 ] as const;
 
 /**

@@ -274,7 +274,7 @@ export interface Tile {
     modifiers?: Array<{ label: string; percent: number; deltaGoldPerMinute: number }>;
   };
   naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
-  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen PERMANENT effect on activation -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
+  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen effect on activation (VISION is a timed look, WAYSTATION_VISION_REVEAL_TTL_MS) -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null;
   town?: TownWireSummary;
   yieldRate?: {
