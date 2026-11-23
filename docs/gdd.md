@@ -143,7 +143,7 @@ product, including paid Houses.
 |---|---|---|
 | Free play | The full game in the one free public sector | Launch |
 | Hosted sector | A private Sector Contest for a host and the people they invite, with AI Houses filling the rest. Paid by one host or split among a group; it opens when its funding bar is full | Launch |
-| Cosmetics | 3–5 one-time purchases (House crest, colour scheme, capital skin, beacon skin), kept permanently across contests | Launch |
+| Cosmetics | One-time purchases kept permanently across contests. Sell what rivals see. Launch set, in build order (decided 2026-11-23): muster flag design, ancillary soldier skin, then colour scheme and beacon skin | Launch |
 | Paid playable Houses | Houses that play differently, balanced as sidegrades | Decide after the first public contest, on its data |
 
 - **Paid sectors cover themselves.** A hosted sector opens only when it is
@@ -154,10 +154,19 @@ product, including paid Houses.
   single-player product at launch.
 - **Hosting options at launch:** map size and map type. Contest length, clock
   speed, AI difficulty and custom rules come later.
-- **Smaller maps cost less.** Prices are set after load testing shows what a
-  server can hold.
+- **Price at launch: USD 20 for a standard sector** (decided 2026-11-23). Each
+  sector needs its own server for now. Smaller maps should cost less, but a
+  cheaper tier is added only after it has been measured.
+- **A funded sector starts by itself.** Once payment completes, the server is
+  created and the contest opened automatically; the owner does not start
+  servers by hand (decided 2026-11-23).
+- **Cosmetics not in the launch set:** an AFC skin, because rivals rarely see
+  the AFC; and a House crest, until it can be shown without cluttering the
+  diplomacy screen.
 - **Purchases belong to the account, not the device.** The web is the main
-  shop, through a provider that handles sales tax and VAT. The apps show what
+  shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
+  the money but does not file sales tax or VAT for the owner; registration and
+  filing stay with the owner. The apps show what
   the account owns. In-app purchases are added if a store requires them or
   they clearly sell better.
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
@@ -217,11 +226,9 @@ baseline.
   - Still open: the same tests late in a contest (the longest run was 100
     minutes), on the real Hetzner server, with humans who actively play. Until
     then the hosting price is not settled.
-  - Still open, owner decision: 100 Houses does not fit under the 700 MB
-    checkpoint memory watermark, so checkpoints are saved about every 3.4
-    minutes instead of every 52 seconds. Raise the watermark, accept that, or
-    change something larger; the options and their costs are in the memory
-    report.
+  - Decided 2026-11-23: raise the checkpoint memory watermark from 700 MB to
+    1,250 MB so checkpoints are saved about every 52 seconds again. The right
+    value for a late contest is still to be confirmed by the long test.
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.
