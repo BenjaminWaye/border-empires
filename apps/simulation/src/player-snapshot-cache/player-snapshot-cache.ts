@@ -24,6 +24,17 @@ import { applyPlayerMessageToSnapshot, type PlayerSubscriptionSnapshot } from "@
 // than served. It closes the unsubscribed-player path and the bootstrap-only
 // paths (rally-anchor lookups cache a snapshot for a player who never
 // subscribes and so never unsubscribes) with one rule.
+//
+// The same rule bounds the cache's memory. An entry can only advance from the
+// revision immediately before a batch (applyIfCurrent/advanceIfCurrent), so
+// one that has fallen behind can never be served again: only a wholesale
+// `set` revives it. Its world payload -- the tiles and its own copy of the
+// world's dock list, 0.4 MB per entry on the default map -- is therefore
+// dropped at the next revision bump (`staleEntriesReleasedCount`). Without
+// that, every snapshot ever built for a player who is not live -- the
+// gateway's AI diplomacy builds one per AI House -- stayed in memory whole
+// for the rest of the contest (docs/load-results/sector-memory-2026-11-23.md).
+// Player fields are kept for `peek` readers.
 type CacheEntry = {
   snapshot: PlayerSubscriptionSnapshot;
   revision: number;
@@ -32,7 +43,10 @@ type CacheEntry = {
 export type PlayerSnapshotCache = {
   /** The current world revision. Advances once per applied tile-delta batch. */
   worldRevision: () => number;
-  /** Advance the world revision. Call once per tile-delta batch, before fanout. */
+  /**
+   * Advance the world revision. Call once per tile-delta batch, before fanout.
+   * Drops the tiles and docks of entries that were already behind: they are unservable.
+   */
   bumpWorldRevision: () => number;
   /** Entries for metric summarisation; includes stale ones (they still cost memory). */
   entries: () => Iterable<[string, PlayerSubscriptionSnapshot]>;
@@ -92,16 +106,33 @@ export type PlayerSnapshotCache = {
   clear: () => void;
   /** How many times a stale entry was rejected by getCurrent (metrics/logging). */
   staleReadCount: () => number;
+  /** How many entries had their tiles and docks dropped for being unservably stale. */
+  staleEntriesReleasedCount: () => number;
 };
 
 export const createPlayerSnapshotCache = (): PlayerSnapshotCache => {
   const entriesByPlayerId = new Map<string, CacheEntry>();
   let revision = 0;
   let staleReads = 0;
+  let staleEntriesReleased = 0;
+  // Bounded work: one pass over at most one entry per player of the contest.
+  const releaseUnservableEntries = (): void => {
+    for (const entry of entriesByPlayerId.values()) {
+      if (entry.revision === revision) continue;
+      if (entry.snapshot.tiles.length === 0 && entry.snapshot.docks === undefined) continue;
+      // A new object: the stale snapshot may still be in a caller's hands.
+      const { docks: _docks, ...withoutDocks } = entry.snapshot;
+      entry.snapshot = { ...withoutDocks, tiles: [] };
+      staleEntriesReleased += 1;
+    }
+  };
 
   return {
     worldRevision: () => revision,
-    bumpWorldRevision: () => (revision += 1),
+    bumpWorldRevision: () => {
+      releaseUnservableEntries();
+      return (revision += 1);
+    },
     *entries() {
       for (const [playerId, entry] of entriesByPlayerId) yield [playerId, entry.snapshot];
     },
@@ -141,7 +172,8 @@ export const createPlayerSnapshotCache = (): PlayerSnapshotCache => {
     clear: () => {
       entriesByPlayerId.clear();
     },
-    staleReadCount: () => staleReads
+    staleReadCount: () => staleReads,
+    staleEntriesReleasedCount: () => staleEntriesReleased
   };
 };
 

@@ -2,6 +2,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { VISIT_FORECAST_ENTRY } from "./client-changelog-visit-forecast.js";
 import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
+import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
 import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
 import { UNSETTLED_ENCIRCLEMENT_ENTRY } from "./client-changelog-unsettled-encirclement.js";
@@ -22,4 +23,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...UMBRITE_FOREST_DEPOSITS_ENTRY, createdAt: 1795425803985, },
   { ...PD_LAND_VISIBLE_ENTRY, createdAt: 1795437513917, },
   { ...LOST_TILE_OWNER_ENTRY, createdAt: 1795441816662, },
+  { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
 ];

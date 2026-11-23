@@ -125,8 +125,10 @@ describe("createPlayerSnapshotCache", () => {
     }));
 
     expect(applied).toBe(false);
-    // Untouched — left for a real rebuild rather than silently patched.
-    expect(cache.peek("offline-player")).toBe(original);
+    // Not patched — left for a real rebuild. Its unservable tiles were
+    // released at the second bump; the caller's own object is untouched.
+    expect(cache.peek("offline-player")?.tiles).toEqual([]);
+    expect(original.tiles).toEqual([{ x: 1, y: 1 }]);
     expect(cache.getCurrent("offline-player")).toBeUndefined();
   });
 
@@ -170,6 +172,58 @@ describe("createPlayerSnapshotCache", () => {
     cache.set("player-1", snapshot, startedAtRevision);
 
     expect(cache.getCurrent("player-1")).toBe(snapshot);
+  });
+
+  // Memory guard: the gateway's AI diplomacy builds a snapshot for every AI
+  // House and then leaves. Those entries went stale at the next batch and
+  // could never be served again, yet kept every tile for the rest of the
+  // contest: 38 MB after 40 minutes with 60 AI Houses, most of it each
+  // entry's own copy of the world's dock list.
+  it("drops the tiles and docks of an entry that can no longer be served, keeping its player fields", () => {
+    const cache = createPlayerSnapshotCache();
+    const snapshot = { playerId: "ai-1", player: { upkeepLastTick: 7 }, docks: [{ dockId: "d1" }], tiles: [{ x: 1, y: 1 }, { x: 2, y: 2 }] } as unknown as PlayerSubscriptionSnapshot;
+    cache.set("ai-1", snapshot);
+
+    cache.bumpWorldRevision();
+    // One batch behind, its tiles are kept until the next bump: this batch's fanout has not run yet.
+    expect(cache.peek("ai-1")?.tiles).toHaveLength(2);
+    expect(cache.peek("ai-1")?.docks).toHaveLength(1);
+    expect(cache.staleEntriesReleasedCount()).toBe(0);
+
+    cache.bumpWorldRevision();
+    expect(cache.peek("ai-1")?.tiles).toEqual([]);
+    expect(cache.peek("ai-1")?.docks).toBeUndefined();
+    expect((cache.peek("ai-1") as unknown as { player: { upkeepLastTick: number } }).player.upkeepLastTick).toBe(7);
+    expect(cache.getCurrent("ai-1")).toBeUndefined();
+    expect(cache.staleEntriesReleasedCount()).toBe(1);
+    // The snapshot object a caller may still hold is never mutated.
+    expect(snapshot.tiles).toHaveLength(2);
+    expect(snapshot.docks).toHaveLength(1);
+
+    cache.bumpWorldRevision();
+    expect(cache.staleEntriesReleasedCount()).toBe(1);
+  });
+
+  it("keeps the tiles of an entry the fanout keeps current across batches", () => {
+    const cache = createPlayerSnapshotCache();
+    cache.set("online-player", snapshotWith([{ x: 1, y: 1 }]));
+    for (let batch = 0; batch < 5; batch += 1) {
+      const priorRevision = cache.worldRevision();
+      cache.bumpWorldRevision();
+      expect(cache.advanceIfCurrent("online-player", priorRevision)).toBe(true);
+    }
+    expect(cache.getCurrent("online-player")?.tiles).toHaveLength(1);
+    expect(cache.staleEntriesReleasedCount()).toBe(0);
+  });
+
+  it("serves a rebuilt entry in full after its stale tiles were dropped", () => {
+    const cache = createPlayerSnapshotCache();
+    cache.set("returning-player", snapshotWith([{ x: 1, y: 1 }]));
+    cache.bumpWorldRevision();
+    cache.bumpWorldRevision();
+    const rebuilt = snapshotWith([{ x: 1, y: 1 }, { x: 2, y: 2 }]);
+    cache.set("returning-player", rebuilt);
+    expect(cache.getCurrent("returning-player")).toBe(rebuilt);
   });
 
   it("drops entries on delete and clear", () => {

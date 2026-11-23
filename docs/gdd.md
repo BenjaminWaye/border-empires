@@ -205,15 +205,23 @@ baseline.
 
 - What one server can hold, including the load when the map is fully revealed.
   *Partly answered 2026-11-23*
-  ([`load-results/full-reveal-2026-11-23.md`](load-results/full-reveal-2026-11-23.md)):
+  ([`load-results/full-reveal-2026-11-23.md`](load-results/full-reveal-2026-11-23.md),
+  [`load-results/sector-memory-2026-11-23.md`](load-results/sector-memory-2026-11-23.md)):
   - One revealed player did degrade the server for everyone. The cause was
     found and fixed: the whole map was being re-sent on every change.
   - After the fix, 100 Houses (60 AI and 40 connected humans) with up to four
     revealed sessions ran without stalls on two CPU cores, early in a contest.
-  - Still open: the same test late in a contest, on the real Hetzner server,
-    with humans who actively play. Until then the hosting price is not settled.
-  - Still open: at 100 Houses the server defers its regular checkpoints for
-    lack of memory headroom. This needs a decision before a 100-House contest.
+  - Memory: 100 Houses ran at about 0.9–1.1 GB with half the land owned,
+    after about 150 MB of waste and one leak were removed. That is inside a
+    small server's 4 GB.
+  - Still open: the same tests late in a contest (the longest run was 100
+    minutes), on the real Hetzner server, with humans who actively play. Until
+    then the hosting price is not settled.
+  - Still open, owner decision: 100 Houses does not fit under the 700 MB
+    checkpoint memory watermark, so checkpoints are saved about every 3.4
+    minutes instead of every 52 seconds. Raise the watermark, accept that, or
+    change something larger; the options and their costs are in the memory
+    report.
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.
