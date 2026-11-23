@@ -68,32 +68,35 @@ describe("createPlayerSubscriptionRegistry", () => {
     expect(registry.subscribedPlayerIds()).toEqual(["player-1"]);
   });
 
-  it("tracks spectators, reports each change once, and ends spectating on unsubscribe", () => {
-    const changed: string[] = [];
-    const registry = createPlayerSubscriptionRegistry({ onSpectatorChanged: (playerId) => changed.push(playerId) });
-    registry.subscribe("admin", "1:admin:1");
+  it("lets only a subscribed player spectate, and ends spectating with their last subscription", () => {
+    const registry = createPlayerSubscriptionRegistry();
 
-    expect(registry.isSpectator("admin")).toBe(false);
+    expect(registry.setSpectator("admin", true)).toBe(false); // not subscribed
+    registry.subscribe("admin", "1:admin:1");
+    registry.subscribe("admin", "1:admin:2"); // a second device
     expect(registry.setSpectator("admin", true)).toBe(true);
-    expect(registry.setSpectator("admin", true)).toBe(true); // no change, no callback
-    expect(registry.isSpectator("admin")).toBe(true);
-    expect(registry.spectatorCount()).toBe(1);
+    expect(registry.setSpectator("admin", true)).toBe(true);
+    expect(registry.spectatorPlayerIds()).toEqual(["admin"]);
 
     registry.unsubscribe("admin", "1:admin:1");
+    expect(registry.isSpectator("admin")).toBe(true); // the other device is still connected
+
+    registry.unsubscribe("admin", "1:admin:2");
     expect(registry.isSpectator("admin")).toBe(false);
-    expect(registry.setSpectator("admin", false)).toBe(true); // already off, no callback
-    expect(changed).toEqual(["admin", "admin"]);
+    expect(registry.spectatorPlayerIds()).toEqual([]);
   });
 
   it("refuses spectators past the cap instead of growing", () => {
     const registry = createPlayerSubscriptionRegistry();
+    for (let index = 0; index <= MAX_SPECTATORS; index += 1) registry.subscribe(`admin-${index}`);
     for (let index = 0; index < MAX_SPECTATORS; index += 1) expect(registry.setSpectator(`admin-${index}`, true)).toBe(true);
 
-    expect(registry.setSpectator("one-too-many", true)).toBe(false);
-    expect(registry.isSpectator("one-too-many")).toBe(false);
-    expect(registry.spectatorCount()).toBe(MAX_SPECTATORS);
+    const oneTooMany = `admin-${MAX_SPECTATORS}`;
+    expect(registry.setSpectator(oneTooMany, true)).toBe(false);
+    expect(registry.isSpectator(oneTooMany)).toBe(false);
+    expect(registry.spectatorPlayerIds()).toHaveLength(MAX_SPECTATORS);
 
     registry.setSpectator("admin-0", false);
-    expect(registry.setSpectator("one-too-many", true)).toBe(true);
+    expect(registry.setSpectator(oneTooMany, true)).toBe(true);
   });
 });

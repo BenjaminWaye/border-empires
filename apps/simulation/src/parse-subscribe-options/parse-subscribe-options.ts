@@ -5,11 +5,12 @@ export type SubscribeOptions = {
   fullVisibility: boolean;
   trigger?: string;
   omitTiles?: boolean;
-  // Admin reveal ("spectate"): when present, turns unfiltered live tile deltas
-  // on or off for this player. Absent leaves the current setting alone.
+  // Admin reveal ("spectate"): when present, turns the extra unfiltered tile
+  // delta stream on or off for this player (tile-delta-fanout-filter.ts).
+  // Absent leaves the current setting alone.
   spectate?: boolean;
   // The call only carries the spectate switch: no subscription is registered
-  // and no snapshot is built (see spectator-subscribe.ts).
+  // and no snapshot is built (live-subscribe-reach-push.ts).
   spectateOnly?: boolean;
 };
 

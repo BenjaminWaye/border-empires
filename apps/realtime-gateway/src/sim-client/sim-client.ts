@@ -248,6 +248,8 @@ export type SimulationClientEvent =
       commandId: string;
       playerId: string;
       tileDeltas: SimClientTileDelta[];
+      /** The simulation's unfiltered copy for a revealed (spectating) player. */
+      spectator?: true;
     }
   | {
       eventType: "COLLECT_RESULT";
@@ -371,7 +373,8 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       eventType: "TILE_DELTA_BATCH",
       commandId: event.command_id,
       playerId: event.player_id,
-      tileDeltas
+      tileDeltas,
+      ...(event.message_type === "SPECTATOR" ? { spectator: true as const } : {})
     };
   }
   if (event.event_type === "COLLECT_RESULT") {

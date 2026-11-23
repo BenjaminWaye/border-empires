@@ -1,73 +1,61 @@
 import { describe, expect, it } from "vitest";
 
-import { createSubscriberTileDeltaFilter } from "./tile-delta-fanout-filter.js";
+import { SPECTATOR_TILE_DELTA_MESSAGE_TYPE, createRuntimeTileDeltaFanout } from "./tile-delta-fanout-filter.js";
 
-type Delta = { x: number; y: number; ownerId?: string; resource?: string; visibilityState?: "VISIBLE" | "FOG" | "UNSEEN" };
+type Delta = { x: number; y: number; ownerId?: string; visibilityState?: "VISIBLE" | "FOG" | "UNSEEN" };
 
 const NO_TRANSITIONS = { entered: new Map<string, ReadonlySet<string>>(), left: new Map<string, ReadonlySet<string>>() };
 
-// Stand-in for the runtime's fog filter: a fogged viewer only sees x < 5, and
-// never the hidden resource.
-const harness = (spectators: string[]) => {
-  const filterCalls: string[] = [];
-  const filter = createSubscriberTileDeltaFilter<Delta>({
-    isSpectator: (playerId) => spectators.includes(playerId),
-    groupKeyFor: (deltas) => deltas.map((delta) => `${delta.x}:${delta.y}`).join("|"),
-    filterTileDeltasForPlayer: (deltas, playerId) => {
-      filterCalls.push(playerId);
-      return deltas.filter((delta) => delta.x < 5).map(({ resource: _hidden, ...visible }) => visible);
-    },
-    wireDeltaForTileKey: (tileKey) => {
-      const [x, y] = tileKey.split(",").map(Number);
-      return { x: x!, y: y! };
-    }
-  });
-  return { filter, filterCalls };
-};
+// Stand-in for the runtime's fog filter: everyone only sees x < 5.
+const fanout = createRuntimeTileDeltaFanout<Delta>(() => ({
+  filterTileDeltasForPlayer: (deltas) => deltas.filter((delta) => delta.x < 5),
+  wireDeltaForTileKey: (tileKey) => {
+    const [x, y] = tileKey.split(",").map(Number);
+    return { x: x!, y: y! };
+  }
+}));
 
 const batch: Delta[] = [
-  { x: 1, y: 1, ownerId: "ai-1", resource: "IRON" },
+  { x: 1, y: 1, ownerId: "ai-1" },
   { x: 300, y: 200, ownerId: "ai-7" }
 ];
 
-describe("subscriber tile-delta filter", () => {
-  // Regression: a revealed admin only ever received deltas inside their own
-  // territory's vision, so the gateway kept the rest of the map current by
-  // re-exporting the whole world on every change (full-reveal-2026-11-23.md).
-  it("gives a spectator every delta in the batch, unfiltered and stamped VISIBLE", () => {
-    const { filter, filterCalls } = harness(["admin"]);
+describe("tile-delta fan-out", () => {
+  // Regression (docs/load-results/full-reveal-2026-11-23.md): a revealed
+  // admin only ever received deltas inside their own vision, so the gateway
+  // kept the rest of the map current by re-exporting the whole world on every
+  // change, which stalled the server for everyone.
+  it("gives each spectator the whole batch as a separate, tagged, unfiltered event", () => {
+    const toEvent = (tileDeltas: Delta[]) => ({ player_id: "", event_type: "TILE_DELTA_BATCH", tile_deltas: tileDeltas });
 
-    expect(filter.filter(batch, "admin", NO_TRANSITIONS)).toEqual([
-      { x: 1, y: 1, ownerId: "ai-1", resource: "IRON", visibilityState: "VISIBLE" },
-      { x: 300, y: 200, ownerId: "ai-7", visibilityState: "VISIBLE" }
-    ]);
-    expect(filterCalls).toEqual([]);
+    const events = fanout.spectatorEvents(batch, ["admin", "admin-2"], toEvent);
+
+    expect(events).toEqual(["admin", "admin-2"].map((playerId) => ({
+      player_id: playerId,
+      event_type: "TILE_DELTA_BATCH",
+      message_type: SPECTATOR_TILE_DELTA_MESSAGE_TYPE,
+      tile_deltas: [
+        { x: 1, y: 1, ownerId: "ai-1", visibilityState: "VISIBLE" },
+        { x: 300, y: 200, ownerId: "ai-7", visibilityState: "VISIBLE" }
+      ]
+    })));
   });
 
-  it("still fog-filters everyone else", () => {
-    const { filter } = harness(["admin"]);
+  it("serializes the spectator copy once per batch, and emits nothing without spectators or deltas", () => {
+    let serialized = 0;
+    const toEvent = (tileDeltas: Delta[]) => { serialized += 1; return { player_id: "", tile_deltas: tileDeltas }; };
 
-    expect(filter.filter(batch, "player-2", NO_TRANSITIONS)).toEqual([{ x: 1, y: 1, ownerId: "ai-1", visibilityState: "VISIBLE" }]);
+    expect(fanout.spectatorEvents(batch, ["a", "b", "c"], toEvent)).toHaveLength(3);
+    expect(serialized).toBe(1);
+    expect(fanout.spectatorEvents(batch, [], toEvent)).toEqual([]);
+    expect(fanout.spectatorEvents([], ["a"], toEvent)).toEqual([]);
   });
 
-  it("does not fog a spectator's tiles when their own territory loses sight of them", () => {
-    const { filter } = harness(["admin"]);
-    const left = { entered: new Map(), left: new Map([["admin", new Set(["2,2"])], ["player-2", new Set(["2,2"])]]) };
-
-    expect(filter.filter([], "admin", left)).toEqual([]);
-    expect(filter.filter([], "player-2", left)).toEqual([{ x: 2, y: 2, visibilityState: "FOG" }]);
-  });
-
-  it("never lets a spectator share a serialization group with a masked viewer", () => {
-    const { filter } = harness(["admin"]);
-    const visibleToBoth: Delta[] = [{ x: 1, y: 1, ownerId: "ai-1", resource: "IRON" }];
-    const forAdmin = filter.filter(visibleToBoth, "admin", NO_TRANSITIONS);
-    const forPlayer = filter.filter(visibleToBoth, "player-2", NO_TRANSITIONS);
-
-    // Same coordinates, different payload: the admin's copy carries the resource.
-    expect(forAdmin[0]).toHaveProperty("resource", "IRON");
-    expect(forPlayer[0]).not.toHaveProperty("resource");
-    expect(filter.groupKey("admin", forAdmin)).not.toBe(filter.groupKey("player-2", forPlayer));
-    expect(filter.groupKey("player-2", forPlayer)).toBe(filter.groupKey("player-3", forPlayer));
+  // A spectator keeps their ordinary filtered event too: their fogged sockets
+  // and the gateway's snapshot cache must never see the unfiltered copy.
+  it("still fog-filters the ordinary event for every subscriber", () => {
+    expect(fanout.filter(batch, "admin", NO_TRANSITIONS)).toEqual([{ x: 1, y: 1, ownerId: "ai-1", visibilityState: "VISIBLE" }]);
+    const left = { entered: new Map(), left: new Map([["admin", new Set(["2,2"])]]) };
+    expect(fanout.filter([], "admin", left)).toEqual([{ x: 2, y: 2, visibilityState: "FOG" }]);
   });
 });

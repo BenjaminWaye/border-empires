@@ -16,14 +16,23 @@ export interface RevealMapStreamDependencies {
 }
 
 export interface RevealMapStreamer {
-  stream: (socket: WebSocket, playerId: string) => Promise<void>;
   /**
-   * Sends a live tile-delta payload, unless the socket is mid-reveal: then it
-   * is held and sent right after the last chunk. Unfiltered deltas start
-   * flowing before the full-world export is taken, so a delta can describe a
-   * change the export already contains or one it missed. Replaying them in
-   * order on top of the finished map is correct in both cases; sending one
-   * early would let a later chunk overwrite it with older state.
+   * Streams the revealed map to one socket. `stillWanted` is checked before
+   * every send: once it turns false (fog restored, socket re-authenticated)
+   * the stream stops and its held deltas are dropped. Rejects if the export
+   * fails; held deltas are dropped then too, because they are unfiltered and
+   * the socket never got the revealed map to apply them to.
+   */
+  stream: (socket: WebSocket, playerId: string, stillWanted: () => boolean) => Promise<void>;
+  isStreaming: (socket: WebSocket) => boolean;
+  /**
+   * Sends a live spectator (unfiltered) tile-delta payload, unless the socket
+   * is mid-reveal: then it is held and sent right after the last chunk.
+   * Spectating starts before the full-world export is taken, so a delta can
+   * describe a change the export already contains or one it missed.
+   * Replaying them in order on top of the finished map is correct in both
+   * cases; sending one early would let a later chunk overwrite it with older
+   * state.
    */
   sendOrHold: (socket: WebSocket, payload: BroadcastPayload) => void;
 }
@@ -41,8 +50,12 @@ export const createRevealMapStreamer = (deps: RevealMapStreamDependencies): Reve
     if (!held || socket.readyState !== socket.OPEN) return;
     for (const payload of held) deps.send(socket, payload);
   };
+  const dropHeld = (socket: WebSocket): void => {
+    heldBySocket.delete(socket);
+  };
 
   return {
+    isStreaming: (socket) => deps.activeSockets.has(socket),
     sendOrHold: (socket, payload) => {
       const held = heldBySocket.get(socket);
       if (!held) {
@@ -60,12 +73,15 @@ export const createRevealMapStreamer = (deps: RevealMapStreamDependencies): Reve
       }
       held.push(payload);
     },
-    stream: async (socket, playerId) => {
+    stream: async (socket, playerId, stillWanted) => {
+      if (deps.activeSockets.has(socket)) throw new Error("reveal already streaming on this socket");
       deps.activeSockets.add(socket);
       heldBySocket.set(socket, []);
       deps.onActiveStreams(deps.activeSockets.size);
+      const live = (): boolean => socket.readyState === socket.OPEN && stillWanted();
       try {
         const payloadSet = await deps.payloadSet(playerId);
+        if (!live()) return;
         const fields = {
           playerId, snapshotId: payloadSet.snapshotId, totalTiles: payloadSet.totalTiles,
           chunkCount: payloadSet.chunks.length
@@ -75,21 +91,20 @@ export const createRevealMapStreamer = (deps: RevealMapStreamDependencies): Reve
         });
         deps.send(socket, payloadSet.begin);
         for (let i = 0; i < payloadSet.chunks.length; i += 1) {
-          while (socket.bufferedAmount > 2_000_000 && socket.readyState === socket.OPEN) await deps.sleep(10);
-          if (socket.readyState !== socket.OPEN) return;
+          while (socket.bufferedAmount > 2_000_000 && live()) await deps.sleep(10);
+          if (!live()) return;
           deps.send(socket, payloadSet.chunks[i]!);
           deps.onChunk();
           if (i % 4 === 3) await deps.sleep(0);
         }
-        if (socket.readyState !== socket.OPEN) return;
+        if (!live()) return;
         deps.send(socket, payloadSet.end);
         flushHeld(socket);
         deps.record("gateway_reveal_map_stream_completed", fields);
         deps.onComplete(socket);
       } finally {
-        // Also covers a failed export: the socket keeps its current map, so
-        // anything held is still owed to it.
-        flushHeld(socket);
+        // Only a completed stream delivers what it held (flushHeld above).
+        dropHeld(socket);
         deps.activeSockets.delete(socket);
         deps.onActiveStreams(deps.activeSockets.size);
       }

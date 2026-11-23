@@ -776,9 +776,8 @@ describe("rewrite stack integration", () => {
     );
     expect((await nextNonBootstrapMessage(fogAdminSocket, "fog-admin init")).type).toBe("INIT");
 
-    fogAdminSocket.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: true }));
-    expect(await nextTypedMessage(fogAdminSocket, "fog update", "FOG_UPDATE")).toEqual({ type: "FOG_UPDATE", fogDisabled: true });
-    expect((await nextNonBootstrapMessage(fogAdminSocket, "fog snapshot replace")).type).toBe("TILE_SNAPSHOT_REPLACE");
+    fogAdminSocket.socket.send(JSON.stringify({ type: "REQUEST_REVEAL_MAP" }));
+    await nextTypedMessage(fogAdminSocket, "reveal map end", "REVEAL_MAP_END");
 
     // Muster is unconditionally required to attack — stage it through the
     // real command path, then advance muster accumulation with a direct tick.

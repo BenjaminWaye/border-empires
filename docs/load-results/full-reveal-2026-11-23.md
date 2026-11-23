@@ -10,7 +10,8 @@ Status: measurement record (launch gate 1, [`docs/gdd.md`](../gdd.md) §9 and §
   gateway asked the simulation to export the whole world again and re-sent it:
   38.6 MB, 16 times in 5 minutes, to one client.
 - **Fix (this branch).** The simulation now sends a revealed player every tile
-  change as it happens. The world is exported once, at the moment of reveal.
+  change as it happens, as a separate tagged stream that only revealed
+  connections receive. The world is exported once, at the moment of reveal.
 - **Capacity.** 100 Houses (60 AI + 40 connected humans) with up to 4 revealed
   sessions ran without stalls on 2 CPU cores, on an early-season world. Late
   season, real Hetzner hardware and humans who actively play were not
@@ -67,7 +68,8 @@ own world (after-fix baseline: 31 ms simulation stall, 6 ms tap p95, 612 MB).
 
 What is left after the fix is the reveal itself: one 38.6 MB download, about
 320 MB of extra memory while it is built and sent, and one moment of up to
-about a second where another player's tap is slow.
+about 2 seconds where another player's tap is slow (see "Re-measured after
+review" below).
 
 ### Cause, with evidence
 
@@ -85,19 +87,49 @@ how often it happened, not what each one cost.
 
 ### The fix
 
-- Simulation: a revealed player is marked as spectating. The tile-change
-  fan-out sends a spectator every change in the batch, unfiltered
-  (`tile-delta-fanout-filter.ts`, `subscription-registry.ts`).
-- Gateway: a change for a revealed player is forwarded like any other. The
-  full-world refresh scheduler is removed. Changes that arrive while the
-  initial map is still downloading are held and replayed after its last chunk
-  (`reveal-map-stream.ts`).
+- Simulation: a revealed player is marked as spectating. Every tile-change
+  batch is still sent to them fog-filtered, as to everyone, and in addition
+  as one unfiltered copy tagged `SPECTATOR`, serialized once per batch and
+  shared by all spectators (`tile-delta-fanout-filter.ts`,
+  `subscription-registry.ts`). Only a subscribed player can spectate, at
+  most 16 at once, and spectating ends with the player's last subscription.
+- Gateway: the tagged copy goes only to connections whose map is revealed;
+  the filtered copy goes to every other connection and is the only one
+  applied to the gateway's per-player snapshot cache. So a second, fogged
+  device on the admin account, and anything served from that cache, never
+  sees unfiltered tiles. The full-world refresh scheduler is removed.
+  Tagged changes that arrive while the initial map is still downloading are
+  held and replayed after its last chunk (`reveal-map-stream.ts`); if the
+  reveal fails or fog is restored mid-download, they are dropped and the
+  connection is put back on its fogged view (`reveal-map-request.ts`).
 
 Regression tests that fail on the old code and pass on the new:
-`gateway-fog-restore-race.integration.test.ts` (a world change must not cause a
-second full-world request) and `rewrite-stack.integration.test.ts` (real
-simulation and gateway: the revealed admin receives the changed tile as a delta
-and no second `TILE_SNAPSHOT_REPLACE`).
+`gateway-fog-restore-race.integration.test.ts` (no second full-world request;
+the unfiltered copy reaches only revealed connections; a failed reveal or a
+restore puts the connection back on fogged changes) and
+`rewrite-stack.integration.test.ts` (real simulation and gateway: the revealed
+admin receives the changed tile as a delta and no second
+`TILE_SNAPSHOT_REPLACE`).
+
+### Re-measured after review
+
+The design above replaced a first version (one unfiltered stream per account)
+after code review found it could leak unfiltered tiles to the account's fogged
+connections. Same setup as the table, two more runs:
+
+| | Run A | Run B (block attribution on) |
+|---|---|---|
+| Tap latency for another player, p95 / max | 7 / 1,803 ms | 8 / 2,136 ms |
+| Gateway loop stall, max (metric) | 3 ms | 11 ms |
+| Simulation heap, max | 506 MB | 423 MB |
+| Process memory (RSS), max | 987 MB | 933 MB |
+
+Run B set `SIMULATION_EVENT_LOOP_BLOCK_WARN_MS=150`, so every simulation stall
+over 150 ms was logged with what was running. In the 5 revealed minutes there
+were three: 655 ms and 821 ms at the reveal itself (the one full-world export
+and its persistence), and 564 ms 48 s later during a routine checkpoint save,
+which runs with or without a reveal. None came from the live updates. The
+worst tap latency for another player falls at the reveal moment.
 
 ## 2. Capacity, after the fix
 

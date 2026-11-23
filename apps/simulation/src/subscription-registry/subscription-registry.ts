@@ -4,13 +4,14 @@ export type PlayerSubscriptionRegistry = {
   isSubscribed: (playerId: string) => boolean;
   subscribedPlayerIds: () => string[];
   /**
-   * Spectators (a fog admin with the map revealed) receive every live tile
-   * delta unfiltered instead of a fresh full-world snapshot per change.
-   * Returns false when the cap refused a new spectator.
+   * Spectators (a fog admin with the map revealed) also receive every live
+   * tile delta unfiltered, as a separate tagged event (tile-delta-fanout-
+   * filter.ts). Only a subscribed player can spectate. Returns false when
+   * refused (not subscribed, or the cap is reached).
    */
   setSpectator: (playerId: string, spectating: boolean) => boolean;
   isSpectator: (playerId: string) => boolean;
-  spectatorCount: () => number;
+  spectatorPlayerIds: () => string[];
 };
 
 // Only the configured admin account can spectate, so a handful is already
@@ -49,16 +50,7 @@ const compareNamespaces = (left: string, right: string): number => {
   return left.localeCompare(right);
 };
 
-export type PlayerSubscriptionRegistryOptions = {
-  /**
-   * Fires whenever a player starts or stops spectating. The service drops the
-   * player's cached fog-limited snapshot here: while spectating, unfiltered
-   * deltas are merged into it, and it must not be served to a fogged login.
-   */
-  onSpectatorChanged?: (playerId: string) => void;
-};
-
-export const createPlayerSubscriptionRegistry = (options: PlayerSubscriptionRegistryOptions = {}): PlayerSubscriptionRegistry => {
+export const createPlayerSubscriptionRegistry = (): PlayerSubscriptionRegistry => {
   const stateByPlayerId = new Map<string, PlayerSubscriptionState>();
   const spectatorPlayerIds = new Set<string>();
 
@@ -91,12 +83,61 @@ export const createPlayerSubscriptionRegistry = (options: PlayerSubscriptionRegi
     }
   };
 
+  const isSubscribed = (playerId: string): boolean => {
+    const state = stateByPlayerId.get(playerId);
+    if (!state) return false;
+    cleanup(playerId, state);
+    return (stateByPlayerId.get(playerId)?.anonymousCount ?? 0) > 0 || (stateByPlayerId.get(playerId)?.keyedCounts.size ?? 0) > 0;
+  };
+
   const cleanup = (playerId: string, state: PlayerSubscriptionState): void => {
     pruneObsoleteNamespaces(state);
     if (state.anonymousCount > 0) return;
     if (state.keyedCounts.size > 0) return;
     if (state.cancelledGenerationByNamespace.size > 0) return;
     stateByPlayerId.delete(playerId);
+  };
+
+  const unsubscribeOnce = (playerId: string, subscriptionKey?: string): void => {
+    const state = stateFor(playerId);
+    if (!subscriptionKey) {
+      state.anonymousCount = Math.max(0, state.anonymousCount - 1);
+      cleanup(playerId, state);
+      return;
+    }
+    const parsedKey = parseSubscriptionKey(subscriptionKey);
+    if (!parsedKey) {
+      const nextCount = (state.keyedCounts.get(subscriptionKey) ?? 0) - 1;
+      if (nextCount > 0) {
+        state.keyedCounts.set(subscriptionKey, nextCount);
+      } else {
+        state.keyedCounts.delete(subscriptionKey);
+      }
+      cleanup(playerId, state);
+      return;
+    }
+    updateLatestNamespace(state, parsedKey.namespace);
+    const nextCount = (state.keyedCounts.get(subscriptionKey) ?? 0) - 1;
+    if (nextCount > 0) {
+      state.keyedCounts.set(subscriptionKey, nextCount);
+      cleanup(playerId, state);
+      return;
+    }
+    if (state.keyedCounts.has(subscriptionKey)) {
+      state.keyedCounts.delete(subscriptionKey);
+      const nextNamespaceCount = (state.activeKeyCountByNamespace.get(parsedKey.namespace) ?? 0) - 1;
+      if (nextNamespaceCount > 0) {
+        state.activeKeyCountByNamespace.set(parsedKey.namespace, nextNamespaceCount);
+      } else {
+        state.activeKeyCountByNamespace.delete(parsedKey.namespace);
+      }
+    } else {
+      const cancelledGeneration = state.cancelledGenerationByNamespace.get(parsedKey.namespace) ?? 0;
+      if (parsedKey.generation > cancelledGeneration) {
+        state.cancelledGenerationByNamespace.set(parsedKey.namespace, parsedKey.generation);
+      }
+    }
+    cleanup(playerId, state);
   };
 
   return {
@@ -124,65 +165,24 @@ export const createPlayerSubscriptionRegistry = (options: PlayerSubscriptionRegi
       state.activeKeyCountByNamespace.set(parsedKey.namespace, (state.activeKeyCountByNamespace.get(parsedKey.namespace) ?? 0) + 1);
     },
     setSpectator(playerId, spectating) {
-      if (spectating === spectatorPlayerIds.has(playerId)) return true;
-      if (spectating && spectatorPlayerIds.size >= MAX_SPECTATORS) return false;
-      if (spectating) spectatorPlayerIds.add(playerId);
-      else spectatorPlayerIds.delete(playerId);
-      options.onSpectatorChanged?.(playerId);
+      if (!spectating) {
+        spectatorPlayerIds.delete(playerId);
+        return true;
+      }
+      if (spectatorPlayerIds.has(playerId)) return true;
+      if (!isSubscribed(playerId) || spectatorPlayerIds.size >= MAX_SPECTATORS) return false;
+      spectatorPlayerIds.add(playerId);
       return true;
     },
     isSpectator: (playerId) => spectatorPlayerIds.has(playerId),
-    spectatorCount: () => spectatorPlayerIds.size,
+    spectatorPlayerIds: () => [...spectatorPlayerIds],
     unsubscribe(playerId, subscriptionKey) {
-      // A disconnect always ends spectating; the gateway turns it back on
-      // explicitly if another of the admin's sockets is still revealed.
-      if (spectatorPlayerIds.delete(playerId)) options.onSpectatorChanged?.(playerId);
-      const state = stateFor(playerId);
-      if (!subscriptionKey) {
-        state.anonymousCount = Math.max(0, state.anonymousCount - 1);
-        cleanup(playerId, state);
-        return;
-      }
-      const parsedKey = parseSubscriptionKey(subscriptionKey);
-      if (!parsedKey) {
-        const nextCount = (state.keyedCounts.get(subscriptionKey) ?? 0) - 1;
-        if (nextCount > 0) {
-          state.keyedCounts.set(subscriptionKey, nextCount);
-        } else {
-          state.keyedCounts.delete(subscriptionKey);
-        }
-        cleanup(playerId, state);
-        return;
-      }
-      updateLatestNamespace(state, parsedKey.namespace);
-      const nextCount = (state.keyedCounts.get(subscriptionKey) ?? 0) - 1;
-      if (nextCount > 0) {
-        state.keyedCounts.set(subscriptionKey, nextCount);
-        cleanup(playerId, state);
-        return;
-      }
-      if (state.keyedCounts.has(subscriptionKey)) {
-        state.keyedCounts.delete(subscriptionKey);
-        const nextNamespaceCount = (state.activeKeyCountByNamespace.get(parsedKey.namespace) ?? 0) - 1;
-        if (nextNamespaceCount > 0) {
-          state.activeKeyCountByNamespace.set(parsedKey.namespace, nextNamespaceCount);
-        } else {
-          state.activeKeyCountByNamespace.delete(parsedKey.namespace);
-        }
-      } else {
-        const cancelledGeneration = state.cancelledGenerationByNamespace.get(parsedKey.namespace) ?? 0;
-        if (parsedKey.generation > cancelledGeneration) {
-          state.cancelledGenerationByNamespace.set(parsedKey.namespace, parsedKey.generation);
-        }
-      }
-      cleanup(playerId, state);
+      unsubscribeOnce(playerId, subscriptionKey);
+      // Spectating outlives a single socket's unsubscribe (the admin may have
+      // another), but never the player's last subscription.
+      if (!isSubscribed(playerId)) spectatorPlayerIds.delete(playerId);
     },
-    isSubscribed(playerId) {
-      const state = stateByPlayerId.get(playerId);
-      if (!state) return false;
-      cleanup(playerId, state);
-      return (stateByPlayerId.get(playerId)?.anonymousCount ?? 0) > 0 || (stateByPlayerId.get(playerId)?.keyedCounts.size ?? 0) > 0;
-    },
+    isSubscribed,
     subscribedPlayerIds() {
       for (const [playerId, state] of stateByPlayerId.entries()) {
         cleanup(playerId, state);

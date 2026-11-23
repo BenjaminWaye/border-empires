@@ -92,6 +92,9 @@ export type SubscribeCallOptions = {
 };
 
 /**
+ * Returns false only when the call asked to start spectating and the registry
+ * refused it.
+ *
  * Registers a subscription for any non-bootstrap SubscribePlayer call, and —
  * only when it is the gateway's actual connect subscribe — also pushes the
  * player's authoritative reach.
@@ -110,16 +113,21 @@ export const registerSubscribeAndMaybePushReach = (
   playerId: string,
   options: SubscribeCallOptions,
   log: LiveSubscribeReachLog
-): void => {
-  // Applied before anything else, and before the caller starts building a
-  // snapshot, so no delta can fall between a full-world export and the moment
-  // unfiltered deltas start flowing (see tile-delta-fanout-filter.ts).
-  if (options.spectate !== undefined && !registry.setSpectator(playerId, options.spectate)) {
-    log.error({ playerId }, "spectator cap reached; reveal stays on filtered deltas");
-  }
-  if (options.mode === "bootstrap-only" || options.spectateOnly === true) return;
+): boolean => {
+  const applySpectate = (): boolean => {
+    if (options.spectate === undefined || registry.setSpectator(playerId, options.spectate)) return true;
+    log.error({ playerId }, "spectate refused (not subscribed, or spectator cap reached)");
+    return false;
+  };
+  // A spectate-only call flips the switch and registers nothing. Otherwise the
+  // switch is applied right after registering, because spectating requires a
+  // live subscription (see subscription-registry.ts), and before the caller
+  // builds any snapshot, so no change falls between an export and the stream.
+  if (options.spectateOnly === true) return applySpectate();
+  if (options.mode === "bootstrap-only") return applySpectate();
   registry.subscribe(playerId, options.subscriptionKey);
-  if (options.trigger !== "gateway_live_subscribe") return;
+  const spectateAccepted = applySpectate();
+  if (options.trigger !== "gateway_live_subscribe") return spectateAccepted;
   try {
     runtime.resendReachForPlayer(playerId);
   } catch (error) {
@@ -144,4 +152,5 @@ export const registerSubscribeAndMaybePushReach = (
   } catch (error) {
     log.error({ err: error, playerId }, "live subscribe scout drone push failed");
   }
+  return spectateAccepted;
 };

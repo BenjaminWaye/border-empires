@@ -161,28 +161,31 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
   const idleRuntime = { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} };
 
-  it("switches spectating on before registering, and on a bootstrap-only call that registers nothing", () => {
+  it("registers before switching spectating on, since only a subscribed player may spectate", () => {
     const order: string[] = [];
     const registry = { setSpectator: (_playerId: string, on: boolean) => { order.push(`spectate:${on}`); return true; }, subscribe: () => { order.push("subscribe"); } };
 
-    registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { spectate: true }, noopLog);
-    registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { mode: "bootstrap-only", spectate: false }, noopLog);
+    expect(registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { spectate: true }, noopLog)).toBe(true);
+    expect(registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { mode: "bootstrap-only", spectate: false }, noopLog)).toBe(true);
 
-    expect(order).toEqual(["spectate:true", "subscribe", "spectate:false"]);
+    expect(order).toEqual(["subscribe", "spectate:true", "spectate:false"]);
   });
 
-  it("a spectate-only call flips the switch without registering a subscription", () => {
+  it("a spectate-only call flips the switch without registering, and reports a refusal", () => {
     const order: string[] = [];
-    registerSubscribeAndMaybePushReach(
-      { setSpectator: () => { order.push("spectate"); return true; }, subscribe: () => { order.push("subscribe"); } },
-      idleRuntime, "player-1", { spectate: true, spectateOnly: true, trigger: "gateway_live_subscribe" }, noopLog
+    const errors: Array<Record<string, unknown>> = [];
+    const accepted = registerSubscribeAndMaybePushReach(
+      { setSpectator: () => { order.push("spectate"); return false; }, subscribe: () => { order.push("subscribe"); } },
+      idleRuntime, "player-1", { spectate: true, spectateOnly: true, trigger: "gateway_live_subscribe" }, { error: (payload) => errors.push(payload) }
     );
+    expect(accepted).toBe(false);
     expect(order).toEqual(["spectate"]);
+    expect(errors).toEqual([{ playerId: "player-1" }]);
   });
 
   it("leaves spectating alone when the call does not mention it", () => {
     let touched = false;
-    registerSubscribeAndMaybePushReach({ setSpectator: () => { touched = true; return true; }, subscribe: () => {} }, idleRuntime, "player-1", liveOptions, noopLog);
+    expect(registerSubscribeAndMaybePushReach({ setSpectator: () => { touched = true; return true; }, subscribe: () => {} }, idleRuntime, "player-1", liveOptions, noopLog)).toBe(true);
     expect(touched).toBe(false);
   });
 });

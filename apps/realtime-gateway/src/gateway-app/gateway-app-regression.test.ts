@@ -47,7 +47,10 @@ describe("gateway fog capability regression guard", () => {
     // caller is the explicit fog toggle.
     expect(source.split("refreshPlayerFogSnapshot(").length - 1).toBe(1);
     expect(source).not.toContain("scheduleFogLiveRefresh");
-    expect(source).toContain("revealMapStream.sendOrHold(targetSocket, tileDeltaBroadcast);");
+    // The simulation's unfiltered spectator copy may only reach revealed
+    // sockets, never fogged ones or the gateway's fogged snapshot cache.
+    expect(source).toContain("if (sessionsBySocket.get(targetSocket)?.fogDisabled === true) revealMapStream.sendOrHold(targetSocket, spectatorBroadcast);");
+    expect(source).toContain("if (sessionsBySocket.get(targetSocket)?.fogDisabled !== true) queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);");
     expect(source).toContain("await setSpectating(playerId, true); return revealMapPayloadSet(playerId);");
     expect(source).not.toContain("session.authEmail");
   });
@@ -60,28 +63,23 @@ describe("gateway fog capability regression guard", () => {
 
     expect(source).toContain("const revealMapChunkCache = createRevealMapChunkCache({");
     expect(source).toContain("let revealMapPayloadBuild: Promise<RevealMapPayloadSet> | undefined;");
-    expect(revealBuildSource).toContain("const cachedPayloadSet = revealMapChunkCache.current();");
-    expect(revealBuildSource).toContain("if (cachedPayloadSet) return cachedPayloadSet;");
+    // A finished export is never reused: changes no subscriber could see never invalidate it.
+    expect(revealBuildSource).not.toContain("revealMapChunkCache.current()");
     expect(revealBuildSource).toContain('trigger: "gateway_reveal_map"');
     expect(revealBuildSource).toContain("const payloadSet = revealMapChunkCache.getOrCreate(snapshot);");
     expect(revealBuildSource).not.toContain("recordGatewaySnapshotDiagnostics");
-    expect(source).toContain('if (message.type === "REQUEST_REVEAL_MAP") {');
-    expect(source).toContain("void revealMapStream.stream(socket, session.playerId).catch((error) => {");
+    expect(source).toContain('if (message.type === "REQUEST_REVEAL_MAP" || (message.type === "SET_FOG_DISABLED" && message.disabled === true)) {');
+    expect(source).toContain("handleRevealMapRequest(socket, session);");
     expect(source).toContain("revealMapChunkCache.clear();");
   });
 
   it("gates REQUEST_REVEAL_MAP on the same fog-admin capability as SET_FOG_DISABLED", () => {
-    const source = sourceFor("./gateway-app.ts");
-    const revealHandlerStart = source.indexOf('if (message.type === "REQUEST_REVEAL_MAP") {');
-    const revealHandlerEnd = source.indexOf('if (message.type === "REQUEST_TILE_DETAIL") {');
-    const revealHandlerSource = source.slice(revealHandlerStart, revealHandlerEnd);
+    const handlerSource = sourceFor("../reveal-map-request/reveal-map-request.ts");
 
-    expect(revealHandlerSource).toContain("if (!session.canToggleFog) {");
-    expect(revealHandlerSource).toContain('"gateway_reveal_map_forbidden"');
-    expect(revealHandlerSource).toContain('code: "FORBIDDEN"');
-    expect(revealHandlerSource.indexOf("if (!session.canToggleFog) {")).toBeLessThan(
-      revealHandlerSource.indexOf("void revealMapStream.stream(")
-    );
+    expect(handlerSource).toContain("if (!session.canToggleFog) {");
+    expect(handlerSource).toContain('"gateway_reveal_map_forbidden"');
+    expect(handlerSource).toContain('code: "FORBIDDEN"');
+    expect(handlerSource.indexOf("if (!session.canToggleFog) {")).toBeLessThan(handlerSource.indexOf("deps.streamer.stream("));
   });
 
   it("emits reveal-map metrics for snapshot build, active streams, chunks sent, and cache entries", () => {
@@ -97,19 +95,19 @@ describe("gateway fog capability regression guard", () => {
 
   it("rate-limits reveal requests per player and caps concurrent reveal streams", () => {
     const source = sourceFor("./gateway-app.ts");
-    const revealHandlerStart = source.indexOf('if (message.type === "REQUEST_REVEAL_MAP") {');
-    const revealHandlerEnd = source.indexOf('if (message.type === "REQUEST_TILE_DETAIL") {');
-    const revealHandlerSource = source.slice(revealHandlerStart, revealHandlerEnd);
+    const handlerSource = sourceFor("../reveal-map-request/reveal-map-request.ts");
 
     expect(source).toContain("const MAX_CONCURRENT_REVEAL_STREAMS =");
     expect(source).toContain("const REVEAL_REQUEST_COOLDOWN_MS =");
     expect(source).toContain("const activeRevealStreamSockets = new Set<");
     expect(source).toContain("const lastRevealRequestMsByPlayerId = new Map<string, number>();");
-    expect(revealHandlerSource).toContain("lastRevealRequestMsByPlayerId.get(session.playerId)");
-    expect(revealHandlerSource).toContain('code: "REVEAL_MAP_THROTTLED"');
-    expect(revealHandlerSource).toContain("activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS");
-    expect(revealHandlerSource).toContain('code: "REVEAL_MAP_BUSY"');
-    expect(revealHandlerSource).toContain("lastRevealRequestMsByPlayerId.set(session.playerId, now);");
+    expect(source).toContain("maxConcurrentStreams: MAX_CONCURRENT_REVEAL_STREAMS");
+    expect(source).toContain("lastRequestMsByPlayerId: lastRevealRequestMsByPlayerId");
+    expect(handlerSource).toContain("deps.lastRequestMsByPlayerId.get(playerId)");
+    expect(handlerSource).toContain('code: "REVEAL_MAP_THROTTLED"');
+    expect(handlerSource).toContain("deps.activeStreamCount() >= deps.maxConcurrentStreams");
+    expect(handlerSource).toContain('code: "REVEAL_MAP_BUSY"');
+    expect(handlerSource).toContain("deps.lastRequestMsByPlayerId.set(playerId, now);");
     expect(sourceFor("../reveal-map-stream/reveal-map-stream.ts")).toContain("deps.activeSockets.add(socket);");
     expect(sourceFor("../reveal-map-stream/reveal-map-stream.ts")).toContain("deps.activeSockets.delete(socket);");
   });
