@@ -96,7 +96,7 @@ every production deploy will restart it.
    **Host a sector, USD 20**. They must be signed in with a registered account
    (not a guest).
 2. The hosting service checks the limits (§11), creates an **order** in state
-   `awaiting_payment`, reserves one hosting slot for it, and creates a Stripe
+   `awaiting_payment`, and creates a Stripe
    Checkout Session: one payment of USD 20, cards and wallets, 30-minute
    expiry, with the order id attached.
 3. The player pays on Stripe's page. No card data touches our servers.
@@ -113,7 +113,7 @@ out of card-data compliance scope.
 
 | Case | Handling |
 |---|---|
-| Payment fails or the player closes the page | The order stays `awaiting_payment`. The player can retry in the same session. At expiry Stripe sends `checkout.session.expired`; the order is cancelled and the slot freed. Nothing was created. |
+| Payment fails or the player closes the page | The order stays `awaiting_payment`. The player can retry in the same session. At expiry Stripe sends `checkout.session.expired`; the order is cancelled. Nothing was created. |
 | Webhook is delivered twice | Every Stripe event id is recorded; a repeat is ignored. Order state changes only move forward, so "paid" twice is a no-op. |
 | Webhook never arrives | The status page asks the service, which asks Stripe for the session directly. A check every few minutes does the same for any order still `awaiting_payment`. |
 | Player clicks Buy twice | An account may have one open order. The second click gets the same Checkout Session back. |
@@ -211,7 +211,7 @@ no in-memory cache is the source of truth, and every table is bounded.
 | Table | Holds | Bound |
 |---|---|---|
 | `orders` | Account, options, Stripe session id, state, timestamps | One open order per account |
-| `sectors` | Server id, hostname, state, opened and ended times | The concurrency cap (§11) for live rows |
+| `sectors` | Server id, hostname, state, opened and ended times | One live row per paid order; ended rows are small and kept |
 | `sector_members` | Sector, account, role (host or guest), joined time | Human cap per sector |
 | `sector_invites` | Sector, code, uses left, expiry | A few per sector |
 | `contributions` | Split funding only: order, account, amount, Stripe payment id | Minimum contribution caps the count |
@@ -323,7 +323,7 @@ the player is told by email.
   or a live sector whose server is gone (checked every 10 minutes by comparing
   Hetzner's list with ours);
 - a sector server unhealthy for more than 10 minutes;
-- the number of hosted servers reaching the cap, or exceeding it;
+- the number of hosted servers passing an alert mark (§11);
 - a teardown that could not export results (the server is then **not**
   deleted).
 
@@ -335,21 +335,25 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 
 ## 11. Abuse and fraud limits
 
-- **A cap on hosted sectors running at once**, checked before a Checkout
-  Session is created, so money is never taken for a slot that does not exist.
-  When the cap is reached the button reads "All hosting slots are in use" and
-  offers an email when one frees up. The number is Q3. The service also has a
-  hard-coded ceiling above the configured cap, as a second guard.
+- **No cap on hosted sectors** (owner decision 2026-11-23, Q3): sales must
+  not stop because the game is growing. In its place: the owner is alerted
+  when the count of running sectors passes set marks (10, 25, 50, then every
+  50), and when Hetzner refuses a server. A refusal follows the failure path
+  in §10, ending in the automatic refund, so money is never kept for a sector
+  that cannot be created.
 - **One open order and one running hosted sector per account** at launch.
 - **Registered accounts with a verified email only.**
 - **Stripe Radar** (included) screens cards; Checkout applies strong customer
   authentication when the bank asks for it.
 - **Rate limits** on creating orders, invites and contributions.
-- **Hetzner's own limit** on servers per project applies; the owner asks
-  Hetzner to raise it to at least the cap before launch.
+- **Hetzner's own limit** on servers per project is the one ceiling we do not
+  control. The owner asks Hetzner to raise it before launch, and again when
+  the alert marks above are passed.
 - **Let's Encrypt** issues at most 50 new certificates a week for
-  `borderempires.com`. This caps new sectors at about 45 a week until a
-  wildcard certificate is set up, which is not needed at the recommended cap.
+  `borderempires.com`. With no cap this would stop new sectors in a busy
+  week, so sector servers use one wildcard certificate for
+  `*.sectors.borderempires.com` instead of one certificate each. This is part
+  of PR 4.
 - **A kill switch**: one setting turns sales off without a deploy. Running
   sectors are not affected.
 
@@ -369,7 +373,7 @@ Built last; cut first.
    fees. Card holds last about 7 days, so the deadline is 72 hours.
 4. The player who opened the bar is the host. They may pay the rest at any
    time to start at once.
-5. An open bar reserves a hosting slot. An account may have one open bar.
+5. An account may have one open bar.
 
 The alternative, charging each contribution at once and refunding all if the
 bar does not fill, allows a longer deadline but loses Stripe's fee on every
@@ -377,13 +381,18 @@ refunded contribution. What happens to a half-funded bar is Q10.
 
 ## 13. Decisions for the owner
 
-Each has a recommendation. None is decided here.
+Each has a recommendation. None is decided here, except where a row says
+"Decided".
+
+**Owner answers, 2026-11-23:** Q1 and Q2 (refunds and disputes) accepted as
+recommended. Q3: no cap. Q4 (shown on the profile, not counted toward rating)
+accepted. Q6 (Standard and Small, both USD 20) accepted. Still open: Q5, Q7–Q16.
 
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU buyers have a 14-day right to withdraw from a digital service unless they agree at checkout that it starts at once; the checkout needs that consent tick-box. Have this wording checked. |
 | Q2 | **A refund or dispute on a running sector.** | Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
-| Q3 | **Cap on hosted sectors running at once.** | 5 at launch, raised by the owner as confidence grows. Worst case is 5 servers, about EUR 30 a month, all prepaid. |
+| Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
 | Q5 | **The 30-day limit.** Is it enforced for hosted sectors, and who wins at the limit? Does the same rule apply to the public sector? | Enforce 30 days in hosted sectors. At the limit the House at the top of the final standings wins, marked as a time-limit win. The public sector is left as it is until the owner decides separately. This is a rule the game does not enforce today; if approved, `game-mechanics.md` and the lore check are part of that PR. |
 | Q6 | **Which map sizes are offered**, all at USD 20? | Standard (640×320, 60 AI Houses, 40 human places) and Small (320×160, 20 AI Houses, 12 human places; this size ran on staging in October). No size larger than standard until its memory is measured. If per-size client builds prove fragile, launch with Standard only. |
@@ -474,7 +483,7 @@ PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
 - A forced creation failure alerts the owner and ends in an automatic refund.
 - When the contest ends, results are saved, the server is deleted, and the
   Hetzner project holds no server for that sector.
-- At the cap, no payment can be started.
+- With sales switched off, no payment can be started.
 - Nothing bought changes anything inside a contest.
 
 ## 18. Verification
