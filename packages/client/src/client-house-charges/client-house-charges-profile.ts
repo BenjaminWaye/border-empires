@@ -3,13 +3,16 @@
 // charges" opens the full Charges panel over it.
 import { HOUSE_CHARGES_KEPT, type HouseChargesPayload } from "@border-empires/shared";
 import { HOUSE_CHARGES_HINT } from "../client-hud-v2/client-hud-v2-hints.js";
+import { manageChargesCalloutActive } from "./client-house-charges-profile-tip.js";
 
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** `null` means your own profile before charges are dealt. */
 export const houseChargesProfileSectionHtml = (payload: HouseChargesPayload | null, nowMs: number): string => {
-  const manage = '<button class="panel-btn" type="button" data-v2-open-charges>Manage charges</button>';
+  // After "Show me" in the Charges panel (client-house-charges-profile-tip.ts) the button glows for a few seconds.
+  const callout = manageChargesCalloutActive(nowMs) ? " is-callout" : "";
+  const manage = `<button class="panel-btn hc-manage${callout}" type="button" data-v2-open-charges>Manage charges</button>`;
   if (!payload) return `<section class="v2p-panel"><h3>House Charges</h3><p class="v2p-none">Your House's sealed charges arrive once your AFC has landed.</p></section>`;
   if (payload.charges.length === 0) return `<section class="v2p-panel"><h3>House Charges</h3><p class="v2p-none">No charges for this world.</p></section>`;
   const kept = payload.charges.filter((charge) => charge.kept);
