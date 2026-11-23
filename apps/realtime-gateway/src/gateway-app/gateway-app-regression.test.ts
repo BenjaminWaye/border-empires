@@ -35,27 +35,27 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain('await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {');
     expect(source).toContain('reason: "fog_toggle"');
     expect(source).toContain('queueOrSendSessionPayload(targetSocket, replacementBroadcast);');
-    expect(source).toContain("const hasFogDisabledSession = playerHasFogDisabledSocket(playerId);");
     // A stale full-visibility refresh must not undo a later "restore fog" toggle
     // (bug report 1c8538f4): explicit toggles bump the intent generation and
     // refreshes started under an older one are discarded.
     expect(source).toContain("const intentGeneration = fogIntent.bump(session.playerId);");
     expect(source).toContain("if (!fogIntent.isCurrent(playerId, intentGeneration)) {");
-    expect(source).toContain("if (!fogDisabled) fogLiveRefresh.cancelPending(session.playerId);");
-    // TILE_DELTA_BATCH must NOT await refreshPlayerFogSnapshot inline — that
-    // blocked the gateway event loop for 21s p99 in prod on 2026-05-23 and
-    // starved login bootstrap_subscribe for 45s+. The path now goes through
-    // the coalesced scheduler.
-    expect(source).not.toContain('await refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta"');
-    expect(source).toContain("scheduleFogLiveRefresh(playerId, event.commandId);");
-    expect(source).toContain("const FOG_LIVE_REFRESH_MIN_INTERVAL_MS");
+    // TILE_DELTA_BATCH must never trigger a full-world resubscribe for a
+    // revealed session, inline (21s p99 gateway stall, prod 2026-05-23) or
+    // paced (docs/load-results/full-reveal-2026-11-23.md). A revealed map is
+    // kept current by unfiltered live deltas; refreshPlayerFogSnapshot's only
+    // caller is the explicit fog toggle.
+    expect(source.split("refreshPlayerFogSnapshot(").length - 1).toBe(1);
+    expect(source).not.toContain("scheduleFogLiveRefresh");
+    expect(source).toContain("revealMapStream.sendOrHold(targetSocket, tileDeltaBroadcast);");
+    expect(source).toContain("await setSpectating(playerId, true); return revealMapPayloadSet(playerId);");
     expect(source).not.toContain("session.authEmail");
   });
 
   it("streams reveal-map snapshots through the chunk cache without retaining them as per-player diagnostics", () => {
     const source = sourceFor("./gateway-app.ts");
     const revealStart = source.indexOf("const revealMapPayloadSet = async");
-    const revealEnd = source.indexOf("const streamRevealMapToSocket = createRevealMapStreamer");
+    const revealEnd = source.indexOf("const revealMapStream = createRevealMapStreamer");
     const revealBuildSource = source.slice(revealStart, revealEnd);
 
     expect(source).toContain("const revealMapChunkCache = createRevealMapChunkCache({");
@@ -66,7 +66,7 @@ describe("gateway fog capability regression guard", () => {
     expect(revealBuildSource).toContain("const payloadSet = revealMapChunkCache.getOrCreate(snapshot);");
     expect(revealBuildSource).not.toContain("recordGatewaySnapshotDiagnostics");
     expect(source).toContain('if (message.type === "REQUEST_REVEAL_MAP") {');
-    expect(source).toContain("void streamRevealMapToSocket(socket, session.playerId).catch((error) => {");
+    expect(source).toContain("void revealMapStream.stream(socket, session.playerId).catch((error) => {");
     expect(source).toContain("revealMapChunkCache.clear();");
   });
 
@@ -80,7 +80,7 @@ describe("gateway fog capability regression guard", () => {
     expect(revealHandlerSource).toContain('"gateway_reveal_map_forbidden"');
     expect(revealHandlerSource).toContain('code: "FORBIDDEN"');
     expect(revealHandlerSource.indexOf("if (!session.canToggleFog) {")).toBeLessThan(
-      revealHandlerSource.indexOf("void streamRevealMapToSocket(")
+      revealHandlerSource.indexOf("void revealMapStream.stream(")
     );
   });
 

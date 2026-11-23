@@ -780,9 +780,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
   const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
-  // Fog-disabled sessions get a coalesced full-world resubscribe when the world changes
-  // (never inline in the per-batch handler — that starved logins in prod on 2026-05-23).
-  // Pacing + stale-result rules live in fog-live-refresh.ts.
+  // Fog-disabled sessions stay current through unfiltered live deltas (setSpectating below),
+  // never through full-world resubscribes. Stale-toggle rules live in fog-live-refresh.ts.
   const fogIntent = createFogIntentTracker();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
@@ -1737,7 +1736,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
+            const wasRevealed = session.fogDisabled;
             session.fogDisabled = false;
+            // A re-auth on a revealed socket must also stop the unfiltered delta stream.
+            if (wasRevealed && !playerHasFogDisabledSocket(playerIdentity.playerId)) void setSpectating(playerIdentity.playerId, false).catch(() => undefined);
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
             if (session.isGuest) await provisionGuest(playerIdentity.playerId); // guests get a name and colour here instead of the setup step
@@ -2231,7 +2233,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             const fogDisabled = message.disabled === true;
             const intentGeneration = fogIntent.bump(session.playerId);
-            // Restoring stops full-world live refreshes now, not after the (slow) restore snapshot lands.
+            // Sockets read as fogged from now on, not only once the (slow) restore snapshot lands.
             const undoRestore = fogDisabled ? undefined : clearFogDisabledForRestore(playerSubscriptions.socketsForPlayer(session.playerId), (s) => sessionsBySocket.get(s));
             try {
               await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
