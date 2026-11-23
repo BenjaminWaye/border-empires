@@ -39,7 +39,7 @@ export type HudV2ScreenState = {
   manifestClosedLanes: Set<string>;
   diplomacyTargetId: string | undefined;
   chronicleRival: string;
-  chronicleTab: "yours" | "world" | "updates";
+  chronicleTab: "yours" | "ahead" | "world" | "updates";
   /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
   chronicleUpdatesBaseline: number | undefined;
   /** The release note opened on Updates (its updateKey); undefined opens the newest unread, null closes all. */

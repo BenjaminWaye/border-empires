@@ -279,7 +279,8 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-title { font-family: var(--v2-display); font-size: 20px; font-weight: 700; letter-spacing: 0.1em; color: var(--v2-gold); }
 .v2c-close { height: 30px; padding: 0 10px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong); color: var(--v2-soft); font-family: var(--v2-mono); font-size: 11px; }
 .v2c-summary { display: grid; gap: 8px; margin: 0 14px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); }
-.v2c-headline { display: grid; gap: 4px; margin: 0 14px 8px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-red-hi); }
+.v2c-headline { display: grid; gap: 4px; margin: 0 14px 8px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-gold); }
+.v2c-headline-loss { border-left-color: var(--v2-red-hi); }
 .v2c-headline-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
 .v2c-headline-line { margin: 0; font-size: 13px; line-height: 1.35; }
 .v2c-summary-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
@@ -300,9 +301,15 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-list { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--v2-line); }
 .v2c-day { padding: 8px 14px 4px; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--v2-muted); }
 .v2c-day-away { color: var(--v2-red-hi); font-weight: 600; }
+.v2c-day-results { color: var(--v2-green-hi); font-weight: 600; }
+.v2c-progress { display: grid; gap: 2px; width: calc(100% - 28px); margin: 8px 14px; padding: 8px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-aether); color: var(--v2-text); text-align: left; cursor: pointer; }
+.v2c-progress-h { font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--v2-muted); }
+.v2c-progress-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 1.35; }
+.v2c-progress-row b { font-family: var(--v2-mono); font-weight: 600; white-space: nowrap; }
 .v2c-row { display: grid; grid-template-columns: 40px 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 14px; border-left: 3px solid transparent; }
 .v2c-row-sel { background: #221c13; border-left-color: var(--v2-gold); }
 .v2c-time { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2c-time-day { display: block; font-size: 10px; white-space: nowrap; }
 .v2c-glyph { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid currentColor; font-size: 10px; }
 .v2c-tone-gain .v2c-glyph { color: var(--v2-green-hi); }
 .v2c-tone-loss .v2c-glyph { color: var(--v2-red-hi); }
@@ -325,6 +332,21 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-tab:hover { color: var(--v2-text); }
 .v2c-tab-on { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
 .v2c-tab-badge { min-width: 18px; padding: 0 5px; background: var(--v2-red-hi); color: #fff; font-family: var(--v2-mono); font-size: 10px; line-height: 16px; text-align: center; }
+/* Ahead tab: the forecast of what happens while the player is away (client-hud-v2-chronicle-ahead.ts). */
+.v2c-agenda-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 14px; border: 0; border-left: 3px solid var(--v2-gold); border-bottom: 1px solid var(--v2-line); background: var(--v2-chip); color: var(--v2-text); font: inherit; text-align: left; cursor: pointer; }
+.v2c-agenda-row:hover { background: #221c13; }
+.v2c-agenda-text { display: grid; gap: 2px; min-width: 0; }
+.v2c-agenda-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.v2c-agenda-sub { font-size: 12px; line-height: 1.3; color: var(--v2-soft); }
+.v2c-agenda-go { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-gold-hi); white-space: nowrap; }
+.v2c-agenda-manpower-full, .v2c-agenda-town-ungarrisoned, .v2c-agenda-town-unfed { border-left-color: var(--v2-red-hi); }
+.v2c-agenda-none { padding: 8px 14px 10px; font-size: 13px; color: var(--v2-soft); }
+.v2c-return { display: grid; gap: 4px; margin: 10px 14px 4px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-gold); }
+.v2c-return-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.v2c-return-line { margin: 0; font-size: 14px; line-height: 1.35; }
+.v2c-return-line b { font-family: var(--v2-mono); color: var(--v2-gold-hi); }
+.v2c-ahead-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 7px 14px; border-bottom: 1px solid var(--v2-line); }
+.v2c-ahead-text { font-size: 14px; line-height: 1.35; }
 .v2c-world-rank { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 4px; }
 .v2c-world-label { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2c-world-you { font-family: var(--v2-display); font-size: 18px; font-weight: 700; color: var(--v2-gold-hi); }

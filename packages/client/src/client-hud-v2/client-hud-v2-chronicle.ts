@@ -4,12 +4,13 @@
 
 import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
-import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
+import { clockLabel, localDayKey, shortDayTag } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
 import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
 import { scoutReportFindsHtml } from "./client-hud-v2-chronicle-scout-chips.js";
+import { chronicleProgressHtml, type ProgressDelta } from "./client-hud-v2-chronicle-progress.js";
 import type { OccupationSurveyReport } from "../client-occupation-survey.js";
 
 export type ChronicleInput = {
@@ -27,6 +28,8 @@ export type ChronicleInput = {
   awaySince?: number | undefined;
   /** The latest respawn notice, so the headline can say the empire was wiped out and restarted. */
   respawn?: ChronicleRespawn | undefined;
+  /** Victory-path progress since the last visit (client-hud-v2-chronicle-progress.ts); none on a first visit. */
+  progress?: readonly ProgressDelta[];
   /** Open resource survey clues (not yet researched); they outlive the 24h timeline. */
   surveys?: readonly OccupationSurveyReport[];
 };
@@ -68,27 +71,37 @@ export const dayHeading = (at: number, nowMs: number): string => {
   return new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
 };
 
+export const AWAY_RESULTS_HEADING = "YOUR RESULTS SINCE YOU LAST LOOKED";
 export const AWAY_LOSSES_HEADING = "LOST WHILE YOU WERE AWAY";
 
+type ChronicleGroup = { heading: string; cards: PersonalActivityCard[] };
+
 /**
- * Day groups, newest first. With `awaySince`, losses after it (what the player
- * has not read yet) come first under their own heading, so a returning player
- * sees what they lost before anything else; they are not repeated below.
+ * Day groups, newest first. With `awaySince`, what the player has not read yet
+ * is lifted out first: what their own orders produced (builds finished, ground
+ * and towns taken, waystations activated), then what was taken from them. A
+ * returning player sees their plan working before the damage
+ * (docs/visit-as-a-turn.md §2.1). Lifted cards are not repeated below.
  */
-export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number, awaySince?: number): Array<{ heading: string; cards: PersonalActivityCard[] }> => {
-  const groups: Array<{ heading: string; cards: PersonalActivityCard[] }> = [];
+export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: string, rivalFilter: string, nowMs: number, awaySince?: number): ChronicleGroup[] => {
+  const groups: ChronicleGroup[] = [];
   const sorted = [...cards].sort((a, b) => b.occurredAt - a.occurredAt).filter((card) => !rivalFilter || cardCounterparties(card, me).includes(rivalFilter));
+  const unread = (card: PersonalActivityCard): boolean => awaySince !== undefined && card.occurredAt > awaySince;
   // Your own failed attacks read as losses too, but nothing was taken from you while away.
   const ownAttack = (card: PersonalActivityCard): boolean =>
     (card.kind === "COMBAT" && card.attackerId === me) || (card.kind === "COMBAT_GROUP" && card.role === "ATTACKER");
-  const isAwayLoss = (card: PersonalActivityCard): boolean =>
-    awaySince !== undefined && card.occurredAt > awaySince && activityCardTone(card, me) === "loss" && !ownAttack(card);
+  const isAwayResult = (card: PersonalActivityCard): boolean =>
+    unread(card) && (activityCardTone(card, me) === "gain" || card.kind === "BUILDING_COMPLETED" || card.kind === "WAYSTATION_ACTIVATED");
+  const isAwayLoss = (card: PersonalActivityCard): boolean => unread(card) && activityCardTone(card, me) === "loss" && !ownAttack(card);
+  const awayResults = sorted.filter(isAwayResult);
+  if (awayResults.length > 0) groups.push({ heading: AWAY_RESULTS_HEADING, cards: awayResults });
   const awayLosses = sorted.filter(isAwayLoss);
   if (awayLosses.length > 0) groups.push({ heading: AWAY_LOSSES_HEADING, cards: awayLosses });
+  const lifted = groups.length;
   for (const card of sorted) {
-    if (isAwayLoss(card)) continue;
+    if (isAwayResult(card) || isAwayLoss(card)) continue;
     const heading = dayHeading(card.occurredAt, nowMs);
-    const last = groups[groups.length - 1];
+    const last = groups.length > lifted ? groups[groups.length - 1] : undefined;
     if (last && last.heading === heading) last.cards.push(card);
     else groups.push({ heading, cards: [card] });
   }
@@ -97,7 +110,18 @@ export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: stri
 
 const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral" } as const;
 
-const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
+/**
+ * Rows under a day heading show only the clock: the heading names the day, and
+ * "yesterday 21:54" overflowed the 40px column into the glyph. The lifted
+ * groups (results and losses since you last looked) span days, so their rows
+ * stack a short day tag above the clock; the space keeps it readable as text.
+ */
+export const chronicleRowTimeHtml = (at: number, nowMs: number, dated: boolean): string => {
+  const tag = dated ? shortDayTag(at, nowMs) : undefined;
+  return `${tag ? `<span class="v2c-time-day">${tag}</span> ` : ""}${clockLabel(at)}`;
+};
+
+const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = false): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
   const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs));
@@ -107,7 +131,7 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
     ? `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${coords.x}" data-y="${coords.y}">Show</button>`
     : "";
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
-    <span class="v2c-time">${activityCardTimeLabel(card, input.nowMs)}</span>
+    <span class="v2c-time">${chronicleRowTimeHtml(card.occurredAt, input.nowMs, dated)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
     <span class="v2c-text"><span class="v2c-what">${whatHtml}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
     ${show}
@@ -169,8 +193,16 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
     return `${head}${chronicleSurveysHtml(openSurveys)}<div class="v2s-empty">${esc(msg)}</div>`;
   }
   const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs, input.awaySince);
-  const list = groups.length > 0
-    ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
+  // Lifted groups (unread results and losses) span days, so their rows name the day.
+  const isLifted = (g: ChronicleGroup): boolean => g.heading === AWAY_RESULTS_HEADING || g.heading === AWAY_LOSSES_HEADING;
+  const groupHtml = (g: ChronicleGroup): string =>
+    `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : g.heading === AWAY_RESULTS_HEADING ? " v2c-day-results" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input, isLifted(g))).join("")}`;
+  // Progress is about the player's own standing, so a rival filter hides it. It sits in the scrolling list, after
+  // the unread results and losses: above the list it left a short phone one visible row.
+  const progress = input.rivalFilter ? "" : chronicleProgressHtml(input.progress ?? []);
+  const days = groups.filter((g) => !isLifted(g));
+  const list = groups.length > 0 || progress
+    ? `${groups.filter(isLifted).map(groupHtml).join("")}${progress}${days.map(groupHtml).join("")}`
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
   // A returning player gets a short "since you left" headline above everything else.
   const headline = input.awaySince === undefined
