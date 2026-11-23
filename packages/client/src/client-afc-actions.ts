@@ -12,7 +12,7 @@ type Availability = (enabled: boolean, reason: string, detail?: string) => Pick<
 export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availability: Availability, nowMs: number = Date.now()): TileActionDef[] => {
   const afc = tile.afc;
   if (afc?.ownerId !== state.me || afc.status !== "active") return [];
-  return [...afcScoutDroneActions(state, tile, nowMs), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
+  return [...afcScoutDroneActions(state, tile), ...state.techCatalog.flatMap((tech): TileActionDef[] => {
     if (tech.manifestCategory !== "AFC_MODULE" || !state.techIds.includes(tech.id) || afc.houseModules?.includes(tech.id)) return [];
     const incoming = afc.incomingModules?.find((entry) => entry.techId === tech.id);
     const id = `redeploy_afc_module:${tech.id}` as const;
@@ -30,13 +30,13 @@ export const hasAfcReadyToExpand = (state: Pick<ClientState, "tiles" | "me">): b
   [...state.tiles.values()].some((candidate) =>
     candidate.ownerId === state.me && candidate.afc?.ownerId === state.me && candidate.afc.status === "active" && (candidate.afc.modules?.length ?? 0) >= AFC_BUILD_MIN_MODULES);
 
-/** Replacing a lost AFC uses the campaign-wide supply quote; another AFC is built from an empty tile (hasAfcReadyToExpand). */
+/** Replacing a lost AFC costs the flat replacement price; another AFC is built from an empty tile (hasAfcReadyToExpand). */
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {
   if (tile.ownerId !== state.me) return undefined;
   const owned = ownedAfcCount(state);
   if (owned === 0) {
     const pending = state.afcRecovery?.pending;
-    const cost = afcReplacementCost(state.afcRecovery?.globalLosses ?? 0);
+    const cost = afcReplacementCost();
     return { id: "build_afc", label: pending ? "AFC inbound" : "Call down replacement AFC", ...availability(!pending && state.gold >= cost, pending ? "AFC delivery in progress" : state.gold < cost ? `Need ${cost} gold` : "", `${cost} gold · 60-second landing`) };
   }
   // Offered on the empty tile the new AFC would land on, never on an AFC, and only once one of

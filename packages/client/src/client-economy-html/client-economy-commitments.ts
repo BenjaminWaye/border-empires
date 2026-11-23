@@ -38,8 +38,8 @@ export const economyCommitmentsHtml = (args: EconomyPanelArgs, now = resourceTra
     });
     const incomingCoin = proposer ? deal.targetCoinPerHour : deal.proposerCoinPerHour;
     const outgoingCoin = proposer ? deal.proposerCoinPerHour : deal.targetCoinPerHour;
-    if (incomingCoin) items.push(`<li>Up to +${incomingCoin} Coin/hour</li>`);
-    if (outgoingCoin) items.push(`<li>Up to −${outgoingCoin} Coin/hour</li>`);
+    if (incomingCoin) items.push(`<li>Up to +${incomingCoin * 24} Coin/day</li>`);
+    if (outgoingCoin) items.push(`<li>Up to −${outgoingCoin * 24} Coin/day</li>`);
     return [`<article class="v2e-row">
       <div><strong>${partner}</strong> · ${resourceDeadlineHtml(deal.expiresAt, now)}${deal.fulfilled ? "" : " · Paused"}</div>
       <ul>${items.join("")}</ul>

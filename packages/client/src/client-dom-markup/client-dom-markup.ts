@@ -58,7 +58,7 @@ export const hudMarkup = `
     <div id="map-loading-actions">
       <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
       <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
-      <button id="map-loading-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Download diagnostics</button>
+      <button id="map-loading-report-bug" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Report bug</button>
     </div>
   </div>
 
@@ -202,7 +202,7 @@ export const hudMarkup = `
             <blockquote></blockquote>
             <figcaption></figcaption>
           </figure>
-          <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
+          <button id="auth-busy-report-bug" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Report bug</button>
           <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Join the waitlist for the next Sector</button>
         </div>
       </div>
@@ -222,7 +222,7 @@ export const hudMarkup = `
     <div id="side-panel-head">
       <div>
         <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
-        <h3 id="panel-title">Panel</h3>
+        <h3 id="panel-title">Panel</h3><button id="panel-help" class="panel-help" type="button" aria-label="How charges work" aria-controls="house-charges-help" aria-expanded="false" hidden>?</button>
         <p id="panel-hint" class="panel-hint" hidden></p>
       </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
@@ -252,10 +252,6 @@ export const hudMarkup = `
       </section>
       <section id="panel-domains" class="panel-body">
         <div id="panel-domains-content"></div>
-      </section>
-      <section id="panel-alliance" class="panel-body alliance-panel">
-        <div id="allies-list" class="alliance-section-stack"></div>
-        <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>

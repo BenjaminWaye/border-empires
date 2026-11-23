@@ -43,6 +43,7 @@ import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { takeRequestedDiplomacyTarget } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -162,9 +163,13 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     deps.renderHud();
     return;
   }
-  // Tracker next step "Build a Relay Beacon": straight into beacon placement.
-  if (target.closest("[data-hud-v2-beacon]")) {
-    startRelayBeaconPlacement(deps);
+  // A tracker row "Relay Beacon to grain/fish": straight into beacon placement.
+  const beacon = target.closest<HTMLElement>("[data-hud-v2-beacon]");
+  if (beacon) {
+    // A food row's beacon starts placement on your land nearest the grain or fish it names.
+    const x = Number(beacon.dataset.hudV2BeaconX);
+    const y = Number(beacon.dataset.hudV2BeaconY);
+    startRelayBeaconPlacement(deps, beacon.dataset.hudV2BeaconX !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined);
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
@@ -342,7 +347,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
-    nextSteps: nextStepsForState(state, { busy: trackerScan.buildSlots.busy, queued: trackerScan.queue.length }, nowMs, trackerScan.nextStep),
+    nextSteps: nextStepsForState(state, trackerScan.nextStep),
     food: foodShortageForState(state, trackerScan.nextStep.food),
     foodOpen: foodFold.open,
     nowMs
@@ -401,6 +406,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
       deps.setActivePanel("charges");
       deps.renderHud();
     }, deps.requestViewRefresh);
+    // Taken before the off-screen return so a request made while the game is hidden is dropped, not kept.
+    const diplomacyTarget = takeRequestedDiplomacyTarget(deps.state, onScreen && Boolean(deps.state.me));
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
     renderFast(deps.state, deps.ownerColor, nowMs);
@@ -415,6 +422,11 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
+    // A tile's Diplomacy action opens that empire's deal.
+    if (diplomacyTarget) {
+      deps.actionFlow.hideTileActionMenu();
+      openScreen(deps, "diplomacy", { diplomacyTarget });
+    }
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { drawPlanetaryDefenseOverlay } from "./client-map-render-planetary-defense-overlay.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
+import type { Tile } from "../client-types.js";
+
+const camp = { x: 3, y: 4, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile;
+const campLand = { ...camp, ownershipState: "FRONTIER" } as Tile;
 
 // Records arc() centers (one per soldier helmet) and every fillStyle used.
 const recordingCtx = () => {
@@ -18,9 +22,9 @@ const recordingCtx = () => {
 };
 
 describe("drawPlanetaryDefenseOverlay (2D fallback)", () => {
-  it("draws two dark-grey-armored soldiers on the tile", () => {
+  it("draws two dark-grey-armored soldiers on a camp tile", () => {
     const { ctx, helmets, fills } = recordingCtx();
-    drawPlanetaryDefenseOverlay(ctx, 0, 0, 64, 3, 4, 1000);
+    drawPlanetaryDefenseOverlay(ctx, camp, 0, 0, 64, 3, 4, 1000);
     expect(helmets).toHaveLength(2);
     expect(fills).toContain(PLANETARY_DEFENSE_ARMOR_COLOR);
     for (const h of helmets) {
@@ -32,14 +36,21 @@ describe("drawPlanetaryDefenseOverlay (2D fallback)", () => {
   it("patrols: the soldiers are in different places at different times", () => {
     const a = recordingCtx();
     const b = recordingCtx();
-    drawPlanetaryDefenseOverlay(a.ctx, 0, 0, 64, 3, 4, 1000);
-    drawPlanetaryDefenseOverlay(b.ctx, 0, 0, 64, 3, 4, 2500);
+    drawPlanetaryDefenseOverlay(a.ctx, camp, 0, 0, 64, 3, 4, 1000);
+    drawPlanetaryDefenseOverlay(b.ctx, camp, 0, 0, 64, 3, 4, 2500);
     expect(a.helmets).not.toEqual(b.helmets);
   });
 
   it("draws nothing when tiles are too small to read", () => {
     const { ctx, helmets } = recordingCtx();
-    drawPlanetaryDefenseOverlay(ctx, 0, 0, 8, 3, 4, 1000);
+    drawPlanetaryDefenseOverlay(ctx, camp, 0, 0, 8, 3, 4, 1000);
+    expect(helmets).toHaveLength(0);
+  });
+
+  // Regression: soldiers stood on every Planetary Defense tile, so a camp looked the same as its frontier.
+  it("draws no soldiers on a camp's frontier", () => {
+    const { ctx, helmets } = recordingCtx();
+    drawPlanetaryDefenseOverlay(ctx, campLand, 0, 0, 64, 3, 4, 1000);
     expect(helmets).toHaveLength(0);
   });
 });

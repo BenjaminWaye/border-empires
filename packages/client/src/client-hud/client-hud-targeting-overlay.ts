@@ -2,8 +2,10 @@
 // waiting for a tap: Aether Wall, the other Crystal abilities, and Send scout
 // drone from an AFC's menu (client-scout-drone/client-scout-drone-picking.ts).
 // Each card has a Cancel button; Escape cancels too (client-map-input.ts).
-import { cancelScoutDronePicking } from "../client-scout-drone/client-scout-drone-picking.js";
+// Scout flights use the bottom slot instead: dock, flight pill, report card (client-scout-drone-hud.ts).
 import type { ClientState } from "../client-state/client-state.js";
+import { renderScoutDroneHud } from "../client-scout-drone/client-scout-drone-hud.js";
+import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 
 export type TargetingOverlayDeps = {
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
@@ -12,18 +14,20 @@ export type TargetingOverlayDeps = {
   keyFor: (x: number, y: number) => string;
   parseKey: (key: string) => { x: number; y: number };
   rerender: () => void;
+  /** Sends the planned scout flight (the dock's Go). */
+  send?: (payload: unknown) => boolean;
+  /** Frames a tile: the scout flight pill and report card (client-scout-drone-hud.ts). */
+  camera?: { wrapX: (x: number) => number; wrapY: (y: number) => number; requestViewRefresh: () => void };
 };
 
-export const SCOUT_DRONE_PICKING_CARD_HTML = `
-      <div class="targeting-card tone-amber">
-        <div class="targeting-kicker">Scout Drone Ready</div>
-        <div class="targeting-title">Send scout drone</div>
-        <div class="targeting-detail">Tap a tile beyond your own and allied land. The drone launches from your AFC nearest that tile, reveals land as it flies, and claims nothing.</div>
-        <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
-      </div>
-    `;
-
 export const renderTargetingOverlay = (state: ClientState, overlayEl: HTMLElement, deps: TargetingOverlayDeps): void => {
+  const camera = deps.camera;
+  renderScoutDroneHud(state, { send: deps.send ?? (() => false), rerender: deps.rerender, focus: (x, y, options) => {
+    if (!camera) return;
+    const selected = state.selected;
+    focusCameraOnTile(state, x, y, camera);
+    if (options?.select === false) state.selected = selected;
+  } });
   const { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey } = deps;
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
@@ -77,15 +81,9 @@ export const renderTargetingOverlay = (state: ClientState, overlayEl: HTMLElemen
       };
     }
   } else if (state.scoutDronePicking.active) {
-    overlayEl.innerHTML = SCOUT_DRONE_PICKING_CARD_HTML;
-    overlayEl.style.display = "block";
-    const cancelBtn = overlayEl.querySelector("#targeting-cancel") as HTMLButtonElement | null;
-    if (cancelBtn) {
-      cancelBtn.onclick = () => {
-        cancelScoutDronePicking(state);
-        deps.rerender();
-      };
-    }
+    // Planning a scout flight: the dock at the bottom of the screen replaces the card.
+    overlayEl.style.display = "none";
+    overlayEl.innerHTML = "";
   } else {
     overlayEl.style.display = "none";
     overlayEl.innerHTML = "";

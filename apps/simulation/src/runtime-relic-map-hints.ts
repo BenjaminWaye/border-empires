@@ -69,3 +69,6 @@ function visitRadius(center: { x: number; y: number }, radius: number, visit: (x
     if (Math.abs(dx) + Math.abs(dy) <= radius) visit(wrapX(center.x + dx, WORLD_WIDTH), wrapY(center.y + dy, WORLD_HEIGHT));
   }
 }
+
+// The guide town lead rides the same PLAYER_UPDATE field set as relic hints (guide-town-lead/player-map-hints.ts).
+export { playerMapHints } from "./guide-town-lead/player-map-hints.js";

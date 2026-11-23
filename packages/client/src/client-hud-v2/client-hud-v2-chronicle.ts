@@ -9,6 +9,7 @@ import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashbo
 import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
 import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
+import { scoutReportFindsHtml } from "./client-hud-v2-chronicle-scout-chips.js";
 import type { OccupationSurveyReport } from "../client-occupation-survey.js";
 
 export type ChronicleInput = {
@@ -99,7 +100,7 @@ const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
-  const text = activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs);
+  const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs));
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
   const coords = activityCardCoordinates(card);
   const show = coords
@@ -108,7 +109,7 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
     <span class="v2c-time">${activityCardTimeLabel(card, input.nowMs)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
-    <span class="v2c-text"><span class="v2c-what">${esc(text)}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
+    <span class="v2c-text"><span class="v2c-what">${whatHtml}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
     ${show}
   </div>`;
 };

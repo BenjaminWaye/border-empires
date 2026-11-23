@@ -1,4 +1,4 @@
-import { parseRelicMapHints, isChosenTrickleResource, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
+import { parseGuideTownLead, parseRelicMapHints, isChosenTrickleResource, type GuideTownLead, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
 export interface RelicHintClientState {
   relicMapHints: Map<string, RelicMapHint>;
@@ -6,11 +6,14 @@ export interface RelicHintClientState {
   relicMapHintsRevision: number;
   chosenTrickleResource: ChosenTrickleResource | undefined;
   wonderLastFreeRushBuyAt: number | undefined;
+  /** The guide's town lead (PLAYER_UPDATE guideTownLead): the nearest unowned town while the player holds none. */
+  guideTownLead: GuideTownLead | undefined;
 }
 /** The small shared progression fields have one typed wire boundary. */
 export function applyRelicAndProgressionUpdate(state: RelicHintClientState, message: Record<string, unknown>): void {
   if (isChosenTrickleResource(message.chosenTrickleResource)) state.chosenTrickleResource = message.chosenTrickleResource;
   if (typeof message.wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = message.wonderLastFreeRushBuyAt;
+  if ("guideTownLead" in message) state.guideTownLead = parseGuideTownLead(message.guideTownLead) ?? undefined;
   if (!("relicMapHints" in message)) return;
   const next = new Map(parseRelicMapHints(message.relicMapHints).map(hint => [`${hint.x},${hint.y}`, hint]));
   if (JSON.stringify([...next]) === JSON.stringify([...state.relicMapHints])) return;

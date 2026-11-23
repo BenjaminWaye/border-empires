@@ -44,7 +44,7 @@ export const initClientDom = () => {
   const mapLoadingActionsEl = requireElement<HTMLDivElement>("#map-loading-actions");
   const mapLoadingRetryBtn = requireElement<HTMLButtonElement>("#map-loading-retry");
   const mapLoadingReloadBtn = requireElement<HTMLButtonElement>("#map-loading-reload");
-  const mapLoadingDiagnosticsBtn = requireElement<HTMLButtonElement>("#map-loading-diagnostics");
+  const mapLoadingReportBugBtn = requireElement<HTMLButtonElement>("#map-loading-report-bug");
   const authOverlayEl = requireElement<HTMLDivElement>("#auth-overlay");
   const authDisplayNameEl = requireElement<HTMLInputElement>("#auth-display-name");
   const authEmailEl = requireElement<HTMLInputElement>("#auth-email");
@@ -65,7 +65,7 @@ export const initClientDom = () => {
   const authBusyCopyEl = requireElement<HTMLParagraphElement>("#auth-busy-copy");
   const authBusyProgressEl = requireElement<HTMLDivElement>("#auth-busy-progress");
   const authBusyQuoteEl = requireElement<HTMLElement>("#auth-busy-quote");
-  const authBusyDiagnosticsBtn = requireElement<HTMLButtonElement>("#auth-busy-diagnostics");
+  const authBusyReportBugBtn = requireElement<HTMLButtonElement>("#auth-busy-report-bug");
   const authBusySeasonFullNotifyBtn = requireElement<HTMLButtonElement>("#auth-busy-season-full-notify");
   const authEmailSentAddressEl = requireElement<HTMLSpanElement>("#auth-email-sent-address");
   const authEmailResetBtn = requireElement<HTMLButtonElement>("#auth-email-reset");
@@ -79,7 +79,7 @@ export const initClientDom = () => {
   const sidePanelBodyEl = requireElement<HTMLDivElement>("#side-panel-body");
   const panelTitleEl = requireElement<HTMLHeadingElement>("#panel-title");
   const panelCloseBtn = requireElement<HTMLButtonElement>("#panel-close");
-  const panelChargesEl = requireElement<HTMLDivElement>("#panel-charges"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"), panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance"),
+  const panelChargesEl = requireElement<HTMLDivElement>("#panel-charges"), panelTechEl = requireElement<HTMLDivElement>("#panel-tech"),
     panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
     panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
@@ -93,8 +93,6 @@ export const initClientDom = () => {
   const techDetailCardEl = requireElement<HTMLDivElement>("#tech-detail-card");
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
-  const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
-  const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
   const techViewToggleEl = requireElement<HTMLButtonElement>("#tech-view-toggle");
@@ -109,8 +107,6 @@ export const initClientDom = () => {
   const miniMapBase = document.createElement("canvas");
 
   return {
-    alliancePlayerInspectEl,
-    alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
     authEmailEl,
@@ -124,7 +120,7 @@ export const initClientDom = () => {
     authPlayNowBtn,
     authLoginBtn,
     authBusyCopyEl,
-    authBusyDiagnosticsBtn,
+    authBusyReportBugBtn,
     authBusySeasonFullNotifyBtn,
     authBusyModalEl,
     authBusyProgressEl,
@@ -163,7 +159,7 @@ export const initClientDom = () => {
     mapLoadingMetaEl,
     mapLoadingOverlayEl,
     mapLoadingActionsEl,
-    mapLoadingDiagnosticsBtn,
+    mapLoadingReportBugBtn,
     mapLoadingReloadBtn,
     mapLoadingRowEl,
     mapLoadingRetryBtn,
@@ -174,7 +170,6 @@ export const initClientDom = () => {
     miniMapEl,
     miniMapLabelEl,
     miniMapWrapEl,
-    panelAllianceEl,
     panelCloseBtn,
     panelDefensibilityEl,
     panelEconomyEl,

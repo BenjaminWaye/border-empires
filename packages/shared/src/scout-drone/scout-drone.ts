@@ -10,12 +10,12 @@
 // launch time and how each tile on the line is classified, so the client can
 // draw exactly the flight the server runs.
 
-import { FRONTIER_CLAIM_MS } from "../config.js";
+import type { ScoutDroneCharges } from "./scout-drone-charges.js";
 
 /** Live vision radius around the drone while it flies. */
 export const SCOUT_DRONE_VISION_RADIUS = 3;
-/** Time per tile past the player's land: the same pace as Expand To. */
-export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
+/** Time per tile past the player's land (3s since 2026-11-21: 1s explored too fast; was Expand To's 7.5s before 2026-11-20). */
+export const SCOUT_DRONE_STEP_MS = 3_000;
 /** Time per tile over home ground (own and allied land and reach), which the player already sees. */
 export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
 /** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
@@ -27,6 +27,8 @@ export const SCOUT_SIGHTED_ALERT_COOLDOWN_MS = 60 * 60_000;
 export const SCOUT_DRONE_MESSAGE_TYPE = "SCOUT_DRONE";
 /** PLAYER_MESSAGE: a rival's drone was turned back at this player's border. */
 export const SCOUT_SIGHTED_MESSAGE_TYPE = "SCOUT_SIGHTED";
+/** PLAYER_MESSAGE: what the owner's drone just spotted, sent as it flies (not replayed). */
+export const SCOUT_FINDS_MESSAGE_TYPE = "SCOUT_FINDS";
 
 /** How the drone treats a tile on its line. */
 export type ScoutDroneTileClass =
@@ -52,6 +54,8 @@ export type ScoutDroneFlight = {
   /** Index in `steps` of the turnaround tile (the last outbound tile). */
   turnIndex: number;
   landsAt: number;
+  /** The stops of a waypoint flight as the drone reaches them (scout-drone-route.ts); absent on a single-target flight. */
+  waypoints?: Array<{ x: number; y: number }>;
   endReason: ScoutDroneEndReason;
   /** Owner of the border that turned the drone back, when endReason is BLOCKED. */
   blockedByPlayerId?: string;
@@ -69,17 +73,66 @@ export type ScoutReportFindings = {
   planetaryDefenseTiles: number;
   /** Other empires whose land the drone saw. */
   empiresSighted: string[];
+  /** Where each counted find is, so the report can jump to it. Absent on reports from before it existed. */
+  sites?: ScoutFindingSites;
+  /** Every tile within the drone's vision along its whole path, out and home (the report card's "+N Tiles"). */
+  tilesSeen?: number;
   /** The most notable find (first town, else dock, waystation, watchtower, resource, empire, Planetary Defense); absent when nothing was found. */
   focusX?: number;
   focusY?: number;
+};
+
+/** Most tiles kept per find group; the counts above stay exact past it. */
+export const SCOUT_FINDING_SITES_MAX_TILES = 24;
+
+export type ScoutFindingTile = { x: number; y: number };
+
+/** Tiles per find group, in the order the drone saw them, each capped at SCOUT_FINDING_SITES_MAX_TILES. */
+export type ScoutFindingSites = {
+  towns: ScoutFindingTile[];
+  docks: ScoutFindingTile[];
+  waystations: ScoutFindingTile[];
+  watchtowers: ScoutFindingTile[];
+  planetaryDefense: ScoutFindingTile[];
+  /** Keyed by resource id. */
+  resources: Record<string, ScoutFindingTile[]>;
+  /** Keyed by player id. */
+  empires: Record<string, ScoutFindingTile[]>;
 };
 
 export type ScoutDronePayload = {
   type: typeof SCOUT_DRONE_MESSAGE_TYPE;
   /** The drone in the air, or null when it is docked. */
   flight: ScoutDroneFlight | null;
-  /** Set on the landing message: what the finished flight found. */
-  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
+  /** Every SCOUT_DRONE carries the player's charges (scout-drone-charges.ts), server clock. */
+  charges?: ScoutDroneCharges;
+  /**
+   * What the last flight found: on the landing message, and on every resend until the player has seen it on any
+   * device (SCOUT_REPORT_SEEN), for at most a day. `id` names the flight; `landedAt` is server clock.
+   */
+  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string; id?: string; landedAt?: number };
+};
+
+/** A landing report as kept on the player until they have seen it (DomainPlayer.scoutLastReport). */
+export type ScoutHeldReport = NonNullable<ScoutDronePayload["report"]> & { id: string; landedAt: number };
+
+/** Client -> server: the player has seen the report with this id, on whichever device; it stops riding along. */
+export const SCOUT_REPORT_SEEN_COMMAND_TYPE = "SCOUT_REPORT_SEEN";
+
+/** One thing a flying drone spotted: the client pops it over the map and lets the report card frame it. */
+export type ScoutFind = {
+  kind: "town" | "dock" | "waystation" | "watchtower" | "resource" | "empire" | "defense";
+  x: number;
+  y: number;
+  /** The resource, for `kind: "resource"`. */
+  resource?: string;
+};
+
+export type ScoutFindsPayload = {
+  type: typeof SCOUT_FINDS_MESSAGE_TYPE;
+  /** The flight these belong to (its launch time, server clock). */
+  launchedAt: number;
+  finds: ScoutFind[];
 };
 
 export type ScoutSightedPayload = {

@@ -7,8 +7,8 @@ import { createScoutDronePose, scoutDronePoseAt, smoothstep01 } from "./client-m
 import { createScoutGroundFx } from "./client-map-3d-scout-drone-ground-fx.js";
 import { createScoutTrails } from "./client-map-3d-scout-drone-trails.js";
 import { applyScoutDroneLights } from "./client-map-3d-scout-drone-lights.js";
-import { createScoutDroneEtaLabel, SCOUT_ETA_LABEL_LIFT } from "./client-map-3d-scout-drone-eta-label.js";
-import { scoutDroneEtaText } from "../client-scout-drone/client-scout-drone-eta-label.js";
+import { createScoutPlanOverlay } from "./client-map-3d-scout-drone-plan-overlay.js";
+import type { ClientState } from "../client-state/client-state.js";
 import { createScoutRunningLights, resetScoutRunningLights, updateScoutRunningLights, type ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
 
 export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
@@ -20,9 +20,9 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 // flares nose-up as it comes in and settles gently back into the crown. Under it: the vision
 // footprint with a radar sweep, its silhouette shadow and the route ahead
 // (client-map-3d-scout-drone-ground-fx.ts); behind
-// it, short nav-light trails (client-map-3d-scout-drone-trails.ts). Over it, the "Back in …"
-// countdown (client-map-3d-scout-drone-eta-label.ts). The 2D renderer draws the same
-// story flat (client-map-render-2d-scout-drone/).
+// it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The time until it is back is on
+// the bottom pill (client-scout-drone-hud.ts): a "Back in …" label over the drone was unreadably
+// small (player review 2026-11-21). The 2D renderer draws the story flat (client-map-render-2d-scout-drone/).
 //
 // client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
 // allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
@@ -44,6 +44,8 @@ export type ScoutDroneOverlayDeps = {
    * Absent (stories, tests): lights stay on.
    */
   readonly homeSource?: ScoutHomeSource | undefined;
+  /** The client state, for the flight being planned (client-map-3d-scout-drone-plan-overlay.ts). Absent in stories and tests. */
+  readonly planSource?: ClientState | undefined;
 };
 
 export type ScoutDroneOverlay = {
@@ -82,7 +84,6 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
   ground.setVisible(false);
   const trails = createScoutTrails(scene, model.lights.navLeft.base, model.lights.navRight.base);
   trails.setVisible(false);
-  const etaLabel = createScoutDroneEtaLabel(scene);
   const gate = deps.motionGate ?? createUnitMotionGate();
 
   const pose = createScoutDronePose();
@@ -110,11 +111,12 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     ground.setVisible(false);
     trails.setVisible(false);
     trails.reset();
-    etaLabel.place(0, 0, 0, undefined);
     resetScoutRunningLights(runningLights);
   };
 
+  const plan = deps.planSource ? createScoutPlanOverlay(scene, { state: deps.planSource, sceneFor: deps.sceneFor }) : undefined;
   const sync: ScoutDroneOverlay["sync"] = (flight, nowMs) => {
+    plan?.sync(nowMs);
     gate.recordFrame(nowMs);
     if (!scoutDronePoseAt(flight, nowMs, deps.world.width, deps.world.height, pose) || !flight) {
       hide();
@@ -167,7 +169,6 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
       discFacing = smoothstep01((Math.abs(viewDir.x * e[4]! + viewDir.y * e[5]! + viewDir.z * e[6]!) / upLength - 0.08) / 0.3);
     }
     model.root.visible = true;
-    etaLabel.place(at.sceneX, altitude + SCOUT_ETA_LABEL_LIFT, at.sceneZ, scoutDroneEtaText(flight, nowMs));
 
     // Rotors: blades while spooling, then blades over a faint motion-blur disc at speed.
     const blur = animate ? smoothstep01((pose.rotor - 0.35) / 0.5) : 0;
@@ -236,10 +237,10 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     sync,
     dispose: () => {
       scene.remove(model.root);
+      plan?.dispose();
       model.dispose();
       ground.dispose();
       trails.dispose();
-      etaLabel.dispose();
     }
   };
 };

@@ -45,16 +45,20 @@ export const townRingGarrisonTiles = (
     });
 };
 
-/** "N coin, M manpower" for garrisoning `tile` -- for a town, the town plus every tile around it. */
+/**
+ * "N coin, M manpower" for garrisoning `tile`. For a town it is a range: the town alone, up to the town plus
+ * every tile around it. Ring tiles are garrisoned (and paid) only once the town's reach has claimed them, so
+ * some may never be; a single total quoted 180 and charged 100 (Playtest Run 4).
+ */
 export const garrisonCostText = (
   state: Pick<RingState, "tiles" | "me"> & { settleManpowerCost: number },
   tile: Tile,
   isSettling?: (tileKey: string) => boolean
 ): string => {
   const ring = townRingGarrisonTiles(state, tile, isSettling).length;
-  const count = 1 + ring;
-  const base = `${count * SETTLE_COST} coin, ${count * state.settleManpowerCost} manpower`;
-  return ring > 0 ? `${base} (town + ${ring} around)` : base;
+  if (ring === 0) return `${SETTLE_COST} coin, ${state.settleManpowerCost} manpower`;
+  const range = (perTile: number): string => (perTile === 0 ? "0" : `${perTile}–${(1 + ring) * perTile}`);
+  return `${range(SETTLE_COST)} coin, ${range(state.settleManpowerCost)} manpower (town + up to ${ring} around)`;
 };
 
 /** Remember to garrison the ring once `town` lands SETTLED. Returns how many ring tiles were queued. */

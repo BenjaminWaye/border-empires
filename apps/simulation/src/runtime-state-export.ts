@@ -146,6 +146,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+        ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+        ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
         autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),

@@ -12,7 +12,7 @@ const calmView: MapLoadingView = {
   meta: "Connected",
   showRetry: false,
   showReload: false,
-  showDiagnostics: false,
+  showReportBug: false,
   tone: "normal"
 };
 
@@ -102,8 +102,8 @@ describe("renderMapLoadingCopy", () => {
     const dom = mount();
     const quote = pickLoginLoreQuote(5);
     const waits: MapLoadingView[] = [
-      { ...calmView, title: "Securing session", showDiagnostics: true },
-      { ...calmView, title: "Map sync stalled", tone: "warn", showRetry: true, showReload: true, showDiagnostics: true },
+      { ...calmView, title: "Securing session", showReportBug: true },
+      { ...calmView, title: "Map sync stalled", tone: "warn", showRetry: true, showReload: true, showReportBug: true },
       { ...calmView, title: "Disconnected from server" }
     ];
     for (const view of waits) {

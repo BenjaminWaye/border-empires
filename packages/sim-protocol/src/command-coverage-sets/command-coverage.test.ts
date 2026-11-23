@@ -33,8 +33,9 @@ const phase4NonDurable = [
 // cold process restart. DEV_QUEUE_*/WAYPOINT_* commands used to share this
 // exclusion but are now snapshotted (see the exclusion comment in
 // command-coverage-sets.ts). EXPLORE's scout drone flight (which RECALL_SCOUT shortens) lives only in
-// memory (a restart docks it), so it is excluded too.
-const notRestartDurable = ["CLAIM_CONTINUATION_SET", "EXPLORE", "RECALL_SCOUT"];
+// memory (a restart docks it), so it is excluded too, as is SCOUT_REPORT_SEEN (it only
+// clears a report held for display; a crash before the next checkpoint shows it once more).
+const notRestartDurable = ["CLAIM_CONTINUATION_SET", "EXPLORE", "RECALL_SCOUT", "SCOUT_REPORT_SEEN"];
 
 describe("phase-4 command coverage rails", () => {
   const durable = sortedUnique(DurableCommandTypeSchema.options);

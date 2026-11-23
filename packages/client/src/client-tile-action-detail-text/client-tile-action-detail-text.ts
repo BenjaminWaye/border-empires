@@ -1,4 +1,4 @@
-import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, RESOURCE_NETWORKS, networkResourceForAction, VIVARIUM_BIOTA_SLOTS } from "@border-empires/shared";
+import { ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, RESOURCE_NETWORKS, networkResourceForAction, VIVARIUM_BIOTA_SLOTS, INCUBATION_ENGINE_INSTANT_POPULATION_BURST, INCUBATION_ENGINE_ONGOING_GROWTH_MULT } from "@border-empires/shared";
 // Extracted from client-tile-menu-view.ts (file-line-cap task) — the giant
 // action-id -> detail-copy if-chain has no state/dependency overlap with the
 // rest of that file's tile-menu-view building, so it lives on its own here.
@@ -72,7 +72,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     // incubationEngineGrowthMultiplier in packages/game-domain for the current
     // formula and its history (commit 7a51b06b removed the ongoing bonus;
     // reintroduced at a lower rate 2026-08-26).
-    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +10,000 population burst on completion, plus +10% ongoing population growth.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +${INCUBATION_ENGINE_INSTANT_POPULATION_BURST.toLocaleString("en-US")} population burst on completion, plus +${Math.round((INCUBATION_ENGINE_ONGOING_GROWTH_MULT - 1) * 100)}% ongoing population growth.`;
   }
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;

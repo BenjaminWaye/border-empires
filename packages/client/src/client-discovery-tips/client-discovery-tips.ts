@@ -53,7 +53,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN_TERRAIN_PROFILE: {
     id: "TOWN_TERRAIN_PROFILE",
     title: "Every Town Has a Civic Character",
-    body: "Terrain shapes a town's coin, manpower capacity, and regeneration at every population tier. Trade Towns excel at coin, Fertile Towns balance output, and Tundra Towns favor industry. Coastal Town adds extra coin and manpower on top of any terrain. Check the town's Coin and Manpower cards to plan its role."
+    body: "Terrain shapes a town's coin, manpower capacity, and regeneration at every population tier. Trade Towns excel at coin, Standard Towns take no bonus or penalty, and Tundra Towns favor industry. Coastal Town adds extra coin and manpower on top of any terrain. Check the town's Coin and Manpower cards to plan its role."
   },
   DOCK: {
     id: "DOCK",
@@ -203,11 +203,17 @@ export const retireWaystationDiscoveryTip = (queue: DiscoveryTipId[] | undefined
  * suppresses every discovery tip for the same window.
  */
 export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: string | null, mute = false): void => {
-  const id = queue.shift();
-  if (id) {
-    markDiscoveryTipSeen(id, authEmail);
-    discoveryTipTargets.delete(id);
-  }
+  const id = queue[0];
+  if (id) dismissDiscoveryTip(queue, id, authEmail, mute);
+  else if (mute) muteDiscoveryTips(authEmail);
+};
+
+/** Marks tip `id` as dismissed (30-day/season TTL) and takes it out of the queue, wherever it sits (a tapped pin). */
+export const dismissDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId, authEmail?: string | null, mute = false): void => {
+  const at = queue.indexOf(id);
+  if (at >= 0) queue.splice(at, 1);
+  markDiscoveryTipSeen(id, authEmail);
+  discoveryTipTargets.delete(id);
   if (mute) muteDiscoveryTips(authEmail);
 };
 

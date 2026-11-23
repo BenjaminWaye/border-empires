@@ -79,11 +79,13 @@ Updates in one Activity modal; added a bounded, player-safe World Pulse
 projection; moved release notes out of their standalone overlay; and made the
 dashboard reliably sit above the new-player checklist.
 
-**Resource surveys** open a centered, explicit-dismissal popup when received
-during a session (a login's backfill records them quietly, as it does
-waystation activations);
-View survey locates the clue, and Got it dismisses the popup. The popup is
-independent of map visibility and queues multiple discoveries. They also have
+**Resource surveys** received during a session put a "!" pin on the map at the
+clue (a login's backfill records them quietly, as it does waystation
+activations). Tapping the pin opens a centered, explicit-dismissal card: View
+survey locates the clue, and Got it dismisses it and its pin. Each pending clue
+(one per resource) has its own pin, and no card opens on its own
+(`client-map-tip-pins/`, owner 2026-11-21: cards that opened on their own got in
+the way of play). They also have
 a standing Resource surveys section in Chronicle → Yours
 (`client-hud-v2/client-hud-v2-chronicle-surveys.ts`). It lists the clues the
 client keeps from `OCCUPATION_SURVEY` records in `ClientState.eventLog`
@@ -249,7 +251,7 @@ has a player-safe map location:
 
 - `09:42 · Osmond captured a settled tile · 85 gold raided · Center`
 - `10:03 · Waystation activated · +1 CRYSTAL slot · Center`
-- `10:27 · Incubation Engine completed in Rivergate · +10,000 population · Center`
+- `10:27 · Incubation Engine completed in Rivergate · +50,000 population · Center`
 
 For a grouped territory or combat event, `Center` targets its largest spatial
 cluster; it must not use the centroid of distant raids and place the player on

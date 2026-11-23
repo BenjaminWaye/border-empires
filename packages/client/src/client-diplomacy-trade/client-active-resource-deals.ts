@@ -14,7 +14,7 @@ export function activeResourceDealsHtml(rows: readonly ResourceSupplyAgreementSt
     const ownProposes = row.proposerId === ownId;
     const outgoing = ownProposes ? row.proposerCoinPerHour : row.targetCoinPerHour;
     const incoming = ownProposes ? row.targetCoinPerHour : row.proposerCoinPerHour;
-    const coin = `${outgoing ? `<br>You pay up to ${outgoing} Coin/hour` : ""}${incoming ? `<br>You receive up to ${incoming} Coin/hour` : ""}`;
+    const coin = `${outgoing ? `<br>You pay up to ${outgoing * 24} Coin/day` : ""}${incoming ? `<br>You receive up to ${incoming * 24} Coin/day` : ""}`;
     // Deals are binding for their term; only open-ended agreements saved before terms existed can still be ended.
     const end = row.expiresAt === undefined
       ? `<button type="button" class="resource-trade-action" data-resource-end="${esc(row.id)}">${resourceEndIsArmed(row.id, Date.now()) ? RESOURCE_END_ARMED_LABEL : "End supply"}</button>`

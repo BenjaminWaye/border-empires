@@ -140,6 +140,15 @@ describe("realtime gateway runtime env", () => {
     expect(parseRealtimeGatewayRuntimeEnv({}).emailAlerts.bugReportEmailTo).toBeUndefined();
   });
 
+  it("enables GitHub issue filing only when both token and repo are set", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_TOKEN: " tok ", GATEWAY_GITHUB_ISSUES_REPO: "acme/game" })
+        .playerReportGithubIssues
+    ).toEqual({ token: "tok", repo: "acme/game" });
+    expect(parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_TOKEN: "tok" }).playerReportGithubIssues).toBeUndefined();
+    expect(parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_REPO: "acme/game" }).playerReportGithubIssues).toBeUndefined();
+  });
+
   it("allows explicit override for non-authoritative fallback mode", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({

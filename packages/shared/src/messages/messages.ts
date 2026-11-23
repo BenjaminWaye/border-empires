@@ -478,14 +478,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
   z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
-  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts), or through
+  // `waypoints` in order when given ((x, y) is then the first stop; scout-drone-route.ts).
   z.object({
     type: z.literal("EXPLORE"),
     x: z.number().int(),
-    y: z.number().int()
+    y: z.number().int(),
+    waypoints: z.array(z.object({ x: z.number().int(), y: z.number().int() })).min(1).max(8).optional()
   }),
   // Call the scout drone home early: it turns back over the tile it is over now.
-  z.object({ type: z.literal("RECALL_SCOUT") })
+  z.object({ type: z.literal("RECALL_SCOUT") }),
+  // The player has seen this scout report on some device: the server stops resending it (scout-drone-held-report.ts).
+  z.object({ type: z.literal("SCOUT_REPORT_SEEN"), id: z.string().min(1).max(200) })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

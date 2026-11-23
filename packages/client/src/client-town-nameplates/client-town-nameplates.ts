@@ -37,7 +37,8 @@ const STATUS_ICON: Record<TownNameplateStatus, string> = {
   unruly: resourceSimpleIconUrl("LUXURY_BIOTA"),
   upgrade: "/icons/simple/town-upgrade.svg",
   war: "/icons/simple/town-war.svg",
-  captured: "/icons/simple/town-captured.svg"
+  // Raised fist, as in Civ resistance: a flag read as the muster flag, not "just taken".
+  captured: "/icons/simple/town-captured-fist.svg"
 };
 // Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
 // Unruly is the biota icon struck through the same way; not garrisoned is the coin icon struck through.
@@ -51,8 +52,11 @@ const GROWTH_MARK: Record<TownNameplateGrowth, string> = {
 // The CSS caps the name at NAME_MAX_W, so these upper-bound footprints in CSS
 // px (at scale 1) hold for the greedy overlap cull below.
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
+// The struck coin alone was missed (2026-11-21 playtest): an ungarrisoned town spells it out on its plate.
+const UNGARRISONED_TAG = "Not garrisoned", UNGARRISONED_TAG_W = 106;
 const plateWidth = (plate: TownNameplate): number =>
-  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0);
+  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0) +
+  (plate.status === "ungarrisoned" ? UNGARRISONED_TAG_W : 0);
 
 /** Like Civ banners, plates grow as you zoom in: base size up to ~48px tiles, then up to 1.6x. */
 export const plateScaleForTile = (tileCssPx: number): number => Math.min(1.6, Math.max(1, 0.7 + tileCssPx / 160));
@@ -83,7 +87,8 @@ const plateHtml = (plate: TownNameplate): string => {
   const population = plate.population === undefined
     ? ""
     : `<span class="town-plate-pop"${plate.growth ? ` data-growth="${plate.growth}"` : ""}>${formatPlatePopulation(plate.population)}${growth}</span>`;
-  return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}</span>`;
+  const tag = plate.status === "ungarrisoned" ? `<span class="town-plate-tag">${UNGARRISONED_TAG}</span>` : "";
+  return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}${tag}</span>`;
 };
 
 /** Screen-space town plates over either map renderer, fed the frame's visible tiles and real projection. */

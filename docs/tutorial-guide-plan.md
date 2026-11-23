@@ -51,8 +51,8 @@ the same browser.
 **What it looks like.** One small card in the bottom-left corner: the same slot
 the checklist bubble uses, measured to clear the Center/AFC button. When that
 spot would cover the step's ringed tiles (projected by the active renderer,
-2D or true-3D) or a notification (salvage and refinery toasts on the map, the
-discovery-tip toast, the HUD v2 tracker and right-hand column), the card moves
+2D or true-3D) or a notification (salvage and refinery toasts on the map, an
+opened discovery-tip card, the HUD v2 tracker and right-hand column), the card moves
 to the mirrored spot on the right edge (`tutorial-guide-placement.ts`). It only
 moves when its current spot covers something and the other covers less. The
 card shows:
@@ -113,13 +113,16 @@ a landing whose AFC is off screen: that can wait up to 5 minutes for the player
 to look at it, and in the playtest the guide only appeared minutes in, at step
 3, with the pan and zoom steps ticked while it was hidden.
 
-**Discovery tips while it runs.** While the card is expanded on a step the
-player can do now, the discovery-tip toast stays quiet so there aren't two
-pieces of guidance on screen. `TOWN` and `FOOD`, which the find steps teach,
-are retired as if dismissed. Urgent feedback (`OUT_OF_REACH_EXPAND`,
-`ENEMY_EMPIRE`, `FIRST_MUSTER`) is never held. Every other tip waits in the
-queue and shows once the card is minimised, the guide is only waiting on a
-first contact, or it is finished or hidden (`client-onboarding-ui-overlays.ts`).
+**Discovery tips while it runs.** Discovery tips are "!" pins on the map at
+the tile they are about, and a tip's card opens only when its pin is tapped
+(`client-map-tip-pins/`, owner 2026-11-21: cards that opened on their own got in
+the way of play). While the card is expanded on a step the player can do now,
+tips stay unpinned so there aren't two pieces of guidance on screen. `TOWN` and
+`FOOD`, which the find steps teach, are retired as if dismissed. Urgent feedback
+(`OUT_OF_REACH_EXPAND`, `ENEMY_EMPIRE`, `FIRST_MUSTER`, `FIRST_DOCK`) is never
+held. Every other tip waits in the queue and is pinned once the card is
+minimised, the guide is only waiting on a first contact, or it is finished or
+hidden (`client-onboarding-ui-overlays.ts`).
 
 **Persistence.** `guideStatus` (`active` | `done` | `dismissed`) and
 `guideSteps` (completed step ids, at most 64) are stored on the gateway's
@@ -168,6 +171,17 @@ the same rule.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
   (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
+- Otherwise, no town known at all and the server names one (the town step
+  only): "A town lies this way: tap the marked fog and Explore", ringed at the
+  nearest unowned town (`guideTownLead` on PLAYER_UPDATE, computed by
+  `apps/simulation/src/guide-town-lead/` from the neutral-town index, sent while
+  the player holds no town beyond their landing settlement), for as many
+  flights as it takes. Tapping that ringed tile plans the whole way there, one
+  stop per leg along the line, as many as the charges allow
+  (`client-scout-drone-lead-route.ts`): a single far stop is pulled back to the
+  leg range every flight. Added after Playtest Run 4, where a newcomer flew
+  five flights in random directions over three mornings, built four beacons
+  and quit.
 - Otherwise, nothing known: "tap the marked unexplored ground and Explore"
   while the drone can launch (ringed at the Explore target), or "Your scout
   drone is out: wait for its report" while it flies. Only for the first 3

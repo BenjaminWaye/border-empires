@@ -2,8 +2,12 @@ import {
   BARBARIAN_ATTACKS_PER_MINUTE,
   BARBARIAN_INFLIGHT_TIMEOUT_MS,
   BARBARIAN_TILE_REST_MS,
+  MAX_PLANETARY_DEFENSE_CAMP_TILES,
+  MAX_PLANETARY_DEFENSE_CAMPS,
+  PLANETARY_DEFENSE_EXPAND_REST_MS,
   PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW,
-  lastManpowerRefillAtMs
+  lastManpowerRefillAtMs,
+  MANPOWER_REFILL_WINDOW_MS
 } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { candidateKeysForOrigin, createFrontierCommand, type PlannerTile, type PlannerTileLookup } from "./frontier-scoring.js";
@@ -11,7 +15,11 @@ import { candidateKeysForOrigin, createFrontierCommand, type PlannerTile, type P
 /**
  * Planetary Defense planner (docs/planetary-defense-camps-plan.md). Each camp
  * (its camp tile plus the frontier carrying its campId) takes at most one
- * action at a time and rests BARBARIAN_TILE_REST_MS after it settles. Only
+ * action at a time and rests after it settles: BARBARIAN_TILE_REST_MS after an
+ * attack, PLANETARY_DEFENSE_EXPAND_REST_MS after an expansion. A camp holding
+ * MAX_PLANETARY_DEFENSE_CAMP_TILES stops expanding and stops attacking frontier;
+ * it still raids garrisoned House land (raid-limited) and takes towns and docks
+ * while they would found new camps (below MAX_PLANETARY_DEFENSE_CAMPS). Only
  * awake camps act: a watcher can see one of their tiles (the main thread's
  * camp-awake-tracker.ts sends the set). A camp acts only from its own tiles:
  *   1. attack a House tile next to its land, if the faction-wide attack budget
@@ -42,19 +50,22 @@ export type BarbarianPlannerDeps = {
   readonly getAwakeCampIds: () => ReadonlySet<string>;
   readonly now?: () => number;
   readonly restMs?: number;
+  readonly expandRestMs?: number;
+  readonly maxCampTiles?: number;
+  readonly maxCamps?: number;
   readonly attacksPerMinute?: number;
   readonly raidsPerHousePerWindow?: number;
   readonly inFlightTimeoutMs?: number;
 };
 
 /**
- * What survives a restart: when each camp may act again and its raids per
- * House in that House's current manpower window. Saved in snapshots
+ * What survives a restart: when each camp may act again, when a recently founded
+ * camp was founded, and its raids per House in that House's current manpower window. Saved in snapshots
  * (runtime-snapshot-sidecars.ts); bounded by camps x Houses raided. In-flight
  * commands are not saved: a recovered lock resolves without settling one.
  */
 export type PlanetaryDefensePlannerSnapshot = {
-  camps: Array<{ campId: string; restUntil?: number; raids?: Array<{ houseId: string; windowStart: number; count: number }> }>;
+  camps: Array<{ campId: string; restUntil?: number; foundedAt?: number; raids?: Array<{ houseId: string; windowStart: number; count: number }> }>;
 };
 
 export type BarbarianPlanner = {
@@ -94,6 +105,9 @@ const targetValue = (tile: PlannerTile): number => (tile.town || tile.dockId ? 1
 export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPlanner => {
   const now = deps.now ?? (() => Date.now());
   const restMs = deps.restMs ?? BARBARIAN_TILE_REST_MS;
+  const expandRestMs = deps.expandRestMs ?? PLANETARY_DEFENSE_EXPAND_REST_MS;
+  const maxCampTiles = deps.maxCampTiles ?? MAX_PLANETARY_DEFENSE_CAMP_TILES;
+  const maxCamps = deps.maxCamps ?? MAX_PLANETARY_DEFENSE_CAMPS;
   const attacksPerMinute = deps.attacksPerMinute ?? BARBARIAN_ATTACKS_PER_MINUTE;
   const raidsPerWindow = deps.raidsPerHousePerWindow ?? PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW;
   const inFlightTimeoutMs = deps.inFlightTimeoutMs ?? BARBARIAN_INFLIGHT_TIMEOUT_MS;
@@ -109,6 +123,10 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   const attackIssuedAt: number[] = [];
   // campId -> target key -> until when that camp skips it (after a rejection); small per camp.
   const avoidUntilByCamp = new Map<string, Map<string, number>>();
+  // campId -> when this planner first saw the camp (-Infinity: already there when the planner started).
+  // A camp founded inside a House's manpower window may not raid that House until its next one.
+  const foundedAtByCamp = new Map<string, number>();
+  let campsSeeded = false;
 
   const refundRejected = (entry: InFlight, settledAt: number): void => {
     if (entry.attack) {
@@ -131,7 +149,8 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     if (!entry) return;
     inFlightByCommandId.delete(commandId);
     if (rejected) refundRejected(entry, settledAt);
-    restUntilByCamp.set(entry.campId, settledAt + restMs);
+    // A refused expansion took no land, so it rests like an attack.
+    restUntilByCamp.set(entry.campId, settledAt + (entry.attack || rejected ? restMs : expandRestMs));
   };
 
   const attackBudgetOpen = (t: number): boolean => {
@@ -140,8 +159,15 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   };
 
   const raidAllowed = (campId: string, houseId: string, t: number): boolean => {
+    const windowStart = lastManpowerRefillAtMs(houseId, t);
+    if ((foundedAtByCamp.get(campId) ?? Number.NEGATIVE_INFINITY) > windowStart) return false;
     const entry = raidsByCamp.get(campId)?.get(houseId);
-    return !entry || entry.windowStart !== lastManpowerRefillAtMs(houseId, t) || entry.count < raidsPerWindow;
+    return !entry || entry.windowStart !== windowStart || entry.count < raidsPerWindow;
+  };
+
+  const recordNewCamps = (live: ReadonlySet<string>, t: number): void => {
+    for (const campId of live) if (!foundedAtByCamp.has(campId)) foundedAtByCamp.set(campId, campsSeeded ? t : Number.NEGATIVE_INFINITY);
+    campsSeeded = true;
   };
 
   const recordRaid = (campId: string, houseId: string, t: number): void => {
@@ -164,6 +190,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     dropDeadCamps(sleepingUntilByCamp, live);
     dropDeadCamps(raidsByCamp, live);
     dropDeadCamps(avoidUntilByCamp, live);
+    dropDeadCamps(foundedAtByCamp, live);
   };
 
   /**
@@ -171,16 +198,22 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
    * is held back for now (attack budget spent, raid limit reached, a recent
    * rejection), so the camp should look again soon rather than sleep.
    */
-  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, t: number): { best?: CampAction; held: boolean } => {
+  const pickFor = (campId: string, busyTargets: ReadonlySet<string>, canAttack: boolean, campsFull: boolean, t: number): { best?: CampAction; held: boolean } => {
     const dockLinks = deps.getDockLinksByDockTileKey();
     const avoid = avoidUntilByCamp.get(campId);
     let best: CampAction | undefined;
     let held = false;
-    for (const from of deps.campTiles(campId)) {
+    const tiles = deps.campTiles(campId);
+    // A full-size camp neither expands nor attacks frontier. It still raids garrisoned House land
+    // (raid-limited), and takes a town or dock only while that founds a new camp; at the camp cap
+    // a captured town or dock would become more of this camp (camp-rules.ts).
+    const full = tiles.length >= maxCampTiles;
+    for (const from of tiles) {
       for (const targetKey of candidateKeysForOrigin(from, dockLinks, deps.tilesByKey)) {
         if (busyTargets.has(targetKey)) continue;
         const target = deps.tilesByKey.get(targetKey);
         if (!target || target.terrain !== "LAND" || isBarbarian(target.ownerId)) continue;
+        if (full && !(target.ownerId && target.ownershipState === "SETTLED") && (campsFull || (!target.town && !target.dockId))) continue;
         if ((avoid?.get(targetKey) ?? 0) > t) {
           held = true;
           continue;
@@ -209,6 +242,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     const t = now();
     const live = new Set(deps.campIds());
     prune(live, t);
+    recordNewCamps(live, t);
     const awake = deps.getAwakeCampIds();
     const busyCamps = new Set<string>();
     const busyTargets = new Set<string>();
@@ -225,7 +259,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     eligible.sort((a, b) => a.lastActed - b.lastActed || (a.campId < b.campId ? -1 : 1));
     const canAttack = attackBudgetOpen(t);
     for (const { campId } of eligible) {
-      const { best: pick, held } = pickFor(campId, busyTargets, canAttack, t);
+      const { best: pick, held } = pickFor(campId, busyTargets, canAttack, live.size >= maxCamps, t);
       if (!pick) {
         // Nothing to take at all: sleep until a neighbour changes. Only held back: look again next time.
         if (!held) sleepingUntilByCamp.set(campId, t + NO_TARGET_RETRY_MS);
@@ -250,17 +284,29 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     },
     inFlightCount: () => inFlightByCommandId.size,
     restUntilByCamp,
-    exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, now()),
+    exportState: () => exportPlannerState(restUntilByCamp, raidsByCamp, foundedAtByCamp, now()),
     // A saved rest can't outlast one full rest from now: a corrupt or far-future value must not silence a camp.
-    restoreState: (snapshot) => restorePlannerState(snapshot, restUntilByCamp, raidsByCamp, now() + restMs)
+    restoreState: (snapshot) => restorePlannerState(snapshot, { restUntilByCamp, raidsByCamp, foundedAtByCamp }, now(), now() + Math.max(restMs, expandRestMs))
   };
 };
 
 type RaidsByCamp = Map<string, Map<string, { windowStart: number; count: number }>>;
 
-/** Live entries only: a rest that has ended or a raid window with no raids carries nothing. */
-const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsByCamp: RaidsByCamp, t: number): PlanetaryDefensePlannerSnapshot => {
-  const campIds = new Set([...restUntilByCamp.keys(), ...raidsByCamp.keys()]);
+/**
+ * Live entries only: a rest that has ended, a raid window with no raids, or a founding time
+ * older than any manpower window it could still fall in carries nothing.
+ */
+const exportPlannerState = (
+  restUntilByCamp: ReadonlyMap<string, number>,
+  raidsByCamp: RaidsByCamp,
+  foundedAtByCamp: ReadonlyMap<string, number>,
+  t: number
+): PlanetaryDefensePlannerSnapshot => {
+  const recentlyFounded = (campId: string): number | undefined => {
+    const foundedAt = foundedAtByCamp.get(campId);
+    return foundedAt !== undefined && Number.isFinite(foundedAt) && t - foundedAt < MANPOWER_REFILL_WINDOW_MS ? foundedAt : undefined;
+  };
+  const campIds = new Set([...restUntilByCamp.keys(), ...raidsByCamp.keys(), ...[...foundedAtByCamp.keys()].filter((id) => recentlyFounded(id) !== undefined)]);
   const camps: PlanetaryDefensePlannerSnapshot["camps"] = [];
   for (const campId of [...campIds].sort()) {
     const restUntil = restUntilByCamp.get(campId);
@@ -268,21 +314,21 @@ const exportPlannerState = (restUntilByCamp: ReadonlyMap<string, number>, raidsB
       .filter(([houseId, entry]) => entry.count > 0 && entry.windowStart === lastManpowerRefillAtMs(houseId, t))
       .map(([houseId, entry]) => ({ houseId, windowStart: entry.windowStart, count: entry.count }));
     const live = restUntil !== undefined && restUntil > t;
-    if (!live && raids.length === 0) continue;
-    camps.push({ campId, ...(live ? { restUntil } : {}), ...(raids.length > 0 ? { raids } : {}) });
+    const foundedAt = recentlyFounded(campId);
+    if (!live && raids.length === 0 && foundedAt === undefined) continue;
+    camps.push({ campId, ...(live ? { restUntil } : {}), ...(foundedAt !== undefined ? { foundedAt } : {}), ...(raids.length > 0 ? { raids } : {}) });
   }
   return { camps };
 };
 
-/** Ignores malformed entries rather than failing a boot; a rest is clamped to `maxRestUntil`. */
-const restorePlannerState = (
-  snapshot: PlanetaryDefensePlannerSnapshot | undefined,
-  restUntilByCamp: Map<string, number>,
-  raidsByCamp: RaidsByCamp,
-  maxRestUntil: number
-): void => {
+type PlannerStateMaps = { restUntilByCamp: Map<string, number>; raidsByCamp: RaidsByCamp; foundedAtByCamp: Map<string, number> };
+
+/** Ignores malformed entries rather than failing a boot; a rest is clamped to `maxRestUntil`, a founding time to `t`. */
+const restorePlannerState = (snapshot: PlanetaryDefensePlannerSnapshot | undefined, maps: PlannerStateMaps, t: number, maxRestUntil: number): void => {
+  const { restUntilByCamp, raidsByCamp, foundedAtByCamp } = maps;
   for (const camp of snapshot?.camps ?? []) {
     if (typeof camp?.campId !== "string") continue;
+    if (typeof camp.foundedAt === "number" && Number.isFinite(camp.foundedAt)) foundedAtByCamp.set(camp.campId, Math.min(camp.foundedAt, t));
     if (typeof camp.restUntil === "number" && Number.isFinite(camp.restUntil)) restUntilByCamp.set(camp.campId, Math.min(camp.restUntil, maxRestUntil));
     const byHouse = new Map<string, { windowStart: number; count: number }>();
     for (const raid of camp.raids ?? []) {

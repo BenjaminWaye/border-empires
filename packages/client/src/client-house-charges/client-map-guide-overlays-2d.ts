@@ -2,16 +2,20 @@
 // true-3D counterpart is client-map-3d-map-guide-overlay.ts): the shaded
 // area of a focused House Charge, its dotted rough circles and link
 // (client-house-charges-search-guide.ts), then the guide ring markers for both
-// the onboarding guide and the focused charge (client-house-charges-map.ts).
+// the onboarding guide, the focused charge (client-house-charges-map.ts) and a
+// clicked scout find (client-scout-finding-highlight.ts).
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawOnboardingChecklistHighlights } from "../client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { houseChargeAreaEdges, houseChargeMarkerTiles, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges-map.js";
+import { houseChargeAreaEdges, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges-search-guide.js";
+import { mapGuideRingTiles } from "./client-map-guide-ring-tiles.js";
 
 export const CHARGE_TINT_GARRISONED = "rgba(95, 211, 106, 0.5)";
 /** Tiles still to take: a dark wash plus pale diagonal hatching, so they read by pattern on sand, grass or snow alike. */
 export const CHARGE_TINT_OPEN = "rgba(18, 14, 8, 0.3)";
+/** A Three Metropolises landmass: a light gold wash, only to show where it is. */
+export const CHARGE_TINT_PLAIN = "rgba(240, 207, 130, 0.28)";
 export const CHARGE_HATCH = "rgba(255, 232, 170, 0.9)";
 export const CHARGE_OUTLINE = "rgba(240, 207, 130, 0.95)";
 /** Rough search circles: gold dots, the area outline's colour. The link between two towns: smaller pale dots. */
@@ -61,7 +65,7 @@ export type MapGuideOverlays2dDeps = {
 };
 
 export const drawMapGuideOverlays = (
-  state: Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me">,
+  state: Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight">>,
   deps: MapGuideOverlays2dDeps
 ): void => {
   const tint = houseChargeTintTiles(state);
@@ -70,9 +74,9 @@ export const drawMapGuideOverlays = (
     ctx.save();
     for (const tile of tint) {
       const { sx, sy } = deps.worldToScreen(tile.x, tile.y, size, deps.halfW, deps.halfH);
-      ctx.fillStyle = tile.garrisoned ? CHARGE_TINT_GARRISONED : CHARGE_TINT_OPEN;
+      ctx.fillStyle = tile.plain ? CHARGE_TINT_PLAIN : tile.garrisoned ? CHARGE_TINT_GARRISONED : CHARGE_TINT_OPEN;
       ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
-      if (!tile.garrisoned) drawHatch(ctx, sx - size / 2, sy - size / 2, size);
+      if (!tile.garrisoned && !tile.plain) drawHatch(ctx, sx - size / 2, sy - size / 2, size);
     }
     // Gold outline around the whole area, so its extent reads even where garrisoned green meets grass.
     ctx.strokeStyle = CHARGE_OUTLINE;
@@ -95,6 +99,5 @@ export const drawMapGuideOverlays = (
     drawDots(deps, guide.ringDots, CHARGE_RING_DOT, CHARGE_RING_DOT_RADIUS);
     deps.ctx.restore();
   }
-  const markers = houseChargeMarkerTiles(state);
-  drawOnboardingChecklistHighlights(markers.length > 0 ? [...state.onboardingHighlightTiles, ...markers] : state.onboardingHighlightTiles, deps);
+  drawOnboardingChecklistHighlights(mapGuideRingTiles(state, Date.now()), deps);
 };

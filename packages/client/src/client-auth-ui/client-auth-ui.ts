@@ -101,7 +101,7 @@ export const syncAuthOverlay = (
     /** World-download bar for the chunked INIT transfer; optional so partial test doms still render. */
     authBusyProgressEl?: HTMLElement;
     authBusyQuoteEl?: HTMLElement;
-    authBusyDiagnosticsBtn: HTMLButtonElement;
+    authBusyReportBugBtn: HTMLButtonElement;
     authBusySeasonFullNotifyBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
     authDebugRouteEl: HTMLElement;
@@ -120,7 +120,7 @@ export const syncAuthOverlay = (
   // shown (during raw Firebase auth / initial LOGIN_PHASE), so unlike the
   // map-loading overlay there's no later "action affordance" stage; this is
   // the only chance to offer help before auth resolves or the user gives up.
-  deps.authBusyDiagnosticsBtn.style.display =
+  deps.authBusyReportBugBtn.style.display =
     state.authBusy && !state.seasonFull && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.style.display = state.authBusy && state.seasonFull ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.disabled = state.seasonFullNotifyAcknowledged;

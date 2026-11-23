@@ -35,7 +35,13 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain('await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {');
     expect(source).toContain('reason: "fog_toggle"');
     expect(source).toContain('queueOrSendSessionPayload(targetSocket, replacementBroadcast);');
-    expect(source).toContain('const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(');
+    expect(source).toContain("const hasFogDisabledSession = playerHasFogDisabledSocket(playerId);");
+    // A stale full-visibility refresh must not undo a later "restore fog" toggle
+    // (bug report 1c8538f4): explicit toggles bump the intent generation and
+    // refreshes started under an older one are discarded.
+    expect(source).toContain("const intentGeneration = fogIntent.bump(session.playerId);");
+    expect(source).toContain("if (!fogIntent.isCurrent(playerId, intentGeneration)) {");
+    expect(source).toContain("if (!fogDisabled) fogLiveRefresh.cancelPending(session.playerId);");
     // TILE_DELTA_BATCH must NOT await refreshPlayerFogSnapshot inline — that
     // blocked the gateway event loop for 21s p99 in prod on 2026-05-23 and
     // starved login bootstrap_subscribe for 45s+. The path now goes through

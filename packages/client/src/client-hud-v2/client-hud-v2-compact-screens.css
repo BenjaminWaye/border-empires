@@ -76,6 +76,7 @@ body.hud-v2-compact .v2c-tab { height: var(--v2c-touch); }
 body.hud-v2-compact .v2c-filter { height: 34px; }
 body.hud-v2-compact .v2c-row { grid-template-columns: 36px 22px minmax(0, 1fr) auto; min-height: var(--v2c-touch); padding: 6px 10px; }
 body.hud-v2-compact .v2c-show { height: 34px; }
+body.hud-v2-compact .v2c-find { padding: 6px 0; }
 body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
 /* Short phones (667px): a half sheet left the list ~2 rows tall under the summary; open to the ribbon instead. */
 @media (orientation: portrait) and (max-height: 760px) {

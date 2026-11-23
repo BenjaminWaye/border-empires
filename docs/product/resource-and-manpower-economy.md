@@ -95,11 +95,20 @@ defines what these systems mean in the fiction; follow the
 
 ### Incubation Engine and Census Hall
 
-Incubation Engine grants **+10,000 population once on completion** and **+10%
+Incubation Engine grants **+50,000 population once on completion** and **+10%
 ongoing population growth** to its supported town. It does not boost Hydrogarden
 output or reduce FOOD demand; it consumes a FOOD slot. Census Hall adds
 **20,000 population capacity per connected town with an active Incubation Engine**
 and reduces its own town's tier-upgrade Coin cost by **25%**.
+
+The burst is paid **once per owner per town** (`incubation-burst-guard.ts`):
+removing and rebuilding the engine, or a Colonial Charter grant after a
+self-built engine, pays nothing more; a House that captures the town earns its
+own. It was raised from 10,000 to 50,000 (2026-11-21) to make the engine a
+serious strategic build. Base growth is proportional to population (about
+1.9%/h), so a 10k town needs about a day and a half to add 10k on its own; +50k
+skips days of growth and also raises the town's future growth rate. It does not
+skip the Coin tier upgrade.
 
 Sources: `packages/shared/src/config.ts` (population constants),
 `apps/simulation/src/runtime-structure-build-completion.ts`

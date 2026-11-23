@@ -123,7 +123,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authProfileSaveBtn: makeButton(),
       authBusyTitleEl: makeElement(),
       authBusyCopyEl: makeElement(),
-      authBusyDiagnosticsBtn: makeButton(),
+      authBusyReportBugBtn: makeButton(),
       authBusySeasonFullNotifyBtn: makeButton(),
       authStatusEl: makeElement(),
       authDebugRouteEl: makeElement(),
