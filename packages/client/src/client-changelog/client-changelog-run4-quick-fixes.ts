@@ -13,7 +13,6 @@ export const RUN4_QUICK_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The Ranks panel names the victory leader even when an update left the name blank",
     "The Manifest coin line shows what you still need and your daily income, without a \"ready in\" time that sat still between deliveries",
     "Grassland towns are Standard Towns, shown with no terrain bonus instead of +0% on every stat",
-    "Break Alliance in the Alliances panel confirms in the game instead of a browser pop-up that could be blocked",
     "\"Muster flags full\" counts a flag that's still being placed"
   ]
 };

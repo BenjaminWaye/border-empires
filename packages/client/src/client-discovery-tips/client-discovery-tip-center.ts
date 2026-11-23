@@ -1,4 +1,4 @@
-// Wires the discovery-tip toast's "Center" button to the camera. Same effect as
+// Wires "show a tip's tile" (the tutorial guide's "Show me") to the camera. Same effect as
 // the Activity Feed's focus buttons (see the data-feed-focus-x handler in
 // client-hud.ts): center on the tile, select it, and refresh the view.
 
