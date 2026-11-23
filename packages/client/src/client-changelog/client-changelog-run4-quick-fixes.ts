@@ -1,0 +1,20 @@
+import type { ClientChangelogEntry } from "./client-changelog-data.js";
+
+export const RUN4_QUICK_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.23",
+  title: "Fairer AFC replacement, a guide that doesn't loop, clearer numbers",
+  why: "Fixes from the November playtest: a lost AFC could cost more than a new player could ever earn, and several screens quoted numbers that didn't match.",
+  changes: [
+    "Replacing a lost AFC costs a flat 20 Coin; it no longer rises with every AFC lost on the planet",
+    "Until you hold a town, the guide marks the nearest one and asks you to Explore there; tapping the mark plans the drone's whole way to it",
+    "The Chronicle's summary is headed \"Since you last looked\"",
+    "A town's Garrison quotes a manpower range: the tiles around it are only garrisoned once its reach claims them",
+    "Trade offers show Coin per day instead of Coin per hour",
+    "The Ranks panel names the victory leader even when an update left the name blank",
+    "The Manifest coin line shows what you still need and your daily income, without a \"ready in\" time that sat still between deliveries",
+    "Grassland towns are Standard Towns, shown with no terrain bonus instead of +0% on every stat",
+    "\"Muster flags full\" counts a flag that's still being placed",
+    "The Explore button stays while any drone charge is ready, for your first 3 days of a season",
+    "Tapping fog while the drone is flying opens that tile's menu instead of a new flight plan"
+  ]
+};

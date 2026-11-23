@@ -8,9 +8,12 @@ export const AFC_BUILD_COST_GROWTH = 2;
 export const afcBuildCost = (ownedAfcCount: number): number =>
   techGoldCostForResearchedCount(AFC_BUILD_COST_ANCHOR_TECH_COUNT) * AFC_BUILD_COST_GROWTH ** Math.max(0, ownedAfcCount - 1);
 
-/** Campaign-wide replacement supply: the first recorded loss quotes 20 Coin. */
-export const afcReplacementCost = (globalLosses: number): number =>
-  20 + 10 * Math.max(0, globalLosses - 1);
+/**
+ * Replacing a lost AFC costs one flat price. It used to rise by 10 for every AFC lost anywhere
+ * on the planet, so Planetary Defense raids priced newcomers out (160 Coin seen in Playtest Run 4).
+ */
+export const AFC_REPLACEMENT_COST = 20;
+export const afcReplacementCost = (): number => AFC_REPLACEMENT_COST;
 export const AFC_REPLACEMENT_DELIVERY_MS = 60_000;
 
 /** One delivery per player; no history or timer cache is persisted. */

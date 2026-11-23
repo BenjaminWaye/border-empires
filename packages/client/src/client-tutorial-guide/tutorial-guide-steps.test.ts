@@ -115,6 +115,26 @@ describe("tutorial guide steps", () => {
     );
   });
 
+  // Playtest Run 4: a newcomer flew the drone five times in random directions over three mornings and never
+  // saw a town, then built four beacons. With no town known, the guide now marks the nearest real town
+  // (the server's lead) and asks for Explore there, for as many flights as it takes.
+  it("points the drone at the server's town lead while no town is known, never at a beacon loop", () => {
+    const pastFind = new Set(ids("look"));
+    const checklist = { ...baseInput().checklist, step: "EXPAND_RELAY_BEACON" as const, relayBeaconSite: { x: 1, y: 1 } };
+    const lead = { x: 60, y: 8 };
+    const view = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 7, ownsRelayBeacon: true, townLead: lead }), pastFind);
+    expect(view).toEqual(expect.objectContaining({ title: "A town lies this way: tap the marked fog and Explore", highlightTiles: [lead] }));
+    expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
+    const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
+    expect(flying.kind === "step" && flying.title).toBe("Your scout drone is out: wait for its report");
+    // Review of PR #2933: with too few charges for the whole way, a part-way flight would repeat forever: wait.
+    const short = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, townLeadChargesShort: 2 }), pastFind);
+    expect(short).toEqual(expect.objectContaining({ title: "A town lies this way: wait for 2 more drone charges to reach it", highlightTiles: [] }));
+    // Once a town is known (here, beyond reach), the usual town steps take over.
+    const known = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    expect(known.kind === "step" && known.title).toMatch(/build a Relay Beacon/);
+  });
+
   it("tells the player to Garrison a town that is already their frontier, Expand To a neutral town in vision, else build a beacon", () => {
     const pastFind = new Set(ids("look"));
     const found = { ...baseInput().checklist, townFound: true };

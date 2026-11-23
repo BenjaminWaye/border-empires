@@ -38,16 +38,16 @@ const fixture = (options: { gold?: number; losses?: number; ai?: boolean; afc?: 
 };
 
 describe("AFC replacement delivery", () => {
-  it("reserves the global quote, blocks duplicate orders and fabrication, then lands only after 60 seconds", async () => {
+  it("reserves the flat 20 gold price whatever the global losses, blocks duplicate orders and fabrication, then lands only after 60 seconds", async () => {
     const f = fixture({ losses: 5 });
     await f.submit("BUILD_AFC", { x: 15, y: 15 });
-    expect(f.player().points).toBe(440);
+    expect(f.player().points).toBe(480);
     expect(f.events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "recovery-1" }));
-    expect(f.player().afcRecovery?.pending).toMatchObject({ cost: 60, arrivesAt: 61000 });
+    expect(f.player().afcRecovery?.pending).toMatchObject({ cost: 20, arrivesAt: 61000 });
     expect(f.runtime.exportState().tiles.some(t => t.ownerId === "p" && t.afcJson)).toBe(false);
     expect(f.player().manpowerCap).toBe(0);
     await f.submit("BUILD_AFC", { x: 16, y: 16 });
-    expect(f.player().points).toBe(440);
+    expect(f.player().points).toBe(480);
     await f.submit("BUILD_FORT", { x: 17, y: 17 });
     expect(f.events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", code: "AFC_REQUIRED" }));
     f.advance(60999);
@@ -56,7 +56,7 @@ describe("AFC replacement delivery", () => {
     expect(f.runtime.exportState().tiles.find(t => t.x === 15 && t.y === 15)?.afcJson).toContain('"status":"active"');
     expect(f.player().afcRecovery?.pending).toBeUndefined();
     expect(f.player().afcRecovery?.requiredSince).toBeUndefined();
-    expect(f.player().points).toBe(440);
+    expect(f.player().points).toBe(480);
     expect(f.player().manpower).toBeLessThanOrEqual(1000); // no new landing reserve
   });
 
@@ -127,7 +127,7 @@ describe("AFC replacement delivery", () => {
     expect(restored.exportState().tiles.some(t => t.ownerId === "p" && t.afcJson)).toBe(false);
     restored.tickAetherShields(61000);
     expect(restored.exportState().tiles.find(t => t.x === 15 && t.y === 15)?.afcJson).toBeDefined();
-    expect(restored.exportState().players.find(p => p.id === "p")?.points).toBe(390);
+    expect(restored.exportState().players.find(p => p.id === "p")?.points).toBe(480);
   });
 
   it("counts an actual captured AFC once globally and opens recovery for its former owner", async () => {
@@ -156,8 +156,8 @@ describe("AFC replacement delivery", () => {
     expect(f.runtime.ensurePlayerHasAfc("p")).toBe(false);
     expect(f.runtime.exportState().tiles.some(t => t.ownerId === "p" && t.afcJson)).toBe(false);
     f.advance(1000);
-    expect(f.player().afcRecovery?.pending).toMatchObject({ cost: 60, arrivesAt: 61000 });
-    expect(f.player().points).toBe(440);
+    expect(f.player().afcRecovery?.pending).toMatchObject({ cost: 20, arrivesAt: 61000 });
+    expect(f.player().points).toBe(480);
     f.advance(60999);
     expect(f.runtime.exportState().tiles.some(t => t.ownerId === "p" && t.afcJson)).toBe(false);
     f.advance(61000);
