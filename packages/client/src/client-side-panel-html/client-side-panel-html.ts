@@ -1,7 +1,6 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
-import type { LeaderboardOverallEntry } from "../client-types.js";
 
 export type ManpowerPanelMusterFlag = {
   x: number;
@@ -209,35 +208,4 @@ export const renderManpowerPanelHtml = (args: {
       ${musterFlagsSectionHtml(args.musterFlags)}
     </div>
   `;
-};
-
-export const renderSocialInspectCardHtml = (args: {
-  socialInspectPlayerId: string;
-  leaderboardOverall: LeaderboardOverallEntry[];
-  allies: string[];
-  playerNameForOwner: (ownerId: string) => string | undefined;
-}): string => {
-  if (!args.socialInspectPlayerId) return "";
-  const id = args.socialInspectPlayerId;
-  const entry = args.leaderboardOverall.find((player) => player.id === id);
-  const name = args.playerNameForOwner(id) ?? entry?.name ?? id.slice(0, 8);
-  return `<article class="card social-inspect-card">
-    <div class="economy-detail-head">
-      <div>
-        <div class="economy-detail-kicker">Player</div>
-        <strong>${name}</strong>
-      </div>
-      <div class="economy-rate">${args.allies.includes(id) ? "Allied" : "Empire"}</div>
-    </div>
-    <div class="economy-detail-columns">
-      <div class="economy-detail-column">
-        <div class="economy-line"><span>Score</span><strong>${entry ? entry.score.toFixed(0) : "?"}</strong></div>
-        <div class="economy-line"><span>Tiles</span><strong>${entry ? entry.tiles.toFixed(0) : "?"}</strong></div>
-      </div>
-      <div class="economy-detail-column">
-        <div class="economy-line"><span>Income</span><strong>${entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?"}</strong></div>
-        <div class="economy-line"><span>Manifests</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
-      </div>
-    </div>
-  </article>`;
 };

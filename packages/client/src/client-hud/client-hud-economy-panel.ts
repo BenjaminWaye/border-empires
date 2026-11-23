@@ -1,3 +1,5 @@
+import { bindResourceTradeButtons } from "./client-hud-resource-trade-button.js";
+import type { CounterOfferDeps } from "../client-alliance/client-alliance-counter-offer.js";
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, wrappedChebyshevDistance } from "@border-empires/shared";
 // Builds the classic Economy panel from client state. Split out of
 // client-hud.ts, which is over the file-line cap.
@@ -72,6 +74,8 @@ const nearestKnownDeposit = (state: ClientState, resource: string | undefined): 
 type EconomyMapControls = Parameters<typeof focusCameraOnTile>[3] & {
   rerender: () => void;
   noDepositFound: (resource: string) => void;
+  /** Wires Trade commitments' Review trade buttons (client-hud-resource-trade-button.ts). */
+  reviewTrade?: Pick<CounterOfferDeps, "playerNameForOwner" | "sendGameMessage">;
 };
 
 export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState, deps: EconomyMapControls): void => {
@@ -98,4 +102,5 @@ export const bindHudEconomyPanelControls = (root: ParentNode, state: ClientState
       deps.rerender();
     };
   });
+  if (deps.reviewTrade) bindResourceTradeButtons(root, { ...deps.reviewTrade, state });
 };

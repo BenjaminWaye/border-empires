@@ -37,7 +37,7 @@ describe("player-link style regression", () => {
     expect(ruleDepths(source, ".player-link:hover")).toEqual([0]);
   });
 
-  it("keeps the social and manpower card spacing at top level", () => {
-    expect(ruleDepths(source, ".social-inspect-card,\n.manpower-summary-card,\n.manpower-detail-card")).toEqual([0]);
+  it("keeps the manpower card spacing at top level", () => {
+    expect(ruleDepths(source, ".manpower-summary-card,\n.manpower-detail-card")).toEqual([0]);
   });
 });

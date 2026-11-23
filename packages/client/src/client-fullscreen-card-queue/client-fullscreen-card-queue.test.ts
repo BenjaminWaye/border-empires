@@ -124,7 +124,7 @@ const visibleCards = (): string[] =>
     .concat(document.querySelector(".occupation-survey-overlay") ? ["survey"] : []);
 
 describe("post-capture cards", () => {
-  it("shows the capture card, then the waystation card, then the survey, one at a time", () => {
+  it("shows the capture card, then the waystation card, then a tapped survey pin's card, one at a time", () => {
     showTownCaptureOverlay(captureInfo());
     showWaystationActivationOverlay({ x: 5, y: 6, grantedEffect: "GOLD", revealedTown: false, grantedGold: 50, grantedGoldTier: "SMALL", onJumpToLocation: () => undefined });
     occupationSurveyController.record(surveyEntry);
@@ -134,9 +134,14 @@ describe("post-capture cards", () => {
     document.querySelector<HTMLButtonElement>("#town-capture-close")?.click();
     syncSurvey();
     expect(visibleCards()).toEqual(["waystation-activation-overlay"]);
+    // Review 2026-11-23: a tap could not open the clue behind another card, so its pin waits for it to close.
+    expect(occupationSurveyController.pendingReports()).toEqual([]);
 
     document.querySelector<HTMLButtonElement>("#waystation-activation-close")?.click();
     syncSurvey();
+    // The survey clue is a map pin; its card opens on a tap, never on its own.
+    expect(visibleCards()).toEqual([]);
+    occupationSurveyController.open(surveyEntry.id);
     expect(visibleCards()).toEqual(["survey"]);
 
     // A capture arriving while the survey is up waits for it.
