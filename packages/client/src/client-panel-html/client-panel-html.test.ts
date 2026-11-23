@@ -220,6 +220,28 @@ describe("leaderboardHtml", () => {
   });
 });
 
+describe("leaderboardHtml victory leader", () => {
+  const board = {
+    overall: [{ id: "ai-1", name: "Alden", rank: 1, score: 42, tiles: 10, incomePerMinute: 5, techs: 3, manpowerCap: 250 }],
+    selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined,
+    byTiles: [] as never[], byIncome: [] as never[], byTechs: [] as never[]
+  };
+  const dominance = (leaderName: string) => ({
+    id: "DIPLOMATIC_DOMINANCE" as const, name: "Diplomatic Dominance", description: "", leaderPlayerId: "ai-1", leaderName,
+    progressLabel: "4832/57254", thresholdLabel: "", holdDurationSeconds: 0, statusLabel: "", conditionMet: false
+  });
+
+  // Playtest Run 4: a live update with a blank leaderName printed "Leader: · 4832/57254".
+  it("names the leader from the leaderboard when the objective's leader name is blank", () => {
+    const html = leaderboardHtml(board, [dominance("")], undefined);
+    expect(html).toMatch(/Leader: .*Alden.* · 4832\/57254/);
+  });
+
+  it("keeps the objective's own leader name when it has one", () => {
+    expect(leaderboardHtml(board, [dominance("Alden of Vey")], undefined)).toContain("Alden of Vey");
+  });
+});
+
 describe("socialRemainingLabel", () => {
   const MIN = 60_000;
   it("shows hours and leftover minutes from an hour out, not rounding up to the next hour", () => {

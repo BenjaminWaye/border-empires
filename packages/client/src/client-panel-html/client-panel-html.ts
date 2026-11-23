@@ -376,8 +376,14 @@ export const leaderboardHtml = (
   const isSelfPlayer = (playerId: string | undefined): boolean => Boolean(playerId && selfPlayerId && playerId === selfPlayerId);
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
     Boolean(objective.selfProgressLabel) && !isSelfPlayer(objective.leaderPlayerId);
+  // A live objective update can carry a blank leaderName (the gateway recovers names only at INIT), which
+  // printed "Leader: · 4832/57254" (Playtest Run 4); fall back to the leaderboard's name, as HUD v2 does.
+  const leaderNameOf = (objective: SeasonVictoryObjectiveView): string =>
+    objective.leaderName.trim() ||
+    [...leaderboard.overall, ...leaderboard.byTiles, ...leaderboard.byIncome, ...leaderboard.byTechs].find((entry) => entry.id === objective.leaderPlayerId)?.name ||
+    "Unknown House";
   const objectiveLeaderHtml = (objective: SeasonVictoryObjectiveView): string =>
-    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, isSelfPlayer(objective.leaderPlayerId) ? "You" : objective.leaderName, playerColors, dukePlayers) : escapeHtml(objective.leaderName);
+    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, isSelfPlayer(objective.leaderPlayerId) ? "You" : leaderNameOf(objective), playerColors, dukePlayers) : escapeHtml(objective.leaderName);
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
     `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLineHtml(entry)}</div>`).join("")}${
       selfEntry && selfEntry.rank !== 1 && !includesMetricEntry(entries, selfEntry)
