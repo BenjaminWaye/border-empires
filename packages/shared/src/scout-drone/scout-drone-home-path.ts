@@ -1,6 +1,7 @@
 // The scout drone's way home (docs/explore-scout-plan.md §13): straight back to the AFC when
-// nothing is in the way, else the shortest way round any rival border. It used to retrace the
-// whole route whenever a rival border lay across the straight line, so a drone that turned near
+// nothing is in the way, else the way round any rival border with fewest tiles, taken only when it
+// is faster than retracing (a detour over open land, 3s a tile, can be fewer tiles yet slower than
+// flying back over home ground, 1s a tile; review of PR #2931). It used to retrace the whole route whenever a rival border lay across the straight line, so a drone that turned near
 // enemy land flew every stop back again instead of the few tiles home (player report 2026-11-22).
 // Client and server both run this (the route preview must match the flight), so ties are broken
 // by a fixed neighbour order and insertion order, never by anything that varies between them.
@@ -15,7 +16,11 @@ import {
 type Point = { x: number; y: number };
 export type ScoutDroneHomeTile = Point & { stepMs: number };
 
-/** Tiles the search may settle before it gives up and the drone retraces its route instead. */
+/**
+ * Tiles the search may settle before it gives up and the drone retraces its route instead. Counting
+ * tiles keeps the search tight (the estimate is exact over open ground), so a detour of 100 tiles
+ * round a 40-tile rival block settles a few thousand; it also runs on the client while planning.
+ */
 export const SCOUT_DRONE_HOME_SEARCH_MAX_NODES = 20_000;
 
 const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
@@ -32,13 +37,12 @@ const chebyshev = (a: Point, b: Point, world: ScoutDroneWorld): number =>
   Math.max(axisDistance(a.x, b.x, world.width), axisDistance(a.y, b.y, world.height));
 
 /** Each homeward leg is paced by the tile it flies out of, as speedUpScoutDroneFlight judges return legs. */
+const legMs = (from: Point, world: ScoutDroneWorld): number =>
+  world.classify(from.x, from.y).kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS;
+
 const paced = (path: readonly Point[], world: ScoutDroneWorld): ScoutDroneHomeTile[] => {
   const tiles: ScoutDroneHomeTile[] = [];
-  for (let i = 1; i < path.length; i += 1) {
-    const prev = path[i - 1]!;
-    const stepMs = world.classify(prev.x, prev.y).kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS;
-    tiles.push({ x: path[i]!.x, y: path[i]!.y, stepMs });
-  }
+  for (let i = 1; i < path.length; i += 1) tiles.push({ x: path[i]!.x, y: path[i]!.y, stepMs: legMs(path[i - 1]!, world) });
   return tiles;
 };
 
@@ -92,8 +96,9 @@ class OpenSet {
   }
 }
 
-/** A* over 8-way steps a drone may take (scoutDroneBlockAt), shorter than `maxSteps`, or undefined. */
+/** A* over 8-way steps a drone may take (scoutDroneBlockAt), fewest tiles, under `maxSteps` tiles, or undefined. */
 const searchAround = (from: Point, launch: Point, world: ScoutDroneWorld, maxSteps: number): Point[] | undefined => {
+  const estimate = (p: Point): number => chebyshev(p, launch, world);
   const keyOf = (x: number, y: number): number => y * world.width + x;
   const goal = keyOf(wrap(launch.x, world.width), wrap(launch.y, world.height));
   const parent = new Map<number, number>();
@@ -102,7 +107,7 @@ const searchAround = (from: Point, launch: Point, world: ScoutDroneWorld, maxSte
   let seq = 0;
   const startKey = keyOf(wrap(from.x, world.width), wrap(from.y, world.height));
   best.set(startKey, 0);
-  open.push({ key: startKey, x: wrap(from.x, world.width), y: wrap(from.y, world.height), g: 0, f: chebyshev(from, launch, world), seq: seq++ });
+  open.push({ key: startKey, x: wrap(from.x, world.width), y: wrap(from.y, world.height), g: 0, f: estimate(from), seq: seq++ });
   let settled = 0;
   while (open.size > 0 && settled < SCOUT_DRONE_HOME_SEARCH_MAX_NODES) {
     const node = open.pop()!;
@@ -123,7 +128,7 @@ const searchAround = (from: Point, launch: Point, world: ScoutDroneWorld, maxSte
       const known = best.get(key);
       if (known !== undefined && known <= g) continue;
       if (scoutDroneBlockAt(node, next, world)) continue;
-      const f = g + chebyshev(next, launch, world);
+      const f = g + estimate(next);
       if (f >= maxSteps) continue;
       best.set(key, g);
       parent.set(key, node.key);
@@ -135,12 +140,15 @@ const searchAround = (from: Point, launch: Point, world: ScoutDroneWorld, maxSte
 
 /**
  * The tiles home from `from` to `launch` (`from` itself not included): the straight line when it
- * is clear, else the shortest way round the rival borders in between. Undefined when there is no
- * way home in fewer than `maxSteps` tiles (the caller retraces its route, which is that long).
+ * is clear, else the way round the rival borders in between with fewest tiles. Undefined when that
+ * way is no faster than `maxMs` (the caller retraces its route, which takes that long).
  */
-export const scoutDroneHomePath = (from: Point, launch: Point, world: ScoutDroneWorld, maxSteps: number): ScoutDroneHomeTile[] | undefined => {
+export const scoutDroneHomePath = (from: Point, launch: Point, world: ScoutDroneWorld, maxMs: number): ScoutDroneHomeTile[] | undefined => {
   const line = straightLine(from, launch, world);
   if (line) return paced(line, world);
-  const around = searchAround(from, launch, world, maxSteps);
-  return around ? paced(around, world) : undefined;
+  // Every tile takes at least home pace, so no way faster than `maxMs` has more tiles than this.
+  const around = searchAround(from, launch, world, Math.ceil(maxMs / SCOUT_DRONE_HOME_STEP_MS));
+  if (!around) return undefined;
+  const tiles = paced(around, world);
+  return tiles.reduce((sum, tile) => sum + tile.stepMs, 0) < maxMs ? tiles : undefined;
 };

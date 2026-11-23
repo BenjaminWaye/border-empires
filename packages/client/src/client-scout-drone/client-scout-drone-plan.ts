@@ -141,23 +141,30 @@ export type ScoutPlanPreview = {
   readonly flight: ScoutDroneFlight | undefined;
 };
 
+/**
+ * Where a plan whose first stop is `first` starts: the flying drone's anchor (after its last stop while it is
+ * still flying out, or the tile it is flying toward once it is heading home), else the launch AFC. Cheap: it
+ * plans no flight, so the pointer's ghost leg can ask it on every hover (review of PR #2931).
+ */
+export const scoutPlanLaunch = (state: ScoutPlanState, first: Point, nowMs: number): Point | undefined => {
+  const flying = flyingScoutDrone(state, nowMs);
+  if (!flying) return scoutLaunchAfc(state, first);
+  const index = Math.max(0, scoutDroneStepIndexAt(flying, nowMs));
+  const anchor = index + 1 <= flying.turnIndex ? flying.steps[flying.turnIndex]! : flying.steps[Math.min(index + 1, flying.steps.length - 1)]!;
+  return { x: anchor.x, y: anchor.y };
+};
+
 /** The planned route from the launch AFC through `stops` (plus an optional ghost stop for the leg under the pointer). */
 export const scoutPlanPreview = (state: ScoutPlanState, stops: readonly Point[], nowMs: number): ScoutPlanPreview | undefined => {
   const first = stops[0];
   if (!first) return undefined;
+  const launch = scoutPlanLaunch(state, first, nowMs);
+  if (!launch) return undefined;
   const world = clientScoutWorld(state);
   const flying = flyingScoutDrone(state, nowMs);
-  if (flying) {
-    // The new stops join the flying drone's route: after its last stop while it is still flying
-    // out, or from the tile it is flying toward once it is heading home (shared extendScoutDroneFlight).
-    const index = Math.max(0, scoutDroneStepIndexAt(flying, nowMs));
-    const anchor = index + 1 <= flying.turnIndex ? flying.steps[flying.turnIndex]! : flying.steps[Math.min(index + 1, flying.steps.length - 1)]!;
-    const launch = { x: anchor.x, y: anchor.y };
-    return { launch, route: planScoutDroneRoute(launch, stops, world), flight: extendScoutDroneFlight(flying, nowMs, stops, world)?.flight };
-  }
-  const launch = scoutLaunchAfc(state, first);
-  if (!launch) return undefined;
-  return { launch, route: planScoutDroneRoute(launch, stops, world), flight: planScoutDroneWaypointFlight(launch, stops, nowMs, world) };
+  // The new stops join the flying drone's route (shared extendScoutDroneFlight).
+  const flight = flying ? extendScoutDroneFlight(flying, nowMs, stops, world)?.flight : planScoutDroneWaypointFlight(launch, stops, nowMs, world);
+  return { launch, route: planScoutDroneRoute(launch, stops, world), flight };
 };
 
 const isHome = (state: ScoutPlanState, x: number, y: number): boolean => {

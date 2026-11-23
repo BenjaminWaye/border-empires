@@ -134,6 +134,8 @@ let ticker: ReturnType<typeof setInterval> | undefined;
 let current: { state: ClientState; deps: ScoutHudDeps } | undefined;
 /** The scout phase that last folded the guide ("" for none); see clearGuideScoutPeek below. */
 let lastFocusPhase = "";
+/** When a full-screen card covered the HUD (undefined while none does): the report's 90 s pause under it. */
+let coveredSince: number | undefined;
 
 /**
  * "Drone ready": while a charge is ready, in the player's first days this season, and nothing else holds
@@ -267,6 +269,14 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   const cardOver = activeFullscreenCard() !== undefined;
   const mapUp = isMapUnobstructed(state) && !cardOver;
   hookVisibility();
+  // A report already on screen when a card covers it gets back the time it spent hidden, so it is still there
+  // when the card closes (review of PR #2931: a slow Garrison choice let it expire unseen, already acked).
+  const shown = state.scoutDroneReport;
+  if (cardOver) coveredSince ??= nowMs;
+  else if (coveredSince !== undefined) {
+    if (shown && shown.viewed !== false && shown.at <= coveredSince && coveredSince - shown.at < SCOUT_REPORT_CARD_MS) shown.at += nowMs - coveredSince;
+    coveredSince = undefined;
+  }
   // A report that arrived while the page was hidden or loading (a backgrounded tab, a locked phone, a login)
   // starts its 90 s when the player can first see it, and only then counts as seen, for every device: the
   // server keeps it on the player until told (player report 2026-11-21).
@@ -290,17 +300,23 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // review worried a long flight would hide a guide step; the players disagreed: with the guide open in flight
   // it covered the drone and the route for all three (round 6). The step stays one tap away on the launcher.
   // The offer leaves them be.
-  const focusPhase = state.scoutDronePicking.active ? "plan" : pill && !offering ? "flight" : card ? "report" : "";
-  // A tap on "?" opens the guide for this phase only. The phases can follow one another with no gap
-  // (report, then the next plan), so a change of phase, not of scout-focus, folds it again.
-  if (focusPhase !== lastFocusPhase) clearGuideScoutPeek();
-  lastFocusPhase = focusPhase;
-  document.body.classList.toggle("scout-focus", focusPhase !== "");
-  // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
-  document.body.classList.toggle("scout-flying", pill && !offering);
-  // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.
-  // Under a full-screen card the clock keeps ticking, so the pill or report comes back once the card closes.
-  const waiting = cardOver && Boolean((state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) || state.scoutDroneReport);
+  // Under a full-screen card the phase stands as it was: dropping it unfolded the guide behind the card, and
+  // folded a guide step the player had opened once the card closed (review of PR #2931).
+  if (!cardOver) {
+    const focusPhase = state.scoutDronePicking.active ? "plan" : pill && !offering ? "flight" : card ? "report" : "";
+    // A tap on "?" opens the guide for this phase only. The phases can follow one another with no gap
+    // (report, then the next plan), so a change of phase, not of scout-focus, folds it again.
+    if (focusPhase !== lastFocusPhase) clearGuideScoutPeek();
+    lastFocusPhase = focusPhase;
+    document.body.classList.toggle("scout-focus", focusPhase !== "");
+    // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
+    document.body.classList.toggle("scout-flying", pill && !offering);
+  }
+  // The pill's clock moves every second, and the card times out; the dock keeps its own ticker. Under a
+  // full-screen card it keeps ticking only for a drone in the air or a report still to show, so either comes
+  // back once the card closes; a report that timed out before the card opened does not keep it going.
+  const reportWaiting = Boolean(shown && (shown.viewed === false || (coveredSince !== undefined && coveredSince - shown.at < SCOUT_REPORT_CARD_MS)));
+  const waiting = cardOver && (Boolean(state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) || reportWaiting);
   if ((pill || card || waiting) && !ticker) {
     ticker = setInterval(() => {
       if (current) renderScoutDroneHud(current.state, current.deps);

@@ -225,6 +225,50 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     }
   });
 
+  // Review of PR #2931: a report on screen when a card covered it timed out behind the card, already acked.
+  it("keeps a report shown before a full-screen card for its full time once the card closes", () => {
+    const state = baseState();
+    state.scoutDroneReport = { ...report, at: 1_000, viewed: true };
+    let now = 2_000;
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => now };
+    renderScoutDroneHud(state, deps);
+    expect(document.getElementById("scout-report-card")?.style.display).toBe("flex");
+    const overlay = document.body.appendChild(document.createElement("div"));
+    let close = (): void => undefined;
+    enqueueFullscreenCard({ key: "town-capture", show: (done) => ((close = done), overlay) });
+    try {
+      now = 3_000;
+      renderScoutDroneHud(state, deps);
+      expect(document.getElementById("scout-report-card")?.style.display).toBe("none");
+      // The player takes two minutes over the card, longer than the report's own time.
+      now = 3_000 + SCOUT_REPORT_CARD_MS + 30_000;
+      renderScoutDroneHud(state, deps);
+      close();
+      renderScoutDroneHud(state, deps);
+      expect(document.getElementById("scout-report-card")?.style.display).toBe("flex");
+    } finally {
+      overlay.remove();
+      resetFullscreenCardQueueForTests();
+    }
+  });
+
+  it("leaves the scout focus alone under a full-screen card, so the guide does not unfold behind it", () => {
+    const state = baseState();
+    state.scoutDroneFlight = { ...flight };
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 6_000 };
+    renderScoutDroneHud(state, deps);
+    expect(document.body.classList.contains("scout-focus")).toBe(true);
+    const overlay = document.body.appendChild(document.createElement("div"));
+    enqueueFullscreenCard({ key: "town-capture", show: () => overlay });
+    try {
+      renderScoutDroneHud(state, deps);
+      expect(document.body.classList.contains("scout-focus")).toBe(true);
+    } finally {
+      overlay.remove();
+      resetFullscreenCardQueueForTests();
+    }
+  });
+
   it("steps aside while a tile's menu is open", () => {
     const state = baseState();
     state.tileActionMenu = { ...state.tileActionMenu, visible: true };

@@ -71,7 +71,8 @@ a time.
 3. The drone moves one tile per step at Expand To pace. Each step it adds
    radius-3 vision around itself.
 4. At the end of the path it turns around and flies straight home (or the
-   shortest way round a rival border in the way), still revealing. It is available again on landing.
+   shortest way round a rival border in the way), still revealing. It is available
+   again on landing.
 
 A 15-tile trip past the border takes roughly 2 minutes out and 2 minutes
 back, plus the time to cross the player's own land.
@@ -305,7 +306,7 @@ unlimited range and Expand To pace.
 | Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
 | Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
 | Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
-| Route | AFC → each stop → straight home; when a rival border lies across the line home (or ended the route) it takes the shortest way round (`scoutDroneHomePath`, 2026-11-23), retracing only when no shorter way exists; a border met mid-flight or a recall turns it home the same way |
+| Route | AFC → each stop → straight home; when a rival border lies across the line home (or ended the route) it takes the way round with fewest tiles (`scoutDroneHomePath`, 2026-11-23), retracing when that is no faster than the route back (open ground is 3s a tile, home 1s) or no way round is found; a border met mid-flight or a recall turns it home the same way |
 | Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
 Guidance, with almost no text, in one bottom slot (`client-scout-drone-hud.ts`):

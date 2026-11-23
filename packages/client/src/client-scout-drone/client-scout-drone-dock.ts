@@ -9,6 +9,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
 import "./client-scout-drone-dock.css";
+import { activeFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 export type ScoutDockDeps = {
   readonly send: (payload: unknown) => boolean;
@@ -116,6 +117,16 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
     return;
   }
   const el = ensureDock();
+  // Times on the dock (flight time, refill clocks) move every second.
+  ticker ??= setInterval(() => {
+    if (current?.state.scoutDronePicking.active) renderScoutDroneDock(current.state, current.deps);
+  }, 1000);
+  // Under a full-screen card (Town captured...) the dock steps aside like the flight pill, keeping the plan; its
+  // ticker brings it back once the card closes (review of PR #2931: it covered the card's buttons).
+  if (activeFullscreenCard() !== undefined) {
+    el.style.display = "none";
+    return;
+  }
   if (!el.querySelector(".sd-bar")) buildDock(el);
   el.style.display = "flex";
   const view = dockView(state, now());
@@ -128,8 +139,4 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
   go.className = view.goClass;
   go.disabled = !view.goEnabled;
   setHtml(go, view.goHtml);
-  // Times on the dock (flight time, refill clocks) move every second.
-  ticker ??= setInterval(() => {
-    if (current?.state.scoutDronePicking.active) renderScoutDroneDock(current.state, current.deps);
-  }, 1000);
 };
