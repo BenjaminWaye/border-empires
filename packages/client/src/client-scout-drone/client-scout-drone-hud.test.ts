@@ -4,6 +4,7 @@ import type { ScoutDroneFlight } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { scoutClock } from "./client-scout-drone-dock.js";
+import { enqueueFullscreenCard, resetFullscreenCardQueueForTests } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 import { SCOUT_REPORT_CARD_MS, renderScoutDroneHud, scoutDroneReadyToOffer, scoutReportCardVisible, scoutReportChips } from "./client-scout-drone-hud.js";
 /** Same selector as the compact tip lift rule; client-scout-drone-dock-layout.test.ts pins the CSS side. */
 const IN_FLIGHT_PILL = '#scout-drone-pill:not(.is-offer)[style*="flex"]';
@@ -201,6 +202,26 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     renderScoutDroneHud(state, { send: vi.fn(() => true), rerender, focus: vi.fn(), now: () => 1_000 });
     expect(pill.style.display).toBe("none");
     expect(document.querySelector("#scout-drone-dock .sd-go-word")?.textContent).toBe("Tap fog");
+  });
+
+  // Player report 2026-11-22: the flight pill sat over the Town captured card and hid its Garrison button.
+  it("steps aside while a full-screen card such as Town captured is up, and comes back when it closes", () => {
+    const state = baseState();
+    state.scoutDroneFlight = { ...flight };
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 6_000 };
+    const overlay = document.body.appendChild(document.createElement("div"));
+    let close = (): void => undefined;
+    enqueueFullscreenCard({ key: "town-capture", show: (done) => ((close = done), overlay) });
+    try {
+      renderScoutDroneHud(state, deps);
+      expect(document.getElementById("scout-drone-pill")?.style.display ?? "none").toBe("none");
+      close();
+      renderScoutDroneHud(state, deps);
+      expect(document.getElementById("scout-drone-pill")?.style.display).toBe("flex");
+    } finally {
+      overlay.remove();
+      resetFullscreenCardQueueForTests();
+    }
   });
 
   it("steps aside while a tile's menu is open", () => {

@@ -11,6 +11,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, scoutDronePositionAt, type ScoutFind } from 
 import { depositIconKey, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
+import { activeFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 import { renderScoutDroneDock, scoutClock, type ScoutDockDeps } from "./client-scout-drone-dock.js";
 import { canPlanScoutFlight, scoutChargesMax, scoutChargesReady } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client-scout-drone-icons.js";
@@ -255,8 +256,11 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   current = { state, deps };
   const nowMs = (deps.now ?? Date.now)();
   renderScoutDroneDock(state, deps);
-  // Only over the map itself: a flight replayed on reconnect drew the pill over the loading screen.
-  const mapUp = isMapUnobstructed(state);
+  // Only over the map itself: a flight replayed on reconnect drew the pill over the loading screen. Nor over a
+  // full-screen card (Town captured, Waystation activated, occupation survey): the pill sits above them and
+  // covered the Town captured card's Garrison button (player report 2026-11-22).
+  const cardOver = activeFullscreenCard() !== undefined;
+  const mapUp = isMapUnobstructed(state) && !cardOver;
   hookVisibility();
   // A report that arrived while the page was hidden or loading (a backgrounded tab, a locked phone, a login)
   // starts its 90 s when the player can first see it, and only then counts as seen, for every device: the
@@ -290,11 +294,13 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // On a phone the flight pill takes the search lens's corner (client-scout-drone-dock.css).
   document.body.classList.toggle("scout-flying", pill && !offering);
   // The pill's clock moves every second, and the card times out; the dock keeps its own ticker.
-  if ((pill || card) && !ticker) {
+  // Under a full-screen card the clock keeps ticking, so the pill or report comes back once the card closes.
+  const waiting = cardOver && Boolean((state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) || state.scoutDroneReport);
+  if ((pill || card || waiting) && !ticker) {
     ticker = setInterval(() => {
       if (current) renderScoutDroneHud(current.state, current.deps);
     }, 1000);
-  } else if (!pill && !card && ticker) {
+  } else if (!pill && !card && !waiting && ticker) {
     clearInterval(ticker);
     ticker = undefined;
   }
