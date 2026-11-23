@@ -37,7 +37,8 @@ const STATUS_ICON: Record<TownNameplateStatus, string> = {
   unruly: resourceSimpleIconUrl("LUXURY_BIOTA"),
   upgrade: "/icons/simple/town-upgrade.svg",
   war: "/icons/simple/town-war.svg",
-  captured: "/icons/simple/town-captured.svg"
+  // Raised fist, as in Civ resistance: a flag read as the muster flag, not "just taken".
+  captured: "/icons/simple/town-captured-fist.svg"
 };
 // Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
 // Unruly is the biota icon struck through the same way; not garrisoned is the coin icon struck through.
