@@ -20,7 +20,7 @@ const buildRuntime = (ownedAt: { x: number; y: number }, initialState?: ReturnTy
   });
 
 const isExplored = (runtime: SimulationRuntime, x: number, y: number): boolean => {
-  const runs = runtime.exploredTilesFor("explorer-1");
+  const runs = runtime.fogMemoryFor("explorer-1").exploredTiles;
   if (!runs) return false;
   let cell = 0;
   let explored = false;
