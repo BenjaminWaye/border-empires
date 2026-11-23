@@ -77,6 +77,19 @@ describe("planning a scout flight", () => {
     expect(state.scoutDronePicking).toMatchObject({ active: true, stops: [{ x: 40, y: 40 }] });
   });
 
+  // Playtest Run 4: mid-flight, stray map taps kept opening plans and adding stops.
+  it("a tap on fog while the drone flies opens no plan, but Send scout drone still does", () => {
+    const state = pickingState(flight(10_000));
+    expect(handleScoutDronePickClick(state, 40, 40, deps(), 0, false)).toBe(false);
+    expect(state.scoutDronePicking.active).toBe(false);
+    expect(dispatchAfcScoutAction("afc_scout_drone", state)).toBe(true);
+    expect(handleScoutDronePickClick(state, 40, 40, deps(), 0, false)).toBe(true);
+    expect(state.scoutDronePicking.stops).toEqual([{ x: 40, y: 40 }]);
+    // Once it has landed, fog taps plan again.
+    const landed = pickingState(flight(10_000));
+    expect(handleScoutDronePickClick(landed, 40, 40, deps(), 10_000, false)).toBe(true);
+  });
+
   it("pulls a stop that is too far back to the leg's range when sent", () => {
     const state = pickingState();
     const d = deps();

@@ -1,6 +1,7 @@
 // The scout drone's HUD at the bottom of the screen, one slot for three moments (docs/explore-scout-plan.md §13):
 // - planning: the dock (client-scout-drone-dock.ts);
-// - idle with every charge unused: the same pill offers the drone; tapping it opens a plan;
+// - idle with a charge ready, in the player's first days (client-scout-explore-offer-window.ts): the same pill
+//   offers the drone; tapping it opens a plan;
 // - flying: a pill with the drone and the time until it is back; tapping it frames the drone;
 // - landed: the report card, what the flight found as icons with counts (each tappable to frame its finds).
 // While any of them is up, the body carries `scout-focus`, which tucks away the guide card and the House
@@ -12,7 +13,8 @@ import { depositIconKey, resourceIconHtml } from "../client-resource-icons/clien
 import type { ClientState } from "../client-state/client-state.js";
 import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import { renderScoutDroneDock, scoutClock, type ScoutDockDeps } from "./client-scout-drone-dock.js";
-import { canPlanScoutFlight, scoutChargesMax, scoutChargesReady } from "./client-scout-drone-plan.js";
+import { canPlanScoutFlight, scoutChargesReady } from "./client-scout-drone-plan.js";
+import { exploreOfferWindowOpen } from "./client-scout-explore-offer-window.js";
 import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client-scout-drone-icons.js";
 import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
 import { SCOUT_FIND_LABEL as FIND_LABEL, pluralLabel as plural, scoutResourceLabel } from "./client-scout-drone-find-labels.js";
@@ -133,9 +135,11 @@ let current: { state: ClientState; deps: ScoutHudDeps } | undefined;
 let lastFocusPhase = "";
 
 /**
- * "Drone ready": while every charge is unused and nothing else holds the slot, the pill offers the drone,
- * and tapping it opens a plan, so a player who never thought to tap the fog sees there is a drone to send
- * (player review 2026-11-21; the owner had the "tap here" marker on the map removed).
+ * "Drone ready": while a charge is ready, in the player's first days this season, and nothing else holds
+ * the slot, the pill offers the drone, and tapping it opens a plan, so a player who never thought to tap
+ * the fog sees there is a drone to send (player review 2026-11-21; the owner had the "tap here" marker on
+ * the map removed). It used to need every charge unused, so it vanished after the first flight while
+ * charges remained (four Run 4 personas); after the first days it steps aside (owner, Playtest Run 4).
  */
 export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boolean =>
   !state.scoutDronePicking.active &&
@@ -147,7 +151,8 @@ export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boole
   !state.buildingPlacement.active &&
   !(state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) &&
   canPlanScoutFlight(state) &&
-  scoutChargesReady(state, nowMs) >= scoutChargesMax(state);
+  scoutChargesReady(state, nowMs) > 0 &&
+  exploreOfferWindowOpen(state, nowMs);
 
 const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardUp: boolean): boolean => {
   const flight = state.scoutDroneFlight;

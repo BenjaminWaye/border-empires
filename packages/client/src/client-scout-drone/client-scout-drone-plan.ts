@@ -141,10 +141,15 @@ export const undoScoutPlanStop = (state: Pick<ClientState, "scoutDronePicking">)
 /** True when the player can plan at all: an active AFC to launch from. */
 export const canPlanScoutFlight = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): boolean => ownActiveAfcs(state).length > 0;
 
-/** True when a tap at (wx, wy) with no plan open would start one: fog never explored, no tile data, off home ground. */
-export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number): boolean => {
+/**
+ * True when a tap at (wx, wy) with no plan open would start one: fog never explored, no tile data, off home
+ * ground, and no drone in the air. Mid-flight, stray map taps kept opening plans and adding stops (Playtest
+ * Run 4), so a fog tap then opens the tile's menu, whose Explore adds that one stop; Send scout drone on
+ * the AFC still opens a plan for several.
+ */
+export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number, nowMs: number = Date.now()): boolean => {
   const key = keyOf(wx, wy);
-  return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state);
+  return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state) && !flyingScoutDrone(state, nowMs);
 };
 
 /**
@@ -156,7 +161,7 @@ export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number
   const plan = state.scoutDronePicking;
   if (!plan.active) {
     // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
-    if (!scoutPlanTapStarts(state, wx, wy)) return false;
+    if (!scoutPlanTapStarts(state, wx, wy, nowMs)) return false;
     plan.active = true;
     plan.stops = [];
   }

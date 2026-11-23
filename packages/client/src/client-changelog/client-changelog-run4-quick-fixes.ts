@@ -13,6 +13,8 @@ export const RUN4_QUICK_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The Ranks panel names the victory leader even when an update left the name blank",
     "The Manifest coin line shows what you still need and your daily income, without a \"ready in\" time that sat still between deliveries",
     "Grassland towns are Standard Towns, shown with no terrain bonus instead of +0% on every stat",
-    "\"Muster flags full\" counts a flag that's still being placed"
+    "\"Muster flags full\" counts a flag that's still being placed",
+    "The Explore button stays while any drone charge is ready, for your first 3 days of a season",
+    "Tapping fog while the drone is flying opens that tile's menu instead of a new flight plan"
   ]
 };
