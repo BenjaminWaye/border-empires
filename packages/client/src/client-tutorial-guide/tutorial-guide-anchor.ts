@@ -17,6 +17,8 @@ export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
   manpower: '[data-hud-v2-open="manpower"]',
   manifest: '[data-hud-v2-open="manifest"]',
   afc: '[data-hud-v2-open="afc"]',
+  // The confirm sheet first: while it is open the tile's Stage Muster button is still on screen behind it.
+  muster: '[data-sheet="stage-muster"] [data-pact-go], [data-hud-v2-action="muster_hold"], [data-action="muster_hold"]',
   activity: '[data-hud-v2-open="chronicle"]',
   diplomacy: '.hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };
@@ -70,6 +72,8 @@ export const syncGuideAnchorOutline = (anchor: GuideAnchorId | undefined): void 
     outline.setAttribute("aria-hidden", "true");
     document.body.appendChild(outline);
   }
+  // Confirm sheets sit far above the HUD; the outline must draw over the one it points into.
+  outline.style.zIndex = target.closest(".break-pact-overlay") ? "10000" : "";
   const rect = target.getBoundingClientRect();
   outline.style.left = `${rect.left - OUTLINE_PADDING_PX}px`;
   outline.style.top = `${rect.top - OUTLINE_PADDING_PX}px`;
