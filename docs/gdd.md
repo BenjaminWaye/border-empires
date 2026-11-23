@@ -143,7 +143,7 @@ product, including paid Houses.
 |---|---|---|
 | Free play | The full game in the one free public sector | Launch |
 | Hosted sector | A private Sector Contest for a host and the people they invite, with AI Houses filling the rest. Paid by one host or split among a group; it opens when its funding bar is full | Launch |
-| Cosmetics | 3–5 one-time purchases (House crest, colour scheme, capital skin, beacon skin), kept permanently across contests | Launch |
+| Cosmetics | One-time purchases kept permanently across contests. Launch set, in build order (decided 2026-11-23): muster flag design, House crest, colour scheme, beacon skin, capital skin | Launch |
 | Paid playable Houses | Houses that play differently, balanced as sidegrades | Decide after the first public contest, on its data |
 
 - **Paid sectors cover themselves.** A hosted sector opens only when it is
@@ -157,7 +157,9 @@ product, including paid Houses.
 - **Smaller maps cost less.** Prices are set after load testing shows what a
   server can hold.
 - **Purchases belong to the account, not the device.** The web is the main
-  shop, through a provider that handles sales tax and VAT. The apps show what
+  shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
+  the money but does not file sales tax or VAT for the owner; registration and
+  filing stay with the owner. The apps show what
   the account owns. In-app purchases are added if a store requires them or
   they clearly sell better.
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
