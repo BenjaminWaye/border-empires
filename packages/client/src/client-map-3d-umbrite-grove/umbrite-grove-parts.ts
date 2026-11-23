@@ -3,9 +3,9 @@ import { createSplitTimberGeometry, type SplitTimberOptions } from "./umbrite-sp
 
 // The three Umbrite discoveries in a forest -- the map's three deposit
 // variants (client-map-3d-umbrite-deposit.ts) and the Storybook study
-// (Sandbox / Umbrite Forest). Only the mineralized wood lives here; the
-// living trees around it come from UMBRITE_GROVE_TREES, drawn with the
-// ordinary forest tree models. Coordinates are tile-local: one tile spans
+// (Sandbox / Umbrite Forest). Only the mineralized wood lives here. The study
+// stands its own trees (UMBRITE_GROVE_TREES); the live map keeps the tile's
+// ordinary forest and clears UMBRITE_GROVE_CLEARINGS for the find. Coordinates are tile-local: one tile spans
 // about -0.5..0.5 on x/z, y is up from the ground.
 export type UmbriteGroveConcept = "roots" | "rootbed" | "fallen";
 export const UMBRITE_GROVE_CONCEPTS: readonly UmbriteGroveConcept[] = ["roots", "rootbed", "fallen"];
@@ -36,11 +36,27 @@ export const UMBRITE_GROVE_GLOWS: Readonly<Record<UmbriteGroveConcept, readonly 
   rootbed: [[-0.1, 0.045, 0.19], [0.13, 0.04, 0.23]],
   fallen: [[-0.22, 0.12, 0.19], [-0.07, 0.055, 0.25], [0.26, 0.035, 0.34]]
 };
+// Where each discovery needs open ground: the live map drops any forest
+// tree whose base falls inside one of these [x, z, radius] circles, so
+// trees stand around the find rather than through it.
+export const UMBRITE_GROVE_CLEARINGS: Readonly<Record<UmbriteGroveConcept, readonly Point[]>> = {
+  roots: [[0, 0.09, 0.3]],
+  rootbed: [[0, 0.2, 0.2]],
+  fallen: [[-0.21, 0.16, 0.12], [0.05, 0.25, 0.13], [0.25, 0.33, 0.13]]
+};
+export const umbriteGroveClearsTreeAt = (concept: UmbriteGroveConcept, x: number, z: number): boolean =>
+  UMBRITE_GROVE_CLEARINGS[concept].some(([cx, cz, r]) => (x - cx) ** 2 + (z - cz) ** 2 < r * r);
+/** "study": the Storybook close-up. "map": fewer facets per limb for the
+ * live map, where a deposit is a few dozen pixels across. */
+export type UmbriteGroveDetail = "study" | "map";
 // The forest tree models' base radii (pine .032, spruce .028, broadleaf
 // .034, palm .038), at a normal forest tree scale.
 const TRUNK_RADIUS: Readonly<Record<UmbriteGroveSpecies, number>> = { pine: 0.032, spruce: 0.028, broadleaf: 0.034, palm: 0.038 };
 
-export const buildUmbriteGroveParts = (concept: UmbriteGroveConcept, species: UmbriteGroveSpecies = "pine"): UmbriteGrovePart[] => {
+export const buildUmbriteGroveParts = (
+  concept: UmbriteGroveConcept, species: UmbriteGroveSpecies = "pine", detail: UmbriteGroveDetail = "study"
+): UmbriteGrovePart[] => {
+  const [radialSegments, heightSegments] = detail === "study" ? [9, 6] : [5, 2];
   const parts: UmbriteGrovePart[] = [];
   const add = (geometry: BufferGeometry, material: UmbriteGroveMaterial, matrix = new Matrix4()): void => {
     parts.push({ geometry, material, matrix });
@@ -53,7 +69,7 @@ export const buildUmbriteGroveParts = (concept: UmbriteGroveConcept, species: Um
     // Bend the trunk between its fixed endpoints, and vary the bark radius
     // gently so forks do not look like a collection of straight tubes.
     const length = direction.length();
-    const geometry = new CylinderGeometry(tip, base, length, 9, 6);
+    const geometry = new CylinderGeometry(tip, base, length, radialSegments, heightSegments);
     const vertices = geometry.getAttribute("position");
     for (let i = 0; i < vertices.count; i += 1) {
       const t = vertices.getY(i) / length + 0.5;

@@ -86,7 +86,7 @@ import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defens
 import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js"; import { createAfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js"; import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
-import { createResourceOverlay } from "../client-map-3d-resource-overlay.js"; import { createFarmlandOverlay } from "../client-map-3d-farmland/client-map-3d-farmland.js"; import { createFishingOverlay, fishingWaterDirection } from "../client-map-3d-fishing/client-map-3d-fishing.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
+import { createResourceOverlay } from "../client-map-3d-resource-overlay.js"; import { createFarmlandOverlay } from "../client-map-3d-farmland/client-map-3d-farmland.js"; import { createFishingOverlay, fishingWaterDirection } from "../client-map-3d-fishing/client-map-3d-fishing.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay, umbriteDepositForestKeepSlot } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -820,12 +820,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           continue;
         }
         // Resolve the underlying resource once per tile — used by the resource overlay (for the icon), the structure
-        // overlay (a MINE on GEMS loads blue crystals, not grey ore) and the forest (an Umbrite deposit brings its own trees).
+        // overlay (a MINE on GEMS loads blue crystals, not grey ore) and the forest (which clears a space for an Umbrite deposit).
         const tileResource = terrain === "LAND"
           ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
           : undefined;
-        if (shouldDrawForestInstance(forestTile, tile) && !umbriteDepositDrawnOnTile(tileResource, tile, wx, wy)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, standingTreeFilter(tile, wx, wy));
+        if (shouldDrawForestInstance(forestTile, tile)) {
+          const keepTree = standingTreeFilter(tile, wx, wy); // an Umbrite deposit also clears a space among the trees
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, umbriteDepositDrawnOnTile(tileResource, tile, wx, wy) ? umbriteDepositForestKeepSlot(wx, wy, keepTree) : keepTree);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "LAND") addTownForTile({ tile, tileKey, x, z, surfaceY, wx, wy }, townPlacement);

@@ -62,20 +62,31 @@ export const addRawResourceInstance = (
     overlays.fishing.addInstance(sceneX, sceneZ, at.flatOverlayY, worldTileX, worldTileY, fishingWater());
     return;
   }
-  if (!shouldRenderRawResource(resource, tile)) return;
-  const refined = overlays.refined && !tile?.economicStructure ? refinedDepositAt(worldTileX, worldTileY) : undefined;
-  if (refined && refined === resource) {
-    overlays.refined!.addInstance(sceneX, sceneZ, surfaceY, refined, worldTileX, worldTileY);
-    return;
-  }
-  if (resource === "TITANIUM") overlays.titaniumDeposit.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
-  else if (resource === "UMBRITE") overlays.umbriteDeposit.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
-  else overlays.generic.addInstance(sceneX, sceneZ, surfaceY, resource, worldTileX, worldTileY);
+  const route = strategicDepositRoute(resource, tile, worldTileX, worldTileY, Boolean(overlays.refined));
+  if (route === "none") return;
+  if (route === "refined") overlays.refined!.addInstance(sceneX, sceneZ, surfaceY, resource as "TITANIUM" | "GEMS" | "UMBRITE", worldTileX, worldTileY);
+  else if (route === "titaniumDeposit") overlays.titaniumDeposit.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
+  // Ground-hugging wood (roots, a fallen log): on a hill, seat it on the dome
+  // rather than the prop height, which would leave it floating.
+  else if (route === "umbriteDeposit") overlays.umbriteDeposit.addInstance(sceneX, sceneZ, at.flatOverlayY, worldTileX, worldTileY);
+  else if (resource !== "TITANIUM" && resource !== "UMBRITE") overlays.generic.addInstance(sceneX, sceneZ, surfaceY, resource, worldTileX, worldTileY);
 };
 
-// True when addRawResourceInstance draws the Umbrite deposit (not a refined
-// rig, nor nothing) on this tile. The deposit brings its own clearing of
-// trees, so the renderer skips the tile's ordinary forest then.
+type StrategicDepositRoute = "none" | "refined" | "titaniumDeposit" | "umbriteDeposit" | "generic";
+// Which overlay draws a non-FARM, non-FISH raw resource. Shared by the
+// dispatcher above and umbriteDepositDrawnOnTile so the two cannot drift.
+const strategicDepositRoute = (
+  resource: ResourceType, tile: Tile | undefined, worldTileX: number, worldTileY: number, refinedOverlay: boolean
+): StrategicDepositRoute => {
+  if (!shouldRenderRawResource(resource, tile)) return "none";
+  const refined = refinedOverlay && !tile?.economicStructure ? refinedDepositAt(worldTileX, worldTileY) : undefined;
+  if (refined && refined === resource) return "refined";
+  if (resource === "TITANIUM") return "titaniumDeposit";
+  if (resource === "UMBRITE") return "umbriteDeposit";
+  return "generic";
+};
+
+// True when the live renderer (which always has a refined overlay) draws the
+// Umbrite deposit on this tile, so the tile's forest clears a space for it.
 export const umbriteDepositDrawnOnTile = (resource: ResourceType | undefined, tile: Tile | undefined, worldTileX: number, worldTileY: number): boolean =>
-  resource === "UMBRITE" && shouldRenderRawResource(resource, tile)
-  && (Boolean(tile?.economicStructure) || refinedDepositAt(worldTileX, worldTileY) !== "UMBRITE");
+  resource === "UMBRITE" && strategicDepositRoute(resource, tile, worldTileX, worldTileY, true) === "umbriteDeposit";

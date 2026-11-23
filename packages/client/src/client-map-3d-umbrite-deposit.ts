@@ -4,21 +4,16 @@
 //   1 · B Umbrite Rootbed: a network of split roots with violet heartwood.
 //   2 · C Fallen Umberwood: a split stump and its fallen, mineralized log.
 // The models are shared with the Storybook study (Sandbox / Umbrite Forest)
-// via client-map-3d-umbrite-grove/umbrite-grove-parts.ts. On a forest tile
-// the deposit also stands its own clearing of living trees (in the tile's
-// usual species), and the renderer skips that tile's ordinary forest
-// (umbriteDepositDrawnOnTile) so trees never grow through the discovery.
+// via client-map-3d-umbrite-grove/umbrite-grove-parts.ts. The deposit draws
+// only the mineralized wood: on a forest tile the ordinary forest still
+// stands (with its river-bank, war and AFC-hold rules), minus the trees in
+// the find's clearing -- see umbriteDepositForestKeepSlot.
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { Color, DoubleSide, InstancedMesh, Matrix4, MeshStandardMaterial, Scene, type BufferGeometry, type Texture } from "three";
-import { isForestTileAt, isTropicalForestTileAt } from "@border-empires/shared";
+import { DoubleSide, InstancedMesh, Matrix4, MeshStandardMaterial, Scene, type BufferGeometry, type Texture } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
-import { tileHash } from "./client-map-3d-forest.js";
-import { commitInstanceTint } from "./client-map-3d-instance-tint.js";
-import { createTreeMaterial, driveTreeWind } from "./client-map-3d-trees/client-map-3d-tree-material.js";
-import { createLeafGeometry, createPalmGeometry, createPineGeometry, createSpruceGeometry } from "./client-map-3d-trees/client-map-3d-tree-models.js";
-import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/client-map-3d-tree-variation.js";
+import { LAYOUTS, tileHash } from "./client-map-3d-forest.js";
 import {
-  UMBRITE_GROVE_CONCEPTS, UMBRITE_GROVE_MATERIALS, UMBRITE_GROVE_TREES, buildUmbriteGroveParts,
+  UMBRITE_GROVE_CONCEPTS, UMBRITE_GROVE_MATERIALS, buildUmbriteGroveParts, umbriteGroveClearsTreeAt,
   type UmbriteGroveConcept, type UmbriteGroveMaterial
 } from "./client-map-3d-umbrite-grove/umbrite-grove-parts.js";
 
@@ -30,6 +25,24 @@ export const umbriteDepositVariantAt = (worldX: number, worldZ: number): Umbrite
 };
 
 export const umbriteDepositConceptOf = (variant: UmbriteDepositVariant): UmbriteGroveConcept => UMBRITE_GROVE_CONCEPTS[variant]!;
+
+/**
+ * The forest's keep-slot filter for a tile the deposit is drawn on: drops
+ * the trees in the find's clearing, and otherwise defers to `keep` (war
+ * thinning). Uses the same per-tile layout pick as createForest and
+ * createTropicalForest, so slot N here is the same tree they place.
+ */
+export const umbriteDepositForestKeepSlot = (
+  worldX: number, worldZ: number, keep: ((slot: number) => boolean) | undefined
+): ((slot: number) => boolean) => {
+  const layout = LAYOUTS[tileHash(worldX, worldZ, 7, LAYOUTS.length)]!;
+  const concept = umbriteDepositConceptOf(umbriteDepositVariantAt(worldX, worldZ));
+  return (slot) => {
+    const tree = layout[slot];
+    if (tree && umbriteGroveClearsTreeAt(concept, tree.ox, tree.oz)) return false;
+    return keep ? keep(slot) : true;
+  };
+};
 
 export type UmbriteDepositOverlay = {
   readonly clear: () => void;
@@ -57,7 +70,7 @@ const createGroveMaterials = (): Record<UmbriteGroveMaterial, MeshStandardMateri
 // One geometry per variant, with a draw group per material, so a deposit
 // costs a single instance (and a single draw call per material) per tile.
 const bakeGroveGeometry = (concept: UmbriteGroveConcept): { geometry: BufferGeometry; materials: UmbriteGroveMaterial[] } => {
-  const parts = buildUmbriteGroveParts(concept);
+  const parts = buildUmbriteGroveParts(concept, "pine", "map");
   const byMaterial: BufferGeometry[] = [];
   const materials: UmbriteGroveMaterial[] = [];
   for (const key of UMBRITE_GROVE_MATERIALS) {
@@ -79,87 +92,51 @@ const bakeGroveGeometry = (concept: UmbriteGroveConcept): { geometry: BufferGeom
   return { geometry, materials };
 };
 
-type Pool = { readonly mesh: InstancedMesh; readonly cap: number; count: number };
-const TREES_PER_GROVE = Math.max(...UMBRITE_GROVE_CONCEPTS.map((concept) => UMBRITE_GROVE_TREES[concept].length));
+type Pool = { readonly mesh: InstancedMesh; count: number };
 
 export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): UmbriteDepositOverlay => {
   const groveMaterials = createGroveMaterials();
   Object.values(groveMaterials).forEach((material) => applyBuildingEnvMap(material, buildingEnvironmentTexture));
-  const pools: Pool[] = [];
-  const pool = (geometry: BufferGeometry, material: MeshStandardMaterial | MeshStandardMaterial[], cap: number): Pool => {
-    const mesh = new InstancedMesh(geometry, material, cap);
+  const groves: Pool[] = UMBRITE_GROVE_CONCEPTS.map((concept) => {
+    const baked = bakeGroveGeometry(concept);
+    const mesh = new InstancedMesh(baked.geometry, baked.materials.map((key) => groveMaterials[key]), maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
-    const result: Pool = { mesh, cap, count: 0 };
-    pools.push(result);
-    return result;
-  };
-  const groves = UMBRITE_GROVE_CONCEPTS.map((concept) => {
-    const baked = bakeGroveGeometry(concept);
-    return pool(baked.geometry, baked.materials.map((key) => groveMaterials[key]), maxTiles);
+    return { mesh, count: 0 };
   });
-  // The forest's own species pick (client-map-3d-forest.ts): pine, spruce,
-  // leaf -- and palms in the tropical belt.
-  const treeMaterial = createTreeMaterial();
-  const palmMaterial = createTreeMaterial({ doubleSided: true });
-  const treeCap = maxTiles * TREES_PER_GROVE;
-  const trees = [createPineGeometry(), createSpruceGeometry(), createLeafGeometry()].map((geometry) => pool(geometry, treeMaterial, treeCap));
-  const palms = pool(createPalmGeometry(), palmMaterial, treeCap);
-  [...trees, palms].forEach((treePool) => driveTreeWind(treePool.mesh));
-
   const matrix = new Matrix4();
-  const color = new Color();
-  const placement = createTreePlacement();
 
   const clear = (): void => {
-    for (const entry of pools) entry.count = 0;
+    for (const grove of groves) grove.count = 0;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
-    const variant = umbriteDepositVariantAt(worldTileX, worldTileY);
-    const grove = groves[variant]!;
-    if (grove.count >= grove.cap) return;
+    const grove = groves[umbriteDepositVariantAt(worldTileX, worldTileY)]!;
+    if (grove.count >= maxTiles) return;
     grove.mesh.setMatrixAt(grove.count, matrix.makeTranslation(sceneX, surfaceY, sceneZ));
     grove.count += 1;
-    if (!isForestTileAt(worldTileX, worldTileY)) return;
-    const treePool = isTropicalForestTileAt(worldTileX, worldTileY) ? palms : trees[tileHash(worldTileX, worldTileY, 11, 3)]!;
-    UMBRITE_GROVE_TREES[umbriteDepositConceptOf(variant)].forEach(([ox, oz, scale], slot) => {
-      if (treePool.count >= treePool.cap) return;
-      placement.x = sceneX + ox;
-      placement.y = surfaceY;
-      placement.z = sceneZ + oz;
-      placement.scale = scale;
-      placement.worldX = worldTileX;
-      placement.worldZ = worldTileY;
-      placement.slot = slot;
-      placement.tint = undefined;
-      composeTreeInstance(placement, matrix, color);
-      treePool.mesh.setMatrixAt(treePool.count, matrix);
-      treePool.mesh.setColorAt(treePool.count, color);
-      treePool.count += 1;
-    });
   };
 
   const commit = (): void => {
-    for (const { mesh, count } of pools) {
+    for (const { mesh, count } of groves) {
       mesh.count = count;
       if (count === 0) continue;
       mesh.instanceMatrix.clearUpdateRanges();
       mesh.instanceMatrix.addUpdateRange(0, count * 16);
       mesh.instanceMatrix.needsUpdate = true;
-      commitInstanceTint(mesh);
     }
   };
 
   const dispose = (): void => {
-    for (const { mesh } of pools) {
+    for (const { mesh } of groves) {
       scene.remove(mesh);
       mesh.geometry.dispose();
+      mesh.dispose();
     }
-    [...Object.values(groveMaterials), treeMaterial, palmMaterial].forEach((material) => material.dispose());
+    Object.values(groveMaterials).forEach((material) => material.dispose());
   };
 
   return { clear, addInstance, commit, dispose };

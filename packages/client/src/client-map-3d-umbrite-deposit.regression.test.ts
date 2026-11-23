@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Scene } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, isForestTileAt, setWorldSeed } from "@border-empires/shared";
-import { createUmbriteDepositOverlay, umbriteDepositConceptOf, umbriteDepositVariantAt } from "./client-map-3d-umbrite-deposit.js";
-import { UMBRITE_GROVE_TREES } from "./client-map-3d-umbrite-grove/umbrite-grove-parts.js";
+import { LAYOUTS, tileHash } from "./client-map-3d-forest.js";
+import { createUmbriteDepositOverlay, umbriteDepositConceptOf, umbriteDepositForestKeepSlot, umbriteDepositVariantAt } from "./client-map-3d-umbrite-deposit.js";
+import { umbriteGroveClearsTreeAt } from "./client-map-3d-umbrite-grove/umbrite-grove-parts.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
@@ -91,33 +91,35 @@ describe("umbrite deposit overlay", () => {
     expect([0, 1, 2].map((v) => umbriteDepositConceptOf(v as 0 | 1 | 2))).toEqual(["roots", "rootbed", "fallen"]);
   });
 
-  const findTile = (forest: boolean): [number, number] => {
-    setWorldSeed(77, "continents", 1);
-    for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-      for (let x = 0; x < WORLD_WIDTH; x += 1) if (isForestTileAt(x, y) === forest) return [x, y];
-    }
-    throw new Error("no matching tile");
-  };
-  // Grove meshes are the multi-material ones; trees each use one material.
-  const treeCount = (scene: Scene): number =>
-    instancedMeshes(scene).filter((mesh) => !Array.isArray(mesh.material)).reduce((total, mesh) => total + mesh.count, 0);
-  const groveCount = (scene: Scene): number =>
-    instancedMeshes(scene).filter((mesh) => Array.isArray(mesh.material)).reduce((total, mesh) => total + mesh.count, 0);
-
-  it("stands the concept's own clearing of trees on a forest tile, and none off forest", () => {
-    const [fx, fy] = findTile(true);
-    const [bx, by] = findTile(false);
+  it("draws only the mineralized wood: one instance per deposit, no trees of its own", () => {
     const scene = new Scene();
-    const overlay = createUmbriteDepositOverlay(scene, 2);
-    overlay.addInstance(0, 0, 0, fx, fy);
+    const overlay = createUmbriteDepositOverlay(scene, 4);
+    for (let x = 0; x < 4; x += 1) overlay.addInstance(x, 0, 0, x, 7);
     overlay.commit();
-    expect(groveCount(scene)).toBe(1);
-    expect(treeCount(scene)).toBe(UMBRITE_GROVE_TREES[umbriteDepositConceptOf(umbriteDepositVariantAt(fx, fy))].length);
-    overlay.clear();
-    overlay.addInstance(0, 0, 0, bx, by);
-    overlay.commit();
-    expect(groveCount(scene)).toBe(1);
-    expect(treeCount(scene)).toBe(0);
+    expect(instancedMeshes(scene)).toHaveLength(3);
+    expect(instancedMeshes(scene).reduce((total, mesh) => total + mesh.count, 0)).toBe(4);
     overlay.dispose();
+  });
+
+  it("clears the find's space in the tile's forest layout and keeps the rest", () => {
+    for (let wx = 0; wx < 40; wx += 1) {
+      const layout = LAYOUTS[tileHash(wx, 3, 7, LAYOUTS.length)]!;
+      const concept = umbriteDepositConceptOf(umbriteDepositVariantAt(wx, 3));
+      const keep = umbriteDepositForestKeepSlot(wx, 3, undefined);
+      layout.forEach((tree, slot) => expect(keep(slot)).toBe(!umbriteGroveClearsTreeAt(concept, tree.ox, tree.oz)));
+      // Some trees always survive around the find, and some always make way.
+      const kept = layout.filter((_, slot) => keep(slot)).length;
+      expect(kept).toBeGreaterThan(0);
+    }
+    const cleared = Array.from({ length: 40 }, (_, wx) => {
+      const keep = umbriteDepositForestKeepSlot(wx, 3, undefined);
+      return LAYOUTS[tileHash(wx, 3, 7, LAYOUTS.length)]!.some((_, slot) => !keep(slot));
+    });
+    expect(cleared.some(Boolean)).toBe(true);
+  });
+
+  it("still applies the forest's own filter (war thinning) to trees outside the clearing", () => {
+    const keep = umbriteDepositForestKeepSlot(5, 5, () => false);
+    LAYOUTS[tileHash(5, 5, 7, LAYOUTS.length)]!.forEach((_, slot) => expect(keep(slot)).toBe(false));
   });
 });
