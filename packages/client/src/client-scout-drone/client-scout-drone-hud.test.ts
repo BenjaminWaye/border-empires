@@ -5,6 +5,7 @@ import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { scoutClock } from "./client-scout-drone-dock.js";
 import { enqueueFullscreenCard, resetFullscreenCardQueueForTests } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+import { resetExploreOfferWindowForTests } from "./client-scout-explore-offer-window.js";
 import { SCOUT_REPORT_CARD_MS, renderScoutDroneHud, scoutDroneReadyToOffer, scoutReportCardVisible, scoutReportChips } from "./client-scout-drone-hud.js";
 /** Same selector as the compact tip lift rule; client-scout-drone-dock-layout.test.ts pins the CSS side. */
 const IN_FLIGHT_PILL = '#scout-drone-pill:not(.is-offer)[style*="flex"]';
@@ -231,11 +232,29 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(document.getElementById("scout-drone-pill")?.style.display ?? "none").toBe("none");
   });
 
-  it("does not offer the drone once a charge is spent", () => {
+  // Playtest Run 4: the pill needed every charge unused, so it vanished after the first flight with 7 left.
+  it("keeps offering the drone while any charge is ready, and not once all are spent", () => {
     const state = baseState();
     state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: [0] };
-    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender: vi.fn(), focus: vi.fn(), now: () => 1_000 });
-    expect(document.getElementById("scout-drone-pill")?.style.display ?? "none").toBe("none");
+    expect(scoutDroneReadyToOffer(state, 1_000)).toBe(true);
+    state.scoutDroneCharges = { max: 2, refillMs: 14_400_000, usedAt: [0, 0] };
+    expect(scoutDroneReadyToOffer(state, 1_000)).toBe(false);
+  });
+
+  // Owner, Playtest Run 4: by a House's third day the pill only sits over the map.
+  it("stops offering the drone 3 days after the player was first seen this season, and again offers it next season", () => {
+    resetExploreOfferWindowForTests();
+    window.localStorage.clear();
+    const state = baseState();
+    state.bridgeDebugSeasonId = "season-46";
+    const day = 24 * 3_600_000;
+    expect(scoutDroneReadyToOffer(state, 1_000)).toBe(true);
+    expect(scoutDroneReadyToOffer(state, 1_000 + 3 * day - 1)).toBe(true);
+    expect(scoutDroneReadyToOffer(state, 1_000 + 3 * day)).toBe(false);
+    resetExploreOfferWindowForTests(); // a reload reads the stored first visit
+    expect(scoutDroneReadyToOffer(state, 1_000 + 3 * day)).toBe(false);
+    state.bridgeDebugSeasonId = "season-47";
+    expect(scoutDroneReadyToOffer(state, 1_000 + 3 * day)).toBe(true);
   });
 
   // Review 2026-11-21: the offer armed a plan on top of another armed pick (Aether Wall, marches, placement).

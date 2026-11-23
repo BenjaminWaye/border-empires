@@ -31,7 +31,7 @@ export function orderAfcReplacement(context: RuntimeStructureCommandContext, act
   if (actor.afcRecovery?.pending) return "An AFC delivery is already in progress";
   if (!validReplacementSite(context, actor.id, x, y)) return "Choose an empty owned landing site with a clear AFC footprint";
   const globalLosses = context.afcGlobalLosses?.() ?? actor.afcRecovery?.globalLosses ?? 0;
-  const cost = afcReplacementCost(globalLosses);
+  const cost = afcReplacementCost();
   if (actor.points < cost) return `Replacement AFC needs ${cost} gold. Continue fighting or withdraw and redeploy.`;
   context.applyManpowerRegen(actor);
   actor.points -= cost;

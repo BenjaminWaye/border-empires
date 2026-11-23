@@ -1,3 +1,4 @@
+import { RUN4_QUICK_FIXES_ENTRY } from "./client-changelog-run4-quick-fixes.js";
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
@@ -483,6 +484,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_21_CHANGELOG,
   { ...SCOUT_SHORTEST_HOME_ENTRY, createdAt: 1795418080546, },
   { ...UNSETTLED_ENCIRCLEMENT_ENTRY, createdAt: 1795418149833, },
+  { ...RUN4_QUICK_FIXES_ENTRY, createdAt: 1795422082667, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
