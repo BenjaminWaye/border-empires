@@ -1,15 +1,13 @@
 import { NETWORK_RESOURCES, networkBuildAction } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { TileActionDef } from "../client-types.js";
+import { afcModuleInstalled } from "../client-afc-module-access/client-afc-module-access.js";
 
 export type TileActionFilterState = Pick<ClientState, "techIds" | "localhostDevAetherWall"> &
-  Partial<Pick<ClientState, "tiles" | "me" | "techCatalog" | "domainIds">>;
+  Partial<Pick<ClientState, "tiles" | "me" | "techCatalog" | "domainIds" | "tilesRevision">>;
 
-/** An AFC_MODULE tech only works while a copy sits on one of the player's active, settled AFCs (the server's build gate, runtime-structure-command-handlers.ts). */
-export const afcModuleInstalled = (state: Pick<ClientState, "tiles" | "me">, techId: string): boolean =>
-  [...state.tiles.values()].some(
-    (tile) => tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && Boolean(tile.afc.modules?.includes(techId))
-  );
+/** Re-exported: an AFC_MODULE tech only works while a copy sits on one of the player's active, settled AFCs (the server's build gate). */
+export { afcModuleInstalled } from "../client-afc-module-access/client-afc-module-access.js";
 
 export const hideTechLockedTileAction = (
   action: TileActionDef,
@@ -18,9 +16,11 @@ export const hideTechLockedTileAction = (
 ): boolean => {
   if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
   const requiredTech = requiredTechForTileAction(action.id);
+  // An installed module copy -- researched or captured with the AFC -- unlocks the build without research.
+  if (requiredTech && state.tiles && state.me && afcModuleInstalled({ tiles: state.tiles, me: state.me, ...(state.tilesRevision === undefined ? {} : { tilesRevision: state.tilesRevision }) }, requiredTech)) return false;
   if (requiredTech && !state.techIds.includes(requiredTech)) return true;
   const isModule = state.techCatalog?.find((tech) => tech.id === requiredTech)?.manifestCategory === "AFC_MODULE";
-  if (requiredTech && isModule && state.tiles && state.me && !afcModuleInstalled({ tiles: state.tiles, me: state.me }, requiredTech)) return true;
+  if (requiredTech && isModule && state.tiles && state.me) return true;
   if (requiredTech) return false;
   if (!action.disabled || !action.disabledReason) return false;
   return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);

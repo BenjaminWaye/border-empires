@@ -1,16 +1,21 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { techEntryById } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { installedAfcModuleTechIds, isAfcModuleTech } from "../afc-module-build-access/afc-module-build-access.js";
 
 export function activeAfcModuleTechIds(playerId: string, afcKeys: Iterable<string>, tiles: ReadonlyMap<string, DomainTileState>): string[] {
-  const installed = new Set<string>();
-  for (const key of afcKeys) {
-    const tile = tiles.get(key);
-    if (tile?.ownerId !== playerId || tile.ownershipState !== "SETTLED" || tile.afc?.status !== "active" || tile.afc.ownerId !== playerId) continue;
-    for (const techId of tile.afc.modules ?? []) installed.add(techId);
-  }
-  return [...installed];
+  return [...installedAfcModuleTechIds(playerId, tiles, afcKeys)];
 }
 
 export function hasInstalledAiBuildModule(installed: readonly string[] | undefined, techId: string | undefined): boolean {
-  return !techId || installed === undefined || techEntryById.get(techId)?.manifestCategory !== "AFC_MODULE" || installed.includes(techId);
+  return !techId || installed === undefined || !isAfcModuleTech(techId) || installed.includes(techId);
+}
+
+/**
+ * The build handler's tech gate for the AI: a module tech counts once a copy
+ * (researched or captured) is installed on an owned active AFC; other techs
+ * need research. Without an installed list (older exports) it falls back to research.
+ */
+export function hasAiBuildTech(techSet: ReadonlySet<string>, installed: readonly string[] | undefined, techId: string | undefined): boolean {
+  if (!techId) return true;
+  if (installed !== undefined && isAfcModuleTech(techId)) return installed.includes(techId);
+  return techSet.has(techId);
 }

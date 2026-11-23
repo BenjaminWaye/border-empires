@@ -6,6 +6,7 @@ import { economicBuildMsForState } from "../client-build-speed/client-build-spee
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 import { buildShowsOnTile } from "../client-tile-action-support/client-tile-action-support.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { tileActionAvailability } from "./client-tile-action-availability.js";
@@ -41,7 +42,7 @@ export const manpowerSupportBuildActions = (
   const out: TileActionDef[] = [];
   for (const row of ROWS) {
     if (!buildShowsOnTile(row.type, tile, supportedTownCount, supportedDockCount)) continue;
-    const researched = state.techIds.includes(row.techId);
+    const researched = hasBuildTech(state, row.techId);
     const occupied = Boolean(tile.siegeBattery || tile.observatory);
     out.push({
       id: row.id,

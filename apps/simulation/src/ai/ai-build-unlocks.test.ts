@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeAfcModuleTechIds, hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
+import { activeAfcModuleTechIds, hasAiBuildTech, hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import { canAffordStructure } from "./structure-command-planner.js";
 import { TECH_REQUIREMENTS_BY_STRUCTURE } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -28,5 +28,13 @@ describe("AI installed AFC build modules", () => {
     expect(canAffordStructure(player, techs, "SKY_DOCK", 0)).toBe(false);
     player.installedModuleTechIds.push(TECH_REQUIREMENTS_BY_STRUCTURE.SKY_DOCK);
     expect(canAffordStructure(player, techs, "SKY_DOCK", 0)).toBe(true);
+  });
+  // Regression: an AI that captured an AFC could not build from its modules unless it had also researched them.
+  it("builds from an installed captured module without research", () => {
+    const player = { id: "ai-1", points: 100000, manpower: 100000, installedModuleTechIds: [TECH_REQUIREMENTS_BY_STRUCTURE.SKY_DOCK] as string[] };
+    expect(canAffordStructure(player, new Set<string>(), "SKY_DOCK", 0)).toBe(true);
+    expect(hasAiBuildTech(new Set(), ["masonry"], "masonry")).toBe(true);
+    expect(hasAiBuildTech(new Set(["masonry"]), [], "masonry")).toBe(false);
+    expect(hasAiBuildTech(new Set(["masonry"]), undefined, "masonry")).toBe(true);
   });
 });
