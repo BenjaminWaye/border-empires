@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Scene, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
+import { Scene, ShaderLib, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
 import { SCOUT_DRONE_STEP_MS, planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
 import {
   SCOUT_DRONE_CRUISE_HEIGHT,
@@ -222,7 +222,8 @@ describe("scout drone radar ring", () => {
     createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
     for (const name of ["scout-drone-vision", "scout-drone-sweep"]) {
       const material = (scene.getObjectByName(name) as Mesh<BufferGeometry, MeshBasicMaterial>).material;
-      const shader = { vertexShader: "void main() {\n#include <project_vertex>\n}", fragmentShader: "", uniforms: {} };
+      // three's real basic-material vertex shader, so a renamed or inlined chunk fails here.
+      const shader = { vertexShader: ShaderLib.basic.vertexShader, fragmentShader: "", uniforms: {} };
       material.onBeforeCompile(shader as never, undefined as never);
       expect(shader.vertexShader).toContain(SCOUT_RING_DEPTH_PULL_GLSL);
     }

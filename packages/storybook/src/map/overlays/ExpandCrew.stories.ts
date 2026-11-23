@@ -60,7 +60,7 @@ const render = (args: Args): HTMLElement => {
   spawnWave();
   const interval = setInterval(spawnWave, args.durationMs + 800);
 
-  const visuals = createFrontierClaimVisuals(stage.scene, undefined, { recordFrame: () => {}, shouldAnimate: () => !args.reducedMotion, prefersReducedMotion: () => false });
+  const visuals = createFrontierClaimVisuals(stage.scene, undefined, { recordFrame: () => {}, shouldAnimate: () => !args.reducedMotion, prefersReducedMotion: () => args.reducedMotion });
   stage.scene.add(...visuals.objects);
   let rafId = 0;
   const animate = (): void => {

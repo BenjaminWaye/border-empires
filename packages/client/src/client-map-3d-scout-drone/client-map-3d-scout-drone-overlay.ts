@@ -27,7 +27,8 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 // client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
 // allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
 // the rotors, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
-// along its route, since that is information, not decoration.
+// along its route, since that is information, not decoration. The radar sweep keeps turning on a
+// slow device (one rotating disc costs nothing) and stops only for Reduce Motion.
 
 export type ScoutDroneScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
 
