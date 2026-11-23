@@ -11,6 +11,7 @@
 // Adding a weapons factory: add its kind here with its wire flag (the
 // matching BattleWarGear field the simulation sets in battleWarGearFor) and
 // its structure type, then give it a look where the squad is drawn.
+import type { AncillaryCosmeticId } from "@border-empires/shared";
 
 /** Every weapons factory type with a battle look. */
 export const WEAPONS_FACTORY_KINDS = ["titanium", "umbrite"] as const;
@@ -30,7 +31,15 @@ export const STRUCTURE_BY_FACTORY = {
   umbrite: "UMBRITE_WEAPONS_FACTORY"
 } as const satisfies Record<WeaponsFactoryKind, string>;
 
-export type SquadGear = Partial<Record<WeaponsFactoryKind, boolean>>;
+export type SquadGear = Partial<Record<WeaponsFactoryKind, boolean>> & {
+  /**
+   * The owner's ancillary skin cosmetic (docs/gdd.md §8): a paint scheme
+   * only, see popup-marine-material.ts. It rides with the gear because both
+   * describe how one owner's squad is drawn, but unlike the factories it
+   * never comes from the battle broadcast and never changes the model.
+   */
+  skin?: AncillaryCosmeticId;
+};
 
 /** The soldier models a squad can wear: the standard marine, or the heavy
  * armour of an empire running a Titanium Weapons Factory. */

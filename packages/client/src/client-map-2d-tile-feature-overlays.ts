@@ -1,3 +1,4 @@
+import type { PlayerCosmeticSelection } from "@border-empires/shared";
 import { isRedesignedRelic } from "@border-empires/shared";
 import { drawRelicHint2D } from "./client-relic-overlay/relic-map-hints.js";
 // The per-tile 2D feature overlays both of client-runtime-loop.ts's tile draw
@@ -27,6 +28,8 @@ export type TileFeatureOverlayDeps2D = {
   relicMapHints?: ReadonlyMap<string, import("@border-empires/shared").RelicMapHint>;
   structureAccentColor: (ownerId: string, fallback: string) => string;
   effectiveOverlayColor: (ownerId: string) => string;
+  /** Account cosmetics by player (client-cosmetics.ts); omitted, every garrison wears the standard look. */
+  playerCosmetics?: ReadonlyMap<string, PlayerCosmeticSelection>;
   afcJoinDrop: AfcJoinDropState;
   /** AFC module delivery landing times by tile key. */
   afcModuleDeliveryLandedAt: ReadonlyMap<string, number>;
@@ -72,7 +75,7 @@ export const drawTileFeatureOverlays2D = (
   if (t.terrain === "LAND") drawCaptureAftermath2D(deps.ctx, t, px, py, size, Date.now(), t.dockId && deps.tiles ? harbourFacingAt(clientTerrainAt(deps.tiles), t.x, t.y) : undefined);
   if (t.ownerId && t.captureHoldUntil !== undefined) {
     const nowEpochMs = Date.now();
-    if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs);
+    if (t.captureHoldUntil > nowEpochMs) drawCaptureHoldGarrison2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), px, py, size, nowEpochMs, deps.playerCosmetics?.get(t.ownerId)?.ancillary);
   }
   const townUpgrade = deps.townTierUpgradeFxByKey.size > 0 ? deps.townTierUpgradeFxByKey.get(tileKey) : undefined;
   if (townUpgrade) drawTownTierUpgrade2D(deps.ctx, townUpgrade, px, py, size, Date.now());

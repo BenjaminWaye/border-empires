@@ -15,6 +15,7 @@
 // the metal reflects it, so the painted plates are lit exactly like the
 // standard marine's. Glowing parts emit their own colour.
 import { MeshStandardMaterial, type Texture } from "three";
+import type { AncillarySkin } from "../client-cosmetics/client-cosmetics.js";
 import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // How much of the team colour tints the bare metal: enough that a soldier
@@ -57,6 +58,37 @@ const applySurfaceMask = (material: MeshStandardMaterial): void => {
   material.customProgramCacheKey = () => "popup-marine-surface-mask";
 };
 
+// Ancillary skins (account cosmetics, docs/gdd.md §8). A skin is a paint
+// scheme on the same model: nothing about the mesh, its size, its pose or its
+// x-ray silhouette changes, and the plates that carry the House colour (the
+// bright end of the baked team-colour share: chest, shoulders, pack) are left
+// exactly as they are. Only the parts the standard scheme shows as a dark
+// shade of the House colour (helmet, gloves, boots; the heavy armour's
+// graphite) are repainted. The share is read in linear space: the bake's 0.44
+// helmet is about 0.16 here, its 0.52 lower leg about 0.23.
+//
+// The skin is a per-material uniform, so one soldier can be repainted without
+// a second shader program or a second model; 0 is the standard scheme and
+// leaves every pixel as it was.
+const SKIN_UNIFORM_KEY = "marineSkinUniform";
+/** Ivory-trim plate: the trim colour, and the team-colour share below which a part counts as trim. */
+const IVORY_TRIM = "vec3(0.90, 0.86, 0.74)";
+const SKIN_FRAGMENT_DECLARATIONS = "uniform float uMarineSkin;";
+const skinColorPatch = (masked: boolean): string => `
+{
+  float skinShare = max(max(vColor.r, vColor.g), vColor.b);
+  float skinTrim = (1.0 - smoothstep(0.175, 0.205, skinShare)) * uMarineSkin${masked ? " * (1.0 - vSurfaceMask.x) * (1.0 - vSurfaceMask.y)" : ""};
+  diffuseColor.rgb = mix(diffuseColor.rgb, ${IVORY_TRIM} * (0.62 + 1.2 * skinShare), skinTrim);
+}`;
+
+export const MARINE_SKIN_INDEX = { default: 0, "ancillary-ivory": 1 } as const satisfies Record<AncillarySkin, number>;
+
+/** Sets which paint scheme one soldier's material shows. Cheap; safe to call per frame. */
+export const setMarineSkin = (material: MeshStandardMaterial, skin: AncillarySkin | undefined): void => {
+  const uniform = material.userData[SKIN_UNIFORM_KEY] as { value: number } | undefined;
+  if (uniform) uniform.value = MARINE_SKIN_INDEX[skin ?? "default"];
+};
+
 /** A marine's material. `surfaceMasked` for a model carrying the `_mask`
  * attribute (the heavy armour); `envMap` is what its bare metal reflects. */
 export const createMarineMaterial = (surfaceMasked: boolean, envMap?: Texture): MeshStandardMaterial => {
@@ -64,8 +96,18 @@ export const createMarineMaterial = (surfaceMasked: boolean, envMap?: Texture): 
   // bake against this material's own .color (the attacker/defender tint,
   // set per marine per frame) and the scene's lighting.
   const material = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
-  if (!surfaceMasked) return material;
-  applySurfaceMask(material);
-  applyBuildingEnvMap(material, envMap);
+  const skin = { value: 0 };
+  material.userData[SKIN_UNIFORM_KEY] = skin;
+  if (surfaceMasked) applySurfaceMask(material);
+  const applyMask = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    if (surfaceMasked) applyMask.call(material, shader, renderer);
+    shader.uniforms.uMarineSkin = skin;
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", `#include <common>\n${SKIN_FRAGMENT_DECLARATIONS}`)
+      .replace("#include <color_fragment>", `#include <color_fragment>${skinColorPatch(surfaceMasked)}`);
+  };
+  material.customProgramCacheKey = () => (surfaceMasked ? "popup-marine-surface-mask-skin" : "popup-marine-skin");
+  if (surfaceMasked) applyBuildingEnvMap(material, envMap);
   return material;
 };
