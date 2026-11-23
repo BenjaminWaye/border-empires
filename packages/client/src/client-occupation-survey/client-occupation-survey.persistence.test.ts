@@ -15,6 +15,9 @@ const load = async (scope = "player:season", entries = [report]) => {
     { camX: 0, camY: 0, camSubX: 0, camSubY: 0, selected: undefined },
     () => ({ sx: 0, sy: 0 }), 32, 16, 16
   );
+  // A clue is a map pin; the player taps it to read the card (client-map-tip-pins.ts).
+  const pinned = controller.pendingReports()[0];
+  if (pinned) controller.open(pinned.id);
   return controller;
 };
 const popup = () => document.querySelector('[role="dialog"]');
