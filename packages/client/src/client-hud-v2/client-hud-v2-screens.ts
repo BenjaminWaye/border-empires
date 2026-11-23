@@ -38,6 +38,7 @@ import { cancelTownPlotPick } from "./client-hud-v2-town-plot-pick.js";
 import { townClick } from "./client-hud-v2-town-click.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -300,7 +301,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
     ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
   }));
 };
 

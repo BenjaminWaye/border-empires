@@ -4,6 +4,7 @@ import { applyHouseChargesMessage } from "../client-house-charges/client-house-c
 import { announceHouseChargeLosses } from "../client-house-charges/client-house-charges-alerts.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
 
 // The simulation's change-driven map pushes, each a full replacement of one
 // piece of map state (extracted from client-network.ts, 500-line budget).
@@ -28,7 +29,7 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   if (msg.type === "HOUSE_CHARGES") {
     if (applyHouseChargesMessage(state, msg)) {
       // The open keep choice is shown by the sealed-charges bubble (client-house-charges-bubble.ts), not an alert.
-      announceHouseChargeLosses(state, state.houseCharges);
+      announceHouseChargeLosses(state, houseChargesWithLiveNames(state.houseCharges, state.playerNames));
       renderHud();
     }
     return true;
