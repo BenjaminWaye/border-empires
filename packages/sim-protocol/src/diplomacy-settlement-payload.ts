@@ -5,8 +5,11 @@ export const DiplomacySettlementPayloadSchema = z.object({
   proposerId: z.string().min(1), targetId: z.string().min(1),
   proposerPays: DiplomacyGoodsSchema, targetPays: DiplomacyGoodsSchema,
   supplyDurationHours: z.union([z.literal(12), z.literal(24)]).optional(),
-  /** A truce's Coin per hour with no resource slot is paid for this many hours from acceptance. */
-  coinTermHours: z.union([z.literal(12), z.literal(24)]).optional(),
+  /**
+   * A truce's Coin per hour with no resource slot is paid for this many hours
+   * from acceptance: what is left of a new truce, whose clock starts at the offer.
+   */
+  coinTermHours: z.number().positive().max(24).optional(),
   refundOf: z.string().min(1).max(160).optional(),
   /** Pays a fell-through deal back: returned towns go back without the "captured from them" check. */
   refund: z.literal(true).optional()

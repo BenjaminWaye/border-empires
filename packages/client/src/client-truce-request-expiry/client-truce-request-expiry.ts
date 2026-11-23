@@ -9,7 +9,8 @@ type TruceRequestState = Pick<ClientState, "incomingTruceRequests" | "outgoingTr
 type TruceEndingState = Pick<ClientState, "activeTruces" | "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
 /**
- * Truce offers expire after TRUCE_REQUEST_TTL_MS (a week; fighting withdraws them sooner). The gateway tells
+ * A new-truce offer expires when the truce it offers would have ended (its clock starts at the offer);
+ * an extension offer after TRUCE_REQUEST_TTL_MS (a week). Fighting withdraws either sooner. The gateway tells
  * both players about an expired offer on its next minute-long maintenance run
  * (socialState.takeStaleOfferSync), so without a local check a dead offer
  * could sit in the Alliances panel and the ally badge for up to a minute, and

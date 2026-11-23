@@ -113,7 +113,7 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
       proposerGives: payload.proposerPays.resources ?? {}, targetGives: payload.targetPays.resources ?? {},
       ...(payload.proposerPays.coinPerHour ? { proposerCoinPerHour: payload.proposerPays.coinPerHour } : {}),
       ...(payload.targetPays.coinPerHour ? { targetCoinPerHour: payload.targetPays.coinPerHour } : {}),
-      startedAt: at, expiresAt: at + (supplies ? RESOURCE_SUPPLY_TRADE_DURATION_MS : payload.coinTermHours! * 3_600_000)
+      startedAt: at, expiresAt: at + (supplies ? RESOURCE_SUPPLY_TRADE_DURATION_MS : Math.round(payload.coinTermHours! * 3_600_000))
     }, targetCoinDelta);
     if (!result.ok) return reject("DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY", result.message);
   }
