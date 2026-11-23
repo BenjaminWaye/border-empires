@@ -12,8 +12,10 @@ import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
 import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.js";
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
+import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-profile.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
+  { ...PUBLIC_HOUSE_PROFILE_ENTRY, createdAt: 1795468951720, },
   { ...VISIT_FORECAST_ENTRY, createdAt: 1795459490383, },
   { ...TRUCE_CLOCK_FROM_OFFER_ENTRY, createdAt: 1795425750299, },
   { ...SCOUT_SHORTEST_HOME_ENTRY, createdAt: 1795418080546, },

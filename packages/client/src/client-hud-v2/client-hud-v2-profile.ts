@@ -77,6 +77,8 @@ const heroHtml = (input: ProfileInput): string => {
     : input.mapFocus === "unseen"
       ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
       : "";
+  // Your own profile only: makes (on first use) and shares the public web link (client-public-house-share.ts).
+  const share = input.relation.kind === "self" ? `<button type="button" class="v2p-action" data-v2-profile-share title="Share a public web page of your House's contests, rating, charges and records">Share profile</button>` : "";
   return `<aside class="v2p-hero">
     <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
     <h2 class="v2p-name">${esc(input.name)}</h2>
@@ -85,6 +87,7 @@ const heroHtml = (input: ProfileInput): string => {
     ${badges ? `<div class="v2p-badges">${badges}</div>` : ""}
     ${diplomacy}
     ${showOnMap}
+    ${share}
   </aside>`;
 };
 
