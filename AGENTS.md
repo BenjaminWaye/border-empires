@@ -4,7 +4,7 @@
 
 - Start with the user's question, not a full repository survey. For short explanations, make one narrow discovery batch and one bounded evidence read when needed; expand only for a concrete unresolved correctness issue. See `docs/agents/codex-token-budget.md` for complex investigations.
 - Read-only questions and feasibility reviews do not create worktrees, fetch, install dependencies, run builds/tests, or change files. Use an existing checkout. Once edits are needed, follow the worktree rules below. Do not turn a question into implementation or PR work without a request.
-- Before assessing or proposing gameplay mechanics, read `docs/core-loop.md` §1 (pillars and owner intent) and the relevant `docs/game-mechanics.md` sections, check for an existing plan in `docs/`, and verify the affected source contracts/tests. Ground suggestions in existing resources, progression, territory and renderer constraints. Label ideas needing new systems or rule changes explicitly; do not present them as existing capabilities. Context budgets are soft targets: gather enough evidence for correctness.
+- Before assessing or proposing gameplay mechanics, read `docs/gdd.md` (north star: audience, priorities, scope, business model), `docs/core-loop.md` §1 (pillars and owner intent) and the relevant `docs/game-mechanics.md` sections, check for an existing plan in `docs/`, and verify the affected source contracts/tests. Ground suggestions in existing resources, progression, territory and renderer constraints. Label ideas needing new systems or rule changes explicitly; do not present them as existing capabilities. Context budgets are soft targets: gather enough evidence for correctness.
 - Prefer symbol searches and small excerpts over full files. Batch independent reads in one tool call. Do not repeatedly load the documentation map, rules, or unrelated runbooks. Keep command output bounded; summarize failures.
 
 ## Runtime and source
@@ -23,6 +23,7 @@
 - Before deploys or operational cloud CLI work, read `docs/agents/deploys.md`. Ordinary source searches and local Git commands do not require deployment docs.
 - Before adding a cache/map or snapshot state, read `docs/agents/state-and-persistence-discipline.md`. Before AI planner changes, read `docs/agents/ai-guardrails.md` and `docs/agents/topics/ai-planner.md`.
 - Before gameplay/fiction changes, read `docs/lore/README.md` and affected `docs/lore/galactic-lore.md` sections. Update canon in the same branch for changes to meaning; keep numerical balance in gameplay docs. Otherwise report "Lore reviewed; no canon change". Full maintenance requirements: `docs/agents/implementation-rules.md`.
+- `docs/gdd.md` records owner decisions. When the owner changes audience, priorities, scope, launch plan or business model, or a merged change contradicts it, update it in the same branch and date the change. Never change its decisions without the owner's say.
 - Update `AGENTS.md`, `README.md`, and affected docs when workflow, entrypoints, or layout change. Check README accuracy before a PR.
 
 ## Load only the relevant guide
