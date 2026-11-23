@@ -127,6 +127,9 @@ describe("tutorial guide steps", () => {
     expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
     const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
     expect(flying.kind === "step" && flying.title).toBe("Your scout drone is out: wait for its report");
+    // Review of PR #2933: with too few charges for the whole way, a part-way flight would repeat forever: wait.
+    const short = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, townLeadChargesShort: 2 }), pastFind);
+    expect(short).toEqual(expect.objectContaining({ title: "A town lies this way: wait for 2 more drone charges to reach it", highlightTiles: [] }));
     // Once a town is known (here, beyond reach), the usual town steps take over.
     const known = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(known.kind === "step" && known.title).toMatch(/build a Relay Beacon/);

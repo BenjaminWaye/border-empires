@@ -14,12 +14,19 @@ const signedDelta = (from: number, to: number, size: number): number => {
   return d > size / 2 ? d - size : d;
 };
 
+/** How many legs (one charge each) the route from `launch` to `lead` takes. */
+export const leadRouteLegs = (launch: Point, lead: Point): number => {
+  const dx = signedDelta(launch.x, lead.x, WORLD_WIDTH);
+  const dy = signedDelta(launch.y, lead.y, WORLD_HEIGHT);
+  return Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / LEAD_ROUTE_LEG_TILES));
+};
+
 /** Stops from `launch` to `lead`, ending on the lead itself, at most `capacity` of them (the nearest first). */
 export const leadRouteStops = (launch: Point, lead: Point, capacity: number): Point[] => {
   if (capacity <= 0) return [];
   const dx = signedDelta(launch.x, lead.x, WORLD_WIDTH);
   const dy = signedDelta(launch.y, lead.y, WORLD_HEIGHT);
-  const legs = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / LEAD_ROUTE_LEG_TILES));
+  const legs = leadRouteLegs(launch, lead);
   const stops: Point[] = [];
   for (let i = 1; i <= legs && stops.length < capacity; i += 1) {
     stops.push({ x: wrapX(launch.x + Math.round((dx * i) / legs), WORLD_WIDTH), y: wrapY(launch.y + Math.round((dy * i) / legs), WORLD_HEIGHT) });

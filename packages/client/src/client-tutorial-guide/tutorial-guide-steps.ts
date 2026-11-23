@@ -98,6 +98,8 @@ export type GuideInput = {
   scoutFlights: number;
   /** The nearest unowned town while the player holds none and it is still in fog (state.guideTownLead). */
   townLead?: { x: number; y: number };
+  /** Drone charges still missing to fly the whole way to townLead (0 when enough are ready). */
+  townLeadChargesShort?: number;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;
 };

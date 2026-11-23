@@ -22,6 +22,8 @@ import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overl
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
+import { scoutChargesReady, scoutLaunchAfc } from "../client-scout-drone/client-scout-drone-plan.js";
+import { leadRouteLegs } from "../client-scout-drone/client-scout-drone-lead-route.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -58,6 +60,7 @@ export type GuideInputState = Pick<
   | "afcRecovery"
   | "discoveredTiles"
   | "guideTownLead"
+  | "scoutDroneCharges"
   | "dockPairs"
 >;
 
@@ -191,11 +194,16 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
 };
 
 /** The server's town lead, only while its tile is still fog: once seen, the town targets take over. */
-const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead"> => {
+const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead" | "townLeadChargesShort"> => {
   const lead = state.guideTownLead;
   if (!lead) return {};
   const key = tileKey(lead.x, lead.y);
-  return state.discoveredTiles.has(key) || state.tiles.has(key) ? {} : { townLead: lead };
+  if (state.discoveredTiles.has(key) || state.tiles.has(key)) return {};
+  // Every flight starts at the AFC, so a town further than the ready charges' legs can't be reached by
+  // flying part-way again and again: the step waits for charges instead (review of PR #2933).
+  const launch = scoutLaunchAfc(state, lead);
+  const short = launch ? leadRouteLegs(launch, lead) - scoutChargesReady(state, Date.now()) : 0;
+  return { townLead: lead, townLeadChargesShort: Math.max(0, short) };
 };
 
 // The explore target scans rings of discoveredTiles around home. A drone flight grows that set

@@ -185,9 +185,13 @@ export const canPlanScoutFlight = (state: Pick<ClientState, "tiles" | "me" | "ti
  * Run 4), so a fog tap then opens the tile's menu, whose Explore adds that one stop; Send scout drone on
  * the AFC still opens a plan for several.
  */
-export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number, nowMs: number = Date.now()): boolean => {
+export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number, nowMs: number = Date.now()): boolean =>
+  isPlanFog(state, wx, wy) && !flyingScoutDrone(state, nowMs);
+
+/** Fog a plan could start on, drone in the air or not: never explored, no tile data, off home ground, an AFC to launch from. */
+const isPlanFog = (state: ScoutPlanState, wx: number, wy: number): boolean => {
   const key = keyOf(wx, wy);
-  return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state) && !flyingScoutDrone(state, nowMs);
+  return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state);
 };
 
 /**
@@ -205,7 +209,7 @@ export const handleScoutPlanTap = (
   const plan = state.scoutDronePicking;
   // A tap on a flying drone's numbered stop is spent: the stop is already on its way, and a plan started there
   // numbered its stop after the whole route, so it read as a stop the player never placed (player report 2026-11-21).
-  if (onFlyingStopBadge(state, wx, wy, nowMs, true3D)) return scoutPlanTapStarts(state, wx, wy);
+  if (onFlyingStopBadge(state, wx, wy, nowMs, true3D)) return isPlanFog(state, wx, wy);
   if (!plan.active) {
     // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
     if (!scoutPlanTapStarts(state, wx, wy, nowMs)) return false;

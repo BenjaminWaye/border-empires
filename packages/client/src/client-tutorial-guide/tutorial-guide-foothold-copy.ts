@@ -71,7 +71,7 @@ export const targetHighlights =
   (kind: "town" | "food") =>
   (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
     const action = kind === "town" ? townAction(input) : foodAction(input);
-    if (kind === "town" && action === "explore" && followsTownLead(input) && input.townLead) return [input.townLead];
+    if (kind === "town" && action === "explore" && followsTownLead(input) && input.townLead) return leadNeedsCharges(input) > 0 ? [] : [input.townLead];
     if (action === "explore") return exploreHighlight(input);
     if (action === "scouting") return [];
     // Only the recommended beacon site: the checklist's other highlights follow
@@ -103,15 +103,28 @@ const townActionTitle = (input: GuideInput, action: GuideTargetAction): string =
   return input.footholdTargets.town.unreachable > 0 ? title.replace("No town in sight", "No town you can reach") : title;
 };
 
+/** The town is more legs away than charges are ready: flying part-way again would loop, so wait. */
+const leadNeedsCharges = (input: GuideInput): number => (followsTownLead(input) && input.scout === "ready" ? (input.townLeadChargesShort ?? 0) : 0);
+
+const townLeadWait = (short: number) => ({
+  title: `A town lies this way: wait for ${short} more drone charge${short === 1 ? "" : "s"} to reach it`,
+  why: "Each stop costs a charge, and the town is too far for the charges you have. They come back every 4 hours."
+});
+
 const TOWN_LEAD_EXPLORE = {
   title: "A town lies this way: tap the marked fog and Explore",
   why: "Your drone reports the towns it flies over. Then Expand To the town."
 };
 
-export const townWhy = (input: GuideInput): string =>
-  followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
+export const townWhy = (input: GuideInput): string => {
+  const short = leadNeedsCharges(input);
+  if (short > 0) return townLeadWait(short).why;
+  return followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
+};
 
 export const townTitle = (input: GuideInput): string => {
+  const short = leadNeedsCharges(input);
+  if (short > 0) return townLeadWait(short).title;
   if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;
   const action = townAction(input);
   return townActionTitle(input, action) + (action === "beacon" ? beaconWhere(input) : "");
