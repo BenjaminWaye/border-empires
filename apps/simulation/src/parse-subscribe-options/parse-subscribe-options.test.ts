@@ -32,4 +32,12 @@ describe("parseSubscribeOptions", () => {
       omitTiles: true
     });
   });
+
+  it("parses the spectate switch only when it is an explicit boolean", () => {
+    expect(parseSubscribeOptions(JSON.stringify({ spectate: true, spectateOnly: true }))).toMatchObject({ spectate: true, spectateOnly: true });
+    expect(parseSubscribeOptions(JSON.stringify({ spectate: false }))).toMatchObject({ spectate: false });
+    const untouched = parseSubscribeOptions(JSON.stringify({ spectate: "yes", spectateOnly: "yes" }));
+    expect("spectate" in untouched).toBe(false);
+    expect("spectateOnly" in untouched).toBe(false);
+  });
 });

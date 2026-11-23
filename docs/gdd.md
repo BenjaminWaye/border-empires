@@ -204,6 +204,16 @@ baseline.
 ## 11. Open items to verify before launch
 
 - What one server can hold, including the load when the map is fully revealed.
+  *Partly answered 2026-11-23*
+  ([`load-results/full-reveal-2026-11-23.md`](load-results/full-reveal-2026-11-23.md)):
+  - One revealed player did degrade the server for everyone. The cause was
+    found and fixed: the whole map was being re-sent on every change.
+  - After the fix, 100 Houses (60 AI and 40 connected humans) with up to four
+    revealed sessions ran without stalls on two CPU cores, early in a contest.
+  - Still open: the same test late in a contest, on the real Hetzner server,
+    with humans who actively play. Until then the hosting price is not settled.
+  - Still open: at 100 Houses the server defers its regular checkpoints for
+    lack of memory headroom. This needs a decision before a 100-House contest.
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.

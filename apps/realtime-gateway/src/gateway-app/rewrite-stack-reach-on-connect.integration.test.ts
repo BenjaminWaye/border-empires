@@ -82,11 +82,11 @@ describe("rewrite stack reach on connect", () => {
    * Regression guard for the fix above overshooting its scope: the reach push
    * must fire only on the gateway's one true connect subscribe (trigger
    * "gateway_live_subscribe"), not on every non-bootstrap SubscribePlayer
-   * call. A fog-disable resubscribe (SET_FOG_DISABLED -> refreshPlayerFogSnapshot
-   * in gateway-app.ts) also calls SubscribePlayer with a non-bootstrap mode,
-   * and re-fires roughly once per second while a fog-disabled player keeps
-   * acting -- an unscoped push would force-flush a full REACH_UPDATE on that
-   * cadence, bypassing the change filter entirely.
+   * call. A fog-restore resubscribe (SET_FOG_DISABLED false ->
+   * refreshPlayerFogSnapshot in gateway-app.ts) also calls SubscribePlayer
+   * with a non-bootstrap mode; an unscoped push would force-flush a full
+   * REACH_UPDATE on every toggle, bypassing the change filter entirely. (Until
+   * #2932 a revealed map also re-fired that resubscribe on every change.)
    */
   it("does not re-push reach on a fog-toggle resubscribe", async () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
@@ -136,7 +136,7 @@ describe("rewrite stack reach on connect", () => {
         // so the two pushes can be told apart by what preceded them.
         if (!sentFogToggle) {
           sentFogToggle = true;
-          socket.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: true }));
+          socket.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: false })); // the fog resubscribe left after #2932
         }
         continue;
       }
