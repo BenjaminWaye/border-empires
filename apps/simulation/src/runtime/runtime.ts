@@ -273,9 +273,9 @@ import {
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
 import * as wonderEffects from "../runtime-natural-wonders.js"; import {
-  mapTile,
-  type SnapshotTile
+  mapTile
 } from "../runtime-snapshot-sections.js";
+import { bootSnapshotTileCache, newSnapshotTileCache } from "../snapshot-tile-boot/snapshot-tile-boot.js";
 import type { RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runtime.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
@@ -668,7 +668,7 @@ export class SimulationRuntime {
   // Every this.state.tiles write must update it (replaceTileState, growth writeTile).
   // Eliminates the O(202k-tile) yield loop from buildRuntimeSnapshotSectionsAsync;
   // checkpoint cost drops from 43-93 s (101 setImmediate waits) to ~50 ms (sort).
-  private readonly snapshotTileCache = new Map<string, SnapshotTile>();
+  private readonly snapshotTileCache = newSnapshotTileCache();
   // Epoch ms of the last population growth tick for each settled town tile key.
   // Used by tickPopulationGrowth to compute elapsed minutes since the last update.
   private readonly townLastGrowthTickAtByKey = new Map<string, number>();
@@ -814,7 +814,7 @@ export class SimulationRuntime {
       player.afcRecovery.globalLosses = this.state.afcGlobalLosses;
     }
     this.planetaryDefenseCamps.bootTiles(this.state.tiles);
-    for (const [key, sourceTile] of this.state.tiles) { const tile = withAfcFortFacts(sourceTile, this.state.players); this.state.tiles.set(key, tile); this.snapshotTileCache.set(key, mapTile(tile)); }
+    bootSnapshotTileCache({ tiles: this.state.tiles, players: this.state.players, snapshotTileCache: this.snapshotTileCache, recoveredTiles: options.initialState?.tiles });
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
     // loop here, immediately after this.state.players was built and BEFORE
