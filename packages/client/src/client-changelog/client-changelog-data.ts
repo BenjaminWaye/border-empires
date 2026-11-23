@@ -10,6 +10,7 @@ import { TIP_OVER_DRONE_PILL_ENTRY } from "./client-changelog-tip-over-drone-pil
 import { GUIDE_LAUNCHER_SCOUT_ENTRY } from "./client-changelog-guide-launcher-scout.js";
 import { ENCIRCLEMENT_EMPIRE_FELL_ENTRY } from "./client-changelog-encirclement-empire-fell.js";
 import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garrison-prompt.js";
+import { UMBRITE_FOREST_DEPOSITS_ENTRY } from "./client-changelog-umbrite-forest-deposits.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
@@ -489,6 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...GUIDE_LAUNCHER_SCOUT_ENTRY, createdAt: 1795288846909, },
   { ...ENCIRCLEMENT_EMPIRE_FELL_ENTRY, createdAt: 1795291759105, },
   { ...CAPTURE_GARRISON_PROMPT_ENTRY, createdAt: 1795294115079, },
+  { ...UMBRITE_FOREST_DEPOSITS_ENTRY, createdAt: 1795425803985, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

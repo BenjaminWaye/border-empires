@@ -72,3 +72,10 @@ export const addRawResourceInstance = (
   else if (resource === "UMBRITE") overlays.umbriteDeposit.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
   else overlays.generic.addInstance(sceneX, sceneZ, surfaceY, resource, worldTileX, worldTileY);
 };
+
+// True when addRawResourceInstance draws the Umbrite deposit (not a refined
+// rig, nor nothing) on this tile. The deposit brings its own clearing of
+// trees, so the renderer skips the tile's ordinary forest then.
+export const umbriteDepositDrawnOnTile = (resource: ResourceType | undefined, tile: Tile | undefined, worldTileX: number, worldTileY: number): boolean =>
+  resource === "UMBRITE" && shouldRenderRawResource(resource, tile)
+  && (Boolean(tile?.economicStructure) || refinedDepositAt(worldTileX, worldTileY) !== "UMBRITE");

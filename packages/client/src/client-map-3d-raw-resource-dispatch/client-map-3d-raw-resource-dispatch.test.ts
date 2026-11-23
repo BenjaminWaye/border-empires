@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { addRawResourceInstance, type RawResourceOverlays } from "./client-map-3d-raw-resource-dispatch.js";
+import { addRawResourceInstance, umbriteDepositDrawnOnTile, type RawResourceOverlays } from "./client-map-3d-raw-resource-dispatch.js";
 
 const recordingOverlays = (): { overlays: RawResourceOverlays; drawn: string[] } => {
   const drawn: string[] = [];
@@ -55,5 +55,12 @@ describe("addRawResourceInstance", () => {
     // are lifted onto the plot instead (FarmlandOverlay.standLiftAt).
     expect(dispatch("FARM", tileWith("FARM", "HYDROWORKS"))).toEqual(["farmland"]);
     expect(dispatch("FARM", tileWith("FARM", "MINISTRY_HALL"))).toEqual(["farmland"]);
+  });
+
+  it("reports the Umbrite deposit (which brings its own trees) exactly when it is drawn", () => {
+    expect(umbriteDepositDrawnOnTile("UMBRITE", tileWith("UMBRITE"), 4, 4)).toBe(true);
+    expect(umbriteDepositDrawnOnTile("UMBRITE", undefined, 4, 4)).toBe(true);
+    expect(umbriteDepositDrawnOnTile("TITANIUM", tileWith("TITANIUM"), 4, 4)).toBe(false);
+    expect(umbriteDepositDrawnOnTile(undefined, tileWith("UMBRITE"), 4, 4)).toBe(false);
   });
 });

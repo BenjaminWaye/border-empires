@@ -97,7 +97,7 @@ import {
   LARGE_CONTACT_SHADOW_RADIUS_TILES,
   SMALL_CONTACT_SHADOW_RADIUS_TILES
 } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js"; import { addRawResourceInstance, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
+import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js"; import { addRawResourceInstance, umbriteDepositDrawnOnTile, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createMonorailRoadOverlay, monorailOwnerColorAt } from "../client-map-3d-monorail/client-map-3d-monorail.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
@@ -819,7 +819,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;
         }
-        if (shouldDrawForestInstance(forestTile, tile)) {
+        // Resolve the underlying resource once per tile — used by the resource overlay (for the icon), the structure
+        // overlay (a MINE on GEMS loads blue crystals, not grey ore) and the forest (an Umbrite deposit brings its own trees).
+        const tileResource = terrain === "LAND"
+          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
+          : undefined;
+        if (shouldDrawForestInstance(forestTile, tile) && !umbriteDepositDrawnOnTile(tileResource, tile, wx, wy)) {
           (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, standingTreeFilter(tile, wx, wy));
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
@@ -842,13 +847,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             afcOverlayGroup.addAfc(x, z, afcPadSurfaceY(wx, wy), wx, wy, tile.afc.modules ?? []);
           }
         }
-        // Resolve the underlying resource once per tile — used by the
-        // resource overlay (for the icon) AND by the structure overlay
-        // (so a MINE on a GEMS tile loads its cart with blue crystals
-        // instead of grey iron ore, keeping the resource readable).
-        const tileResource = terrain === "LAND"
-          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
-          : undefined;
         if (tileResource) {
           addRawResourceInstance(rawResourceOverlays, tileResource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection((nx, ny) => isSeaTerrain(terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny))), wx, wy));
           contactShadowOverlay.addShadow(x, z, tileResource === "FISH" ? flatOverlayY : surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); // FISH sits on its levelled hill pad
