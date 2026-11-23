@@ -1,3 +1,4 @@
+import { LOADING_QUOTES_NEW_VOICES_ENTRY } from "./client-changelog-loading-quotes-new-voices.js";
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
@@ -479,6 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   ...NOV_19_20_CHANGELOG,
   ...NOV_21_CHANGELOG,
+  { ...LOADING_QUOTES_NEW_VOICES_ENTRY, createdAt: 1795425857905, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

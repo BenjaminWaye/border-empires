@@ -1,9 +1,10 @@
 // In-world quotes shown under the map-loading overlay while a player waits to
 // get into the game. Every line is either quoted verbatim from canon
 // (docs/lore/duke-memoir.md, the Writ of Sectors in docs/lore/galactic-lore.md
-// §2) or a short frontier saying that restates established canon (§3-§5) and
-// adds no new fact. The memoir quotes are checked against the memoir text in
-// the test beside this file, so editing the memoir can't silently drift them.
+// §2) or a short in-world line (a saying, an order, a herald's call) that
+// restates established canon (§2-§5) and adds no new fact. The memoir quotes
+// are checked against the memoir text in the test beside this file, so
+// editing the memoir can't silently drift them.
 import type { MapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
 
 export type LoginLoreQuote = {
@@ -18,14 +19,19 @@ export const LOGIN_LORE_QUOTES: readonly LoginLoreQuote[] = [
   { text: "Unclaimed ground is a debt the galaxy owes itself.", source: "The Writ of Sectors" },
   { text: "Because whatever's still hungry out here already ate it.", source: "A frontier town elder, to Alvra Sable" },
   { text: "I did not understand, that day, that a Duke's debts are never called paid. Only refinanced.", source: SABLE },
-  { text: "The Bleed does not hate you.", source: SABLE },
   { text: "The Court noticed before I did. That is, I have come to believe, always true.", source: SABLE },
-  { text: "I was running a shipping concern that had grown teeth.", source: SABLE },
-  { text: "Calling it a game and understanding what it actually was were two different things.", source: SABLE },
+  { text: "A camp that is watched wakes.", source: SABLE },
+  { text: "The Court had cleared the world for us. Nobody had asked the world.", source: SABLE },
+  { text: "I had lit a lamp in a dark room full of people holding knives.", source: SABLE },
+  { text: "I have heard Dukes say they had no choice. I had a choice. I could have lost.", source: SABLE },
+  { text: "A Writ is never forced. That is the cruelty of it.", source: SABLE },
+  { text: "The Wardens do not hate you.", source: SABLE },
   { text: "Crystal is aether that has gone quiet. Refining it puts it back to work.", source: "Frontier saying" },
-  { text: "The frontier doesn't care who you are. It cares what you're doing.", source: "Frontier saying" },
   { text: "The Court forgot us for generations. Now it sends Houses.", source: "Frontier saying" },
-  { text: "The Wardens burned away the Bleed. Then they could not tell it from their makers.", source: "Court histories" }
+  { text: "The Wardens burned away the Bleed. Then they could not tell it from their makers.", source: "Court histories" },
+  { text: "We were not relieved. We were not surrendered. So we are still on duty.", source: "Planetary Defense camp order" },
+  { text: "A Sector is proclaimed. Let the Houses that would hold it commit.", source: "Court herald, opening a Sector Contest" },
+  { text: "The Senate may vote an embargo. It has been told that is enough.", source: "Senate saying" }
 ];
 
 // Same seed, same quote.
