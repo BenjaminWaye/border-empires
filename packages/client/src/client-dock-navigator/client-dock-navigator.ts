@@ -16,10 +16,28 @@ import type { DockPair, Tile, TileMenuView } from "../client-types.js";
 
 export type ConnectedDockStop = { x: number; y: number; distance: number; bySea: boolean };
 
-type DockNavigatorState = Pick<ClientState, "fogDisabled" | "discoveredDockTiles" | "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY" | "me" | "tiles">;
+type DockNavigatorState = Pick<ClientState, "fogDisabled" | "discoveredDockTiles" | "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY" | "me" | "tiles"> &
+  Partial<Pick<ClientState, "allies" | "activeTruces">>;
 
 const isOwnDockAt = (state: Pick<DockNavigatorState, "tiles" | "me">, x: number, y: number): boolean =>
   Boolean(state.me) && state.tiles.get(`${x},${y}`)?.ownerId === state.me;
+
+/** Only a garrisoned dock reveals the docks it links to (apps/simulation runtime-linked-dock-deltas.ts). */
+const isOwnSettledDockAt = (state: Pick<DockNavigatorState, "tiles" | "me">, x: number, y: number): boolean =>
+  isOwnDockAt(state, x, y) && state.tiles.get(`${x},${y}`)?.ownershipState === "SETTLED";
+
+/**
+ * A far dock Cross the sea can land you on: the client has it (so its sheet can open) and it isn't yours,
+ * an ally's or a truce partner's -- you can Expand To a neutral dock or Attack a rival's, nothing else.
+ */
+const isCrossableDockAt = (state: DockNavigatorState, x: number, y: number): boolean => {
+  const tile = state.tiles.get(`${x},${y}`);
+  if (!tile || !tile.dockId) return false;
+  const owner = tile.ownerId;
+  if (!owner) return true;
+  if (owner === state.me || (state.allies ?? []).includes(owner)) return false;
+  return !(state.activeTruces ?? []).some((truce) => truce.otherPlayerId === owner);
+};
 
 const toroidManhattan = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
@@ -46,42 +64,47 @@ export const connectedDockStops = (dockPairs: readonly DockPair[], x: number, y:
 };
 
 /**
- * A lane the player knows: both ends discovered, or one end is their own dock -- owning a dock reveals the
- * docks it links to (the simulation's linked-dock reveal), and discoveredDockTiles is only this device's copy,
- * so an owner's lanes vanished after a sign-in on a fresh device (Playtest Run 4: Mark's row was missing).
+ * A lane the player knows: both ends discovered, or one end is their own garrisoned dock and the client holds
+ * the other -- a garrisoned dock reveals the docks it links to, and discoveredDockTiles is only this device's
+ * copy, so an owner's lanes vanished after a sign-in on a fresh device (Playtest Run 4: Mark's row was missing).
  */
+const ownLaneKnown = (state: DockNavigatorState, ownX: number, ownY: number, farX: number, farY: number): boolean =>
+  isOwnSettledDockAt(state, ownX, ownY) && state.tiles.has(`${farX},${farY}`);
+
 const knownDockPairs = (state: DockNavigatorState): DockPair[] =>
   state.dockPairs.filter((pair) =>
-    isOwnDockAt(state, pair.ax, pair.ay) || isOwnDockAt(state, pair.bx, pair.by) ||
+    ownLaneKnown(state, pair.ax, pair.ay, pair.bx, pair.by) || ownLaneKnown(state, pair.bx, pair.by, pair.ax, pair.ay) ||
     isDockRouteVisibleForPlayer(pair, { fogDisabled: state.fogDisabled, discoveredDockTiles: state.discoveredDockTiles, keyFor: (tileX, tileY) => `${tileX},${tileY}` }));
 
 const discoveredDockStops = (state: DockNavigatorState, x: number, y: number): ConnectedDockStop[] =>
   connectedDockStops(knownDockPairs(state), x, y);
 
 /**
- * Where "Cross the sea" goes: the nearest dock across a known lane that the player doesn't own. A lane that
- * ends at another of their own docks is followed onward along that chain (fewest hops, then nearest), since
- * crossing to your own land gets you nowhere (Playtest Run 4: Mark's only lane joined his two docks).
- * Prefers the far dock the navigator is showing when that one is new ground. Undefined when no lane leads out.
+ * Where "Cross the sea" goes: the nearest crossable dock (isCrossableDockAt) across a known lane. A lane that
+ * ends at another of the player's own garrisoned docks is followed onward along that chain (fewest hops, then
+ * shortest total route), since crossing to your own land gets you nowhere (Playtest Run 4: Mark's only lane
+ * joined his two docks). `distance` is the whole route from the origin. Prefers the far dock the navigator is
+ * showing when that one is crossable. Undefined when no lane leads out.
  */
 export const findCrossTarget = (state: DockNavigatorState, originX: number, originY: number): ConnectedDockStop | undefined => {
   const pairs = knownDockPairs(state);
   const direct = connectedDockStops(pairs, originX, originY);
   const shown = direct[stopIndexAtCamera(direct, state.camX, state.camY)];
-  if (shown && !isOwnDockAt(state, shown.x, shown.y)) return shown;
+  if (shown && isCrossableDockAt(state, shown.x, shown.y)) return shown;
   const seen = new Set([`${originX},${originY}`]);
-  let frontier: Array<{ x: number; y: number }> = [{ x: originX, y: originY }];
-  // Bounded by the docks reachable through the player's own docks.
+  let frontier: ConnectedDockStop[] = [{ x: originX, y: originY, distance: 0, bySea: true }];
+  // Bounded by the docks reachable through the player's own garrisoned docks.
   while (frontier.length > 0) {
-    const next: Array<{ x: number; y: number }> = [];
+    const next: ConnectedDockStop[] = [];
     const outward: ConnectedDockStop[] = [];
     for (const dock of frontier) {
       for (const stop of connectedDockStops(pairs, dock.x, dock.y)) {
         const key = `${stop.x},${stop.y}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        if (isOwnDockAt(state, stop.x, stop.y)) next.push(stop);
-        else outward.push(stop);
+        const total = { ...stop, distance: dock.distance + stop.distance };
+        if (isOwnSettledDockAt(state, stop.x, stop.y)) next.push(total);
+        else if (isCrossableDockAt(state, stop.x, stop.y)) outward.push(total);
       }
     }
     if (outward.length > 0) return outward.sort((a, b) => a.distance - b.distance || a.x - b.x || a.y - b.y)[0];
@@ -157,7 +180,8 @@ export const DOCK_CROSS_ACTION_ID = "dock_cross_sea" as const;
  * leads to new ground (findCrossTarget).
  */
 export const injectDockCrossAction = (view: TileMenuView, tile: Tile, state: DockNavigatorState): void => {
-  if (!tile.dockId || tile.ownerId !== state.me || view.actions.some((a) => a.id === DOCK_CROSS_ACTION_ID)) return;
+  // Garrisoned only: on a frontier dock Garrison stays the main action, and it's what reveals the lanes.
+  if (!tile.dockId || tile.ownerId !== state.me || tile.ownershipState !== "SETTLED" || view.actions.some((a) => a.id === DOCK_CROSS_ACTION_ID)) return;
   const target = findCrossTarget(state, tile.x, tile.y);
   if (!target) return;
   view.actions.unshift({
