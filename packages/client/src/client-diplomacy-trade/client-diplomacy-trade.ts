@@ -8,7 +8,7 @@ import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_M
 // It shows live whether an AI would accept, then sends. With no treaty, giving
 // an AI only coin is a gift that raises its opinion of you (the screen
 // stays open and shows the new opinion).
-// Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
+// Opened from "Offer Truce" on an enemy tile, an empire's Diplomacy deal and the Economy panel's Review trade.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
 // removes itself on close, keeps only the one open screen's state.
 import {

@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
-import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { discoveryTipPins, resetDiscoveryTipPinsForTests } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { enqueueDiscoveryTip } from "../client-discovery-tips/client-discovery-tips.js";
 import { resetOnboardingChecklistOverlayForTests } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import {
   announceDiscoveryTipForState,
@@ -10,9 +11,10 @@ import {
   tickOnboardingUiGateForFrame
 } from "./client-onboarding-ui-overlays.js";
 
-// Regression: the "First Town Discovered!" toast and the force-opened "New
+// Regression: the "First Town Discovered!" tip and the force-opened "New
 // empire checklist" painted over the tutorial and the AFC landing. Both must
-// wait until the dialog is closed and the join drop has finished.
+// wait until the dialog is closed and the join drop has finished. Tips are
+// map pins now (client-map-tip-pins.ts); the same wait applies to the pins.
 
 const joiningPlayerState = () => {
   const state = createInitialState();
@@ -30,14 +32,14 @@ const joiningPlayerState = () => {
   return state;
 };
 
-const toast = () => document.getElementById("discovery-tip-overlay");
+const pinned = (): string[] => discoveryTipPins().map((pin) => pin.id);
 const checklist = () => document.getElementById("onboarding-checklist-bubble");
 const checklistPanel = () => document.getElementById("onboarding-checklist-panel");
 
 beforeEach(() => {
   window.localStorage.clear();
   document.body.innerHTML = "";
-  renderDiscoveryTipOverlay([], "reset@example.com", vi.fn()); // reset the toast's module-level "showing" id
+  resetDiscoveryTipPinsForTests();
   resetOnboardingChecklistOverlayForTests();
 });
 
@@ -45,12 +47,12 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
   it("keeps the town tip and checklist hidden through the tutorial and the drop, then shows them once the AFC has landed", () => {
     const state = joiningPlayerState();
     const renderHud = vi.fn();
-    state.discoveryTipQueue.push("TOWN");
+    enqueueDiscoveryTip(state.discoveryTipQueue, "TOWN", state.authEmail, { x: 3, y: 3 });
 
     tickOnboardingUiGateForFrame(state, renderHud);
     renderDiscoveryTipOverlayForState(state, renderHud);
     refreshOnboardingChecklistHighlight(state);
-    expect(toast()).toBeNull();
+    expect(pinned()).toEqual([]);
     expect(checklist()).toBeNull();
 
     state.changelog.open = false;
@@ -60,13 +62,13 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     tickOnboardingUiGateForFrame(state, renderHud);
     renderDiscoveryTipOverlayForState(state, renderHud);
     refreshOnboardingChecklistHighlight(state);
-    expect(toast()).toBeNull();
+    expect(pinned()).toEqual([]);
     expect(checklist()).toBeNull();
     expect(state.discoveryTipQueue).toEqual(["TOWN"]);
 
     state.afcJoinDrop.phase = "done";
     tickOnboardingUiGateForFrame(state, renderHud);
-    expect(toast()?.textContent).toContain("First Town Discovered!");
+    expect(pinned()).toEqual(["TOWN"]);
     expect(checklist()).not.toBeNull();
     // The once-per-account force-open was held back, not spent while hidden.
     expect(checklistPanel()?.hasAttribute("hidden")).toBe(false);
@@ -78,13 +80,13 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     const renderHud = vi.fn();
     tickOnboardingUiGateForFrame(state, renderHud);
 
-    announceDiscoveryTipForState(state, "FIRST_MUSTER", renderHud);
-    expect(toast()).toBeNull();
+    announceDiscoveryTipForState(state, "FIRST_MUSTER", renderHud, { x: 5, y: 5 });
+    expect(pinned()).toEqual([]);
     expect(state.discoveryTipQueue).toEqual(["FIRST_MUSTER"]);
 
     state.changelog.open = false;
     tickOnboardingUiGateForFrame(state, renderHud);
-    expect(toast()?.textContent).toContain("First Muster Flag Placed!");
+    expect(pinned()).toEqual(["FIRST_MUSTER"]);
   });
 
   it("does not pop the checklist up when the gate lifts before the first map chunk has arrived", () => {

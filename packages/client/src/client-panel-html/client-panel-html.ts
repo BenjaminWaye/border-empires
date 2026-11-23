@@ -1,12 +1,9 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import { lastContestRecapButtonHtml } from "../client-last-contest-recap/client-last-contest-recap.js";
-import { diplomacyTermsLineHtml } from "../client-diplomacy-trade/client-diplomacy-terms-html.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
 import { resourceGlyphsToIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type {
-  ActiveAllianceBreakView,
-  AllianceRequest,
   FeedEntry,
   FeedType,
   LeaderboardMetricEntry,
@@ -14,7 +11,6 @@ import type {
   MissionState,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
-  TruceRequest
 } from "../client-types.js";
 
 // Activity Feed entries persist across a session (up to 18, see pushFeed/
@@ -69,12 +65,6 @@ const playerDotHtml = (playerId: string | undefined, playerColors: ReadonlyMap<s
   return `<span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span>`;
 };
 
-// A player's name in the Alliances tab: their map-colour dot plus name, as a
-// button that opens their profile -- wirePlayerProfileOverlay wires every
-// data-player-name-id, the same as leaderboard names.
-export const allianceNameButtonHtml = (playerId: string, playerName: string, playerColors: ReadonlyMap<string, string>): string =>
-  `<button class="player-link alliance-reference-name" type="button" data-player-name-id="${escapeHtml(playerId)}">${playerDotHtml(playerId, playerColors)}${escapeHtml(playerName)}</button>`;
-
 const playerNameBadgeHtml = (
   playerId: string | undefined,
   playerName: string,
@@ -127,14 +117,6 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
     .join("")}`;
 };
 
-const socialRelativeAgeLabel = (fromMs: number, nowMs: number): string => {
-  const diffMs = Math.max(0, nowMs - fromMs);
-  const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
-  if (diffMinutes >= 60 * 24) return `${Math.floor(diffMinutes / (60 * 24))}d ago`;
-  if (diffMinutes >= 60) return `${Math.floor(diffMinutes / 60)}h ago`;
-  return `${diffMinutes}m ago`;
-};
-
 // Shared with client-player-profile.ts, which needs the same "who is the
 // viewer" resolution to identify a self-profile.
 export const selfPlayerIdFromLeaderboard = (leaderboard: {
@@ -154,165 +136,6 @@ export const socialRemainingLabel = (untilMs: number, nowMs: number): string => 
   const hours = Math.floor(remainingMinutes / 60);
   const minutes = remainingMinutes % 60;
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-};
-
-// States what a pending request actually proposes, so the card reads as
-// "an alliance" or "a 12h truce" instead of just a name and a clock.
-const socialOfferLineHtml = (kind: "incoming" | "outgoing", offer: string): string =>
-  `<div class="alliance-reference-offer">${kind === "incoming" ? "Offers" : "You offered"} ${offer}</div>`;
-
-// Opens the trade screen pre-filled with this offer (client-alliance-counter-offer.ts).
-const counterOfferButtonHtml = (kind: "truce" | "alliance", requestId: string): string =>
-  `<button class="panel-btn alliance-reference-action alliance-reference-action-counter counter-offer" type="button" data-counter-kind="${kind}" data-counter-request-id="${requestId}">Counter</button>`;
-
-const socialClockIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-clock" aria-hidden="true">◷</span>';
-
-const socialCheckIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-check" aria-hidden="true">✓</span>';
-
-const socialBreakIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-break" aria-hidden="true">!</span>';
-
-const socialMetaLineHtml = (sentBy: string, waitingOn: string): string =>
-  `<div class="alliance-reference-meta">
-    <span class="alliance-reference-meta-label">Sent by:</span>
-    <span class="alliance-reference-meta-sender">${escapeHtml(sentBy)}</span>
-    <span class="alliance-reference-meta-sep">•</span>
-    <span class="alliance-reference-meta-label">Waiting on:</span>
-    <span class="alliance-reference-meta-waiting">${escapeHtml(waitingOn)}</span>
-  </div>`;
-
-export const allianceRequestsHtml = (
-  requests: AllianceRequest[],
-  playerNameForOwner: (ownerId?: string | null) => string | undefined,
-  kind: "incoming" | "outgoing" = "incoming",
-  nowMs = Date.now(),
-  playerColors: ReadonlyMap<string, string> = new Map()
-): string => {
-  if (requests.length === 0) return "";
-  return [...requests]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map(
-      (request) => {
-        const playerId = kind === "incoming" ? request.fromPlayerId : request.toPlayerId;
-        const playerName =
-          kind === "incoming"
-            ? request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
-            : request.toName ?? playerNameForOwner(request.toPlayerId) ?? request.toPlayerId.slice(0, 8);
-        const ageLabel = socialRelativeAgeLabel(request.createdAt, nowMs);
-        const sentBy = kind === "incoming" ? playerName : "You";
-        const waitingOn = kind === "incoming" ? "You" : playerName;
-        return `<article class="card alliance-reference-card alliance-reference-card-pending">
-      <div class="alliance-reference-top">
-        <div class="alliance-reference-copy">
-          ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          ${socialOfferLineHtml(kind, "an alliance")}
-        </div>
-        <div class="alliance-reference-right">
-          <div class="alliance-reference-time">${ageLabel}</div>
-        </div>
-      </div>
-      ${socialMetaLineHtml(sentBy, waitingOn)}${diplomacyTermsLineHtml(request.terms, kind, playerName)}
-      ${
-        kind === "incoming"
-          ? `<div class="alliance-reference-actions">
-        <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-request" type="button" data-request-id="${request.id}">Accept</button>
-        <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-request" type="button" data-request-id="${request.id}">Reject</button>
-        ${counterOfferButtonHtml("alliance", request.id)}
-      </div>`
-          : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-request" type="button" data-request-id="${request.id}">Cancel Request</button>`
-      }
-    </article>`;
-      }
-    )
-    .join("");
-};
-
-export const alliesHtml = (
-  allies: string[],
-  playerNameForOwner: (ownerId?: string | null) => string | undefined,
-  activeAllianceBreaks: ActiveAllianceBreakView[] = [],
-  nowMs = Date.now(),
-  playerColors: ReadonlyMap<string, string> = new Map()
-): string => {
-  if (allies.length === 0) return `<article class="card alliance-empty-card"><p>No allies.</p></article>`;
-  const activeBreakByPlayerId = new Map(activeAllianceBreaks.map((notice) => [notice.otherPlayerId, notice]));
-  return allies
-    .map((id) => {
-      const notice = activeBreakByPlayerId.get(id);
-      const name = playerNameForOwner(id) ?? notice?.otherPlayerName ?? id.slice(0, 8);
-      const remainingLabel = notice ? socialRemainingLabel(notice.endsAt, nowMs) : "";
-      const finalizingBreak = notice ? notice.endsAt <= nowMs : false;
-      return `<article class="card alliance-reference-card${notice ? " alliance-reference-card-breaking" : ""}">
-      <div class="alliance-reference-top">
-        <div class="alliance-reference-copy">
-          ${allianceNameButtonHtml(id, name, playerColors)}
-        </div>
-        <div class="alliance-reference-right">
-          ${
-            notice
-              ? `<div class="alliance-reference-status alliance-reference-status-breaking">${socialBreakIcon()}<span>${finalizingBreak ? "Finalizing" : "Breaking"}</span></div>
-          <div class="alliance-reference-duration-note">${finalizingBreak ? "sync pending" : `${remainingLabel} notice`}</div>`
-              : `<div class="alliance-reference-status alliance-reference-status-active">${socialCheckIcon()}<span>Active</span></div>`
-          }
-        </div>
-      </div>
-      ${
-        notice
-          ? `<div class="alliance-reference-meta">
-        <span class="alliance-reference-meta-label">${finalizingBreak ? "Notice elapsed; final break is syncing." : "Alliance remains active until notice ends."}</span>
-      </div>`
-          : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
-      }
-      <button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${escapeHtml(id)}">Trade resources</button>
-    </article>`;
-    })
-    .join("");
-};
-
-export const truceRequestsHtml = (
-  requests: TruceRequest[],
-  playerNameForOwner: (ownerId?: string | null) => string | undefined,
-  kind: "incoming" | "outgoing" = "incoming",
-  nowMs = Date.now(),
-  playerColors: ReadonlyMap<string, string> = new Map()
-): string => {
-  if (requests.length === 0) return "";
-  return [...requests]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map(
-      (request) => {
-        const playerId = kind === "incoming" ? request.fromPlayerId : request.toPlayerId;
-        const playerName =
-          kind === "incoming"
-            ? request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
-            : request.toName ?? playerNameForOwner(request.toPlayerId) ?? request.toPlayerId.slice(0, 8);
-        const ageLabel = socialRelativeAgeLabel(request.createdAt, nowMs);
-        const sentBy = kind === "incoming" ? playerName : "You";
-        const waitingOn = kind === "incoming" ? "You" : playerName;
-        return `<article class="card alliance-reference-card alliance-reference-card-pending" data-request-age="${ageLabel}">
-      <div class="alliance-reference-top">
-        <div class="alliance-reference-copy">
-          ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce${request.extendsTruce ? " extension" : ""}`)}
-        </div>
-        <div class="alliance-reference-right">
-          <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>
-          <div class="alliance-reference-duration-note">duration</div>
-        </div>
-      </div>
-      ${socialMetaLineHtml(sentBy, waitingOn)}${diplomacyTermsLineHtml(request.terms, kind, playerName)}
-      ${
-        kind === "incoming"
-          ? `<div class="alliance-reference-actions">
-        <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-truce" type="button" data-truce-request-id="${request.id}">Accept</button>
-        <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-truce" type="button" data-truce-request-id="${request.id}">Reject</button>
-        ${counterOfferButtonHtml("truce", request.id)}
-      </div>`
-          : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-truce" type="button" data-truce-request-id="${request.id}">Cancel Request</button>`
-      }
-    </article>`;
-      }
-    )
-    .join("");
 };
 
 export const missionCardsHtml = (missions: MissionState[]): string =>

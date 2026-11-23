@@ -212,7 +212,6 @@ export const createInitialState = () => ({
   replayAppliedIndex: 0,
   replayLastTickAt: 0,
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
-  socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
   scoutFindingHighlight: undefined as ScoutFindingHighlight | undefined,
   feedUnreadCount: 0,
@@ -280,7 +279,7 @@ export const createInitialState = () => ({
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),

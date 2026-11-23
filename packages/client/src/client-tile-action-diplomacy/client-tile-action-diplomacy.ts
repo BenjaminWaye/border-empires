@@ -12,8 +12,8 @@ type DiplomacyActionDeps = {
 
 /**
  * The single diplomacy entry on another player's tile. It replaces the old
- * "Offer Truce 12h/24h" rows: the Alliances tab owns proposing, so this just
- * says where you stand with the tile's owner and opens that player's row. A
+ * "Offer Truce 12h/24h" rows: the Diplomacy deal owns proposing, so this just
+ * says where you stand with the tile's owner and opens that player's deal. A
  * request waiting on you floats to the top of the menu.
  */
 export const diplomacyActionForOwner = (
@@ -41,20 +41,19 @@ export const diplomacyActionForOwner = (
 };
 
 /**
- * Opens the Alliances panel (desktop side panel, or the mobile social sheet)
- * and marks the player to scroll to, highlight and expand there. Sets panel state
- * directly rather than via the toggling setActivePanel, so pressing Diplomacy
- * while the panel is already open does not close it. The caller re-renders.
+ * Asks the v2 HUD to open the Diplomacy deal with this player (client-hud-v2.ts
+ * frame consumes and clears the request). The caller re-renders.
  */
-export const openDiplomacyForPlayer = (
-  state: Pick<ClientState, "activePanel" | "socialFocus" | "expandedSocialPlayerId">,
-  playerId: string,
-  nowMs: number = Date.now()
-): void => {
-  state.activePanel = "alliance";
-  state.socialFocus = { playerId, until: nowMs + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true };
-  // Open the player's row so its Propose / Truce buttons are ready to tap.
-  state.expandedSocialPlayerId = playerId;
+export const openDiplomacyForPlayer = (state: Pick<ClientState, "requestedDiplomacyTargetId">, playerId: string): void => {
+  state.requestedDiplomacyTargetId = playerId;
 };
 
-export const SOCIAL_FOCUS_HIGHLIGHT_MS = 8_000;
+/**
+ * The pending Diplomacy request, cleared so it opens once. Dropped while the game is not on screen
+ * (sign-in, lobby, reconnect): a tap made just before then must not pop the deal open later.
+ */
+export const takeRequestedDiplomacyTarget = (state: Pick<ClientState, "requestedDiplomacyTargetId">, gameShown = true): string | undefined => {
+  const targetId = state.requestedDiplomacyTargetId;
+  state.requestedDiplomacyTargetId = undefined;
+  return gameShown ? targetId : undefined;
+};
