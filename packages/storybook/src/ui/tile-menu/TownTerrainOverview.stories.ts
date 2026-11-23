@@ -24,7 +24,7 @@ const commonStats = {
 
 const EXAMPLES: TownCharacterExample[] = [
   {
-    name: "Fertile Town",
+    name: "Standard Town",
     townName: "Millhaven",
     stats: {
       ...commonStats,
@@ -32,7 +32,7 @@ const EXAMPLES: TownCharacterExample[] = [
       manpowerCapLabel: "300",
       manpowerRegenLabel: "+0.42/min base regen",
       townModifiers: [{
-        label: "Fertile Town",
+        label: "Standard Town",
         goldOutputPercent: 0,
         manpowerCapacityPercent: 0,
         manpowerRegenPercent: 0

@@ -104,8 +104,13 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
   const character = townCharacterLabelForProfile(terrainProfile, coastal);
   const signed = (n: number): string => `${n >= 0 ? "+" : ""}${n}%`;
+  // A Standard Town's terrain is neutral: "+0% · +0% · +0%" read as a perk that had lost its numbers (Playtest Run 4).
+  const terrainModsText = (m: { goldOutputPercent: number; manpowerCapacityPercent: number; manpowerRegenPercent: number }): string =>
+    m.goldOutputPercent === 0 && m.manpowerCapacityPercent === 0 && m.manpowerRegenPercent === 0
+      ? "No terrain bonus"
+      : `Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}`;
   const modifiers = townStatModifiersForProfile(terrainProfile, coastal).map((m) =>
-    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}</span></span></div>`
+    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">${terrainModsText(m)}</span></span></div>`
   ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false, biota: input.biota }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
