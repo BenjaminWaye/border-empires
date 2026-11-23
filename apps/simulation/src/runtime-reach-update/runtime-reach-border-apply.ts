@@ -37,8 +37,13 @@ export type ReachBorderApplyContext = {
   rivalOwnerIds: () => string[];
   /** Looks up a tile's ownership by key, for the unsettle downgrade. */
   tileOwnership: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
-  /** Applies the SETTLED -> FRONTIER downgrade through the runtime's own path. */
-  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  /**
+   * Applies the SETTLED -> FRONTIER downgrade through the runtime's own path.
+   * `overtakerId` is the player whose reach took the tile ("" when the border
+   * was vacated); the runtime hands it to the encirclement check that follows
+   * (unsettle-encirclement.ts).
+   */
+  downgradeToFrontier: (tileKey: string, causeCommandId: string, overtakerId: string) => void;
   /**
    * Free, instant FRONTIER claim for tiles that just entered `ownerId`'s
    * persistent reach border while genuinely unowned (`tileOwnership(tileKey)`
@@ -78,7 +83,7 @@ export const createReachBorderApplyContext = (deps: {
   gatherReachAnchors: () => ReachAnchor[];
   playerSummaryIds: () => Iterable<string>;
   getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
-  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  downgradeToFrontier: (tileKey: string, causeCommandId: string, overtakerId: string) => void;
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   contestedDirtyState: ReachChangedTilesDirtyState;
   isLandTile?: LandConnectivityQuery;
@@ -153,7 +158,7 @@ const settleOvertaken = (
     if (fromOwnerId.startsWith("barbarian-")) continue;
     const tile = context.tileOwnership(tileKey);
     if (!tile || tile.ownerId !== fromOwnerId || tile.ownershipState !== "SETTLED") continue;
-    context.downgradeToFrontier(tileKey, causeCommandId);
+    context.downgradeToFrontier(tileKey, causeCommandId, toOwnerId);
   }
 };
 

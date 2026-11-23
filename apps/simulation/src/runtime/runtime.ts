@@ -10,7 +10,7 @@ import { RelicMapHintIndex } from "../runtime-relic-map-hints.js"; import { crea
 import { activateUnallocatedFoundries } from "../runtime-relics.js";
 import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
 import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
-import { superTileSettlementStart } from "../landmark-super-tile/landmark-super-tile-settle.js";
+import { superTileSettlementStart } from "../landmark-super-tile/landmark-super-tile-settle.js"; import { createUnsettleEncirclementQueue } from "../unsettle-encirclement/unsettle-encirclement.js";
 import { settleResourceNetworkOwnersBeforeTileChange } from "./runtime-manpower-economy.js";
 import { coinIncomeAdjustmentsInSnapshot } from "../coin-income-adjustments/coin-income-adjustments.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
@@ -511,7 +511,7 @@ export class SimulationRuntime {
     () => this.state, () => this.structureCommandContext()
   );
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
-  private readonly superTileSync = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
+  private readonly unsettleEncirclement = createUnsettleEncirclementQueue({ applyEncirclement: (keys, id, cid, options) => this.applyEncirclement(keys, id, cid, options) }); private readonly superTileSync = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
   private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
@@ -1676,7 +1676,7 @@ export class SimulationRuntime {
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
-  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`, strikeByPlayerId?: string): void { this.superTileSync.write(() => this.writeTileState(tileKey, nextTile, commandId, strikeByPlayerId)); }
+  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`, strikeByPlayerId?: string): void { this.unsettleEncirclement.write(() => this.superTileSync.write(() => this.writeTileState(tileKey, nextTile, commandId, strikeByPlayerId))); }
   private writeTileState(tileKey: string, nextTile: DomainTileState, commandId: string, strikeByPlayerId?: string): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
@@ -2154,7 +2154,7 @@ export class SimulationRuntime {
   // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
-      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), hasClaimInFlight: (k) => this.state.locksByTile.targetLockAt(k) !== undefined, isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), hasClaimInFlight: (k) => this.state.locksByTile.targetLockAt(k) !== undefined, isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0, overtakerId) => { applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }); const ownerId = this.state.tiles.get(tileKey)?.ownerId; if (ownerId) this.unsettleEncirclement.record(tileKey, ownerId, overtakerId, `unsettle:${cid0}`); },
       autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) })
     });
   }
