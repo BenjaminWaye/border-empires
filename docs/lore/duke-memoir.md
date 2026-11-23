@@ -13,17 +13,20 @@ facts to it. Where the two disagree, the world bible wins.*
 
 I was twenty-six when the Proclamation reached our holding, and I remember
 being furious about it. Not afraid. Furious. My father had spent thirty
-years building a shipping concern out of nothing, and the Court wanted his
-heir to walk away from it and dig in the dirt of some frontier rock nobody
-had bothered to name, because it was time for another Contest.
+years building a shipping concern out of nothing, and now the family had
+committed his heir to walk away from it and dig in the dirt of some
+frontier rock nobody had bothered to name, because a Sector had been
+proclaimed and a House that sits one out is a House in decline.
 
-We called it a game, in private, when the stewards weren't listening.
-Everyone in the Core did. They followed a Sector Contest the way my
-grandmother's generation had followed the war reports: with wagers, and
-favourites, and a great many opinions about ground they would never stand
-on. It took me longer than I'd like to admit to understand that calling it
-a game and understanding what it actually was were two different things,
-and that I could do both at once and still be right to go.
+Nobody pretends the Contest is anything but a game. That is its official
+name and its whole advertisement: a show for the people of the Core, and
+for the Houses a chance to be seen winning and to come home with a world.
+The Core follows it the way my grandmother's generation followed the war
+reports: with wagers, and favourites, and a great many opinions about
+ground they would never stand on. I had followed it that way myself. It
+took me longer than I'd like to admit to understand that knowing it was a
+game and knowing what the game was for were two different things, and that
+I could know both and still be right to go.
 
 The Writ of Sectors is short enough to embroider on a cushion, and my aunt
 had. *To hold nothing is to owe everything.* I grew up thinking that was a

@@ -57,7 +57,8 @@ to hold nothing is to owe everything; unclaimed ground is a debt the galaxy
 owes itself.
 
 The Core watches each campaign as the **Sector Contest**, and that is half the
-point. While the nobility fights for worlds and the people watch them do it,
+point. Officially it is a game: entertainment for the people of the Core, and
+a chance for the nobility to show off and enlarge their Houses' holdings. While the nobility fights for worlds and the people watch them do it,
 nobody is looking at the dictatorship at home. Each campaign also shows the
 Court which Houses can actually command.
 
