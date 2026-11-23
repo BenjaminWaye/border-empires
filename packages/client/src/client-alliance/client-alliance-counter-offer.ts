@@ -58,11 +58,3 @@ export const openCounterOfferScreen = (kind: DiplomacyOfferKind, requestId: stri
   openDiplomacyTradeScreen(input, diplomacyTradeDepsFor(deps.state, deps.sendGameMessage));
   return true;
 };
-
-export const bindCounterOfferButtons = (root: ParentNode, deps: CounterOfferDeps): void => {
-  root.querySelectorAll<HTMLButtonElement>(".counter-offer").forEach((btn) => {
-    btn.onclick = () => {
-      openCounterOfferScreen(btn.dataset.counterKind === "alliance" ? "alliance" : "truce", btn.dataset.counterRequestId ?? "", deps);
-    };
-  });
-};

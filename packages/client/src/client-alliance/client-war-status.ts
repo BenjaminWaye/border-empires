@@ -2,7 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { isFriendlyOwner } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 import { musterWarOpponents } from "../client-war-music-signal/client-war-music-hostility.js";
 
-// Who we are at war with, for the Alliances tab's "War" / "Met" label. It is
+// Who we are at war with, for the Diplomacy list's "War" / "Met" label. It is
 // the per-player version of the war-music signals (client-war-music-signal.ts):
 // a player is at war with us while a battle between us is live, a muster flag
 // of ours is engaged against their land, either side's flag has the other's
