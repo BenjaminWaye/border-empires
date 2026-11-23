@@ -37,7 +37,13 @@ Status: active proposal
 > *known* shield's coverage (a narrower, client-safe version of the same
 > idea). The AI planner doesn't yet account for shields or the arrow
 > gesture at all; "auto-commit to match the defense" is still plan only.
-> Phases 4–5 are plan only, not started.
+> **Phase 4 (visit loop UI, G) is in progress** (2026-11-23): the report
+> (G item 1) is built; the agenda and the forecast are not. See G below.
+> Phase 5 is plan only, not started.
+> **Checked against the code 2026-11-23:** manpower is paid out in one refill
+> every 4 hours (`MANPOWER_REFILL_WINDOW_MS`), and build time does not follow
+> manpower cost (`docs/game-mechanics.md` §5). Where this plan says otherwise,
+> the code and `docs/core-loop.md` §1.1 are right.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -614,6 +620,29 @@ target is picked:
 From `docs/visit-as-a-turn.md`:
 1. **Report:** reorder the Activity dashboard to show your own completions first,
    then progress deltas. Depends on Activity dashboard Phases 1–2.
+   ✅ built (2026-11-23, `agent/visit-report`), in the Chronicle's Yours tab:
+   - Cards the player has not read yet are lifted into two groups above the
+     day list: "Your results since you last looked" (finished structures,
+     activated waystations, ground and towns taken), then "Lost while you were
+     away" (`chronicleGroups`, `client-hud-v2-chronicle.ts`). Before this the
+     losses came first.
+   - The "Since you last looked" headline follows the same order and counts
+     finished structures and activated waystations
+     (`client-hud-v2-chronicle-headline.ts`).
+   - Progress deltas: a block listing up to three victory paths whose percent
+     moved since the last visit ("Maritime Supremacy 31% → 36%"), opening
+     Ranks (`client-hud-v2-chronicle-progress.ts`). It sits in the scrolling
+     list after the two lifted groups, so a 375x667 phone keeps its rows. The
+     server keeps no history of path progress, so the figures are kept in
+     the browser's local storage, one record per contest and House; a first
+     visit or a new device shows no block. The HUD records the figures about
+     once a minute while the game is on screen, whether or not the Chronicle
+     is open; 30 minutes with nothing recorded (app closed or hidden) ends a
+     visit, and that visit's last figures are what the next one is compared
+     against.
+   - Not built: rank change, and the map playback of
+     `docs/visit-as-a-turn.md` §2.1 (it needs a bounded border-change
+     history, which is new persisted state).
 2. **Agenda:** 3–5 ranked decisions (town ready to upgrade, manpower full or
    nearly full, idle slots, unfed town, abilities off cooldown).
 3. **End-visit forecast:** what finishes while you're away, when manpower is
@@ -643,7 +672,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
 | **3a. Shield flags (server + reveal)** ✅ done (2026-09-26/28) | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, the matching-commitment defense multiplier, and the reactive shield reveal (combat broadcast + force-reveal + 3D reinforcement march) are all shipped. By design, not wired into the client's win-chance preview (the reveal substitutes for that); the AI planner still doesn't account for shields at all (deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
 | **3b. Arrow UX (client)** ✅ done (2026-09-29), revised (2026-09-30) | F (gestures, arrow, sheet, win-chance labels), both renderers — shipped with documented deviations (straight-line arrow not the MARCH route, no Defend-here gesture, no front highlight, no persistent order arrow), then revised to click-to-target (gesture claimed the pan button, so off-screen targets were unreachable) and win-chance labels made slider-live; see F's own section for the full list | 3a |
-| **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
+| **4. Visit loop UI** in progress: report ✅ (2026-11-23); agenda and forecast not built | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 
 Phases 1, 1b and 2 give players the most noticeable change with the least risk, so
