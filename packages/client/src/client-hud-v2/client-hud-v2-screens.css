@@ -332,6 +332,13 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-tab:hover { color: var(--v2-text); }
 .v2c-tab-on { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
 .v2c-tab-badge { min-width: 18px; padding: 0 5px; background: var(--v2-red-hi); color: #fff; font-family: var(--v2-mono); font-size: 10px; line-height: 16px; text-align: center; }
+/* Ahead tab: the forecast of what happens while the player is away (client-hud-v2-chronicle-ahead.ts). */
+.v2c-return { display: grid; gap: 4px; margin: 10px 14px 4px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-gold); }
+.v2c-return-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.v2c-return-line { margin: 0; font-size: 14px; line-height: 1.35; }
+.v2c-return-line b { font-family: var(--v2-mono); color: var(--v2-gold-hi); }
+.v2c-ahead-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 7px 14px; border-bottom: 1px solid var(--v2-line); }
+.v2c-ahead-text { font-size: 14px; line-height: 1.35; }
 .v2c-world-rank { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 4px; }
 .v2c-world-label { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2c-world-you { font-family: var(--v2-display); font-size: 18px; font-weight: 700; color: var(--v2-gold-hi); }

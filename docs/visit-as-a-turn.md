@@ -188,6 +188,8 @@ The hook becomes: **"see what my turn produced, and set up the next one"**.
    has, extending the onboarding checklist pattern. Rank by impact. Measure
    which items get acted on.
 4. **"End visit" summary.** Shows the forecast and the suggested return time.
+   ✅ Built 2026-11-23 as the Chronicle's Ahead tab, without an End visit
+   button; details in `docs/replenishment-update-plan.md` workstream G.
 5. **Map playback since last visit.** The most expensive step (it needs a
    bounded border-change history). Must be built for both renderers.
 

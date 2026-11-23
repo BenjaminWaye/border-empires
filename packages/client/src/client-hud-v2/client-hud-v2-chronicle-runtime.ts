@@ -6,11 +6,15 @@ import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } f
 import { activityDashboardUnreadCount } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { latestClientChangelogTimestamp, markClientChangelogSeen, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
 import { storageGet, storageSet } from "../client-state/client-storage.js";
-import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
+import { focusCamera, screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleProgressForState } from "./client-hud-v2-chronicle-progress.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
+import { aheadTabHtml } from "./client-hud-v2-chronicle-ahead.js";
+import { visitForecast, type VisitForecast } from "../client-visit-forecast/client-visit-forecast.js";
+import { forecastInputForState } from "../client-visit-forecast/client-visit-forecast-state.js";
+import { myTowns } from "./client-hud-v2-town-runtime.js";
 import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
 import { chronicleScoutFindClick } from "./client-hud-v2-chronicle-scout-chips.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
@@ -71,6 +75,10 @@ export const renderChronicle = (deps: HudV2Deps): void => {
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
     return;
   }
+  if (tab === "ahead") {
+    writeHtml("v2c-drawer", `${chronicleHeadHtml(tabs)}${aheadTabHtml(aheadForecast(deps, Date.now()))}`);
+    return;
+  }
   const body = tab === "world"
     ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError })
     : updatesTabHtml(screen.chronicleUpdatesBaseline ?? state.changelog.seenAt, screen.chronicleOpenUpdate);
@@ -78,6 +86,17 @@ export const renderChronicle = (deps: HudV2Deps): void => {
   if (tab === "updates" && unseenClientChangelogEntries(state.changelog.seenAt).length > 0) {
     markClientChangelogSeen(state, latestClientChangelogTimestamp(), storageSet);
   }
+};
+
+/** The forecast scans every tile for work in progress, so it is rebuilt at most this often while the tab is open. */
+const AHEAD_MAX_AGE_MS = 5_000;
+let aheadCache: { at: number; forecast: VisitForecast } | undefined;
+
+const aheadForecast = (deps: HudV2Deps, nowMs: number): VisitForecast => {
+  if (!aheadCache || nowMs - aheadCache.at >= AHEAD_MAX_AGE_MS || nowMs < aheadCache.at) {
+    aheadCache = { at: nowMs, forecast: visitForecast(forecastInputForState(deps.state, myTowns(deps, nowMs), nowMs)) };
+  }
+  return aheadCache.forecast;
 };
 
 /** Fetches what a tab shows the first time it is opened (the activity timeline refetches on every open). */
@@ -90,6 +109,16 @@ export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
 export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => {
   if (chronicleSurveyClick(deps, target)) return true;
   if (chronicleScoutFindClick(deps, target, () => renderChronicle(deps))) return true;
+  const ahead = target.closest<HTMLElement>("[data-v2-ahead-focus]");
+  if (ahead) {
+    const x = Number(ahead.dataset.x);
+    const y = Number(ahead.dataset.y);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      focusCamera(deps, x, y);
+      deps.renderHud();
+    }
+    return true;
+  }
   const update = target.closest<HTMLElement>("[data-v2-update]")?.dataset.v2Update;
   if (update) {
     const baseline = screen.chronicleUpdatesBaseline ?? deps.state.changelog.seenAt;
@@ -100,7 +129,8 @@ export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => 
     return true;
   }
   const tab = target.closest<HTMLElement>("[data-v2-chronicle-tab]")?.dataset.v2ChronicleTab;
-  if (tab !== "yours" && tab !== "world" && tab !== "updates") return false;
+  if (tab !== "yours" && tab !== "ahead" && tab !== "world" && tab !== "updates") return false;
+  aheadCache = undefined;
   screen.chronicleTab = tab;
   loadChronicleTab(deps, tab);
   renderChronicle(deps);

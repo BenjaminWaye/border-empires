@@ -647,6 +647,32 @@ From `docs/visit-as-a-turn.md`:
    nearly full, idle slots, unfed town, abilities off cooldown).
 3. **End-visit forecast:** what finishes while you're away, when manpower is
    full, town tier ETAs.
+   ✅ built (2026-11-23, `agent/visit-forecast`) as the Chronicle's **Ahead**
+   tab (`client-hud-v2-chronicle-ahead.ts`), from a pure module
+   (`packages/client/src/client-visit-forecast/`):
+   - Rows, soonest first: builds and garrisons in a slot, queued work and
+     queued expansions (a count, never a time: nothing is promised for work
+     that has not started), the next manpower batch and "Manpower full in …",
+     up to three towns nearing the population their next bought tier needs
+     (the town screen's own estimate; a paused or unfed town gets no time),
+     running victory holds (yours and rivals'), and truces ending.
+   - Queued work is split: the first `DEV_QUEUE_SERVER_CAP` (20) entries are
+     held by the server and run while the game is closed; anything planned
+     past that lives in the browser and is listed as starting "only while the
+     game is open".
+   - A "Good moment to come back" line: the earliest of slots free, manpower
+     full, a town ready, a hold completing or a truce ending that is at least
+     15 minutes away. Slots only count when nothing is queued or paused
+     behind the running work, and nothing is suggested while a hold is under
+     15 minutes from completing.
+   - There is no "End visit" button (`docs/visit-as-a-turn.md` §6 question 1
+     is still open); the tab is simply there to read.
+   - Manpower is paid in 4-hour batches. "Full in" uses the server's figure
+     for the next batch and a full window of regen for each batch after it
+     (`manpowerFullInMs`); without the server's figure it assumes full
+     batches and can be one batch optimistic.
+   - Not included: ability cooldowns, and the client forecast is not shared
+     with the notifier.
 4. **Notifications:** push notifications and further email categories beyond
    "Manpower full" (Phase 1). Also attacks and good-news events.
 
