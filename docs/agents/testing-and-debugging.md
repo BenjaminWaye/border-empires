@@ -136,6 +136,21 @@ rejects real ended-season snapshots (`RESOURCE_EXHAUSTED`), even with healthy pi
 The general separation of tiled detail from overview data follows
 [MapLibre's tiled sources](https://maplibre.org/maplibre-style-spec/sources/).
 
+## Server memory at contest scale
+
+`scripts/sector-memory-probe/` runs the combined stack locally with any number
+of AI Houses and logged-in humans and records memory per thread; it can also
+write a heap snapshot of one thread. Commands, the 2026-11-23 results for 100
+Houses and the ranked list of what holds the simulation heap are in
+[`../load-results/sector-memory-2026-11-23.md`](../load-results/sector-memory-2026-11-23.md).
+Local only: never point it at staging or production. On a running server,
+each checkpoint logs `simulation checkpoint tile caches` (entry counts of the
+two per-tile caches) next to the replay-cache and explored-tiles sizes, and
+`sim_snapshot_cache_bytes` / `sim_replay_recorded_command_history` are on the
+simulation metrics endpoint. A replay-cache count that keeps rising means a
+server-generated command prefix is missing from
+`SERVER_GENERATED_COMMAND_ID_PREFIXES` (`command-event-lifecycle.ts`).
+
 ## Main-thread stalls on the rewrite stack
 
 The event-loop watchdog (`apps/realtime-gateway/src/event-loop-watchdog.ts`) captures the gateway main thread's JavaScript stack once it has been silent for `WATCHDOG_STACK_CAPTURE_MS` (default 10s, `0` disables), up to three times per stall, by pausing it through the inspector from the watchdog worker (`main-thread-stack-capture/`). Look for `event_loop_stall_stack` and `event_loop_stall_recovered` in the server logs (`scripts/ops/backend-logs.sh`), or `stallStacks` in the kill log and in `previous_death_forensics` after a watchdog kill. `ok: false, reason: "pause_timeout"` means the thread was inside native code (e.g. a synchronous SQLite call) rather than JS.

@@ -64,7 +64,16 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "scout-sighted:",
   "scout-finds:",
   // Waystation VISION look expiry flush (runtime-watchtower-reveal-tick.ts).
-  "waystation-vision-expire:"
+  "waystation-vision-expire:",
+  // Reach-border follow-ups (runtime-reach-border-apply.ts, runtime-reach-contested-flush.ts)
+  // and the muster ticker (runtime-muster-tick/). Each wraps the id of whatever caused it, so
+  // a client only ever resubmits the inner id, never one of these. With 60 AI Houses they were
+  // every entry of the replay cache: 6,642 commands / 33 MB after 40 minutes, and climbing
+  // toward the 50,000 cap (docs/load-results/sector-memory-2026-11-23.md).
+  "reach-contested:",
+  "reach-auto-claim:",
+  "muster-tick:",
+  "muster-status:"
 ] as const;
 
 /**

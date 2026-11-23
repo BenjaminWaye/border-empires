@@ -275,7 +275,7 @@ import {
 import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
-} from "../runtime-snapshot-sections.js";
+} from "../runtime-snapshot-sections.js"; import { bootSnapshotTileCache } from "../snapshot-tile-boot/snapshot-tile-boot.js";
 import type { RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runtime.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
@@ -814,7 +814,7 @@ export class SimulationRuntime {
       player.afcRecovery.globalLosses = this.state.afcGlobalLosses;
     }
     this.planetaryDefenseCamps.bootTiles(this.state.tiles);
-    for (const [key, sourceTile] of this.state.tiles) { const tile = withAfcFortFacts(sourceTile, this.state.players); this.state.tiles.set(key, tile); this.snapshotTileCache.set(key, mapTile(tile)); }
+    bootSnapshotTileCache({ tiles: this.state.tiles, players: this.state.players, snapshotTileCache: this.snapshotTileCache, recoveredTiles: options.initialState?.tiles });
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
     // loop here, immediately after this.state.players was built and BEFORE

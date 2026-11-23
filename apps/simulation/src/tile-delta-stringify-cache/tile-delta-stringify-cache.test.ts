@@ -137,19 +137,57 @@ describe("TileDeltaStringifyCache", () => {
     const tile: DomainTileState = { ...makeBaseTile(), fort };
     cache.getOrComputeAll("1,1", tile);
     cache.getOrComputeAll("2,2", { ...tile, x: 2, y: 2 });
-    expect(cache.size()).toBe(2);
+    cache.setLastEmitted("1,1", tile, undefined);
+    expect(cache.stats()).toEqual({ substructureEntries: 2, lastEmittedEntries: 1 });
     cache.invalidateMany(["1,1", "2,2"]);
-    expect(cache.size()).toBe(0);
+    expect(cache.stats()).toEqual({ substructureEntries: 0, lastEmittedEntries: 0 });
   });
 
   it("clear empties all entries", () => {
     const cache = new TileDeltaStringifyCache();
     for (let i = 0; i < 5; i++) {
-      cache.getOrComputeAll(`${i},${i}`, { ...makeBaseTile(), x: i, y: i });
+      const tile: DomainTileState = { ...makeBaseTile(), x: i, y: i, fort: makeFort() };
+      cache.getOrComputeAll(`${i},${i}`, tile);
+      cache.setLastEmitted(`${i},${i}`, tile, undefined);
     }
-    expect(cache.size()).toBe(5);
+    expect(cache.stats()).toEqual({ substructureEntries: 5, lastEmittedEntries: 5 });
     cache.clear();
-    expect(cache.size()).toBe(0);
+    expect(cache.stats()).toEqual({ substructureEntries: 0, lastEmittedEntries: 0 });
+  });
+
+  // Memory guard: the cache used to allocate one all-undefined entry per tile
+  // it was asked about, and a world export asks about every tile -- ~55 MB on
+  // a 204,800-tile world, nearly all for sea and bare land.
+  it("holds nothing for tiles without a substructure, however many are read", () => {
+    const cache = new TileDeltaStringifyCache();
+    const first = cache.getOrComputeAll("0,0", makeBaseTile());
+    for (let i = 1; i < 2_000; i++) {
+      expect(cache.getOrComputeAll(`${i},0`, { ...makeBaseTile(), x: i, y: 0 })).toBe(first);
+    }
+    expect(cache.stats()).toEqual({ substructureEntries: 0, lastEmittedEntries: 0 });
+    expect(Object.values(first).every((value) => value === undefined)).toBe(true);
+    expect(Object.isFrozen(first)).toBe(true);
+  });
+
+  it("drops a tile's entry once its last substructure is gone", () => {
+    const cache = new TileDeltaStringifyCache();
+    const fort = makeFort();
+    expect(cache.getOrComputeAll("1,1", { ...makeBaseTile(), fort }).fortJson).toBe(JSON.stringify(fort));
+    expect(cache.stats().substructureEntries).toBe(1);
+    expect(cache.getOrComputeAll("1,1", makeBaseTile()).fortJson).toBeUndefined();
+    expect(cache.stats().substructureEntries).toBe(0);
+  });
+
+  it("invalidate drops the memoised JSON but keeps the last-emitted baseline", () => {
+    const cache = new TileDeltaStringifyCache();
+    const tile: DomainTileState = { ...makeBaseTile(), fort: makeFort(), ownerId: "p1" };
+    cache.getOrComputeAll("1,1", tile);
+    cache.setLastEmitted("1,1", tile, "p1");
+    cache.invalidate("1,1");
+    expect(cache.stats()).toEqual({ substructureEntries: 0, lastEmittedEntries: 1 });
+    expect(cache.getLastEmitted("1,1")).toMatchObject({ ownerId: "p1", reachOwnerId: "p1", fortRef: tile.fort });
+    cache.clearLastEmitted("1,1");
+    expect(cache.stats().lastEmittedEntries).toBe(0);
   });
 
   it("32 substructure presence combos all produce byte-identical output", () => {

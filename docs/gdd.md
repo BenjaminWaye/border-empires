@@ -204,6 +204,15 @@ baseline.
 ## 11. Open items to verify before launch
 
 - What one server can hold, including the load when the map is fully revealed.
+  - 2026-11-23, memory: 100 Houses (60 AI + 40 humans) ran on the real stack
+    at about 0.9–1.1 GB with half the land owned, inside a small server's
+    4 GB. It does not fit under the 700 MB checkpoint memory watermark, so
+    checkpoints are saved about every 3.4 minutes instead of every 52 seconds.
+    Whether to raise the watermark, accept that, or change something larger is
+    an open owner decision. Still unknown: a late contest (the longest run was
+    100 minutes), real Hetzner hardware, humans who actively play. Full
+    numbers and options:
+    [`load-results/sector-memory-2026-11-23.md`](load-results/sector-memory-2026-11-23.md).
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.
