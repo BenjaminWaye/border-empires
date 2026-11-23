@@ -1,3 +1,4 @@
+import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { RUN4_QUICK_FIXES_ENTRY } from "./client-changelog-run4-quick-fixes.js";
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...UNSETTLED_ENCIRCLEMENT_ENTRY, createdAt: 1795418149833, },
   { ...RUN4_QUICK_FIXES_ENTRY, createdAt: 1795422082667, },
   { ...CAPTURED_TOWN_FIST_ENTRY, createdAt: 1795424975001, },
+  { ...PD_LAND_VISIBLE_ENTRY, createdAt: 1795437513917, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

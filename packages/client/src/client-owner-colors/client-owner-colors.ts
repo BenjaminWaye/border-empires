@@ -10,7 +10,10 @@ export const resolveOwnerColor = (
 // should use, so an unassigned player's color never disagrees between the map
 // and other UI.
 export const fallbackOwnerColor = (ownerId: string): string => {
-  if (ownerId.startsWith("barbarian")) return "#2f3842";
+  // Light warm ash grey: at the same frontier tint strength as a House, the old near-black #2f3842 read as a
+  // shadow on the ground (Playtest Run 4: Planetary Defense took land players never saw coming). Warm, so it
+  // doesn't read as the cool blue-white fog haze; no hue of its own, so it doesn't read as a House.
+  if (ownerId.startsWith("barbarian")) return "#c8c1b6";
   let hash = 2166136261;
   for (let index = 0; index < ownerId.length; index += 1) {
     hash ^= ownerId.charCodeAt(index);

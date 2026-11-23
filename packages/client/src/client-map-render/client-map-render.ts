@@ -78,7 +78,8 @@ export const borderColorForOwner = (
   stateName: Tile["ownershipState"] | undefined,
   visualStyleForOwner: VisualStyleLookup
 ): string => {
-  if (ownerId.startsWith("barbarian")) return "rgba(95, 108, 122, 0.8)";
+  // Matches Planetary Defense's ash grey land (fallbackOwnerColor, client-owner-colors.ts).
+  if (ownerId.startsWith("barbarian")) return "rgba(200, 193, 182, 0.85)";
   const style = visualStyleForOwner(ownerId);
   if (!style) return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
   if (style.borderStyle === "HEAVY") return "rgba(58, 66, 82, 0.9)";
