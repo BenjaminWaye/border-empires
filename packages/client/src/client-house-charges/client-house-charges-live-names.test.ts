@@ -25,7 +25,7 @@ describe("rival House names on charges", () => {
     const card = `${el.textContent ?? ""} ${Array.from(el.querySelectorAll("[aria-label]")).map((node) => node.getAttribute("aria-label")).join(" ")}`;
     expect(card).not.toContain(guestId.slice(0, 12));
     expect(card).toContain("The Correction of House Noname 4");
-    expect(card).toContain("Capture an AFC founded by House Noname 4");
+    expect(card).toContain("Capture and garrison an AFC founded by House Noname 4");
     expect(card).not.toContain("House House");
   });
 

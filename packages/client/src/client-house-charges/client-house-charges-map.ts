@@ -4,16 +4,16 @@
 // only marked on ground the player has explored (a tile in state.tiles);
 // until then a rough dotted circle shows where to look
 // (client-house-charges-search-guide.ts).
-import { WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
+import type { HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { correctionRivalAfcsInView } from "./client-house-charges-correction-afcs.js";
+import { correctionAfcsInView } from "./client-house-charges-correction-afcs.js";
 import { metropolisHighlight } from "./client-house-charges-landmass.js";
 
 export type ChargeMapPoint = { x: number; y: number };
 /** `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning). */
 export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true };
 
-type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
+type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
 
 /**
  * Upper bound on shaded tiles, shared with the true-3D overlay's instance buffers. A Survey landmass
@@ -38,8 +38,8 @@ export const houseChargeMarkerTiles = (state: ChargeMapState): ChargeMapPoint[] 
   // ring the explored towns on the landmass instead, since any of them counts.
   if (charge.kind === "METROPOLIS") return metropolisHighlight(charge, state).towns.slice(0, MAX_TOWN_MARKERS);
   // A Correction's target is the centre of its search circle (the server never sends the rival's landing site):
-  // ring only the rival's AFCs the player has found inside that circle.
-  if (charge.kind === "CORRECTION") return correctionRivalAfcsInView(charge, state.tiles, WORLD_WIDTH, WORLD_HEIGHT);
+  // ring (the onboarding highlight) the rival-founded AFCs the player has found or captured instead.
+  if (charge.kind === "CORRECTION") return correctionAfcsInView(charge, state).map(({ x, y }) => ({ x, y }));
   if (charge.areaTileKeys) return [];
   return charge.targets.filter((target) => explored(state, target.x, target.y)).map(({ x, y }) => ({ x, y }));
 };

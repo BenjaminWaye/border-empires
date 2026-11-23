@@ -15,7 +15,7 @@ import { correctionSearchDone } from "./client-house-charges-correction-afcs.js"
 export type ChargeSearchCircle = ChargeMapPoint & { radius: number };
 export type ChargeSearchGuide = { circles: ChargeSearchCircle[]; ringDots: ChargeMapPoint[]; linkDots: ChargeMapPoint[] };
 
-type GuideState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles">;
+type GuideState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
 
 /** Spacing between dots, in tiles. */
 const RING_DOT_SPACING = 0.75;
@@ -85,8 +85,8 @@ const linkDots = (from: ChargeSearchCircle, to: ChargeSearchCircle, worldWidth: 
 /** End of the link at a seen town: the town itself, stopping just short of its marker ring. */
 const SEEN_TOWN_CLEARANCE = 1;
 
-const guideFor = (charge: HouseChargeView, tiles: GuideState["tiles"], worldWidth: number, worldHeight: number): ChargeSearchGuide => {
-  const isExploredKey = (key: string): boolean => tiles.has(key);
+const guideFor = (charge: HouseChargeView, state: GuideState, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
+  const isExploredKey = (key: string): boolean => state.tiles.has(key);
   const isExplored = (x: number, y: number): boolean => isExploredKey(`${x},${y}`);
   if (charge.areaTileKeys) {
     // Landmass or region: the server's circle until any of it has been seen; then the shaded area takes over.
@@ -95,7 +95,7 @@ const guideFor = (charge: HouseChargeView, tiles: GuideState["tiles"], worldWidt
       : { circles: [charge.searchCircle], ringDots: ringDots(charge.searchCircle, worldWidth, worldHeight), linkDots: [] };
   }
   // A Writ held, or its rival's AFC found: the circle has done its job (the AFC is ringed instead).
-  if (correctionSearchDone(charge, tiles, worldWidth, worldHeight)) return EMPTY;
+  if (correctionSearchDone(charge, state)) return EMPTY;
   // No exact point to circle: an undetected relic, a Correction (the server sends only its search circle's
   // centre, never the rival's landing site) or Three Seats (the middle of the landmass's nearest towns).
   if (charge.targets.length === 0 || charge.kind === "CORRECTION" || charge.kind === "METROPOLIS") {
@@ -144,5 +144,5 @@ export const houseChargeGuideCentre = (
 export const houseChargeSearchGuide = (state: GuideState, worldWidth: number, worldHeight: number): ChargeSearchGuide => {
   const charge = focusedHouseCharge(state);
   if (!charge) return EMPTY;
-  return guideFor(charge, state.tiles, worldWidth, worldHeight);
+  return guideFor(charge, state, worldWidth, worldHeight);
 };
