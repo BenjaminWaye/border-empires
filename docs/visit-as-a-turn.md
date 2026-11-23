@@ -178,7 +178,8 @@ The hook becomes: **"see what my turn produced, and set up the next one"**.
 
 1. **Turn report on the Activity dashboard.** Order the existing briefing
    with your own completions first, and add progress deltas. Needs the
-   Activity dashboard Phases 1–2.
+   Activity dashboard Phases 1–2. ✅ Built 2026-11-23 in the Chronicle's
+   Yours tab; details in `docs/replenishment-update-plan.md` workstream G.
 2. **Manpower-full ping and forecast math.** Add a shared, pure forecast
    module (manpower-full time, queue completion times, town-tier ETAs) used
    by both the client and the notifier. Add the "manpower full" email
