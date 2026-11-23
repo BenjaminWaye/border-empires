@@ -1,3 +1,4 @@
+import { offeredTruceEndsAt } from "./social-truce-extension.js";
 import type { SocialActionResult, SocialAllianceRequest, SocialPendingOffer, SocialState, SocialStateSink, SocialTruceRequest } from "./social-state-types.js";
 
 export type TreatySettlementPhase = "paying" | "refunding";
@@ -30,7 +31,9 @@ export function createSocialOfferSettlementState(deps: SettlementStateDeps): Set
       deps.sweepExpired();
       if (deps.settlingRequestIds.has(requestId)) return { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
       const offer = offerFor(kind, requestId);
-      if (!offer || offer.request.toPlayerId !== playerId || (offer.kind === "truce" && !offer.request.settlementPhase && offer.request.expiresAt < deps.now())) {
+      const truceLapsed = offer?.kind === "truce" && !offer.request.settlementPhase
+        && (offer.request.expiresAt < deps.now() || (!offer.request.extendsTruce && offeredTruceEndsAt(offer.request) <= deps.now()));
+      if (!offer || offer.request.toPlayerId !== playerId || truceLapsed) {
         return { ok: false, code: kind === "truce" ? "TRUCE_REQUEST_INVALID" : "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       if (offer.kind === "truce" && !offer.request.settlementPhase) {

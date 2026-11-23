@@ -362,10 +362,10 @@ export const createSocialState = (options: {
     acceptTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
-      // A settling offer may pass its expiry while the simulation pays out; it still completes.
-      // A new truce's window can close before a stale stored expiry does (offeredTruceEndsAt).
-      const lapsed = request && (request.expiresAt < now() || (!request.extendsTruce && offeredTruceEndsAt(request) <= now()));
-      if (!request || request.toPlayerId !== playerId || (lapsed && !settlingRequestIds.has(requestId))) {
+      // A settling offer may pass its stored expiry while the simulation pays out; it still completes.
+      // A new truce whose window closed is refused even then, so a paid accept is refunded.
+      const windowClosed = request && !request.extendsTruce && offeredTruceEndsAt(request) <= now();
+      if (!request || request.toPlayerId !== playerId || windowClosed || (request.expiresAt < now() && !settlingRequestIds.has(requestId))) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       settlingRequestIds.delete(requestId);
@@ -414,8 +414,8 @@ export const createSocialState = (options: {
       else { sink?.saveActiveTruce(truce); sink?.deleteTruceRequest(requestId); }
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
-      // An extension logs the hours it actually added: extendTruce caps the total length.
-      const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : request.durationHours;
+      // Logs the hours actually added: extendTruce caps the total; a new truce runs from its offer.
+      const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : Math.max(1, Math.round((truce.endsAt - now()) / 3_600_000));
       if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", now(), { durationHours: addedHours, endsAt: truce.endsAt });
       const announcement = running
         ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
