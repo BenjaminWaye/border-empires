@@ -3,7 +3,19 @@ export type PlayerSubscriptionRegistry = {
   unsubscribe: (playerId: string, subscriptionKey?: string) => void;
   isSubscribed: (playerId: string) => boolean;
   subscribedPlayerIds: () => string[];
+  /**
+   * Spectators (a fog admin with the map revealed) receive every live tile
+   * delta unfiltered instead of a fresh full-world snapshot per change.
+   * Returns false when the cap refused a new spectator.
+   */
+  setSpectator: (playerId: string, spectating: boolean) => boolean;
+  isSpectator: (playerId: string) => boolean;
+  spectatorCount: () => number;
 };
+
+// Only the configured admin account can spectate, so a handful is already
+// generous. The cap is a hard bound on the set, independent of unsubscribes.
+export const MAX_SPECTATORS = 16;
 
 type PlayerSubscriptionState = {
   anonymousCount: number;
@@ -37,8 +49,18 @@ const compareNamespaces = (left: string, right: string): number => {
   return left.localeCompare(right);
 };
 
-export const createPlayerSubscriptionRegistry = (): PlayerSubscriptionRegistry => {
+export type PlayerSubscriptionRegistryOptions = {
+  /**
+   * Fires whenever a player starts or stops spectating. The service drops the
+   * player's cached fog-limited snapshot here: while spectating, unfiltered
+   * deltas are merged into it, and it must not be served to a fogged login.
+   */
+  onSpectatorChanged?: (playerId: string) => void;
+};
+
+export const createPlayerSubscriptionRegistry = (options: PlayerSubscriptionRegistryOptions = {}): PlayerSubscriptionRegistry => {
   const stateByPlayerId = new Map<string, PlayerSubscriptionState>();
+  const spectatorPlayerIds = new Set<string>();
 
   const stateFor = (playerId: string): PlayerSubscriptionState => {
     let state = stateByPlayerId.get(playerId);
@@ -101,7 +123,20 @@ export const createPlayerSubscriptionRegistry = (): PlayerSubscriptionRegistry =
       state.keyedCounts.set(subscriptionKey, (state.keyedCounts.get(subscriptionKey) ?? 0) + 1);
       state.activeKeyCountByNamespace.set(parsedKey.namespace, (state.activeKeyCountByNamespace.get(parsedKey.namespace) ?? 0) + 1);
     },
+    setSpectator(playerId, spectating) {
+      if (spectating === spectatorPlayerIds.has(playerId)) return true;
+      if (spectating && spectatorPlayerIds.size >= MAX_SPECTATORS) return false;
+      if (spectating) spectatorPlayerIds.add(playerId);
+      else spectatorPlayerIds.delete(playerId);
+      options.onSpectatorChanged?.(playerId);
+      return true;
+    },
+    isSpectator: (playerId) => spectatorPlayerIds.has(playerId),
+    spectatorCount: () => spectatorPlayerIds.size,
     unsubscribe(playerId, subscriptionKey) {
+      // A disconnect always ends spectating; the gateway turns it back on
+      // explicitly if another of the admin's sockets is still revealed.
+      if (spectatorPlayerIds.delete(playerId)) options.onSpectatorChanged?.(playerId);
       const state = stateFor(playerId);
       if (!subscriptionKey) {
         state.anonymousCount = Math.max(0, state.anonymousCount - 1);

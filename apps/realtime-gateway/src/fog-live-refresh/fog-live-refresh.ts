@@ -1,22 +1,18 @@
-// Fog-admin full-visibility refresh coordination.
+// Fog-admin (revealed map) toggle coordination.
 //
-// A fog-disabled (revealed map) session gets a full-world snapshot resubscribe
-// whenever the world changes. Two problems this module owns:
+// A revealed session is kept current by unfiltered live tile deltas from the
+// simulation ("spectating", see apps/simulation/src/tile-delta-fanout-filter.ts).
+// It used to be kept current by re-requesting the entire world (~205k tiles,
+// ~38 MB) whenever the admin's own view changed, which stalled the simulation
+// and the gateway for everyone (docs/load-results/full-reveal-2026-11-23.md);
+// that scheduler is gone and must not come back.
 //
-// 1. Load. Each refresh asks the simulation to serialize the entire world
-//    (~205k tiles, ~13 MB). Restarting the next one as soon as the previous
-//    finished kept the simulation busy back-to-back, starving pings and
-//    command submits until EXPAND/ATTACK failed with SIMULATION_UNAVAILABLE
-//    (bug report 1c8538f4, staging 2026-11-20). The gap is now measured from
-//    when the previous refresh *finished*, so the simulation gets real idle
-//    time between rebuilds.
-//
-// 2. Stale results. A refresh is slow, so the admin can press "restore fog"
-//    while one is in flight. When the stale full-visibility refresh resolved
-//    it flipped every socket back to fogDisabled=true and resent the revealed
-//    map, so restoring fog did nothing. Each explicit fog toggle now bumps a
-//    per-player intent generation; a refresh started under an older
-//    generation is discarded instead of applied.
+// What is left here guards the explicit toggle. A full-visibility snapshot is
+// slow, so the admin can press "restore fog" while one is in flight. When the
+// stale reveal resolved it flipped every socket back to fogDisabled=true and
+// resent the revealed map, so restoring fog did nothing. Each explicit toggle
+// bumps a per-player intent generation; a snapshot requested under an older
+// generation is discarded instead of applied.
 
 export type FogIntentTracker = {
   /** Record a new explicit fog toggle; returns the generation it owns. */
@@ -39,84 +35,6 @@ export const createFogIntentTracker = (): FogIntentTracker => {
     // counter to 0 could make a refresh captured before the reset look current.
     isCurrent: (playerId, generation) => current(playerId) === generation
   };
-};
-
-export type FogLiveRefreshScheduler = {
-  /** Mark the player's revealed view dirty; coalesces into one in-flight refresh. */
-  schedule: (playerId: string, commandId: string) => void;
-  /** Drop any pending (not yet started) refresh for the player. */
-  cancelPending: (playerId: string) => void;
-  /** Forget pacing state once the player has no fog-disabled socket left. */
-  forget: (playerId: string) => void;
-  inflight: (playerId: string) => Promise<void> | undefined;
-};
-
-export type FogLiveRefreshSchedulerDeps = {
-  /** Minimum quiet time between the end of one refresh and the start of the next. */
-  minGapMs: number;
-  hasFogDisabledSocket: (playerId: string) => boolean;
-  refresh: (playerId: string, commandId: string) => Promise<void>;
-  onRefreshFailed: (playerId: string, commandId: string, error: unknown) => void;
-  sleep: (ms: number) => Promise<void>;
-  now: () => number;
-};
-
-export const createFogLiveRefreshScheduler = (deps: FogLiveRefreshSchedulerDeps): FogLiveRefreshScheduler => {
-  const inflightByPlayerId = new Map<string, Promise<void>>();
-  const pendingByPlayerId = new Map<string, { commandId: string }>();
-  const lastFinishedAtByPlayerId = new Map<string, number>();
-
-  const run = async (playerId: string): Promise<void> => {
-    try {
-      while (pendingByPlayerId.has(playerId)) {
-        const lastFinishedAt = lastFinishedAtByPlayerId.get(playerId);
-        if (lastFinishedAt !== undefined) {
-          const sinceLast = deps.now() - lastFinishedAt;
-          if (sinceLast < deps.minGapMs) await deps.sleep(deps.minGapMs - sinceLast);
-        }
-        // Read the pending entry only after the wait so the refresh is
-        // annotated with the newest trigger, and so a cancel during the wait
-        // (fog restored) is honored.
-        const pending = pendingByPlayerId.get(playerId);
-        pendingByPlayerId.delete(playerId);
-        if (!pending) continue;
-        if (!deps.hasFogDisabledSocket(playerId)) continue;
-        try {
-          await deps.refresh(playerId, pending.commandId);
-        } catch (error) {
-          deps.onRefreshFailed(playerId, pending.commandId, error);
-        } finally {
-          lastFinishedAtByPlayerId.set(playerId, deps.now());
-        }
-      }
-    } finally {
-      inflightByPlayerId.delete(playerId);
-    }
-  };
-
-  return {
-    schedule: (playerId, commandId) => {
-      pendingByPlayerId.set(playerId, { commandId });
-      if (inflightByPlayerId.has(playerId)) return;
-      inflightByPlayerId.set(playerId, run(playerId));
-    },
-    cancelPending: (playerId) => {
-      pendingByPlayerId.delete(playerId);
-    },
-    forget: (playerId) => {
-      pendingByPlayerId.delete(playerId);
-      lastFinishedAtByPlayerId.delete(playerId);
-    },
-    inflight: (playerId) => inflightByPlayerId.get(playerId)
-  };
-};
-
-export const DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS = 15_000;
-
-/** Option wins over env; a non-numeric env value falls back to the default instead of NaN (which would disable pacing). */
-export const resolveFogLiveRefreshMinGapMs = (option: number | undefined, envValue: string | undefined): number => {
-  const fromEnv = Number(envValue ?? DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS);
-  return Math.max(0, option ?? (Number.isFinite(fromEnv) ? fromEnv : DEFAULT_FOG_LIVE_REFRESH_MIN_GAP_MS));
 };
 
 /**

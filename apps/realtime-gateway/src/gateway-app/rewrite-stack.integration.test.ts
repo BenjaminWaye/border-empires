@@ -730,7 +730,9 @@ describe("rewrite stack integration", () => {
     expect(acceptedDelayMs).toBeLessThan(500);
   }, 20_000);
 
-  it("resnapshots fog-disabled sessions instead of merging global tile delta leaks", async () => {
+  // Regression (docs/load-results/full-reveal-2026-11-23.md): a revealed admin used to get the whole
+  // world re-exported and re-sent on every change in their view, which stalled the server for everyone.
+  it("keeps a fog-disabled session current through live deltas, without resending the world", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
     const simulation = await createSimulationService({
       host: "127.0.0.1",
@@ -754,7 +756,7 @@ describe("rewrite stack integration", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       defaultHumanPlayerId: "player-1",
       firebaseTokenVerifier: testFirebaseTokenVerifier,
-      adminEmail: "fog-admin@example.com", fogLiveRefreshMinGapMs: 0 // skip prod 15s pacing between full-world refreshes
+      adminEmail: "fog-admin@example.com"
     });
     cleanup.push(() => gateway.close());
     const gatewayAddress = await gateway.start();
@@ -808,16 +810,14 @@ describe("rewrite stack integration", () => {
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
-    // COMBAT_RESULT also arrives on resolution now — consume it by type before the fog-admin's TILE_SNAPSHOT_REPLACE.
-    await nextTypedMessage(fogAdminSocket, "combat result", "COMBAT_RESULT");
-
-    const fogRefresh = await nextTypedMessage(fogAdminSocket, "fog-admin refresh after remote delta", "TILE_SNAPSHOT_REPLACE");
-    expect(fogRefresh).toEqual(
-      expect.objectContaining({
-        type: "TILE_SNAPSHOT_REPLACE",
-        tiles: expect.any(Array)
-      })
-    );
+    const afterResolution: Array<Record<string, unknown>> = [];
+    for (;;) {
+      const message = await nextNonBootstrapMessage(fogAdminSocket, "live delta for the attacked tile");
+      afterResolution.push(message);
+      const tiles = message.type === "TILE_DELTA_BATCH" ? (message.tiles as Array<{ x: number; y: number }>) : [];
+      if (tiles.some((tile) => tile.x === 10 && tile.y === 11)) break;
+    }
+    expect(afterResolution.filter((message) => message.type === "TILE_SNAPSHOT_REPLACE")).toEqual([]);
   });
 
   // Skipped: observer receives a TILE_DELTA_BATCH for the lost tile before the

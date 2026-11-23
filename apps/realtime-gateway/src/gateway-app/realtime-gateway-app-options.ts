@@ -31,6 +31,4 @@ export type RealtimeGatewayAppOptions = {
   simulationRpcRetryAttempts?: number; adminApiToken?: string; adminEmail?: string; emailAlerts?: EmailAlertConfig;
   playerReportGithubIssues?: PlayerReportGithubIssueConfig;
   playOrigin?: string; simMetricsUrl?: string; simDiagnostics?: () => unknown[]; wsHeartbeatIntervalMs?: number;
-  /** Quiet gap between fog-admin full-world live refreshes (default 15s; env GATEWAY_FOG_LIVE_REFRESH_MIN_GAP_MS). */
-  fogLiveRefreshMinGapMs?: number;
 };

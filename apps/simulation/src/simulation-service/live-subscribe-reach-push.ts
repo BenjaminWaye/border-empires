@@ -67,6 +67,7 @@
 /** The subscription bookkeeping this module registers into. */
 export type LiveSubscribeRegistry = {
   subscribe: (playerId: string, subscriptionKey?: string) => void;
+  setSpectator: (playerId: string, spectating: boolean) => boolean;
 };
 
 /** The runtime capabilities this module needs: force a reach / Aether shield re-push. */
@@ -86,6 +87,8 @@ export type SubscribeCallOptions = {
   mode?: string;
   trigger?: string;
   subscriptionKey?: string;
+  spectate?: boolean;
+  spectateOnly?: boolean;
 };
 
 /**
@@ -108,7 +111,13 @@ export const registerSubscribeAndMaybePushReach = (
   options: SubscribeCallOptions,
   log: LiveSubscribeReachLog
 ): void => {
-  if (options.mode === "bootstrap-only") return;
+  // Applied before anything else, and before the caller starts building a
+  // snapshot, so no delta can fall between a full-world export and the moment
+  // unfiltered deltas start flowing (see tile-delta-fanout-filter.ts).
+  if (options.spectate !== undefined && !registry.setSpectator(playerId, options.spectate)) {
+    log.error({ playerId }, "spectator cap reached; reveal stays on filtered deltas");
+  }
+  if (options.mode === "bootstrap-only" || options.spectateOnly === true) return;
   registry.subscribe(playerId, options.subscriptionKey);
   if (options.trigger !== "gateway_live_subscribe") return;
   try {

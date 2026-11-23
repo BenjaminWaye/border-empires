@@ -69,7 +69,7 @@ import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
 import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
-import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
+import { createRuntimeSubscriberTileDeltaFilter } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildWorldStatusSnapshot, emptySelfProgressCache, selfProgressCacheOf, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
@@ -743,7 +743,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   });
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
-  const subscriptionRegistry = createPlayerSubscriptionRegistry();
+  const subscriptionRegistry = createPlayerSubscriptionRegistry({ onSpectatorChanged: (playerId) => { deleteCachedSnapshot(playerId); } });
+  const subscriberTileDeltas = createRuntimeSubscriberTileDeltaFilter<TileDeltaBatchTile>(() => runtime, subscriptionRegistry, buildTileDeltaGroupKey);
   const snapshotCache = createPlayerSnapshotCache();
   // Season-end score graph sampler; cadence + boot restore documented in score-history-sampler.ts.
   const scoreHistorySampler = createScoreHistorySampler();
@@ -1479,10 +1480,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           snapshotCache.bumpWorldRevision();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
-              filterTileDeltasForPlayer: (deltas, playerId, options) => runtime.filterTileDeltasForPlayer(deltas, playerId, options),
-              wireDeltaForTileKey: (tileKey, playerId) => runtime.wireDeltaForTileKey(tileKey, playerId) as unknown as TileDeltaBatchTile | undefined
-            });
+            const filteredDeltas = subscriberTileDeltas.filter(event.tileDeltas, subscribedPlayerId, visionTransitions);
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
               subscriberCount += 1;
@@ -1505,7 +1503,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             // variants that share coordinates but differ on the wire (redacted
             // ":r" stubs, ownership-clear ":c" stubs, FOG-stamped ":F" deltas,
             // full deltas) — see buildTileDeltaGroupKey.
-            const groupKey = buildTileDeltaGroupKey(filteredDeltas);
+            const groupKey = subscriberTileDeltas.groupKey(subscribedPlayerId, filteredDeltas);
             const cachedProto = protoCache.get(groupKey);
             if (cachedProto) {
               const perPlayerEvent = { ...cachedProto, player_id: subscribedPlayerId };
@@ -1822,6 +1820,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
       registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
+      if (subscribeOptions.spectateOnly) return callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, tiles: [] });
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents
