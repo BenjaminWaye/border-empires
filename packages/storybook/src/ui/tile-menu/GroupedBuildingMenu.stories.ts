@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import "@client/client-styles.js";
 import { tileActionMenuHtml } from "@client/client-tile-menu-html.js";
 import type { Tile, TileMenuView } from "@client/client-types.js";
-import { realBuildingMenuView } from "../fixtures/real-building-menu-view.js";
+import { realBuildingMenuView } from "../../fixtures/real-building-menu-view.js";
 
 /**
  * Every building row here (label, detail text, cost, disabled reason) comes
@@ -91,10 +91,9 @@ const render = (): HTMLElement => {
 };
 
 const meta: Meta = {
-  title: "Sandbox/Grouped Building Menu",
-  // A proposal, not shipped UI: promote it into ui/ or delete it before it expires
-  // (src/guardrails/story-structure.test.ts enforces the 30-day sandbox limit).
-  parameters: { sandbox: { owner: "BenjaminWaye", added: "2026-10-23" } },
+  title: "UI/Tile Menu/Grouped Building Menu",
+  // Moved out of sandbox/ on 2026-11-23 when it hit the 30-day limit (src/guardrails/story-structure.test.ts):
+  // it renders the shipped tile-menu code, only the category squares are a proposal.
   render
 };
 export default meta;
