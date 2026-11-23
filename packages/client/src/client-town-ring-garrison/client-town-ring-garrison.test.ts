@@ -1,7 +1,6 @@
 // Regression: Garrison on a town priced and garrisoned only the town tile, leaving the tiles around it
 // (which the town's reach claims on its own) for the player to garrison one by one. Garrison on a town now
 // costs the town plus its ring, and garrisons the ring right after the town lands SETTLED.
-import { SETTLE_COST } from "@border-empires/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { createInitialState } from "../client-state/client-state.js";

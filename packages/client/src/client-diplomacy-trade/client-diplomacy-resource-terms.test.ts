@@ -18,8 +18,12 @@ describe("resource supply negotiation",()=>{
     const edit=(selector:string,value:string)=>{ const field=overlay.querySelector<HTMLInputElement|HTMLSelectElement>(selector)!; field.value=value; field.dispatchEvent(new Event("input")); };
     edit('[data-trade-exact="give-gold"]', "7");
     edit('[data-trade-exact="give-LUXURY_BIOTA"]',"2"); edit('[data-trade-exact="ask-FOOD"]',"3");
-    edit('[data-trade-exact="ask-coinPerHour"]', "50");
+    // The box is per day (stored per hour): 1200/day sends coinPerHour 50.
+    edit('[data-trade-exact="ask-coinPerHour"]', "1200");
     expect(overlay.querySelector('[data-trade-deal]')?.textContent).toContain("8400 Coin over 168h");
+    // Shown per day like every other income figure, never per hour (Playtest Run 4).
+    expect(overlay.querySelector('[data-trade-deal]')?.textContent).toContain("1200 Coin per day");
+    expect(overlay.textContent).not.toContain("Coin per hour");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     const payload=send.mock.calls.at(-1)![0];
     expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{gold:7,resources:{LUXURY_BIOTA:2}},ask:{gold:0,coinPerHour:50,resources:{FOOD:3}}} });
