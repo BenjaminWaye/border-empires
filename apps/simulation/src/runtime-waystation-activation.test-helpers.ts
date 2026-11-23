@@ -45,7 +45,7 @@ export function createInput(
     tiles,
     players,
     visibilityCoverage: {
-      addTemporaryReveal: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); },
+      addTemporaryRevealCells: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); return [`${x},${y}`]; },
       isVisible: (_viewerId, tileKey) => alreadyVisibleTileKeys.has(tileKey)
     },
     visionTransitionCallbacks: {},

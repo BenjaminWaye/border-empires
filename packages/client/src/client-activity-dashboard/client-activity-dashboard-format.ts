@@ -56,7 +56,7 @@ const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTAT
   if (card.grantedEffect === "GOLD") return `Waystation activated · +${roundedAmount(card.grantedGold ?? 0)} Coin`;
   if (card.grantedEffect === "MANPOWER") return `Waystation activated · +${roundedAmount(card.grantedManpower ?? 0)} manpower`;
   if (card.grantedEffect === "POPULATION") return card.populationBurst ? `Waystation activated · +${roundedAmount(card.populationBurst)} population` : "Waystation activated · no eligible town received population";
-  return "Waystation activated · permanent vision revealed";
+  return "Waystation activated · a nearby area revealed for a few minutes";
 };
 
 const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>, playerNames: PlayerNameLookup): string => {

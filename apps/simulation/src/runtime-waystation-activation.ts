@@ -5,13 +5,14 @@ import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { grantFreeTech, type TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
+import type { PendingWatchtowerReveal } from "./runtime-watchtower-reveal-tick.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
 import { grantWaystationGold, grantWaystationManpower, waystationResultDetailFields } from "./runtime-waystation-rewards.js";
 
-export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTemporaryReveal" | "isVisible">;
+export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTemporaryRevealCells" | "isVisible">;
 
-/** A VISION reveal to expire later: the runtime queues it with the watchtower pulses (runtime-watchtower-reveal-tick.ts). */
-export type WaystationVisionReveal = { tileKey: string; playerId: string; x: number; y: number; radius: number; expiresAt: number };
+/** A VISION look to expire later: the runtime queues it with the watchtower pulses (runtime-watchtower-reveal-tick.ts). */
+export type WaystationVisionReveal = Omit<PendingWatchtowerReveal, "kind"> & { kind: "waystation-vision" };
 
 export type WaystationActivationInput = {
   now: () => number;
@@ -154,8 +155,8 @@ const grantWaystationVision = (
   const townTile = townKey ? input.tiles.get(townKey) : undefined;
   const revealedAtX = townTile?.x ?? x;
   const revealedAtY = townTile?.y ?? y;
-  input.visibilityCoverage.addTemporaryReveal(playerId, revealedAtX, revealedAtY, WAYSTATION_REVEAL_RADIUS, input.visionTransitionCallbacks);
-  input.scheduleRevealExpiry({ tileKey: waystationKey, playerId, x: revealedAtX, y: revealedAtY, radius: WAYSTATION_REVEAL_RADIUS, expiresAt: input.now() + WAYSTATION_VISION_REVEAL_TTL_MS });
+  const cellKeys = input.visibilityCoverage.addTemporaryRevealCells(playerId, revealedAtX, revealedAtY, WAYSTATION_REVEAL_RADIUS, input.visionTransitionCallbacks);
+  input.scheduleRevealExpiry({ kind: "waystation-vision", tileKey: waystationKey, playerId, expiresAt: input.now() + WAYSTATION_VISION_REVEAL_TTL_MS, cellKeys });
   return { revealedAtX, revealedAtY };
 };
 

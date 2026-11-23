@@ -87,7 +87,8 @@ describe("activateWaystationAt", () => {
     expect(reveals).toHaveLength(1);
     expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 9, y: 10 });
     // A one-time look: the same reveal is queued to expire, never left on for good.
-    expect(expiries).toEqual([{ tileKey: WAYSTATION_KEY, playerId: PLAYER_ID, x: 9, y: 10, radius: WAYSTATION_REVEAL_RADIUS, expiresAt: WAYSTATION_VISION_REVEAL_TTL_MS }]);
+    expect(reveals[0]?.radius).toBe(WAYSTATION_REVEAL_RADIUS);
+    expect(expiries).toEqual([{ kind: "waystation-vision", tileKey: WAYSTATION_KEY, playerId: PLAYER_ID, expiresAt: WAYSTATION_VISION_REVEAL_TTL_MS, cellKeys: ["9,10"] }]);
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.revealedAtX).toBe(9);
     expect(waystation?.revealedAtY).toBe(10);
