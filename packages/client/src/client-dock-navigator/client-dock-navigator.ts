@@ -16,7 +16,7 @@ import type { DockPair, Tile, TileMenuView } from "../client-types.js";
 
 export type ConnectedDockStop = { x: number; y: number; distance: number; bySea: boolean };
 
-type DockNavigatorState = Pick<ClientState, "fogDisabled" | "discoveredDockTiles" | "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY">;
+type DockNavigatorState = Pick<ClientState, "fogDisabled" | "discoveredDockTiles" | "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY" | "me">;
 
 const toroidManhattan = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
@@ -72,8 +72,23 @@ export const injectDockNavigatorRow = (view: TileMenuView, tile: Tile, state: Do
       `<span class="dock-navigator-label" data-dock-nav-label>${label}</span>` +
       `<button type="button" class="dock-navigator-btn" data-dock-nav="next" aria-label="Next connected dock">▶</button>` +
       `<button type="button" class="dock-navigator-btn dock-navigator-home" data-dock-nav="home">Back</button>` +
+      // Your own dock: one clear way across. A player stranded on an island held a dock for two days and never
+      // crossed (Playtest Run 4, Mark): nothing said the dock was the road off. It opens the far dock's own
+      // sheet, whose Expand To (or Attack) already crosses the sea lane.
+      (tile.ownerId === state.me ? `<button type="button" class="dock-navigator-btn dock-navigator-cross" data-dock-nav="cross">Cross the sea ▸</button>` : "") +
       `</div>`
   });
+};
+
+/**
+ * Cross the sea: the far dock to open -- the one the camera is on, or the nearest -- with the camera moved
+ * there. Undefined when no lane is known.
+ */
+export const crossDockTarget = (state: DockNavigatorState, originX: number, originY: number): ConnectedDockStop | undefined => {
+  const stops = discoveredDockStops(state, originX, originY);
+  const stop = stops[stopIndexAtCamera(stops, state.camX, state.camY)] ?? stops[0];
+  if (stop) centerCamera(state, stop.x, stop.y);
+  return stop;
 };
 
 const centerCamera = (state: DockNavigatorState, x: number, y: number): void => {
@@ -100,7 +115,12 @@ export const stepDockNavigator = (state: DockNavigatorState, originX: number, or
   return navigatorLabel(stops, next);
 };
 
-export const wireDockNavigatorButtons = (root: ParentNode, state: DockNavigatorState): void => {
+export const wireDockNavigatorButtons = (
+  root: ParentNode,
+  state: DockNavigatorState,
+  /** Opens the far dock's tile sheet (Cross the sea). */
+  openTileAt: (x: number, y: number) => void = () => undefined
+): void => {
   root.querySelectorAll<HTMLElement>("[data-dock-nav-origin]").forEach((row) => {
     const [rawX, rawY] = (row.dataset.dockNavOrigin ?? "").split(",");
     const originX = Number(rawX);
@@ -109,6 +129,11 @@ export const wireDockNavigatorButtons = (root: ParentNode, state: DockNavigatorS
     const labelEl = row.querySelector<HTMLElement>("[data-dock-nav-label]");
     row.querySelectorAll<HTMLButtonElement>("button[data-dock-nav]").forEach((btn) => {
       btn.onclick = () => {
+        if (btn.dataset.dockNav === "cross") {
+          const stop = crossDockTarget(state, originX, originY);
+          if (stop) openTileAt(stop.x, stop.y);
+          return;
+        }
         const label = stepDockNavigator(state, originX, originY, btn.dataset.dockNav ?? "");
         if (label !== undefined && labelEl) labelEl.textContent = label;
       };

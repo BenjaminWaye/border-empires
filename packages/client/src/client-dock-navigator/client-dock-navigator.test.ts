@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DockPair, Tile, TileMenuView } from "../client-types.js";
-import { connectedDockStops, injectDockNavigatorRow, stepDockNavigator } from "./client-dock-navigator.js";
+import { connectedDockStops, crossDockTarget, injectDockNavigatorRow, stepDockNavigator } from "./client-dock-navigator.js";
 
 const routeOfLength = (hops: number): Array<{ x: number; y: number }> => Array.from({ length: hops + 1 }, (_, i) => ({ x: i, y: 0 }));
 
@@ -14,7 +14,7 @@ const dockPairs: DockPair[] = [
 ];
 
 const discovery = { fogDisabled: false, discoveredDockTiles: new Set(["10,10", "40,10", "15,12", "10,30", "13,14"]) };
-const makeState = () => ({ ...discovery, dockPairs, camX: 10, camY: 10, camSubX: 0.3, camSubY: 0.4 });
+const makeState = () => ({ ...discovery, dockPairs, camX: 10, camY: 10, camSubX: 0.3, camSubY: 0.4, me: "me" });
 
 const makeView = (): TileMenuView => ({ title: "", subtitle: "", tabs: ["overview"], overviewLines: [], actions: [], buildings: [], crystal: [] });
 
@@ -28,7 +28,7 @@ describe("connectedDockStops", () => {
   });
 
   it("says 'away' rather than 'by sea' when no route was shipped for a link", () => {
-    const state = { ...discovery, dockPairs: [{ ax: 10, ay: 10, bx: 13, by: 14 }], camX: 10, camY: 10, camSubX: 0, camSubY: 0 };
+    const state = { ...discovery, dockPairs: [{ ax: 10, ay: 10, bx: 13, by: 14 }], camX: 10, camY: 10, camSubX: 0, camSubY: 0, me: "me" };
     expect(stepDockNavigator(state, 10, 10, "next")).toBe("Dock 1/1 · 7 tiles away");
   });
 
@@ -95,5 +95,33 @@ describe("undiscovered connected docks", () => {
     const state = { ...makeState(), discoveredDockTiles: new Set(["10,10", "15,12"]) };
     expect(stepDockNavigator(state, 10, 10, "next")).toBe("Dock 1/1 · 7 tiles by sea");
     expect([state.camX, state.camY]).toEqual([15, 12]);
+  });
+});
+
+// Playtest Run 4: Mark held a dock for two days on an island and never crossed; nothing said the dock was the way off.
+describe("Cross the sea", () => {
+  const dock = (ownerId: string): Tile => ({ x: 10, y: 10, terrain: "LAND", dockId: "d1", ownerId } as Tile);
+
+  it("is offered only on your own dock", () => {
+    const mine = makeView();
+    injectDockNavigatorRow(mine, dock("me"), makeState());
+    expect(mine.overviewLines.map((l) => l.html).join("")).toContain('data-dock-nav="cross"');
+    const theirs = makeView();
+    injectDockNavigatorRow(theirs, dock("rival"), makeState());
+    expect(theirs.overviewLines.map((l) => l.html).join("")).not.toContain('data-dock-nav="cross"');
+  });
+
+  it("targets the nearest far dock from the origin, or the one the navigator is showing, and moves the camera there", () => {
+    const state = makeState();
+    expect(crossDockTarget(state, 10, 10)).toMatchObject({ x: 15, y: 12 });
+    expect([state.camX, state.camY]).toEqual([15, 12]);
+    stepDockNavigator(state, 10, 10, "next");
+    expect(crossDockTarget(state, 10, 10)).toMatchObject({ x: 10, y: 30 });
+  });
+
+  it("does nothing when no lane is known", () => {
+    const state = { ...makeState(), discoveredDockTiles: new Set<string>() };
+    expect(crossDockTarget(state, 10, 10)).toBeUndefined();
+    expect([state.camX, state.camY]).toEqual([10, 10]);
   });
 });
