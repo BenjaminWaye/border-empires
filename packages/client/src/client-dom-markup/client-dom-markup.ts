@@ -253,10 +253,6 @@ export const hudMarkup = `
       <section id="panel-domains" class="panel-body">
         <div id="panel-domains-content"></div>
       </section>
-      <section id="panel-alliance" class="panel-body alliance-panel">
-        <div id="allies-list" class="alliance-section-stack"></div>
-        <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
-      </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
       <section id="panel-manpower" class="panel-body"></section>

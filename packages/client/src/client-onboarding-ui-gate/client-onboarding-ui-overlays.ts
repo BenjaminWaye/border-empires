@@ -22,35 +22,33 @@ export const GUIDE_TAUGHT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<
 /** Feedback on something that just happened (land that can be cut off, first contact, a first flag): never held. */
 const URGENT_DISCOVERY_TIPS: ReadonlySet<DiscoveryTipId> = new Set<DiscoveryTipId>(["OUT_OF_REACH_EXPAND", "ENEMY_EMPIRE", "FIRST_MUSTER", "FIRST_DOCK"]);
 
+const NOT_HELD = (): boolean => false;
+const HELD_UNLESS_URGENT = (id: DiscoveryTipId): boolean => !URGENT_DISCOVERY_TIPS.has(id);
+
 /**
- * While the tutorial guide's card is up on a step the player can do now, the
- * discovery-tip toast stays quiet so the corner isn't crowded with two pieces
- * of guidance at once: tips the guide teaches are retired outright, and other
- * tips (docks, strategic resources, wonders, ...) wait in the queue until the
- * guide is minimised, only waiting on a first contact, finished or hidden.
- * Urgent tips are never held. Returns true while the front tip is held.
+ * While the tutorial guide's card is up on a step the player can do now, tips
+ * stay quiet so there aren't two pieces of guidance at once: tips the guide
+ * teaches are retired outright, and other tips (docks, strategic resources,
+ * wonders, ...) wait unpinned in the queue until the guide is minimised, only
+ * waiting on a first contact, finished or hidden. Urgent tips are never held.
+ * Returns which queued tips are held.
  */
-const holdDiscoveryTipsForGuide = (state: DiscoveryTipUiState): boolean => {
-  if (!isTutorialGuideHoldingTips(state.authEmail)) return false;
+const holdDiscoveryTipsForGuide = (state: DiscoveryTipUiState): ((id: DiscoveryTipId) => boolean) => {
+  if (!isTutorialGuideHoldingTips(state.authEmail)) return NOT_HELD;
   retireQueuedDiscoveryTips(state.discoveryTipQueue, GUIDE_TAUGHT_DISCOVERY_TIPS, state.authEmail);
-  const urgent = state.discoveryTipQueue.findIndex((id) => URGENT_DISCOVERY_TIPS.has(id));
-  if (urgent > 0) state.discoveryTipQueue.unshift(...state.discoveryTipQueue.splice(urgent, 1));
-  const front = state.discoveryTipQueue[0];
-  return front !== undefined && !URGENT_DISCOVERY_TIPS.has(front);
+  return HELD_UNLESS_URGENT;
 };
 
-/** Re-renders the discovery-tip toast for the front of the queue, or hides it while deferred or held by the tutorial guide. */
+/** Re-syncs the tip pins with the queue: none while deferred, only urgent ones while the tutorial guide holds tips. */
 export const renderDiscoveryTipOverlayForState = (state: DiscoveryTipUiState, renderHud: () => void): void => {
   const held = holdDiscoveryTipsForGuide(state);
-  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), held || isOnboardingUiDeferred(state));
+  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), isOnboardingUiDeferred(state), held);
 };
 
-/** Enqueues a player-action tip (first Muster Flag, out-of-reach expand) and shows it unless deferred or held, with `target` as the tile its Center button jumps to; a deferred tip stays queued. */
+/** Enqueues a player-action tip (first Muster Flag, out-of-reach expand) and pins it at `target` unless deferred or held; a deferred tip stays queued. */
 export const announceDiscoveryTipForState = (state: DiscoveryTipUiState, id: DiscoveryTipId, renderHud: () => void, target?: DiscoveryTipTarget): void => {
-  const holding = isTutorialGuideHoldingTips(state.authEmail);
-  announceDiscoveryTip(state.discoveryTipQueue, id, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), holding || isOnboardingUiDeferred(state), target);
-  // While the guide holds tips, render through the hold rules: an urgent tip queued behind a held one moves to the front and shows now.
-  if (holding) renderDiscoveryTipOverlayForState(state, renderHud);
+  const held = holdDiscoveryTipsForGuide(state);
+  announceDiscoveryTip(state.discoveryTipQueue, id, state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def), isOnboardingUiDeferred(state), target, held);
 };
 
 /** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
