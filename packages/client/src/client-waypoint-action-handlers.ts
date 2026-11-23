@@ -14,7 +14,9 @@ import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client
 import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
 import { dispatchExploreAction } from "./client-scout-drone/client-scout-drone-explore-action.js";
 import { dispatchAfcScoutAction } from "./client-scout-drone/client-scout-drone-picking.js";
+import { dispatchDockCrossAction } from "./client-dock-navigator/client-dock-navigator.js";
 import type { ClientState } from "./client-state/client-state.js";
+import type { Tile } from "./client-types.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
 type WaypointHandlerDeps = {
@@ -30,6 +32,8 @@ type WaypointHandlerDeps = {
   sendGameMessage?: (payload: unknown) => boolean;
   /** The clicked button's data-origin-key (March Attack rows carry their origin flag/tile). */
   originKey?: string | undefined;
+  /** Opens a tile's sheet (Cross the sea opens the far dock's). */
+  openTileMenu?: (tile: Tile) => void;
 };
 
 const setWaypointForSelected = (
@@ -137,6 +141,11 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
     dispatchAfcScoutAction(actionId, state)
   ) {
     hideTileActionMenu();
+    renderHud();
+    return true;
+  }
+  // Your dock's Cross the sea: open the far dock's sheet (client-dock-navigator.ts).
+  if (dispatchDockCrossAction(actionId, selected, state, (tile) => deps.openTileMenu?.(tile))) {
     renderHud();
     return true;
   }

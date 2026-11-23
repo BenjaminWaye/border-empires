@@ -123,6 +123,21 @@ describe("compactSnapshotForStorage — tileOverlayMemo (incremental compaction)
     expect(withMemo).toEqual(withoutMemo);
   });
 
+  // Memory guard: an untouched tile reaches compaction as the baseline object
+  // itself. It must cost no memo entry (they were ~8 MB on a fresh world).
+  it("emits nothing and memoises nothing for a tile that is the baseline object itself", async () => {
+    const baselineTiles = baselineWorld();
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const changed = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-2", ownershipState: "FRONTIER" });
+    const tiles = baselineTiles.map((tile) => (tile.x === 2 && tile.y === 0 ? changed : tile));
+    const memo: TileOverlayMemo = new WeakMap();
+    const withSharedObjects = await compactSnapshotForStorage(sections(tiles), baseline, undefined, memo);
+    const withCopies = await compactSnapshotForStorage(sections(tiles.map((tile) => ({ ...tile }))), baseline);
+    expect(withSharedObjects).toEqual(withCopies);
+    for (const tile of baselineTiles) expect(memo.has(tile)).toBe(false);
+    expect(memo.has(changed)).toBe(true);
+  });
+
   it("reuses a cached diff for a tile object seen in a prior call (cache hit)", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);

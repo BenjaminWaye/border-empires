@@ -35,6 +35,8 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "recall_scout",
   // Your own AFC with nothing to upgrade or call down: send the scout drone (or call it back).
   "afc_scout_drone",
+  // Your own dock, when a lane leads to new ground: go to the far dock (client-dock-navigator.ts).
+  "dock_cross_sea",
   // Only offered on your own Reclamation Works; gold while there is salvage to ship.
   "ship_salvage_to_court",
   "activate_waystation"

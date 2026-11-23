@@ -18,6 +18,7 @@
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
+import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import {
   buildRuntimeExportPlayers,
   buildRuntimeExportState,
@@ -94,6 +95,11 @@ export async function snapshotSectionsAsyncForRuntime(
   ctx: RuntimeExportContext,
   yieldToEventLoop: () => Promise<void>
 ): Promise<SimulationSnapshotSections> {
+  // Size gauge for the two per-tile caches behind a checkpoint (state-and-persistence-discipline.md).
+  runtimeLogInfo(
+    { tileDeltaStringifyCache: ctx.tileDeltaStringifyCache.stats(), snapshotTileCacheEntries: ctx.prebuiltTiles?.size ?? 0 },
+    "simulation checkpoint tile caches"
+  );
   return buildRuntimeSnapshotSectionsAsync(ctx, yieldToEventLoop);
 }
 
