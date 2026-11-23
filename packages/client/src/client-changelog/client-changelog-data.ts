@@ -1,5 +1,5 @@
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
-import { NOV_20_21_CHANGELOG } from "./client-changelog-nov-20-21.js";
+import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -478,7 +478,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   ...NOV_19_20_CHANGELOG,
-  ...NOV_20_21_CHANGELOG,
+  ...NOV_21_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
