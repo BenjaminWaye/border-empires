@@ -19,7 +19,8 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 export type RuntimePlayerStateUpdateContext = {
   supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
-  relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
+  /** Map pointers for this player: relic hints, and the guide's town lead while they hold no town (guide-town-lead.ts). */
+  mapHintsForPlayer?: (id: string) => { relicMapHints: import("@border-empires/shared").RelicMapHint[]; guideTownLead: import("./guide-town-lead/guide-town-lead.js").GuideTownLead | undefined };
   hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
@@ -40,6 +41,12 @@ export type RuntimePlayerStateUpdateContext = {
   autoSettlementQueueForPlayer: (playerId: string) => Array<{ x: number; y: number }>;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
   weaponsFactoryCountsForPlayer: (playerId: string) => WeaponsFactoryBreakdownCounts;
+};
+
+/** relicMapHints, and guideTownLead (null once the player holds a town, so the client drops its old one). */
+const mapHintFields = (context: RuntimePlayerStateUpdateContext, playerId: string): Record<string, unknown> => {
+  const hints = context.mapHintsForPlayer?.(playerId);
+  return hints ? { relicMapHints: hints.relicMapHints, guideTownLead: hints.guideTownLead ?? null } : {};
 };
 
 /**
@@ -77,7 +84,7 @@ export function emitPlayerStateUpdate(
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
-      ...(context.relicMapHintsForPlayer ? { relicMapHints: context.relicMapHintsForPlayer(playerId) } : {}),
+      ...mapHintFields(context, playerId),
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),
       modBreakdown: buildModBreakdownForPlayer(player, context.weaponsFactoryCountsForPlayer(playerId)),

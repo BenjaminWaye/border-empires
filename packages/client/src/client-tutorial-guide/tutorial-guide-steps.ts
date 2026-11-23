@@ -96,6 +96,8 @@ export type GuideInput = {
   exploreTarget: () => { x: number; y: number } | undefined;
   /** Distinct drone flights this session (capped at GUIDE_EXPLORE_MAX_FLIGHTS). */
   scoutFlights: number;
+  /** The nearest unowned town while the player holds none and it is still in fog (state.guideTownLead). */
+  townLead?: { x: number; y: number };
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;
 };

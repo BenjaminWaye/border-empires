@@ -6,7 +6,7 @@ import { defaultScheduleAfter } from "./runtime-default-schedule-after.js";
 import { createRuntimeResourceSupply, passiveIncomeSupply, tradedSupplyHooks } from "../resource-supply-trades/runtime-resource-supply-bridge.js";
 import { dormantContributorTiles, cachedResourceSlots, cachedResourceDemand, cachedResourceDormancy, type RuntimeResourceSlotsContext } from "../resource-supply-trades/runtime-resource-slots.js";
 import { RuntimeResourceSupply } from "../resource-supply-trades/runtime-resource-supply.js";
-import { RelicMapHintIndex } from "../runtime-relic-map-hints.js"; import { createRelicWakeBroadcast } from "../relic-wake-broadcast/relic-wake-broadcast.js";
+import { RelicMapHintIndex } from "../runtime-relic-map-hints.js"; import { createRelicWakeBroadcast } from "../relic-wake-broadcast/relic-wake-broadcast.js"; import { playerMapHints } from "../guide-town-lead/player-map-hints.js";
 import { activateUnallocatedFoundries } from "../runtime-relics.js";
 import { prepareRelicTileWrite } from "../runtime-relic-tile-write.js";
 import { createLandmarkSuperTileSync, superTileActionTarget } from "../landmark-super-tile/landmark-super-tile.js";
@@ -2458,7 +2458,7 @@ export class SimulationRuntime {
   private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {
     return {
       players: this.state.players,
-      relicMapHintsForPlayer: id => { const player = this.state.players.get(id); return player ? this.relicMapHintIndex.hintsFor({ tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid) }, player) : []; },
+      mapHintsForPlayer: id => playerMapHints({ player: this.state.players.get(id), tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid), relicIndex: this.relicMapHintIndex, neutralTileKeys: this.neutralBeaconTileKeys }),
       lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
       hasActiveOwnedAfc: id => [...this.summaryForPlayer(id).ownedAfcTileKeys].some(key => this.state.tiles.get(key)?.afc?.status === "active"),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),

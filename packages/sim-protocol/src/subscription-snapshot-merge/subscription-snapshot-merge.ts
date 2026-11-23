@@ -30,7 +30,7 @@ import { mergeResourceTradeHoldings, mergeResourceTradeAgreements } from "../res
 // that type without adding a rule here and this file fails to compile --
 // the previous conditional-spread style let a field-by-field allowlist grow
 // silently incomplete with no compiler signal at all.
-import { parseRelicMapHints, parseAutoSettleCategoryPrefs, isChosenTrickleResource, autoSettlePrefsForOutput } from "@border-empires/shared";
+import { parseGuideTownLead, parseRelicMapHints, parseAutoSettleCategoryPrefs, isChosenTrickleResource, autoSettlePrefsForOutput } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "../index.js";
 
 export type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
@@ -123,6 +123,7 @@ const PLAYER_MERGE_RULES = {
   exploredTiles: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   relicMapHints: p => "relicMapHints" in p ? { relicMapHints: parseRelicMapHints(p.relicMapHints) } : undefined,
+  guideTownLead: p => "guideTownLead" in p ? { guideTownLead: parseGuideTownLead(p.guideTownLead) } : undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,
   galacticWonderVisionRadiusBonus: () => undefined,
   resourceTradeHoldings: mergeResourceTradeHoldings,

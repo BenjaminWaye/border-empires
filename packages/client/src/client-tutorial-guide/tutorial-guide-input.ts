@@ -57,6 +57,7 @@ export type GuideInputState = Pick<
   | "scoutDroneFlight"
   | "afcRecovery"
   | "discoveredTiles"
+  | "guideTownLead"
   | "dockPairs"
 >;
 
@@ -167,6 +168,14 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
   if (ownsRelayBeacon) return undefined;
   const [site] = bestRelayBeaconSites(tiles, me, { reach: computeLocalReachSet(tiles, me), limit: 1 });
   return site ? { x: site.x, y: site.y } : undefined;
+};
+
+/** The server's town lead, only while its tile is still fog: once seen, the town targets take over. */
+const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead"> => {
+  const lead = state.guideTownLead;
+  if (!lead) return {};
+  const key = tileKey(lead.x, lead.y);
+  return state.discoveredTiles.has(key) || state.tiles.has(key) ? {} : { townLead: lead };
 };
 
 // The explore target scans rings of discoveredTiles around home. A drone flight grows that set
@@ -285,6 +294,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
     exploreTarget: () => exploreTargetOf(state),
     scoutFlights: scoutFlightsOf(state),
+    ...townLeadInFog(state),
     // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
     nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };

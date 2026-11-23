@@ -1,6 +1,10 @@
 // The foothold steps' copy and map targets (take a town, take food), split out of
 // tutorial-guide-steps.ts. Each step says what to do when nothing is in sight:
 // Explore with the scout drone for the first few flights, then a Relay Beacon.
+// A House with no town is never left without one to find: the simulation names
+// the nearest unowned town (state.guideTownLead) and, while it's still in fog, the
+// town step marks it and asks for Explore there, however many flights it takes
+// (Playtest Run 4: five drone flights in random directions and still no town).
 
 import { guideTargetAction, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS } from "./tutorial-guide-explore-target.js";
@@ -38,7 +42,15 @@ export const foodCopy = (input: GuideInput): { title: string; why: string } => {
   return action === "beacon" && input.footholdTargets.food.outOfReach > 0 ? FOOD_OUT_OF_REACH : FOOD_STEP[action];
 };
 
-export const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town, input.scout, canExplore(input));
+/** Steering toward the town lead: no town known at all, the lead still in fog, and a drone to send. */
+const followsTownLead = (input: GuideInput): boolean => {
+  const town = input.footholdTargets.town;
+  const nothingKnown = town.pending.length + town.garrison.length + town.expand.length + town.outOfReach === 0;
+  return nothingKnown && input.townLead !== undefined && input.scout !== "none";
+};
+
+export const townAction = (input: GuideInput): GuideTargetAction =>
+  followsTownLead(input) ? (input.scout === "out" ? "scouting" : "explore") : guideTargetAction(input.footholdTargets.town, input.scout, canExplore(input));
 export const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food, input.scout, canExplore(input));
 export const exploreHighlight = (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
   const target = input.exploreTarget();
@@ -58,8 +70,8 @@ export const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist
 export const targetHighlights =
   (kind: "town" | "food") =>
   (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
-    if (kind === "town" && noTownNearStart(input)) return [];
     const action = kind === "town" ? townAction(input) : foodAction(input);
+    if (kind === "town" && action === "explore" && followsTownLead(input) && input.townLead) return [input.townLead];
     if (action === "explore") return exploreHighlight(input);
     if (action === "scouting") return [];
     // Only the recommended beacon site: the checklist's other highlights follow
@@ -75,7 +87,6 @@ export const targetHighlights =
  */
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
   if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
-  if (stepId !== "foothold-take-food" && stepId !== "build-food-slot" && noTownNearStart(input)) return undefined;
   const footholdBeacon =
     ((stepId === "foothold-take-town" || (stepId === "build-first" && needsTownForBuild(input))) && townAction(input) === "beacon") ||
     ((stepId === "foothold-take-food" || stepId === "build-food-slot") && foodAction(input) === "beacon");
@@ -92,22 +103,16 @@ const townActionTitle = (input: GuideInput, action: GuideTargetAction): string =
   return input.footholdTargets.town.unreachable > 0 ? title.replace("No town in sight", "No town you can reach") : title;
 };
 
-/**
- * The step would ask for a beacon, but the player already built one and still knows of no town at all:
- * another beacon wouldn't help (Playtest Run 4: one player built four and quit). Say so and offer Skip.
- */
-export const noTownNearStart = (input: GuideInput): boolean =>
-  townAction(input) === "beacon" && input.ownsRelayBeacon && input.footholdTargets.town.outOfReach === 0 && input.footholdTargets.town.unreachable === 0;
-
-const NO_TOWN_NEAR_START = {
-  title: "No town near your start: Skip this step for now",
-  why: "Some starts have no town close by. Towns your drone or growing land reveal later get marked here."
+const TOWN_LEAD_EXPLORE = {
+  title: "A town lies this way: tap the marked fog and Explore",
+  why: "Your drone reports the towns it flies over. Then Expand To the town."
 };
 
-export const townWhy = (input: GuideInput): string => (noTownNearStart(input) ? NO_TOWN_NEAR_START.why : TOWN_STEP[townAction(input)].why);
+export const townWhy = (input: GuideInput): string =>
+  followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
 
 export const townTitle = (input: GuideInput): string => {
-  if (noTownNearStart(input)) return NO_TOWN_NEAR_START.title;
+  if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;
   const action = townAction(input);
   return townActionTitle(input, action) + (action === "beacon" ? beaconWhere(input) : "");
 };

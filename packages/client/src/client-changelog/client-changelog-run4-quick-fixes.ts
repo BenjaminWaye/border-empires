@@ -6,7 +6,7 @@ export const RUN4_QUICK_FIXES_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   why: "Fixes from the November playtest: a lost AFC could cost more than a new player could ever earn, and several screens quoted numbers that didn't match.",
   changes: [
     "Replacing a lost AFC costs a flat 20 Coin; it no longer rises with every AFC lost on the planet",
-    "Once you've built a Relay Beacon and still know of no town, the guide says no town is near your start and offers Skip instead of asking for more beacons",
+    "Until you hold a town, the guide marks the nearest one and asks you to Explore there; tapping the mark plans the drone's whole way to it",
     "The Chronicle's summary is headed \"Since you last looked\"",
     "A town's Garrison quotes a manpower range: the tiles around it are only garrisoned once its reach claims them",
     "Trade offers show Coin per day instead of Coin per hour",

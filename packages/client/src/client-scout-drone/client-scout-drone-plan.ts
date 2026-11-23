@@ -20,13 +20,14 @@ import {
   type ScoutDroneRoutePlan,
   type ScoutDroneWorld
 } from "@border-empires/shared";
+import { leadRouteStops } from "./client-scout-drone-lead-route.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type Point = { x: number; y: number };
 export type ScoutPlanState = Pick<
   ClientState,
-  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
+  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "guideTownLead" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
 >;
 
 const keyOf = (x: number, y: number): string => `${x},${y}`;
@@ -178,7 +179,9 @@ export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number
     plan.shakeAt = nowMs; // the dock's pips shake: no charge left for another stop
     return true;
   }
-  plan.stops = [...plan.stops, { x: wx, y: wy }];
+  const lead = state.guideTownLead;
+  const launch = plan.stops.length === 0 && lead && lead.x === wx && lead.y === wy && !flyingScoutDrone(state, nowMs) ? scoutLaunchAfc(state, lead) : undefined;
+  plan.stops = launch ? leadRouteStops(launch, { x: wx, y: wy }, scoutPlanCapacity(state, nowMs)) : [...plan.stops, { x: wx, y: wy }];
   plan.bumpAt = nowMs;
   return true;
 };

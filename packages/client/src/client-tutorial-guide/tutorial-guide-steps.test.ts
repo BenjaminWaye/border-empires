@@ -115,19 +115,21 @@ describe("tutorial guide steps", () => {
     );
   });
 
-  it("stops asking for more beacons once one is built and still no town is known (Playtest Run 4: four beacons, then quit)", () => {
+  // Playtest Run 4: a newcomer flew the drone five times in random directions over three mornings and never
+  // saw a town, then built four beacons. With no town known, the guide now marks the nearest real town
+  // (the server's lead) and asks for Explore there, for as many flights as it takes.
+  it("points the drone at the server's town lead while no town is known, never at a beacon loop", () => {
     const pastFind = new Set(ids("look"));
     const checklist = { ...baseInput().checklist, step: "EXPAND_RELAY_BEACON" as const, relayBeaconSite: { x: 1, y: 1 } };
-    // Drone flights used up: before any beacon, the step still asks for one.
-    const before = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 3 }), pastFind);
-    expect(before.kind === "step" && before.title).toMatch(/build a Relay Beacon/);
-    const after = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 3, ownsRelayBeacon: true }), pastFind);
-    expect(after).toEqual(expect.objectContaining({ title: "No town near your start: Skip this step for now", highlightTiles: [] }));
-    expect(after.kind === "step" && after.why).toMatch(/no town close by/);
-    expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, ownsRelayBeacon: true }))).toBeUndefined();
-    // A town the beacon's vision found beyond reach is still a beacon job, not a dead end.
-    const outOfReach = evaluateGuide(baseInput({ checklist, ownsRelayBeacon: true, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
-    expect(outOfReach.kind === "step" && outOfReach.title).toMatch(/build a Relay Beacon/);
+    const lead = { x: 60, y: 8 };
+    const view = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 7, ownsRelayBeacon: true, townLead: lead }), pastFind);
+    expect(view).toEqual(expect.objectContaining({ title: "A town lies this way: tap the marked fog and Explore", highlightTiles: [lead] }));
+    expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
+    const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
+    expect(flying.kind === "step" && flying.title).toBe("Your scout drone is out: wait for its report");
+    // Once a town is known (here, beyond reach), the usual town steps take over.
+    const known = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    expect(known.kind === "step" && known.title).toMatch(/build a Relay Beacon/);
   });
 
   it("tells the player to Garrison a town that is already their frontier, Expand To a neutral town in vision, else build a beacon", () => {
