@@ -49,7 +49,7 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
     document.body.append(root);
   }
   root.classList.toggle("afc-recovery-ui--modal", Boolean(state.afcRecoveryPopupOpen && !recovery.pending));
-  const cost = afcReplacementCost(recovery.globalLosses);
+  const cost = afcReplacementCost();
   const pending = recovery.pending;
   const hudV2 = document.body.classList.contains("hud-v2");
   const buttonClass = hudV2 ? "v2s-btn" : "panel-btn";
@@ -85,7 +85,6 @@ export function renderAfcRecovery(deps: AfcRecoveryUiDeps): void {
           <div><span>Replacement cost</span><strong>${cost} gold</strong></div>
           <div><span>Delivery time</span><strong>60 seconds</strong></div>
         </div>
-        <p class="afc-recovery-supply">Losses across the planet strain offworld supply. Each further AFC loss adds 10 gold to the replacement price.</p>
         ${affordable ? "" : `<p class="afc-recovery-cancellation">Requires ${cost} gold. Earn income from surviving holdings, continue fighting, or withdraw and redeploy.</p>`}
       </div>
       <footer class="afc-recovery-footer">

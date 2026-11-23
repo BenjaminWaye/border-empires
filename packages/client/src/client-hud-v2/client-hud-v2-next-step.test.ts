@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NEXT_STEP_CAP, coinShortText, formatEta, isCoinLow, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
+import { NEXT_STEP_CAP, coinShortText, isCoinLow, msUntilCoin, nextSteps, nextStepsHtml, type NextStepInput } from "./client-hud-v2-next-step.js";
 import type { NextStepSources } from "./client-hud-v2-next-step-sources.js";
 import { trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { compactTracker, compactTrackerHtml, trackerSummaryHtml } from "./client-hud-v2-compact.js";
@@ -92,14 +92,13 @@ describe("coin shortfall copy", () => {
 
   it("is undefined when affordable and names the gap otherwise", () => {
     expect(coinShortText(50, 40, 0)).toBeUndefined();
-    expect(coinShortText(10, 40, 1)).toBe("Need 30 more Coin · +1440.0/day · ready in 30m");
+    expect(coinShortText(10, 40, 1)).toBe("Need 30 more Coin · +1440.0/day");
   });
 
-  // UX review: "ready in 138h" read badly; past two days the wait is in days.
-  it("switches long waits to days past 48h", () => {
-    expect(formatEta(47 * 3_600_000)).toBe("47h");
-    expect(formatEta(138 * 3_600_000)).toBe("5d 18h");
-    expect(coinShortText(0, 138, 1 / 60)).toContain("ready in 5d 18h");
+  // Playtest Run 4: "ready in 34h 18m" sat still between Coin batches; the gap and the rate are the whole story.
+  it("gives no ready-in time, and says where Coin comes from when there is no income", () => {
+    expect(coinShortText(0, 138, 1 / 60)).not.toContain("ready in");
+    expect(coinShortText(0, 138, 0)).toBe("Need 138 more Coin · +0.0/day · feed a town for Coin");
   });
 });
 

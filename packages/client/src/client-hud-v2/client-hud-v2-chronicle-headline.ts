@@ -1,6 +1,7 @@
 // The top of the Chronicle's Yours view for a returning player: what changed
-// since they last looked, in up to three short statements. Playtesters had to
-// piece "lost 129 tiles, all 4 towns, respawned" together from ~15 rows.
+// since they last looked, in up to three short statements. Labelled "Since you
+// last looked": "Since you left" read wrong mid-session (Playtest Run 4).
+// Playtesters had to piece "lost 129 tiles, all 4 towns, respawned" together from ~15 rows.
 // Built only from the timeline the rows already use, plus the respawn notice
 // the client already holds (state.respawnNotice).
 
@@ -154,5 +155,5 @@ const esc = (text: string): string =>
 export const chronicleHeadlineHtml = (input: ChronicleHeadlineInput): string => {
   const lines = chronicleHeadlineLines(chronicleHeadlineTally(input));
   if (lines.length === 0) return "";
-  return `<div class="v2c-headline" role="status"><span class="v2c-headline-h">Since you left</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
+  return `<div class="v2c-headline" role="status"><span class="v2c-headline-h">Since you last looked</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
 };

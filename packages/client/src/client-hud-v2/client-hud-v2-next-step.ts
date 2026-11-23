@@ -9,8 +9,6 @@ import { SALVAGE_LOADS_PER_SITE, WAYSTATION_MANPOWER_GRANT, formatCoinPerDay, sp
 import { MANUFACTORY_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
-import { formatDuration } from "../client-duke-panel/client-duke-format.js";
-import { formatRefillCountdown } from "../client-manpower-gauge/client-manpower-refill.js";
 import { relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { manifestNodeState } from "./client-hud-v2-manifest.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
@@ -54,9 +52,6 @@ export type NextStep = {
   hint?: string;
 };
 
-/** "45m", "30h", then "5d 18h" past two days (long coin waits read badly in hours). */
-export const formatEta = (ms: number): string => (ms < 48 * 3_600_000 ? formatRefillCountdown(ms) : formatDuration(ms));
-
 /** Ms until `gold` reaches `cost` at the net rate, 0 when already there, undefined when income is not positive. */
 export const msUntilCoin = (gold: number, cost: number, netPerMinute: number): number | undefined => {
   const short = cost - spendableCoin(gold);
@@ -65,15 +60,16 @@ export const msUntilCoin = (gold: number, cost: number, netPerMinute: number): n
   return Math.ceil(short / netPerMinute) * 60_000;
 };
 
-/** "Need 30 more · +24.0/day · ready in 1h 15m", or the no-income state. Undefined when affordable. */
+/**
+ * "Need 30 more Coin · +24.0/day", or the no-income state. Undefined when affordable. No "ready in" time:
+ * Coin arrives in batches, so the estimate sat still for hours ("ready in 34h 18m" ten minutes apart,
+ * Playtest Run 4), and spending or new income moves it anyway; the gap and the rate say the same.
+ */
 export const coinShortText = (gold: number, cost: number, netPerMinute: number): string | undefined => {
   const short = cost - spendableCoin(gold);
   if (short <= 0) return undefined;
-  const eta = msUntilCoin(gold, cost, netPerMinute);
-  const rate = formatCoinPerDay(netPerMinute);
-  return eta === undefined
-    ? `Need ${short.toLocaleString("en-US")} more Coin · ${rate} · feed a town for Coin`
-    : `Need ${short.toLocaleString("en-US")} more Coin · ${rate} · ready in ${formatEta(eta)}`;
+  const need = `Need ${short.toLocaleString("en-US")} more Coin · ${formatCoinPerDay(netPerMinute)}`;
+  return netPerMinute > 0 ? need : `${need} · feed a town for Coin`;
 };
 
 export const isManpowerLow = (input: Pick<NextStepInput, "manpower" | "manpowerCap" | "beaconCost">): boolean =>
