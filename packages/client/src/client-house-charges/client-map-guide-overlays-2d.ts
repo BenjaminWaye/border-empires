@@ -14,6 +14,8 @@ import { mapGuideRingTiles } from "./client-map-guide-ring-tiles.js";
 export const CHARGE_TINT_GARRISONED = "rgba(95, 211, 106, 0.5)";
 /** Tiles still to take: a dark wash plus pale diagonal hatching, so they read by pattern on sand, grass or snow alike. */
 export const CHARGE_TINT_OPEN = "rgba(18, 14, 8, 0.3)";
+/** A Three Metropolises landmass: a light gold wash, only to show where it is. */
+export const CHARGE_TINT_PLAIN = "rgba(240, 207, 130, 0.28)";
 export const CHARGE_HATCH = "rgba(255, 232, 170, 0.9)";
 export const CHARGE_OUTLINE = "rgba(240, 207, 130, 0.95)";
 /** Rough search circles: gold dots, the area outline's colour. The link between two towns: smaller pale dots. */
@@ -72,9 +74,9 @@ export const drawMapGuideOverlays = (
     ctx.save();
     for (const tile of tint) {
       const { sx, sy } = deps.worldToScreen(tile.x, tile.y, size, deps.halfW, deps.halfH);
-      ctx.fillStyle = tile.garrisoned ? CHARGE_TINT_GARRISONED : CHARGE_TINT_OPEN;
+      ctx.fillStyle = tile.plain ? CHARGE_TINT_PLAIN : tile.garrisoned ? CHARGE_TINT_GARRISONED : CHARGE_TINT_OPEN;
       ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
-      if (!tile.garrisoned) drawHatch(ctx, sx - size / 2, sy - size / 2, size);
+      if (!tile.garrisoned && !tile.plain) drawHatch(ctx, sx - size / 2, sy - size / 2, size);
     }
     // Gold outline around the whole area, so its extent reads even where garrisoned green meets grass.
     ctx.strokeStyle = CHARGE_OUTLINE;
