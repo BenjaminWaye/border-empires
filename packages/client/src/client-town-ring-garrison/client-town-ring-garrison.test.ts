@@ -61,10 +61,11 @@ describe("town ring garrison", () => {
     expect(townRingGarrisonTiles(state, land(TX + 1, TY, { ownerId: "me", ownershipState: "FRONTIER" }))).toHaveLength(0);
   });
 
-  it("prices a town's Garrison as the town plus every tile around it", () => {
+  it("prices a town's Garrison as a range, from the town alone to the town plus every tile around it", () => {
     const { state, town } = setup();
     const garrison = menuActionsForSingleTile(state, town, menuDeps as never).find((a) => a.id === "settle_land");
-    expect(garrison?.cost).toContain(`${7 * SETTLE_COST} coin, ${7 * 5} manpower (town + 6 around)`);
+    // Ring tiles are paid only once the town's reach claims them, so one total over-promised (quoted 180, charged 100).
+    expect(garrison?.cost).toContain(`5–${7 * 5} manpower (town + up to 6 around)`);
     expect(garrison?.detail).toContain("Then garrisons the 6 tiles around it");
   });
 
