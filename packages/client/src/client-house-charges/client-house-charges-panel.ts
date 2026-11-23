@@ -13,6 +13,16 @@ import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } 
 import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
+import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
+import {
+  dismissHouseChargesProfileTip,
+  forgetHouseChargesSave,
+  houseChargesProfileTipHtml,
+  houseChargesProfileTipShown,
+  noteHouseChargesSaved,
+  requestManageChargesCallout,
+  scrollManageChargesIntoView
+} from "./client-house-charges-profile-tip.js";
 
 
 export type HouseChargesPanelDeps = {
@@ -39,7 +49,8 @@ export type HouseChargesPanelDeps = {
  */
 let rewardsOpen = false;
 
-type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
+type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> &
+  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "me" | "activePlayerProfileId" | "playerNames">>;
 type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
 
 /**
@@ -106,7 +117,8 @@ const choiceHintHtml = (ticked: number, wanted: number): string => {
 };
 
 export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string => {
-  const payload = state.houseCharges;
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) {
     return `<section class="card house-charges-card"><p class="house-charges-intro">Your House's sealed charges arrive once your AFC has landed.</p></section>`;
   }
@@ -119,15 +131,18 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // Only an unsaved swap puts anything above the cards (its Keep button); what is kept and until when sits in
-  // How charges work, behind the "?" beside the title.
+  // Only two things show over the cards, as a popover (owner 2026-11-21: an in-flow bar pushed the cards down and
+  // cut off their bottoms): an unsaved swap's Keep button, then once it is saved, where to find the charges later.
+  // What is kept and until when sits in How charges work, behind the "?" beside the title.
   const choice = choosing && changed
-    ? `<div class="house-charges-choice">
-        <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
-        ${choiceHintHtml(draft.length, wanted)}
+    ? `<div class="house-charges-popover house-charges-choice">
+        <div class="house-charges-popover-text">
+          <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
+          ${choiceHintHtml(draft.length, wanted)}
+        </div>
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-    : "";
+    : houseChargesProfileTipShown(payload.dealtAt, kept, changed) ? houseChargesProfileTipHtml() : "";
   const swapWindow = choosing ? `<p class="house-charges-saved">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>` : "";
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
@@ -177,6 +192,7 @@ export const renderHouseChargesPanel = (
   if (state.activePanel !== "charges") {
     if (deps.panelEl.innerHTML !== "") deps.panelEl.innerHTML = "";
     writtenHtml.delete(deps.panelEl);
+    dismissHouseChargesProfileTip();
     // Closing the panel closes the help, so reopening it shows the cards with nothing over them.
     rewardsOpen = false;
     return;
@@ -203,7 +219,8 @@ export const renderHouseChargesPanel = (
   setHelpOpen(rewardsOpen);
   if (more) more.onclick = () => setHelpOpen(false);
   if (help) help.onclick = () => setHelpOpen(!rewardsOpen);
-  const payload = state.houseCharges;
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) return;
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
     card.onclick = () => {
@@ -217,7 +234,28 @@ export const renderHouseChargesPanel = (
     save.onclick = () => {
       const keptIds = state.houseChargesDraftKeep;
       if (!keptIds) return;
-      deps.sendGameMessage({ type: "CHOOSE_HOUSE_CHARGES", keptIds }, "Finish sign-in before choosing your charges.");
+      // Noted before sending: the server's confirmation can arrive (and re-render the panel) before send returns.
+      noteHouseChargesSaved(payload.dealtAt, keptIds);
+      if (!deps.sendGameMessage({ type: "CHOOSE_HOUSE_CHARGES", keptIds }, "Finish sign-in before choosing your charges.")) forgetHouseChargesSave();
+    };
+  }
+  const tipClose = deps.panelEl.querySelector<HTMLButtonElement>("[data-house-charges-tip-close]");
+  if (tipClose) {
+    tipClose.onclick = () => {
+      dismissHouseChargesProfileTip();
+      deps.rerender();
+    };
+  }
+  const tipShow = deps.panelEl.querySelector<HTMLButtonElement>("[data-house-charges-tip-show]");
+  if (tipShow) {
+    // "Show me": your own profile opens (the HUD turns activePlayerProfileId into the profile screen) with Manage charges glowing.
+    tipShow.onclick = () => {
+      dismissHouseChargesProfileTip();
+      requestManageChargesCallout(deps.now());
+      state.activePlayerProfileId = state.me || undefined;
+      deps.closePanel();
+      deps.rerender();
+      scrollManageChargesIntoView(document);
     };
   }
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-jump]").forEach((button) => {
