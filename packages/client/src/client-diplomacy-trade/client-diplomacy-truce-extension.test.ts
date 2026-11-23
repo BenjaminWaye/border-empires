@@ -55,7 +55,7 @@ describe("extending a truce from the trade screen", () => {
     // 64/h for 12h, at half its upfront value: 384 against a 300 price.
     expect(verdictFor("truce", 64)).toMatchObject({ tone: "good", canSend: true });
     expect(verdictFor("truce", 40).text).toBe("Elin would refuse: wants about 60 more coin.");
-    expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses accept Coin per hour only from you, and only for a truce." });
+    expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses accept Coin per day only from you, and only for a truce." });
   });
 
   it("disables an extension past the 48h cap and falls back to one that fits", () => {

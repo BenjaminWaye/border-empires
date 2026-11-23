@@ -122,3 +122,4 @@ export type { ResourceSupplyPlayerState, ResourceSupplyAgreementStatus } from ".
 export * from "./resource-supply-trades/resource-trade-offers.js";
 export { resourceSupplyCoinValue } from "./resource-supply-trades/resource-supply-valuation.js";
 export * from "./resource-supply-trades/resource-supply-capacity.js";
+export * from "./guide-town-lead/guide-town-lead.js";
