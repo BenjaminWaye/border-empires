@@ -35,7 +35,7 @@ describe("Planetary Defense planner persistence", () => {
     const restarted = build({ tiles, activeLocks: [], planetaryDefensePlanner: planner });
     expect(restarted.exportSnapshotSections().initialState.planetaryDefensePlanner).toEqual(planner);
     restarted.barbarianBridge();
-    // Once the planner runs, a saved rest is clamped to one full rest from now (a far-future value can't silence a camp).
-    expect(restarted.exportSnapshotSections().initialState.planetaryDefensePlanner?.camps[0]).toMatchObject({ campId: "70,70", restUntil: 1_000 + 15_000 });
+    // Once the planner runs, a saved rest is clamped to the longest rest (an expansion's) from now (a far-future value can't silence a camp).
+    expect(restarted.exportSnapshotSections().initialState.planetaryDefensePlanner?.camps[0]).toMatchObject({ campId: "70,70", restUntil: 1_000 + 60_000 });
   });
 });

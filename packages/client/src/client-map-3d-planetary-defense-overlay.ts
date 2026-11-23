@@ -11,8 +11,8 @@ import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defen
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 import { createUnitMotionGate, type UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
-// Planetary Defense tile marker: a pair of dark-grey-armored soldiers
-// patrolling every barbarian-owned tile ("barbarian" is still the internal
+// Planetary Defense camp marker: a pair of dark-grey-armored soldiers
+// patrolling each camp tile, not the camp's frontier ("barbarian" is still the internal
 // owner id; players see "Planetary Defense" — what is left of the planet's
 // own defense force after the world was prepared for the planetary games).
 // Replaces the earlier Voidcrystal Colossus monster.

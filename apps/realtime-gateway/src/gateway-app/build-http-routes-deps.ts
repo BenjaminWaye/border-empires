@@ -37,6 +37,7 @@ import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { hydrateCurrentSeasonSummaryDisplayNames, hydrateSeasonArchiveDisplayNames } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { setBugReportAlerter, registerBugReportRoutes } from "../http-routes/bug-report-routes.js";
+import { createPlayerReportGithubIssue, type PlayerReportGithubIssueConfig } from "../github-issues/player-report-github-issue.js";
 import { toPublicSocialView, type PublicSocialActiveTruce, type PublicSocialTruceBreak } from "../social-routes/social-routes.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -85,6 +86,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   // Same config the email alert service signs unsubscribe links with, so the
   // /email/unsubscribe route verifies them with the identical secret.
   emailAlertConfig?: EmailAlertConfig | undefined;
+  playerReportGithubIssues?: PlayerReportGithubIssueConfig;
   invalidateProfileCache?: (playerId: string) => void;
   disconnectDeletedPlayer?: (playerId: string) => void;
   sovereignSiegeEngineStrikeStore: SovereignSiegeEngineStrikeStore;
@@ -119,10 +121,21 @@ const emailUnsubscribeRouteDeps = (ctx: BuildGatewayHttpRoutesDepsContext): Pick
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
   if (ctx.alertPlayerBugReport && ctx.alertPlayerSuggestion) {
+    const { alertPlayerBugReport, alertPlayerSuggestion } = ctx;
+    const github = ctx.playerReportGithubIssues;
+    const issueDeps = github
+      ? { ...github, log: app.log, ...(ctx.emailAlertConfig?.appLabel ? { appLabel: ctx.emailAlertConfig.appLabel } : {}) }
+      : undefined;
     setBugReportAlerter({
       recentEvents: () => ctx.recentGatewayEvents,
-      alertPlayerBugReport: ctx.alertPlayerBugReport,
-      alertPlayerSuggestion: ctx.alertPlayerSuggestion
+      alertPlayerBugReport: (report) => {
+        alertPlayerBugReport(report);
+        if (issueDeps) void createPlayerReportGithubIssue("bug", report, issueDeps);
+      },
+      alertPlayerSuggestion: (report) => {
+        alertPlayerSuggestion(report);
+        if (issueDeps) void createPlayerReportGithubIssue("suggestion", report, issueDeps);
+      }
     });
   }
   registerBugReportRoutes(app);

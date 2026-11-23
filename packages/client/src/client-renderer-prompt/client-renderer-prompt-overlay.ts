@@ -3,7 +3,7 @@
 // client-hud.ts (already over the repo's per-file line cap) — the HUD only
 // hands over its state, DOM slot and re-render callback.
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { openReportDialog } from "../client-bug-report/client-bug-report-hud.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { showTwoDimensionalModeNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import { isTrue3DRendererActive, prefers2DRendererMode } from "../client-renderer-mode.js";
@@ -25,8 +25,8 @@ export type RendererPromptOverlayDeps = {
 };
 
 // Once the slow-3D prompt has appeared it stays up until the player answers
-// it: a later warm-up hold (e.g. the save sheet from "Download Diagnostics"
-// backgrounding the page) must not yank it away mid-read.
+// it: a later warm-up hold (e.g. the Report Bug dialog opened from the
+// prompt, or the page being backgrounded) must not yank it away mid-read.
 let rendererPromptShown = false;
 
 export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): void => {
@@ -73,7 +73,7 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
             <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
             <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
           </div>
-          <button id="renderer-prompt-download" class="panel-btn guide-secondary-btn renderer-prompt-download-btn" type="button">Download Diagnostics</button>
+          <button id="renderer-prompt-report-bug" class="panel-btn guide-secondary-btn renderer-prompt-report-bug-btn" type="button">Report Bug</button>
         </div>
       </div>
     `;
@@ -93,10 +93,8 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
       switchRenderer("2d");
     };
   }
-  const downloadBtn = overlayEl.querySelector("#renderer-prompt-download") as HTMLButtonElement | null;
-  if (downloadBtn) {
-    downloadBtn.onclick = (): void => {
-      downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
-    };
+  const reportBugBtn = overlayEl.querySelector("#renderer-prompt-report-bug") as HTMLButtonElement | null;
+  if (reportBugBtn) {
+    reportBugBtn.onclick = (): void => openReportDialog({ kind: "bug", state, wsUrl, renderHud: deps.renderHud });
   }
 };

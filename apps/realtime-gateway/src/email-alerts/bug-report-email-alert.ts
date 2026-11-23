@@ -62,15 +62,26 @@ const countLine = (label: string, events: LeveledEvent[]): string => {
 // stringify, so the summary email still goes out.
 export const MAX_REPORT_ATTACHMENT_CHARS = 1_000_000;
 
-const serializeReportAttachment = (kind: PlayerReportKind, report: BugReportInput): string => {
-  let json: string | undefined;
-  let failure = "too_large";
+const tryStringify = (value: unknown): { json?: string; failure?: string } => {
   try {
-    json = JSON.stringify({ kind, ...report });
+    return { json: JSON.stringify(value) };
   } catch (error) {
-    failure = error instanceof Error ? error.message : String(error);
+    return { failure: error instanceof Error ? error.message : String(error) };
   }
-  if (json !== undefined && json.length <= MAX_REPORT_ATTACHMENT_CHARS) return json;
+};
+
+const serializeReportAttachment = (kind: PlayerReportKind, report: BugReportInput): string => {
+  const full = tryStringify({ kind, ...report });
+  if (full.json !== undefined && full.json.length <= MAX_REPORT_ATTACHMENT_CHARS) return full.json;
+  // The client diagnostics bundle is the bulkiest, least essential part: drop
+  // it before giving up the events and context too.
+  if (report.diagnostics) {
+    const { diagnostics: _omitted, ...rest } = report;
+    const lean = tryStringify({ kind, ...rest, diagnosticsOmitted: full.failure ?? "too_large" });
+    if (lean.json !== undefined && lean.json.length <= MAX_REPORT_ATTACHMENT_CHARS) return lean.json;
+  }
+  const json = full.json;
+  const failure = full.failure ?? "too_large";
   return JSON.stringify({
     kind,
     reportId: report.reportId,

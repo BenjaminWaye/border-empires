@@ -27,9 +27,11 @@
  * (packages/client/src/client-reach-authoritative/client-reach-authoritative.ts),
  * and AETHER_SHIELDS / ISLAND_NAMES / HOUSE_CHARGES are full replacement lists
  * (ISLAND_NAMES: apps/simulation/src/island-names/island-names-ticker.ts).
- * SCOUT_DRONE carries the whole flight (or null once docked); its landing
- * report is stripped before storing so a new tab doesn't repeat the feed line
- * (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
+ * SCOUT_DRONE carries the whole flight (or null once docked). Its landing
+ * report is kept when it carries an `id`: the client shows each report id once,
+ * so a socket that reconnects before the old one is reaped (no fresh
+ * subscribe, so no resend) still gets a report it missed. A report without an
+ * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -70,9 +72,10 @@ export const isReplayedPlayerMessage = (payload: Record<string, unknown>): paylo
   (payload.type === "HOUSE_CHARGES" && Array.isArray(payload.charges)) ||
   (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined)));
 
-/** What is kept for replay: SCOUT_DRONE without its one-off landing report. */
+/** What is kept for replay: SCOUT_DRONE keeps its report only when the client can tell it already showed it (an id). */
+const hasReportId = (report: unknown): boolean => Boolean(report && typeof report === "object" && typeof (report as { id?: unknown }).id === "string");
 const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage =>
-  payload.type === "SCOUT_DRONE" ? { type: payload.type, flight: payload.flight } : payload;
+  payload.type === "SCOUT_DRONE" && !hasReportId(payload.report) ? { type: payload.type, flight: payload.flight } : payload;
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));

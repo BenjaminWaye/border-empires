@@ -51,7 +51,18 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   // list per viewer, never client-resubmitted.
   "island-names:",
   // HOUSE_CHARGES pushes (side-tickers/runtime-side-tickers.ts), likewise.
-  "house-charges:"
+  "house-charges:",
+  // Scout drone pushes (scout-drone/scout-drone-runtime.ts): vision batches, landing/turn/speed-up flights,
+  // reports, rival alerts, subscribe pushes and the mid-flight SCOUT_FINDS, none client-resubmitted. SCOUT_FINDS
+  // (one id per flight, an event per find tick) leaked here until review 2026-11-21.
+  "scout-drone-vision:",
+  "scout-drone-landed:",
+  "scout-drone-sped-up:",
+  "scout-drone-turned:",
+  "scout-drone:",
+  "scout-report:",
+  "scout-sighted:",
+  "scout-finds:"
 ] as const;
 
 /**

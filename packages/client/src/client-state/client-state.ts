@@ -60,6 +60,7 @@ type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; struc
 
 export { storageGet, storageRemove, storageSet } from "./client-storage.js";
 import { storageGet } from "./client-storage.js";
+import type { ScoutFindingHighlight } from "../client-scout-drone/client-scout-finding-highlight.js";
 
 export const createInitialState = () => ({
   me: "",
@@ -213,6 +214,7 @@ export const createInitialState = () => ({
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
   socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
+  scoutFindingHighlight: undefined as ScoutFindingHighlight | undefined,
   feedUnreadCount: 0,
   spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,

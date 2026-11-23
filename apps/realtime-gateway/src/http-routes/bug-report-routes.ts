@@ -99,6 +99,9 @@ const registerPlayerReportRoute = (
     const metadata = typeof body.metadata === "object" && body.metadata !== null
       ? body.metadata as Record<string, unknown>
       : {};
+    const diagnostics = typeof body.diagnosticsBundle === "object" && body.diagnosticsBundle !== null && !Array.isArray(body.diagnosticsBundle)
+      ? body.diagnosticsBundle as Record<string, unknown>
+      : undefined;
     const clientEvents = normalizeBugReportClientEvents(body.clientEvents);
     const playerId = typeof clientContext.me === "string" && clientContext.me.length > 0 ? clientContext.me : "unknown";
     const playerName = typeof clientContext.meName === "string" ? clientContext.meName : "unknown";
@@ -131,7 +134,8 @@ const registerPlayerReportRoute = (
       clientEvents,
       serverEvents,
       clientContext,
-      metadata
+      metadata,
+      ...(diagnostics ? { diagnostics } : {})
     });
 
     return { ok: true, reportId };

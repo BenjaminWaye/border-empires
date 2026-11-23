@@ -141,16 +141,22 @@ export const undoScoutPlanStop = (state: Pick<ClientState, "scoutDronePicking">)
 /** True when the player can plan at all: an active AFC to launch from. */
 export const canPlanScoutFlight = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): boolean => ownActiveAfcs(state).length > 0;
 
+/** True when a tap at (wx, wy) with no plan open would start one: fog never explored, no tile data, off home ground. */
+export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number): boolean => {
+  const key = keyOf(wx, wy);
+  return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state);
+};
+
 /**
  * A map tap while planning, or a tap on unexplored ground that starts a plan.
  * Returns true when the tap was consumed.
  */
+
 export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number, nowMs: number): boolean => {
   const plan = state.scoutDronePicking;
   if (!plan.active) {
     // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
-    const key = keyOf(wx, wy);
-    if (state.discoveredTiles.has(key) || state.tiles.has(key) || isHome(state, wx, wy) || !canPlanScoutFlight(state)) return false;
+    if (!scoutPlanTapStarts(state, wx, wy)) return false;
     plan.active = true;
     plan.stops = [];
   }

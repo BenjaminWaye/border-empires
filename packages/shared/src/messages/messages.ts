@@ -487,7 +487,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     waypoints: z.array(z.object({ x: z.number().int(), y: z.number().int() })).min(1).max(8).optional()
   }),
   // Call the scout drone home early: it turns back over the tile it is over now.
-  z.object({ type: z.literal("RECALL_SCOUT") })
+  z.object({ type: z.literal("RECALL_SCOUT") }),
+  // The player has seen this scout report on some device: the server stops resending it (scout-drone-held-report.ts).
+  z.object({ type: z.literal("SCOUT_REPORT_SEEN"), id: z.string().min(1).max(200) })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

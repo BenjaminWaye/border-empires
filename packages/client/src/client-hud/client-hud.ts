@@ -18,9 +18,9 @@ import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
-import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
-import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
+import { openReportDialog, renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { renderMapLoadingCopy } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
@@ -193,7 +193,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const replayPanelHtml = (): string => "";
 
-  renderTargetingOverlay(state, dom.targetingOverlayEl, { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey, rerender: () => renderClientHud(deps), send: sendGameMessage });
+  renderTargetingOverlay(state, dom.targetingOverlayEl, { crystalTargetingTone, crystalTargetingTitle, clearCrystalTargeting, keyFor, parseKey, rerender: () => renderClientHud(deps), send: sendGameMessage, camera: { wrapX, wrapY, requestViewRefresh: () => requestViewRefresh(2, true) } });
 
   const selected = selectedTile();
   if (selected) requestTileDetailIfNeeded(selected);
@@ -215,22 +215,14 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.mapLoadingOverlayEl.style.display = "grid";
     dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
     renderMapLoadingCopy(dom, loadingView);
-    const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showDiagnostics;
+    const anyAction = loadingView.showRetry || loadingView.showReload || loadingView.showReportBug;
     dom.mapLoadingActionsEl.dataset.visible = anyAction ? "true" : "false";
     dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
     dom.mapLoadingReloadBtn.style.display = loadingView.showReload ? "" : "none";
-    dom.mapLoadingDiagnosticsBtn.style.display = loadingView.showDiagnostics ? "" : "none";
+    dom.mapLoadingReportBugBtn.style.display = loadingView.showReportBug ? "" : "none";
     dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
     dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
-    dom.mapLoadingDiagnosticsBtn.onclick = () => {
-      try {
-        const bundle = buildDiagnosticsBundle(state, wsUrl);
-        downloadDiagnosticsBundle(bundle);
-      } catch (error) {
-        console.error("[diagnostics] download button failed", error);
-        window.alert(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    };
+    dom.mapLoadingReportBugBtn.onclick = () => openReportDialog({ kind: "bug", state, wsUrl, renderHud: () => renderClientHud(deps) });
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
     dom.mapLoadingOverlayEl.dataset.tone = "normal";
@@ -519,7 +511,6 @@ export const renderClientHud = (deps: HudDeps): void => {
         }
       };
     });
-  bindBundleDownloadButton("[data-settings-download-diagnostics]", () => buildDiagnosticsBundle(state, wsUrl));
   bindBundleDownloadButton("[data-settings-download-disconnect-history]", buildDisconnectHistoryBundle);
 
   // Bug report overlay

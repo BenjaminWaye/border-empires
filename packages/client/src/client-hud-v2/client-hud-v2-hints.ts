@@ -27,8 +27,8 @@ export const SCREEN_HINTS: Readonly<Record<string, string>> = {
 /** Line at the top of each side panel a HUD element opens. */
 export const PANEL_HINTS: Readonly<Record<string, string>> = {
   manpower: MANPOWER_HINT,
-  defensibility: INTEGRITY_HINT,
-  charges: HOUSE_CHARGES_HINT
+  defensibility: INTEGRITY_HINT
+  // No line for House Charges: the cards explain themselves, with How charges work behind a "?" (owner 2026-11-20).
 };
 
 /** Desktop hover title per nav bubble: its label plus the screen's line. */

@@ -483,7 +483,7 @@ import {
   type RallySpawnOutcome, type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
-import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
+import { buildRelocatedSettlementTile, firstTownlessOwnedLandKey } from "../runtime-relocated-settlement-tile.js";
 import { publishOwnershipChange } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
@@ -657,7 +657,7 @@ export class SimulationRuntime {
   // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.
   private readonly scoutDrones = createScoutDroneRuntime({ now: () => this.now(), worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, tiles: () => this.state.tiles, players: () => this.state.players,
     afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
-    emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) });
+    emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), isPlayerSubscribed: (id) => this.isPlayerSubscribed?.(id) ?? true });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
@@ -1337,7 +1337,9 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
-      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), hasTileLock: (tileKey) => this.state.locksByTile.has(tileKey)
+      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), hasTileLock: (tileKey) => this.state.locksByTile.has(tileKey),
+      // Encirclement / stranded-frontier wipe-outs get the same "empire fell" respawn as attack ones.
+      respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId)
     };
   }
 
@@ -3013,7 +3015,7 @@ export class SimulationRuntime {
     changedKeys: string[],
     playerId: string,
     commandId: string,
-    options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }
+    options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }
   ): void {
     applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
   }
@@ -3036,16 +3038,7 @@ export class SimulationRuntime {
     population: number,
     options: { namePrefix: string }
   ): boolean {
-    const summary = this.summaryForPlayer(playerId);
-    // Use the oldest remaining owned land tile that does not already have a town.
-    let targetKey: string | undefined;
-    for (const tileKey of summary.territoryTileKeys) {
-      const tile = this.state.tiles.get(tileKey);
-      if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
-      if (tile.town) continue;
-      targetKey = tileKey;
-      break;
-    }
+    const targetKey = firstTownlessOwnedLandKey(this.state.tiles, this.summaryForPlayer(playerId).territoryTileKeys, playerId);
     if (!targetKey) return false;
     const target = this.state.tiles.get(targetKey);
     if (!target) return false;
