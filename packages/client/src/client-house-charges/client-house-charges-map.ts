@@ -12,14 +12,14 @@ export type ChargeMapPoint = { x: number; y: number };
 /** `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning). */
 export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true };
 
-type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
+type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me">;
 
 /**
  * Upper bound on shaded tiles, shared with the true-3D overlay's instance buffers. A Survey landmass
  * is at most 600 LAND tiles plus mountains; the explored part of a Three Metropolises landmass can be larger.
  */
-export const MAX_TINT_TILES = 6_000;
-/** Town rings for a Three Metropolises landmass (the 3D ring overlay draws at most 32 markers in all). */
+export const MAX_TINT_TILES = 4_000;
+/** Town rings for a Three Metropolises landmass, nearest its target first (the 3D ring overlay draws at most 32 markers in all). */
 const MAX_TOWN_MARKERS = 24;
 
 const wrap = (value: number, size: number): number => ((value % size) + size) % size;

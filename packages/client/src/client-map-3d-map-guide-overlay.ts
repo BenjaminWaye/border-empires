@@ -140,7 +140,12 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
         const point = toScene(edge.x, edge.y);
         const lift = point.surfaceY + 0.01;
         const [x1, z1, x2, z2] = edge.side === "N" ? [-0.5, -0.5, 0.5, -0.5] : edge.side === "S" ? [-0.5, 0.5, 0.5, 0.5] : edge.side === "E" ? [0.5, -0.5, 0.5, 0.5] : [-0.5, -0.5, -0.5, 0.5];
-        positions.set([point.sceneX + x1, lift, point.sceneZ + z1, point.sceneX + x2, lift, point.sceneZ + z2], written);
+        positions[written] = point.sceneX + x1;
+        positions[written + 1] = lift;
+        positions[written + 2] = point.sceneZ + z1;
+        positions[written + 3] = point.sceneX + x2;
+        positions[written + 4] = lift;
+        positions[written + 5] = point.sceneZ + z2;
         written += 6;
       }
       outlineGeometry.setDrawRange(0, written / 3);

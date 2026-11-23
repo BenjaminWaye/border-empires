@@ -53,7 +53,7 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
     case "CORRECTION":
       return `Capture an AFC founded by ${houseStyledName(first?.name ?? "the rival")} and hold it to the end of the contest.`;
     case "METROPOLIS":
-      return `Hold ${HOUSE_CHARGE_METROPOLIS_COUNT} towns on ${first?.name ?? "the landmass"} and grow each one to a Metropolis. Any of its towns counts.`;
+      return `Hold ${HOUSE_CHARGE_METROPOLIS_COUNT} towns on ${first?.name ?? "the landmass"} and grow each one to a Metropolis.`;
   }
 };
 

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InstancedMesh, Scene } from "three";
-import type { HouseChargeView, Terrain } from "@border-empires/shared";
+import { WORLD_WIDTH, type HouseChargeView, type Terrain } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { createMapGuideOverlay } from "../client-map-3d-map-guide-overlay.js";
 import { resetMetropolisHighlightCache, walkLandmass } from "./client-house-charges-landmass.js";
@@ -34,12 +34,11 @@ const seats: HouseChargeView = {
 const land = (x: number, y: number, extra: Partial<Tile> = {}): [string, Tile] => [`${x},${y}`, { x, y, terrain: "LAND", ...extra }];
 const town = { name: "Vell", populationTier: "CITY" } as unknown as NonNullable<Tile["town"]>;
 
-const stateWith = (tiles: Array<[string, Tile]>, tilesRevision = 1) => ({
+const stateWith = (tiles: Array<[string, Tile]>) => ({
   onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
   houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 0, choiceClosesAt: 0, charges: [seats] },
   houseChargeFocusId: seats.id,
   tiles: new Map(tiles),
-  tilesRevision,
   me: "p1"
 });
 
@@ -47,9 +46,20 @@ beforeEach(() => resetMetropolisHighlightCache());
 
 describe("Three Metropolises on the map", () => {
   it("walks the whole landmass from its id, not the islet across the water", () => {
-    const keys = walkLandmass("10,20", (x, y) => (LAND.has(`${x},${y}`) ? "LAND" : "SEA"));
-    expect(keys.size).toBe(18);
-    expect(keys.has("30,20")).toBe(false);
+    const cells = walkLandmass("10,20", (x, y) => (LAND.has(`${x},${y}`) ? "LAND" : "SEA"));
+    expect(cells).toHaveLength(18);
+    expect(cells).not.toContain(20 * WORLD_WIDTH + 30);
+  });
+
+  it("follows a landmass across the world's wrapped edge", () => {
+    const wrapped = new Set(["0,5", "449,5", "448,6"]);
+    const cells = walkLandmass("0,5", (x, y) => (wrapped.has(`${x},${y}`) ? "LAND" : "SEA"), 450, 450);
+    expect(cells.map((cell) => `${cell % 450},${Math.floor(cell / 450)}`).sort()).toEqual(["0,5", "448,6", "449,5"]);
+  });
+
+  it("lists towns nearest the charge's target first, so capped rings keep the ones it points at", () => {
+    const state = stateWith([land(10, 20, { town }), land(15, 22, { town }), land(13, 21, { town })]);
+    expect(houseChargeMarkerTiles(state)).toEqual([{ x: 13, y: 21 }, { x: 15, y: 22 }, { x: 10, y: 20 }]);
   });
 
   it("shades only the explored part of the landmass and rings its explored towns", () => {
@@ -64,8 +74,8 @@ describe("Three Metropolises on the map", () => {
     expect(tint.map(({ x, y }) => `${x},${y}`).sort()).toEqual(["10,20", "11,20", "15,22"]);
     expect(tint.every((tile) => tile.plain && !tile.garrisoned)).toBe(true);
     expect(houseChargeMarkerTiles(state).map(({ x, y }) => `${x},${y}`).sort()).toEqual(["11,20", "15,22"]);
-    // Once part of it is seen, the shading replaces the rough circle.
-    expect(houseChargeSearchGuide(state, 450, 450).circles).toEqual([]);
+    // The rough circle stays: one explored coastal tile must not leave the player without a bearing.
+    expect(houseChargeSearchGuide(state, 450, 450).circles).toEqual([seats.searchCircle]);
   });
 
   it("keeps the rough circle while none of the landmass is explored", () => {
@@ -79,7 +89,6 @@ describe("Three Metropolises on the map", () => {
     const state = stateWith([land(10, 20)]);
     expect(houseChargeTintTiles(state)).toHaveLength(1);
     state.tiles.set("12,21", { x: 12, y: 21, terrain: "LAND" });
-    state.tilesRevision = 2;
     expect(houseChargeTintTiles(state)).toHaveLength(2);
   });
 

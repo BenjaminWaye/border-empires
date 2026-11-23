@@ -30,7 +30,7 @@ describe("Writ of Correction text", () => {
 
 describe("Three Metropolises text", () => {
   it("names the landmass, counts Metropolises held and has a letter", () => {
-    expect(houseChargeObjective(seats)).toBe("Hold 3 towns on Aldmoor and grow each one to a Metropolis. Any of its towns counts.");
+    expect(houseChargeObjective(seats)).toBe("Hold 3 towns on Aldmoor and grow each one to a Metropolis.");
     expect(houseChargeProgress(seats)).toBe("2 of 3 Metropolises held");
     expect(houseChargeLetter(seats)).toContain("Aldmoor");
     expect(houseChargeCardRule({ kind: "METROPOLIS", places: ["Aldmoor"] })).toBe("Raised three towns on Aldmoor to Metropolises and held them to the end of the contest.");
