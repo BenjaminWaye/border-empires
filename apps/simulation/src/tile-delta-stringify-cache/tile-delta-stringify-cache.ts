@@ -21,6 +21,7 @@
 
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
+import { TILE_OVERLAY_KEYS } from "../tile-overlay-fields/tile-overlay-fields.js";
 
 export type TileLastEmittedRefs = {
   terrain: unknown;
@@ -105,11 +106,13 @@ const NO_SUBSTRUCTURE_JSON: AllSubstructureJson = Object.freeze({
   afcJson: undefined
 });
 
-const hasAnySubstructure = (tile: DomainTileState): boolean =>
-  Boolean(
-    tile.town || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure || tile.sabotage ||
-    tile.naturalWonder || tile.watchtower || tile.waystation || tile.muster || tile.afc
-  );
+// Derived from the shared overlay list (plus town, which is not an overlay), so a
+// new overlay cannot be left out here and silently come back as "no substructure".
+const SUBSTRUCTURE_KEYS: ReadonlyArray<"town" | (typeof TILE_OVERLAY_KEYS)[number]> = ["town", ...TILE_OVERLAY_KEYS];
+const hasAnySubstructure = (tile: DomainTileState): boolean => {
+  for (const key of SUBSTRUCTURE_KEYS) if (tile[key]) return true;
+  return false;
+};
 
 export type TileDeltaStringifyCacheStats = { substructureEntries: number; lastEmittedEntries: number };
 

@@ -10,6 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache.js";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { TILE_OVERLAY_KEYS } from "../tile-overlay-fields/tile-overlay-fields.js";
 
 const makeBaseTile = (): DomainTileState => ({
   x: 1,
@@ -167,6 +168,19 @@ describe("TileDeltaStringifyCache", () => {
     expect(cache.stats()).toEqual({ substructureEntries: 0, lastEmittedEntries: 0 });
     expect(Object.values(first).every((value) => value === undefined)).toBe(true);
     expect(Object.isFrozen(first)).toBe(true);
+  });
+
+  // A substructure missing from the "has any" gate would be reported as absent
+  // to every client, so the gate is derived from the shared overlay list.
+  it("memoises a tile whose only substructure is any one of the overlays, or a town", () => {
+    for (const key of ["town", ...TILE_OVERLAY_KEYS] as const) {
+      const cache = new TileDeltaStringifyCache();
+      const value = { ownerId: "p1", status: "active" };
+      const tile = { ...makeBaseTile(), [key]: value } as DomainTileState;
+      const result = cache.getOrComputeAll("1,1", tile) as Record<string, string | undefined>;
+      expect(result[`${key}Json`], key).toBe(JSON.stringify(value));
+      expect(cache.stats().substructureEntries, key).toBe(1);
+    }
   });
 
   it("drops a tile's entry once its last substructure is gone", () => {

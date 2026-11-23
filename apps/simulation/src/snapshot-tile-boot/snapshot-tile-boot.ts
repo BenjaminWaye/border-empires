@@ -1,9 +1,12 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { withAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
+import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import { mapTile, type SnapshotTile } from "../runtime-snapshot-sections.js";
+import { simulationTileKey } from "../seed-state/seed-state.js";
 
-const tileKey = (x: number, y: number): string => `${x},${y}`;
+/** A fresh, empty snapshot tile cache (one entry per tile once booted). */
+export const newSnapshotTileCache = (): Map<string, SnapshotTile> => new Map();
 
 /** True when `recovered` holds exactly the fields `mapped` does, with identical values. */
 const sameSnapshotTile = (recovered: SnapshotTile, mapped: SnapshotTile): boolean => {
@@ -41,7 +44,8 @@ export const snapshotTileSharingRecovered = (tile: DomainTileState, recovered: S
 /**
  * Boot step: stamps AFC fort facts onto every tile and fills the snapshot tile
  * cache, reusing recovered tile objects where they are already identical.
- * Returns how many entries were shared, for the boot log.
+ * Logs and returns how many entries were shared: if that ever drops to zero on
+ * a recovered world, the saving is gone and this line is where it shows.
  */
 export const bootSnapshotTileCache = (input: {
   tiles: Map<string, DomainTileState>;
@@ -50,7 +54,7 @@ export const bootSnapshotTileCache = (input: {
   recoveredTiles: ReadonlyArray<SnapshotTile> | undefined;
 }): { tiles: number; sharedWithRecovered: number } => {
   const recoveredByKey = new Map<string, SnapshotTile>();
-  for (const recovered of input.recoveredTiles ?? []) recoveredByKey.set(tileKey(recovered.x, recovered.y), recovered);
+  for (const recovered of input.recoveredTiles ?? []) recoveredByKey.set(simulationTileKey(recovered.x, recovered.y), recovered);
   let sharedWithRecovered = 0;
   for (const [key, sourceTile] of input.tiles) {
     const tile = withAfcFortFacts(sourceTile, input.players);
@@ -60,5 +64,7 @@ export const bootSnapshotTileCache = (input: {
     if (snapshotTile === recovered) sharedWithRecovered += 1;
     input.snapshotTileCache.set(key, snapshotTile);
   }
-  return { tiles: input.tiles.size, sharedWithRecovered };
+  const result = { tiles: input.tiles.size, sharedWithRecovered };
+  runtimeLogInfo(result, "simulation snapshot tile cache booted");
+  return result;
 };
