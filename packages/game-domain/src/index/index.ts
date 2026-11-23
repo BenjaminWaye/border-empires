@@ -131,6 +131,10 @@ export type DomainPlayer = {
   islandNames?: IslandNameClaim[];
   // House Charges dealt at landing (shared house-charges.ts); persisted with the player.
   houseCharges?: import("@border-empires/shared").HouseChargesState;
+  /** When each scout drone charge still refilling was spent (apps/simulation scout-drone-charge-ledger.ts). */
+  scoutChargeSpends?: number[];
+  /** The last scout drone landing report, until the player has seen it on some device (SCOUT_REPORT_SEEN); scout-drone-held-report.ts. */
+  scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into
@@ -188,6 +192,9 @@ export type DomainTileState = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  // Planetary Defense camp this barbarian tile belongs to: the camp's own tile
+  // key (docs/planetary-defense-camps-plan.md). Only set on barbarian-owned tiles.
+  campId?: string | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
@@ -223,6 +230,7 @@ export type DomainTileState = {
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"
             | "colonialIncubationGrantedTo"
+            | "incubationBurstGrantedTo"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"

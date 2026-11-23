@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, socialRemainingLabel, truceRequestsHtml } from "./client-panel-html.js";
+import { feedAgeLabel, feedHtml, leaderboardHtml, socialRemainingLabel } from "./client-panel-html.js";
 
 describe("feedAgeLabel", () => {
   const now = Date.UTC(2026, 7, 12, 12, 0, 0);
@@ -49,145 +49,6 @@ describe("feedHtml", () => {
     expect(html).toContain('data-debug-tile-toggle="1"');
     expect(html).toContain("Debug Selected Tile");
   });
-
-  it("renders incoming alliance cards with accept and reject actions", () => {
-    const html = allianceRequestsHtml(
-      [
-        {
-          id: "request-1",
-          fromPlayerId: "player-201",
-          toPlayerId: "me",
-          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
-          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
-          fromName: "BrassKnight"
-        }
-      ],
-      () => undefined,
-      "incoming",
-      Date.UTC(2026, 3, 13, 11, 0, 0)
-    );
-
-    expect(html).toContain("BrassKnight");
-    expect(html).toContain("Offers an alliance");
-    expect(html).not.toContain("ID:");
-    expect(html).toContain("1h ago");
-    expect(html).toContain("Sent by:");
-    expect(html).toContain("Waiting on:");
-    expect(html).toContain("Reject");
-    expect(html).toContain('data-request-id="request-1"');
-  });
-
-  it("renders outgoing alliance cards with a cancel action", () => {
-    const html = allianceRequestsHtml(
-      [
-        {
-          id: "request-2",
-          fromPlayerId: "me",
-          toPlayerId: "player-305",
-          createdAt: Date.UTC(2026, 3, 13, 8, 0, 0),
-          expiresAt: Date.UTC(2026, 3, 13, 9, 0, 0),
-          toName: "SteelForge"
-        }
-      ],
-      () => undefined,
-      "outgoing",
-      Date.UTC(2026, 3, 13, 11, 0, 0)
-    );
-
-    expect(html).toContain("SteelForge");
-    expect(html).toContain("You offered an alliance");
-    expect(html).toContain("Cancel Request");
-    expect(html).toContain("Waiting on:");
-  });
-
-  it("renders active allies in the status-card format", () => {
-    const alliesMarkup = alliesHtml(["player-42"], (id) => (id === "player-42" ? "SteamLord" : undefined));
-    const breakingAlliesMarkup = alliesHtml(
-      ["player-42"],
-      (id) => (id === "player-42" ? "SteamLord" : undefined),
-      [
-        {
-          otherPlayerId: "player-42",
-          otherPlayerName: "SteamLord",
-          startedAt: Date.UTC(2026, 3, 13, 8, 0, 0),
-          endsAt: Date.UTC(2026, 3, 14, 8, 0, 0),
-          createdByPlayerId: "me"
-        }
-      ],
-      Date.UTC(2026, 3, 13, 12, 0, 0)
-    );
-    expect(alliesMarkup).toContain("SteamLord");
-    expect(alliesMarkup).toContain("Active");
-    expect(alliesMarkup).not.toContain("ID:");
-    expect(alliesMarkup).toContain("Break Alliance");
-    expect(breakingAlliesMarkup).toContain("Breaking");
-    expect(breakingAlliesMarkup).toContain("20h notice");
-    expect(breakingAlliesMarkup).not.toContain("Break Alliance");
-    const finalizingAlliesMarkup = alliesHtml(
-      ["player-42"],
-      (id) => (id === "player-42" ? "SteamLord" : undefined),
-      [
-        {
-          otherPlayerId: "player-42",
-          otherPlayerName: "SteamLord",
-          startedAt: Date.UTC(2026, 3, 13, 8, 0, 0),
-          endsAt: Date.UTC(2026, 3, 14, 8, 0, 0),
-          createdByPlayerId: "me"
-        }
-      ],
-      Date.UTC(2026, 3, 14, 8, 0, 1)
-    );
-    expect(finalizingAlliesMarkup).toContain("Finalizing");
-    expect(finalizingAlliesMarkup).toContain("sync pending");
-    expect(finalizingAlliesMarkup).not.toContain("Break Alliance");
-  });
-
-  it("renders incoming truce requests with accept and reject actions", () => {
-    const html = truceRequestsHtml(
-      [
-        {
-          id: "truce-1",
-          fromPlayerId: "player-156",
-          toPlayerId: "me",
-          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
-          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
-          durationHours: 24
-        }
-      ],
-      (id) => (id === "player-156" ? "GearHeart" : undefined),
-      "incoming",
-      Date.UTC(2026, 3, 13, 11, 0, 0)
-    );
-
-    expect(html).toContain("GearHeart");
-    expect(html).toContain("Offers a 24h truce");
-    expect(html).not.toContain("ID:");
-    expect(html).toContain("Reject");
-    expect(html).toContain('data-truce-request-id="truce-1"');
-  });
-
-  it("renders outgoing truce requests with a cancel action", () => {
-    const html = truceRequestsHtml(
-      [
-        {
-          id: "truce-2",
-          fromPlayerId: "me",
-          toPlayerId: "player-421",
-          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
-          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
-          durationHours: 12,
-          toName: "CopperWing"
-        }
-      ],
-      () => undefined,
-      "outgoing",
-      Date.UTC(2026, 3, 13, 11, 0, 0)
-    );
-
-    expect(html).toContain("CopperWing");
-    expect(html).toContain("You offered a 12h truce");
-    expect(html).toContain("Cancel Request");
-  });
 });
 
 describe("leaderboardHtml", () => {
@@ -217,6 +78,28 @@ describe("leaderboardHtml", () => {
     const rows = html.split("</div>").filter((row) => row.includes("KonradsDelikatessKörv"));
     expect(rows[0]).toContain("founding-engineer-name");
     expect(rows[1]).not.toContain("founding-engineer-name");
+  });
+});
+
+describe("leaderboardHtml victory leader", () => {
+  const board = {
+    overall: [{ id: "ai-1", name: "Alden", rank: 1, score: 42, tiles: 10, incomePerMinute: 5, techs: 3, manpowerCap: 250 }],
+    selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined,
+    byTiles: [] as never[], byIncome: [] as never[], byTechs: [] as never[]
+  };
+  const dominance = (leaderName: string) => ({
+    id: "DIPLOMATIC_DOMINANCE" as const, name: "Diplomatic Dominance", description: "", leaderPlayerId: "ai-1", leaderName,
+    progressLabel: "4832/57254", thresholdLabel: "", holdDurationSeconds: 0, statusLabel: "", conditionMet: false
+  });
+
+  // Playtest Run 4: a live update with a blank leaderName printed "Leader: · 4832/57254".
+  it("names the leader from the leaderboard when the objective's leader name is blank", () => {
+    const html = leaderboardHtml(board, [dominance("")], undefined);
+    expect(html).toMatch(/Leader: .*Alden.* · 4832\/57254/);
+  });
+
+  it("keeps the objective's own leader name when it has one", () => {
+    expect(leaderboardHtml(board, [dominance("Alden of Vey")], undefined)).toContain("Alden of Vey");
   });
 });
 

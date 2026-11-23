@@ -7,7 +7,7 @@ import { resetOnboardingChecklistOverlayForTests } from "../client-onboarding-ch
 import { refreshOnboardingChecklistHighlight, tickOnboardingUiGateForFrame } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { noteGuideMapPanned, resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
-import { markGuideStepsCompleted, readGuideProgress, resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
+import { markGuideStepsCompleted, readGuideProgress, resetGuideStorageMemoryForTests, restartGuide, setGuideStatus } from "./tutorial-guide-storage.js";
 import { GUIDE_STEPS } from "./tutorial-guide-steps.js";
 import { resetTutorialGuideForTests } from "./tutorial-guide.js";
 import { setGuestIdentityUid } from "../client-debug/client-debug.js";
@@ -277,25 +277,116 @@ describe("tutorial guide in the onboarding corner", () => {
     }
   });
 
-  it("Finish ends the guide even while Contest and Diplomacy are still waiting for a first contact", () => {
+  it("Finish with Contest and Diplomacy still waiting keeps them: the guide folds and comes back on first contact", () => {
+    // Playtest 2026-11: Finish at 13/16 ended the guide and felt like losing the last three steps.
     setGuideStatus("active", EMAIL);
     const waitingOnly = GUIDE_STEPS.filter((s) => !["contest-muster", "diplomacy-truce", "turn-finish"].includes(s.id)).map((s) => s.id);
     markGuideStepsCompleted(waitingOnly, EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
-    expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
+    expect(card()?.querySelector(".tg-later")?.textContent).toBe("The guide returns for: Contest, Diplomacy");
     click("finish");
-    expect(readGuideProgress(EMAIL).status).toBe("done");
-    // Only the Guide complete acknowledgement is left. Playtest: it said "Guide complete" over a 14/16 bar;
-    // the waiting steps are handed to the First Contact tip, so the bar is full and the note says so.
-    expect(card()?.querySelector("[data-guide-action]")).toBeNull();
-    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
-    expect(card()?.querySelector(".tg-progress")?.getAttribute("aria-valuenow")).toBe(String(GUIDE_STEPS.length));
-    expect(card()?.textContent).toContain("Contest and Diplomacy are explained");
-    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
+    expect(readGuideProgress(EMAIL).status).toBe("active");
+    expect(readGuideProgress(EMAIL).steps).toContain("turn-finish");
+    // Folded to its launcher, which still counts the two steps left.
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true);
+    expect(card()?.querySelector(".tg-launcher")?.hasAttribute("hidden")).toBe(false);
+    expect(card()?.querySelector(".tg-badge")?.textContent).toBe("2");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true); // stays folded while waiting
+    // Meeting a rival House: the guide unfolds on Diplomacy by itself.
+    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED" } as Tile);
     state.tilesRevision += 1;
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(card()?.querySelector("[data-guide-action]")).toBeNull(); // contact after Finish doesn't bring the guide back
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(false);
+    expect(card()?.querySelector(".tg-chapter")?.textContent).toContain("Diplomacy");
+  });
+
+  it("ends with a full Guide complete card once the steps waiting after Finish are done", () => {
+    setGuideStatus("active", EMAIL);
+    markGuideStepsCompleted(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce").map((s) => s.id), EMAIL);
+    const state = newPlayerState();
+    refreshOnboardingChecklistHighlight(state);
+    expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true); // reload after Finish: still folded
+    markGuideStepsCompleted(["diplomacy-truce"], EMAIL);
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(readGuideProgress(EMAIL).status).toBe("done");
+    expect(card()?.textContent).toContain("Guide complete");
+    expect(card()?.querySelector(".tg-count")?.textContent).toBe(`${GUIDE_STEPS.length}/${GUIDE_STEPS.length}`);
+  });
+
+  it("Finish with every step done ends the guide at once", () => {
+    setGuideStatus("active", EMAIL);
+    markGuideStepsCompleted(GUIDE_STEPS.filter((s) => s.id !== "turn-finish").map((s) => s.id), EMAIL);
+    refreshOnboardingChecklistHighlight(newPlayerState());
+    expect(card()?.querySelector(".tg-later")).toBeNull();
+    click("finish");
+    expect(readGuideProgress(EMAIL).status).toBe("done");
+    expect(card()?.textContent).toContain("Guide complete");
+  });
+
+  describe("after Finish (review of PR 2902)", () => {
+    const folded = () => card()?.querySelector(".tg-card")?.hasAttribute("hidden") === true;
+    const rival = (state: ReturnType<typeof newPlayerState>, present: boolean) => {
+      if (present) state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED" } as Tile);
+      else state.tiles.delete("9,9");
+      state.tilesRevision += 1;
+    };
+    const finishWithContestAndDiplomacyWaiting = () => {
+      setGuideStatus("active", EMAIL);
+      markGuideStepsCompleted(GUIDE_STEPS.filter((s) => !["contest-muster", "diplomacy-truce", "turn-finish"].includes(s.id)).map((s) => s.id), EMAIL);
+      const state = newPlayerState();
+      refreshOnboardingChecklistHighlight(state);
+      click("finish");
+      return state;
+    };
+
+    it("folds again once Diplomacy is done while Contest still waits", () => {
+      const state = finishWithContestAndDiplomacyWaiting();
+      rival(state, true);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(folded()).toBe(false);
+      markGuideStepsCompleted(["diplomacy-truce"], EMAIL);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(folded()).toBe(true);
+      expect(card()?.querySelector(".tg-badge")?.textContent).toBe("1");
+    });
+
+    it("doesn't flap or override the player when a rival's tiles leave the map and come back", () => {
+      const state = finishWithContestAndDiplomacyWaiting();
+      rival(state, true);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      click("toggle"); // the player folds it
+      expect(folded()).toBe(true);
+      rival(state, false);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      rival(state, true);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(folded()).toBe(true);
+    });
+
+    it("a guide restarted without Finish (new season, Restart elsewhere) starts unfolded", () => {
+      const state = finishWithContestAndDiplomacyWaiting();
+      expect(folded()).toBe(true);
+      restartGuide(EMAIL);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(folded()).toBe(false);
+      expect(cardTitle()).toBe("Drag the map to look around");
+    });
+
+    it("still shows Guide complete when the last step is done while a dialog hides the guide", () => {
+      const state = finishWithContestAndDiplomacyWaiting();
+      markGuideStepsCompleted(["contest-muster"], EMAIL);
+      state.changelog.open = true;
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      markGuideStepsCompleted(["diplomacy-truce"], EMAIL);
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(card()?.textContent ?? "").not.toContain("Guide complete");
+      state.changelog.open = false;
+      tickOnboardingUiGateForFrame(state, vi.fn());
+      expect(readGuideProgress(EMAIL).status).toBe("done");
+      expect(card()?.textContent).toContain("Guide complete");
+    });
   });
 
   it("Skip guide is a visible button that turns it off and removes the card", () => {

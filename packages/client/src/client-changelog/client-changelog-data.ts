@@ -1,8 +1,14 @@
+import { RUN4_QUICK_FIXES_ENTRY } from "./client-changelog-run4-quick-fixes.js";
+import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
+import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
+import { UNSETTLED_ENCIRCLEMENT_ENTRY } from "./client-changelog-unsettled-encirclement.js";
+import { CAPTURED_TOWN_FIST_ENTRY } from "./client-changelog-captured-town-fist.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
+import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -473,6 +479,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_18_CHANGELOG,
   { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
+  { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
+  ...NOV_19_20_CHANGELOG,
+  ...NOV_21_CHANGELOG,
+  { ...UNSETTLED_ENCIRCLEMENT_ENTRY, createdAt: 1795418149833, },
+  { ...RUN4_QUICK_FIXES_ENTRY, createdAt: 1795422082667, },
+  { ...CAPTURED_TOWN_FIST_ENTRY, createdAt: 1795424975001, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

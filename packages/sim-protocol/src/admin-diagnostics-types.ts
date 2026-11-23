@@ -27,15 +27,12 @@ export type AdminPlayerRow = {
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
   frontierTiles: number;
   /**
-   * barbarian-* rows only: how many tiles owned by ANY barbarian-* player
-   * (not just this row's) are currently visible to at least one
-   * non-barbarian player — exportBarbTilesSeenByAnyPlayer computes one
-   * combined set across every barbarian, it does not break the count down
-   * per barbarian id. This is the eligibility set the barbarian AI planner
-   * acts from (see system-job-barbarian-planner.ts). Identical on every
-   * barbarian-* row; omitted for every non-barbarian row.
+   * Planetary Defense camps awake right now: a watcher (an AI, or a human with
+   * the game open) sees at least one of their tiles. Only awake camps act (see
+   * system-job-barbarian-planner.ts). Identical on every barbarian-* row;
+   * omitted for every non-barbarian row.
    */
-  barbActivationVisibleTiles?: number;
+  barbAwakeCamps?: number;
 };
 
 export type RecentCommand = {

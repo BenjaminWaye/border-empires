@@ -1,13 +1,29 @@
 // The House Charges side panel (docs/house-charges-plan.md, "Player guidance"):
-// the House's sealed charges, whether each is held now, the keep-two choice
-// while it is open, and "Show on map". Opened from the House Charges section of
-// your own profile (client-house-charges-profile.ts).
+// the House's sealed charges as full-width cards (client-house-charges-deck.ts)
+// with whether each is held now, the keep-two choice while it is open
+// (client-house-charges-pick.ts), and "Show on map". Opened from the sealed-cards bubble or its docked cards
+// (client-house-charges-bubble.ts) and from your own profile's House Charges
+// section (client-house-charges-profile.ts).
 import { HOUSE_CHARGES_KEPT, WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
-import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
+import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
+import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { foldHouseChargeCards } from "./client-house-charges-fold.js";
+import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
-import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
+import {
+  dismissHouseChargesProfileTip,
+  forgetHouseChargesSave,
+  houseChargesProfileTipHtml,
+  houseChargesProfileTipShown,
+  noteHouseChargesSaved,
+  requestManageChargesCallout,
+  scrollManageChargesIntoView
+} from "./client-house-charges-profile-tip.js";
+
 
 export type HouseChargesPanelDeps = {
   readonly root: ParentNode;
@@ -18,9 +34,59 @@ export type HouseChargesPanelDeps = {
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
   readonly now: () => number;
+  /** Closes the panel so the map is in view; the docked cards then offer the way back (client-house-charges-bubble.ts). */
+  readonly closePanel: () => void;
+  /** The map canvas size, to fit the whole goal on screen. */
+  readonly viewport: () => { width: number; height: number };
+  /** Which map renderer is drawing; true-3D shows a different amount of map at one zoom. Defaults to the live renderer. */
+  readonly renderer?: () => "2d" | "3d";
 };
 
-type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> & Partial<Pick<ClientState, "houseChargeFocusId" | "tiles">>;
+/**
+ * Whether the "?" beside the panel title has opened How charges work. It is left out of the panel's HTML, so
+ * opening it never rewrites the panel (which would drop keyboard focus and restart a deal), and reapplied after
+ * any rewrite. Owner 2026-11-20: nothing sits above the cards unless the player asks for it.
+ */
+let rewardsOpen = false;
+
+type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> &
+  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "me" | "activePlayerProfileId" | "playerNames">>;
+type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
+
+/**
+ * The view Show on map just framed, so the new HUD can also close a screen the panel sat over (your profile)
+ * and put this view back if closing it moved the camera (a close-up glides back to where it began). Read once.
+ */
+let mapShowRequested: HouseChargeFitView | undefined;
+export const takeHouseChargeMapShowRequest = (): HouseChargeFitView | undefined => {
+  const requested = mapShowRequested;
+  mapShowRequested = undefined;
+  return requested;
+};
+
+/**
+ * "Show on map": highlight the charge, frame the whole goal (both towns of a
+ * Charter, not just one) and close the panel so the map can be seen at once.
+ * The docked cards then carry a "Back to cards" note (client-house-charges-bubble.ts).
+ */
+export const showHouseChargeOnMap = (
+  state: CameraState & Pick<ClientState, "houseChargeFocusId"> & Partial<Pick<ClientState, "tiles">>,
+  charge: HouseChargeView,
+  deps: Pick<HouseChargesPanelDeps, "wrapX" | "wrapY" | "requestViewRefresh" | "closePanel" | "viewport" | "renderer">
+): void => {
+  const tiles = state.tiles;
+  const renderer = deps.renderer?.() ?? (isTrue3DRendererActive() ? "3d" : "2d");
+  const view = houseChargeFitView(charge, (x, y) => tiles?.has(`${x},${y}`) ?? false, deps.viewport(), state.zoom, renderer);
+  state.houseChargeFocusId = charge.id;
+  state.camX = deps.wrapX(view.x);
+  state.camY = deps.wrapY(view.y);
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.zoom = view.zoom;
+  mapShowRequested = { x: state.camX, y: state.camY, zoom: view.zoom };
+  deps.closePanel();
+  deps.requestViewRefresh(2, true);
+};
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -40,56 +106,19 @@ export const houseChargeFocusPoint = (charge: HouseChargeView, isExplored?: (x: 
   return charge.targets.find((target) => isExplored(target.x, target.y)) ?? houseChargeGuideCentre(charge, isExplored, WORLD_WIDTH, WORLD_HEIGHT) ?? charge.searchCircle;
 };
 
-const letterHtml = (charge: HouseChargeView): string => {
-  const letter = houseChargeLetter(charge);
-  return letter ? `<p class="house-charge-letter">${escapeHtml(letter)}</p>` : "";
-};
-
-const chargeCardHtml = (charge: HouseChargeView, choosing: boolean, ticked: boolean, focused: boolean, scoutHint: string | undefined): string => {
-  const progress = houseChargeProgress(charge);
-  // While choosing, the card follows the tick boxes so a swap reads at a glance before it is saved.
-  const pending = choosing && ticked !== charge.kept;
-  const status = pending
-    ? `<span class="house-charge-status is-pending">${ticked ? "Will be kept" : "Will be dropped"}</span>`
-    : !charge.kept && !choosing
-    ? '<span class="house-charge-status is-dropped">Not kept</span>'
-    : charge.held
-      ? `<span class="house-charge-status is-held">Held${charge.completeSince ? ` since ${escapeHtml(formatWhen(charge.completeSince))}` : ""}</span>`
-      : charge.kept
-        ? charge.lostAt !== undefined
-          ? `<span class="house-charge-status is-lost">Lost ${escapeHtml(formatWhen(charge.lostAt))}</span>`
-          : '<span class="house-charge-status">Not held</span>'
-        : "";
-  // `renown` is set from the charge's difficulty when it is dealt (distance, size, tier); shown as difficulty.
-  const difficulty = Math.max(1, Math.min(4, charge.renown));
-  const pips = `<span class="house-charge-pips" title="Difficulty ${difficulty} of 4" aria-label="Difficulty ${difficulty} of 4">${"◆".repeat(difficulty)}</span>`;
-  const keep = choosing
-    ? `<label class="house-charge-keep"><input type="checkbox" data-house-charge-keep="${escapeHtml(charge.id)}"${ticked ? " checked" : ""}> Keep</label>`
-    : "";
-  const dimmed = choosing ? !ticked : !charge.kept;
-  return `<article class="house-charge-card kind-${charge.kind.toLowerCase()} rarity-${charge.rarity.toLowerCase()}${dimmed ? " is-unkept" : ""}">
-    <header class="house-charge-head"><strong class="house-charge-title">${escapeHtml(charge.title)}</strong>${pips}</header>
-    <div class="house-charge-type">${HOUSE_CHARGE_KIND_LABEL[charge.kind]} · ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}</div>
-    <p class="house-charge-objective">${escapeHtml(houseChargeObjective(charge))}</p>
-    ${letterHtml(charge)}
-    ${progress ? `<p class="house-charge-progress">${escapeHtml(progress)}</p>` : ""}
-    ${scoutHint ? `<p class="house-charge-progress is-scout">${escapeHtml(scoutHint)}</p>` : ""}
-    <footer class="house-charge-foot">${status}${keep}<button class="panel-btn${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${escapeHtml(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></footer>
-  </article>`;
-};
-
 /** Why "Keep these" is (or is not) ready, so a greyed button never goes unexplained. */
 const choiceHintHtml = (ticked: number, wanted: number): string => {
   const text = ticked > wanted
-    ? `You have ${ticked} ticked. Untick one: you can keep only ${wanted}.`
+    ? `You have ${ticked} cards kept. Tap one to set it aside: you can keep only ${wanted}.`
     : ticked < wanted
-      ? `Tick ${wanted - ticked} more to keep ${wanted}.`
+      ? `Tap ${wanted - ticked} more ${wanted - ticked === 1 ? "card" : "cards"} to keep ${wanted}.`
       : `Press Keep these ${wanted} to confirm your new choice.`;
   return `<p class="house-charges-hint${ticked === wanted ? "" : " is-warning"}" role="status">${text}</p>`;
 };
 
 export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string => {
-  const payload = state.houseCharges;
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) {
     return `<section class="card house-charges-card"><p class="house-charges-intro">Your House's sealed charges arrive once your AFC has landed.</p></section>`;
   }
@@ -102,48 +131,101 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
   const draft = state.houseChargesDraftKeep ?? kept;
   const changed = [...draft].sort().join("|") !== [...kept].sort().join("|");
   const until = escapeHtml(formatWhen(payload.choiceClosesAt));
-  // With nothing to save (the ticks match what the server keeps, which may be the default pair), say what is
-  // kept and how to swap instead of a disabled button that reads as an unsaved choice. Deliberately no "saved"
-  // tick: the default pair is kept without the player ever choosing.
-  const choice = !choosing
-    ? ""
-    : changed
-      ? `<div class="house-charges-choice">
-        <p>Keep ${wanted} of these ${payload.charges.length}. You can change your choice until ${until}.</p>
-        ${choiceHintHtml(draft.length, wanted)}
+  // Only two things show over the cards, as a popover (owner 2026-11-21: an in-flow bar pushed the cards down and
+  // cut off their bottoms): an unsaved swap's Keep button, then once it is saved, where to find the charges later.
+  // What is kept and until when sits in How charges work, behind the "?" beside the title.
+  const choice = choosing && changed
+    ? `<div class="house-charges-popover house-charges-choice">
+        <div class="house-charges-popover-text">
+          <p>Keep ${wanted} of ${payload.charges.length}, until ${until}.</p>
+          ${choiceHintHtml(draft.length, wanted)}
+        </div>
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-      : `<div class="house-charges-choice is-saved">
-        <p class="house-charges-saved" role="status">Keeping the ${wanted} ticked of these ${payload.charges.length}. Tick another to swap, until ${until}.</p>
-      </div>`;
+    : houseChargesProfileTipShown(payload.dealtAt, kept, changed) ? houseChargesProfileTipHtml() : "";
+  const swapWindow = choosing ? `<p class="house-charges-saved">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>` : "";
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
     !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
-  const ordered = [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
+  // While choosing, the cards stay in dealt order so a card does not jump when it is kept or set aside.
+  const ordered = choosing ? payload.charges : [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
+  const cards = ordered.map((charge) =>
+    houseChargeDeckCardHtml(charge, { choosing, ticked: draft.includes(charge.id), focused: state.houseChargeFocusId === charge.id, scoutHint: scoutHintFor(charge), formatWhen })
+  );
   return `<section class="card house-charges-card">
-    <p class="house-charges-intro">Sealed charges from your House. Hold a kept charge when this Sector Contest's winner is crowned to earn its charge card and a galaxy reward. ◆ is difficulty. Nobody else can see your charges until then.</p>
+    <div class="house-charges-more" id="house-charges-help" data-house-charges-more hidden>
+      ${swapWindow}
+      <p>Hold your kept charges when the winner is crowned to bank Domain score.</p>
+      <p>Your House sends you sealed charges. Keep ${wanted} of them: to swap, tap Kept on one card to set it aside, then Tap to keep on another. Nobody else can see your charges until the winner is crowned.</p>
+      <p>Each kept charge you still hold then earns its charge card and banks Domain score by difficulty: +1 for each ◆, so +1 to +4. Domain score is your House's standing in the galaxy, in the Court's race for Emperor and in your Senate vote.</p>
+      <p>◆ is difficulty: how much land the charge needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it. Harder charges are rarer and pay more.</p>
+    </div>
     ${choice}
-    <div class="house-charges-list">${ordered.map((charge) => chargeCardHtml(charge, choosing, draft.includes(charge.id), state.houseChargeFocusId === charge.id, scoutHintFor(charge))).join("")}</div>
+    ${houseChargesDeckHtml(cards, choosing && houseChargesDealing(payload.dealtAt, nowMs))}
   </section>`;
 };
 
+/** Until when each panel's cards are being drawn from the deck (each opening; a first deal has its own, slower draw). */
+const drawingUntil = new WeakMap<HTMLElement, number>();
+
+/**
+ * Draws the cards from the deck when the panel opens. Kept on the deck for the whole draw, so a rewrite of the panel
+ * in the meantime (a pushed update, a Keep tap) carries the draw on rather than snapping the cards to rest.
+ */
+const syncHouseChargesDraw = (panelEl: HTMLElement, opening: boolean, nowMs: number): void => {
+  const deck = panelEl.querySelector<HTMLElement>(".hcd-deck");
+  if (!deck || deck.classList.contains("is-dealing")) return;
+  if (opening && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    drawingUntil.set(panelEl, nowMs + HOUSE_CHARGES_DRAW_MS);
+    window.setTimeout(() => panelEl.querySelector(".hcd-deck")?.classList.remove("is-drawing"), HOUSE_CHARGES_DRAW_MS);
+  }
+  deck.classList.toggle("is-drawing", nowMs < (drawingUntil.get(panelEl) ?? 0));
+};
+
+/** The HTML last written into each panel element. */
+const writtenHtml = new WeakMap<HTMLElement, string>();
+
 export const renderHouseChargesPanel = (
-  state: PanelState & Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "houseChargeFocusId">,
+  state: PanelState & CameraState & Pick<ClientState, "houseChargeFocusId">,
   deps: HouseChargesPanelDeps
 ): void => {
   if (state.activePanel !== "charges") {
     if (deps.panelEl.innerHTML !== "") deps.panelEl.innerHTML = "";
+    writtenHtml.delete(deps.panelEl);
+    dismissHouseChargesProfileTip();
+    // Closing the panel closes the help, so reopening it shows the cards with nothing over them.
+    rewardsOpen = false;
     return;
   }
   const html = houseChargesPanelHtml(state, deps.now());
-  if (deps.panelEl.innerHTML !== html) deps.panelEl.innerHTML = html;
-  const payload = state.houseCharges;
+  // Compared with what was last written, not innerHTML: the browser rewrites the card art's `<rect/>` as
+  // `<rect></rect>`, so an innerHTML check re-rendered every frame (restarting the deal, dropping taps).
+  const opening = !writtenHtml.has(deps.panelEl);
+  if (writtenHtml.get(deps.panelEl) !== html || !deps.panelEl.firstChild) {
+    deps.panelEl.innerHTML = html;
+    writtenHtml.set(deps.panelEl, html);
+  }
+  syncHouseChargesDraw(deps.panelEl, opening, deps.now());
+  const more = deps.panelEl.querySelector<HTMLElement>("[data-house-charges-more]");
+  const help = deps.root.querySelector<HTMLButtonElement>("#panel-help");
+  // The help is a popup over the cards: the "?" toggles it and a tap on it closes it.
+  // With no charges dealt yet there is no help to open, so the "?" is hidden (panel-nav only hides it elsewhere).
+  if (help && help.hidden !== !more) help.hidden = !more;
+  const setHelpOpen = (open: boolean): void => {
+    rewardsOpen = open && more !== null;
+    if (more && more.hidden !== !rewardsOpen) more.hidden = !rewardsOpen;
+    if (help && help.getAttribute("aria-expanded") !== String(rewardsOpen)) help.setAttribute("aria-expanded", String(rewardsOpen));
+  };
+  setHelpOpen(rewardsOpen);
+  if (more) more.onclick = () => setHelpOpen(false);
+  if (help) help.onclick = () => setHelpOpen(!rewardsOpen);
+  // A rival House under the name the player knows it by now (client-house-charges-live-names.ts).
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   if (!payload) return;
-  deps.panelEl.querySelectorAll<HTMLInputElement>("[data-house-charge-keep]").forEach((input) => {
-    input.onchange = () => {
-      const id = input.dataset.houseChargeKeep ?? "";
+  deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-pick]").forEach((card) => {
+    card.onclick = () => {
       const current = state.houseChargesDraftKeep ?? payload.charges.filter((charge) => charge.kept).map((charge) => charge.id);
-      state.houseChargesDraftKeep = input.checked ? [...current.filter((entry) => entry !== id), id] : current.filter((entry) => entry !== id);
+      state.houseChargesDraftKeep = toggleHouseChargePick(current, card.dataset.houseChargePick ?? "");
       deps.rerender();
     };
   });
@@ -152,7 +234,28 @@ export const renderHouseChargesPanel = (
     save.onclick = () => {
       const keptIds = state.houseChargesDraftKeep;
       if (!keptIds) return;
-      deps.sendGameMessage({ type: "CHOOSE_HOUSE_CHARGES", keptIds }, "Finish sign-in before choosing your charges.");
+      // Noted before sending: the server's confirmation can arrive (and re-render the panel) before send returns.
+      noteHouseChargesSaved(payload.dealtAt, keptIds);
+      if (!deps.sendGameMessage({ type: "CHOOSE_HOUSE_CHARGES", keptIds }, "Finish sign-in before choosing your charges.")) forgetHouseChargesSave();
+    };
+  }
+  const tipClose = deps.panelEl.querySelector<HTMLButtonElement>("[data-house-charges-tip-close]");
+  if (tipClose) {
+    tipClose.onclick = () => {
+      dismissHouseChargesProfileTip();
+      deps.rerender();
+    };
+  }
+  const tipShow = deps.panelEl.querySelector<HTMLButtonElement>("[data-house-charges-tip-show]");
+  if (tipShow) {
+    // "Show me": your own profile opens (the HUD turns activePlayerProfileId into the profile screen) with Manage charges glowing.
+    tipShow.onclick = () => {
+      dismissHouseChargesProfileTip();
+      requestManageChargesCallout(deps.now());
+      state.activePlayerProfileId = state.me || undefined;
+      deps.closePanel();
+      deps.rerender();
+      scrollManageChargesIntoView(document);
     };
   }
   deps.panelEl.querySelectorAll<HTMLButtonElement>("[data-house-charge-jump]").forEach((button) => {
@@ -166,10 +269,8 @@ export const renderHouseChargesPanel = (
         deps.rerender();
         return;
       }
-      state.houseChargeFocusId = charge.id;
-      const tiles = state.tiles;
-      const point = houseChargeFocusPoint(charge, tiles ? (x, y) => tiles.has(`${x},${y}`) : undefined);
-      focusCameraOnTile(state, point.x, point.y, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: () => deps.requestViewRefresh(2, true) });
+      foldHouseChargeCards(deps.panelEl, charge.id);
+      showHouseChargeOnMap(state, charge, deps);
       deps.rerender();
     };
   });

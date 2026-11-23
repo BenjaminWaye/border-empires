@@ -1,11 +1,16 @@
 // What an AI wants for a truce or alliance with one player, Civ-style. Prices
 // are hours of the AI's own income: a poor AI asks little whoever is buying,
 // so a strong economy can buy off weak neighbours cheaply. A truce costs:
-//   - 2h between empires whose borders don't meet and who aren't fighting
-//   - 12h between neighbours at peace, 24h at war, 48h if the AI is winning
+//   - 2h between empires where the player hasn't attacked the AI in the last day
+//   - 12h for neighbours who attacked the AI in the last day, 24h at war, 48h if the AI is winning
 //   - plus 1h per tile the player recently took from the AI (reparations)
 //   - scaled by attitude, and up 50% for every truce the player bought recently
+//     while taking the AI's land (peaceful renewals aren't surcharged)
 //   - minus the base price when the AI is desperate and the requester is a neighbour or at war
+//   - refused while the AI could still win back land it lost (ai-war-outlook.ts
+//     RETAKE_NOW / HOLD_FOR_REFILL), so a land grab can't be locked in with a truce,
+//     unless the deal hands back one of the towns the player took from it:
+//     that is reparations, and the usual price applies (pricing.townReturn)
 //   - up 50% within 30 min of the player attacking (fresh aggression). In that
 //     window the AI only refuses outright when it has a counter-attack ready
 //     and the border is worth it (ai-retaliation-readiness.ts), and it never
@@ -20,21 +25,24 @@
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
-// a day, and -- when the resulting bloc would hold 40%+ of the world's land --
-// would be its largest member (Diplomatic Dominance victory goes to the bloc's
-// largest member); the AI never pays to
-// join one. An AI below Pleased that payments could still win over (the
+// a day, isn't at war with any of the player's allies (ai-enemy-allies.ts: no
+// price buys an alliance with a friend of its enemy), and -- when the
+// resulting bloc would hold 40%+ of the world's land -- would be its largest
+// member (Diplomatic Dominance victory goes to the bloc's largest member);
+// the AI never pays to join one. An AI below Pleased that payments could still win over (the
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
-// lifts it to Pleased -- deal payments count as goodwill once accepted --
-// plus its Pleased alliance price.
-import { GOODWILL_POINTS_PER_INCOME_HOUR, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
+// lifts it to Pleased -- deal payments count as goodwill once accepted.
+// Past that an alliance costs nothing: it is earned, not bought.
+import { GOODWILL_POINTS_PER_INCOME_HOUR, type AiDiplomacyPricing, type DiplomacyGoods, type ReturnableTown } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 import { AI_TEMPERAMENTS, type AiTemperament } from "./ai-diplomacy-temperament.js";
+import { joinNames } from "./ai-enemy-allies.js";
 import type { AiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import type { AiWarOutlook } from "./ai-war-outlook.js";
+import { pricedReturnableTowns } from "./ai-town-return-value.js";
 
 export const TRUCE_HOURS = { apartAtPeace: 2, neighboursAtPeace: 12, atWar: 24, aiWinning: 48 } as const;
 export const REPARATION_HOURS_PER_TILE = 1;
@@ -53,7 +61,10 @@ export const AI_SUING_COIN_SHARE = 0.4;
 export const TRUCE_COOLDOWN_AFTER_ATTACK_MS = 30 * 60_000;
 export const FRESH_ATTACK_SURCHARGE = 0.5;
 export const ALLIANCE_NO_FIGHTING_MS = 24 * 60 * 60_000;
-export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 24, FRIENDLY: 0 };
+/** How long after attacking an AI a neighbour still pays the 12h neighbour price instead of the 2h peace price. */
+export const NEIGHBOUR_PRICE_WINDOW_MS = 24 * 60 * 60_000;
+/** Alliances are earned, Civ VI-style: Pleased and a day without fighting, then free. Gifts lift attitude to Pleased. */
+export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 0, FRIENDLY: 0 };
 
 /** Income floor so prices never collapse to zero: 10 coin a day, in coin/min. */
 export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
@@ -107,6 +118,12 @@ export const aiDiplomacyPricing = (input: {
   temperament?: AiTemperament;
   /** The AI's read on the next couple of hours of war; STEADY when omitted. */
   outlook?: AiWarOutlook;
+  /** Towns the requester holds that it could hand back (any empire's; only this AI's are priced). */
+  returnableTowns?: readonly ReturnableTown[];
+  /** This AI's id, to pick its own towns out of returnableTowns. */
+  aiPlayerId?: string;
+  /** Names of the requester's allies this AI is at war with (ai-enemy-allies.ts); it won't ally with their friend. */
+  requesterAlliesAtWarWithAi?: readonly string[];
   now: number;
 }): AiDiplomacyPricingResult => {
   const temperament = input.temperament ?? AI_TEMPERAMENTS.MEASURED;
@@ -123,16 +140,29 @@ export const aiDiplomacyPricing = (input: {
   // Betrayal is the one grudge losing doesn't soften: no paying a truce-breaker for a truce it can break again.
   const furyHolds = !war.aiLosing || input.requesterBrokeTruceWithAi;
   const freshAttack = minutesSinceAttack !== undefined && minutesSinceAttack * 60_000 < TRUCE_COOLDOWN_AFTER_ATTACK_MS;
+  // Land it can still win back isn't for sale: grabbing tiles and running dry
+  // doesn't buy a truce to keep them (owner, 2026-11-19). Peace returns once
+  // the AI can no longer take the land back.
+  const canRetake = war.atWar && (input.outlook?.kind === "RETAKE_NOW" || input.outlook?.kind === "HOLD_FOR_REFILL");
+  const townValues = input.aiPlayerId
+    ? pricedReturnableTowns(input.returnableTowns, input.aiPlayerId, aiIncome, temperament, REPARATION_HOURS_PER_TILE)
+    : [];
+  // Set when only the retake refusal stands in the way: a town handed back lifts it.
+  let retakeOnly = false;
   if (opinion.attitude === "FURIOUS" && furyHolds) truceRefusal = `${aiName} is furious with you and won't talk peace.`;
-  else if (freshAttack && minutesSinceAttack !== undefined && strikesBack(input.retaliation, war.aiWinning)) {
+  else if (canRetake) {
+    retakeOnly = true;
+    truceRefusal = `${aiName} wants to see how this war goes first: it means to win its land back.` +
+      (townValues.length > 0 ? ` It would make peace if you returned ${townValues.length === 1 ? "the town" : "a town"} you took from it.` : "");
+  } else if (freshAttack && minutesSinceAttack !== undefined && strikesBack(input.retaliation, war.aiWinning)) {
     const minutesLeft = Math.max(1, Math.ceil(TRUCE_COOLDOWN_AFTER_ATTACK_MS / 60_000 - minutesSinceAttack));
     truceRefusal = input.retaliation
       ? `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago and they have an army ready to strike back. They won't talk peace for another ${minutesLeft} min.`
       : `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago. They won't talk peace yet.`;
   }
-  let truce12: number | null = null;
-  let truce24: number | null = null;
-  if (!truceRefusal) {
+  const priceTruce = (): { truce12: number | null; truce24: number | null } => {
+    let truce12: number | null = null;
+    let truce24: number | null = null;
     const suing = input.outlook?.kind === "SUE_FOR_PEACE" ? input.outlook : undefined;
     if (war.aiLosing && !memory.aiAlreadyPaidThisWar && (!freshAttack || suing)) {
       // The loser pays: offer up to a capped sum to end a war it is losing.
@@ -152,12 +182,18 @@ export const aiDiplomacyPricing = (input: {
       truce12 = hoursToCoin(reparationHours, aiIncome);
       truce24 = hoursToCoin(reparationHours * LONG_TRUCE_MULTIPLIER, aiIncome);
     } else {
+      // Meeting is how empires discover each other, so nearly every known empire
+      // borders you: the neighbour price is for neighbours who attacked this AI in
+      // the last day. Someone the AI raided pays the peace price.
+      const attackedLately = memory.lastPlayerAttackAt !== undefined && input.now - memory.lastPlayerAttackAt < NEIGHBOUR_PRICE_WINDOW_MS;
       const baseHours = war.atWar
         ? war.aiWinning ? TRUCE_HOURS.aiWinning : TRUCE_HOURS.atWar
-        : input.bordersTouch ? TRUCE_HOURS.neighboursAtPeace : TRUCE_HOURS.apartAtPeace;
+        : input.bordersTouch && attackedLately ? TRUCE_HOURS.neighboursAtPeace : TRUCE_HOURS.apartAtPeace;
       const reparationHours = memory.tilesTakenFromAi * REPARATION_HOURS_PER_TILE * temperament.tileGrudge;
       const desperation = input.stanceKind === "SEEKING_PEACE" && (input.bordersTouch || war.atWar) ? DESPERATE_DISCOUNT : 1;
-      const repeat = 1 + REPEAT_TRUCE_SURCHARGE * memory.truceDeals;
+      // The repeat surcharge stops "take land, buy peace, repeat"; a House that
+      // keeps renewing peace without taking the AI's land pays the same each time.
+      const repeat = memory.tilesTakenFromAi >= 1 ? 1 + REPEAT_TRUCE_SURCHARGE * memory.truceDeals : 1;
       const fresh = freshAttack ? 1 + FRESH_ATTACK_SURCHARGE : 1;
       const hours = (baseHours * temperament.trucePrice * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat * fresh;
       const corps = input.requesterTruceCostMult ?? 1;
@@ -165,7 +201,13 @@ export const aiDiplomacyPricing = (input: {
       truce12 = Math.max(minimumCoin, hoursToCoin(hours * corps, aiIncome));
       truce24 = Math.max(minimumCoin, hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, aiIncome));
     }
-  }
+    return { truce12, truce24 };
+  };
+  const { truce12, truce24 } = truceRefusal ? { truce12: null, truce24: null } : priceTruce();
+  // Never a payment from the AI on top of getting its town back.
+  const floorAtZero = (price: number | null): number | null => (price === null ? null : Math.max(0, price));
+  const retakePrices = retakeOnly && townValues.length > 0 ? priceTruce() : undefined;
+  const townReturn = retakePrices ? { truce12: floorAtZero(retakePrices.truce12), truce24: floorAtZero(retakePrices.truce24) } : undefined;
 
   // --- alliance ---
   let allianceRefusal: string | undefined;
@@ -173,9 +215,12 @@ export const aiDiplomacyPricing = (input: {
   // Below Pleased, tribute that wins the AI over stands in for the attitude it lacks.
   const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
   const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
+  const enemyAllies = input.requesterAlliesAtWarWithAi ?? [];
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
+  // No tribute buys this one: allying would bind the AI to peace with its enemy's friend mid-war.
+  else if (enemyAllies.length > 0) allianceRefusal = `${aiName} is at war with ${joinNames(enemyAllies)} and won't ally with a friend of theirs.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;
@@ -183,7 +228,12 @@ export const aiDiplomacyPricing = (input: {
   const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, aiIncome) + (tribute ?? 0);
 
   return {
-    pricing: { required: { truce12, truce24, alliance }, aiHoldings },
+    pricing: {
+      required: { truce12, truce24, alliance },
+      aiHoldings,
+      ...(townValues.length > 0 ? { townValues } : {}),
+      ...(townReturn ? { townReturn } : {})
+    },
     ...(truceRefusal ? { truceRefusal } : {}),
     ...(allianceRefusal ? { allianceRefusal } : {})
   };

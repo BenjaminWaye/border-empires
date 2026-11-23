@@ -78,4 +78,23 @@ describe("optimistic capture carries actionType at dispatch time", () => {
     expect(state.capture?.silent).toBe(false);
   });
 
+  // Regression: the optimistic capture had no origin until ACTION_ACCEPTED, so
+  // the expand crew (client-expand-crew.ts) guessed the first owned neighbour
+  // (north first) and then jumped sideways when the server's real origin landed.
+  it("carries the launch tile as origin on an EXPAND's optimistic capture", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+    state.manpower = 999;
+    state.actionQueue = [{ x: 12, y: 18, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["12,18"]);
+    state.tiles.set("12,17", makeTile({ x: 12, y: 17, ownerId: "me", ownershipState: "FRONTIER" }));
+    state.tiles.set("11,18", makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "FRONTIER" }));
+    state.tiles.set("12,18", makeTile({ x: 12, y: 18 }));
+
+    runDispatch(state);
+
+    expect(state.capture?.origin).toEqual({ x: 11, y: 18 });
+  });
 });

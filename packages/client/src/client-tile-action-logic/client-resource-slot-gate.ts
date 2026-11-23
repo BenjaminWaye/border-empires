@@ -1,6 +1,7 @@
 import { fortIsWithinSlotWaiver, SYNTHESIZER_STRUCTURE_TYPES, structureSlotRequirements, observatoryCrystalSlotCostForOwnedCount, type SlotResource, type SlotStructureType, type StructureSlotRequirement } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { freeSlotsOf, resourceSlotReasonText } from "./client-resource-slot-reason.js";
 import { ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-support/client-tile-action-support.js";
 
 // Resource slots: the real
@@ -10,8 +11,7 @@ import { ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-sup
 // that gate exactly, including the in-place-upgrade netting
 // (currentTileFieldSlotRequirements) and the synthesizer skip (a
 // synthesizer PROVIDES a slot, never consumes one, §6.4).
-const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number =>
-  (state.resourceSlots?.supply[resource] ?? 0) - (state.resourceSlots?.demand[resource] ?? 0);
+const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number => freeSlotsOf(state.resourceSlots, resource);
 
 export const additionalResourceSlotRequirements = (
   state: ClientState,
@@ -50,7 +50,5 @@ export const hasFreeResourceSlots = (state: ClientState, type: SlotStructureType
 export const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType, target?: Tile): string | undefined => {
   const missing = additionalResourceSlotRequirements(state, type, currentType, target).find((r) => freeResourceSlotCount(state, r.resource) < r.count);
   if (!missing) return undefined;
-  if (missing.count === 1) return `Need a free ${missing.resource} slot`;
-  const free = Math.max(0, freeResourceSlotCount(state, missing.resource));
-  return `Need ${missing.count} free ${missing.resource} slots (have ${free})`;
+  return resourceSlotReasonText(missing.resource, missing.count, freeResourceSlotCount(state, missing.resource));
 };

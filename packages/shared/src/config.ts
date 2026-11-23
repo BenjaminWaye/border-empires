@@ -41,7 +41,8 @@ export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
 // reveal on instead -- falls back to the waystation's own tile if none is
 // within range. See grantWaystationVision in runtime-waystation-activation.ts.
 export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
-// Half of INCUBATION_ENGINE_INSTANT_POPULATION_BURST (see below).
+// Waystation's smaller one-off population burst (Incubation Engine grants
+// INCUBATION_ENGINE_INSTANT_POPULATION_BURST, see below).
 export const WAYSTATION_POP_BURST = 5_000;
 // Pooled resource-slot supply bump granted once per activation.
 export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
@@ -321,31 +322,7 @@ export const CLUSTER_COUNT_MAX = 238;
 
 export const SEASON_LENGTH_DAYS = 30;
 
-export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
-export const BARBARIAN_MULTIPLY_THRESHOLD = 5;
-// Hard cap on barbarian territory. An uncapped barbarian on staging grew to
-// 941 tiles; the sim main thread re-exports the barbarian's full planner view
-// (O(territory)) on every ownership change, which starved gateway logins. At or
-// above the cap the barbarian stops multiplying and sheds tiles nobody can see.
-export const MAX_BARBARIAN_TILES = 100;
-// A barbarian tile rests this long after its action SETTLES (combat resolved,
-// claim resolved, or command rejected) before it may act again. Counted from
-// settle, not issue: combat locks for COMBAT_LOCK_MS, so counting from issue
-// leaves no rest at all between fights.
-export const BARBARIAN_TILE_REST_MS = 15_000;
-// Faction-wide budget of barbarian ATTACKS started per rolling minute (all barb
-// tiles on the map combined, not per tile). Attacks are the expensive action
-// (~15ms main thread each, mostly the encirclement flood-fill); walks are cheap
-// (~0.5ms) and unbudgeted. A tile that wants to attack with the budget spent
-// walks instead, so it still visibly moves.
-export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
-// Safety net if no settle event ever arrives for an in-flight barb command.
-// Longer than COMBAT_LOCK_MS.
-export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
-export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
-export const BARBARIAN_ATTACK_POWER = 1.0;
-export const BARBARIAN_DEFENSE_POWER = 0.67;
-export const INITIAL_BARBARIAN_COUNT = 80;
+export * from "./planetary-defense-config.js";
 
 // --- Mustering system ---
 // Attacks always consume pre-staged muster; there is no flag or opt-out.
@@ -440,9 +417,10 @@ export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY = 0.1;
 // Census Directorate monument: +0.1/min manpower regen per Manpower-branch
 // building owned, empire-wide, simple linear count.
 export const CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING = 0.1;
-// Incubation Engine (Incubation Engine): instant one-time population burst on build
-// completion.
-export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 10_000;
+// Incubation Engine: instant population burst on build completion, once per owner
+// per town (apps/simulation incubation-burst-guard.ts). Sizing rationale (raised
+// from 10,000 on 2026-11-21): docs/product/resource-and-manpower-economy.md.
+export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 50_000;
 // Incubation Engine (Incubation Engine): ongoing population growth-rate multiplier for
 // its own town, on top of the instant burst above. Reintroduced 2026-08-26,
 // per explicit user decision, at a lower value than the pre-redesign flat

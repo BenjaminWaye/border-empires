@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 // terrain rebuild (see client-renderer-crash-breadcrumb.ts): this file is
 // too large/heavy to unit-test rebuildVisibleTerrain() directly (it needs a
 // full WebGL renderer, scene, and world state), so verify the wiring by
-// reading the source the way client-hud-renderer-prompt-download-regression
+// reading the source the way client-hud-renderer-prompt-report-bug-regression
 // .test.ts does for the diagnostics download button.
 describe("client-map-3d first-render crash breadcrumb wiring", () => {
   const source = readFileSync(new URL("./client-map-3d.ts", import.meta.url), "utf8");

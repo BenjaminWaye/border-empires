@@ -30,6 +30,7 @@ remain authoritative for runtime behavior.
 | AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
 | AI economic synergy: stacking Manufactory/Depot, Clearing House, Trade Nexus, Neural Works, Reserve Lattice (implemented) | [`ai-economic-synergy-plan.md`](ai-economic-synergy-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
+| Game design north star (audience, priorities, scope, business model) | [`gdd.md`](gdd.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
 | AFC loss, replacement deliveries and withdrawal | [`afc-recovery-plan.md`](afc-recovery-plan.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
@@ -43,6 +44,7 @@ remain authoritative for runtime behavior.
 | Explore: AFC scout drones replace Expand To on unexplored tiles (implemented) | [`explore-scout-plan.md`](explore-scout-plan.md) |
 | Farm Plot: manpower-built food on town support tiles, so tall players can start without exploring (proposal) | [`farm-plot-plan.md`](farm-plot-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Planetary Defense camps: Civ-style camps replace barbarian walk/multiply (proposal) | [`planetary-defense-camps-plan.md`](planetary-defense-camps-plan.md) |
 | House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |

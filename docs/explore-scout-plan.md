@@ -26,10 +26,10 @@ a time.
 - **Expand To is used as a paid peek.** Expand To into unexplored land costs
   manpower (10 MP and up, `expandManpowerCostForFrontierCount`) and 7.5s per
   tile (`FRONTIER_CLAIM_MS`). Unless the path ends on a town or dock, those
-  tiles decay after 5 minutes (`docs/core-loop.md` §2). Part of that spending
-  is really a scouting tax, and the decaying tiles flash on neighbours' maps.
-  *(Hypothesis: the share of Expand To claims that decay can be measured in
-  PostHog before and after launch.)*
+  tiles stay unsettleable FRONTIER outside reach (`docs/core-loop.md` §2).
+  Part of that spending is really a scouting tax.
+  *(Hypothesis: the share of Expand To claims made into unexplored land can be
+  measured in PostHog before and after launch.)*
 - **The opening has a step with no button.** The new-player checklist starts
   "find a town → Expand To it → find food → Expand To 4 food slots"
   (`docs/core-loop.md` §8). Explore gives "find" an action.
@@ -50,8 +50,8 @@ a time.
 | Drones | One in the air per player *(tunable; a tech could raise it)* |
 | Cost | **Free** in the first version |
 | Speed | Same pace as Expand To: 7.5s per tile, ×1.5 over forest or hills *(tunable)* |
-| Range | Up to **15 tiles beyond the player's reach border** *(tunable)*. The flight to the border over owned land doesn't count |
-| Path | Straight line to the target, cut short at maximum range or at a blocking border, then straight back |
+| Range | ~~Up to 15 tiles beyond the player's reach border~~ **No limit** since 2026-11-20 (playtest: a 15-tile drone never found a rival ~70 tiles away). A farther target only takes longer |
+| Path | Straight line to the target, cut short at a blocking border, then straight back |
 | Vision | **Radius 3** around the drone while it flies *(tunable; radius 5 is a candidate tech or domain upgrade)* |
 | Claims | None. No FRONTIER, no capture, no waystation reward |
 | Can fly over | Sea, neutral land, Planetary Defense (barbarian) land, own land, allied land |
@@ -66,8 +66,8 @@ a time.
    button. If the drone is already out, the button is disabled with the time
    until it is back.
 2. The server works out the path: a straight line from the launch point,
-   stopping at the target, at the range limit or one tile before the first
-   blocking tile.
+   stopping at the target or one tile before the first blocking tile (the
+   range limit was removed on 2026-11-20).
 3. The drone moves one tile per step at Expand To pace. Each step it adds
    radius-3 vision around itself.
 4. At the end of the path it turns around and flies straight home, still
@@ -84,8 +84,9 @@ player gets the **foreign scouts sighted** alert (§5).
 
 ### 3.3 Planetary Defense
 
-Planetary Defense tiles act only while some player can see them
-(`runtime-barb-activation-vision.ts`). Drone vision counts as normal player
+Planetary Defense camps act only while a watcher can see one of their tiles
+(`planetary-defense-camps/camp-awake-tracker.ts`; this was per tile, via the
+since-removed `runtime-barb-activation-vision.ts`, when this plan was written). Drone vision counts as normal player
 vision, so tiles under the flight path wake for as long as the drone sees
 them, typically 30–45 seconds. With a 15s rest after each action
 (`BARBARIAN_TILE_REST_MS`) that is one or two moves per tile, usually a walk
@@ -107,6 +108,10 @@ to hunt for what changed. On landing the drone files a report.
   Planetary Defense (6 tiles)."*
 - Each line can be tapped to move the camera there. A town or dock line
   offers its next action, such as *"Expand To path: 5 tiles, 50 MP"*.
+  Built (2026-11-20): the report carries `sites`, up to 24 tiles per find
+  group, and each find in the Chronicle row is a link that moves the camera
+  to it and rings its tiles for 8 s on both map renderers
+  (`client-hud-v2-chronicle-scout-chips.ts`). The next-action offer is not built.
 - It appears in the Activity dashboard (`docs/activity-dashboard-plan.md`),
   so a player who launched and logged off sees it on their next visit.
 - A report naming a town or dock can feed the existing email or push alerts.
@@ -210,7 +215,7 @@ mission state, and `docs/agents/implementation-rules.md` before source work.
 2. **Simulation** (`apps/simulation`): an EXPLORE command, a per-player
    mission record saved in snapshots and reloaded after restart, step-by-step
    movement, temporary vision feeding fog and barbarian activation
-   (`reach-border-vision.ts`, `runtime-barb-activation-vision.ts`), the
+   (`reach-border-vision.ts`; the camp awake counts follow the same coverage), the
    rival alert, and the report on landing.
 3. **Protocols** (`packages/sim-protocol`, `packages/client-protocol`): the
    command, mission state for the owner, the report and the alert.
@@ -252,13 +257,17 @@ What shipped, and where it differs from the sections above:
   the client draws exactly the flight the server runs.
 - **Server**: `apps/simulation/src/scout-drone/`. The drone launches from the
   AFC **nearest the target**. Own and allied land is crossed at 1s per tile
-  (up to 80 tiles) so a large empire's drone doesn't spend minutes reaching
-  its border; only tiles past that land count toward the 15-tile range and
-  take Expand To's 7.5s. Its vision is a temporary reveal moved tile by tile,
+  so a large empire's drone doesn't spend minutes reaching its border; tiles
+  past that land take 3s (§13 table; Expand To's 7.5s until 2026-11-20). Since 2026-11-20 there is no range
+  or home-tile limit: the flight goes all the way to the target unless a
+  rival border turns it back. Its vision is a temporary reveal moved tile by tile,
   so fog and Planetary Defense wake-up needed no new rule.
 - **Restarts dock the drone.** Flights live only in simulation memory, not in
-  snapshots (§10 had planned a saved mission record). A flight lasts minutes
-  and costs nothing, so a restart loses at most one trip. Its report is lost
+  snapshots (§10 had planned a saved mission record). A flight costs nothing,
+  so a restart loses at most one trip. Without a range limit a flight to the
+  far side of the default 640×320 map takes about 40 minutes each way. On
+  resubscribe the server sends a docked drone as `flight: null`, so a restart
+  never leaves the client showing a drone that is no longer flying. Its report is lost
   with it; reports already filed are kept with the Activity log.
 - **"Unexplored" is a client rule.** The server keeps no per-player record of
   which tiles a player has ever seen, so it accepts EXPLORE toward any tile and
@@ -283,3 +292,35 @@ What shipped, and where it differs from the sections above:
   `SCOUT_NO_AFC`. The old unexplored-tile March To pick-origin code
   (`client-march-origin-picking/`) is now unreachable and can be removed.
 
+
+## 13. Waypoint routes and charges (2026-11-20)
+
+Owner design, built the same day. Supersedes the single straight flight, the
+unlimited range and Expand To pace.
+
+| Rule | Value |
+|---|---|
+| Start | Tap fog: a plan opens with that tile as stop 1. Send scout drone on an AFC opens an empty plan |
+| Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8. With the drone out and no plan open, a tap on or beside one of its numbered stops (true-3D) does nothing (2026-11-22) |
+| Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
+| Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
+| Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
+| Route | AFC → each stop → straight home (retraces only when a rival border blocks the line home); a border met mid-flight also sends it straight home |
+| Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
+
+Guidance, with almost no text, in one bottom slot (`client-scout-drone-hud.ts`):
+a brass "Explore" pill while every charge is unused (opens a plan); the dock
+while planning (✕, drone count, ↶, and "Tap fog" / "Go" / "Add" with the flight
+time); a pill with the time left while the drone flies (tap to frame it); and a
+report card after landing, led by "+N Tiles", icons with counts and one word each,
+above every other popup. Planning, flying and reporting fold the guide card and hide the House
+speech bubble. In true-3D the route glows before launch with numbered stops, a pulled-back stop
+keeps its ring and gains a thin outer limit ring (a fading line shows the cut for a
+moment after the tap), the rest of the route
+stays drawn in flight with a marker and a drone badge over the drone, and the main find gets a
+short gold burst on landing. While the drone flies, what it spots pops over the map in
+gold ("+1 Town", "+3 Grain", from `SCOUT_FINDS`), and on landing each chip on the card
+steps the camera through those finds. No "tap here" marker on the map (owner removed it)
+and no label over the 3D drone. The 2D map shows the bottom slot only (owner: 3D
+is the focus). Three first-time player profiles reviewed each round
+(2026-11-21); their scores drove these changes.

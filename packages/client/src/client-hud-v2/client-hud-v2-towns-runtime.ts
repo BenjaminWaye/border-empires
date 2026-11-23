@@ -2,6 +2,7 @@
 // its sort headers and rows. Split out of client-hud-v2-screens.ts (the router).
 
 import { deriveTownListRows, sortTownListRows, toggleTownListSort, townListSort, type TownListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
+import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growth.js";
 import { writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { forgetMyTowns, myTowns, openTownAt } from "./client-hud-v2-town-runtime.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
@@ -19,7 +20,7 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
   // Hold the rows still while the pointer is on them, so a press can't land on a row that just moved.
   if (!options.force && built?.body === body && document.querySelector(".v2l-table:hover")) return;
   built = { towns, sort, body };
-  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles), sort);
+  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state)), sort);
   writeHtml("v2s-head-right", townsBannerHtml(rows));
   writeHtml("v2s-body", townsBodyHtml(rows, sort));
   // A row reading "…" is waiting on a coin figure only a tile-detail reply carries; without this it stayed

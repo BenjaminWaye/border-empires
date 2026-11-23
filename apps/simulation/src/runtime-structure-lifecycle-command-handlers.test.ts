@@ -326,20 +326,19 @@ describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
     expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "ADVANCE", amount: 50 });
   });
 
-  // Review regression (PR #2716): re-ordering a flag mid-hunt rebuilt the
-  // muster from scratch and dropped `clearing`, so it could never report
-  // "cleared" and return to HOLD.
-  it("keeps an engaged hunt's clearing state when the hunt is re-ordered, and drops it otherwise", () => {
+  // Hunt Planetary Defense was removed with Planetary Defense camps: a hunt
+  // order from an older client is a plain ADVANCE, and re-ordering a flag saved
+  // mid-hunt drops the old order.
+  it("treats a hunt order from an older client as a plain ADVANCE", () => {
     const player = makePlayer({ points: 0, manpower: 100 });
     const hunting = { ownerId: PLAYER_ID, amount: 50, mode: "ADVANCE" as const, hunt: true, clearing: true, setAt: 0, updatedAt: 0 };
     const { context, tiles } = createContext(player, makeTile({ muster: hunting }));
     handleSetMusterCommand(context, makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "ADVANCE", hunt: true }) }));
-    expect(tiles.get(simulationTileKey(5, 5))?.muster).toMatchObject({ mode: "ADVANCE", hunt: true, clearing: true });
-
-    const plain = createContext(player, makeTile({ muster: hunting }));
-    handleSetMusterCommand(plain.context, makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "ADVANCE" }) }));
-    expect(plain.tiles.get(simulationTileKey(5, 5))?.muster?.clearing).toBeUndefined();
+    const muster = tiles.get(simulationTileKey(5, 5))?.muster;
+    expect(muster).toMatchObject({ mode: "ADVANCE" });
+    expect(muster?.hunt).toBeUndefined();
   });
+
 });
 
 // docs/replenishment-update-plan.md D6: SET_MUSTER's optional commitManpower

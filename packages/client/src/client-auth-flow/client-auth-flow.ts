@@ -19,7 +19,7 @@ import {
 } from "../client-auth-ui/client-auth-ui.js";
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail, setGuestIdentityUid } from "../client-debug/client-debug.js";
-import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { openReportDialog } from "../client-bug-report/client-bug-report-hud.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
@@ -95,6 +95,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authOverlayEl: dom.authOverlayEl,
       authBusyModalEl: dom.authBusyModalEl,
       authBusyProgressEl: dom.authBusyProgressEl,
+      authBusyQuoteEl: dom.authBusyQuoteEl,
       authLoginBtn: dom.authLoginBtn,
       authRegisterBtn: dom.authRegisterBtn,
       authEmailLinkBtn: dom.authEmailLinkBtn,
@@ -112,7 +113,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authProfileSaveBtn: dom.authProfileSaveBtn,
       authBusyTitleEl: dom.authBusyTitleEl,
       authBusyCopyEl: dom.authBusyCopyEl,
-      authBusyDiagnosticsBtn: dom.authBusyDiagnosticsBtn,
+      authBusyReportBugBtn: dom.authBusyReportBugBtn,
       authBusySeasonFullNotifyBtn: dom.authBusySeasonFullNotifyBtn,
       authStatusEl: dom.authStatusEl,
       authDebugRouteEl: dom.authDebugRouteEl,
@@ -122,14 +123,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     });
     syncGuestSaveBadge(state);
     sectorWaitlist.refreshIfNeeded();
-    dom.authBusyDiagnosticsBtn.onclick = () => {
-      try {
-        downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
-      } catch (error) {
-        console.error("[diagnostics] download button failed", error);
-        setAuthStatus(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`, "error");
-      }
-    };
+    dom.authBusyReportBugBtn.onclick = () => openReportDialog({ kind: "bug", state, wsUrl });
     // Joins the next-Sector waitlist (client-sector-waitlist.ts). The email
     // itself still comes from notifySeasonStarted, which mails every bound
     // account when the next Sector opens; the list records the demand.

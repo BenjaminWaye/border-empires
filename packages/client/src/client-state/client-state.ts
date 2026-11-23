@@ -60,6 +60,7 @@ type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; struc
 
 export { storageGet, storageRemove, storageSet } from "./client-storage.js";
 import { storageGet } from "./client-storage.js";
+import type { ScoutFindingHighlight } from "../client-scout-drone/client-scout-finding-highlight.js";
 
 export const createInitialState = () => ({
   me: "",
@@ -211,14 +212,14 @@ export const createInitialState = () => ({
   replayAppliedIndex: 0,
   replayLastTickAt: 0,
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
-  socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
+  scoutFindingHighlight: undefined as ScoutFindingHighlight | undefined,
   feedUnreadCount: 0,
   spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
+    kind: "town_ungarrisoned" | "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;
@@ -278,7 +279,7 @@ export const createInitialState = () => ({
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),

@@ -41,5 +41,76 @@ export const HOUSE_CHARGES_CHANGELOG: ClientChangelogEntry[] = [
       "When your charges arrive, three face-down charge cards bob at the left edge of the map with a note that your House has handed you sealed charges. Tap the cards to choose which two to keep.",
       "The note can be closed on its own; the cards stay until you open your charges or the choice closes."
     ]
+  },
+  {
+    createdAt: 1795071970851, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: pick between cards, and find them again",
+    why: "A playtester tapped the sealed-charges note twice and it vanished both times, so he never saw his charges. Once seen, charges were hard to find again, and choosing them meant ticking boxes.",
+    changes: [
+      "Tapping the note that your House has handed you sealed charges now opens your charges, like tapping the cards. The note also says See charges.",
+      "The note's × sits further from the words, so a tap on the message no longer closes it by mistake.",
+      "You now choose your charges from a hand of cards: they are dealt face down and turn over, and you tap a card to keep it or set it aside.",
+      "After you have opened your charges, the cards stay at the edge of the map with how many of your kept charges you hold. Tap them any time to see your charges."
+    ]
+  },
+  {
+    createdAt: 1795104690676, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: Show on map shows the whole goal",
+    why: "Pressing Show on map on a charge left the cards open over the map, so you had to close them to look, and the camera framed only one of a road's two towns. On the 3D map the storm clouds over unexplored land hid the charge's markings.",
+    changes: [
+      "Show on map now closes your charges and moves the camera to the whole goal, zooming out so both towns of a road (or the whole area) are on screen, on the 2D and 3D maps alike. If a goal is too wide to fit even fully zoomed out, the town you have scouted stays in view.",
+      "While a charge is shown, the cards at the edge of the map say which one and have a Back to cards button. The × next to it stops showing the charge.",
+      "On the 3D map, a charge's dotted circles, road line and shaded area now draw over the unexplored storm clouds instead of being hidden under them."
+    ]
+  },
+  {
+    createdAt: 1795105167432, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: everything on the card",
+    why: "Each charge was shown twice, as a small card and again as a description below it, and the small cards were too narrow for their own titles.",
+    changes: [
+      "Each charge is now one large card you scroll through, with its objective, progress, Keep button and Show on map on the card itself.",
+      "Each card's quote is your House's reason for handing you that charge.",
+      "Each kept card shows the Domain score it banks if you still hold it when the winner is crowned. The text above the cards is one line; tap How charges work for the details."
+    ]
+  },
+  {
+    createdAt: 1795125697861, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.19",
+    title: "House Charges: a hand of cards on desktop",
+    why: "On desktop the charges sat one at a time in a narrow panel, the card text was too faint to read, and different charges had the same picture.",
+    changes: [
+      "On a wide screen your charges float side by side over the dimmed map, bobbing gently and lifting when you point at one.",
+      "Opening your charges draws the cards from a deck and turns them over.",
+      "Show on map folds the hand into the cards at the edge of the map, with the charge you picked face up on top. Tap them to bring the hand back.",
+      "Card text is dark ink on the parchment again, so it is easy to read.",
+      "Each kind of charge has its own picture: a road between two towns, a keep, three towers, a charted island, dunes, ice peaks, a waking beacon or a grievance banner."
+    ]
+  },
+  {
+    createdAt: 1795182084781, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.20",
+    title: "House Charges: harder charges pay more",
+    why: "A small tundra paid twice as much as charting a 342-tile landmass, because rarity came from the kind of charge rather than the work it took.",
+    changes: [
+      "Each new charge's difficulty (◆) now weighs how much land it needs garrisoned, how far it is from your landing, whether it is over the sea, and how many rival Houses land near it.",
+      "A held charge banks +1 Domain score for each ◆, from +1 to +4. Rarity follows the ◆: one or two Common, three Rare, four Mythic.",
+      "Relics are no longer always Mythic: a close relic nobody else is after is an easy charge and pays like one.",
+      "Charges you were already dealt keep their ◆ and the pay they were dealt with."
+    ]
+  },
+  {
+    createdAt: 1795210487066, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.20",
+    title: "House Charges: just the cards",
+    why: "The text above the charge cards pushed them off the bottom of the screen.",
+    changes: [
+      "Nothing sits above your charge cards any more: open them and you see the hand.",
+      "The bottoms of the cards are no longer cut off: on a shorter screen the cards shrink to fit.",
+      "Tap the ? beside the House Charges title for how charges work and how long you can still swap. It opens over the cards; tap it again to close.",
+      "The Keep button still appears above the cards while you have an unsaved swap."
+    ]
   }
 ];

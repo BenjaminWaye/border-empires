@@ -73,6 +73,7 @@ const MUTABLE_TILE_FIELDS = [
   "warScarUntil",
   "razedWreckUntil",
   "razedWreck",
+  "campId",
   // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
   // legacy structure fields above. Including it here ensures the compaction
   // overlay preserves it on round-trip even before Phase 4 activates the reader.
@@ -108,6 +109,8 @@ export type V1SnapshotPayload = {
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   reachBorder?: RecoveredSimulationState["reachBorder"];
   exploredTiles?: RecoveredSimulationState["exploredTiles"];
+  fairSpawnSites?: RecoveredSimulationState["fairSpawnSites"];
+  planetaryDefensePlanner?: RecoveredSimulationState["planetaryDefensePlanner"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -306,6 +309,8 @@ export const compactSnapshotForStorage = async (
       : {}),
     ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
     ...(initialState.exploredTiles ? { exploredTiles: initialState.exploredTiles } : {}),
+    ...(initialState.fairSpawnSites ? { fairSpawnSites: initialState.fairSpawnSites } : {}),
+    ...(initialState.planetaryDefensePlanner ? { planetaryDefensePlanner: initialState.planetaryDefensePlanner } : {}),
     commandEvents
   };
 };
@@ -372,7 +377,9 @@ export const expandSnapshotFromStorage = (
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
       ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {}),
-      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {})
+      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {}),
+      ...(v1.fairSpawnSites ? { fairSpawnSites: v1.fairSpawnSites } : {}),
+      ...(v1.planetaryDefensePlanner ? { planetaryDefensePlanner: v1.planetaryDefensePlanner } : {})
     },
     commandEvents: v1.commandEvents
   };

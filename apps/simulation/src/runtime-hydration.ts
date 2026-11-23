@@ -88,6 +88,8 @@ export const createPlayersFromRecoveredState = (
           ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
           ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
           ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+          ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+          ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
           // Legacy snapshots predate the field: normalize once here (missing => DEFAULT, all on).
           autoSettle: normalizeAutoSettlePrefs(player.autoSettle),
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
@@ -193,6 +195,7 @@ const createTilesFromInitialStateUncleared = (
       ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
       ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
       ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+      ...(typeof tile.campId === "string" && tile.campId && tile.ownerId?.startsWith("barbarian-") ? { campId: tile.campId } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

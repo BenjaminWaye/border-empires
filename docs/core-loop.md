@@ -171,7 +171,7 @@ flowchart LR
     RN --> G
     A -->|10+ MP| B[Expand To<br/>beyond reach]
     B -->|town or dock:<br/>auto-settles, new anchor| K
-    B -.->|anything else:<br/>decays in 5 min| X[Lost]
+    B -.->|anything else: stays FRONTIER,<br/>can't be settled; lost if cut off| X[Lost]
     K -->|town tiles auto-settle| D[Towns grow<br/>population tiers]
     E -->|FOOD slots: only fed towns grow| D
     K --> DK[Docks<br/>reach anchor + sea crossing]
@@ -191,7 +191,7 @@ flowchart LR
     MB -->|forts defend, siege adds attack| I
     I -->|capture| CF[Captured tile<br/>lands as FRONTIER]
     CF -->|captured buildings and out-of-reach<br/>towns/docks auto-settle; others<br/>settle by hand, 20 MP| C
-    CF -.->|outside reach:<br/>decays in 5 min| X
+    CF -.->|outside reach and cut off<br/>from supply: lost at once| X
     K -.->|expand onto one| WS[Waystations<br/>1 random reward]
     WS -.->|+1 slot| E
     WS -.->|+5,000 pop| D
@@ -270,7 +270,8 @@ a development slot. It buys three things:
 - **Expand To is the way across gaps, not a way to settle.** Its lasting use
   is reaching a town or dock outside your reach. Towns and docks auto-settle
   even when out of reach, and then act as a new anchor. Any other tile claimed
-  beyond reach is gone after 5 minutes.
+  beyond reach stays FRONTIER: it can't be settled until reach covers it, and
+  it is lost at once if it is cut off from supply (encirclement).
 
 The key idea is that **towns are never built, only acquired**. World gen
 places `max(70, 180 × worldScale)` neutral towns, and the only ways to own
@@ -283,8 +284,8 @@ growing your economy *means* taking the land around you.
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
-| **Explore** | Send the scout drone from your AFC toward an unexplored tile: it reveals radius 3 around itself, flies up to 15 tiles past your land and back, claims nothing, and files a scout report. A rival's border turns it back | Free; one drone in the air; 7.5s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
-| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
+| **Explore** | Plan a scout drone route from your AFC through stops on unexplored ground (each leg up to 20 open tiles), then straight home: it reveals radius 3 around itself, claims nothing, and files a scout report. A rival's border turns it back | 1 charge per stop (8 held, each back 4h after use); one drone in the air; 3s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
+| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims stay FRONTIER (can't be settled; lost only if cut off from supply) | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
@@ -324,8 +325,8 @@ a victory hold.
 
 For a town or dock outside reach, **Expand To** a path of tiles out to it
 (10 MP each, 7.5s, or 11.25s on forest or hills). The town or dock
-auto-settles and anchors its own reach. The path tiles behind it decay after
-5 minutes unless reach covers them by then.
+auto-settles and anchors its own reach. The path tiles behind it stay
+FRONTIER until reach covers them; they are lost only if cut off from supply.
 
 The feedback at this scale is the beacon's disk filling in all at once, the
 border jumping outward, a waystation or watchtower popping when you land on
@@ -507,10 +508,11 @@ to expansion and war.
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,
    economic structures) auto-settle straight away. Captured towns and docks
-   auto-settle only if they'd otherwise decay for being outside your reach and
+   auto-settle only if they are outside your reach and
    the player's towns auto-settle opt-in is on (`capturedTileWillAutoSettle`). Everything else has to be settled by hand
-   (20 MP, in reach) or it stays zero-defense FRONTIER, and outside reach it
-   decays in 5 minutes. A failed assault can lose the **origin** tile.
+   (20 MP, in reach) or it stays zero-defense FRONTIER; outside reach it can't
+   be settled and is lost at once if cut off from supply. A failed assault can
+   lose the **origin** tile.
    Eliminated players respawn.
 6. **Consolidate:** settle captured ground, re-anchor reach, fort the new
    border, or offer a truce.
@@ -626,7 +628,7 @@ deliberately no decay for simply being offline.
 | Out of manpower | Overspent | Can't act | Wait for regen or rush-buy with gold |
 | Dormant structure | Lost its slot-backing tile | Stops giving its bonus but stays standing | Retake the resource or free a slot |
 | Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or use Ministry Hall provisioning to reduce demand |
-| Out-of-reach frontier | Lost the anchor | Decays in 5 min | Re-anchor with a beacon or recapture |
+| Out-of-reach frontier | Lost the anchor | Stays FRONTIER but can't be settled; lost at once if cut off from supply | Re-anchor with a beacon or recapture |
 | Eliminated | Last tile lost | Respawn (`respawnIfEliminated`) | Start again mid-season |
 | Lost the season | Someone held a path for 24h | Season ends, score graph | Next season; the galactic layer if you won |
 
@@ -652,9 +654,9 @@ deliberately no decay for simply being offline.
    claim it… Settle it"). In the live game, beacons and town/dock anchors move
    reach and auto-claim everything inside it, and Expand To mostly matters for
    crossing to an out-of-reach town or dock. Players who follow the checklist will
-   Expand To tiles beyond reach and watch them decay. The checklist
+   Expand To tiles beyond reach that can never be settled. The checklist
    should say that reach comes from beacons and that ground beyond reach
-   doesn't last.
+   stays thin, undefended FRONTIER.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a

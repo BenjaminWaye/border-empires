@@ -40,6 +40,28 @@ const lookForHtml = (icons: ReadonlyArray<GuideLookForIcon> | undefined): string
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
+/**
+ * Set on the root once the player taps "?" while a scout drone holds the map
+ * (body.scout-focus folds the card, client-scout-drone-hud.css). Without it
+ * the tap only flipped a card the fold kept hidden, so "?" did nothing.
+ */
+const SCOUT_PEEK_CLASS = "tg-scout-peek";
+
+/** The launcher was tapped over a scout fold: lets the card show again. True when it did, so the caller opens the card. */
+export const openGuideCardOverScoutFold = (): boolean => {
+  if (typeof document === "undefined" || !document.body.classList.contains("scout-focus")) return false;
+  const root = document.getElementById(ROOT_ID);
+  if (!root || root.classList.contains(SCOUT_PEEK_CLASS)) return false;
+  root.classList.add(SCOUT_PEEK_CLASS);
+  return true;
+};
+
+/** The scout phase changed (plan, flight, report, or none): the next one folds the card again. */
+export const clearGuideScoutPeek = (): void => {
+  if (typeof document === "undefined") return;
+  document.getElementById(ROOT_ID)?.classList.remove(SCOUT_PEEK_CLASS);
+};
+
 export const removeGuideCard = (): void => {
   if (typeof document === "undefined") return;
   document.getElementById(ROOT_ID)?.remove();
@@ -63,7 +85,7 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
       <div class="tg-title${view.waiting ? " tg-title-waiting" : ""}">${escapeHtml(view.title)}</div>
       ${view.waiting ? "" : `<div class="tg-why">${escapeHtml(view.why)}</div>`}
       ${lookForHtml(view.lookFor)}
-      ${view.laterChapterTitles.length > 0 ? `<div class="tg-later">Later: ${escapeHtml(view.laterChapterTitles.join(", "))}</div>` : ""}
+      ${view.laterChapterTitles.length > 0 ? `<div class="tg-later">${view.step.acknowledge ? "The guide returns for" : "Later"}: ${escapeHtml(view.laterChapterTitles.join(", "))}</div>` : ""}
       <div class="tg-progress-row">
         <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
         <span class="tg-count">${view.completedCount}/${view.totalCount}</span>
@@ -76,18 +98,16 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
 };
 
 /**
- * The card after Finish: a short "Guide complete" acknowledgement that closes
- * itself (renderGuideCompleteCard) or on its Close button. Its bar is always
- * full: Finish is only offered once every step left waits on a first contact,
- * and those steps are handed to the First Contact tip, so the guide is
- * complete. (A partial "14/16" under "Guide complete" contradicted itself.)
- * `handedOff` is how many steps were left waiting at Finish.
+ * The card when the guide ends: a short "Guide complete" acknowledgement that
+ * closes itself (renderGuideCompleteCard) or on its Close button. The guide
+ * only ends once every step is done: Finish with Contest / Diplomacy still
+ * waiting folds the guide until first contact instead (tutorial-guide.ts).
  */
-export const guideCompleteCardHtml = (stepCount: number, handedOff: number): string => `
+export const guideCompleteCardHtml = (stepCount: number): string => `
     <section class="tg-card tg-card-complete" role="status" aria-label="Guide complete">
       <div class="tg-head"><span class="tg-chapter">Guide complete</span></div>
       <div class="tg-title"><span class="tg-check" aria-hidden="true">&#10003;</span> You know the basics</div>
-      <div class="tg-why">${handedOff === 0 ? "Every step done." : "Contest and Diplomacy are explained when you first meet another House."} Restart the guide from Settings.</div>
+      <div class="tg-why">Every step done. Restart the guide from Settings.</div>
       <div class="tg-progress-row">
         <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${stepCount}" aria-valuenow="${stepCount}"><span style="width:100%"></span></div>
         <span class="tg-count">${stepCount}/${stepCount}</span>
@@ -98,7 +118,7 @@ export const guideCompleteCardHtml = (stepCount: number, handedOff: number): str
 const COMPLETE_CARD_MS = 8_000;
 
 /** Replaces the card with the completion acknowledgement; it removes itself after a few seconds. */
-export const renderGuideCompleteCard = (stepCount: number, handedOff: number): void => {
+export const renderGuideCompleteCard = (stepCount: number): void => {
   if (typeof document === "undefined") return;
   injectStyles();
   document.getElementById(ROOT_ID)?.remove();
@@ -106,7 +126,7 @@ export const renderGuideCompleteCard = (stepCount: number, handedOff: number): v
   root.id = ROOT_ID;
   root.className = "onb-root";
   root.style.setProperty("--tg-bottom", `${ONBOARDING_CORNER_BOTTOM_PX}px`);
-  root.innerHTML = guideCompleteCardHtml(stepCount, handedOff);
+  root.innerHTML = guideCompleteCardHtml(stepCount);
   document.body.appendChild(root);
   const close = (): void => {
     if (root.isConnected) root.remove();

@@ -7,7 +7,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 type TileLookup = { get(key: string): DomainTileState | undefined };
 
 /** The ownership fields every member of an AFC/relic super tile shares. */
-const SHARED_FIELDS = ["ownerId", "ownershipState", "frontierDecayAt", "frontierDecayKind", "healAt", "captureHoldUntil"] as const;
+const SHARED_FIELDS = ["ownerId", "ownershipState", "frontierDecayAt", "frontierDecayKind", "healAt", "captureHoldUntil", "campId"] as const;
 // A drain that keeps finding new conflicts after this many passes is a hook
 // ping-pong; stop rather than spin the main thread.
 const MAX_DRAIN_PASSES = 64;

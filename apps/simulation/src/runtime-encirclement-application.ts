@@ -30,6 +30,25 @@ export type RuntimeEncirclementApplicationContext = {
   registerFrontierAutoHeal: (tileKey: string, deadlineAt: number) => void;
   /** True while a lock holds the tile; see encirclement-pocket-capture.ts. */
   hasTileLock?: (tileKey: string) => boolean;
+  /**
+   * Respawns a player left with no land, raising the same "empire fell" notice
+   * and email as a wipe-out by attack (runtime-respawn-helpers.ts). Runs after
+   * every encirclement / stranded-frontier release; a no-op while land remains.
+   */
+  respawnIfEliminated?: (playerId: string, commandId: string) => void;
+};
+
+// Barbarian territory is not supply-connected the way player territory is,
+// and a barbarian never respawns with an AFC landing.
+export const isBarbarianOwner = (ownerId: string): boolean => ownerId.startsWith("barbarian-");
+
+/** Respawns `playerId` if this release left them landless (barbarians excepted). */
+export const respawnIfEliminatedAfterRelease = (
+  context: Pick<RuntimeEncirclementApplicationContext, "respawnIfEliminated">,
+  playerId: string,
+  commandId: string
+): void => {
+  if (!isBarbarianOwner(playerId)) context.respawnIfEliminated?.(playerId, commandId);
 };
 
 export function activeAetherBridgeNeighborKeysForPlayer(
@@ -202,7 +221,7 @@ export function applyEncirclement(
   changedKeys: string[],
   playerId: string,
   commandId: string,
-  options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }
+  options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }
 ): void {
   const getTile = (key: string) => context.tiles.get(key);
   const nowMs = context.now();
@@ -246,6 +265,10 @@ export function applyEncirclement(
   if (tileDeltas.length > 0) {
     context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
   }
+  // Combat runs its own wipe-out check after settlement relocation
+  // (runtime-lock-resolution.ts), so it defers; every other caller (Aether
+  // Lance, bombardment, Create Mountain, hijack, abandon) checks here.
+  if (!options?.deferEliminationCheck) respawnIfEliminatedAfterRelease(context, playerId, commandId);
 }
 
 /**

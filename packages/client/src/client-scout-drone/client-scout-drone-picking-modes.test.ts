@@ -16,7 +16,7 @@ describe("Send scout drone and the other map picks", () => {
     state.aetherWallTargeting.active = true;
     state.marchOriginPicking = { active: true, targetX: 3, targetY: 3 };
     state.musterMarchTargeting = { active: true, originX: 1, originY: 1 };
-    dispatchAfcScoutAction("afc_scout_drone", state, { pushFeed: vi.fn() }, 0);
+    dispatchAfcScoutAction("afc_scout_drone", state);
     expect(state.scoutDronePicking.active).toBe(true);
     expect(state.crystalTargeting.active).toBe(false);
     expect(state.aetherWallTargeting.active).toBe(false);

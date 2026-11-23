@@ -43,7 +43,16 @@ describe("isReplayTrackedCommandId", () => {
       "auto-fill:": "auto-fill:10,10:123",
       "reach-update:": "reach-update:cmd-1",
       "island-names:": "island-names:player-1",
-      "house-charges:": "house-charges:player-1"
+      "house-charges:": "house-charges:player-1",
+      "scout-drone-vision:": "scout-drone-vision:5f0c1d2e-uuid",
+      "scout-drone-landed:": "scout-drone-landed:5f0c1d2e-uuid",
+      "scout-drone-sped-up:": "scout-drone-sped-up:5f0c1d2e-uuid",
+      "scout-drone-turned:": "scout-drone-turned:5f0c1d2e-uuid",
+      "scout-drone:": "scout-drone:player-1",
+      "scout-report:": "scout-report:5f0c1d2e-uuid",
+      "scout-sighted:": "scout-sighted:5f0c1d2e-uuid",
+      // Review 2026-11-21: SCOUT_FINDS (an event per find tick) leaked into the replay cache and every checkpoint.
+      "scout-finds:": "scout-finds:5f0c1d2e-uuid"
     } as const;
     // every prefix in the constant must have a sample, and all must be excluded
     for (const prefix of SERVER_GENERATED_COMMAND_ID_PREFIXES) {

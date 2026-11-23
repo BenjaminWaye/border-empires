@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Scene, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
-import { planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
+import { SCOUT_DRONE_STEP_MS, planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
 import {
   SCOUT_DRONE_CRUISE_HEIGHT,
   SCOUT_DRONE_DOCK_HEIGHT,
@@ -33,13 +33,13 @@ describe("scoutDronePoseAt", () => {
     expect(pose).toMatchObject({ x: 3, y: 5, lift: 0, rotor: 0, returning: false });
   });
 
-  it("cruises along the route once launched, heading east at Expand To pace", () => {
+  it("cruises along the route once launched, heading east at open-ground pace", () => {
     scoutDronePoseAt(flight, midFlight, world.width, world.height, pose);
     expect(pose.x).toBeCloseTo(5.5);
     expect(pose.lift).toBe(1);
     expect(pose.rotor).toBe(1);
     expect(pose.dirX).toBeCloseTo(1);
-    expect(pose.speed).toBeCloseTo(1000 / 7500);
+    expect(pose.speed).toBeCloseTo(1000 / SCOUT_DRONE_STEP_MS);
   });
 
   it("spools its props up on the crown before it lifts", () => {
@@ -127,17 +127,13 @@ describe("createScoutDroneOverlay", () => {
     overlay.dispose();
   });
 
-  it("floats the \"Back in …\" pill over the drone while it flies, and hides it once landed", () => {
+  // Player review 2026-11-21: the label over the drone was unreadably small; the bottom pill carries the time.
+  it("draws no \"Back in …\" label over the drone", () => {
     const scene = new Scene();
     const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
-    const drone = scene.getObjectByName("scout-drone")!;
-    const label = scene.getObjectByName("scout-drone-eta-label")!;
     overlay.sync(flight, midFlight);
-    expect(label.visible).toBe(true);
-    expect(label.position.x).toBeCloseTo(drone.position.x);
-    expect(label.position.y).toBeGreaterThan(drone.position.y);
-    overlay.sync(flight, flight.landsAt);
-    expect(label.visible).toBe(false);
+    expect(scene.getObjectByName("scout-drone-eta-label")).toBeUndefined();
+    overlay.dispose();
   });
 
   it("removes everything it added on dispose", () => {

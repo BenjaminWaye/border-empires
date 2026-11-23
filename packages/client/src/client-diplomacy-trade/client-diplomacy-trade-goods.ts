@@ -15,6 +15,12 @@ export type TradeGoodKey = `${TradeSide}-${TradeGood}`;
 
 export type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: string; aria: string; supply: boolean };
 
+/**
+ * Shown amount per stored unit. A pledge is stored per hour (the server's `coinPerHour`) but shown per day
+ * like every other income figure: "Coin per hour" was the one per-hour rate in the game (Playtest Run 4).
+ */
+export const tradeDisplayScale = (spec: Pick<TradeGoodSpec, "good">): number => (spec.good === "coinPerHour" ? 24 : 1);
+
 /** The shared label spells Food in capitals for the resource bar; rows read better in plain case. */
 const supplyLabel = (resource: TradableSupplyResource): string => (resource === "FOOD" ? "Food" : supplyResourceLabel(resource));
 
@@ -22,7 +28,7 @@ const sideSpecs = (side: TradeSide): TradeGoodSpec[] => {
   const whose = side === "give" ? "you give" : "you ask for";
   return [
     { key: `${side}-gold`, side, good: "gold", label: "Coin", icon: "GOLD", aria: `Coin ${whose}`, supply: false },
-    { key: `${side}-coinPerHour`, side, good: "coinPerHour", label: "Coin per hour", icon: "GOLD", aria: `Coin per hour ${whose}`, supply: false },
+    { key: `${side}-coinPerHour`, side, good: "coinPerHour", label: "Coin per day", icon: "GOLD", aria: `Coin per day ${whose}`, supply: false },
     ...TRADABLE_SUPPLY_RESOURCES.map((resource): TradeGoodSpec => ({
       key: `${side}-${resource}`,
       side,
@@ -125,7 +131,13 @@ export const maxTradeTerms = (a: DiplomacyTerms, b: DiplomacyTerms): DiplomacyTe
     ask: { gold: 0 }
   } as DiplomacyTerms);
 
-export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean => TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec));
+/** Towns handed back count too (client-diplomacy-town-return.ts), in either order. */
+const townKeys = (terms: DiplomacyTerms, side: TradeSide): string =>
+  (terms[side].towns ?? []).map((town) => `${town.x},${town.y}`).sort().join(";");
+
+export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
+  TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec)) &&
+  townKeys(a, "give") === townKeys(b, "give") && townKeys(a, "ask") === townKeys(b, "ask");
 
 const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trade-good-row" data-trade-row="${spec.key}">
     <button type="button" class="diplomacy-trade-good" data-trade-good="${spec.key}" aria-expanded="false" aria-controls="diplomacy-trade-slider-${spec.key}">
@@ -137,7 +149,7 @@ const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trad
     <div class="diplomacy-trade-slider" id="diplomacy-trade-slider-${spec.key}" data-trade-slider="${spec.key}" hidden>
       <div class="diplomacy-trade-slider-row">
         <input type="range" min="0" step="1" data-trade-${spec.key} aria-label="${spec.aria}">
-        <input type="number" inputmode="numeric" min="0" step="1" data-trade-exact="${spec.key}" aria-label="${spec.aria}, exact amount">
+        <input type="number" inputmode="numeric" min="0" step="${tradeDisplayScale(spec)}" data-trade-exact="${spec.key}" aria-label="${spec.aria}, exact amount">
         <span class="diplomacy-trade-slider-ends"><span>0</span><span data-trade-max="${spec.key}">0</span></span>
       </div>
     </div>
@@ -152,8 +164,8 @@ export const tradeGoodsHtml = (side: TradeSide, withSupply: boolean): string => 
   return `<div class="diplomacy-trade-goods" data-trade-goods="${side}">${specs.filter((s) => !s.supply && (withSupply || s.good === "gold")).map(goodRowHtml).join("")}${supply}</div>`;
 };
 
-const readAmount = (input: HTMLInputElement | null): number => {
-  const value = Math.floor(Number(input?.value ?? 0));
+const readAmount = (input: HTMLInputElement | null, scale = 1): number => {
+  const value = Math.round(Number(input?.value ?? 0) / scale);
   return Number.isFinite(value) && value > 0 ? value : 0;
 };
 
@@ -165,7 +177,7 @@ export type TradeGoodsView = {
   haveText: (spec: TradeGoodSpec) => string;
   /** A supply row whose side has none spare (and none in the deal) is hidden rather than greyed out. */
   hideEmptySupply: Record<TradeSide, boolean>;
-  /** Coin per hour rows a target can't take (an AI never pays it, and takes it only for a truce), unless the deal already holds some. */
+  /** Coin per day rows a target can't take (an AI never pays it, and takes it only for a truce), unless the deal already holds some. */
   hideCoinPerHour?: Partial<Record<TradeSide, boolean>>;
 };
 
@@ -180,13 +192,14 @@ export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): Tr
   for (const spec of TRADE_GOODS) {
     const amount = tradeAmount(terms, spec);
     const max = limits[spec.key];
+    const scale = tradeDisplayScale(spec);
     const row = overlay.querySelector<HTMLElement>(`[data-trade-row="${spec.key}"]`);
     if (!row) continue;
     row.hidden = amount === 0 && ((spec.supply && view.hideEmptySupply[spec.side] && max === 0) || (spec.good === "coinPerHour" && Boolean(view.hideCoinPerHour?.[spec.side])));
     const tile = row.querySelector<HTMLButtonElement>("[data-trade-good]");
     if (tile) {
       tile.setAttribute("aria-expanded", String(open === spec.key));
-      tile.setAttribute("aria-label", `${spec.aria}: ${amount}`);
+      tile.setAttribute("aria-label", `${spec.aria}: ${amount * scale}`);
       tile.dataset.chosen = String(amount > 0);
       tile.disabled = max === 0;
       tile.title = max === 0 ? (spec.side === "give" ? `You have no ${spec.label.toLocaleLowerCase()} to give.` : `They have no ${spec.label.toLocaleLowerCase()} to give.`) : "";
@@ -194,11 +207,11 @@ export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): Tr
     const haveEl = row.querySelector<HTMLElement>("[data-trade-have]");
     if (haveEl) haveEl.textContent = view.haveText(spec);
     const amountEl = row.querySelector<HTMLElement>("[data-trade-amount]");
-    if (amountEl) amountEl.textContent = String(amount);
+    if (amountEl) amountEl.textContent = String(amount * scale);
     const slider = row.querySelector<HTMLElement>("[data-trade-slider]");
     if (slider) slider.hidden = open !== spec.key;
     const maxEl = row.querySelector<HTMLElement>("[data-trade-max]");
-    if (maxEl) maxEl.textContent = String(max);
+    if (maxEl) maxEl.textContent = String(max * scale);
     const input = row.querySelector<HTMLInputElement>(`[data-trade-${spec.key}]`);
     if (input) {
       // The top end first: a range input clamps a value above its max.
@@ -208,7 +221,7 @@ export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): Tr
     }
     // Left alone while being typed in, so "0" never replaces a cleared box mid-edit.
     const exact = row.querySelector<HTMLInputElement>("[data-trade-exact]");
-    if (exact && exact !== document.activeElement) exact.value = String(amount);
+    if (exact && exact !== document.activeElement) exact.value = String(amount * scale);
   }
   for (const side of ["give", "ask"] as const) {
     const head = overlay.querySelector<HTMLElement>(`[data-trade-supply-head="${side}"]`);
@@ -235,8 +248,9 @@ export const bindTradeGoods = (
       if (slider && !slider.closest<HTMLElement>("[data-trade-slider]")?.hidden) slider.focus();
     });
     slider?.addEventListener("input", () => handlers.onAmount(spec.key, readAmount(slider), false));
-    exact?.addEventListener("input", () => handlers.onAmount(spec.key, readAmount(exact), true));
+    // The exact box is in shown units (Coin per day): typed amounts round to the nearest stored unit.
+    exact?.addEventListener("input", () => handlers.onAmount(spec.key, readAmount(exact, tradeDisplayScale(spec)), true));
     // Show the amount actually kept (e.g. "" or "-3" read as 0) once typing stops.
-    exact?.addEventListener("change", () => handlers.onAmount(spec.key, readAmount(exact), false));
+    exact?.addEventListener("change", () => handlers.onAmount(spec.key, readAmount(exact, tradeDisplayScale(spec)), false));
   }
 };

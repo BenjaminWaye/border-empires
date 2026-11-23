@@ -51,8 +51,8 @@ the same browser.
 **What it looks like.** One small card in the bottom-left corner: the same slot
 the checklist bubble uses, measured to clear the Center/AFC button. When that
 spot would cover the step's ringed tiles (projected by the active renderer,
-2D or true-3D) or a notification (salvage and refinery toasts on the map, the
-discovery-tip toast, the HUD v2 tracker and right-hand column), the card moves
+2D or true-3D) or a notification (salvage and refinery toasts on the map, an
+opened discovery-tip card, the HUD v2 tracker and right-hand column), the card moves
 to the mirrored spot on the right edge (`tutorial-guide-placement.ts`). It only
 moves when its current spot covers something and the other covers less. The
 card shows:
@@ -113,13 +113,16 @@ a landing whose AFC is off screen: that can wait up to 5 minutes for the player
 to look at it, and in the playtest the guide only appeared minutes in, at step
 3, with the pan and zoom steps ticked while it was hidden.
 
-**Discovery tips while it runs.** While the card is expanded on a step the
-player can do now, the discovery-tip toast stays quiet so there aren't two
-pieces of guidance on screen. `TOWN` and `FOOD`, which the find steps teach,
-are retired as if dismissed. Urgent feedback (`OUT_OF_REACH_EXPAND`,
-`ENEMY_EMPIRE`, `FIRST_MUSTER`) is never held. Every other tip waits in the
-queue and shows once the card is minimised, the guide is only waiting on a
-first contact, or it is finished or hidden (`client-onboarding-ui-overlays.ts`).
+**Discovery tips while it runs.** Discovery tips are "!" pins on the map at
+the tile they are about, and a tip's card opens only when its pin is tapped
+(`client-map-tip-pins/`, owner 2026-11-21: cards that opened on their own got in
+the way of play). While the card is expanded on a step the player can do now,
+tips stay unpinned so there aren't two pieces of guidance on screen. `TOWN` and
+`FOOD`, which the find steps teach, are retired as if dismissed. Urgent feedback
+(`OUT_OF_REACH_EXPAND`, `ENEMY_EMPIRE`, `FIRST_MUSTER`, `FIRST_DOCK`) is never
+held. Every other tip waits in the queue and is pinned once the card is
+minimised, the guide is only waiting on a first contact, or it is finished or
+hidden (`client-onboarding-ui-overlays.ts`).
 
 **Persistence.** `guideStatus` (`active` | `done` | `dismissed`) and
 `guideSteps` (completed step ids, at most 64) are stored on the gateway's
@@ -135,7 +138,7 @@ is unavailable until the recommended Manifest exists.
 
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
-| 1 | Explore | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers); then **Explore**: the scout drone is in the air (`scoutDroneFlight` with `landsAt` ahead). The drone is free and reports towns, food and rivals, so it is the guide's way to find what the foothold asks for. Explore is skipped for a House with no AFC (`afcRecovery.requiredSince`, no drone to send), counts as done when nothing within 16 tiles of home is unexplored, and, added after launch, counts as done for saved progress past it (`doneIfLaterStepDone`). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal, and on the new desktop HUD a tap on neutral land next to your border claims it | an unexplored tile: the nearest unexplored tile to home, pushed 8 tiles further along the same line (at most 16 from home, within a drone's 15-tile range past your land) while that tile is also unexplored (`tutorial-guide-explore-target.ts`), so tapping it opens the Explore menu |
+| 1 | Explore | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers); then **Explore**: the scout drone is in the air (`scoutDroneFlight` with `landsAt` ahead). The drone is free and reports towns, food and rivals, so it is the guide's way to find what the foothold asks for. Explore is skipped for a House with no AFC (`afcRecovery.requiredSince`, no drone to send), counts as done when nothing within 16 tiles of home is unexplored, and, added after launch, counts as done for saved progress past it (`doneIfLaterStepDone`). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal: a tap only selects (claims wait for the tile's Expand To or a second tap) | an unexplored tile: the nearest unexplored tile to home, pushed 8 tiles further along the same line (at most 16 from home, so the first flights report back within a visit) while that tile is also unexplored (`tutorial-guide-explore-target.ts`), so tapping it opens the Explore menu |
 | 2 | A foothold | two of the checklist goals (`onboardingChecklistState`): take a town, then take 4 food slots (judged from live tiles until the guide's own foothold steps are saved, then a constant DONE so later chapters skip the reach scan; never from the checklist's saved completion flag, which is account-wide and never resets). There are no separate "find" steps: they could only wait, with no instruction, when nothing was in sight | see below |
 | 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first, never an Explore; once a town is held it always asks for the beacon | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
 | 4 | Manpower | the manpower panel is open | manpower gauge |
@@ -168,6 +171,17 @@ the same rule.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
   (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
+- Otherwise, no town known at all and the server names one (the town step
+  only): "A town lies this way: tap the marked fog and Explore", ringed at the
+  nearest unowned town (`guideTownLead` on PLAYER_UPDATE, computed by
+  `apps/simulation/src/guide-town-lead/` from the neutral-town index, sent while
+  the player holds no town beyond their landing settlement), for as many
+  flights as it takes. Tapping that ringed tile plans the whole way there, one
+  stop per leg along the line, as many as the charges allow
+  (`client-scout-drone-lead-route.ts`): a single far stop is pulled back to the
+  leg range every flight. Added after Playtest Run 4, where a newcomer flew
+  five flights in random directions over three mornings, built four beacons
+  and quit.
 - Otherwise, nothing known: "tap the marked unexplored ground and Explore"
   while the drone can launch (ringed at the Explore target), or "Your scout
   drone is out: wait for its report" while it flies. Only for the first 3

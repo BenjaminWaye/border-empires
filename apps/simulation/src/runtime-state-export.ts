@@ -79,6 +79,7 @@ const toRuntimeExportTile = (
   if (typeof tile.warScarUntil === "number") entry.warScarUntil = tile.warScarUntil;
   if (typeof tile.razedWreckUntil === "number") entry.razedWreckUntil = tile.razedWreckUntil;
   if (typeof tile.razedWreck === "string") entry.razedWreck = tile.razedWreck;
+  if (typeof tile.campId === "string") entry.campId = tile.campId;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;
@@ -145,6 +146,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+        ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+        ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
         autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),

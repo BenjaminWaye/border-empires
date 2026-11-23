@@ -33,6 +33,8 @@ export type BugReportInput = {
   serverEvents: RecentEvent[];
   clientContext: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  // Client diagnostics bundle (what "Download diagnostics" used to save).
+  diagnostics?: Record<string, unknown>;
 };
 
 export type SlackAlerterOptions = {

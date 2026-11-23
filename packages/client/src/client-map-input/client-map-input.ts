@@ -1,3 +1,4 @@
+import { noteMapPress } from "../client-scout-drone/client-scout-drone-closing-press.js";
 import { noteGuideMapPanned, noteGuideMapZoomed } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
@@ -228,7 +229,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   window.addEventListener("mousedown", (ev) => {
     const target = ev.target as Node | null;
     if (!target) return;
-    if (deps.tileActionMenuEl.contains(target)) return;
+    const inMenu = deps.tileActionMenuEl.contains(target);
+    if (ev.button === 0) noteMapPress(state.tileActionMenu.visible && !inMenu); // a closing tap never starts a scout plan
+    if (inMenu) return;
     deps.hideTileActionMenu();
   });
   window.addEventListener("resize", () => deps.renderSidePanel());
@@ -349,6 +352,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchstart",
     (ev) => {
+      noteMapPress(state.tileActionMenu.visible); // a tap that closes the menu never starts a scout plan
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
         if (!t) return;

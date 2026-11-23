@@ -75,13 +75,12 @@ export type LockRecord = {
   /** Key of the muster tile that funded this attack (may differ from originKey for remote musters). */
   musterSourceKey?: string;
   /**
-   * Set on a barbarian ATTACK: the barbarian left its origin tile when the
-   * attack started (the tile was released to neutral at launch), so there is
-   * nothing left on the origin for a player to capture. `progress` is the
-   * origin's multiply progress at launch, which releasing the tile discards.
-   * Not persisted in snapshots: a recovered lock simply resolves without it.
+   * Set on a Planetary Defense action: the camp it came from (the origin's
+   * campId at launch). A win puts the target in this camp even if the origin
+   * was lost mid-fight. Not persisted in snapshots: a recovered lock falls
+   * back to the origin's current campId.
    */
-  barbarianLaunch?: { progress: number };
+  campId?: string;
 };
 
 export type LockedCombatResolution = {
@@ -320,6 +319,7 @@ export type SimulationTileWireDelta = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  campId?: string | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

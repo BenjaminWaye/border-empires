@@ -12,7 +12,7 @@ const ctx = {
 
 describe("GetPlayerTradeHoldings", () => {
   it("reads a player's coin, spare supply and active agreements (expired ones not counted)", () => {
-    expect(playerTradeHoldingsForRuntime(ctx, "p2")).toEqual({ gold: 120.5, resourceTradeHoldings: { FOOD: 3 }, activeSupplyAgreements: 1 });
+    expect(playerTradeHoldingsForRuntime(ctx, "p2")).toEqual({ gold: 120.5, resourceTradeHoldings: { FOOD: 3 }, activeSupplyAgreements: 1, returnableTowns: [] });
   });
   it("is undefined for an unknown player", () => {
     expect(playerTradeHoldingsForRuntime(ctx, "nobody")).toBeUndefined();
@@ -26,6 +26,13 @@ describe("GetPlayerTradeHoldings", () => {
       { ok: true, found: false },
       { ok: true, found: true, gold: 120.5, resource_trade_holdings_json: JSON.stringify({ FOOD: 3 }), active_supply_agreements: 1 }
     ]);
+  });
+  it("sends the towns a player could hand back as JSON", () => {
+    const town = { x: 1, y: 2, toPlayerId: "p1", tier: "TOWN" as const, capturedAt: 5 };
+    const runtime = { getPlayerTradeHoldings: () => ({ gold: 0, activeSupplyAgreements: 0, returnableTowns: [town] }) };
+    let response: unknown;
+    handleGetPlayerTradeHoldings(runtime, { request: { player_id: "p2" } }, (_error, value) => { response = value; });
+    expect(response).toMatchObject({ returnable_towns_json: JSON.stringify([town]) });
   });
   it("reports a lookup that throws as a gRPC error instead of escaping the handler", () => {
     const runtime = { getPlayerTradeHoldings: () => { throw new Error("boom"); } };

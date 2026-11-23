@@ -23,11 +23,14 @@ const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, con
   },
   now: NOW,
   alliesOf: () => [],
+  requesterAlliesAtWarWithAi: [],
   ...context
 });
 
 const AI_ID = "ai-1";
 const HUMAN_ID = "human-1";
+/** Fought a day ago (outside the 6h war window): neighbours still pay the 12h neighbour price. */
+const foughtLately = () => quietContext({ lastCombatAt: NOW - 12 * 60 * 60_000, lastPlayerAttackAt: NOW - 12 * 60 * 60_000 });
 
 const baseRequest: SocialTruceRequest = {
   id: "req-1",
@@ -128,18 +131,20 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("declines naming the shortfall when an evenly matched neighbour can't pay its price", async () => {
     const { deps, acceptTruce, rejectTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 10 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 10 }),
+      foughtLately()
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(requestTruce).not.toHaveBeenCalled();
-    // Neighbours at peace, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160; the requester holds 10.
+    // Neighbours the requester attacked yesterday, so Annoyed: 12h x 1.5 (24h truce) x 1.5 = 27h of 2 coin/min = 3240.
+    // The requester holds 10 coin and pledges all 60 coin/hour of spare income (worth 24h x 0.5 = 12 each, so 720): 2510 short.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
         [HUMAN_ID]:
-          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 2150 coin more than you can offer.",
+          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 2510 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
       startCooldown: true,
@@ -150,17 +155,18 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("counter-offers with a price the requester can pay", async () => {
     const { deps, rejectTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 }),
+      foughtLately()
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     // Review of #2783: a counter isn't a "no", so the Chronicle logs no decline.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true, recordDecline: false }));
-    // From the AI's side: it gives nothing and asks the requester for 2160 coin.
+    // From the AI's side: it gives nothing and asks the requester for 3240 coin (27h of 2 coin/min, as above).
     expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0 }, ask: { gold: 2160 } }
+      terms: { give: { gold: 0 }, ask: { gold: 3240 } }
     });
   });
 
@@ -366,7 +372,8 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     expect(rejectAlliance).toHaveBeenCalledOnce();
     expect(requestAlliance).toHaveBeenCalledWith(AI_ID, "Human", {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0 }, ask: { gold: 46 + 24 * 60 } }
+      // The tribute that lifts it to Pleased; the alliance itself is earned, not bought.
+      terms: { give: { gold: 0 }, ask: { gold: 46 } }
     });
   });
 

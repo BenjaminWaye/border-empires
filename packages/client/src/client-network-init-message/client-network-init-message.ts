@@ -235,6 +235,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.relicMapHints.clear();
+  // INIT carries no town lead: drop last session's (another account or season) until a PLAYER_UPDATE sends one.
+  state.guideTownLead = undefined;
   applyRelicAndProgressionUpdate(state, player);
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;

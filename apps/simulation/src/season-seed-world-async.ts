@@ -312,7 +312,8 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
   }
 
-  assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
+  const { islandIdByTile } = buildIslandMap(terrainRuntime.terrainAtRuntime);
+  assignMissingTownNames(townsByTile.values(), islandIdByTile, worldSeed);
   await onYield?.();
 
   seedBarbarianTiles({
@@ -322,7 +323,9 @@ export const createSeasonSeedWorldAsync = async (
     docksByTile,
     worldSeed,
     terrainAt,
-    seeded01: terrainRuntime.seeded01
+    seeded01: terrainRuntime.seeded01,
+    startSites: fairSpawnSites,
+    landmassAt: (x, y) => islandIdByTile.get(tileKey(x, y))
   });
   await onYield?.();
 
@@ -364,6 +367,7 @@ export const createSeasonSeedWorldAsync = async (
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT
     }),
+    fairSpawnSites: fairSpawnSites.map((site) => ({ x: site.x, y: site.y })),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,

@@ -102,7 +102,7 @@ const chooseStarterSpawn = (
   const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
   if (spawn) {
     const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !blockedTileKeys.has(simulationTileKey(x, y)) && !ctx.reachOwnerAt(x, y));
-    ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
+    ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", ...(fair?.rosterSource ? { rosterSource: fair.rosterSource } : {}), x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
   }
   return spawn;
 };

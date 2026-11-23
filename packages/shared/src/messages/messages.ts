@@ -3,10 +3,12 @@ import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
 import type { ResourceType } from "../types.js";
-import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, recurringCoinHasSlot } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, TOWNS_ONLY_IN_TRUCES_MESSAGE, recurringCoinHasSlot, termsReturnTowns } from "../diplomacy-terms/diplomacy-terms.js";
 
 /** Alliance and independent trade terms: Coin per hour rides on a supply contract there. */
-const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE });
+// Alliances and resource trades: towns are handed back only in a truce or as a gift.
+const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE })
+  .refine((terms) => !termsReturnTowns(terms), { message: TOWNS_ONLY_IN_TRUCES_MESSAGE });
 
 const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
   AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
@@ -278,7 +280,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
     // whatever attack its auto-fire launches (see MusterState.commitManpower).
     commitManpower: z.number().positive().optional(),
-    // ADVANCE only: hunt Planetary Defense (see MusterState.hunt).
+    // Legacy: Hunt Planetary Defense, removed with Planetary Defense camps. Still
+    // accepted so older clients aren't rejected; the gateway never forwards it.
     hunt: z.boolean().optional(),
     ...FrontierCommandMetadataSchema
   }),
@@ -475,14 +478,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
   z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
-  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts), or through
+  // `waypoints` in order when given ((x, y) is then the first stop; scout-drone-route.ts).
   z.object({
     type: z.literal("EXPLORE"),
     x: z.number().int(),
-    y: z.number().int()
+    y: z.number().int(),
+    waypoints: z.array(z.object({ x: z.number().int(), y: z.number().int() })).min(1).max(8).optional()
   }),
   // Call the scout drone home early: it turns back over the tile it is over now.
-  z.object({ type: z.literal("RECALL_SCOUT") })
+  z.object({ type: z.literal("RECALL_SCOUT") }),
+  // The player has seen this scout report on some device: the server stops resending it (scout-drone-held-report.ts).
+  z.object({ type: z.literal("SCOUT_REPORT_SEEN"), id: z.string().min(1).max(200) })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

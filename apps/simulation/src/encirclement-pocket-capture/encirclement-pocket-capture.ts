@@ -26,11 +26,22 @@ const neighborKeys = (key: string): string[] => {
   return keys;
 };
 
+/** True when `key` is cut off and touches land `claimantId` holds. */
+const cutOffTouchingClaimant = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  cutOff: ReadonlySet<string>,
+  claimantId: string,
+  key: string
+): boolean => cutOff.has(key) && neighborKeys(key).some((nk) => tiles.get(nk)?.ownerId === claimantId);
+
 /**
- * The cut-off tiles reachable from a claimant-held changed tile by plain
- * 8-neighbour steps through cut-off tiles. Cut-off components reached only
- * through the cut-off player's Aether bridges or dock sea lanes are left
- * out: the claimant has no such link, so they would land unsupplied.
+ * The cut-off tiles reachable by plain 8-neighbour steps through cut-off
+ * tiles from a claimant-held changed tile, or from a changed tile that is
+ * itself cut off and touches the claimant's land (a SETTLED tile the
+ * claimant's reach just unsettled -- see unsettle-encirclement.ts). Cut-off
+ * components reached only through the cut-off player's Aether bridges or
+ * dock sea lanes are left out: the claimant has no such link, so they would
+ * land unsupplied.
  */
 const landAdjacentPocket = (
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -41,6 +52,10 @@ const landAdjacentPocket = (
   const pocket = new Set<string>();
   const queue: string[] = [];
   for (const key of changedKeys) {
+    if (cutOffTouchingClaimant(tiles, cutOff, claimantId, key) && !pocket.has(key)) {
+      pocket.add(key);
+      queue.push(key);
+    }
     if (tiles.get(key)?.ownerId !== claimantId) continue;
     for (const nk of neighborKeys(key)) {
       if (cutOff.has(nk) && !pocket.has(nk)) {
@@ -61,12 +76,14 @@ const landAdjacentPocket = (
 };
 
 /**
- * Whether `claimantId` may take the frontier an enemy capture just cut off.
- * Only a real player who now holds one of the changed tiles qualifies (the
- * pocket it takes is then limited to land touching that tile -- see
- * landAdjacentPocket). Barbarians never claim pockets (their land is SETTLED-only and ownerless
- * on loss), and a changed tile the claimant no longer holds (e.g. a
- * barbarian defender's tile released back to neutral) gives no claim.
+ * Whether `claimantId` may take the frontier its action just cut off. Only a
+ * real player who holds one of the changed tiles (combat: the fought-over
+ * tile) or land next to one (an unsettled tile -- see unsettle-encirclement.ts)
+ * qualifies; the pocket it takes is then limited to land touching that tile
+ * (landAdjacentPocket). Barbarians never claim pockets (their land is
+ * SETTLED-only and ownerless on loss), and a changed tile with no claimant
+ * land on or next to it (e.g. a barbarian defender's tile released back to
+ * neutral) gives no claim.
  */
 export const canClaimEncirclementPocket = (
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -77,7 +94,7 @@ export const canClaimEncirclementPocket = (
   Boolean(claimantId) &&
   claimantId !== cutOffPlayerId &&
   claimantId !== BARBARIAN_PLAYER_ID &&
-  changedKeys.some((key) => tiles.get(key)?.ownerId === claimantId);
+  changedKeys.some((key) => tiles.get(key)?.ownerId === claimantId || neighborKeys(key).some((nk) => tiles.get(nk)?.ownerId === claimantId));
 
 /**
  * Hands cut-off FRONTIER tiles to the player whose capture cut them off,
@@ -87,7 +104,8 @@ export const canClaimEncirclementPocket = (
  * (capturedStructureFields) and any muster flag or sabotage dropped. No
  * capture hold is granted: these tiles were never fought over.
  *
- * Only land touching a claimant-held changed tile is taken. Kept on the
+ * Only land touching a claimant-held changed tile (or a cut-off changed
+ * tile bordering the claimant) is taken. Kept on the
  * neutral release: tiles reached only over the cut-off player's bridges or
  * sea lanes, town tiles (a town changing hands runs the capture aftermath
  * -- population loss, settlement relocation -- that only a real ATTACK

@@ -95,8 +95,8 @@ export const latestFlipPerTile = (flips: readonly TerritoryFlip[]): TerritoryFli
 
 /**
  * A barbarian stepping onto or off neutral land (`undefined <-> barbarianId`).
- * The barbarian walk only ever logged the step onto a tile -- never the
- * release of the tile it left (runtime-barbarian-walk.ts) -- so these entries
+ * The old barbarian walk (replaced by Planetary Defense camps) only ever
+ * logged the step onto a tile -- never the release of the tile it left -- so these entries
  * were half a picture, and at ~47k/day they crowded the 50k entry cap and
  * evicted real player history. No public aggregation wants them (wars,
  * hotspots, momentum and combat all exclude the barbarian), and no personal

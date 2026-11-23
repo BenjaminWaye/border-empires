@@ -39,6 +39,8 @@ export type RecoveredPlayerState = {
   lifetimeGarrisons?: number;
   islandNames?: IslandNameClaim[];
   houseCharges?: import("@border-empires/shared").HouseChargesState;
+  scoutChargeSpends?: number[];
+  scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see
   // runtime-waystation-activation.ts. Must round-trip here or a restart
@@ -88,5 +90,7 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
     : {}),
   ...(player.devQueue ? { devQueue: player.devQueue.map((entry) => ({ ...entry })) } : {}),
   ...(player.islandNames ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
-  ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {})
+  ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+  ...(player.scoutChargeSpends ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+  ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {})
 });

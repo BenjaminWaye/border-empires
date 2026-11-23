@@ -77,8 +77,9 @@ describe("phone Diplomacy list: layout", () => {
     expect(html.match(/data-v2-scroll=/g)).toHaveLength(1);
   });
 
-  it("links to the Alliances panel", () => {
-    expect(diplomacyListHtml(input())).toContain('data-v2-dip-alliances=""');
+  // 2026-11-21: "Alliances & supply ▸" opened the old pre-v2 Alliances panel, now deleted.
+  it("has no link out to the removed Alliances panel", () => {
+    expect(diplomacyListHtml(input())).not.toContain("data-v2-dip-alliances");
   });
 
   it("keeps the empty note out of the narrow grid", () => {

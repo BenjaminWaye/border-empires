@@ -80,6 +80,8 @@ export type HouseCharge = {
   crossWater?: boolean;
   /** METROPOLIS: towns on the landmass when dealt. */
   areaTowns?: number;
+  /** Dealt on or after 2026-11-20: `renown` is the one-scale difficulty score's pips, and a held charge banks one Domain per pip. Absent on older charges, which keep pay by rarity. */
+  difficultyScored?: true;
 };
 
 /** A House's charges, stored on its player record. */
@@ -117,6 +119,8 @@ export type HouseChargeResult = {
   art?: string;
   /** RELIC: installation family, recorded once the House held it. */
   relicType?: string;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Every House's kept charges and their outcome, recorded on the season at crowning. */
@@ -187,6 +191,8 @@ export type HouseChargeView = {
   crossWater?: boolean;
   /** METROPOLIS: towns on the landmass when dealt. */
   areaTowns?: number;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */
@@ -211,17 +217,41 @@ export const houseChargeChoiceError = (
   return undefined;
 };
 
-/** Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain Weight per fulfilled charge, for empires that hold territory. */
-export const HOUSE_CHARGE_DOMAIN_WEIGHT = 1;
-/** Extra Stipend Influence per charge held at the crowning, for players paid a Stipend (no territory). */
-export const HOUSE_CHARGE_STIPEND_INFLUENCE = 3;
+/** Highest difficulty: pips run 1..HOUSE_CHARGE_MAX_PIPS. */
+export const HOUSE_CHARGE_MAX_PIPS = 4;
 
-/** How many charges each House held at the crowning. */
-export const heldHouseChargeCounts = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
-  const counts: Record<string, number> = {};
+/** A charge's difficulty pips (its `renown`), clamped to 1..HOUSE_CHARGE_MAX_PIPS. */
+export const houseChargePips = (renown: number): number => Math.max(1, Math.min(HOUSE_CHARGE_MAX_PIPS, Math.round(renown) || 1));
+
+/** Card rarity follows difficulty: 1-2 pips Common, 3 Rare, 4 Mythic. */
+export const houseChargeRarityForPips = (renown: number): HouseChargeRarity => {
+  const pips = houseChargePips(renown);
+  return pips >= 4 ? "MYTHIC" : pips === 3 ? "RARE" : "COMMON";
+};
+
+/** Pay for charges dealt before difficulty scoring (no `difficultyScored`): by stored rarity, as they were promised. */
+export const HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY: Readonly<Record<HouseChargeRarity, number>> = { COMMON: 1, RARE: 2, MYTHIC: 4 };
+
+/**
+ * Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain score banked on
+ * the account for a charge held at a crowning: one per difficulty pip (+1..+4)
+ * for a difficulty-scored charge, else by its stored rarity (legacy). Every
+ * account banks it, with or without territory in space; it is the charge's
+ * only galaxy reward (no Stipend Influence).
+ */
+export const houseChargeDomain = (charge: Pick<HouseChargeResult, "rarity" | "renown" | "difficultyScored">): number =>
+  charge.difficultyScored ? houseChargePips(charge.renown) : (HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY[charge.rarity] ?? 0);
+
+/** Domain score one charge result banks when held at the crowning, otherwise 0. */
+export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "rarity" | "renown" | "difficultyScored">): number =>
+  charge.held ? houseChargeDomain(charge) : 0;
+
+/** Domain score each House banked from the charges it held at one crowning (Houses with none are omitted). */
+export const heldHouseChargeDomainWeights = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
+  const weights: Record<string, number> = {};
   for (const house of houses ?? []) {
-    const held = house.charges.filter((charge) => charge.held).length;
-    if (held > 0) counts[house.playerId] = held;
+    const weight = house.charges.reduce((sum, charge) => sum + houseChargeDomainWeight(charge), 0);
+    if (weight > 0) weights[house.playerId] = weight;
   }
-  return counts;
+  return weights;
 };

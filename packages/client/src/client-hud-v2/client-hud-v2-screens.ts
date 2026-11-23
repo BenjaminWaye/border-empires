@@ -33,12 +33,12 @@ import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { crestClosesProfile, profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { pendingTechCommissionId } from "../client-tech-commission/client-tech-commission.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
-import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen } from "./client-hud-v2-town-runtime.js";
 import { cancelTownPlotPick } from "./client-hud-v2-town-plot-pick.js";
 import { townClick } from "./client-hud-v2-town-click.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -301,7 +301,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
     ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: state.houseCharges ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
   }));
 };
 
@@ -368,7 +368,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     return true;
   }
   if (manifestClick(deps, target, () => renderScreen(deps), () => closeScreen(deps, { toMap: true }))) return true;
-  if (dealPactClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
+  if (dealPactClick(deps, target)) return true;
   const open = target.closest<HTMLElement>("[data-v2-dip-open]");
   if (open) {
     rememberDiplomacyListScroll();
@@ -424,7 +424,6 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
       focusCamera(deps, x, y);
       const tile = deps.state.tiles.get(`${deps.wrapX(x)},${deps.wrapY(y)}`);
       if (tile) {
-        suppressAutoExpand();
         const centre = screenCentre();
         deps.actionFlow.openSingleTileActionMenu(tile, centre.x, centre.y);
       }

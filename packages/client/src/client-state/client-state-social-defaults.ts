@@ -20,18 +20,14 @@ export const createInitialSocialState = () => ({
   activeTruces: [] as ActiveTruceView[],
   truceBreaksThisSeason: [] as TruceBreakView[],
   // Players whose territory this client has seen this season -- the only
-  // players the Alliances tab lets you propose to. See client-met-players.ts.
+  // empires the Diplomacy list shows as met. See client-met-players.ts.
   metPlayerIds: new Set<string>(),
   metPlayersScannedRevision: -1,
   // "<me>|<seasonId>" whose saved met set is loaded, and the set size last saved (-1: not yet).
   metPlayersLoadedFor: "",
   metPlayersSavedCount: -1,
-  // Set by a tile's Diplomacy action: the Alliances panel highlights and
-  // scrolls to this player's card until `until`. See client-alliance-focus.ts.
-  socialFocus: undefined as { playerId: string; until: number; scrollPending: boolean } | undefined,
-  // The one "Players you've met" row showing its action buttons; the rest are
-  // collapsed to a line each. See client-alliance-row-toggle.ts.
-  expandedSocialPlayerId: undefined as string | undefined,
+  // Set by a tile's Diplomacy action; the v2 HUD opens that empire's deal on its next frame and clears it.
+  requestedDiplomacyTargetId: undefined as string | undefined,
   activePlayerProfileId: undefined as string | undefined,
   // Minimap's Diplomacy overlay: tints other empires' land by stance. See client-diplomacy-overlay.ts.
   showDiplomacyOverlay: false,

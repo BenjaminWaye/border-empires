@@ -97,6 +97,7 @@ export const tileDeltaFromState = (
     ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
     ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
     ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+    ...(typeof tile.campId === "string" ? { campId: tile.campId } : {}),
     ...townWireFields(enrichedTile.town),
     ...(yieldView ? { yieldRate: yieldView.yieldRate } : {})
   };

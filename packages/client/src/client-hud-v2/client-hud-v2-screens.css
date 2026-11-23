@@ -228,7 +228,6 @@ body.hud-v2-screen-afc #side-panel {
 /* ---- Diplomacy ---- */
 .v2d-reqs, .v2d-grid-wrap { padding: 14px 18px; margin-bottom: 14px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2d-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
-.v2d-list-links { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .v2d-pact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
 .v2d-pact-state { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-amber); text-transform: uppercase; letter-spacing: 0.08em; }
 .v2d-pact-note { font-size: 12px; color: var(--v2-muted); }
@@ -317,6 +316,9 @@ body.hud-v2-screen-afc #side-panel {
   font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
 }
 .v2c-show:hover { background: var(--v2-gold); color: #120f0b; }
+/* A scout report's finds, each a link to where it is (client-hud-v2-chronicle-scout-chips.ts). */
+.v2c-find { padding: 0; border: 0; background: none; color: var(--v2-gold-hi); font: inherit; text-decoration: underline; text-decoration-color: rgba(240, 207, 130, 0.45); text-underline-offset: 3px; cursor: pointer; }
+.v2c-find:hover { text-decoration-color: currentColor; }
 /* Chronicle tabs (Yours / World / Updates). The legacy activity dashboard they replace never shows under the new HUD. */
 .v2c-tabs { display: flex; gap: 2px; padding: 0 14px; border-bottom: 1px solid var(--v2-line); }
 .v2c-tab { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--v2-soft); font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }

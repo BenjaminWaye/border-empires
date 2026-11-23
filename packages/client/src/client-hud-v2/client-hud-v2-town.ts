@@ -29,6 +29,9 @@ import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
 
+/** An ungarrisoned town gives no coin or manpower: "none" sent yet, or a garrison "on_its_way". */
+export type TownGarrisonState = "none" | "on_its_way";
+
 export type TownScreenInput = {
   town: Tile;
   focus: Tile;
@@ -42,6 +45,8 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
+  /** Absent once the town is garrisoned. */
+  garrison?: TownGarrisonState | undefined;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
@@ -99,8 +104,13 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
   const character = townCharacterLabelForProfile(terrainProfile, coastal);
   const signed = (n: number): string => `${n >= 0 ? "+" : ""}${n}%`;
+  // A Standard Town's terrain is neutral: "+0% · +0% · +0%" read as a perk that had lost its numbers (Playtest Run 4).
+  const terrainModsText = (m: { goldOutputPercent: number; manpowerCapacityPercent: number; manpowerRegenPercent: number }): string =>
+    m.goldOutputPercent === 0 && m.manpowerCapacityPercent === 0 && m.manpowerRegenPercent === 0
+      ? "No terrain bonus"
+      : `Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}`;
   const modifiers = townStatModifiersForProfile(terrainProfile, coastal).map((m) =>
-    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}</span></span></div>`
+    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">${terrainModsText(m)}</span></span></div>`
   ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false, biota: input.biota }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
@@ -110,10 +120,16 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
   const foodBase = townFoodSlotDemandForTier(town.populationTier);
+  // An ungarrisoned town gives nothing yet, whether or not a coin figure has arrived: say so, not a bare dash.
+  const ungarrisoned = input.garrison !== undefined;
   const stats = [
     // A town with its fed state but no coin figure is mid-refresh (the tile-detail request is in flight), not coinless.
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) || zeroWhy ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
+    ungarrisoned
+      ? input.garrison === "none"
+        ? { k: "COIN", v: "Not garrisoned", n: "Garrison to start coin", tone: " v2t-warn" }
+        : { k: "COIN", v: "Garrisoning…", n: "Starts once garrisoned", tone: "" }
+      : { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) || zeroWhy ? " v2t-warn" : "" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: ungarrisoned ? "Starts once garrisoned" : `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: input.garrison === "none" || biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");

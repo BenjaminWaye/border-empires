@@ -79,12 +79,30 @@ describe("season worldgen", () => {
     );
 
     const barbarianTiles = generated.initialState.tiles.filter((tile) => tile.ownerId === "barbarian-1");
-    // Seed target is 30 (kept small vs. the old 80) so barbarians start
-    // small; growth is separately capped in the planner (MAX_BARBARIAN_TILES).
-    // Placement can fall a little short of target when land is scarce, so
-    // assert a band.
-    expect(barbarianTiles.length).toBeGreaterThanOrEqual(15);
-    expect(barbarianTiles.length).toBeLessThanOrEqual(30);
+    // One patrol is posted ~20 tiles out from each of the 50 predetermined
+    // start sites; those spend the 30-tile seed budget first, so a full
+    // roster seeds no random tiles. Each becomes a one-tile Planetary Defense
+    // camp at boot (camps are capped at MAX_PLANETARY_DEFENSE_CAMPS).
+    const roster = generated.initialState.fairSpawnSites ?? [];
+    expect(roster).toHaveLength(50);
+    const ringDistance = (site: { x: number; y: number }, tile: { x: number; y: number }): number => {
+      const dx = Math.abs(site.x - tile.x);
+      const dy = Math.abs(site.y - tile.y);
+      return Math.max(Math.min(dx, WORLD_WIDTH - dx), Math.min(dy, WORLD_HEIGHT - dy));
+    };
+    // Every site gets a patrol, islands included: 50 patrols, so no random
+    // tiles (patrols spend the 30-tile budget first). Each patrol is normally
+    // 12+ from every site; crowded or remote-island sites fall back to 10+.
+    // Never closer than 10: live spawning rejects a site with settled land
+    // (barbarians included) within 10.
+    // 50 on this seed; allow a remote-island miss or two from unrelated worldgen tweaks.
+    expect(barbarianTiles.length).toBeGreaterThanOrEqual(48);
+    expect(barbarianTiles.length).toBeLessThanOrEqual(50);
+    for (const site of roster) {
+      expect(barbarianTiles.every((tile) => ringDistance(site, tile) >= 10)).toBe(true);
+    }
+    const nearestPatrol = roster.map((site) => Math.min(...barbarianTiles.map((tile) => ringDistance(site, tile))));
+    expect(nearestPatrol.every((distance) => distance <= 60)).toBe(true);
     expect(barbarianTiles.every((tile) => tile.ownershipState === "SETTLED")).toBe(true);
     expect(barbarianTiles.every((tile) => tile.terrain === "LAND")).toBe(true);
     expect(barbarianTiles.every((tile) => !tile.town && !tile.dockId)).toBe(true);
