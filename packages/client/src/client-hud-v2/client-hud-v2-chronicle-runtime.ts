@@ -105,6 +105,8 @@ const aheadForecast = (deps: HudV2Deps, nowMs: number): { forecast: VisitForecas
 
 /** Fetches what a tab shows the first time it is opened (the activity timeline refetches on every open). */
 export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
+  // Opening the Chronicle or a tab rebuilds Ahead, so a decision just acted on is not still listed.
+  aheadCache = undefined;
   if (tab === "yours") requestPersonalActivity(deps.state, deps);
   else if (tab === "world" && !deps.state.activityDashboard.worldPulse) requestWorldPulse(deps.state, deps);
 };

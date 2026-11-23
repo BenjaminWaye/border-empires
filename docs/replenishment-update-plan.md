@@ -655,6 +655,16 @@ From `docs/visit-as-a-turn.md`:
    One town opens its tile and menu; several open the Towns screen. Town
    checks are the map badges' own (`shouldShowTownUnfedWarning`,
    `shouldShowTownUpgradeReadyBadge`, `isOwnTownUngarrisoned`).
+   - Rows match what the screens would let the player do: a town upgrade
+     needs the Coin and a free FOOD slot (otherwise it is listed last as
+     "big enough", with what it needs); an unfed town is listed as unfed
+     only; a Manifest row uses the Manifest screen's own affordability check
+     and is hidden while one is being commissioned; free slots are only
+     mentioned when nothing is queued or set to auto-garrison and the player
+     has the manpower for a garrison.
+   - "Nearly full" means the next batch fills the pool with regen to spare.
+     The server caps its next-batch figure at the room left, so the row gives
+     no number for what would be lost.
    - The tracker's "Next step" is unchanged (owner call 2026-11-20: it only
      lists fixes for a shortage).
    - Not included: abilities off cooldown (they are cast on a target tile,

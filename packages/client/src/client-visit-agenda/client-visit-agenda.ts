@@ -26,9 +26,22 @@ export type AgendaTown = {
 };
 
 export type AgendaInput = {
-  manpower: { current: number; cap: number; nextBatchInMs: number | undefined; nextBatchAmount: number | undefined };
-  /** Development slots in use, the limit, and how much is queued behind them. */
-  slots: { busy: number; limit: number; queued: number };
+  manpower: {
+    current: number;
+    cap: number;
+    nextBatchInMs: number | undefined;
+    /** The server's figure for the next batch. It never exceeds the room left, so it shows a fill, not an overflow. */
+    nextBatchAmount: number | undefined;
+    /** A full window of regen at the current rate: what the batch would be with room for all of it. */
+    fullBatch: number;
+  };
+  /**
+   * Development slots in use, the limit, how much is queued or planned behind them, and whether the player
+   * has the manpower to start anything (a garrison is the cheapest thing a slot can run).
+   */
+  slots: { busy: number; limit: number; queued: number; canStart: boolean };
+  /** Free FOOD slots: a town tier upgrade needs one. */
+  freeFoodSlots: number;
   towns: readonly AgendaTown[];
   /** Whole Coin the player can spend. */
   gold: number;
@@ -65,20 +78,21 @@ const townItem = (kind: AgendaKind, towns: readonly AgendaTown[], one: (town: Ag
 };
 
 const manpowerItem = (manpower: AgendaInput["manpower"]): AgendaItem | undefined => {
-  const { current, cap, nextBatchInMs, nextBatchAmount } = manpower;
+  const { current, cap, nextBatchInMs, nextBatchAmount, fullBatch } = manpower;
   const when = nextBatchInMs === undefined ? "" : ` in ${duration(nextBatchInMs)}`;
   if (current >= cap) {
     return { kind: "manpower_full", title: "Manpower is full", sub: `The next batch${when} adds nothing until you spend some`, open: "manpower" };
   }
-  if (nextBatchAmount === undefined) return undefined;
-  const lost = current + nextBatchAmount - cap;
-  if (lost < 1) return undefined;
-  return { kind: "manpower_near_full", title: "Manpower is nearly full", sub: `Spend ${count(Math.ceil(lost))} before the next batch${when} to keep all of it`, open: "manpower" };
+  // The server caps its figure at the room left. A batch that fills the pool while a full window of regen is
+  // more than that room means some of it has nowhere to go; how much is banked is not known here, so no number.
+  const room = cap - current;
+  if (nextBatchAmount === undefined || nextBatchAmount < room || fullBatch - room < 1) return undefined;
+  return { kind: "manpower_near_full", title: "Manpower is nearly full", sub: `The next batch${when} fills it: spend some first so none is lost`, open: "manpower" };
 };
 
 const slotsItem = (slots: AgendaInput["slots"]): AgendaItem | undefined => {
   const free = slots.limit - slots.busy;
-  if (free <= 0 || slots.queued > 0) return undefined;
+  if (free <= 0 || slots.queued > 0 || !slots.canStart) return undefined;
   const all = slots.busy === 0;
   return {
     kind: "slots_idle",
@@ -91,9 +105,17 @@ const slotsItem = (slots: AgendaInput["slots"]): AgendaItem | undefined => {
 export const visitAgenda = (input: AgendaInput): AgendaItem[] => {
   const { towns, gold } = input;
   const have = `you have ${count(gold)}`;
-  const upgradable = towns.filter((town) => town.upgrade && !town.ungarrisoned);
-  const affordable = upgradable.filter((town) => (town.upgrade?.goldCost ?? Infinity) <= gold);
-  const saving = upgradable.filter((town) => (town.upgrade?.goldCost ?? 0) > gold);
+  // An unfed town is listed under that problem only: an upgrade adds FOOD demand it can't meet.
+  const upgradable = towns.filter((town) => town.upgrade && !town.ungarrisoned && !town.unfed);
+  // The tile menu's own gate: the Coin and one free FOOD slot (client-tile-action-town-growth.ts).
+  const hasFoodSlot = input.freeFoodSlots >= 1;
+  const affordable = hasFoodSlot ? upgradable.filter((town) => (town.upgrade?.goldCost ?? Infinity) <= gold) : [];
+  const waiting = upgradable.filter((town) => !affordable.includes(town));
+  const needs = (town: AgendaTown): string => {
+    const cost = town.upgrade?.goldCost ?? 0;
+    const parts = [...(cost > gold ? [`${count(cost)} Coin · ${have}`] : []), ...(hasFoodSlot ? [] : ["a free FOOD slot"])];
+    return `Needs ${parts.join(" and ")}`;
+  };
   const items: Array<AgendaItem | undefined> = [
     manpowerItem(input.manpower),
     townItem("town_ungarrisoned", towns.filter((town) => town.ungarrisoned),
@@ -101,7 +123,7 @@ export const visitAgenda = (input: AgendaInput): AgendaItem[] => {
       (n) => `${n} towns are not garrisoned`),
     // An ungarrisoned town is listed once, under the worse problem.
     townItem("town_unfed", towns.filter((town) => town.unfed && !town.ungarrisoned),
-      (town) => ({ title: `${town.name} is unfed`, sub: "Its growth is paused until it gets FOOD" }),
+      (town) => ({ title: `${town.name} is unfed`, sub: "It earns no Coin and does not grow until it gets FOOD" }),
       (n) => `${n} towns are unfed`),
     townItem("town_upgrade", affordable,
       (town) => ({ title: `${town.name} can become a ${town.upgrade?.tier ?? "City"}`, sub: `${count(town.upgrade?.goldCost ?? 0)} Coin · ${have}` }),
@@ -110,12 +132,12 @@ export const visitAgenda = (input: AgendaInput): AgendaItem[] => {
       ? { kind: "manifest", title: "A Manifest can be commissioned", sub: `${count(input.manifestCost)} Coin · ${have}`, open: "manifest" }
       : undefined,
     input.afcUpgradesReady > 0
-      ? { kind: "afc_upgrade", title: input.afcUpgradesReady === 1 ? "An AFC upgrade is ready" : `${input.afcUpgradesReady} AFC upgrades are ready`, sub: "Choose it at your landing base", open: "afc" }
+      ? { kind: "afc_upgrade", title: input.afcUpgradesReady === 1 ? "An AFC upgrade is ready" : `${input.afcUpgradesReady} AFC upgrades are ready`, sub: "Choose at your landing base", open: "afc" }
       : undefined,
     slotsItem(input.slots),
-    townItem("town_upgrade_saving", saving,
-      (town) => ({ title: `${town.name} is big enough to become a ${town.upgrade?.tier ?? "City"}`, sub: `Needs ${count(town.upgrade?.goldCost ?? 0)} Coin · ${have}` }),
-      (n) => `${n} towns are big enough to upgrade once you have the Coin`)
+    townItem("town_upgrade_saving", waiting,
+      (town) => ({ title: `${town.name} is big enough to become a ${town.upgrade?.tier ?? "City"}`, sub: needs(town) }),
+      (n) => `${n} towns are big enough to upgrade${hasFoodSlot ? " once you have the Coin" : " once a FOOD slot is free"}`)
   ];
   return items
     .filter((item): item is AgendaItem => item !== undefined)
