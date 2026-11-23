@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScoutDroneFlight } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { afcScoutDroneActions, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { launchScoutPlan } from "./client-scout-drone-plan.js";
 import { noteMapPress, takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
+import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 
 const flight = (landsAt: number): ScoutDroneFlight => ({
   launchedAt: 0,
@@ -137,6 +138,67 @@ describe("planning a scout flight", () => {
     handleScoutDronePickClick(state, 1, 5, d, 0);
     expect(launchScoutPlan(state, d, 0)).toBe(true);
     expect(d.sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "EXPLORE", waypoints: [expect.any(Object)] }));
+  });
+
+  // Player report 2026-11-21: a tap on a flying drone's numbered stop added a stop beside it, numbered after the
+  // whole route ("5" never placed); trying to take that one off added a "7".
+  describe("taps on the flying drone's stops", () => {
+    // Out from the AFC at (1,1) down to (1,5), then across to (6,5).
+    const outbound = [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5]] as const;
+    const routeFlight = (): ScoutDroneFlight => ({
+      ...flight(60_000),
+      targetX: 6,
+      targetY: 5,
+      steps: outbound.map(([x, y], i) => ({ x, y, at: i * 1_000 })),
+      turnIndex: outbound.length - 1,
+      waypoints: [{ x: 1, y: 5 }, { x: 6, y: 5 }]
+    });
+
+    // The true-3D map numbers these stops; the 2D map draws none.
+    beforeEach(() => setTrue3DRendererActive(true));
+    afterEach(() => setTrue3DRendererActive(false));
+
+    it("never start a plan on a stop, or on a tile beside one", () => {
+      const state = pickingState(routeFlight());
+      expect(handleScoutDronePickClick(state, 6, 5, deps(), 0)).toBe(true);
+      expect(handleScoutDronePickClick(state, 7, 6, deps(), 0)).toBe(true);
+      expect(state.scoutDronePicking).toMatchObject({ active: false, stops: [] });
+    });
+
+    it("are taps like any other with a plan open, which draws its own route instead", () => {
+      const state = pickingState(routeFlight());
+      state.scoutDronePicking = { ...state.scoutDronePicking, active: true, stops: [{ x: 20, y: 20 }] };
+      expect(handleScoutDronePickClick(state, 7, 5, deps(), 0)).toBe(true);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 20, y: 20 }, { x: 7, y: 5 }]);
+    });
+
+    it("are taps like any other on the 2D map, which numbers no stops", () => {
+      setTrue3DRendererActive(false);
+      const state = pickingState(routeFlight());
+      expect(handleScoutDronePickClick(state, 7, 6, deps(), 0)).toBe(true);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 7, y: 6 }]);
+    });
+
+    it("still plan on fog away from the route, and a stop already passed is no obstacle", () => {
+      const state = pickingState(routeFlight());
+      expect(handleScoutDronePickClick(state, 30, 30, deps(), 0)).toBe(true);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 30, y: 30 }]);
+      cancelScoutDronePicking(state);
+      // Past (1,5) at 4s: a tap there plans again.
+      expect(handleScoutDronePickClick(state, 1, 6, deps(), 6_000)).toBe(true);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 6 }]);
+    });
+  });
+
+  // Review 2026-11-22: a near miss that removed a stop also dropped every stop after it, with no way back.
+  it("a tap beside a planned stop adds a stop rather than taking that one off", () => {
+    const state = pickingState();
+    const d = deps();
+    // In range of the AFC at (1,1), so each stop is reached where it was tapped.
+    handleScoutDronePickClick(state, 1, 5, d, 0);
+    handleScoutDronePickClick(state, 1, 9, d, 0);
+    handleScoutDronePickClick(state, 2, 6, d, 0);
+    expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 5 }, { x: 1, y: 9 }, { x: 2, y: 6 }]);
   });
 
   it("ignores other action ids", () => {
