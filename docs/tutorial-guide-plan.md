@@ -169,7 +169,7 @@ the same rule.
   tiles offer Expand To too), in practice one outside reach: "…, then Expand To".
   Expand To walks the border across through a waypoint chain.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
-  (Manhattan): "Food is too far away: build a Relay Beacon". Exploring more
+  (Manhattan): "Food is outside your reach: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
 - Otherwise, no town known at all and the server names one (the town step
   only): "A town is this way: tap the mark, then Explore", ringed at the

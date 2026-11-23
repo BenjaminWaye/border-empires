@@ -135,7 +135,7 @@ export type GuideStepDef = {
 export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   look: "Explore",
   foothold: "A foothold",
-  reach: "More land",
+  reach: "Your reach",
   manpower: "Manpower",
   manifest: "Manifests",
   afc: "AFC upgrade",
@@ -204,8 +204,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on garrisoned land at your edge"),
     why: (i) =>
       townBeforeBeacon(i)
-        ? "Take this town first: once garrisoned, it widens the land you can take."
-        : "A beacon lets you take land further out. It costs manpower, and no Manifest is needed.",
+        ? "Take this town first: once garrisoned, it widens your reach."
+        : "Your reach is the land close to your towns and beacons. You can only Garrison inside it. A beacon widens it.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {

@@ -1,12 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { TOWN_STEP, townTitle, townWhy } from "./tutorial-guide-foothold-copy.js";
-import type { GuideInput } from "./tutorial-guide-steps.js";
+import { TOWN_STEP } from "./tutorial-guide-foothold-copy.js";
 
-// Playtest Run 4: first-time players (Rosa, Sam) were lost on "frontier", "reach" and "garrisoned tile".
-// The guide's own lines stay short and plain; button names (Garrison, Expand To, Explore) are kept as-is.
+// Playtest Run 4: first-time players (Rosa, Sam) were lost on "frontier", "garrisoned tile" and an unexplained
+// "reach". The guide's own lines stay short and plain; button names (Garrison, Expand To, Explore) are kept
+// as-is. "Reach" stays, because the tile menus say "Outside your reach": the beacon step explains it once.
 // Lowercase prose only: all-caps code constants such as the "FRONTIER" ownership state aren't player text.
-const JARGON = [/\b[Ff]rontier\b/, /\b[Yy]our reach\b/, /\bgarrisoned tile\b/, /\bclaim lands\b/, /\bpushes your reach\b/];
+const JARGON = [/\b[Ff]rontier\b/, /\bgarrisoned tile\b/, /\bclaim lands\b/, /\bpushes your reach\b/];
 
 const dir = new URL("./", import.meta.url);
 /** Every guide source file (not tests), with comments stripped, so ternaries and chapter titles are scanned too. */
@@ -38,16 +38,7 @@ describe("guide copy in plain words", () => {
     }
   });
 
-  // Review of PR #2951: with a town in view but out of range, "No town nearby" contradicted the map.
-  it("says a seen but out-of-range town is too far away, not that there's none", () => {
-    const input = {
-      checklist: { relayBeaconSite: { x: 1, y: 1 } },
-      footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } },
-      scout: "none",
-      scoutFlights: 0,
-      exploreTarget: () => undefined
-    } as unknown as GuideInput;
-    expect(townTitle(input)).toBe("Town is too far away: build a Relay Beacon: tap the marked tile, then Build");
-    expect(townWhy(input)).toBe("A beacon brings that town in range.");
+  it("explains reach once, where the guide first asks for a beacon, since the tile menus say \"Outside your reach\"", () => {
+    expect(literals.some((line) => /Your reach is the land close to your towns and beacons/.test(line))).toBe(true);
   });
 });

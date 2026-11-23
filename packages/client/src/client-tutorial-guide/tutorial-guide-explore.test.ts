@@ -147,7 +147,7 @@ describe("guide steps with the scout drone", () => {
     expect(guideTargetAction(food, "ready", true)).toBe("beacon");
     const done = new Set(["look-pan", "look-zoom", "look-explore", "foothold-take-town"]);
     const view = evaluateGuide(input({ footholdTargets: { town: emptySet(), food } }), done);
-    expect(view.kind === "step" && view.title).toMatch(/^Food is too far away: build a Relay Beacon/);
+    expect(view.kind === "step" && view.title).toMatch(/^Food is outside your reach: build a Relay Beacon/);
   });
 
   it("first-contact steps tell the player to Explore while they wait", () => {

@@ -248,7 +248,7 @@ describe("tutorial guide steps", () => {
     const site = { x: 12, y: 3 };
     const input = baseInput({ checklist: footholdDone, beaconSite: () => site });
     const view = evaluateGuide(input, pastFoothold);
-    expect(view).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", chapterTitle: "More land", highlightTiles: [site] }));
+    expect(view).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", chapterTitle: "Your reach", highlightTiles: [site] }));
     // The marked tile's build menu badges the beacon as Recommended.
     expect(guideBeaconSite("reach-beacon", input)).toEqual(site);
 
@@ -360,7 +360,7 @@ describe("tutorial guide steps", () => {
     const noTown = { ...footholdDone, step: "EXPAND_TOWN" as const, townExpanded: false };
     const input = baseInput({ checklist: noTown, beaconSite: () => site, footholdTargets: townInSight });
     expect(evaluateGuide(input, pastFoothold)).toEqual(
-      expect.objectContaining({ title: "Tap the marked town, then Expand To", chapterTitle: "More land", highlightTiles: [{ x: 4, y: 1 }] })
+      expect.objectContaining({ title: "Tap the marked town, then Expand To", chapterTitle: "Your reach", highlightTiles: [{ x: 4, y: 1 }] })
     );
     // No beacon badge in the build menu while the step points at the town.
     expect(guideBeaconSite("reach-beacon", input)).toBeUndefined();

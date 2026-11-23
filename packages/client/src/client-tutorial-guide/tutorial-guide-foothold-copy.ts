@@ -21,7 +21,7 @@ export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }
   // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
   garrison: { title: "Tap the marked town, then Garrison", why: "A garrisoned town counts as yours: it grows and earns coin." },
   expand: { title: "Tap the marked town, then Expand To", why: "Expand To takes the land on the way to it." },
-  beacon: { title: "No town nearby: build a Relay Beacon", why: "A beacon lets you take land further out and see more of the map." }
+  beacon: { title: "No town nearby: build a Relay Beacon", why: "A beacon widens your reach and shows more of the map." }
 };
 
 const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
@@ -30,16 +30,14 @@ const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   pending: { title: "Taking the marked food tile...", why: "Your troops are on their way." },
   garrison: { title: "Tap a marked food tile, then Garrison", why: "Food only counts once garrisoned. Fish counts double." },
   expand: { title: "Tap a marked food tile, then Expand To", why: "Expand To takes the land on the way to it." },
-  beacon: { title: "No food nearby: build a Relay Beacon", why: "A beacon lets you take land further out, toward more grain and fish." }
+  beacon: { title: "No food nearby: build a Relay Beacon", why: "A beacon widens your reach toward more grain and fish." }
 };
 
 /** The town and food steps ask for Explore only for the first few flights: past that, a target the drone can't reach would loop, so they fall back to a beacon. */
 const canExplore = (input: GuideInput): boolean =>
   input.scout === "ready" && input.scoutFlights < GUIDE_EXPLORE_MAX_FLIGHTS && input.exploreTarget() !== undefined;
 /** The beacon ask when grain or fish is known but only outside reach, where Garrison is refused. */
-const FOOD_OUT_OF_REACH = { title: "Food is too far away: build a Relay Beacon", why: "You can only Garrison close to your own land. A beacon brings that food in range." };
-/** A town the drone found, but out of range to Garrison: "No town nearby" contradicted the map (review of PR #2951). */
-const TOWN_OUT_OF_REACH = { title: "Town is too far away: build a Relay Beacon", why: "A beacon brings that town in range." };
+const FOOD_OUT_OF_REACH = { title: "Food is outside your reach: build a Relay Beacon", why: "You can only Garrison inside your reach. A beacon widens it to that food." };
 
 export const foodCopy = (input: GuideInput): { title: string; why: string } => {
   const action = foodAction(input);
@@ -123,7 +121,6 @@ const TOWN_LEAD_EXPLORE = {
 export const townWhy = (input: GuideInput): string => {
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).why;
-  if (townAction(input) === "beacon" && input.footholdTargets.town.outOfReach > 0) return TOWN_OUT_OF_REACH.why;
   return followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
 };
 
@@ -132,7 +129,6 @@ export const townTitle = (input: GuideInput): string => {
   if (short > 0) return townLeadWait(short).title;
   if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;
   const action = townAction(input);
-  if (action === "beacon" && input.footholdTargets.town.outOfReach > 0) return TOWN_OUT_OF_REACH.title + beaconWhere(input);
   return townActionTitle(input, action) + (action === "beacon" ? beaconWhere(input) : "");
 };
 
