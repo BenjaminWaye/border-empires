@@ -10,7 +10,7 @@ type AiAfcRecoveryContext = AfcRecoverySiteContext & Pick<RuntimeStructureComman
 /** Only runs for the selected AFC-less, funded AI; candidates come from its owned index. */
 export function planAiAfcReplacement(context: AiAfcRecoveryContext, player: DomainPlayer): CommandEnvelope | undefined {
   const summary = context.summaryForPlayer?.(player.id);
-  if (!player.isAi || player.id.startsWith("barbarian-") || !summary || summary.controlledAfcCount > 0 || player.afcRecovery?.pending || player.points < afcReplacementCost(context.afcGlobalLosses?.() ?? 0)) return undefined;
+  if (!player.isAi || player.id.startsWith("barbarian-") || !summary || summary.controlledAfcCount > 0 || player.afcRecovery?.pending || player.points < afcReplacementCost()) return undefined;
   let best: { x: number; y: number; score: number } | undefined;
   const cursor = summary.afcRecoverySiteCursor ??= summary.territoryTileKeys.values();
   for (let visited = 0; visited < AFC_RECOVERY_SITE_SCAN_LIMIT; visited++) {
