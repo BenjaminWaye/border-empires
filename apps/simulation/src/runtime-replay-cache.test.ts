@@ -52,7 +52,8 @@ describe("isReplayTrackedCommandId", () => {
       "scout-report:": "scout-report:5f0c1d2e-uuid",
       "scout-sighted:": "scout-sighted:5f0c1d2e-uuid",
       // Review 2026-11-21: SCOUT_FINDS (an event per find tick) leaked into the replay cache and every checkpoint.
-      "scout-finds:": "scout-finds:5f0c1d2e-uuid"
+      "scout-finds:": "scout-finds:5f0c1d2e-uuid",
+      "waystation-vision-expire:": "waystation-vision-expire:14,20:301000"
     } as const;
     // every prefix in the constant must have a sample, and all must be excluded
     for (const prefix of SERVER_GENERATED_COMMAND_ID_PREFIXES) {

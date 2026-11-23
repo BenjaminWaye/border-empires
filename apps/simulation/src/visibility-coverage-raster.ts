@@ -97,15 +97,32 @@ export class VisibilityCoverageCache {
     ignoreForest = false
   ): void {
     const map = this.mapFor(viewerId);
-    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
-      const next = (map.get(key) ?? 0) + 1;
-      map.set(key, next);
-      if (reason) addReasonCount(this.reasons, viewerId, key, reason);
-      if (next !== 1) return;
-      this.onFirstSeen?.(viewerId, key);
-      this.onCoverageEdge?.(viewerId, key, true);
-      onEnter?.(viewerId, key);
-    });
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => this.incrementCell(map, viewerId, key, onEnter, reason));
+  }
+
+  /** The cells addFootprint would cover right now (terrain occlusion applied), for callers that must remove exactly these later. */
+  footprintCellKeys(x: number, y: number, radius: number, ignoreForest = false): string[] {
+    const keys: string[] = [];
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => keys.push(key));
+    return keys;
+  }
+
+  /**
+   * Adds coverage for an exact cell list (from footprintCellKeys). Pair with
+   * removeCells on the same list: unlike add/removeFootprint, a mountain edit
+   * between the two cannot shift the cells and strand a refcount.
+   */
+  addCells(viewerId: string, keys: readonly string[], onEnter?: (viewerId: string, tileKey: string) => void, reason?: string): void {
+    const map = this.mapFor(viewerId);
+    for (const key of keys) this.incrementCell(map, viewerId, key, onEnter, reason);
+  }
+
+  /** Reverses addCells for the same list. */
+  removeCells(viewerId: string, keys: readonly string[], onLeave?: (viewerId: string, tileKey: string) => void, reason?: string): void {
+    const map = this.coverage.get(viewerId);
+    if (!map) return;
+    for (const key of keys) this.decrementCell(map, viewerId, key, onLeave, reason);
+    if (map.size === 0) this.coverage.delete(viewerId);
   }
 
   /**
@@ -124,18 +141,30 @@ export class VisibilityCoverageCache {
   ): void {
     const map = this.coverage.get(viewerId);
     if (!map) return;
-    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => {
-      if (reason) removeReasonCount(this.reasons, viewerId, key, reason);
-      const next = (map.get(key) ?? 0) - 1;
-      if (next <= 0) {
-        map.delete(key);
-        this.onCoverageEdge?.(viewerId, key, false);
-        if (onLeave) onLeave(viewerId, key);
-      } else {
-        map.set(key, next);
-      }
-    });
+    this.forEachDilatedCell(x, y, radius, ignoreForest, (key) => this.decrementCell(map, viewerId, key, onLeave, reason));
     if (map.size === 0) this.coverage.delete(viewerId);
+  }
+
+  private incrementCell(map: Map<string, number>, viewerId: string, key: string, onEnter: ((viewerId: string, tileKey: string) => void) | undefined, reason: string | undefined): void {
+    const next = (map.get(key) ?? 0) + 1;
+    map.set(key, next);
+    if (reason) addReasonCount(this.reasons, viewerId, key, reason);
+    if (next !== 1) return;
+    this.onFirstSeen?.(viewerId, key);
+    this.onCoverageEdge?.(viewerId, key, true);
+    onEnter?.(viewerId, key);
+  }
+
+  private decrementCell(map: Map<string, number>, viewerId: string, key: string, onLeave: ((viewerId: string, tileKey: string) => void) | undefined, reason: string | undefined): void {
+    if (reason) removeReasonCount(this.reasons, viewerId, key, reason);
+    const next = (map.get(key) ?? 0) - 1;
+    if (next <= 0) {
+      map.delete(key);
+      this.onCoverageEdge?.(viewerId, key, false);
+      if (onLeave) onLeave(viewerId, key);
+    } else {
+      map.set(key, next);
+    }
   }
 
   /** Bulk add — used for alliance formation and vision-radius resync. */

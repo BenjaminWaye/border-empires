@@ -19,7 +19,7 @@ import type { ServerWorldgenWaystationsDeps, ServerWorldgenWaystationsRuntime } 
  * existing watchtower or waystation. A waystation does nothing until a
  * player expands their territory onto its tile (see
  * runtime-waystation-activation.ts in apps/simulation), at which point it
- * activates exactly once, granting ONE randomly-chosen permanent effect (of
+ * activates exactly once, granting ONE randomly-chosen effect (of
  * four possible).
  */
 export const createServerWorldgenWaystations = (deps: ServerWorldgenWaystationsDeps): ServerWorldgenWaystationsRuntime => {

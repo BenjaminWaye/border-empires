@@ -2,7 +2,7 @@ import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 // Shared setup for the runtime-waystation-activation*.test.ts suites.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import type { WaystationActivationInput } from "./runtime-waystation-activation.js";
+import type { WaystationActivationInput, WaystationVisionReveal } from "./runtime-waystation-activation.js";
 import type { TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -34,20 +34,22 @@ export function createInput(
   random?: () => number,
   alreadyVisibleTileKeys: ReadonlySet<string> = new Set(),
   manpowerCap = 720
-): { input: WaystationActivationInput; events: SimulationEvent[]; impacts: unknown[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }>; techGrants: TechGrantCall[] } {
+): { input: WaystationActivationInput; events: SimulationEvent[]; impacts: unknown[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }>; expiries: WaystationVisionReveal[]; techGrants: TechGrantCall[] } {
   const events: SimulationEvent[] = [];
   const techGrants: TechGrantCall[] = [];
   const impacts: unknown[] = [];
   const reveals: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
+  const expiries: WaystationVisionReveal[] = [];
   const input: WaystationActivationInput = {
     now: () => 0,
     tiles,
     players,
     visibilityCoverage: {
-      addTileVisionBonus: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); },
+      addTemporaryRevealCells: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); return [`${x},${y}`]; },
       isVisible: (_viewerId, tileKey) => alreadyVisibleTileKeys.has(tileKey)
     },
     visionTransitionCallbacks: {},
+    scheduleRevealExpiry: (reveal) => { expiries.push(reveal); },
     replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
     emitEvent: (event) => { events.push(event); },
     recordPersonalImpact: (impact) => { impacts.push(impact); },
@@ -58,7 +60,7 @@ export function createInput(
     progressionContext: () => techGrantContext(tiles, events, techGrants),
     ...(random ? { random } : {})
   };
-  return { input, events, impacts, reveals, techGrants };
+  return { input, events, impacts, reveals, expiries, techGrants };
 }
 
 /**
