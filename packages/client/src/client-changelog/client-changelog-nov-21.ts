@@ -6,6 +6,7 @@ import { TIP_OVER_DRONE_PILL_ENTRY } from "./client-changelog-tip-over-drone-pil
 import { GUIDE_LAUNCHER_SCOUT_ENTRY } from "./client-changelog-guide-launcher-scout.js";
 import { CHARGE_CARDS_POLISH_ENTRY } from "./client-changelog-charge-cards-polish.js";
 import { ENCIRCLEMENT_EMPIRE_FELL_ENTRY } from "./client-changelog-encirclement-empire-fell.js";
+import { GUIDE_MUSTER_HIGHLIGHT_ENTRY } from "./client-changelog-guide-muster-highlight.js";
 import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garrison-prompt.js";
 import { TIP_PINS_ENTRY } from "./client-changelog-tip-pins.js";
 import { THREE_SEATS_MAP_ENTRY } from "./client-changelog-three-seats-map.js";
@@ -19,6 +20,7 @@ export const NOV_21_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUIDE_LAUNCHER_SCOUT_ENTRY, createdAt: 1795288846909, },
   { ...CHARGE_CARDS_POLISH_ENTRY, createdAt: 1795293780521, },
   { ...ENCIRCLEMENT_EMPIRE_FELL_ENTRY, createdAt: 1795291759105, },
+  { ...GUIDE_MUSTER_HIGHLIGHT_ENTRY, createdAt: 1795293709185, },
   { ...CAPTURE_GARRISON_PROMPT_ENTRY, createdAt: 1795294115079, },
   { ...TIP_PINS_ENTRY, createdAt: 1795294290244, },
   { ...THREE_SEATS_MAP_ENTRY, createdAt: 1795296228795, },
