@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
+import { enqueueFullscreenCard, resetFullscreenCardQueueForTests } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { renderScoutDroneDock, scoutDockChargesLeft } from "./client-scout-drone-dock.js";
@@ -39,5 +40,25 @@ describe("scout drone dock", () => {
     expect(document.querySelector("#scout-drone-dock .sd-count b")?.textContent).toBe("5");
     expect(document.querySelector("#scout-drone-dock .sd-count small")?.textContent).toBe("/8");
     expect(document.querySelectorAll("#scout-drone-dock .sd-pip")).toHaveLength(0);
+  });
+
+  // Review of PR #2931: the dock sat over the Town captured card's buttons, as the flight pill did.
+  it("steps aside while a full-screen card is up, keeping the plan, and comes back when it closes", () => {
+    const state = planningState();
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), now: () => 0 };
+    const overlay = document.body.appendChild(document.createElement("div"));
+    let close = (): void => undefined;
+    enqueueFullscreenCard({ key: "town-capture", show: (done) => ((close = done), overlay) });
+    try {
+      renderScoutDroneDock(state, deps);
+      expect((document.getElementById("scout-drone-dock") as HTMLElement).style.display).toBe("none");
+      expect(state.scoutDronePicking.stops).toHaveLength(1);
+      close();
+      renderScoutDroneDock(state, deps);
+      expect((document.getElementById("scout-drone-dock") as HTMLElement).style.display).toBe("flex");
+    } finally {
+      overlay.remove();
+      resetFullscreenCardQueueForTests();
+    }
   });
 });
