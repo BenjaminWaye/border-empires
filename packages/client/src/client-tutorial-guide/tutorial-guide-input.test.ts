@@ -75,6 +75,22 @@ describe("scanGuideTiles", () => {
     expect(targets[0]).toEqual({ x: 7, y: 5 });
     expect(targets).not.toContainEqual({ x: 6, y: 5 });
   });
+
+  it("marks own FRONTIER border tiles when the settled core is ringed by fresh claims", () => {
+    const tiles = map([
+      { x: 4, y: 5, ownerId: ME, ownershipState: "FRONTIER" },
+      { x: 5, y: 5, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 6, y: 5, ownerId: ME, ownershipState: "FRONTIER" },
+      { x: 7, y: 5 },
+      { x: 3, y: 5 },
+      { x: 12, y: 5, ownerId: "barbarian" },
+      { x: 5, y: 4, terrain: "SEA" },
+      { x: 5, y: 6, terrain: "SEA" }
+    ]);
+    const targets = scanGuideTiles(tiles, ME, { x: 5, y: 5 }).musterTargetTiles;
+    expect(targets[0]).toEqual({ x: 6, y: 5 });
+    expect(targets).not.toContainEqual({ x: 5, y: 5 });
+  });
 });
 
 describe("buildGuideInput", () => {

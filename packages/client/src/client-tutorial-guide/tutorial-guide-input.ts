@@ -132,15 +132,17 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
     if (tile.muster?.ownerId === me) ownsMusterFlag = true;
+    // Any own land can hold a flag (client-muster-tile-actions.ts), FRONTIER included: a settled
+    // core ringed by fresh claims has its border on the FRONTIER tiles.
+    const flagFree = !tile.muster && tile.terrain === "LAND" && !tile.optimisticPending;
+    if (flagFree && musterCandidates.length === 0 && touchesLandNotMine(tiles, tile, me)) borderCandidates.push({ x: tile.x, y: tile.y });
     if (!isOwnSettled(tile, me)) continue;
     if (tile.afc?.status === "active" && tile.afc.modules?.includes(RECOMMENDED_FIRST_MANIFEST_ID)) manufactoryInstalled = true;
     // A Manufactory goes on a garrisoned town tile or its support ring; the town itself is the clearest target.
     // Not the spawn SETTLEMENT: settlements can't support economic structures (runtime-structure-town-support-target.ts).
     const town = townIdentityForTile(tile);
     if (town && town.populationTier !== "SETTLEMENT") buildCandidates.push({ x: tile.x, y: tile.y });
-    if (tile.muster || tile.terrain !== "LAND") continue;
-    if (touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
-    else if (musterCandidates.length === 0 && touchesLandNotMine(tiles, tile, me)) borderCandidates.push({ x: tile.x, y: tile.y });
+    if (flagFree && touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
   }
   const nearest = (list: Array<{ x: number; y: number }>, limit: number, from = home) => {
     const byDistance = distanceFrom(from);

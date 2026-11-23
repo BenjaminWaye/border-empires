@@ -15,7 +15,7 @@ beforeEach(() => {
   rect(document.querySelector<HTMLElement>("[data-v2-build-category]")!, 50, 40);
   rect(document.getElementById("list")!, 100, 120);
 });
-afterEach(() => { vi.restoreAllMocks(); document.body.innerHTML = ""; });
+afterEach(() => { hideBreakPactSheet(); vi.restoreAllMocks(); document.body.innerHTML = ""; });
 
 it("does not outline a Manufactory row clipped by the scrolling build list", () => {
   const row = document.querySelector<HTMLElement>("[data-v2-build-pick]")!;
@@ -60,5 +60,4 @@ it("points the muster step at Stage Muster, then at the first-flag confirm sheet
   expect(findGuideAnchorElement("muster")).toBe(go);
   syncGuideAnchorOutline("muster");
   expect(document.getElementById("tutorial-guide-anchor-outline")?.style.zIndex).toBe("10000");
-  hideBreakPactSheet();
 });
