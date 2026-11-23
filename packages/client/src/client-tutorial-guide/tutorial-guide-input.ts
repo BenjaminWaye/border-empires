@@ -98,6 +98,13 @@ const touchesOtherOwner = (tiles: ReadonlyMap<string, Tile>, tile: Tile, me: str
     return Boolean(neighbour?.ownerId && neighbour.ownerId !== me);
   });
 
+/** A border tile: a land neighbour isn't the player's (neutral, another owner's, or not yet seen). */
+const touchesLandNotMine = (tiles: ReadonlyMap<string, Tile>, tile: Tile, me: string): boolean =>
+  NEIGHBOUR_OFFSETS.some(([dx, dy]) => {
+    const neighbour = tiles.get(tileKey(wrap(tile.x + dx, WORLD_WIDTH), wrap(tile.y + dy, WORLD_HEIGHT)));
+    return !neighbour || (neighbour.terrain === "LAND" && neighbour.ownerId !== me);
+  });
+
 const distanceFrom = (home: { x: number; y: number } | undefined) => (t: { x: number; y: number }): number =>
   home ? Math.abs(t.x - home.x) + Math.abs(t.y - home.y) : 0;
 
@@ -110,25 +117,37 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
   const waystationGiftTechIds = new Set<string>();
   const buildCandidates: Array<{ x: number; y: number }> = [];
   const musterCandidates: Array<{ x: number; y: number }> = [];
+  // When no border tile touches another owner (Planetary Defense or a rival was only seen
+  // across neutral land), any border tile can raise a flag: point at the ones facing them.
+  const borderCandidates: Array<{ x: number; y: number }> = [];
+  const byHomeDistance = distanceFrom(home);
+  let nearestOther: { x: number; y: number } | undefined;
   for (const tile of tiles.values()) {
     if (isMeetablePlayerId(tile.ownerId, me)) rivalHouseMet = true;
     // The activation record stays on the tile, whoever owns it now.
     const waystation = tile.waystation;
     if (waystation?.activated && waystation.activatedByPlayerId === me && waystation.grantedTechId) waystationGiftTechIds.add(waystation.grantedTechId);
+    if (tile.ownerId && tile.ownerId !== me && (!nearestOther || byHomeDistance(tile) < byHomeDistance(nearestOther))) nearestOther = tile;
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
     if (tile.muster?.ownerId === me) ownsMusterFlag = true;
+    // Any own land can hold a flag (client-muster-tile-actions.ts), FRONTIER included: a settled
+    // core ringed by fresh claims has its border on the FRONTIER tiles.
+    const flagFree = !tile.muster && tile.terrain === "LAND" && !tile.optimisticPending;
+    if (flagFree && musterCandidates.length === 0 && touchesLandNotMine(tiles, tile, me)) borderCandidates.push({ x: tile.x, y: tile.y });
     if (!isOwnSettled(tile, me)) continue;
     if (tile.afc?.status === "active" && tile.afc.modules?.includes(RECOMMENDED_FIRST_MANIFEST_ID)) manufactoryInstalled = true;
     // A Manufactory goes on a garrisoned town tile or its support ring; the town itself is the clearest target.
     // Not the spawn SETTLEMENT: settlements can't support economic structures (runtime-structure-town-support-target.ts).
     const town = townIdentityForTile(tile);
     if (town && town.populationTier !== "SETTLEMENT") buildCandidates.push({ x: tile.x, y: tile.y });
-    if (!tile.muster && touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
+    if (flagFree && touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
   }
-  const byDistance = distanceFrom(home);
-  const nearest = (list: Array<{ x: number; y: number }>, limit: number) => list.sort((a, b) => byDistance(a) - byDistance(b)).slice(0, limit);
+  const nearest = (list: Array<{ x: number; y: number }>, limit: number, from = home) => {
+    const byDistance = distanceFrom(from);
+    return list.sort((a, b) => byDistance(a) - byDistance(b)).slice(0, limit);
+  };
   return {
     manufactoryInstalled,
     rivalHouseMet,
@@ -137,7 +156,8 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     ownsMusterFlag,
     waystationGiftTechIds,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
-    musterTargetTiles: nearest(musterCandidates, MAX_MUSTER_TARGETS)
+    musterTargetTiles:
+      musterCandidates.length > 0 ? nearest(musterCandidates, MAX_MUSTER_TARGETS) : nearest(borderCandidates, MAX_MUSTER_TARGETS, nearestOther ?? home)
   };
 };
 
