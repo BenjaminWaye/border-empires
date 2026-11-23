@@ -18,9 +18,9 @@ committed his heir to walk away from it and dig in the dirt of some
 frontier rock nobody had bothered to name, because a Sector had been
 proclaimed and a House that sits one out is a House in decline.
 
-Nobody pretends the Contest is anything but a game. That is its official
-name and its whole advertisement: a show for the people of the Core, and
-for the Houses a chance to be seen winning and to come home with a world.
+The Contest is a game, and the Court says so openly. It is a show for the
+people of the Core, and for the Houses a chance to be seen winning and to
+come home with a world.
 The Core follows it the way my grandmother's generation followed the war
 reports: with wagers, and favourites, and a great many opinions about
 ground they would never stand on. I had followed it that way myself. It
