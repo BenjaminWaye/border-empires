@@ -53,6 +53,29 @@ Known gaps:
 Review stories: `Map/Combat/Muster/Flag Designs` and
 `Map/Combat/Popup Marines/Ancillary Skins` in Storybook.
 
+### Standard and alternative, side by side
+
+Captured from those stories on 2026-11-23. In each picture the standard look
+is the back row, the upper row or the left soldier of a pair.
+
+Muster flag, true-3D (HOLD, then ADVANCE):
+
+![Standard and Chevron standard muster flags in five House colours](design/cosmetics/muster-flag-3d.png)
+![The same flags in ADVANCE: brighter cloth for both designs](design/cosmetics/muster-flag-3d-advance.png)
+
+Muster flag, 2D pennant:
+
+![Standard and chevron pennants on the 2D siege badge](design/cosmetics/muster-flag-2d.png)
+
+Ancillary soldiers, true-3D (standard armour, then titanium heavy armour):
+
+![Standard paint and Ivory-trim plate on the standard soldier](design/cosmetics/ancillary-3d-standard.png)
+![Standard paint and Ivory-trim plate on the heavy armour](design/cosmetics/ancillary-3d-heavy.png)
+
+Ancillary soldiers, 2D:
+
+![Garrison figures and battle squad dots, standard and Ivory-trim](design/cosmetics/ancillary-2d.png)
+
 ## Ownership and selection
 
 - The account key is the gateway player id, which is the same in every Sector
