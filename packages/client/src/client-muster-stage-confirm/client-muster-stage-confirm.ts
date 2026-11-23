@@ -60,7 +60,8 @@ export const confirmFirstMusterStage = (input: {
     subtitle: `Raises a muster flag on (${input.x}, ${input.y}).`,
     consequences: stageMusterConsequences(input.flagCap),
     confirmLabel: "Stage Muster",
-    onConfirm: confirm
+    onConfirm: confirm,
+    sheetId: "stage-muster"
   });
   if (!shown) proceed();
 };

@@ -10,7 +10,6 @@ export { isPhoneViewport };
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Campaign Loadout";
-  if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
   if (panel === "development") return "Development";

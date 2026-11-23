@@ -1,7 +1,7 @@
 import { AdditiveBlending, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, RingGeometry, type Scene } from "three";
 import { SCOUT_DRONE_MAX_STOPS, WORLD_HEIGHT, WORLD_WIDTH, scoutDroneLeg, scoutDronePositionAt, scoutDroneStepIndexAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
+import { clientScoutWorld, flyingScoutDrone, flyingStopsAhead, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
 import { createScoutDroneBadge, createScoutFindPin, createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
 import { createScoutFindPopLayer } from "./client-map-3d-scout-drone-find-pops.js";
@@ -242,16 +242,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
       const from = Math.max(0, scoutDroneStepIndexAt(air, nowMs));
       beadPath(air.steps.slice(from, air.turnIndex + 1), CYAN, 0.85, phase);
       beadPath(air.steps.slice(Math.max(from, air.turnIndex)), CYAN_DIM, 0.65, phase);
-      // Each stop's step, found in flight order: a route that crosses a later stop's tile on an earlier
-      // leg must not count that stop as reached (review 2026-11-21).
-      let cursor = 0;
-      (air.waypoints ?? []).forEach((stop, i) => {
-        let at = cursor;
-        while (at <= air.turnIndex && (air.steps[at]!.x !== stop.x || air.steps[at]!.y !== stop.y)) at += 1;
-        if (at > air.turnIndex) return;
-        cursor = at + 1;
-        if (at > from) numberStop(i + 1, stop);
-      });
+      for (const stop of flyingStopsAhead(air, nowMs)) numberStop(stop.n, stop);
       // A bright marker under the drone itself, which is a speck at phone zoom.
       const at = scoutDronePositionAt(air, nowMs, WORLD_WIDTH, WORLD_HEIGHT);
       if (at) {
