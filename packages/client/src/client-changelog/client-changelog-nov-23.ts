@@ -9,6 +9,7 @@ import { CAPTURED_TOWN_FIST_ENTRY } from "./client-changelog-captured-town-fist.
 import { UMBRITE_FOREST_DEPOSITS_ENTRY } from "./client-changelog-umbrite-forest-deposits.js";
 import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
+import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...TRUCE_CLOCK_FROM_OFFER_ENTRY, createdAt: 1795425750299, },
@@ -20,4 +21,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...PD_LAND_VISIBLE_ENTRY, createdAt: 1795437513917, },
   { ...LOST_TILE_OWNER_ENTRY, createdAt: 1795441816662, },
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
+  { ...CHRONICLE_ROW_TIME_ENTRY, createdAt: 1795466612442, },
 ];

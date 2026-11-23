@@ -4,9 +4,9 @@
 
 import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
-import { localDayKey } from "../client-activity-dashboard/client-activity-dashboard-time.js";
+import { clockLabel, localDayKey, shortDayTag } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
 import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
 import { scoutReportFindsHtml } from "./client-hud-v2-chronicle-scout-chips.js";
@@ -97,7 +97,17 @@ export const chronicleGroups = (cards: readonly PersonalActivityCard[], me: stri
 
 const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral" } as const;
 
-const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
+/**
+ * Rows under a day heading show only the clock: the heading names the day, and
+ * "yesterday 21:54" overflowed the 40px column into the glyph. The away-losses
+ * group spans days, so its rows stack a short day tag above the clock.
+ */
+export const chronicleRowTimeHtml = (at: number, nowMs: number, dated: boolean): string => {
+  const tag = dated ? shortDayTag(at, nowMs) : undefined;
+  return `${tag ? `<span class="v2c-time-day">${tag}</span>` : ""}${clockLabel(at)}`;
+};
+
+const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = false): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
   const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs));
@@ -107,7 +117,7 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
     ? `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${coords.x}" data-y="${coords.y}">Show</button>`
     : "";
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
-    <span class="v2c-time">${activityCardTimeLabel(card, input.nowMs)}</span>
+    <span class="v2c-time">${chronicleRowTimeHtml(card.occurredAt, input.nowMs, dated)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
     <span class="v2c-text"><span class="v2c-what">${whatHtml}</span>${where ? `<span class="v2c-where">${esc(where)}</span>` : ""}</span>
     ${show}
@@ -170,7 +180,7 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   }
   const groups = chronicleGroups(timeline.cards, input.me, input.rivalFilter, input.nowMs, input.awaySince);
   const list = groups.length > 0
-    ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input)).join("")}`).join("")
+    ? groups.map((g) => `<div class="v2c-day${g.heading === AWAY_LOSSES_HEADING ? " v2c-day-away" : ""}">${g.heading}</div>${g.cards.map((c) => rowHtml(c, input, g.heading === AWAY_LOSSES_HEADING)).join("")}`).join("")
     : `<div class="v2s-empty">No activity in the last 24 hours</div>`;
   // A returning player gets a short "since you left" headline above everything else.
   const headline = input.awaySince === undefined

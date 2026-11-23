@@ -31,3 +31,18 @@ export const relativeDayTimeLabel = (at: number, nowMs: number): string => {
   if (Math.abs(offset) < 7) return `${WEEKDAYS[date.getDay()]} ${clock(date)}`;
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${clock(date)}`;
 };
+
+/** Bare "21:54" in local time. */
+export const clockLabel = (at: number): string => clock(new Date(at));
+
+/**
+ * Short day tag that fits the Chronicle's narrow time column: none today,
+ * "Sun" within a week, else "12 Nov". "yesterday" is too wide for it.
+ */
+export const shortDayTag = (at: number, nowMs: number): string | undefined => {
+  const date = new Date(at);
+  const offset = dayOffset(at, nowMs);
+  if (offset === 0) return undefined;
+  if (Math.abs(offset) < 7) return WEEKDAYS[date.getDay()];
+  return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+};

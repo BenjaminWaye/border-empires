@@ -303,6 +303,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-row { display: grid; grid-template-columns: 40px 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 14px; border-left: 3px solid transparent; }
 .v2c-row-sel { background: #221c13; border-left-color: var(--v2-gold); }
 .v2c-time { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2c-time-day { display: block; font-size: 10px; white-space: nowrap; }
 .v2c-glyph { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid currentColor; font-size: 10px; }
 .v2c-tone-gain .v2c-glyph { color: var(--v2-green-hi); }
 .v2c-tone-loss .v2c-glyph { color: var(--v2-red-hi); }
