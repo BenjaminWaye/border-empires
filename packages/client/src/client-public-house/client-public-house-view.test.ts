@@ -9,6 +9,11 @@ const body = {
     { rank: "bad" }
   ],
   charges: [{ title: "Survey Claim", kind: "SURVEY", rarity: "RARE", renown: 3, hoursHeld: 30, places: ["Isle of Aln"], seasonSequence: 2, foil: true }],
+  awards: [
+    { kind: "NEVER_GAVE_UP", seasonSequence: 1, redeploys: 6 },
+    { kind: "COMEBACK_KID", seasonSequence: 2, redeploys: 1, rank: 4 },
+    { kind: "MADE_UP", seasonSequence: 2, redeploys: 1 }
+  ],
   records: [
     { kind: "LONGEST_ROAD", seasonSequence: 2, tiles: 31, from: "Aln", to: "Bel" },
     { kind: "MOST_DEADLY_TILE", seasonSequence: 1, x: 5, y: 6, manpowerLost: 1500 },
@@ -35,6 +40,9 @@ describe("public House profile page", () => {
     expect(html).toContain("Won · Town Control");
     expect(html).toContain("20 Nov 2026 · score 90 · 20 tiles");
     expect(html).toContain("31 tiles from Aln to Bel");
+    expect(html).toContain("<b>Never Gave Up</b><span>Knocked out and redeployed 6 times, more than any other House</span><i>Sector Contest 1</i>");
+    expect(html).toContain("<b>Comeback Kid</b><span>Knocked out and redeployed once, and still finished #4</span>");
+    expect(html).not.toContain("MADE_UP");
     expect(html).toContain("Lost 1,500 manpower at (5, 6)");
     expect(html).toContain("◆◆◆ Rare · Isle of Aln");
     expect(html).not.toMatch(/season/i);

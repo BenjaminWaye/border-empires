@@ -1,5 +1,5 @@
 // The public, shareable House profile (docs/gdd.md §7): contest history,
-// placements, rating, House Charges held, records and wins. Built only from
+// placements, rating, House Charges held, records, awards and wins. Built only from
 // data the game already shows other players, and deliberately carries no
 // playerId, auth id or email: the page is reachable by anyone with the link.
 import type { SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
@@ -37,6 +37,9 @@ export type PublicHouseRecord =
   | { kind: "LONGEST_ROAD"; seasonSequence: number; tiles: number; from?: string; to?: string }
   | { kind: "MOST_DEADLY_TILE"; seasonSequence: number; x: number; y: number; manpowerLost: number };
 
+/** Never Gave Up / Comeback Kid (shared season-awards.ts), decided at that contest's crowning. */
+export type PublicHouseAward = { kind: "NEVER_GAVE_UP" | "COMEBACK_KID"; seasonSequence: number; redeploys: number; rank?: number };
+
 export type PublicHouseProfileView = {
   ok: true;
   name: string;
@@ -49,6 +52,7 @@ export type PublicHouseProfileView = {
   contests: PublicHouseContest[];
   charges: PublicHouseCharge[];
   records: PublicHouseRecord[];
+  awards: PublicHouseAward[];
 };
 
 const MAX_CONTESTS = 100;
@@ -84,7 +88,12 @@ export const buildPublicHouseProfileView = (input: {
   const newestFirst = [...input.archives].sort((a, b) => b.endedAt - a.endedAt);
   const charges: PublicHouseCharge[] = [];
   const records: PublicHouseRecord[] = [];
+  const awards: PublicHouseAward[] = [];
   for (const archive of newestFirst) {
+    for (const award of archive.awards ?? []) {
+      if (award.playerId !== playerId) continue;
+      awards.push({ kind: award.kind, seasonSequence: archive.seasonSequence, redeploys: award.redeploys, ...(award.kind === "COMEBACK_KID" ? { rank: award.rank } : {}) });
+    }
     const house = archive.houseCharges?.find((entry) => entry.playerId === playerId);
     for (const charge of house?.charges ?? []) {
       if (!charge.held || charges.length >= MAX_CHARGES) continue;
@@ -125,6 +134,7 @@ export const buildPublicHouseProfileView = (input: {
     wins: input.archives.filter((archive) => archive.winner?.playerId === playerId).length,
     contests,
     charges,
-    records
+    records,
+    awards
   };
 };

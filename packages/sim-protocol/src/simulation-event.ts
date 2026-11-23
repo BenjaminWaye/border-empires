@@ -122,6 +122,8 @@ export type SimulationEvent =
       playerId: string;
       goldCost?: number;
       playerManpower?: number;
+      /** The landing of a House knocked out earlier (respawnIfEliminated). Recovery replays it into DomainPlayer.redeploys. */
+      redeploy?: true;
       tileDeltas: Array<{
         x: number;
         y: number;

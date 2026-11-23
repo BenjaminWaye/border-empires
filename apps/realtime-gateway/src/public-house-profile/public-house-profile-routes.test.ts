@@ -43,6 +43,10 @@ const build = (overrides: Partial<PublicHouseProfileRouteDeps> = {}) => {
           { playerId: UID, playerName: "Varn", charges: [charge("Survey Claim", true), charge("Lost Charge", false)] },
           { playerId: "rival", playerName: "Rival", charges: [charge("Rival Charge", true)] }
         ],
+        awards: [
+          { kind: "NEVER_GAVE_UP", playerId: "rival", playerName: "Rival", redeploys: 6 },
+          { kind: "COMEBACK_KID", playerId: UID, playerName: "Varn", redeploys: 2, rank: 1 }
+        ],
         seasonStats: {
           longestRoad: { tileCount: 31, playerId: UID, playerName: "Varn", fromCity: { x: 1, y: 1, name: "Aln" }, toCity: { x: 9, y: 9, name: "Bel" } },
           mostDeadlyTile: { x: 5, y: 6, manpowerLost: 900, mostLossesPlayer: { playerId: "rival", playerName: "Rival", manpowerLost: 500 } }
@@ -75,6 +79,8 @@ describe("public House profile routes", () => {
     ]);
     expect(view.charges).toEqual([{ title: "Survey Claim", kind: "SURVEY", rarity: "RARE", renown: 3, hoursHeld: 30, seasonSequence: 2, foil: true }]);
     expect(view.records).toEqual([{ kind: "LONGEST_ROAD", seasonSequence: 2, tiles: 31, from: "Aln", to: "Bel" }]);
+    // Only this House's awards, without the id the archive stores them under.
+    expect(view.awards).toEqual([{ kind: "COMEBACK_KID", seasonSequence: 2, redeploys: 2, rank: 1 }]);
   });
 
   it("never puts the player id, auth id or email in the public response", async () => {

@@ -22,6 +22,8 @@ export type PublicHouseRecord =
   | { kind: "LONGEST_ROAD"; seasonSequence: number; tiles: number; from?: string; to?: string }
   | { kind: "MOST_DEADLY_TILE"; seasonSequence: number; x: number; y: number; manpowerLost: number };
 
+export type PublicHouseAward = { kind: "NEVER_GAVE_UP" | "COMEBACK_KID"; seasonSequence: number; redeploys: number; rank?: number };
+
 export type PublicHouseProfile = {
   name: string;
   rating: number | null;
@@ -33,6 +35,7 @@ export type PublicHouseProfile = {
   contests: PublicHouseContest[];
   charges: PublicHouseCharge[];
   records: PublicHouseRecord[];
+  awards: PublicHouseAward[];
 };
 
 const num = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -91,7 +94,11 @@ export const parsePublicHouseProfile = (body: unknown): PublicHouseProfile | und
             foil: entry.foil === true
           }]
         : []),
-    records: list(raw.records).flatMap((entry) => parseRecord(entry) ?? [])
+    records: list(raw.records).flatMap((entry) => parseRecord(entry) ?? []),
+    awards: list(raw.awards).flatMap((entry): PublicHouseAward[] =>
+      (entry.kind === "NEVER_GAVE_UP" || entry.kind === "COMEBACK_KID") && num(entry.seasonSequence) && num(entry.redeploys)
+        ? [{ kind: entry.kind, seasonSequence: entry.seasonSequence, redeploys: entry.redeploys, ...(num(entry.rank) ? { rank: entry.rank } : {}) }]
+        : [])
   };
 };
 
@@ -115,6 +122,13 @@ const recordHtml = (record: PublicHouseRecord): string => {
   }
   return `<li><b>Most Deadly Tile</b><span>Lost ${int(record.manpowerLost)} manpower at (${int(record.x)}, ${int(record.y)}), more than any other House</span><i>${contestLabel(record.seasonSequence)}</i></li>`;
 };
+
+const times = (count: number): string => (count === 1 ? "once" : `${int(count)} times`);
+
+const awardHtml = (award: PublicHouseAward): string =>
+  award.kind === "NEVER_GAVE_UP"
+    ? `<li><b>Never Gave Up</b><span>Knocked out and redeployed ${times(award.redeploys)}, more than any other House</span><i>${contestLabel(award.seasonSequence)}</i></li>`
+    : `<li><b>Comeback Kid</b><span>Knocked out and redeployed ${times(award.redeploys)}, and still finished${award.rank !== undefined ? ` #${int(award.rank)}` : " in the top 5"}</span><i>${contestLabel(award.seasonSequence)}</i></li>`;
 
 const contestHtml = (contest: PublicHouseContest): string => {
   const of = contest.houses ? ` of ${int(contest.houses)}` : "";
@@ -148,6 +162,7 @@ export const publicHouseHtml = (profile: PublicHouseProfile): string => {
     ${stat("Contests won", int(profile.wins))}
   </div>
   ${profile.rating !== null ? `<p class="ph-note">Rating moves with final placement in each Sector Contest. Every House starts at 1,200${profile.peakRating !== null ? `; this House peaked at ${int(profile.peakRating)}` : ""}.</p>` : ""}
+  ${profile.awards.length ? section("Awards", `<ul class="ph-list">${profile.awards.map(awardHtml).join("")}</ul>`) : ""}
   ${profile.records.length ? section("Records held", `<ul class="ph-list">${profile.records.map(recordHtml).join("")}</ul>`) : ""}
   ${section("Contest history", profile.contests.length
     ? `<ul class="ph-contests">${profile.contests.map(contestHtml).join("")}</ul>`

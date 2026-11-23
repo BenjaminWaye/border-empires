@@ -191,6 +191,11 @@ export const ensurePlayerHasSpawnTerritory = (
   const territoryTiles = ctx.summaryForPlayer(playerId).territoryTileKeys.size;
   const hasPendingNotice = ctx.pendingRespawnNoticeByPlayerId.has(playerId);
   if (territoryTiles > 0) return false;
+  // A knock-out that found no free landing site leaves its "eliminated" notice pending, so this landing is that
+  // House's redeploy. A first landing has no such notice, and a withdrawal is the House's own choice. The notice
+  // is in memory only: after a restart such a landing is not counted.
+  const pendingNotice = ctx.pendingRespawnNoticeByPlayerId.get(playerId);
+  const redeploy = pendingNotice?.reasonCode === "eliminated" && pendingNotice.withdrawn !== true;
   // World-sanity guard: territoryTiles reads 0 from the same in-memory
   // ctx.tiles map that backs every other tile-ownership check, so a genuine
   // zero for one player is trustworthy only if the world itself actually
@@ -233,8 +238,9 @@ export const ensurePlayerHasSpawnTerritory = (
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
   const clearedWaystationTiles = clearWaystationsAroundAfcLanding(ctx, playerId, spawn.x, spawn.y, commandId);
   ctx.replaceTileState(tileKey, spawnedTile);
+  if (redeploy) countRedeploy(player);
   finalizeRespawnNotice(ctx, playerId, tileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile))) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, ...(redeploy ? { redeploy: true as const } : {}), tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile))) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
   if (rallyAnchor && onRallySpawnPlaced) {
     // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
@@ -311,7 +317,13 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   return true;
 };
 
-export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
+/** Counts one redeploy after a knock-out (DomainPlayer.redeploys); the caller marks the landing's TILE_DELTA_BATCH so recovery replays it. */
+const countRedeploy = (player: { redeploys?: number }): void => {
+  player.redeploys = (player.redeploys ?? 0) + 1;
+};
+
+/** `voluntary`: the House chose Withdraw and redeploy, which lands the same way but is not counted as a redeploy. */
+export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string, commandId: string, options?: { voluntary?: boolean }): void => {
   const actor = ctx.players.get(playerId);
   if (!actor) return;
   // Holding ground: commission a replacement or explicitly withdraw.
@@ -349,6 +361,8 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedWaystationTiles = clearWaystationsAroundAfcLanding(ctx, playerId, spawn.x, spawn.y, respawnCommandId);
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
+  const redeploy = options?.voluntary !== true;
+  if (redeploy) countRedeploy(actor);
   // Tile/reach callbacks may refresh capacity while the landing is written.
   // An opening package includes the AFC baseline once, never another starting-capital refill.
   actor.manpower = landingManpower + (ctx.playerManpowerCap ? TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap : 0);
@@ -358,6 +372,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     eventType: "TILE_DELTA_BATCH",
     commandId: respawnCommandId,
     playerId,
+    ...(redeploy ? { redeploy: true as const } : {}),
     tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile)))
   });
   if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
