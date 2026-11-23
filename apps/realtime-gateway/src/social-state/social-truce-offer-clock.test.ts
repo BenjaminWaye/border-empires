@@ -43,6 +43,14 @@ describe("truce clock starts at the offer", () => {
     expect(incoming()).toBeUndefined();
   });
 
+  it("refuses an offer whose truce window has passed even when its stored expiry has not", () => {
+    const clock = { now: 30 * HOUR };
+    const request = { id: "old", fromPlayerId: "player-1", toPlayerId: "player-2", durationHours: 12 as const, createdAt: 0, expiresAt: 40 * HOUR };
+    const social = createSocialState({ now: () => clock.now, players, initial: { truceRequests: [request] } });
+    expect(social.acceptTruce("player-2", "old")).toMatchObject({ ok: false, code: "TRUCE_REQUEST_INVALID" });
+    expect(social.snapshotForPlayer("player-1").activeTruces).toEqual([]);
+  });
+
   it("keeps extension offers on the long backstop: they add hours to the running end", () => {
     const { social, clock, incoming, truce } = setup();
     expect(social.requestTruce("player-1", "Valka", 24).ok).toBe(true);

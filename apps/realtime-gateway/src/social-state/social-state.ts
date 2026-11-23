@@ -363,7 +363,9 @@ export const createSocialState = (options: {
       sweepExpired();
       const request = truceRequests.get(requestId);
       // A settling offer may pass its expiry while the simulation pays out; it still completes.
-      if (!request || request.toPlayerId !== playerId || (request.expiresAt < now() && !settlingRequestIds.has(requestId))) {
+      // A new truce's window can close before a stale stored expiry does (offeredTruceEndsAt).
+      const lapsed = request && (request.expiresAt < now() || (!request.extendsTruce && offeredTruceEndsAt(request) <= now()));
+      if (!request || request.toPlayerId !== playerId || (lapsed && !settlingRequestIds.has(requestId))) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       settlingRequestIds.delete(requestId);
