@@ -1,20 +1,11 @@
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
+import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
 import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
 import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
 import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
-import { REPORT_BUG_BUTTONS_ENTRY } from "./client-changelog-report-bug-buttons.js";
-import { TIP_OVER_DRONE_PILL_ENTRY } from "./client-changelog-tip-over-drone-pill.js";
-import { GUIDE_LAUNCHER_SCOUT_ENTRY } from "./client-changelog-guide-launcher-scout.js";
-import { CHARGE_CARDS_POLISH_ENTRY } from "./client-changelog-charge-cards-polish.js";
-import { ENCIRCLEMENT_EMPIRE_FELL_ENTRY } from "./client-changelog-encirclement-empire-fell.js";
-import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garrison-prompt.js";
-import { TIP_PINS_ENTRY } from "./client-changelog-tip-pins.js";
-import { THREE_SEATS_MAP_ENTRY } from "./client-changelog-three-seats-map.js";
-import { OLD_ALLIANCES_PANEL_REMOVED_ENTRY } from "./client-changelog-old-alliances-panel-removed.js";
-import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -487,16 +478,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
   { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
   ...NOV_19_20_CHANGELOG,
-  { ...INCUBATION_ENGINE_BURST_ENTRY, createdAt: 1795257240525, },
-  { ...REPORT_BUG_BUTTONS_ENTRY, createdAt: 1795258066508, },
-  { ...TIP_OVER_DRONE_PILL_ENTRY, createdAt: 1795288791904, },
-  { ...GUIDE_LAUNCHER_SCOUT_ENTRY, createdAt: 1795288846909, },
-  { ...CHARGE_CARDS_POLISH_ENTRY, createdAt: 1795293780521, },
-  { ...ENCIRCLEMENT_EMPIRE_FELL_ENTRY, createdAt: 1795291759105, },
-  { ...CAPTURE_GARRISON_PROMPT_ENTRY, createdAt: 1795294115079, },
-  { ...TIP_PINS_ENTRY, createdAt: 1795294290244, },
-  { ...THREE_SEATS_MAP_ENTRY, createdAt: 1795296228795, },
-  { ...OLD_ALLIANCES_PANEL_REMOVED_ENTRY, createdAt: 1795296477203, },
+  ...NOV_21_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
