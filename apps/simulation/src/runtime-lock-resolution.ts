@@ -64,7 +64,7 @@ export type RuntimeLockResolutionContext = {
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Activates a dormant waystation (see server-worldgen-waystations.ts / the
   // Tile.waystation feature) the first time a player expands onto its tile:
-  // grants one permanent reward. No-op if the tile has no waystation or it
+  // grants one reward. No-op if the tile has no waystation or it
   // was already activated.
   maybeActivateWaystation: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Drains a server-durable "claim continuation" (see player-runtime-

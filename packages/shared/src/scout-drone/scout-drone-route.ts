@@ -1,6 +1,6 @@
 // Waypoint flights for the scout drone (docs/explore-scout-plan.md §13). The
 // player places up to SCOUT_DRONE_MAX_STOPS stops; the drone flies from its AFC
-// through each in turn, then straight home. Each leg reaches at most
+// through each in turn, then home: straight, or the shortest way round rival borders when quicker than retracing. Each leg reaches at most
 // SCOUT_DRONE_MAX_LEG_TILES open tiles (own, allied and reach ground is free):
 // a stop placed farther away is pulled back along the leg to the last tile in
 // range, so a plan is never refused for being too long. The client runs the
@@ -17,6 +17,7 @@ import {
   type ScoutDroneStep,
   type ScoutDroneWorld
 } from "./scout-drone.js";
+import { scoutDroneHomePath } from "./scout-drone-home-path.js";
 
 /** Open tiles one leg may cross: past this the stop is pulled back. */
 export const SCOUT_DRONE_MAX_LEG_TILES = 20;
@@ -76,25 +77,11 @@ export const planScoutDroneRoute = (launch: Point, stops: readonly Point[], worl
   return { legs, stops: legs.map((leg) => leg.end) };
 };
 
-/** The tiles straight home from `from` to `launch`, or undefined when a rival border lies across that line. */
-const straightHome = (from: Point, launch: Point, world: ScoutDroneWorld): LegTile[] | undefined => {
-  const tiles: LegTile[] = [];
-  let prev = from;
-  for (const tile of scoutDroneLine(from, launch, world.width, world.height).slice(1)) {
-    if (scoutDroneBlockAt(prev, tile, world)) return undefined;
-    // Each homeward leg is paced by the tile it flies out of, as speedUpScoutDroneFlight judges
-    // return legs; pacing by the tile flown into made it re-time the flight on its first tick.
-    tiles.push({ x: tile.x, y: tile.y, stepMs: world.classify(prev.x, prev.y).kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
-    prev = tile;
-  }
-  return tiles;
-};
-
 /**
  * A waypoint flight: out through every stop, then straight home, so the way
- * back reveals new ground too. When a rival border ends the route, or the
- * straight line home crosses one, it retraces its route instead. Undefined when
- * the drone could not leave at all.
+ * back reveals new ground too. When a rival border lies across the line home it
+ * takes the shortest way round (scoutDroneHomePath), retracing its route only
+ * when that is quicker. Undefined when the drone could not leave at all.
  */
 export const planScoutDroneWaypointFlight = (launch: Point, stops: readonly Point[], launchedAt: number, world: ScoutDroneWorld): ScoutDroneFlight | undefined => {
   const route = planScoutDroneRoute(launch, stops, world);
@@ -109,7 +96,8 @@ export const planScoutDroneWaypointFlight = (launch: Point, stops: readonly Poin
   }
   const turnIndex = steps.length - 1;
   const turn = outbound[turnIndex]!;
-  const home = blocked ? undefined : straightHome(turn, launch, world);
+  // Retracing takes as long as the flight out, so a way home must beat that.
+  const home = scoutDroneHomePath(turn, launch, world, at - launchedAt);
   if (home) {
     for (const tile of home) {
       at += tile.stepMs;
@@ -137,8 +125,8 @@ export const planScoutDroneWaypointFlight = (launch: Point, stops: readonly Poin
 
 /**
  * The flight cut short over outbound step `turnIndex` -- a rival border ahead (`blocked`) or
- * a recall (no `blocked`) -- then straight home from there, like a finished route; it retraces
- * only when a rival border lies across the line home. Leaves no earlier than `nowMs`.
+ * a recall (no `blocked`) -- then home from there by the short way, like a finished route; it
+ * retraces only when no way round is quicker the rival borders. Leaves no earlier than `nowMs`.
  */
 export const turnScoutDroneFlightHome = (
   flight: ScoutDroneFlight,
@@ -153,7 +141,7 @@ export const turnScoutDroneFlightHome = (
   const reachedStopIndexes = stopStepIndexes(flight).map((index) => (index >= 0 && index < outbound.length ? index : -1));
   const steps: ScoutDroneStep[] = [...outbound];
   let at = Math.max(nowMs, turn.at);
-  const home = straightHome(turn, launch, world);
+  const home = scoutDroneHomePath(turn, launch, world, turn.at - outbound[0]!.at);
   if (home) {
     for (const tile of home) {
       at += tile.stepMs;
@@ -204,8 +192,8 @@ export type ScoutDroneExtension = {
 
 /**
  * More stops for a drone already in the air: from the tile it is flying toward it flies on
- * through the stops it hasn't reached yet, then `newStops`, then straight home (retracing when a
- * rival border lies across the line home). A drone already on its way home turns from there.
+ * through the stops it hasn't reached yet, then `newStops`, then home by the short way (retracing
+ * only when no way round the rival borders is quicker). A drone already on its way home turns from there.
  * Steps already flown keep their times. Undefined once it has landed or has nowhere new to go.
  */
 export const extendScoutDroneFlight = (
@@ -236,7 +224,7 @@ export const extendScoutDroneFlight = (
   const turn = steps[turnIndex]!;
   const launch = flight.steps[0]!;
   const blocked = route.legs.at(-1)?.blocked;
-  const home = blocked ? undefined : straightHome(turn, launch, world);
+  const home = scoutDroneHomePath(turn, launch, world, turn.at - steps[0]!.at);
   if (home) {
     for (const tile of home) {
       at += tile.stepMs;

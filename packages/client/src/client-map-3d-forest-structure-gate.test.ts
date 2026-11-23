@@ -1,6 +1,6 @@
 import { NETWORK_RESOURCES } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
-import { shouldDrawForestInstance } from "./client-map-3d-forest-structure-gate.js";
+import { forestTreeKeepSlot, shouldDrawForestInstance } from "./client-map-3d-forest-structure-gate.js";
 import type { Tile } from "./client-types.js";
 
 const baseTile = { x: 0, y: 0, terrain: "LAND" } as Tile;
@@ -31,4 +31,17 @@ describe("shouldDrawForestInstance", () => {
 it("keeps frontier resource plots readable through forest canopy", () => {
   for (const resource of NETWORK_RESOURCES)
     expect(shouldDrawForestInstance(true, { ...baseTile, resource })).toBe(false);
+});
+
+describe("forestTreeKeepSlot", () => {
+  it("leaves an ordinary forest tile's trees alone", () => {
+    expect(forestTreeKeepSlot(baseTile, undefined, 3, 3)).toBeUndefined();
+    expect(forestTreeKeepSlot({ ...baseTile, resource: "TITANIUM" }, "TITANIUM", 3, 3)).toBeUndefined();
+  });
+
+  it("clears a space for an Umbrite deposit drawn on the tile", () => {
+    const keepByTile = Array.from({ length: 40 }, (_, wx) => forestTreeKeepSlot({ ...baseTile, resource: "UMBRITE" }, "UMBRITE", wx, 3));
+    expect(keepByTile.every((keep) => keep !== undefined)).toBe(true);
+    expect(keepByTile.some((keep) => [0, 1, 2, 3, 4, 5, 6, 7, 8].some((slot) => !keep!(slot)))).toBe(true);
+  });
 });

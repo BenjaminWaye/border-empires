@@ -1,7 +1,7 @@
 import { AdditiveBlending, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, RingGeometry, type Scene } from "three";
 import { SCOUT_DRONE_MAX_STOPS, WORLD_HEIGHT, WORLD_WIDTH, scoutDroneLeg, scoutDronePositionAt, scoutDroneStepIndexAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { clientScoutWorld, flyingScoutDrone, flyingStopsAhead, ownActiveAfcs, scoutPlanCapacity, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
+import { clientScoutWorld, flyingScoutDrone, flyingStopsAhead, ownActiveAfcs, scoutPlanCapacity, scoutPlanLaunch, scoutPlanPreview, type ScoutPlanPreview } from "../client-scout-drone/client-scout-drone-plan.js";
 import { makeGlowTexture } from "./client-map-3d-scout-drone-textures.js";
 import { createScoutDroneBadge, createScoutFindPin, createScoutStopNumbers } from "./client-map-3d-scout-drone-stop-numbers.js";
 import { createScoutFindPopLayer } from "./client-map-3d-scout-drone-find-pops.js";
@@ -132,7 +132,7 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     const blocked = preview?.route.legs.at(-1)?.blocked;
     const world = clientScoutWorld(state);
     if (hover && canAdd && !blocked && world.classify(hover.x, hover.y).kind !== "HOME") {
-      const from = stops.at(-1) ?? (ownActiveAfcs(state).length > 0 ? scoutPlanPreview(state, [hover], nowMs)?.launch : undefined);
+      const from = stops.at(-1) ?? (ownActiveAfcs(state).length > 0 ? scoutPlanLaunch(state, hover, nowMs) : undefined);
       if (from && !(stops.length > 0 && from.x === hover.x && from.y === hover.y)) {
         const leg = scoutDroneLeg(from, hover, world);
         ghost = [from, ...leg.tiles];

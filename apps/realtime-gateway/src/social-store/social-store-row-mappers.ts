@@ -10,6 +10,7 @@ import type {
   SocialCompletedAllianceBreak,
   SocialTruceRequest
 } from "../social-state/social-state.js";
+import { truceOfferExpiresAt } from "../social-state/social-truce-extension.js";
 import { DiplomacyTermsSchema, diplomacyTermsCarryRetiredShards, type DiplomacyTerms } from "@border-empires/shared";
 
 // undefined = a corrupt terms blob. The whole offer is then dropped: keeping
@@ -117,7 +118,8 @@ export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] 
       fromPlayerId: row.from_player_id,
       toPlayerId: row.to_player_id,
       createdAt: row.created_at,
-      expiresAt: row.expires_at,
+      // Offers saved before truces were clocked from the offer had a 7-day expiry.
+      expiresAt: truceOfferExpiresAt({ createdAt: row.created_at, durationHours: row.duration_hours as 12 | 24, extendsTruce: Boolean(row.extends_truce) }, row.expires_at),
       durationHours: row.duration_hours as 12 | 24,
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),

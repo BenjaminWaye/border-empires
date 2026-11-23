@@ -1,4 +1,4 @@
-// 2026.11.21 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
+// 2026.11.21-23 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { REPORT_BUG_BUTTONS_ENTRY } from "./client-changelog-report-bug-buttons.js";
@@ -13,6 +13,7 @@ import { TOWN_RETURN_ROW_ENTRY } from "./client-changelog-town-return-row.js";
 import { THREE_SEATS_MAP_ENTRY } from "./client-changelog-three-seats-map.js";
 import { OLD_ALLIANCES_PANEL_REMOVED_ENTRY } from "./client-changelog-old-alliances-panel-removed.js";
 import { SCOUT_STOP_TAPS_ENTRY } from "./client-changelog-scout-stop-taps.js";
+import { WAYSTATION_VISION_LOOK_ENTRY } from "./client-changelog-waystation-vision-look.js";
 
 export const NOV_21_CHANGELOG: ClientChangelogEntry[] = [
   { ...INCUBATION_ENGINE_BURST_ENTRY, createdAt: 1795257240525, },
@@ -28,4 +29,5 @@ export const NOV_21_CHANGELOG: ClientChangelogEntry[] = [
   { ...THREE_SEATS_MAP_ENTRY, createdAt: 1795296228795, },
   { ...OLD_ALLIANCES_PANEL_REMOVED_ENTRY, createdAt: 1795296477203, },
   { ...SCOUT_STOP_TAPS_ENTRY, createdAt: 1795294345014, },
+  { ...WAYSTATION_VISION_LOOK_ENTRY, createdAt: 1795425562647, },
 ];

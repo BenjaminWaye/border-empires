@@ -128,7 +128,7 @@ export const offerDockEntries = (
     kind: "truce",
     id: request.id,
     fromName: senderName(request),
-    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : `offers a ${request.durationHours}h truce`,
+    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : `offers a ${request.durationHours}h truce, counting since sent`,
     terms: describeDiplomacyTermsForRecipient(request.terms, senderName(request)),
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),

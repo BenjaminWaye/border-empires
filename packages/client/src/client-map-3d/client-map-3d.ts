@@ -20,7 +20,7 @@ import {
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowContainsPoint, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
@@ -819,8 +819,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;
         }
+        // Resolve the underlying resource once per tile — used by the resource overlay (for the icon), the structure
+        // overlay (a MINE on GEMS loads blue crystals, not grey ore) and the forest (which clears a space for an Umbrite deposit).
+        const tileResource = terrain === "LAND"
+          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
+          : undefined;
         if (shouldDrawForestInstance(forestTile, tile)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, standingTreeFilter(tile, wx, wy));
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, forestTreeKeepSlot(tile, tileResource, wx, wy));
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "LAND") addTownForTile({ tile, tileKey, x, z, surfaceY, wx, wy }, townPlacement);
@@ -842,13 +847,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             afcOverlayGroup.addAfc(x, z, afcPadSurfaceY(wx, wy), wx, wy, tile.afc.modules ?? []);
           }
         }
-        // Resolve the underlying resource once per tile — used by the
-        // resource overlay (for the icon) AND by the structure overlay
-        // (so a MINE on a GEMS tile loads its cart with blue crystals
-        // instead of grey iron ore, keeping the resource readable).
-        const tileResource = terrain === "LAND"
-          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
-          : undefined;
         if (tileResource) {
           addRawResourceInstance(rawResourceOverlays, tileResource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection((nx, ny) => isSeaTerrain(terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny))), wx, wy));
           contactShadowOverlay.addShadow(x, z, tileResource === "FISH" ? flatOverlayY : surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); // FISH sits on its levelled hill pad

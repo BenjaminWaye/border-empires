@@ -44,7 +44,7 @@ export type DiplomacySettlementInput = {
   commandId?: string;
   issuedAt?: number;
   /** A truce's length: how long Coin per hour without resource slots is paid. */
-  coinTermHours?: 12 | 24;
+  coinTermHours?: number;
 };
 
 export type DiplomacySettlementDeps = {

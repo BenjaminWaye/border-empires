@@ -17,10 +17,11 @@ const setup = () => {
 
 describe("truce offers and fighting", () => {
   // Offline players get an email about an offer; it must still be there when they log in.
+  // The offer lasts as long as the truce it offers, whose clock starts at the offer.
   it("keeps an unanswered truce offer for an offline player well past the old 5 minutes", () => {
     const { social, advance } = setup();
     expect(social.requestTruce("p1", "Valka", 12)).toEqual(expect.objectContaining({ ok: true }));
-    advance(20 * HOUR);
+    advance(11 * HOUR);
     const offer = social.snapshotForPlayer("p2").incomingTruceRequests[0];
     expect(offer).toBeDefined();
     expect(social.acceptTruce("p2", offer!.id)).toEqual(expect.objectContaining({ ok: true }));

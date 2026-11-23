@@ -269,7 +269,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
             headline: "You've Been Offered a Truce",
             body: [
               `${input.senderName} offered your empire a ${input.durationHours}h truce.`,
-              "Open Border Empires to accept or reject it before the offer expires."
+              "The truce's hours started counting when it was offered: accept soon to get the most of it, before the offer runs out."
             ],
             highlight: { label: "Truce Duration", value: `${input.durationHours} hours` },
             linkLabel: "Respond to Offer"
