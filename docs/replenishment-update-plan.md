@@ -37,8 +37,11 @@ Status: active proposal
 > *known* shield's coverage (a narrower, client-safe version of the same
 > idea). The AI planner doesn't yet account for shields or the arrow
 > gesture at all; "auto-commit to match the defense" is still plan only.
-> **Phase 4 (visit loop UI, G) is in progress** (2026-11-23): the report
-> (G item 1) is built; the agenda and the forecast are not. See G below.
+> **Phase 4 (visit loop UI, G) is implemented** (2026-11-23, PRs #2943,
+> #2944, #2945): the report in the Chronicle's Yours tab, and the agenda
+> and end-of-visit forecast in a new Ahead tab. Notifications (G item 4),
+> the map playback and "abilities off cooldown" in the agenda are not
+> built. See G below.
 > Phase 5 is plan only, not started.
 > **Checked against the code 2026-11-23:** manpower is paid out in one refill
 > every 4 hours (`MANPOWER_REFILL_WINDOW_MS`), and build time does not follow
@@ -645,6 +648,33 @@ From `docs/visit-as-a-turn.md`:
      history, which is new persisted state).
 2. **Agenda:** 3–5 ranked decisions (town ready to upgrade, manpower full or
    nearly full, idle slots, unfed town, abilities off cooldown).
+   ✅ built (2026-11-23, `agent/visit-agenda`) as "Worth doing now" at the top
+   of the Chronicle's Ahead tab, from a pure module
+   (`packages/client/src/client-visit-agenda/`). At most five rows, in this
+   order: manpower full; towns not garrisoned; towns unfed; towns that can be
+   upgraded and paid for; a Manifest that can be paid for; an AFC upgrade
+   ready; manpower that the next batch would overflow; free development
+   slots with nothing queued; towns big enough to upgrade but short of Coin.
+   One town opens its tile and menu; several open the Towns screen. Town
+   checks are the map badges' own (`shouldShowTownUnfedWarning`,
+   `shouldShowTownUpgradeReadyBadge`, `isOwnTownUngarrisoned`).
+   - Rows match what the screens would let the player do: a town upgrade
+     needs the Coin and a free FOOD slot (otherwise it is listed last as
+     "big enough", with what it needs); an unfed town is listed as unfed
+     only; a Manifest row uses the Manifest screen's own affordability check
+     and is hidden while one is being commissioned; free slots are only
+     mentioned when nothing is queued or set to auto-garrison and the player
+     has the manpower for a garrison.
+   - "Nearly full" means the next batch fills the pool with regen to spare.
+     The server caps its next-batch figure at the room left, so the row gives
+     no number for what would be lost.
+   - The tracker's "Next step" is unchanged (owner call 2026-11-20: it only
+     lists fixes for a shortage).
+   - Not included: abilities off cooldown (they are cast on a target tile,
+     so there is no one place to send the player; needs a design decision),
+     dormant structures, beacon targets, exposed frontier and victory holds
+     from `docs/visit-as-a-turn.md` §2.2, and "measure which items get acted
+     on".
 3. **End-visit forecast:** what finishes while you're away, when manpower is
    full, town tier ETAs.
    ✅ built (2026-11-23, `agent/visit-forecast`) as the Chronicle's **Ahead**
@@ -698,7 +728,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
 | **3a. Shield flags (server + reveal)** ✅ done (2026-09-26/28) | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, the matching-commitment defense multiplier, and the reactive shield reveal (combat broadcast + force-reveal + 3D reinforcement march) are all shipped. By design, not wired into the client's win-chance preview (the reveal substitutes for that); the AI planner still doesn't account for shields at all (deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
 | **3b. Arrow UX (client)** ✅ done (2026-09-29), revised (2026-09-30) | F (gestures, arrow, sheet, win-chance labels), both renderers — shipped with documented deviations (straight-line arrow not the MARCH route, no Defend-here gesture, no front highlight, no persistent order arrow), then revised to click-to-target (gesture claimed the pan button, so off-screen targets were unreachable) and win-chance labels made slider-live; see F's own section for the full list | 3a |
-| **4. Visit loop UI** in progress: report ✅ (2026-11-23); agenda and forecast not built | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
+| **4. Visit loop UI** ✅ done (2026-11-23): report, agenda, forecast. Not built: notifications (G item 4), map playback, abilities in the agenda | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 
 Phases 1, 1b and 2 give players the most noticeable change with the least risk, so

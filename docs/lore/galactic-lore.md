@@ -475,6 +475,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 | Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
 | Umbrite in forests | Since 2026-11-23 the 3D map draws every Umbrite deposit as violet Umbrite inside wood: a mineralized elder tree, a bed of split roots, or a fallen log (Storybook **Sandbox / Umbrite Forest / Concepts**). Why Umbrite grows through wood, and what it is doing in deserts and tundra, is still undecided. |
+| Town focus and the sale of labour | Proposal, not canon ([town focus plan](../town-focus-plan.md)): a House could set a town to grow, to give more of its people to Ancillary intake, or to contract part of its population offworld for Coin. Undecided: whether those people are indentured crews or sold outright, and whether creditors lend against the population a House controls as well as its output. |
 
 ### Retired concepts
 

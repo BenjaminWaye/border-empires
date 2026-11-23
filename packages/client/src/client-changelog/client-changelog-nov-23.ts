@@ -1,6 +1,7 @@
 // 2026.11.23 client releases, grouped so client-changelog-data.ts stays under the file-line cap.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { VISIT_FORECAST_ENTRY } from "./client-changelog-visit-forecast.js";
+import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
 import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
@@ -16,6 +17,7 @@ import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-prof
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...PUBLIC_HOUSE_PROFILE_ENTRY, createdAt: 1795468951720, },
+  { ...VISIT_AGENDA_ENTRY, createdAt: 1795459779781, },
   { ...VISIT_FORECAST_ENTRY, createdAt: 1795459490383, },
   { ...TRUCE_CLOCK_FROM_OFFER_ENTRY, createdAt: 1795425750299, },
   { ...SCOUT_SHORTEST_HOME_ENTRY, createdAt: 1795418080546, },
