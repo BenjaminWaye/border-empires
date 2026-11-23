@@ -326,6 +326,14 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-tab-on { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
 .v2c-tab-badge { min-width: 18px; padding: 0 5px; background: var(--v2-red-hi); color: #fff; font-family: var(--v2-mono); font-size: 10px; line-height: 16px; text-align: center; }
 /* Ahead tab: the forecast of what happens while the player is away (client-hud-v2-chronicle-ahead.ts). */
+.v2c-agenda-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 14px; border: 0; border-left: 3px solid var(--v2-gold); border-bottom: 1px solid var(--v2-line); background: var(--v2-chip); color: var(--v2-text); font: inherit; text-align: left; cursor: pointer; }
+.v2c-agenda-row:hover { background: #221c13; }
+.v2c-agenda-text { display: grid; gap: 2px; min-width: 0; }
+.v2c-agenda-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.v2c-agenda-sub { font-size: 12px; line-height: 1.3; color: var(--v2-soft); }
+.v2c-agenda-go { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-gold-hi); white-space: nowrap; }
+.v2c-agenda-manpower-full, .v2c-agenda-town-ungarrisoned, .v2c-agenda-town-unfed { border-left-color: var(--v2-red-hi); }
+.v2c-agenda-none { padding: 8px 14px 10px; font-size: 13px; color: var(--v2-soft); }
 .v2c-return { display: grid; gap: 4px; margin: 10px 14px 4px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); border-left: 3px solid var(--v2-gold); }
 .v2c-return-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
 .v2c-return-line { margin: 0; font-size: 14px; line-height: 1.35; }
