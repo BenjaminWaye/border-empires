@@ -109,7 +109,8 @@ production merely to test it; rehearse on an isolated database first.
 6. Check the completed receipt, foreign keys and retained neighbours. Restart the
    service, verify health/login and confirm the old account cannot return.
 
-The tool deletes profiles, bindings, telemetry, queued commands, invitations and
+The tool deletes profiles, bindings, telemetry, queued commands, invitations,
+owned and selected cosmetics ([`../cosmetics.md`](../cosmetics.md)) and
 private per-account rows. Shared world checkpoints, event logs, season summaries,
 social relationships and galaxy history retain consistent **random replacement
 identifiers**, with account names removed. This preserves other players' world
