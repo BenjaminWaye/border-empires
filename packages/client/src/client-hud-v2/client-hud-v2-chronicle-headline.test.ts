@@ -59,7 +59,7 @@ describe("Chronicle headline", () => {
       { kind: "BUILDING_COMPLETED", id: "b1", occurredAt: 600, x: 1, y: 1, structureType: "FORT" },
       { kind: "BUILDING_COMPLETED", id: "b2", occurredAt: 610, x: 2, y: 2, structureType: "FARMSTEAD" },
       { kind: "BUILDING_COMPLETED", id: "old", occurredAt: 400, x: 3, y: 3, structureType: "FORT" },
-      { kind: "TERRITORY_FLIP_GROUP", id: "g", occurredAt: 620, direction: "GAINED", tileCount: 6, x: 4, y: 4 },
+      { kind: "TERRITORY_FLIP_GROUP", id: "g", occurredAt: 620, direction: "GAINED", counterpartyPlayerId: undefined, tileCount: 6, x: 4, y: 4 },
       { kind: "TERRITORY_FLIP_GROUP", id: "l", occurredAt: 630, direction: "LOST", counterpartyPlayerId: "konrad", tileCount: 2, x: 5, y: 5 }
     ]);
     const tally = chronicleHeadlineTally(input(t));
