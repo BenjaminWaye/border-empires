@@ -10,7 +10,7 @@ vi.mock("../client-state/client-storage.js", () => ({
 }));
 
 const {
-  VISIT_GAP_MS, beginChronicleProgressVisit, chronicleProgressForState, chronicleProgressHtml, parseStoredVisitProgress,
+  RECORD_EVERY_MS, VISIT_GAP_MS, chronicleProgressForState, recordVisitProgress, chronicleProgressHtml, parseStoredVisitProgress,
   progressDeltas, progressSnapshot, resetVisitProgressForTests, rotateVisitProgress
 } = await import("./client-hud-v2-chronicle-progress.js");
 
@@ -66,39 +66,56 @@ describe("victory path progress since the last visit", () => {
     expect(parseStoredVisitProgress(`{"key":"k","latest":{"at":"x","paths":{}},"baseline":{"at":1,"paths":{"A":0.5}}}`)).toEqual({ key: "k", baseline: { at: 1, paths: { A: 0.5 } } });
   });
 
-  it("shows nothing on the first visit, the same deltas all through the next one, and fresh ones the visit after", () => {
+  it("compares with the end of the previous visit, however often the Chronicle is opened", () => {
     const state = { me: "me", bridgeDebugSeasonId: "s1", seasonVictory: [path("MARITIME_SUPREMACY", "Maritime Supremacy", 0.31)] };
     const hour = 3_600_000;
-    beginChronicleProgressVisit(state, 0);
-    expect(chronicleProgressForState(state, 0)).toEqual([]);
+    // First visit: nothing to compare with, even after playing for an hour and moving the path.
+    recordVisitProgress(state, 0);
+    expect(chronicleProgressForState(state)).toEqual([]);
+    state.seasonVictory = [path("MARITIME_SUPREMACY", "Maritime Supremacy", 0.33)];
+    for (let t = RECORD_EVERY_MS; t <= hour; t += RECORD_EVERY_MS) recordVisitProgress(state, t);
+    expect(chronicleProgressForState(state)).toEqual([]);
 
-    // Next visit, six hours later: the path moved while away.
+    // Away five hours (page closed): the path moved on from where the player left it, 33%, not from 31%.
+    resetVisitProgressForTests();
     state.seasonVictory = [path("MARITIME_SUPREMACY", "Maritime Supremacy", 0.36)];
+    recordVisitProgress(state, 6 * hour);
+    const moved = [{ id: "MARITIME_SUPREMACY", name: "Maritime Supremacy", beforePct: 33, nowPct: 36 }];
+    expect(chronicleProgressForState(state)).toEqual(moved);
+    // Forty minutes into the same visit the comparison has not shifted to this visit's own start.
+    for (let t = 6 * hour + RECORD_EVERY_MS; t <= 6 * hour + 40 * 60_000; t += RECORD_EVERY_MS) recordVisitProgress(state, t);
+    expect(chronicleProgressForState(state)).toEqual(moved);
+    // A reload mid-visit keeps it too.
     resetVisitProgressForTests();
-    beginChronicleProgressVisit(state, 6 * hour);
-    const moved = [{ id: "MARITIME_SUPREMACY", name: "Maritime Supremacy", beforePct: 31, nowPct: 36 }];
-    expect(chronicleProgressForState(state, 6 * hour)).toEqual(moved);
-    // Reopening ten minutes later (even after a reload) still compares with the previous visit.
-    resetVisitProgressForTests();
-    beginChronicleProgressVisit(state, 6 * hour + 600_000);
-    expect(chronicleProgressForState(state, 6 * hour + 600_000)).toEqual(moved);
-
-    // The visit after that compares with this one.
-    state.seasonVictory = [path("MARITIME_SUPREMACY", "Maritime Supremacy", 0.4)];
-    beginChronicleProgressVisit(state, 12 * hour);
-    expect(chronicleProgressForState(state, 12 * hour)).toEqual([{ id: "MARITIME_SUPREMACY", name: "Maritime Supremacy", beforePct: 36, nowPct: 40 }]);
+    recordVisitProgress(state, 6 * hour + 41 * 60_000);
+    expect(chronicleProgressForState(state)).toEqual(moved);
   });
 
-  it("does not let an empty victory race overwrite remembered figures, and resets for a new contest", () => {
+  it("starts a new visit when the app was hidden past the gap, and records nothing while hidden", () => {
     const state = { me: "me", bridgeDebugSeasonId: "s1", seasonVictory: [path("TOWN_CONTROL", "Town Control", 0.2)] };
-    beginChronicleProgressVisit(state, 0);
-    chronicleProgressForState(state, 0);
+    recordVisitProgress(state, 0);
+    state.seasonVictory = [path("TOWN_CONTROL", "Town Control", 0.5)];
+    recordVisitProgress(state, 10 * 3_600_000, false);
+    expect(chronicleProgressForState(state)).toEqual([]);
+    recordVisitProgress(state, 10 * 3_600_000 + 1);
+    expect(chronicleProgressForState(state)).toEqual([{ id: "TOWN_CONTROL", name: "Town Control", beforePct: 20, nowPct: 50 }]);
+  });
+
+  it("writes storage at most once a minute, never from an empty victory race, and keeps Houses apart", () => {
+    const state = { me: "me", bridgeDebugSeasonId: "s1", seasonVictory: [path("TOWN_CONTROL", "Town Control", 0.2)] };
+    recordVisitProgress({ ...state, seasonVictory: [] }, 0);
+    expect(store.size).toBe(0);
+    recordVisitProgress(state, 0);
     const saved = [...store.values()][0];
-    chronicleProgressForState({ ...state, seasonVictory: [] }, 120_000);
+    recordVisitProgress({ ...state, seasonVictory: [path("TOWN_CONTROL", "Town Control", 0.9)] }, RECORD_EVERY_MS - 1);
+    recordVisitProgress({ ...state, seasonVictory: [] }, 2 * RECORD_EVERY_MS);
+    expect([...store.values()]).toEqual([saved]);
+    // Another House on this browser gets its own record and no deltas from the first one.
+    const other = { ...state, me: "other", seasonVictory: [path("TOWN_CONTROL", "Town Control", 0.05)] };
+    recordVisitProgress(other, 10 * 3_600_000);
+    expect(chronicleProgressForState(other)).toEqual([]);
+    expect(store.size).toBe(2);
     expect([...store.values()][0]).toBe(saved);
-    const next = { ...state, bridgeDebugSeasonId: "s2", seasonVictory: [path("TOWN_CONTROL", "Town Control", 0.05)] };
-    beginChronicleProgressVisit(next, 10 * 3_600_000);
-    expect(chronicleProgressForState(next, 10 * 3_600_000)).toEqual([]);
   });
 
   // On a 375x667 phone the blocks above the list left it one row; progress scrolls with the list instead.
@@ -123,8 +140,7 @@ describe("victory path progress since the last visit", () => {
     expect(at("v2c-list")).toBeLessThan(at("YOUR RESULTS SINCE YOU LAST LOOKED"));
     expect(at("YOUR RESULTS SINCE YOU LAST LOOKED")).toBeLessThan(at("v2c-progress"));
     expect(at("v2c-progress")).toBeLessThan(at(`data-v2-chronicle-show="read"`));
-    // Not about a rival, and not for a mid-session look with nothing unread to compare.
+    // Not about a rival.
     expect(chronicleHtml({ ...base, rivalFilter: "kara" })).not.toContain("v2c-progress");
-    expect(chronicleHtml({ ...base, awaySince: undefined })).not.toContain("v2c-progress");
   });
 });

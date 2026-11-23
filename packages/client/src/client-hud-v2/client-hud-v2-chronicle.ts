@@ -187,7 +187,7 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   const isLifted = (g: ChronicleGroup): boolean => g.heading === AWAY_RESULTS_HEADING || g.heading === AWAY_LOSSES_HEADING;
   // Progress is about the player's own standing, so a rival filter hides it. It sits in the scrolling list, after
   // the unread results and losses: above the list it left a short phone one visible row.
-  const progress = input.awaySince === undefined || input.rivalFilter ? "" : chronicleProgressHtml(input.progress ?? []);
+  const progress = input.rivalFilter ? "" : chronicleProgressHtml(input.progress ?? []);
   const days = groups.filter((g) => !isLifted(g));
   const list = groups.length > 0 || progress
     ? `${groups.filter(isLifted).map(groupHtml).join("")}${progress}${days.map(groupHtml).join("")}`

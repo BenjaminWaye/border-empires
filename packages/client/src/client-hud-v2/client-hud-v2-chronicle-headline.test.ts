@@ -68,6 +68,13 @@ describe("Chronicle headline", () => {
     expect(chronicleHeadlineLines({ ...tally, buildingsCompleted: 0, waystationsActivated: 1, tilesGained: 0 })).toEqual(["Activated 1 waystation.", "Lost 2 tiles."]);
   });
 
+  it("keeps the alarm colour when there is nothing gained to open with", () => {
+    const loss = timeline([{ kind: "TERRITORY_FLIP_GROUP", id: "l", occurredAt: 630, direction: "LOST", counterpartyPlayerId: "konrad", tileCount: 2, x: 5, y: 5 }]);
+    expect(chronicleHeadlineHtml(input(loss))).toContain(`class="v2c-headline v2c-headline-loss"`);
+    const both = timeline([...loss.cards, { kind: "BUILDING_COMPLETED", id: "b", occurredAt: 600, x: 1, y: 1, structureType: "FORT" }]);
+    expect(chronicleHeadlineHtml(input(both))).toContain(`class="v2c-headline" role="status"`);
+  });
+
   it("ignores a recovery respawn and a truce the player broke", () => {
     const t = timeline([{ kind: "DIPLOMACY", id: "d", occurredAt: 600, event: "TRUCE_BROKEN", counterpartyPlayerId: "konrad", counterpartyName: "Konrad", byPlayerId: "me" }]);
     expect(chronicleHeadlineHtml(input(t, { respawn: { at: 700, reasonCode: "auth_recovery", spawnTileKey: "1,1" } }))).toBe("");

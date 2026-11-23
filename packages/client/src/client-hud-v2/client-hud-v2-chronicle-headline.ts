@@ -165,5 +165,7 @@ const esc = (text: string): string =>
 export const chronicleHeadlineHtml = (input: ChronicleHeadlineInput): string => {
   const lines = chronicleHeadlineLines(chronicleHeadlineTally(input));
   if (lines.length === 0) return "";
-  return `<div class="v2c-headline" role="status"><span class="v2c-headline-h">Since you last looked</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
+  // Nothing gained to open with: the block keeps its alarm colour.
+  const lossOnly = /^(Lost|Wiped)/.test(lines[0] ?? "");
+  return `<div class="v2c-headline${lossOnly ? " v2c-headline-loss" : ""}" role="status"><span class="v2c-headline-h">Since you last looked</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
 };

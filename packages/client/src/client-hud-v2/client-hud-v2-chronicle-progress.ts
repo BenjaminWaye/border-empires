@@ -16,7 +16,7 @@ export type StoredVisitProgress = { key: string; baseline?: ProgressSnapshot | u
 
 export type ProgressDelta = { id: string; name: string; beforePct: number; nowPct: number };
 
-/** Opening the Chronicle after a gap this long starts a new visit: the newest remembered figures become the baseline. */
+/** Nothing recorded for this long (the app was closed or hidden) ends a visit: the newest remembered figures become the baseline. */
 export const VISIT_GAP_MS = 30 * 60_000;
 /** The block lists the paths that moved most; more would push the timeline off a phone screen. */
 export const PROGRESS_DELTA_CAP = 3;
@@ -33,9 +33,9 @@ export const progressSnapshot = (objectives: readonly SeasonVictoryObjectiveView
 };
 
 /**
- * The stored record as the Chronicle opens. Another contest or House starts empty. After VISIT_GAP_MS
- * without a look, the newest remembered figures become what this visit is compared against; within a
- * visit the baseline stays put, so the deltas do not vanish on a second look.
+ * The stored record as figures are about to be recorded. Another contest or House starts empty. After
+ * VISIT_GAP_MS with nothing recorded, the newest remembered figures become what this visit is compared
+ * against; within a visit the baseline stays put, so the deltas do not vanish on a second look.
  */
 export const rotateVisitProgress = (stored: StoredVisitProgress | undefined, key: string, nowMs: number): StoredVisitProgress => {
   if (!stored || stored.key !== key) return { key };
@@ -67,7 +67,7 @@ export const chronicleProgressHtml = (deltas: readonly ProgressDelta[]): string 
   const rows = deltas.map((d) =>
     `<span class="v2c-progress-row"><span>${esc(d.name)}</span><b class="${d.nowPct > d.beforePct ? "v2c-gain" : "v2c-loss"}">${d.beforePct}% → ${d.nowPct}%</b></span>`
   ).join("");
-  return `<button type="button" class="v2c-progress" data-hud-v2-open="ranks" aria-label="Your victory paths since your last visit: open Ranks"><span class="v2c-progress-h">YOUR VICTORY PATHS SINCE YOUR LAST VISIT</span>${rows}</button>`;
+  return `<button type="button" class="v2c-progress" data-hud-v2-open="ranks" title="Open Ranks"><span class="v2c-progress-h">YOUR VICTORY PATHS SINCE YOUR LAST VISIT</span>${rows}</button>`;
 };
 
 const isSnapshot = (value: unknown): value is ProgressSnapshot => {
@@ -92,28 +92,38 @@ type ProgressState = Pick<ClientState, "me" | "bridgeDebugSeasonId" | "seasonVic
 
 const visitKey = (state: ProgressState): string | undefined => (state.me && state.bridgeDebugSeasonId ? `${state.bridgeDebugSeasonId}|${state.me}` : undefined);
 
+/** One record per contest and House, so two Houses on one browser do not wipe each other's figures. */
+const storageKeyFor = (key: string): string => `${STORAGE_KEY}:${key}`;
+
+/** The figures are re-read this often while the game is on screen. */
+export const RECORD_EVERY_MS = 60_000;
+
 let visit: StoredVisitProgress | undefined;
+let recordedAt = 0;
 
-/** Test-only: forget the visit held in memory. */
-export const resetVisitProgressForTests = (): void => { visit = undefined; };
+/** Test-only: forget the visit held in memory (as a page reload does). */
+export const resetVisitProgressForTests = (): void => { visit = undefined; recordedAt = 0; };
 
-/** Called as the Chronicle opens: picks what this visit's progress is compared against. */
-export const beginChronicleProgressVisit = (state: ProgressState, nowMs: number): void => {
+/**
+ * Called from the HUD's frame loop while the game is on screen, whether or not the Chronicle is open:
+ * remembers the current figures about once a minute. A visit ends when nothing was recorded for
+ * VISIT_GAP_MS (the app was closed or hidden); the last figures of that visit then become what the next
+ * one is compared against. So the block shows what moved while the player was away, not what they
+ * moved themselves between two looks at the Chronicle.
+ */
+export const recordVisitProgress = (state: ProgressState, nowMs: number, visible = true): void => {
   const key = visitKey(state);
-  visit = key ? rotateVisitProgress(parseStoredVisitProgress(storageGet(STORAGE_KEY)), key, nowMs) : undefined;
-};
-
-/** The deltas to show now; also remembers the current figures for the next visit. */
-export const chronicleProgressForState = (state: ProgressState, nowMs: number): ProgressDelta[] => {
-  if (!visit || visit.key !== visitKey(state)) return [];
+  if (!key || !visible) return;
+  if (visit?.key === key && nowMs >= recordedAt && nowMs - recordedAt < RECORD_EVERY_MS) return;
   const current = progressSnapshot(state.seasonVictory, state.me, nowMs);
   // The victory race arrives after INIT: an empty snapshot must not overwrite remembered figures.
-  // The Chronicle repaints often while open, so storage is only written when a figure moved or a minute passed.
-  const latest = visit.latest;
-  const moved = !latest || Object.keys(current.paths).length !== Object.keys(latest.paths).length || Object.entries(current.paths).some(([id, share]) => latest.paths[id] !== share);
-  if (Object.keys(current.paths).length > 0 && (moved || nowMs - (latest?.at ?? 0) >= 60_000)) {
-    visit = { ...visit, latest: current };
-    storageSet(STORAGE_KEY, JSON.stringify(visit));
-  }
-  return progressDeltas(visit.baseline, state.seasonVictory, state.me);
+  if (Object.keys(current.paths).length === 0) return;
+  const held = visit?.key === key ? visit : parseStoredVisitProgress(storageGet(storageKeyFor(key)));
+  visit = { ...rotateVisitProgress(held, key, nowMs), latest: current };
+  recordedAt = nowMs;
+  storageSet(storageKeyFor(key), JSON.stringify(visit));
 };
+
+/** The deltas to show now: the current figures against the end of the previous visit. */
+export const chronicleProgressForState = (state: ProgressState): ProgressDelta[] =>
+  visit && visit.key === visitKey(state) ? progressDeltas(visit.baseline, state.seasonVictory, state.me) : [];

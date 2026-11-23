@@ -65,7 +65,7 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       nowMs: Date.now(),
       awaySince: screen.chronicleAwaySince,
       respawn: state.respawnNotice,
-      progress: chronicleProgressForState(state, Date.now()),
+      progress: chronicleProgressForState(state),
       surveys: occupationSurveyController.currentReports(state.techIds ?? [])
     }, tabs));
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);

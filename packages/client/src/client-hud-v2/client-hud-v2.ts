@@ -19,6 +19,7 @@ import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch,
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
+import { recordVisitProgress } from "./client-hud-v2-chronicle-progress.js";
 import { currentHudV2Layout, type HudV2Layout } from "./client-hud-v2-layout.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
@@ -385,6 +386,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const layout = currentHudV2Layout();
     const onScreen = hudV2GameOnScreen(deps.state, document.body);
     document.body.classList.toggle("hud-v2-compact", layout === "compact");
+    if (onScreen) recordVisitProgress(deps.state, Date.now(), document.visibilityState !== "hidden");
     // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
     if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
     const chargeView = takeHouseChargeMapShowRequest(); // Show on map from a charge opened over a screen (your profile)

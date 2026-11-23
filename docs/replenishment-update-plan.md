@@ -41,10 +41,9 @@ Status: active proposal
 > (G item 1) is built; the agenda and the forecast are not. See G below.
 > Phase 5 is plan only, not started.
 > **Checked against the code 2026-11-23:** manpower is paid out in one refill
-> every 4 hours (`MANPOWER_REFILL_WINDOW_MS`), and a structure that costs
-> manpower takes a flat 60 s (`STRUCTURE_BUILD_MS`). Where this plan says
-> regeneration is continuous or that build time follows cost, the code and
-> `docs/core-loop.md` §1.1 are right.
+> every 4 hours (`MANPOWER_REFILL_WINDOW_MS`), and build time does not follow
+> manpower cost (`docs/game-mechanics.md` §5). Where this plan says otherwise,
+> the code and `docs/core-loop.md` §1.1 are right.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -633,11 +632,14 @@ From `docs/visit-as-a-turn.md`:
    - Progress deltas: a block listing up to three victory paths whose percent
      moved since the last visit ("Maritime Supremacy 31% → 36%"), opening
      Ranks (`client-hud-v2-chronicle-progress.ts`). It sits in the scrolling
-     list after the two lifted groups, so a 375x667 phone keeps its rows. The server keeps no
-     history of path progress, so the previous visit's figures are kept in
-     the browser's local storage per contest and House; a first visit or a new
-     device shows no block. A new visit starts after 30 minutes without
-     opening the Chronicle.
+     list after the two lifted groups, so a 375x667 phone keeps its rows. The
+     server keeps no history of path progress, so the figures are kept in
+     the browser's local storage, one record per contest and House; a first
+     visit or a new device shows no block. The HUD records the figures about
+     once a minute while the game is on screen, whether or not the Chronicle
+     is open; 30 minutes with nothing recorded (app closed or hidden) ends a
+     visit, and that visit's last figures are what the next one is compared
+     against.
    - Not built: rank change, and the map playback of
      `docs/visit-as-a-turn.md` §2.1 (it needs a bounded border-change
      history, which is new persisted state).

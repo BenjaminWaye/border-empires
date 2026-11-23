@@ -8,7 +8,6 @@ import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import { battleClick, battleEscape, renderBattle } from "./client-hud-v2-battle-runtime.js";
 import { chronicleTabClick, loadChronicleTab, renderChronicle } from "./client-hud-v2-chronicle-runtime.js";
-import { beginChronicleProgressVisit } from "./client-hud-v2-chronicle-progress.js";
 import {
   clearScreen,
   focusCamera,
@@ -68,7 +67,6 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
     screen.chronicleUpdatesBaseline = undefined;
     screen.chronicleOpenUpdate = undefined;
     screen.chronicleAwaySince = deps.state.activitySeen.lastActivitySeenAt;
-    beginChronicleProgressVisit(deps.state, Date.now());
     loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
