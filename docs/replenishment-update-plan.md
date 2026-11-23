@@ -645,6 +645,33 @@ From `docs/visit-as-a-turn.md`:
      history, which is new persisted state).
 2. **Agenda:** 3–5 ranked decisions (town ready to upgrade, manpower full or
    nearly full, idle slots, unfed town, abilities off cooldown).
+   ✅ built (2026-11-23, `agent/visit-agenda`) as "Worth doing now" at the top
+   of the Chronicle's Ahead tab, from a pure module
+   (`packages/client/src/client-visit-agenda/`). At most five rows, in this
+   order: manpower full; towns not garrisoned; towns unfed; towns that can be
+   upgraded and paid for; a Manifest that can be paid for; an AFC upgrade
+   ready; manpower that the next batch would overflow; free development
+   slots with nothing queued; towns big enough to upgrade but short of Coin.
+   One town opens its tile and menu; several open the Towns screen. Town
+   checks are the map badges' own (`shouldShowTownUnfedWarning`,
+   `shouldShowTownUpgradeReadyBadge`, `isOwnTownUngarrisoned`).
+   - Rows match what the screens would let the player do: a town upgrade
+     needs the Coin and a free FOOD slot (otherwise it is listed last as
+     "big enough", with what it needs); an unfed town is listed as unfed
+     only; a Manifest row uses the Manifest screen's own affordability check
+     and is hidden while one is being commissioned; free slots are only
+     mentioned when nothing is queued or set to auto-garrison and the player
+     has the manpower for a garrison.
+   - "Nearly full" means the next batch fills the pool with regen to spare.
+     The server caps its next-batch figure at the room left, so the row gives
+     no number for what would be lost.
+   - The tracker's "Next step" is unchanged (owner call 2026-11-20: it only
+     lists fixes for a shortage).
+   - Not included: abilities off cooldown (they are cast on a target tile,
+     so there is no one place to send the player; needs a design decision),
+     dormant structures, beacon targets, exposed frontier and victory holds
+     from `docs/visit-as-a-turn.md` §2.2, and "measure which items get acted
+     on".
 3. **End-visit forecast:** what finishes while you're away, when manpower is
    full, town tier ETAs.
    ✅ built (2026-11-23, `agent/visit-forecast`) as the Chronicle's **Ahead**
