@@ -12,8 +12,8 @@ type DiplomacyActionDeps = {
 
 /**
  * The single diplomacy entry on another player's tile. It replaces the old
- * "Offer Truce 12h/24h" rows: the Alliances tab owns proposing, so this just
- * says where you stand with the tile's owner and opens that player's row. A
+ * "Offer Truce 12h/24h" rows: the Diplomacy deal owns proposing, so this just
+ * says where you stand with the tile's owner and opens that player's deal. A
  * request waiting on you floats to the top of the menu.
  */
 export const diplomacyActionForOwner = (
@@ -48,9 +48,12 @@ export const openDiplomacyForPlayer = (state: Pick<ClientState, "requestedDiplom
   state.requestedDiplomacyTargetId = playerId;
 };
 
-/** The pending Diplomacy request, cleared so it opens once. */
-export const takeRequestedDiplomacyTarget = (state: Pick<ClientState, "requestedDiplomacyTargetId">): string | undefined => {
+/**
+ * The pending Diplomacy request, cleared so it opens once. Dropped while the game is not on screen
+ * (sign-in, lobby, reconnect): a tap made just before then must not pop the deal open later.
+ */
+export const takeRequestedDiplomacyTarget = (state: Pick<ClientState, "requestedDiplomacyTargetId">, gameShown = true): string | undefined => {
   const targetId = state.requestedDiplomacyTargetId;
   state.requestedDiplomacyTargetId = undefined;
-  return targetId;
+  return gameShown ? targetId : undefined;
 };

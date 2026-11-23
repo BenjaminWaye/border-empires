@@ -20,7 +20,7 @@ export const createInitialSocialState = () => ({
   activeTruces: [] as ActiveTruceView[],
   truceBreaksThisSeason: [] as TruceBreakView[],
   // Players whose territory this client has seen this season -- the only
-  // players the Alliances tab lets you propose to. See client-met-players.ts.
+  // empires the Diplomacy list shows as met. See client-met-players.ts.
   metPlayerIds: new Set<string>(),
   metPlayersScannedRevision: -1,
   // "<me>|<seasonId>" whose saved met set is loaded, and the set size last saved (-1: not yet).

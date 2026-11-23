@@ -1251,6 +1251,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     dispatchSimpleTileCommand(actionId, selected, sendGameMessage);
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       openDiplomacyForPlayer(state, selected.ownerId);
+      hideTileActionMenu();
       renderHud();
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {

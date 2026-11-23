@@ -29,7 +29,7 @@ type TradeDepsState = {
 
 /**
  * Trade-screen deps from the client's own state: every truce/alliance entry
- * point (tile menu, Alliances tab) opens the screen with these, so none of
+ * point (tile menu, Diplomacy screen) opens the screen with these, so none of
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (state: TradeDepsState, send: DiplomacyTradeDeps["send"]): DiplomacyTradeDeps => ({

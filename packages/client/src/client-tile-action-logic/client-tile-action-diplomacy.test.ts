@@ -218,3 +218,13 @@ describe("takeRequestedDiplomacyTarget", () => {
     expect(takeRequestedDiplomacyTarget(state)).toBeUndefined();
   });
 });
+
+describe("takeRequestedDiplomacyTarget while the game is hidden", () => {
+  // A Diplomacy tap just before sign-in / lobby / reconnect hid the HUD must not open the deal later.
+  it("drops the request instead of keeping it", () => {
+    const state = createInitialState();
+    openDiplomacyForPlayer(state, "ai-3");
+    expect(takeRequestedDiplomacyTarget(state, false)).toBeUndefined();
+    expect(takeRequestedDiplomacyTarget(state)).toBeUndefined();
+  });
+});

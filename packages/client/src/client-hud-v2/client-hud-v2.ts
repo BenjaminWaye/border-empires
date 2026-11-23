@@ -406,6 +406,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
       deps.setActivePanel("charges");
       deps.renderHud();
     }, deps.requestViewRefresh);
+    // Taken before the off-screen return so a request made while the game is hidden is dropped, not kept.
+    const diplomacyTarget = takeRequestedDiplomacyTarget(deps.state, onScreen && Boolean(deps.state.me));
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
     renderFast(deps.state, deps.ownerColor, nowMs);
@@ -421,7 +423,6 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
     // A tile's Diplomacy action opens that empire's deal.
-    const diplomacyTarget = takeRequestedDiplomacyTarget(deps.state);
     if (diplomacyTarget) openScreen(deps, "diplomacy", { diplomacyTarget });
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;

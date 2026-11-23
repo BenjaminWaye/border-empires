@@ -22,7 +22,7 @@ export type DiplomacyListInput = {
   outgoingAlliance?: readonly AllianceRequest[];
   outgoingTruce?: readonly TruceRequest[];
   leaderboard: readonly LeaderboardOverallEntry[];
-  /** Who is at war with you now (warOpponentIds, the same signal as the Alliances tab's "War" label). */
+  /** Who is at war with you now (warOpponentIds, the same signal as the profile's war state). */
   warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
   colorOf: (playerId: string) => string | undefined;
