@@ -12,6 +12,7 @@ import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
 import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.js";
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
+import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...VISIT_FORECAST_ENTRY, createdAt: 1795459490383, },
@@ -26,4 +27,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...VISIT_REPORT_ENTRY, createdAt: 1795448790974, },
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
   { ...CHRONICLE_ROW_TIME_ENTRY, createdAt: 1795466612442, },
+  { ...WRIT_FOUND_ENTRY, createdAt: 1795468903590, },
 ];

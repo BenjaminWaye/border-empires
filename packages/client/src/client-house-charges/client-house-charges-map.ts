@@ -4,8 +4,9 @@
 // only marked on ground the player has explored (a tile in state.tiles);
 // until then a rough dotted circle shows where to look
 // (client-house-charges-search-guide.ts).
-import type { HouseChargeView } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { correctionRivalAfcsInView } from "./client-house-charges-correction-afcs.js";
 import { metropolisHighlight } from "./client-house-charges-landmass.js";
 
 export type ChargeMapPoint = { x: number; y: number };
@@ -36,8 +37,10 @@ export const houseChargeMarkerTiles = (state: ChargeMapState): ChargeMapPoint[] 
   // A Three Metropolises target is only the middle of the landmass's nearest towns, not a spot to mark:
   // ring the explored towns on the landmass instead, since any of them counts.
   if (charge.kind === "METROPOLIS") return metropolisHighlight(charge, state).towns.slice(0, MAX_TOWN_MARKERS);
-  // A Correction's target is the centre of its search circle (the server never sends the rival's landing site).
-  if (charge.areaTileKeys || charge.kind === "CORRECTION") return [];
+  // A Correction's target is the centre of its search circle (the server never sends the rival's landing site):
+  // ring only the rival's AFCs the player has found inside that circle.
+  if (charge.kind === "CORRECTION") return correctionRivalAfcsInView(charge, state.tiles, WORLD_WIDTH, WORLD_HEIGHT);
+  if (charge.areaTileKeys) return [];
   return charge.targets.filter((target) => explored(state, target.x, target.y)).map(({ x, y }) => ({ x, y }));
 };
 
