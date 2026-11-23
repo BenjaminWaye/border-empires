@@ -260,7 +260,7 @@ export const alliesHtml = (
           ? `<div class="alliance-reference-meta">
         <span class="alliance-reference-meta-label">${finalizingBreak ? "Notice elapsed; final break is syncing." : "Alliance remains active until notice ends."}</span>
       </div>`
-          : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
+          : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}" data-alliance-break-player-name="${escapeHtml(name)}">Break Alliance</button>`
       }
       <button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${escapeHtml(id)}">Trade resources</button>
     </article>`;
