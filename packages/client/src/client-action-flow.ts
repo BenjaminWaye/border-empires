@@ -1121,7 +1121,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage, originKey: _originKeyOverride })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage, originKey: _originKeyOverride, openTileMenu: (tile) => openSingleTileActionMenu(tile, state.tileActionMenu.x, state.tileActionMenu.y) })) return;
 
     if (actionId === "settle_many" && selected) {
       clearCrystalTargeting();

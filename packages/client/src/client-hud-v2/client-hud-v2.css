@@ -296,6 +296,10 @@ body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-fact-good { color: #b9dca0; }
 .hud-v2-fact-warn { color: #f0b48a; border-color: rgba(240, 180, 138, 0.45); }
 .hud-v2-act-details { flex: 0 0 auto; min-width: 104px; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+/* A main action beside the fixed-width Aether and Details (and often Build) was squeezed to a sliver with
+   its label cut ("EXPA…", or ~26px blank on a dock): give it its own full-width line instead. */
+.hud-v2-act-row:has(> .hud-v2-act-primary):has(> .hud-v2-act-aether):has(> .hud-v2-act-details) { flex-wrap: wrap; }
+.hud-v2-act-row:has(> .hud-v2-act-aether):has(> .hud-v2-act-details) > .hud-v2-act-primary { flex: 1 0 100%; }
 .hud-v2-details { gap: 4px; max-height: 300px; padding: 8px 10px; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
 .hud-v2-details .tile-overview-line { color: inherit; }
 .hud-v2-details .tile-overview-line-section { margin-top: 6px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }

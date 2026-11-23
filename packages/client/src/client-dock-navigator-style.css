@@ -28,17 +28,3 @@
 .dock-navigator-btn:hover {
   background: rgba(255, 246, 176, 0.2);
 }
-.dock-navigator {
-  flex-wrap: wrap;
-}
-/* Cross the sea: its own full-width row, gold like a primary action, so the dock reads as the way off the island. */
-.dock-navigator-cross {
-  flex: 1 0 100%;
-  min-height: 36px;
-  background: #d9b45a;
-  border-color: #f0d78a;
-  color: #2a1d08;
-}
-.dock-navigator-cross:hover {
-  background: #e6c46d;
-}

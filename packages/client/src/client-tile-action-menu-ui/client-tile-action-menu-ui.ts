@@ -101,12 +101,7 @@ export const renderTileActionMenu = (
   if (!shouldReuseRenderedMenu) {
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
-    wireDockNavigatorButtons(deps.tileActionMenuEl, state, (x, y) => {
-      const far = state.tiles.get(deps.keyFor(x, y));
-      state.selected = { x, y };
-      if (far) openSingleTileActionMenu(state, far, state.tileActionMenu.x, state.tileActionMenu.y, deps);
-      deps.renderHud();
-    });
+    wireDockNavigatorButtons(deps.tileActionMenuEl, state);
     wireMusterReports(deps.tileActionMenuEl, state, view.musterReports, deps.renderHud);
     // The tile owner's name (tileOwnerLabelHtml) opens their player profile.
     // Wired here, not via the general wirePlayerProfileOverlay pass, since
