@@ -28,13 +28,16 @@ export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
 // Waystation sites: denser than watchtowers (~1 per 400 tiles), placed with a
 // fixed minimum spacing between centers rather than a coefficient scaled off
 // world area. Activating one (by expanding/settling onto it) grants ONE
-// randomly-chosen PERMANENT effect (of four possible) -- see
+// randomly-chosen effect -- see
 // runtime-waystation-activation.ts.
 export const WAYSTATION_TARGET_TILES_PER_SITE = 400;
 export const WAYSTATION_TARGET_SPACING_TILES = 18;
-// Same vision-reveal radius as a watchtower, but written as a permanent
-// vision entry (no revealUntil/expiry).
+// Same vision-reveal radius as a watchtower. The VISION effect is a one-time
+// look: live sight for WAYSTATION_VISION_REVEAL_TTL_MS, then the area drops to
+// remembered fog (explored memory keeps it on the map). It was permanent until
+// 2026-11-23: a player kept live sight of a rival town indefinitely.
 export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
+export const WAYSTATION_VISION_REVEAL_TTL_MS = 5 * 60_000;
 // When the VISION effect is picked, search this far (flat squared-distance,
 // non-toroidal) from the waystation's own (x, y) for the nearest tile
 // carrying a town (any owner, including neutral/unowned) to center the
