@@ -50,7 +50,8 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       salvageToasts.render(tiles, projection);
       refineryToasts.render(tiles, projection);
       waystationToasts.render(tiles, projection);
-      tipPins.render(projection);
+      // The season lobby renders no tiles and a placeholder projection: no pins then.
+      tipPins.render(projection, tiles.length > 0);
     }
   };
 }

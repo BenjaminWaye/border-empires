@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { PHOTO_MODE_BODY_CLASS } from "../client-photo-mode/client-photo-mode.js";
-import { createMapTipPins, mapTipPins, pinAnchor, type MapTipPin } from "./client-map-tip-pins.js";
+import { PIN_FAN_PX, createMapTipPins, mapTipPins, pinAnchor, type MapTipPin } from "./client-map-tip-pins.js";
 import { renderDiscoveryTipOverlay, resetDiscoveryTipPinsForTests } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { enqueueDiscoveryTip, type DiscoveryTipId } from "../client-discovery-tips/client-discovery-tips.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
@@ -18,8 +18,9 @@ const mountCanvas = (): HTMLCanvasElement => {
   return canvas;
 };
 const pin = (key: string, x: number, y: number, open = vi.fn()): MapTipPin => ({ key, x, y, label: `Pin ${key}`, kind: "tip", open });
-// Tile (x, y) projects to (x*10, y*10): the 2D top-left corner, or the 3D ground centre.
-const projection = { size: 10, project: (x: number, y: number) => ({ sx: x * 10, sy: y * 10 }) };
+// Like the real 2D projection (client-map-math.ts worldToScreen with the camera at 0,0): a tile's centre,
+// (x + 0.5) * size. The 3D host also projects the centre.
+const projection = { size: 10, project: (x: number, y: number) => ({ sx: (x + 0.5) * 10, sy: (y + 0.5) * 10 }) };
 const buttons = (): HTMLButtonElement[] => Array.from(document.querySelectorAll<HTMLButtonElement>(".map-tip-pin"));
 
 beforeEach(() => {
@@ -31,9 +32,24 @@ beforeEach(() => {
 afterEach(() => setTrue3DRendererActive(false));
 
 describe("map tip pins", () => {
-  it("anchors at the tile centre in 2D and above the ground point in 3D", () => {
+  // Review 2026-11-23: 2D treated the projection as a tile's top-left corner and added half a tile, so every
+  // 2D pin pointed at the border with the tile to its right.
+  it("puts the tail over the tile's own centre column in 2D, and above the ground point in 3D", () => {
     expect(pinAnchor(projection, 5, 5, false)).toEqual({ sx: 55, sy: 52 });
-    expect(pinAnchor(projection, 5, 5, true)).toEqual({ sx: 50, sy: 28 });
+    expect(pinAnchor(projection, 5, 5, true)).toEqual({ sx: 55, sy: 33 });
+  });
+
+  it("stands pins that share a tile side by side, centred on it", () => {
+    createMapTipPins(mountCanvas(), () => [pin("a", 5, 5), pin("b", 5, 5), pin("c", 9, 9)]).render(projection);
+    const left = (key: string): number => Number.parseFloat(buttons().find((b) => b.dataset.pin === key)?.style.left ?? "NaN");
+    expect(left("a")).toBe(55 - PIN_FAN_PX / 2);
+    expect(left("b")).toBe(55 + PIN_FAN_PX / 2);
+    expect(left("c")).toBe(95);
+  });
+
+  it("shows nothing when no map is drawn (the season lobby's placeholder projection)", () => {
+    createMapTipPins(mountCanvas(), () => [pin("a", 5, 5)]).render({ size: 1, project: () => ({ sx: 0, sy: 0 }) }, false);
+    expect(buttons()).toEqual([]);
   });
 
   it("places one button per pin over the map in both renderers, and culls pins off screen", () => {

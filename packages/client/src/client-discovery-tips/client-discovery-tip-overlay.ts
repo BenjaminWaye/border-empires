@@ -7,7 +7,7 @@
 import type { DiscoveryTipDef, DiscoveryTipId } from "./client-discovery-tips.js";
 import type { DiscoveryTipTarget } from "./client-discovery-tips.js";
 import { DISCOVERY_TIPS, dismissDiscoveryTip, enqueueDiscoveryTip, getDiscoveryTipTarget } from "./client-discovery-tips.js";
-import { isDiscoveryTipsMuted } from "./client-discovery-tips-storage.js";
+import { isDiscoveryTipsMuted, markDiscoveryTipSeen } from "./client-discovery-tips-storage.js";
 
 const OVERLAY_ID = "discovery-tip-overlay";
 
@@ -76,7 +76,8 @@ export const openDiscoveryTipPin = (id: DiscoveryTipId): void => {
   showDiscoveryTipCard(DISCOVERY_TIPS[id], (mute) => {
     dismissDiscoveryTip(from.queue, id, from.authEmail, mute);
     announced.delete(id);
-    refreshPins(from, from.held, false);
+    // "Don't show tips" takes every other pin off the map at once, not on the next tile batch.
+    refreshPins(from, from.held, isDiscoveryTipsMuted(from.authEmail));
     from.onDismiss();
   });
 };
@@ -114,6 +115,8 @@ export const renderDiscoveryTipOverlay = (
         if (!announced.has(id)) {
           announced.add(id);
           onShow?.(DISCOVERY_TIPS[id]);
+          // Recorded in the Chronicle now, so a pin left untapped is not queued and recorded again next session.
+          markDiscoveryTipSeen(id, authEmail);
         }
         continue;
       }

@@ -224,6 +224,16 @@ describe("occupation survey presentation", () => {
     expect(pending()).toEqual([]);
   });
 
+  // Review 2026-11-23: pins stayed up behind the AFC drop and screens, so a tap opened a card the next frame closed.
+  it("hides the pins while a screen covers the map, and shows them again after", () => {
+    occupationSurveyController.record(entry());
+    const state = { camX: 10, camY: 10, camSubX: 0, camSubY: 0, selected: undefined };
+    occupationSurveyController.sync({ ...state, presentationReady: false }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
+    expect(pending()).toEqual([]);
+    occupationSurveyController.sync({ ...state, presentationReady: true }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
+    expect(pending()).toEqual(["TITANIUM"]);
+  });
+
   it("closes an open card while a screen covers the map, and drops the clue once its resource is researched", () => {
     occupationSurveyController.record(entry());
     const state = { camX: 10, camY: 10, camSubX: 0, camSubY: 0, selected: undefined };
@@ -231,6 +241,7 @@ describe("occupation survey presentation", () => {
     expect(dialog()).not.toBeNull();
     occupationSurveyController.sync({ ...state, presentationReady: false }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
     expect(dialog()).toBeNull();
+    occupationSurveyController.sync({ ...state, presentationReady: true }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
     expect(pending()).toEqual(["TITANIUM"]);
     occupationSurveyController.sync({ ...state, techIds: ["masonry"] }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
     expect(pending()).toEqual([]);

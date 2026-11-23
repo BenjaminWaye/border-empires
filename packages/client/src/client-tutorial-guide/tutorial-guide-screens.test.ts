@@ -246,8 +246,9 @@ describe("discovery tips while the guide runs", () => {
 
     queueTips(state, "ENEMY_EMPIRE");
     renderDiscoveryTipOverlayForState(state, vi.fn());
+    // Not retired: still queued and pinned (a pinned tip counts as seen, so it is not re-queued next session).
     expect(state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
-    expect(isDiscoveryTipSeen("ENEMY_EMPIRE", EMAIL)).toBe(false);
+    expect(pinned()).toContain("ENEMY_EMPIRE");
   });
 
   it("marks the recommended AFC upgrade card with a Guide pick badge, and clears only its own mark", async () => {

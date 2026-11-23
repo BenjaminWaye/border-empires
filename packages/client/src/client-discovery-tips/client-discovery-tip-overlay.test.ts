@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { announceDiscoveryTip, discoveryTipPins, openDiscoveryTipPin, renderDiscoveryTipOverlay, resetDiscoveryTipPinsForTests } from "./client-discovery-tip-overlay.js";
 import { DISCOVERY_TIPS, enqueueDiscoveryTip, type DiscoveryTipId } from "./client-discovery-tips.js";
+import { isDiscoveryTipSeen } from "./client-discovery-tips-storage.js";
 
 const card = (): HTMLElement | null => document.getElementById("discovery-tip-overlay");
 
@@ -77,6 +78,25 @@ describe("discovery tips as map pins", () => {
     expect(card()).toBeNull();
     expect(queue).toEqual(["TOWN"]);
     expect(discoveryTipPins()).toEqual([{ id: "TOWN", x: 4, y: 6 }]);
+  });
+
+  // Review 2026-11-23: muting from one card left the other pins up until the next tile batch.
+  it("takes every pin off the map when Don't show tips is ticked on a card", () => {
+    const queue = queued("TOWN");
+    enqueueDiscoveryTip(queue, "DOCK", "a@example.com", { x: 9, y: 2 });
+    renderDiscoveryTipOverlay(queue, "a@example.com", vi.fn());
+    openDiscoveryTipPin("DOCK");
+    (document.getElementById("discovery-tip-mute") as HTMLInputElement).checked = true;
+    (document.getElementById("discovery-tip-ack") as HTMLButtonElement).click();
+    expect(discoveryTipPins()).toEqual([]);
+  });
+
+  // Review 2026-11-23: an untapped pin was never marked seen, so each session queued and recorded it again.
+  it("counts a tip as seen once its pin has been recorded", () => {
+    renderDiscoveryTipOverlay(queued("TOWN"), "a@example.com", vi.fn());
+    expect(isDiscoveryTipSeen("TOWN", "a@example.com")).toBe(true);
+    const nextSession: DiscoveryTipId[] = [];
+    expect(enqueueDiscoveryTip(nextSession, "TOWN", "a@example.com", { x: 4, y: 6 })).toBe(false);
   });
 
   it("closes an open card when the map is covered", () => {

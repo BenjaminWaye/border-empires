@@ -56,6 +56,8 @@ let releaseCardSlot: (() => void) | undefined;
 let previousFocus: HTMLElement | undefined;
 let viewHandler: ((report: OccupationSurveyReport) => void) | undefined;
 let capturePanelOpen = false;
+// Last frame's gate (client-popup-gate.ts): a screen covers the map, the AFC drop is landing, or one is about to open.
+let presentationBlocked = false;
 let reportScope: string | undefined;
 let revealTechIds: readonly string[] = []; // At most the three resource-reveal techs.
 
@@ -97,7 +99,7 @@ const acknowledgePopup = (): void => {
 const showPopup = (report: OccupationSurveyReport): void => {
   if (typeof document === "undefined" || popupElement?.dataset.reportId === report.id) return;
   removePopup();
-  // Another full-screen card (town capture, waystation) is up or waiting: this one waits its turn (sync retries every frame).
+  // Another full-screen card (town capture, waystation) is up or waiting: its pins are hidden meanwhile (pendingReports).
   if (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0) return;
   const overlay = document.createElement("div");
   const release = tryClaimFullscreenCard("occupation-survey", overlay);
@@ -173,11 +175,18 @@ export const occupationSurveyController = {
   /** Each frame: drops clues a researched Manifest has revealed, and closes the card while a screen covers the map. */
   sync(state: SurveyState, _worldToScreen: WorldToScreen, _size: number, _halfW: number, _halfH: number): void {
     if (state.techIds) filterRevealedReports(state.techIds);
-    if (state.presentationReady === false) removePopup();
+    presentationBlocked = state.presentationReady === false;
+    if (presentationBlocked) removePopup();
   },
-  /** Clues not yet acknowledged, one per resource at most: each is a pin on the map (client-map-tip-pins.ts). */
+  /**
+   * Clues not yet acknowledged, one per resource at most: each is a pin on the map (client-map-tip-pins.ts).
+   * None while the town capture card, a screen over the map or another full-screen card would keep a tap
+   * from opening the clue's card.
+   */
   pendingReports(): OccupationSurveyReport[] {
-    return capturePanelOpen ? [] : active ? [active, ...queue] : [...queue];
+    const otherCard = !popupElement && (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0);
+    if (capturePanelOpen || presentationBlocked || otherCard) return [];
+    return active ? [active, ...queue] : [...queue];
   },
   /** A pin tap: shows that clue's card. View survey or Got it acknowledges it and removes its pin. */
   open(reportId: string): void {
@@ -207,6 +216,7 @@ export const occupationSurveyController = {
       delete seenReportIds.UMBRITE;
       delete seenReportIds.GEMS;
       revealTechIds = [];
+      presentationBlocked = false;
       reportScope = scope;
     }
     if (techIds) filterRevealedReports(techIds);

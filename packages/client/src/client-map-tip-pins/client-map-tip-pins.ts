@@ -25,18 +25,21 @@ export const mapTipPins = (): MapTipPin[] => [
   }))
 ];
 
-/** Screen point for a pin's tip: above the tile centre, clear of 3D models. Exported for tests. */
+/** Screen point for a pin's tail: the tile in 2D, clear of the models above it in 3D. Exported for tests. */
 export const pinAnchor = (projection: Projection, x: number, y: number, three: boolean): { sx: number; sy: number } => {
+  // Both renderers project a tile's centre (client-map-math.ts worldToScreen; the 3D host's ground point).
   const at = projection.project(x, y);
-  // 2D projects a tile's top-left corner; 3D projects its centre on the ground.
-  return three ? { sx: at.sx, sy: at.sy - Math.max(22, projection.size * 1.4) } : { sx: at.sx + projection.size / 2, sy: at.sy + projection.size * 0.2 };
+  return { sx: at.sx, sy: three ? at.sy - Math.max(22, projection.size * 1.4) : at.sy - projection.size * 0.3 };
 };
+
+/** Horizontal gap between pins that share a tile (a town that is also first contact, a dock and its first-dock tip). */
+export const PIN_FAN_PX = 30;
 
 const isPhotoModeOn = (doc: Document): boolean => doc.body.classList.contains(PHOTO_MODE_BODY_CLASS);
 
 /** The pin layer over the map canvas; `render` runs every frame with the frame's projection. */
 export function createMapTipPins(canvas: HTMLCanvasElement, pinsFor: () => readonly MapTipPin[] = mapTipPins): {
-  render: (projection: Projection) => void;
+  render: (projection: Projection, mapDrawn?: boolean) => void;
   dispose: () => void;
 } {
   const doc = canvas.ownerDocument;
@@ -45,15 +48,25 @@ export function createMapTipPins(canvas: HTMLCanvasElement, pinsFor: () => reado
   canvas.parentElement?.append(layer);
   const buttons = new Map<string, HTMLButtonElement>();
   return {
-    render(projection) {
+    render(projection, mapDrawn = true) {
       const bounds = canvas.getBoundingClientRect();
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
       const shown = new Set<string>();
-      // Photo mode captures the bare map, and a hidden pin must not catch a tap meant for the map.
-      for (const pin of isPhotoModeOn(doc) ? [] : pinsFor()) {
+      // Photo mode captures the bare map, and a hidden pin must not catch a tap meant for the map. With no map
+      // drawn (the season lobby) there is no real projection to place them by.
+      const pins = !mapDrawn || isPhotoModeOn(doc) ? [] : pinsFor();
+      const perTile = new Map<string, number>();
+      for (const pin of pins) perTile.set(`${pin.x},${pin.y}`, (perTile.get(`${pin.x},${pin.y}`) ?? 0) + 1);
+      const fanned = new Map<string, number>();
+      for (const pin of pins) {
+        const tile = `${pin.x},${pin.y}`;
+        const index = fanned.get(tile) ?? 0;
+        fanned.set(tile, index + 1);
         const at = pinAnchor(projection, pin.x, pin.y, three);
-        const left = at.sx * scaleX, top = at.sy * scaleY;
+        // Pins on one tile stand side by side, centred on it, so each can be tapped.
+        const fan = (index - ((perTile.get(tile) ?? 1) - 1) / 2) * PIN_FAN_PX;
+        const left = at.sx * scaleX + fan, top = at.sy * scaleY;
         if (!Number.isFinite(left) || !Number.isFinite(top) || left < 0 || top < 0 || left > bounds.width || top > bounds.height) continue;
         shown.add(pin.key);
         let button = buttons.get(pin.key);

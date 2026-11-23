@@ -57,7 +57,7 @@ describe("createPersistentAlertsFrame town survey popup", () => {
     expect(occupationSurveyController.pendingReports().map((report) => report.id)).toEqual([surveyEntry.id]);
   });
 
-  it("closes an opened survey card when the Activity dashboard opens over it, keeping its pin", () => {
+  it("closes an opened survey card when the Activity dashboard opens over it, and hides its pin until it closes", () => {
     const state = signedInState();
     const frame = createPersistentAlertsFrame(state);
     occupationSurveyController.reconcile([surveyEntry], [], "me:season-b");
@@ -66,6 +66,10 @@ describe("createPersistentAlertsFrame town survey popup", () => {
     expect(popupVisible()).toBe(true);
     state.activityDashboard.open = true;
     frame(2, drawDeps);
+    expect(popupVisible()).toBe(false);
+    expect(occupationSurveyController.pendingReports()).toEqual([]);
+    state.activityDashboard.open = false;
+    frame(3, drawDeps);
     expect(popupVisible()).toBe(false);
     expect(occupationSurveyController.pendingReports().map((report) => report.id)).toEqual([surveyEntry.id]);
   });

@@ -134,6 +134,8 @@ describe("post-capture cards", () => {
     document.querySelector<HTMLButtonElement>("#town-capture-close")?.click();
     syncSurvey();
     expect(visibleCards()).toEqual(["waystation-activation-overlay"]);
+    // Review 2026-11-23: a tap could not open the clue behind another card, so its pin waits for it to close.
+    expect(occupationSurveyController.pendingReports()).toEqual([]);
 
     document.querySelector<HTMLButtonElement>("#waystation-activation-close")?.click();
     syncSurvey();
