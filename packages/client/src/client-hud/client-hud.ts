@@ -15,7 +15,6 @@ import { bindWeakDefensibilityToggle } from "./client-hud-weak-defensibility-tog
 import { renderHouseChargesPanel } from "../client-house-charges/client-house-charges-panel.js";
 import type { initClientDom } from "../client-dom.js";
 import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
-import { bindResourceTradeButtons } from "./client-hud-resource-trade-button.js";
 import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { downloadDiagnosticsBundle } from "../client-diagnostics.js";
@@ -148,7 +147,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     chooseTech,
     chooseDomain,
     sendGameMessage,
-    playerNameForOwner,
     wrapX,
     wrapY,
     terrainAt,
@@ -458,8 +456,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
-  bindHudEconomyPanelControls(dom.hud, state, { wrapX, wrapY, rerender: () => renderClientHud(deps), requestViewRefresh: () => requestViewRefresh(2, true), noDepositFound: resource => pushFeed(`No known ${resource.toLowerCase()} deposits. Explore more of the map to find one.`, "info", "info") });
-  bindResourceTradeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
+  bindHudEconomyPanelControls(dom.hud, state, { wrapX, wrapY, rerender: () => renderClientHud(deps), requestViewRefresh: () => requestViewRefresh(2, true), noDepositFound: resource => pushFeed(`No known ${resource.toLowerCase()} deposits. Explore more of the map to find one.`, "info", "info"), reviewTrade: { playerNameForOwner: deps.playerNameForOwner, sendGameMessage } });
   renderHudTownsPanel(state, {
     root: dom.hud, panelEl: dom.panelTownsEl, rerender: () => renderClientHud(deps),
     requestViewRefresh, wrapX, wrapY, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")

@@ -423,7 +423,10 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
     // A tile's Diplomacy action opens that empire's deal.
-    if (diplomacyTarget) openScreen(deps, "diplomacy", { diplomacyTarget });
+    if (diplomacyTarget) {
+      deps.actionFlow.hideTileActionMenu();
+      openScreen(deps, "diplomacy", { diplomacyTarget });
+    }
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };
