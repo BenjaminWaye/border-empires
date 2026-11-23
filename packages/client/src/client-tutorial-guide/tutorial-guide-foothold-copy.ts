@@ -18,7 +18,11 @@ export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }
   pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
   // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
   garrison: { title: "Tap the marked town and Garrison it", why: "It's your frontier now; a garrison makes it count and grow." },
-  expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
+  // Says what Expand To is for: other land claimed beyond reach can't be garrisoned (core-loop.md §12, tension 4).
+  expand: {
+    title: "Tap the marked town and Expand To it",
+    why: "Expand To claims a path across to it. Cross only for a town or dock: other land beyond your reach can't be garrisoned, and is lost if it's cut off."
+  },
   beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
 };
 
@@ -27,7 +31,8 @@ const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   scouting: { title: "Your scout drone is out: wait for its report", why: "Grain and fish it finds stay on your map." },
   pending: { title: "Your claim on the marked food tile is underway", why: "Once your claim lands, it garrisons itself." },
   garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
-  expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
+  // A food target is always inside reach (scanGuideFootholdTargets), so this is never a crossing.
+  expand: { title: "Tap a marked food tile and Expand To it", why: "It's inside your reach but not yours yet: Expand To claims it. Only garrisoned food counts." },
   beacon: { title: "No food in sight: build a Relay Beacon", why: "Its reach and vision push outward to more grain and fish." }
 };
 

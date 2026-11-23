@@ -25,6 +25,8 @@ import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js"
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
+import type { GuideGarrisonScan } from "./tutorial-guide-garrison-targets.js";
+import { OUTPOST_REACH_RADIUS, RELAY_BEACON_FREE_FOOD_SLOT_COUNT, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { exploreHighlight, foodCopy, foodTitle, needsTownForBuild, targetHighlights, TOWN_STEP, townAction, townBeforeBeacon, townTitle, townWhy } from "./tutorial-guide-foothold-copy.js";
 
 export { guideBeaconSite, needsTownForBuild } from "./tutorial-guide-foothold-copy.js";
@@ -78,6 +80,8 @@ export type GuideInput = {
   ownsRelayBeacon: boolean;
   /** The best tile for a Relay Beacon that adds the most new reach (client-relay-beacon-site.ts), if any. A function: computed only when a step asks. */
   beaconSite: () => { x: number; y: number } | undefined;
+  /** Plain land the player garrisoned by hand, and frontier border tiles to garrison (tutorial-guide-garrison-targets.ts). A function: computed only when a step asks. */
+  garrison: () => GuideGarrisonScan;
   /** The player's garrisoned town tiles: where a Manufactory goes. */
   buildTargetTiles: ReadonlyArray<{ x: number; y: number }>;
   /** The player has seen another House's territory (not Planetary Defense): client-met-players.ts. */
@@ -162,6 +166,11 @@ export const guideRecommendsAfcUpgrade = (stepId: string): boolean => stepId ===
 /** The player commissioned a Manifest, but not the Industrial Tooling Module: the Manufactory steps no longer apply. */
 const otherManifestChosen = (i: GuideInput): boolean => i.manifestCount > 0 && !i.manufactoryResearched;
 
+/** Reach is the growth verb: a beacon moves it, and land beyond it can't be garrisoned (core-loop.md §12, tension 4). */
+export const BEACON_WHY = `Your reach is where you can garrison and build, and it claims the free land inside it. A beacon pushes it out ${OUTPOST_REACH_RADIUS} tiles; your first ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} need no food slot. Land beyond your reach can't be garrisoned.`;
+
+export const GARRISON_WHY = `Land your reach claims is frontier: it has no defence, and a rival takes it without a fight. A garrison costs ${SETTLE_MANPOWER_COST} manpower and makes the tile fight back. Garrison the border you mean to keep.`;
+
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Towns, food and rivals are out there in the dark.", isDone: (i) => i.panned },
   { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
@@ -205,7 +214,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     why: (i) =>
       townBeforeBeacon(i)
         ? "A town pushes your reach out by itself, so take it before spending manpower on a beacon."
-        : "A beacon pushes your reach outward, so you can garrison land further out. It needs no Manifest; it costs manpower and uses one food slot.",
+        : BEACON_WHY,
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
@@ -213,6 +222,17 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
       const site = i.beaconSite();
       return site ? [site] : [];
     }
+  },
+  // Reach claims land as FRONTIER, which has no defence, and nothing garrisons plain land for the
+  // player (core-loop.md §12, tension 5): the step has them garrison one border tile and says why.
+  {
+    id: "reach-garrison",
+    chapter: "reach",
+    title: (i) => (i.garrison().targets.length > 0 ? "Tap a marked border tile and Garrison it" : "Garrison a frontier tile on your border"),
+    why: GARRISON_WHY,
+    isDone: (i) => i.garrison().garrisonedPlain,
+    doneIfLaterStepDone: true,
+    highlight: (i) => i.garrison().targets
   },
   {
     id: "manpower-open",

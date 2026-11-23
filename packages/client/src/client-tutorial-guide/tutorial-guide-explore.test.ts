@@ -47,6 +47,7 @@ const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   ownsBuiltStructure: false,
   ownsRelayBeacon: false,
   beaconSite: () => undefined,
+  garrison: () => ({ garrisonedPlain: true, targets: [] }),
   buildTargetTiles: [],
   musterUnlocked: false,
   ownsMusterFlag: false,

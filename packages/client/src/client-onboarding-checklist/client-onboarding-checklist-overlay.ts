@@ -35,7 +35,10 @@ let lastRemaining: number | null = null;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
 // 4 checkbox rows -- "find" (a target is known to exist) split out from
-// "expand to" (actually claimed) for both the town goal and the food goal.
+// "garrison" (the goal's real completion condition) for both the town goal
+// and the food goal. The rows used to say "Expand To", which taught claiming
+// tiles as the way to grow; reach does the claiming, and only a garrison
+// completes either goal (docs/core-loop.md §12, tension 4).
 // See OnboardingChecklistState's doc comment for what each boolean means.
 const remainingSteps = (state: OnboardingChecklistState): number =>
   [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
@@ -44,8 +47,8 @@ const remainingSteps = (state: OnboardingChecklistState): number =>
 const relayBeaconNote = (state: OnboardingChecklistState): string | null => {
   if (state.step !== "EXPAND_RELAY_BEACON") return null;
   return state.relayBeaconSite
-    ? `Nothing in reach -- build a Relay Beacon on the marked tile (${state.relayBeaconSite.x}, ${state.relayBeaconSite.y}) to expand your reach`
-    : "Nothing in reach -- build a Relay Beacon to expand your reach";
+    ? `Nothing in reach -- build a Relay Beacon on the marked tile (${state.relayBeaconSite.x}, ${state.relayBeaconSite.y}) to push your reach out. Land beyond your reach can't be garrisoned.`
+    : "Nothing in reach -- build a Relay Beacon to push your reach out. Land beyond your reach can't be garrisoned.";
 };
 
 const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
@@ -106,9 +109,9 @@ const render = (state: OnboardingChecklistState): void => {
       <div class="onb-panel-title">New empire checklist</div>
       <ul class="onb-goal-list">
         ${goalRow("Find a town", state.townFound)}
-        ${goalRow("Expand To it", state.townExpanded, { indent: true })}
+        ${goalRow("Garrison it", state.townExpanded, { indent: true })}
         ${goalRow(`Find food tiles (${state.foodSlotsFound}/${state.foodSlotsTarget})`, state.foodFound)}
-        ${goalRow(`Expand To food tiles (${state.foodSlotsClaimed}/${state.foodSlotsTarget})`, state.foodExpanded, {
+        ${goalRow(`Garrison food tiles (${state.foodSlotsClaimed}/${state.foodSlotsTarget} slots)`, state.foodExpanded, {
           indent: true,
           extraLabelClass: "onb-panel-step"
         })}

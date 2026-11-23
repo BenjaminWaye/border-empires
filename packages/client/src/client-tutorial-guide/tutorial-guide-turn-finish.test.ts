@@ -9,7 +9,7 @@ describe("guide last step copy", () => {
 
   it("tells a player over the cap to spend, not to come back (playtest: quit on 2,712 / 1,170)", () => {
     const why = turnFinishWhy({ current: 2712, cap: 1170 }, "Chronicle");
-    expect(why).toMatch(/^Spend your 2,712 manpower: explore for towns, expand, garrison, build, attack\. No refill until you're under 1,170\./);
+    expect(why).toMatch(/^Spend your 2,712 manpower: scout, push your reach with beacons, garrison and build, commission Manifests, attack\. No refill until you're under 1,170\./);
     expect(why).not.toMatch(/refills every/);
   });
 
@@ -19,7 +19,7 @@ describe("guide last step copy", () => {
 
   it("keeps the refill message under the cap, or before manpower is known", () => {
     for (const m of [{ current: 869, cap: 870 }, { current: 120, cap: 870 }, undefined]) {
-      expect(turnFinishWhy(m, "Chronicle")).toMatch(/^Manpower refills every 4 hours: explore for towns/);
+      expect(turnFinishWhy(m, "Chronicle")).toMatch(/^Manpower refills every 4 hours: scout, push your reach/);
     }
   });
 });

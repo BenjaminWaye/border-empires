@@ -23,6 +23,7 @@ import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/cl
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 import { scoutChargesReady, scoutLaunchAfc } from "../client-scout-drone/client-scout-drone-plan.js";
+import { scanGuideGarrisonTargets, type GuideGarrisonScan } from "./tutorial-guide-garrison-targets.js";
 import { leadRouteLegs } from "../client-scout-drone/client-scout-drone-lead-route.js";
 
 export type GuideInputState = Pick<
@@ -183,6 +184,8 @@ let cached:
       musterUnlocked: boolean;
       /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
       beaconSite?: { value: { x: number; y: number } | undefined };
+      /** Filled on first use: only the garrison step reads it, and only until it is saved as done. */
+      garrison?: GuideGarrisonScan;
     }
   | undefined;
 
@@ -312,6 +315,11 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     beaconSite: () => {
       current.beaconSite ??= { value: beaconSiteOf(state.tiles, state.me, current.scan.ownsRelayBeacon) };
       return current.beaconSite.value;
+    },
+    garrison: () => {
+      const reach = resolveMyReach(state);
+      current.garrison ??= scanGuideGarrisonTargets(state.tiles, state.me, (x, y) => reach.has(tileKey(x, y)), distanceFrom(state.homeTile));
+      return current.garrison;
     },
     buildTargetTiles: cached.scan.buildTargetTiles,
     musterUnlocked: cached.musterUnlocked,
