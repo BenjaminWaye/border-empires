@@ -50,7 +50,22 @@ describe("Chronicle headline", () => {
   it("uses the window's summary when away for all of it, so capped-off town cards still count", () => {
     const t = timeline([townLost("only-card", 600)], { from: 100, goldRaidedFromYou: 1_234.6 }, { tilesLost: 129, tilesClaimed: 3, townsLost: 4, featuresLost: [{ kind: "AFC", count: 1 }] });
     const lines = chronicleHeadlineLines(chronicleHeadlineTally(input(t, { awaySince: 50 })));
-    expect(lines).toEqual(["Lost 129 tiles, 4 towns and your AFC · gained 3 tiles.", "1,235 coin raided."]);
+    expect(lines).toEqual(["Gained 3 tiles.", "Lost 129 tiles, 4 towns and your AFC.", "1,235 coin raided."]);
+  });
+
+  // Visit loop report: what the player's own orders produced comes before what was taken from them.
+  it("opens with the player's own results: builds finished, waystations activated, ground taken", () => {
+    const t = timeline([
+      { kind: "BUILDING_COMPLETED", id: "b1", occurredAt: 600, x: 1, y: 1, structureType: "FORT" },
+      { kind: "BUILDING_COMPLETED", id: "b2", occurredAt: 610, x: 2, y: 2, structureType: "FARMSTEAD" },
+      { kind: "BUILDING_COMPLETED", id: "old", occurredAt: 400, x: 3, y: 3, structureType: "FORT" },
+      { kind: "TERRITORY_FLIP_GROUP", id: "g", occurredAt: 620, direction: "GAINED", tileCount: 6, x: 4, y: 4 },
+      { kind: "TERRITORY_FLIP_GROUP", id: "l", occurredAt: 630, direction: "LOST", counterpartyPlayerId: "konrad", tileCount: 2, x: 5, y: 5 }
+    ]);
+    const tally = chronicleHeadlineTally(input(t));
+    expect(tally).toMatchObject({ buildingsCompleted: 2, waystationsActivated: 0, tilesGained: 6, tilesLost: 2 });
+    expect(chronicleHeadlineLines(tally)).toEqual(["Built 2 structures · gained 6 tiles.", "Lost 2 tiles."]);
+    expect(chronicleHeadlineLines({ ...tally, buildingsCompleted: 0, waystationsActivated: 1, tilesGained: 0 })).toEqual(["Activated 1 waystation.", "Lost 2 tiles."]);
   });
 
   it("ignores a recovery respawn and a truce the player broke", () => {

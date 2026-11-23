@@ -8,6 +8,7 @@ import { latestClientChangelogTimestamp, markClientChangelogSeen, unseenClientCh
 import { storageGet, storageSet } from "../client-state/client-storage.js";
 import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
+import { chronicleProgressForState } from "./client-hud-v2-chronicle-progress.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
@@ -64,6 +65,7 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       nowMs: Date.now(),
       awaySince: screen.chronicleAwaySince,
       respawn: state.respawnNotice,
+      progress: chronicleProgressForState(state, Date.now()),
       surveys: occupationSurveyController.currentReports(state.techIds ?? [])
     }, tabs));
     if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
