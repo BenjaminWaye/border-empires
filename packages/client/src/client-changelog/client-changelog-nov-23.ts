@@ -11,6 +11,7 @@ import { CAPTURED_TOWN_FIST_ENTRY } from "./client-changelog-captured-town-fist.
 import { UMBRITE_FOREST_DEPOSITS_ENTRY } from "./client-changelog-umbrite-forest-deposits.js";
 import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
+import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...VISIT_AGENDA_ENTRY, createdAt: 1795459779781, },
@@ -23,5 +24,6 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...UMBRITE_FOREST_DEPOSITS_ENTRY, createdAt: 1795425803985, },
   { ...PD_LAND_VISIBLE_ENTRY, createdAt: 1795437513917, },
   { ...LOST_TILE_OWNER_ENTRY, createdAt: 1795441816662, },
+  { ...VISIT_REPORT_ENTRY, createdAt: 1795448790974, },
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
 ];
