@@ -127,6 +127,8 @@ export type PlayerSubscriptionSnapshot = {
      * snapshot -- so a reconnect can restore fog memory the browser lost.
      */
     exploredTiles?: ExploredTilesRuns;
+    /** Land the player lost in the last 24h and who took it, stamped fresh on each reply (apps/simulation lost-tile-memory.ts). */
+    lostTiles?: Array<{ x: number; y: number; ownerId: string }>;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used this UTC day). Sent purely so the
     // client's rush-buy price preview can replicate the server's exact

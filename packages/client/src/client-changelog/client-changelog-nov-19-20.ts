@@ -28,6 +28,7 @@ import { SCOUT_DRONE_REPORTS_ENTRY } from "./client-changelog-scout-drone-report
 import { SCOUT_FIND_POPS_ENTRY } from "./client-changelog-scout-find-pops.js";
 import { SCOUT_CLOSING_TAPS_ENTRY } from "./client-changelog-scout-closing-taps.js";
 import { SCOUT_UNSEEN_REPORT_ENTRY } from "./client-changelog-scout-unseen-report.js";
+import { SCOUT_RADAR_RING_ENTRY } from "./client-changelog-scout-radar-ring.js";
 
 export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...TAP_CONFIRM_BRASS_ENTRY, createdAt: 1795104400095, },
@@ -59,4 +60,5 @@ export const NOV_19_20_CHANGELOG: ClientChangelogEntry[] = [
   { ...SCOUT_FIND_POPS_ENTRY, createdAt: 1795263604318 },
   { ...SCOUT_CLOSING_TAPS_ENTRY, createdAt: 1795272768763 },
   { ...SCOUT_UNSEEN_REPORT_ENTRY, createdAt: 1795275456437 },
+  { ...SCOUT_RADAR_RING_ENTRY, createdAt: 1795437462254 },
 ];

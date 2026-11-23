@@ -279,8 +279,9 @@ branch. The options, with what each costs. None of them is chosen here.
   commands, saw only their starting area, and never disconnected and
   reconnected.
 - **More than 40 humans**, or 50 humans with 50 AI.
-- **A revealed map.** PR #2932 measured about 320 MB extra while one reveal is
-  built, on top of the figures here.
+- **A revealed map.** [`full-reveal-2026-11-23.md`](full-reveal-2026-11-23.md)
+  measured about 320 MB extra while one reveal is built, on top of the figures
+  here. The two were not run together.
 - **Contest end and rollover** into the next contest.
 - **The per-player rollback after a crash.** Taken from the code.
 - **A graceful stop.** The local launcher stops the process outright, so the

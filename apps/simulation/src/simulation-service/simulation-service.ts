@@ -1,6 +1,6 @@
 import { createFullVisibilitySource } from "./full-visibility-source.js";
 import { resolveRecoveredSeason } from "./recovered-season-fallback.js";
-import { logDebugSubscribePlayer, withExploredTiles } from "./subscribe-player-reply.js";
+import { logDebugSubscribePlayer, withFogMemory } from "./subscribe-player-reply.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
@@ -69,7 +69,7 @@ import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
 import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
-import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
+import { createRuntimeTileDeltaFanout } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
 import { buildWorldStatusSnapshot, emptySelfProgressCache, selfProgressCacheOf, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
@@ -744,6 +744,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
+  const tileDeltaFanout = createRuntimeTileDeltaFanout<TileDeltaBatchTile>(() => runtime);
   const snapshotCache = createPlayerSnapshotCache();
   // Season-end score graph sampler; cadence + boot restore documented in score-history-sampler.ts.
   const scoreHistorySampler = createScoreHistorySampler();
@@ -1479,10 +1480,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           snapshotCache.bumpWorldRevision();
           for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
             const filterStartedAt = slowTileDeltaFilterWarnMs > 0 ? Date.now() : 0;
-            const filteredDeltas = buildFilteredTileDeltasForSubscriber(event.tileDeltas, subscribedPlayerId, visionTransitions, {
-              filterTileDeltasForPlayer: (deltas, playerId, options) => runtime.filterTileDeltasForPlayer(deltas, playerId, options),
-              wireDeltaForTileKey: (tileKey, playerId) => runtime.wireDeltaForTileKey(tileKey, playerId) as unknown as TileDeltaBatchTile | undefined
-            });
+            const filteredDeltas = tileDeltaFanout.filter(event.tileDeltas, subscribedPlayerId, visionTransitions);
             if (slowTileDeltaFilterWarnMs > 0) {
               const filterMs = Date.now() - filterStartedAt;
               subscriberCount += 1;
@@ -1520,6 +1518,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               for (const stream of eventStreams) stream.write(perPlayerEvent);
             }
           }
+          for (const spectatorEvent of tileDeltaFanout.spectatorEvents(event.tileDeltas, subscriptionRegistry.spectatorPlayerIds(), (tileDeltas) => toProtoEvent({ ...event, tileDeltas }))) for (const stream of eventStreams) stream.write(spectatorEvent);
           if (slowTileDeltaFilterWarnMs > 0) {
             const totalFanoutMs = Date.now() - fanoutStartedAt;
             if (totalFanoutMs >= slowTileDeltaFilterWarnMs || maxFilterMs >= slowTileDeltaFilterWarnMs) {
@@ -1821,7 +1820,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
-      registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
+      const spectateAccepted = registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
+      if (subscribeOptions.spectateOnly) return spectateAccepted ? callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, tiles: [] }) : callback(new Error("spectate refused"), { ok: false, player_id: call.request.player_id, playerId: call.request.player_id, tiles: [] });
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents
@@ -1884,7 +1884,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         async (snapshotPayload) => {
           try {
             const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
-              snapshotPayload.player ? stringifySnapshot(withExploredTiles(snapshotPayload.player, runtime.exploredTilesFor(snapshotPayload.playerId))) : undefined,
+              snapshotPayload.player ? stringifySnapshot(withFogMemory(snapshotPayload.player, runtime.fogMemoryFor(snapshotPayload.playerId))) : undefined,
               snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
               snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
             ]);

@@ -143,7 +143,7 @@ import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlaye
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { createRuntimeVisibilityCoverage } from "./runtime-visibility-coverage-factory.js";
-import { type ExploredTilesStore, createRuntimeExploredTilesStore, restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
+import { type FogMemory, createRuntimeExploredTilesStore, restoreRuntimeSnapshotSidecars, runtimeSnapshotSidecarExports } from "./runtime-snapshot-sidecars.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
 import { VisionTransitionAccumulator } from "../runtime-vision-transition.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
@@ -1928,7 +1928,7 @@ export class SimulationRuntime {
     };
   }
 
-  exploredTilesFor(playerId: string): ReturnType<ExploredTilesStore["encodedFor"]> { return this.exploredTiles.encodedFor(playerId); } // sent on subscribe (simulation-service.ts)
+  fogMemoryFor(playerId: string): FogMemory { return { exploredTiles: this.exploredTiles.encodedFor(playerId), lostTiles: this.activityLogs.lostTilesOf(playerId) }; } // sent on subscribe (simulation-service.ts, subscribe-player-reply.ts)
   exportSnapshotSections(): SimulationSnapshotSections {
     return snapshotSectionsForRuntime(this.exportContext());
   }

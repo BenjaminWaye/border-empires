@@ -4,6 +4,7 @@ import { ExploredTilesStore } from "../explored-tiles/explored-tiles-store.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import type { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import type { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runtime.js";
+import type { LostTile } from "../lost-tile-memory/lost-tile-memory.js";
 
 /**
  * Small, fixed-shape pieces of runtime state that ride in snapshots beside
@@ -12,6 +13,9 @@ import type { PlanetaryDefenseCamps } from "../planetary-defense-camps/camp-runt
  * counts. Kept out of runtime.ts, which is over the file-line cap.
  */
 export type { ExploredTilesStore };
+
+/** A player's fog memory for the subscribe reply: explored tiles, and who took the land they lost (lost-tile-memory.ts). */
+export type FogMemory = { exploredTiles: ReturnType<ExploredTilesStore["encodedFor"]>; lostTiles: LostTile[] };
 
 /** Per-player fog memory sized to the world, saved in snapshots (explored-tiles-store.ts). */
 export const createRuntimeExploredTilesStore = (): ExploredTilesStore => new ExploredTilesStore(WORLD_WIDTH, WORLD_HEIGHT);

@@ -1,5 +1,6 @@
 import { createViewportDetailLoader } from "../viewport-detail/viewport-detail.js";
 import { createRevealMapStreamer } from "../reveal-map-stream/reveal-map-stream.js";
+import { createRevealMapRequestHandler } from "../reveal-map-request/reveal-map-request.js";
 import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
@@ -114,7 +115,7 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
-import { clearFogDisabledForRestore, createFogIntentTracker, createFogLiveRefreshScheduler, resolveFogLiveRefreshMinGapMs } from "../fog-live-refresh/fog-live-refresh.js";
+import { clearFogDisabledForRestore, createFogIntentTracker } from "../fog-live-refresh/fog-live-refresh.js";
 import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import { createSimulationRpcRetry, resolveSimulationRpcRetryConfig } from "../simulation-rpc-retry/simulation-rpc-retry.js";
 import { createPlayerMessageReplay, isReplayedPlayerMessage } from "../player-message-replay/player-message-replay.js";
@@ -644,7 +645,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       const hasSnapshot = seededPlayerIds.has(playerId);
       return simulationClient.subscribePlayer(
         playerId,
-        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, ...(subscriptionKey ? { subscriptionKey } : {}) })
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, spectate: playerHasFogDisabledSocket(playerId), ...(subscriptionKey ? { subscriptionKey } : {}) })
       );
     },
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
@@ -780,10 +781,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
   const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
-  // Fog-disabled sessions get a coalesced full-world resubscribe when the world changes
-  // (never inline in the per-batch handler — that starved logins in prod on 2026-05-23).
-  // Pacing + stale-result rules live in fog-live-refresh.ts.
-  const FOG_LIVE_REFRESH_MIN_INTERVAL_MS = resolveFogLiveRefreshMinGapMs(options.fogLiveRefreshMinGapMs, process.env.GATEWAY_FOG_LIVE_REFRESH_MIN_GAP_MS);
+  // Fog-disabled sessions stay current through unfiltered live deltas (setSpectating below),
+  // never through full-world resubscribes. Stale-toggle rules live in fog-live-refresh.ts.
   const fogIntent = createFogIntentTracker();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
@@ -999,6 +998,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           playerId,
           JSON.stringify({
             fullVisibility: fogDisabled,
+            spectate: fogDisabled,
             emitBootstrapEvent: false,
             trigger: fogDisabled ? "gateway_fog_refresh" : "gateway_fog_restore"
           })
@@ -1065,20 +1065,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   const playerHasFogDisabledSocket = (playerId: string): boolean =>
     [...playerSubscriptions.socketsForPlayer(playerId)].some((playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true);
-  const fogLiveRefresh = createFogLiveRefreshScheduler({
-    minGapMs: FOG_LIVE_REFRESH_MIN_INTERVAL_MS,
-    hasFogDisabledSocket: playerHasFogDisabledSocket,
-    refresh: (playerId, commandId) => refreshPlayerFogSnapshot(playerId, true, { reason: "live-delta-coalesced", commandId }),
-    onRefreshFailed: (playerId, commandId, error) =>
-      recordGatewayEvent("warn", "gateway_fog_refresh_skip_failed", { playerId, commandId, error: error instanceof Error ? error.message : String(error) }),
-    sleep,
-    now: () => Date.now()
-  });
-  const scheduleFogLiveRefresh = (playerId: string, commandId: string): void => fogLiveRefresh.schedule(playerId, commandId);
+  // A revealed map stays current through unfiltered live deltas from the
+  // simulation (spectating), never by re-requesting the whole world.
+  const setSpectating = (playerId: string, spectating: boolean): Promise<unknown> => withTimeout(
+    simulationClient.subscribePlayer(playerId, JSON.stringify({ spectateOnly: true, spectate: spectating, emitBootstrapEvent: false, trigger: "gateway_spectate" })),
+    simulationSubscribeTimeoutMs, "gateway spectate");
+  const syncSpectating = (playerId: string): void => {
+    const spectating = playerHasFogDisabledSocket(playerId);
+    void setSpectating(playerId, spectating).catch((error: unknown) =>
+      recordGatewayEvent("warn", "gateway_spectate_sync_failed", { playerId, spectating, error: error instanceof Error ? error.message : String(error) }));
+  };
 
   const revealMapPayloadSet = async (playerId: string): Promise<RevealMapPayloadSet> => {
-    const cachedPayloadSet = revealMapChunkCache.current();
-    if (cachedPayloadSet) return cachedPayloadSet;
+    // Never reuse a finished export: changes no subscriber could see never reach the gateway to invalidate it.
     if (!revealMapPayloadBuild) {
       const buildStartedAt = Date.now();
       revealMapPayloadBuild = (async () => {
@@ -1116,13 +1115,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return revealMapPayloadBuild;
   };
 
-  const streamRevealMapToSocket = createRevealMapStreamer({
-    activeSockets: activeRevealStreamSockets, payloadSet: revealMapPayloadSet,
+  const revealMapStream = createRevealMapStreamer({
+    activeSockets: activeRevealStreamSockets,
+    // Spectating starts before the export so no change can fall between the two.
+    payloadSet: async (playerId) => { await setSpectating(playerId, true); return revealMapPayloadSet(playerId); },
     send: queueOrSendSessionPayload, sleep,
     onActiveStreams: (count) => gatewayMetrics.setRevealActiveStreams(count),
     onChunk: () => gatewayMetrics.incrementRevealChunksSent(1),
     onComplete: (socket) => { const session = sessionsBySocket.get(socket); if (session) viewportDetails.refresh(socket, session); },
     record: (event, fields) => recordGatewayEvent("info", event, fields)
+  });
+  const handleRevealMapRequest = createRevealMapRequestHandler({
+    streamer: revealMapStream, activeStreamCount: () => activeRevealStreamSockets.size, maxConcurrentStreams: MAX_CONCURRENT_REVEAL_STREAMS,
+    cooldownMs: REVEAL_REQUEST_COOLDOWN_MS, lastRequestMsByPlayerId: lastRevealRequestMsByPlayerId, now: Date.now,
+    bumpFogIntent: (playerId) => { fogIntent.bump(playerId); }, syncSpectating, sendJson, record: recordGatewayEvent,
+    foggedReplacement: (playerId) => { const fogged = playerSubscriptions.snapshotForPlayer(playerId); return fogged ? fullVisibilityReplacementPayloadCache.get(fogged).payload : undefined; }
   });
   const viewportDetails = createViewportDetailLoader({
     seasonForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId)?.season,
@@ -1207,6 +1214,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (event.eventType === "TILE_DELTA_BATCH") {
         revealMapChunkCache.clear();
         gatewayMetrics.setRevealCacheEntries(0);
+        // A spectator's unfiltered copy goes only to the revealed sockets; never into the cache.
+        if (event.spectator === true) {
+          const spectatorBroadcast = preSerializeBroadcast({ type: "TILE_DELTA_BATCH", commandId: event.commandId, tiles: jsonSafeTileDeltaBatch(event.tileDeltas) });
+          for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(sockets, (candidate) => sessionsBySocket.get(candidate))) {
+            if (sessionsBySocket.get(targetSocket)?.fogDisabled === true) revealMapStream.sendOrHold(targetSocket, spectatorBroadcast);
+          }
+          return;
+        }
         const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
         if (!persistedTileDeltaCommandIds.has(event.commandId)) {
           persistedTileDeltaCommandIds.add(event.commandId);
@@ -1232,22 +1247,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         // sockets === playerSubscriptions.socketsForPlayer(playerId) (assigned at line 899),
         // so every entry already belongs to this player; no need to re-filter.
         const playerSockets = sockets;
-        const hasFogDisabledSession = playerHasFogDisabledSocket(playerId);
-        if (hasFogDisabledSession) {
-          recordGatewayEvent("info", "gateway_fog_refresh_from_live_delta", {
-            playerId,
-            commandId: event.commandId,
-            tileDeltaCount: tileDeltas.length,
-            socketCount: playerSockets.size,
-            coalesced: true
-          });
-          // Do NOT await — a full-world resubscribe inside the per-batch handler
-          // blocks the gateway event loop and starves bootstrap_subscribe /
-          // live_subscribe for incoming logins. The fog admin's view lags by up to
-          // FOG_LIVE_REFRESH_MIN_INTERVAL_MS plus one full-world rebuild.
-          scheduleFogLiveRefresh(playerId, event.commandId);
-          return;
-        }
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
         syncGatewaySnapshotMetricsFromCache(playerId);
         const tileDeltaBroadcast = preSerializeBroadcast({
@@ -1256,7 +1255,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         });
         for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
-          queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
+          if (sessionsBySocket.get(targetSocket)?.fogDisabled !== true) queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
         }
         return;
       }
@@ -1748,6 +1747,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             authTrace.setPlayerId(playerIdentity.playerId);
+            const previousPlayerId = session.playerId;
             session.playerId = playerIdentity.playerId;
             session.isGuest = playerIdentity.isGuest === true;
             playerFunnel.onSocketAuthenticated(session.sessionId, playerIdentity.playerId, authBindingSource);
@@ -1756,7 +1756,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
+            const wasRevealed = session.fogDisabled;
             session.fogDisabled = false;
+            if (wasRevealed && previousPlayerId) syncSpectating(previousPlayerId); // the account this socket was revealed for
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
             if (session.isGuest) await provisionGuest(playerIdentity.playerId); // guests get a name and colour here instead of the setup step
@@ -2164,52 +2166,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "REQUEST_REVEAL_MAP") {
-            if (!session.canToggleFog) {
-              recordGatewayEvent("warn", "gateway_reveal_map_forbidden", {
-                playerId: session.playerId,
-                channel: session.channel
-              });
-              sendJson(socket, { type: "ERROR", code: "FORBIDDEN", message: "reveal map unavailable" });
-              return;
-            }
-            const now = Date.now();
-            const lastRequestedAt = lastRevealRequestMsByPlayerId.get(session.playerId) ?? 0;
-            if (now - lastRequestedAt < REVEAL_REQUEST_COOLDOWN_MS) {
-              recordGatewayEvent("warn", "gateway_reveal_map_throttled", {
-                playerId: session.playerId,
-                channel: session.channel,
-                cooldownRemainingMs: REVEAL_REQUEST_COOLDOWN_MS - (now - lastRequestedAt)
-              });
-              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_THROTTLED", message: "reveal request rate limit" });
-              return;
-            }
-            if (activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS) {
-              recordGatewayEvent("warn", "gateway_reveal_map_overloaded", {
-                playerId: session.playerId,
-                channel: session.channel,
-                activeStreams: activeRevealStreamSockets.size,
-                cap: MAX_CONCURRENT_REVEAL_STREAMS
-              });
-              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_BUSY", message: "reveal capacity exceeded" });
-              return;
-            }
-            lastRevealRequestMsByPlayerId.set(session.playerId, now);
-            fogIntent.bump(session.playerId);
-            session.fogDisabled = true;
-            void streamRevealMapToSocket(socket, session.playerId).catch((error) => {
-              recordGatewayEvent("error", "gateway_reveal_map_stream_failed", {
-                playerId: session.playerId,
-                error: error instanceof Error ? error.message : String(error)
-              });
-              if (socket.readyState === socket.OPEN) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "REVEAL_MAP_UNAVAILABLE",
-                  message: "Full-map reveal is temporarily unavailable."
-                });
-              }
-            });
+          if (message.type === "REQUEST_REVEAL_MAP" || (message.type === "SET_FOG_DISABLED" && message.disabled === true)) {
+            handleRevealMapRequest(socket, session);
             return;
           }
 
@@ -2250,9 +2208,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             const fogDisabled = message.disabled === true;
             const intentGeneration = fogIntent.bump(session.playerId);
-            // Restoring stops full-world live refreshes now, not after the (slow) restore snapshot lands.
+            // Sockets read as fogged from now on, not only once the (slow) restore snapshot lands.
             const undoRestore = fogDisabled ? undefined : clearFogDisabledForRestore(playerSubscriptions.socketsForPlayer(session.playerId), (s) => sessionsBySocket.get(s));
-            if (!fogDisabled) fogLiveRefresh.cancelPending(session.playerId);
             try {
               await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
                 includeFogUpdate: true,
@@ -2262,7 +2219,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
             } catch (error) {
               // Clients never got FOG_UPDATE false; keep the server agreeing they are still revealed.
-              if (undoRestore && fogIntent.isCurrent(session.playerId, intentGeneration)) undoRestore();
+              if (undoRestore && fogIntent.isCurrent(session.playerId, intentGeneration)) { undoRestore(); syncSpectating(session.playerId); }
               sendJson(socket, { type: "ERROR", code: "SIMULATION_UNAVAILABLE", message: "fog toggle temporarily unavailable" });
             }
             return;
@@ -2585,7 +2542,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
           syncGatewaySnapshotMetricsFromCache(closingPlayerId);
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
-          if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefresh.forget(closingPlayerId);
+          if (session.fogDisabled && remainingSockets.length > 0) syncSpectating(closingPlayerId);
           evictSeededPlayerId(closingPlayerId);
           if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); playerMessageReplay.forget(closingPlayerId); }
         }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
