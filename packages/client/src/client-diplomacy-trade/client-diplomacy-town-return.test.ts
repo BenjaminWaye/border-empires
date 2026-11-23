@@ -48,8 +48,12 @@ describe("trade screen: return a town", () => {
     // Regression: the row's grid is icon | name | amount. Without the icon
     // cell the name was squeezed into the 28px icon column ("Lu…") and the
     // tier and coordinates wrapped one word per line.
-    const cells = Array.from(townButton().children).map((child) => child.className);
-    expect(cells).toEqual(["diplomacy-trade-good-icon", "diplomacy-trade-good-name", "diplomacy-trade-good-amount"]);
+    const [icon, name, amount] = Array.from(townButton().children);
+    expect(townButton().children).toHaveLength(3);
+    expect(icon?.classList.contains("diplomacy-trade-good-icon")).toBe(true);
+    expect(icon?.querySelector("img")?.getAttribute("src")).toBe("/icons/nav/towns.svg");
+    expect(name?.classList.contains("diplomacy-trade-good-name")).toBe(true);
+    expect(amount?.classList.contains("diplomacy-trade-good-amount")).toBe(true);
     expect(townButton().querySelector(".diplomacy-trade-good-have")?.textContent).toBe("City · 4, 4");
   });
 
