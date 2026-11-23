@@ -153,10 +153,24 @@ it("settles a truce's slot-free Coin per hour durably, for the truce's length", 
   social.requestTruce("a", "B", 12, { terms: { give: { gold: 0, coinPerHour: 64 }, ask: { gold: 0 } } });
   const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
   const settle = vi.fn(async (input: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => ({ ok: true, settlementId: input.commandId }));
-  const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined });
+  const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined, now: () => 1_000 });
   // Review regression: a pledge of the recipient's income skipped the confirmation that resource-slot deals need.
   expect(await accept.acceptTruce("b", id, undefined, false)).toMatchObject({ ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED" });
   expect(settle).not.toHaveBeenCalled();
   expect((await accept.acceptTruce("b", id)).ok).toBe(true);
   expect(settle).toHaveBeenCalledWith(expect.objectContaining({ coinTermHours: 12, commandId: `diplomacy-settle:truce:${id}`, terms: expect.objectContaining({ give: { gold: 0, coinPerHour: 64 } }) }));
+});
+
+// Regression: a truce's clock starts at its offer, so a pledge accepted late pays only the hours left.
+it("pays a late-accepted truce's Coin per hour only for the hours left of it", async () => {
+  const store = new InMemoryGatewaySocialStore();
+  let clock = 1_000;
+  const social = buildGatewaySocialState(store, store.loadSnapshot(), players, () => clock);
+  social.requestTruce("a", "B", 24, { terms: { give: { gold: 0, coinPerHour: 64 }, ask: { gold: 0 } } });
+  const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
+  clock += 18 * 3_600_000;
+  const settle = vi.fn(async (input: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => ({ ok: true, settlementId: input.commandId }));
+  const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined, now: () => clock });
+  expect((await accept.acceptTruce("b", id)).ok).toBe(true);
+  expect(settle).toHaveBeenCalledWith(expect.objectContaining({ coinTermHours: 6 }));
 });
