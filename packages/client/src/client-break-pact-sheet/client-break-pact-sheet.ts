@@ -20,6 +20,8 @@ export type BreakPactSheetOptions = {
   consequences: string[];
   confirmLabel: string;
   onConfirm: () => void;
+  /** Set as the card's `data-sheet`, so other UI (the tutorial guide's outline) can find this sheet. */
+  sheetId?: string;
 };
 
 const HOUR_MS = 60 * 60_000;
@@ -61,6 +63,7 @@ export const showBreakPactSheet = (options: BreakPactSheetOptions): boolean => {
   card.className = "effort-confirm-card break-pact-card";
   card.setAttribute("role", "alertdialog");
   card.setAttribute("aria-label", options.title);
+  if (options.sheetId) card.dataset.sheet = options.sheetId;
   card.innerHTML = `
     <h3 class="effort-confirm-title">${escapeHtml(options.title)}</h3>
     <p class="effort-confirm-subtitle">${escapeHtml(options.subtitle)}</p>
