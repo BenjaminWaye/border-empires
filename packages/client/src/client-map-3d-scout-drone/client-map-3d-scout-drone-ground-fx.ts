@@ -12,6 +12,7 @@ import {
   type Scene
 } from "three";
 import { SCOUT_DRONE_VISION_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { applyScoutRingDepthPull } from "./client-map-3d-scout-drone-depth-pull.js";
 import { SCOUT_SHADOW_HALF_EXTENT, makeGlowTexture, makeSilhouetteShadowTexture, makeSweepTexture, makeVisionRingTexture } from "./client-map-3d-scout-drone-textures.js";
 
 // What the scout drone puts on the ground (client-map-3d-scout-drone-overlay.ts): its vision
@@ -64,6 +65,9 @@ export const createScoutGroundFx = (scene: Scene, droneScale: number): ScoutGrou
     new MeshBasicMaterial({ toneMapped: false, color: CYAN, map, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
   const visionMaterial = additive(0.9, visionTexture);
   const sweepMaterial = additive(0.75, sweepTexture);
+  // Terrain, trees and the coast under the circle no longer cut chunks out of it.
+  applyScoutRingDepthPull(visionMaterial);
+  applyScoutRingDepthPull(sweepMaterial);
   const shadowSharpMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", map: shadowSharpTexture, transparent: true, opacity: 0.5, depthWrite: false });
   const shadowSoftMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#000000", map: shadowSoftTexture, transparent: true, opacity: 0, depthWrite: false });
   const beadMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#bff4ff", map: glowTexture, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false });
@@ -80,6 +84,8 @@ export const createScoutGroundFx = (scene: Scene, droneScale: number): ScoutGrou
   const sweep = new Mesh(sweepTexture ? plane : disc, sweepMaterial);
   sweep.scale.set(VISION_RADIUS * 2, 1, VISION_RADIUS * 2);
   sweep.position.y = 0.003;
+  vision.name = "scout-drone-vision";
+  sweep.name = "scout-drone-sweep";
   // The silhouette shadow: crisp near the ground, soft and spread out at altitude.
   const shadow = new Group();
   shadow.name = "scout-drone-shadow";
