@@ -1,6 +1,7 @@
 // Clock labels for Chronicle rows. A bare "00:45" read the same for today and
 // last night, so a truce's original and extended end looked identical
-// (playtest run 2): anything not today names its day.
+// (playtest run 2): anything not today names its day. Chronicle rows under a
+// day heading are the exception: the heading names the day (clockLabel).
 
 const DAY_MS = 86_400_000;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -30,4 +31,19 @@ export const relativeDayTimeLabel = (at: number, nowMs: number): string => {
   if (offset === 1) return `tomorrow ${clock(date)}`;
   if (Math.abs(offset) < 7) return `${WEEKDAYS[date.getDay()]} ${clock(date)}`;
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${clock(date)}`;
+};
+
+/** Bare "21:54" in local time. */
+export const clockLabel = (at: number): string => clock(new Date(at));
+
+/**
+ * Short day tag that fits the Chronicle's narrow time column: none today,
+ * "Sun" within a week, else "12 Nov". "yesterday" is too wide for it.
+ */
+export const shortDayTag = (at: number, nowMs: number): string | undefined => {
+  const date = new Date(at);
+  const offset = dayOffset(at, nowMs);
+  if (offset === 0) return undefined;
+  if (Math.abs(offset) < 7) return WEEKDAYS[date.getDay()];
+  return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
 };
