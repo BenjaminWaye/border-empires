@@ -26,6 +26,7 @@ import { WAYSTATION_HOLO_CRATES_ENTRY } from "./client-changelog-waystation-holo
 import { CHRONICLE_SURVEYS_ENTRY } from "./client-changelog-chronicle-surveys.js";
 import { STALE_WAYSTATION_CARD_ENTRY } from "./client-changelog-stale-waystation-card.js";
 import { LOW_RESOURCE_NEXT_STEPS_ENTRY } from "./client-changelog-low-resource-next-steps.js";
+import { PHOTO_MODE_EXIT_TAP_ENTRY } from "./client-changelog-photo-mode-exit-tap.js";
 import { SCOUT_RECALL_ENTRY } from "./client-changelog-scout-recall.js";
 import { TOWN_PLOT_PICK_ENTRY } from "./client-changelog-town-plot-pick.js";
 
@@ -57,5 +58,6 @@ export const NOV_18_CHANGELOG: ClientChangelogEntry[] = [
   { ...CHRONICLE_SURVEYS_ENTRY, createdAt: 1795038899676, },
   { ...STALE_WAYSTATION_CARD_ENTRY, createdAt: 1795038774065, },
   { ...LOW_RESOURCE_NEXT_STEPS_ENTRY, createdAt: 1795035489227, },
+  { ...PHOTO_MODE_EXIT_TAP_ENTRY, createdAt: 1795041297907, },
   { ...SCOUT_RECALL_ENTRY, createdAt: 1795028076014, },
 ];

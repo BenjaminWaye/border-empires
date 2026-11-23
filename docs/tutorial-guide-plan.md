@@ -171,6 +171,17 @@ the same rule.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
   (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
+- Otherwise, no town known at all and the server names one (the town step
+  only): "A town lies this way: tap the marked fog and Explore", ringed at the
+  nearest unowned town (`guideTownLead` on PLAYER_UPDATE, computed by
+  `apps/simulation/src/guide-town-lead/` from the neutral-town index, sent while
+  the player holds no town beyond their landing settlement), for as many
+  flights as it takes. Tapping that ringed tile plans the whole way there, one
+  stop per leg along the line, as many as the charges allow
+  (`client-scout-drone-lead-route.ts`): a single far stop is pulled back to the
+  leg range every flight. Added after Playtest Run 4, where a newcomer flew
+  five flights in random directions over three mornings, built four beacons
+  and quit.
 - Otherwise, nothing known: "tap the marked unexplored ground and Explore"
   while the drone can launch (ringed at the Explore target), or "Your scout
   drone is out: wait for its report" while it flies. Only for the first 3

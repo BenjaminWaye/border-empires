@@ -146,12 +146,12 @@ describe("paused growth", () => {
     expect(host.querySelector(".town-plate")?.getAttribute("title")).toBe("Town1: Nearby war: growth paused");
   });
 
-  it("marks a growing town's population with the growth arrow, and a captured town with the planted flag", () => {
+  it("marks a growing town's population with the growth arrow, and a captured town with the raised fist", () => {
     const { host, plates } = mount();
     const captured = townTile(2, { captureShockUntil: Date.now() + 60_000 });
     plates.render([at(townTile(1), 100, 200), at(captured, 500, 200)], { size: 40, project });
     expect(host.querySelectorAll('.town-plate-pop[data-growth="growing"]')).toHaveLength(1);
-    expect(host.querySelector('[data-status="captured"] img')?.getAttribute("src")).toBe("/icons/simple/town-captured.svg");
+    expect(host.querySelector('[data-status="captured"] img')?.getAttribute("src")).toBe("/icons/simple/town-captured-fist.svg");
     expect(host.querySelectorAll('.town-plate-pop[data-growth="paused"]')).toHaveLength(1);
   });
 });

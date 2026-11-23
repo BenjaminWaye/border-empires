@@ -83,7 +83,6 @@ body.hud-v2 #afc-recovery-ui {
   font: 11px/1.4 var(--sp-font-mono);
 }
 .afc-recovery-quote strong { color: var(--afc-highlight); font: 700 16px/1.4 var(--sp-font-mono); }
-.afc-recovery-supply { font-size: 13px; }
 .afc-recovery-modal .afc-recovery-cancellation { color: var(--afc-warning); }
 .afc-recovery-cancellation:empty { display: none; }
 .afc-recovery-footer { padding: 16px 24px 20px; border-top: 1px solid var(--afc-edge); }

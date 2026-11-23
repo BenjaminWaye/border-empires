@@ -20,6 +20,7 @@ import {
   type ScoutDroneRoutePlan,
   type ScoutDroneWorld
 } from "@border-empires/shared";
+import { leadRouteStops } from "./client-scout-drone-lead-route.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -27,7 +28,7 @@ import type { ClientState } from "../client-state/client-state.js";
 type Point = { x: number; y: number };
 export type ScoutPlanState = Pick<
   ClientState,
-  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
+  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "guideTownLead" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
 >;
 
 const keyOf = (x: number, y: number): string => `${x},${y}`;
@@ -178,8 +179,17 @@ export const undoScoutPlanStop = (state: Pick<ClientState, "scoutDronePicking">)
 /** True when the player can plan at all: an active AFC to launch from. */
 export const canPlanScoutFlight = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): boolean => ownActiveAfcs(state).length > 0;
 
-/** True when a tap at (wx, wy) with no plan open would start one: fog never explored, no tile data, off home ground. */
-export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number): boolean => {
+/**
+ * True when a tap at (wx, wy) with no plan open would start one: fog never explored, no tile data, off home
+ * ground, and no drone in the air. Mid-flight, stray map taps kept opening plans and adding stops (Playtest
+ * Run 4), so a fog tap then opens the tile's menu, whose Explore adds that one stop; Send scout drone on
+ * the AFC still opens a plan for several.
+ */
+export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number, nowMs: number = Date.now()): boolean =>
+  isPlanFog(state, wx, wy) && !flyingScoutDrone(state, nowMs);
+
+/** Fog a plan could start on, drone in the air or not: never explored, no tile data, off home ground, an AFC to launch from. */
+const isPlanFog = (state: ScoutPlanState, wx: number, wy: number): boolean => {
   const key = keyOf(wx, wy);
   return !state.discoveredTiles.has(key) && !state.tiles.has(key) && !isHome(state, wx, wy) && canPlanScoutFlight(state);
 };
@@ -199,10 +209,10 @@ export const handleScoutPlanTap = (
   const plan = state.scoutDronePicking;
   // A tap on a flying drone's numbered stop is spent: the stop is already on its way, and a plan started there
   // numbered its stop after the whole route, so it read as a stop the player never placed (player report 2026-11-21).
-  if (onFlyingStopBadge(state, wx, wy, nowMs, true3D)) return scoutPlanTapStarts(state, wx, wy);
+  if (onFlyingStopBadge(state, wx, wy, nowMs, true3D)) return isPlanFog(state, wx, wy);
   if (!plan.active) {
     // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
-    if (!scoutPlanTapStarts(state, wx, wy)) return false;
+    if (!scoutPlanTapStarts(state, wx, wy, nowMs)) return false;
     plan.active = true;
     plan.stops = [];
   }
@@ -220,7 +230,9 @@ export const handleScoutPlanTap = (
     plan.shakeAt = nowMs; // the dock's pips shake: no charge left for another stop
     return true;
   }
-  plan.stops = [...plan.stops, { x: wx, y: wy }];
+  const lead = state.guideTownLead;
+  const launch = plan.stops.length === 0 && lead && lead.x === wx && lead.y === wy && !flyingScoutDrone(state, nowMs) ? scoutLaunchAfc(state, lead) : undefined;
+  plan.stops = launch ? leadRouteStops(launch, { x: wx, y: wy }, scoutPlanCapacity(state, nowMs)) : [...plan.stops, { x: wx, y: wy }];
   plan.bumpAt = nowMs;
   return true;
 };

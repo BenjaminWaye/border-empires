@@ -60,7 +60,7 @@ export const handleScoutDronePickClick = (
   // A tap that closes something never also starts a plan: players dismissing a tile menu or the landing
   // report card by tapping the map got a plan, and each further "closing" tap a stop (player report 2026-11-21).
   // The tap closes it and is spent; the next tap on the fog plans as usual.
-  if (!state.scoutDronePicking.active && scoutPlanTapStarts(state, wx, wy)) {
+  if (!state.scoutDronePicking.active && scoutPlanTapStarts(state, wx, wy, nowMs)) {
     const cardUp = scoutReportCardVisible(state, nowMs);
     if (cardUp || closedMenu) {
       if (cardUp) state.scoutDroneReport = undefined;

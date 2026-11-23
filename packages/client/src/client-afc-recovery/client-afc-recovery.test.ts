@@ -20,10 +20,11 @@ const fixture = (gold = 500) => {
 afterEach(() => { document.body.innerHTML = ""; document.body.className = ""; vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("AFC recovery popup", () => {
-  it("opens on AFC loss with the global quote and arms a landing site", () => {
-    const f = fixture(); f.update({ globalLosses: 5, requiredSince: 1000 });
+  it("opens on AFC loss with the flat 20 gold quote, however many AFCs the planet has lost, and arms a landing site", () => {
+    const f = fixture(); f.update({ globalLosses: 15, requiredSince: 1000 });
     expect(document.querySelector("[role=dialog]")?.textContent).toContain("Call down a new AFC to continue construction");
-    expect(document.body.textContent).toContain("60 gold");
+    expect(document.body.textContent).toContain("20 gold");
+    expect(document.body.textContent).not.toContain("160 gold");
     document.querySelector<HTMLButtonElement>("[data-afc-choose]")!.click();
     expect(f.state.buildingPlacement).toMatchObject({ active: true, structureType: "AFC", x: 10, y: 10 });
     expect(f.placementOverlayEl.style.display).toBe("flex");

@@ -11,6 +11,7 @@ export const createInitialProgressionState = () => ({
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState,
   relicMapHintsRevision: 0,
+  guideTownLead: undefined as import("@border-empires/shared").GuideTownLead | undefined,
   relicMapHints: new Map<string, import("@border-empires/shared").RelicMapHint>(),
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],

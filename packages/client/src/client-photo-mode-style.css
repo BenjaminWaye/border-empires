@@ -4,7 +4,9 @@
    covers overlays appended later (tips, the checklist launcher, modals).
    #photo-mode-exit-control is carved out: it's the only way back to the HUD
    when photo mode was started from the Settings toggle (the button that
-   started it lives inside #hud, which this same rule just hid). */
+   started it lives inside #hud, which this same rule just hid). It fades
+   out while idle; on a mouse a faded button ignores clicks, on touch it
+   stays faintly visible and tappable (see below). */
 body.photo-mode > *:not(#game-surface):not(script):not(#photo-mode-exit-control) {
   display: none !important;
 }
@@ -37,7 +39,22 @@ body.photo-mode .salvage-toast-layer {
   transition: opacity 0.4s ease;
 }
 
+/* Faded for clean screenshots. With a mouse the faded button ignores clicks, so
+   the first click never exits by accident (any input wakes it first). */
 #photo-mode-exit-control.is-idle {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Touch has no hover to reveal it and phones have no Esc or Ctrl+P, so the
+   button must be findable: it stays faintly visible and tappable while idle
+   instead of becoming an invisible tap target. */
+@media (pointer: coarse) {
+  #photo-mode-exit-control {
+    touch-action: manipulation;
+  }
+  #photo-mode-exit-control.is-idle {
+    opacity: 0.25;
+    pointer-events: auto;
+  }
 }
