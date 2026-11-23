@@ -11,6 +11,7 @@ import { GUIDE_LAUNCHER_SCOUT_ENTRY } from "./client-changelog-guide-launcher-sc
 import { CHARGE_CARDS_POLISH_ENTRY } from "./client-changelog-charge-cards-polish.js";
 import { ENCIRCLEMENT_EMPIRE_FELL_ENTRY } from "./client-changelog-encirclement-empire-fell.js";
 import { CAPTURE_GARRISON_PROMPT_ENTRY } from "./client-changelog-capture-garrison-prompt.js";
+import { RUN4_QUICK_FIXES_ENTRY } from "./client-changelog-run4-quick-fixes.js";
 import { INCUBATION_ENGINE_BURST_ENTRY } from "./client-changelog-incubation-engine-burst.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
@@ -491,6 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...CHARGE_CARDS_POLISH_ENTRY, createdAt: 1795293780521, },
   { ...ENCIRCLEMENT_EMPIRE_FELL_ENTRY, createdAt: 1795291759105, },
   { ...CAPTURE_GARRISON_PROMPT_ENTRY, createdAt: 1795294115079, },
+  { ...RUN4_QUICK_FIXES_ENTRY, createdAt: 1795422082667, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
