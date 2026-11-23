@@ -190,3 +190,16 @@ test("erases the deleted player's rows from the AI diplomacy memory", () => {
     assert.deepEqual(db.prepare("SELECT player_id FROM social_ai_diplomacy_memory").all().map((row) => row.player_id), ["p10"]);
   } finally { db.close(); }
 });
+
+test("erases the account's owned and selected cosmetics and keeps other players'", () => {
+  const { db } = fixture();
+  try {
+    db.exec(`CREATE TABLE account_cosmetics_owned(player_id TEXT NOT NULL, cosmetic_id TEXT NOT NULL, granted_at INTEGER NOT NULL, grant_ref TEXT NOT NULL, PRIMARY KEY(player_id, cosmetic_id));
+      INSERT INTO account_cosmetics_owned VALUES('p1', 'flag-chevron', 1, 'admin'), ('p10', 'flag-chevron', 2, 'admin');
+      CREATE TABLE account_cosmetics_selected(player_id TEXT NOT NULL, slot TEXT NOT NULL, cosmetic_id TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(player_id, slot));
+      INSERT INTO account_cosmetics_selected VALUES('p1', 'musterFlag', 'flag-chevron', 1), ('p10', 'musterFlag', 'flag-chevron', 2);`);
+    assert.equal(eraseAccountData(db, "receipt", { apply: true, now: 50 }).completed, true);
+    assert.deepEqual(db.prepare("SELECT player_id FROM account_cosmetics_owned").all().map((row) => row.player_id), ["p10"]);
+    assert.deepEqual(db.prepare("SELECT player_id FROM account_cosmetics_selected").all().map((row) => row.player_id), ["p10"]);
+  } finally { db.close(); }
+});

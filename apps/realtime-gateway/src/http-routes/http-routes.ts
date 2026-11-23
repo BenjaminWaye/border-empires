@@ -1,4 +1,6 @@
 import type { CommandDiagnosticSnapshot } from "../player-sync-diagnostics/command-diagnostic-journal.js";
+import { registerAccountCosmeticsAdminRoutes } from "../account-cosmetics/account-cosmetics-admin-routes.js";
+import type { AccountCosmeticsService } from "../account-cosmetics/account-cosmetics-service.js";
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
@@ -101,6 +103,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
+  accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "revoke" | "renderMetrics">;
   adminApiToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
   // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
@@ -213,7 +216,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");
-    return deps.metrics() + (await deps.authBindingStore?.accountDeletion?.metrics() ?? "");
+    return deps.metrics() + (await deps.authBindingStore?.accountDeletion?.metrics() ?? "") + (await deps.accountCosmetics?.renderMetrics() ?? "");
   });
 
   registerAdminPageRoutes(app, {
@@ -416,6 +419,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
   });
 
+  if (deps.accountCosmetics) registerAccountCosmeticsAdminRoutes(app, { adminAuthorized, cosmetics: deps.accountCosmetics });
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
   registerHouseChargeRoutes(app, { getCurrentSeasonSummary: deps.getCurrentSeasonSummary, listSeasonArchives: deps.listSeasonArchives });

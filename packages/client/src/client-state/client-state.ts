@@ -1,4 +1,5 @@
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
+import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
@@ -167,6 +168,10 @@ export const createInitialState = () => ({
   dukePlayers: new Set<string>(), // Duke title (owns a galaxy Planet) -- see client-duke-title.ts.
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
+  // Account cosmetics (client-cosmetics.ts): non-default looks by player, and what this account owns.
+  playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
+  ownedCosmetics: [] as CosmeticId[],
+  cosmeticsRequested: false,
   playerShieldUntil: new Map<string, number>(),
   serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<

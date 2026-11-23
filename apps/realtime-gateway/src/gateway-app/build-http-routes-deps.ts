@@ -68,6 +68,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
+  accountCosmetics?: RegisterGatewayHttpRoutesDeps["accountCosmetics"];
   profileStore: GatewayPlayerProfileStore;
   growthBaselineStore: PlayerGrowthBaselineStore;
   playOrigin?: string;
@@ -193,6 +194,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       return result;
     },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
+    ...(ctx.accountCosmetics ? { accountCosmetics: ctx.accountCosmetics } : {}),
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,

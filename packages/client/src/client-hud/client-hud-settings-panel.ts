@@ -4,6 +4,7 @@
 // alongside the rest of the HUD's bindings, following the same split used by
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
+import { cosmeticsCardHtml } from "../client-cosmetics/client-cosmetics-card.js";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
 import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { emailNotificationsSettingsPageHtml } from "../client-email-notifications/client-email-notifications-settings-ui.js";
@@ -21,7 +22,7 @@ export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 export const settingsNotificationsPageHtml = (): string => emailNotificationsSettingsPageHtml();
 
 export type SettingsPanelState = AuthDebugState &
-  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive" | "autoSettle">;
+  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive" | "autoSettle" | "playerCosmetics" | "ownedCosmetics">;
 
 // Moved out of renderClientHud's closure (was a nested function reading
 // `state` from outer scope) so it can be composed here like every other
@@ -107,7 +108,7 @@ export const settingsHubHtml = (
 `;
 
 export const settingsAccountPageHtml = (
-  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authSessionReady">
+  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authSessionReady" | "playerCosmetics" | "ownedCosmetics">
 ): string => {
   const color = state.playerColors.get(state.me) ?? "#38b000";
   return `
@@ -122,6 +123,7 @@ export const settingsAccountPageHtml = (
       <p>Account deletion is permanent.</p>
       <div class="account-settings-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a><a href="https://play.borderempires.com/support.html" target="_blank" rel="noopener">Support</a></div>
     </div>
+    ${cosmeticsCardHtml(state)}
   `;
 };
 

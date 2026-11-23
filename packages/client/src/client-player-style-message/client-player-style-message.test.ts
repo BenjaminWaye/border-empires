@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyPlayerStyleMessage } from "./client-player-style-message.js";
+import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
+import { applyInitPlayerStyles, applyPlayerAppearanceMessage, applyPlayerStyleMessage } from "./client-player-style-message.js";
 import type { EmpireVisualStyle } from "../client-types.js";
 
 const createState = () => ({
@@ -8,7 +9,11 @@ const createState = () => ({
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
-  playerShieldUntil: new Map<string, number>()
+  playerShieldUntil: new Map<string, number>(),
+  playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
+  ownedCosmetics: [] as CosmeticId[],
+  cosmeticsRequested: false,
+  dukePlayers: new Set<string>()
 });
 
 describe("applyPlayerStyleMessage", () => {
@@ -91,5 +96,58 @@ describe("applyPlayerStyleMessage", () => {
     expect(state.playerNames.get("player-2")).toBe("Other Player");
     expect(renderHud).not.toHaveBeenCalled();
     expect(syncAuthOverlay).not.toHaveBeenCalled();
+  });
+});
+
+describe("cosmetics on appearance messages", () => {
+  const deps = (state: ReturnType<typeof createState>, renderHud = vi.fn()) => ({
+    state, authProfileNameEl: { value: "" }, authProfileColorEl: { value: "" }, syncAuthOverlay: vi.fn(), renderHud
+  });
+
+  it("stores another player's look from PLAYER_STYLE and clears it on an empty selection", () => {
+    const state = createState();
+    expect(applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: { musterFlag: "flag-chevron" } }, deps(state))).toBe(true);
+    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-chevron" });
+    applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: {} }, deps(state));
+    expect(state.playerCosmetics.has("rival")).toBe(false);
+  });
+
+  it("leaves a player's look alone when PLAYER_STYLE carries no cosmetics field", () => {
+    const state = createState();
+    state.playerCosmetics.set("rival", { musterFlag: "flag-chevron" });
+    applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", name: "Renamed" }, deps(state));
+    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-chevron" });
+  });
+
+  it("drops cosmetic ids this client does not know", () => {
+    const state = createState();
+    applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: { musterFlag: "flag-from-the-future" } }, deps(state));
+    expect(state.playerCosmetics.has("rival")).toBe(false);
+  });
+
+  it("applies COSMETICS_STATE to the local account and re-renders", () => {
+    const state = createState();
+    const renderHud = vi.fn();
+    expect(applyPlayerAppearanceMessage({ type: "COSMETICS_STATE", owned: ["flag-chevron", "bogus"], selected: { musterFlag: "flag-chevron" } }, deps(state, renderHud))).toBe(true);
+    expect(state.ownedCosmetics).toEqual(["flag-chevron"]);
+    expect(state.playerCosmetics.get("player-1")).toEqual({ musterFlag: "flag-chevron" });
+    expect(renderHud).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores unrelated messages", () => {
+    expect(applyPlayerAppearanceMessage({ type: "PING" }, deps(createState()))).toBe(false);
+  });
+
+  it("INIT replaces every known look, so a look removed while offline does not linger", () => {
+    const state = createState();
+    state.playerCosmetics.set("gone", { ancillary: "ancillary-ivory" });
+    applyInitPlayerStyles(state, {
+      playerStyles: [{ id: "rival", name: "Rival", tileColor: "#112233", duke: true }],
+      playerCosmetics: { rival: { ancillary: "ancillary-ivory" } }
+    });
+    expect(state.playerNames.get("rival")).toBe("Rival");
+    expect(state.playerColors.get("rival")).toBe("#112233");
+    expect(state.dukePlayers.has("rival")).toBe(true);
+    expect([...state.playerCosmetics]).toEqual([["rival", { ancillary: "ancillary-ivory" }]]);
   });
 });

@@ -9,6 +9,7 @@
 // focus-preserving re-render guard: this HTML is only (re)built on the
 // closed -> open transition, never while the fields are being edited.
 import type { Auth } from "firebase/auth";
+import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
@@ -177,7 +178,7 @@ export const bindProfileEditModal = (args: {
 const OVERLAY_ID = "profile-edit-overlay";
 
 export const renderProfileEditOverlay = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange">;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested" | "authSessionReady" | "serverSupportedMessageTypes">;
   dom: { hud: HTMLElement };
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
@@ -186,6 +187,7 @@ export const renderProfileEditOverlay = (args: {
 }): void => {
   const { state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud } = args;
 
+  bindCosmeticsCard({ state, dom, sendGameMessage }); // the Account page's other card
   const triggerButtons = dom.hud.querySelectorAll<HTMLButtonElement>("[data-settings-edit-profile]");
   triggerButtons.forEach((btn) => {
     btn.onclick = (): void => {

@@ -100,6 +100,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // to the player's name in the season lobby roster (see
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
+  // Account cosmetics (cosmetics/cosmetics.ts). REQUEST_COSMETICS asks what the
+  // account owns and shows; SET_COSMETIC picks an owned cosmetic for a slot, or
+  // null for the default look. The gateway re-validates slot, id and ownership.
+  z.object({ type: z.literal("REQUEST_COSMETICS") }),
+  z.object({ type: z.literal("SET_COSMETIC"), slot: z.string().min(1).max(24), cosmeticId: z.string().min(1).max(24).nullable() }),
   // Server-persisted hint/tutorial state (see player-profile-store.ts's
   // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
   // update -- omitted fields leave the stored value unchanged.
