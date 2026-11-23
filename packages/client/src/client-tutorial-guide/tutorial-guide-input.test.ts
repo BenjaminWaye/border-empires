@@ -51,6 +51,46 @@ describe("scanGuideTiles", () => {
     expect(scan.musterTargetTiles).toEqual([{ x: 1, y: 0 }]);
     expect(scan.ownsMusterFlag).toBe(false);
   });
+
+  it("falls back to the border tiles facing the enemy when no own tile touches another owner", () => {
+    // Regression (2026-11-21 playtest): Planetary Defense seen across neutral land unlocked mustering,
+    // but no own tile touched it, so "a marked border tile" marked nothing.
+    const tiles = map([
+      { x: 5, y: 5, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 6, y: 5, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 7, y: 5, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 8, y: 5 },
+      { x: 9, y: 5 },
+      { x: 10, y: 5, ownerId: "barbarian" },
+      { x: 4, y: 5 },
+      // Interior tile: every neighbour is the player's or water.
+      { x: 6, y: 6, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 6, y: 4, terrain: "SEA" },
+      { x: 5, y: 6, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 7, y: 6, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 6, y: 7, ownerId: ME, ownershipState: "SETTLED" }
+    ]);
+    const targets = scanGuideTiles(tiles, ME, { x: 5, y: 5 }).musterTargetTiles;
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets[0]).toEqual({ x: 7, y: 5 });
+    expect(targets).not.toContainEqual({ x: 6, y: 5 });
+  });
+
+  it("marks own FRONTIER border tiles when the settled core is ringed by fresh claims", () => {
+    const tiles = map([
+      { x: 4, y: 5, ownerId: ME, ownershipState: "FRONTIER" },
+      { x: 5, y: 5, ownerId: ME, ownershipState: "SETTLED" },
+      { x: 6, y: 5, ownerId: ME, ownershipState: "FRONTIER" },
+      { x: 7, y: 5 },
+      { x: 3, y: 5 },
+      { x: 12, y: 5, ownerId: "barbarian" },
+      { x: 5, y: 4, terrain: "SEA" },
+      { x: 5, y: 6, terrain: "SEA" }
+    ]);
+    const targets = scanGuideTiles(tiles, ME, { x: 5, y: 5 }).musterTargetTiles;
+    expect(targets[0]).toEqual({ x: 6, y: 5 });
+    expect(targets).not.toContainEqual({ x: 5, y: 5 });
+  });
 });
 
 describe("buildGuideInput", () => {
