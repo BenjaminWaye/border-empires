@@ -1,84 +1,55 @@
 /**
- * Encirclement for tiles the reach border just unsettled.
+ * Settled tiles a capture unsettles, handed to combat's encirclement pass.
  *
  * When a rival's reach overtakes a SETTLED tile (settleOvertaken in
  * runtime-reach-border-apply.ts) the tile drops to FRONTIER but keeps its
- * owner. That FRONTIER tile may now be cut off from its owner's supply -- the
- * classic case is capturing a town: the town's settled neighbours fall inside
- * the captor's reach, drop to FRONTIER, and sit wrapped in the captor's land.
- * Combat's own encirclement pass only seeds from the captured tile and its
- * eight neighbours, so an unsettled tile two or more steps away was never
- * checked and stayed the loser's FRONTIER inside the captor's lines.
+ * owner. Capturing a town does this to the loser's settled land around it:
+ * the town's reach becomes the captor's. Combat's encirclement pass
+ * (runtime-lock-resolution-encirclement.ts) only seeded from the fought-over
+ * tile and its eight neighbours, so an unsettled tile two or more steps away
+ * -- wrapped in the captor's land and cut off from its owner -- stayed the
+ * loser's FRONTIER inside the captor's lines.
  *
- * Downgrades usually happen inside another tile write (the town capture whose
- * anchor activation overtook them), so they are queued and checked once the
- * outermost write has finished: by then every tile the same activation
- * unsettled is FRONTIER, and the check sees the whole cluster at once. A
- * cut-off tile goes to the player whose reach overtook it when it touches
- * their land (see encirclement-pocket-capture.ts), otherwise to neutral.
+ * The runtime runs each lock resolution inside `collect`; the unsettle hook
+ * `record`s every downgrade made meanwhile, and combat `take`s the loser's
+ * keys as extra seeds for its pass, where a cut-off tile touching the
+ * captor's land goes to the captor (encirclement-pocket-capture.ts).
+ *
+ * Collection is scoped to combat on purpose: the boot-time reach replay and
+ * non-combat anchor activations (AFC landings and respawns, structure builds)
+ * also unsettle tiles, and handing a player's land to whoever's reach grew
+ * over it there is not a rule of the game.
  */
-
-export type UnsettleEncirclementContext = {
-  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { claimantId?: string }) => void;
-};
-
-type PendingUnsettle = { ownerId: string; claimantId: string; commandId: string; tileKeys: string[] };
-
-// Bounds a pathological chain of drains re-queueing each other; each pass
-// handles every batch queued so far.
-const MAX_DRAIN_PASSES = 32;
-
-export const createUnsettleEncirclementQueue = (context: UnsettleEncirclementContext) => {
+export const createUnsettledTileCollector = () => {
   let depth = 0;
-  let draining = false;
-  // ownerId|claimantId|commandId -> batch; bounded by tiles one write unsettles.
-  const pending = new Map<string, PendingUnsettle>();
+  // ownerId -> unsettled tile keys; bounded by tiles one lock resolution unsettles.
+  const byOwner = new Map<string, string[]>();
 
-  const drain = (): void => {
-    if (draining) return;
-    draining = true;
-    try {
-      for (let pass = 0; pending.size > 0; pass += 1) {
-        if (pass >= MAX_DRAIN_PASSES) {
-          console.warn(JSON.stringify({ event: "unsettle_encirclement_drain_capped", pending: pending.size }));
-          pending.clear();
-          break;
-        }
-        const batches = [...pending.values()];
-        pending.clear();
-        for (const { ownerId, claimantId, commandId, tileKeys } of batches) {
-          context.applyEncirclement(tileKeys, ownerId, commandId, claimantId ? { claimantId } : undefined);
-        }
-      }
-    } finally {
-      draining = false;
-    }
-  };
-
-  /**
-   * Notes that `tileKey` (owned by `ownerId`) was just downgraded to FRONTIER
-   * because `claimantId`'s reach overtook it ("" when the border was vacated).
-   * Checked right away when no tile write is in progress.
-   */
-  const record = (tileKey: string, ownerId: string, claimantId: string, commandId: string): void => {
-    if (!ownerId || ownerId.startsWith("barbarian-")) return;
-    const batchKey = `${ownerId}|${claimantId}|${commandId}`;
-    const batch = pending.get(batchKey);
-    if (batch) batch.tileKeys.push(tileKey);
-    else pending.set(batchKey, { ownerId, claimantId, commandId, tileKeys: [tileKey] });
-    if (depth === 0) drain();
-  };
-
-  /** Runs one tile write; the outermost write checks the queued downgrades afterwards. */
-  const write = (apply: () => void): void => {
+  /** Runs `apply` (one lock resolution), collecting the downgrades it makes. */
+  const collect = (apply: () => void): void => {
     depth += 1;
     try {
       apply();
     } finally {
       depth -= 1;
+      if (depth === 0) byOwner.clear();
     }
-    if (depth === 0) drain();
   };
 
-  return { write, record };
+  /** Notes that `ownerId`'s `tileKey` was just downgraded to FRONTIER. No-op outside `collect`. */
+  const record = (tileKey: string, ownerId: string | undefined): void => {
+    if (depth === 0 || !ownerId) return;
+    const keys = byOwner.get(ownerId);
+    if (keys) keys.push(tileKey);
+    else byOwner.set(ownerId, [tileKey]);
+  };
+
+  /** Returns and forgets the keys collected so far for `ownerId`. */
+  const take = (ownerId: string): string[] => {
+    const keys = byOwner.get(ownerId) ?? [];
+    byOwner.delete(ownerId);
+    return keys;
+  };
+
+  return { collect, record, take };
 };

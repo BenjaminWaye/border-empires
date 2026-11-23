@@ -60,7 +60,7 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     );
 
     expect(result.border.get(contestedKey)).toBe("player-1");
-    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1", "player-1");
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
   });
 
   it("leaves the tile alone while the settled owner still has live coverage there", () => {
@@ -108,7 +108,7 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     });
 
     expect(result.border.get(contestedKey)).toBe("player-1");
-    expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init", "player-1");
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init");
   });
 
   it("world-init seeding still leaves a rival's SETTLED tile alone while they defend it themselves", () => {

@@ -50,6 +50,8 @@ export type RuntimeLockResolutionContext = {
   planetaryDefenseCampCount: () => number;
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
+  /** Settled tiles of `ownerId` this resolution's capture unsettled (unsettle-encirclement.ts). */
+  takeUnsettledTileKeys?: (ownerId: string) => string[];
   relocateSettlementForPlayer: (playerId: string, commandId: string, population: number) => boolean;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
