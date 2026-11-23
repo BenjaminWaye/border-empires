@@ -1,6 +1,6 @@
 import { BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, DynamicDrawUsage, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { houseChargeAreaEdges, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges/client-house-charges-map.js";
+import { MAX_TINT_TILES, houseChargeAreaEdges, houseChargeTintTiles, type ChargeMapPoint } from "./client-house-charges/client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges/client-house-charges-search-guide.js";
 import { CHARGE_LINK_DOT_RADIUS, CHARGE_RING_DOT_RADIUS } from "./client-house-charges/client-map-guide-overlays-2d.js";
 import { createOnboardingChecklistHighlightOverlay, type OnboardingChecklistHighlightTile } from "./client-map-3d-onboarding-checklist-highlight.js";
@@ -15,7 +15,6 @@ import type { ClientState } from "./client-state/client-state.js";
 // and its shaded area, drawn as flat tiles on the ground at each tile's real
 // scene position (client-house-charges/client-house-charges-map.ts decides what).
 
-const MAX_TINT_TILES = 1_200;
 /** Dots per guide mesh: a few rough circles of ~75 dots, or one wide landmass circle, plus slack. */
 const MAX_GUIDE_DOTS = 1_024;
 const TINT_SIZE = 0.94;
@@ -90,6 +89,9 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
   const openMaterial = new MeshBasicMaterial({ toneMapped: false, transparent: true, depthWrite: false, ...(hatch ? { map: hatch } : { color: "#120e08", opacity: 0.3 }) });
   const garrisoned = createTintMesh(geometry, garrisonedMaterial, "house-charge-area-garrisoned");
   const open = createTintMesh(geometry, openMaterial, "house-charge-area-open");
+  // A Three Metropolises landmass: the 2D CHARGE_TINT_PLAIN gold wash, no hatching.
+  const plainMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#f0cf82", transparent: true, opacity: 0.28, depthWrite: false });
+  const plain = createTintMesh(geometry, plainMaterial, "house-charge-area-plain");
   // Gold outline around the shaded area, the 2D overlay's CHARGE_OUTLINE.
   // One preallocated buffer (every shaded tile's four sides at most), refilled in place each frame:
   // replacing the attribute per frame would leave a GPU buffer behind every time.
@@ -105,7 +107,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
   outline.renderOrder = RENDER_ORDER.houseChargeAreaOutline;
   const ringDots = createDotMesh(CHARGE_RING_DOT_RADIUS, "#f0cf82", "house-charge-search-ring");
   const linkDots = createDotMesh(CHARGE_LINK_DOT_RADIUS, "#fff4d6", "house-charge-search-link");
-  scene.add(garrisoned, open, outline, ringDots, linkDots);
+  scene.add(garrisoned, open, plain, outline, ringDots, linkDots);
   const matrix = new Matrix4();
   /** Places dots at fractional tile positions: height from the nearest tile, x/z offset within it. */
   const placeDots = (mesh: InstancedMesh, dots: readonly ChargeMapPoint[], toScene: (x: number, y: number) => MapGuideScenePoint): void => {
@@ -129,7 +131,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
       placeDots(linkDots, guide.linkDots, toScene);
       const ringTiles = mapGuideRingTiles(state, Date.now());
       rings.sync(ringTiles.map((tile) => toScene(tile.x, tile.y)), nowMs);
-      const counts = { garrisoned: 0, open: 0 };
+      const counts = { garrisoned: 0, open: 0, plain: 0 };
       const tintTiles = houseChargeTintTiles(state);
       const positions = outlinePositions.array as Float32Array;
       let written = 0;
@@ -138,29 +140,34 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
         const point = toScene(edge.x, edge.y);
         const lift = point.surfaceY + 0.01;
         const [x1, z1, x2, z2] = edge.side === "N" ? [-0.5, -0.5, 0.5, -0.5] : edge.side === "S" ? [-0.5, 0.5, 0.5, 0.5] : edge.side === "E" ? [0.5, -0.5, 0.5, 0.5] : [-0.5, -0.5, -0.5, 0.5];
-        positions.set([point.sceneX + x1, lift, point.sceneZ + z1, point.sceneX + x2, lift, point.sceneZ + z2], written);
+        positions[written] = point.sceneX + x1;
+        positions[written + 1] = lift;
+        positions[written + 2] = point.sceneZ + z1;
+        positions[written + 3] = point.sceneX + x2;
+        positions[written + 4] = lift;
+        positions[written + 5] = point.sceneZ + z2;
         written += 6;
       }
       outlineGeometry.setDrawRange(0, written / 3);
       if (written > 0) outlinePositions.needsUpdate = true;
       outline.visible = written > 0;
       for (const tile of tintTiles) {
-        const mesh = tile.garrisoned ? garrisoned : open;
-        const key = tile.garrisoned ? "garrisoned" : "open";
+        const key = tile.plain ? "plain" : tile.garrisoned ? "garrisoned" : "open";
+        const mesh = key === "plain" ? plain : key === "garrisoned" ? garrisoned : open;
         if (counts[key] >= MAX_TINT_TILES) continue;
         const point = toScene(tile.x, tile.y);
         matrix.makeTranslation(point.sceneX, point.surfaceY, point.sceneZ);
         mesh.setMatrixAt(counts[key], matrix);
         counts[key] += 1;
       }
-      for (const [mesh, count] of [[garrisoned, counts.garrisoned], [open, counts.open]] as const) {
+      for (const [mesh, count] of [[garrisoned, counts.garrisoned], [open, counts.open], [plain, counts.plain]] as const) {
         mesh.count = count;
         if (count > 0) mesh.instanceMatrix.needsUpdate = true;
       }
     },
     dispose: () => {
       rings.dispose();
-      scene.remove(garrisoned, open, outline, ringDots, linkDots);
+      scene.remove(garrisoned, open, plain, outline, ringDots, linkDots);
       disposeDotMesh(ringDots);
       disposeDotMesh(linkDots);
       geometry.dispose();
@@ -168,6 +175,7 @@ export const createMapGuideOverlay = (scene: Scene): MapGuideOverlay => {
       outlineMaterial.dispose();
       garrisonedMaterial.dispose();
       openMaterial.dispose();
+      plainMaterial.dispose();
       hatch?.dispose();
     }
   };
