@@ -301,7 +301,7 @@ unlimited range and Expand To pace.
 | Rule | Value |
 |---|---|
 | Start | Tap fog: a plan opens with that tile as stop 1. Send scout drone on an AFC opens an empty plan |
-| Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8 |
+| Stops | Each tap adds one; tapping a stop removes it and the later ones; up to 8. With the drone out and no plan open, a tap on or beside one of its numbered stops (true-3D) does nothing (2026-11-22) |
 | Range | 20 open tiles per leg; a farther tap is pulled back along the leg to its limit (never refused) |
 | Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
 | Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |

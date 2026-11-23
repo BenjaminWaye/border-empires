@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScoutDroneFlight } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { afcScoutDroneActions, cancelScoutDronePicking, dispatchAfcScoutAction, handleScoutDronePickClick } from "./client-scout-drone-picking.js";
 import { launchScoutPlan } from "./client-scout-drone-plan.js";
 import { noteMapPress, takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
+import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 
 const flight = (landsAt: number): ScoutDroneFlight => ({
   launchedAt: 0,
@@ -153,6 +154,10 @@ describe("planning a scout flight", () => {
       waypoints: [{ x: 1, y: 5 }, { x: 6, y: 5 }]
     });
 
+    // The true-3D map numbers these stops; the 2D map draws none.
+    beforeEach(() => setTrue3DRendererActive(true));
+    afterEach(() => setTrue3DRendererActive(false));
+
     it("never start a plan on a stop, or on a tile beside one", () => {
       const state = pickingState(routeFlight());
       expect(handleScoutDronePickClick(state, 6, 5, deps(), 0)).toBe(true);
@@ -160,11 +165,18 @@ describe("planning a scout flight", () => {
       expect(state.scoutDronePicking).toMatchObject({ active: false, stops: [] });
     });
 
-    it("add no stop to an open plan", () => {
+    it("are taps like any other with a plan open, which draws its own route instead", () => {
       const state = pickingState(routeFlight());
       state.scoutDronePicking = { ...state.scoutDronePicking, active: true, stops: [{ x: 20, y: 20 }] };
       expect(handleScoutDronePickClick(state, 7, 5, deps(), 0)).toBe(true);
-      expect(state.scoutDronePicking.stops).toEqual([{ x: 20, y: 20 }]);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 20, y: 20 }, { x: 7, y: 5 }]);
+    });
+
+    it("are taps like any other on the 2D map, which numbers no stops", () => {
+      setTrue3DRendererActive(false);
+      const state = pickingState(routeFlight());
+      expect(handleScoutDronePickClick(state, 7, 6, deps(), 0)).toBe(true);
+      expect(state.scoutDronePicking.stops).toEqual([{ x: 7, y: 6 }]);
     });
 
     it("still plan on fog away from the route, and a stop already passed is no obstacle", () => {
@@ -178,14 +190,15 @@ describe("planning a scout flight", () => {
     });
   });
 
-  it("a tap beside a planned stop takes it off, as its badge covers more than its tile", () => {
+  // Review 2026-11-22: a near miss that removed a stop also dropped every stop after it, with no way back.
+  it("a tap beside a planned stop adds a stop rather than taking that one off", () => {
     const state = pickingState();
     const d = deps();
     // In range of the AFC at (1,1), so each stop is reached where it was tapped.
     handleScoutDronePickClick(state, 1, 5, d, 0);
     handleScoutDronePickClick(state, 1, 9, d, 0);
-    handleScoutDronePickClick(state, 2, 10, d, 0);
-    expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 5 }]);
+    handleScoutDronePickClick(state, 2, 6, d, 0);
+    expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 5 }, { x: 1, y: 9 }, { x: 2, y: 6 }]);
   });
 
   it("ignores other action ids", () => {
