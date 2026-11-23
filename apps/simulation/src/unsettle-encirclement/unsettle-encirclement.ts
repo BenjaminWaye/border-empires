@@ -11,8 +11,10 @@
  * tile wrapped in the captor's land stayed the loser's FRONTIER inside the
  * captor's lines.
  *
- * The runtime runs each lock resolution and each settlement completion inside
- * `scope`, naming the players acting in it. The unsettle hook `record`s every
+ * The runtime runs each lock resolution (attacker) and each settlement
+ * completion (settler) inside `scope`, naming the player acting in it -- not
+ * the defender: a defender wiped out mid-fight respawns inside the
+ * resolution, and its new AFC's reach must not claim the attacker's land. The unsettle hook `record`s every
  * downgrade with the tile's owner and the overtaking player; when the scope
  * ends, each owner's tiles overtaken by one of those players are checked, with
  * that player as claimant: a cut-off tile touching the claimant's land goes to

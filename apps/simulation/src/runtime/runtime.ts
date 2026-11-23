@@ -3005,7 +3005,7 @@ export class SimulationRuntime {
 
   private resolveLock(lock: LockRecord): void {
     this.deltaBuffer.begin();
-    try { this.unsettleEncirclement.scope([lock.playerId, this.state.tiles.get(lock.targetKey)?.ownerId], lock.commandId, () => resolveLockImpl(this.lockResolutionContext(), lock)); }
+    try { this.unsettleEncirclement.scope([lock.playerId], lock.commandId, () => resolveLockImpl(this.lockResolutionContext(), lock)); }
     finally { this.deltaBuffer.flush(lock.commandId, lock.playerId, (e: SimulationEvent) => this.emitEvent(e)); }
   }
 
