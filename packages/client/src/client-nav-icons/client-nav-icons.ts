@@ -15,7 +15,7 @@ export type NavTabIconKey =
 
 // The "tech" panel is shown to players as Manifest (charters, grants, warrants,
 // dossiers), so its icon is a sealed ledger rather than a tech symbol.
-const navTabIconUrl = (key: NavTabIconKey): string => {
+export const navTabIconUrl = (key: NavTabIconKey): string => {
   if (key === "domains") return "/icons/nav/afc.svg";
   if (key === "tech") return "/icons/nav/manifest.svg";
   return `/icons/nav/${key}.svg`;

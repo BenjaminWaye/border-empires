@@ -43,6 +43,20 @@ describe("trade screen: return a town", () => {
     expect(document.querySelector<HTMLElement>("[data-trade-towns]")?.hidden).toBe(true);
   });
 
+  it("lays a town row out like a resource row: icon, then name and details, then the tick", () => {
+    open();
+    // Regression: the row's grid is icon | name | amount. Without the icon
+    // cell the name was squeezed into the 28px icon column ("Lu…") and the
+    // tier and coordinates wrapped one word per line.
+    const [icon, name, amount] = Array.from(townButton().children);
+    expect(townButton().children).toHaveLength(3);
+    expect(icon?.classList.contains("diplomacy-trade-good-icon")).toBe(true);
+    expect(icon?.querySelector("img")?.getAttribute("src")).toBe("/icons/nav/towns.svg");
+    expect(name?.classList.contains("diplomacy-trade-good-name")).toBe(true);
+    expect(amount?.classList.contains("diplomacy-trade-good-amount")).toBe(true);
+    expect(townButton().querySelector(".diplomacy-trade-good-have")?.textContent).toBe("City · 4, 4");
+  });
+
   it("turns a refused truce into an accepted one once the town is in the deal, and sends it", () => {
     const send = open();
     expect(verdictText()).toContain("means to win its land back");
