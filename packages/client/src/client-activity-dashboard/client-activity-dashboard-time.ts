@@ -1,6 +1,7 @@
 // Clock labels for Chronicle rows. A bare "00:45" read the same for today and
 // last night, so a truce's original and extended end looked identical
-// (playtest run 2): anything not today names its day.
+// (playtest run 2): anything not today names its day. Chronicle rows under a
+// day heading are the exception: the heading names the day (clockLabel).
 
 const DAY_MS = 86_400_000;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;

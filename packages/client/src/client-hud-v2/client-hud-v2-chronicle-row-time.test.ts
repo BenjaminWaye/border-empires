@@ -19,8 +19,8 @@ const timeline = (occurredAt: number): PersonalActivityTimeline => ({
   truncated: false
 });
 
-const html = (t: PersonalActivityTimeline): string => chronicleHtml({
-  me: "me", timeline: t, loading: false, error: undefined, rivalFilter: "", selectedId: undefined,
+const html = (t: PersonalActivityTimeline, awaySince?: number): string => chronicleHtml({
+  me: "me", timeline: t, awaySince, loading: false, error: undefined, rivalFilter: "", selectedId: undefined,
   nameOf: () => undefined, colorOf: () => undefined, techName: () => undefined, nowMs: now
 });
 
@@ -32,9 +32,15 @@ describe("Chronicle row time", () => {
     expect(out).not.toContain("yesterday 21:54");
   });
 
-  it("stacks a short day tag above the clock for the cross-day away-losses group", () => {
-    expect(chronicleRowTimeHtml(at(22, 21, 54), now, true)).toBe('<span class="v2c-time-day">Sun</span>21:54');
-    expect(chronicleRowTimeHtml(at(2, 8, 5), now, true)).toBe('<span class="v2c-time-day">2 Nov</span>08:05');
+  it("stacks a short day tag above the clock for rows in the cross-day lifted groups", () => {
+    expect(chronicleRowTimeHtml(at(22, 21, 54), now, true)).toBe('<span class="v2c-time-day">Sun</span> 21:54');
+    expect(chronicleRowTimeHtml(at(2, 8, 5), now, true)).toBe('<span class="v2c-time-day">2 Nov</span> 08:05');
     expect(chronicleRowTimeHtml(at(23, 9, 0), now, true)).toBe("09:00");
+  });
+
+  it("dates rows lifted into the since-you-last-looked group, which spans days", () => {
+    const out = html(timeline(at(22, 21, 54)), at(22, 20, 0));
+    expect(out).toContain("YOUR RESULTS SINCE YOU LAST LOOKED");
+    expect(out).toContain('<span class="v2c-time"><span class="v2c-time-day">Sun</span> 21:54</span>');
   });
 });

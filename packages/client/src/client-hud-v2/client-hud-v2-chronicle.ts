@@ -112,12 +112,13 @@ const TONE_CLASS = { gain: "gain", loss: "loss", hold: "hold", neutral: "neutral
 
 /**
  * Rows under a day heading show only the clock: the heading names the day, and
- * "yesterday 21:54" overflowed the 40px column into the glyph. The away-losses
- * group spans days, so its rows stack a short day tag above the clock.
+ * "yesterday 21:54" overflowed the 40px column into the glyph. The lifted
+ * groups (results and losses since you last looked) span days, so their rows
+ * stack a short day tag above the clock; the space keeps it readable as text.
  */
 export const chronicleRowTimeHtml = (at: number, nowMs: number, dated: boolean): string => {
   const tag = dated ? shortDayTag(at, nowMs) : undefined;
-  return `${tag ? `<span class="v2c-time-day">${tag}</span>` : ""}${clockLabel(at)}`;
+  return `${tag ? `<span class="v2c-time-day">${tag}</span> ` : ""}${clockLabel(at)}`;
 };
 
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = false): string => {
