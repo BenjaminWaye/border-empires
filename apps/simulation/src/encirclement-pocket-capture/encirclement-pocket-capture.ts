@@ -76,12 +76,14 @@ const landAdjacentPocket = (
 };
 
 /**
- * Whether `claimantId` may take the frontier an enemy capture just cut off.
- * Only a real player who now holds one of the changed tiles, or holds land
- * next to one, qualifies (the pocket it takes is then limited to land
- * touching that tile -- see landAdjacentPocket). Barbarians never claim pockets (their land is SETTLED-only and ownerless
- * on loss), and a changed tile the claimant no longer holds (e.g. a
- * barbarian defender's tile released back to neutral) gives no claim.
+ * Whether `claimantId` may take the frontier its action just cut off. Only a
+ * real player who holds one of the changed tiles (combat: the fought-over
+ * tile) or land next to one (an unsettled tile -- see unsettle-encirclement.ts)
+ * qualifies; the pocket it takes is then limited to land touching that tile
+ * (landAdjacentPocket). Barbarians never claim pockets (their land is
+ * SETTLED-only and ownerless on loss), and a changed tile with no claimant
+ * land on or next to it (e.g. a barbarian defender's tile released back to
+ * neutral) gives no claim.
  */
 export const canClaimEncirclementPocket = (
   tiles: ReadonlyMap<string, DomainTileState>,

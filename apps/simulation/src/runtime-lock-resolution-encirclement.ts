@@ -4,8 +4,6 @@ import type { LockRecord } from "./runtime-types.js";
 export type RuntimeLockResolutionEncirclementContext = {
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
-  /** Settled tiles of `ownerId` this resolution's capture unsettled (unsettle-encirclement.ts). */
-  takeUnsettledTileKeys?: (ownerId: string) => string[];
 };
 
 export function applyCombatEncirclement(
@@ -37,12 +35,7 @@ export function applyCombatEncirclement(
         attackerWon && pid === previousOwnerId ? lock.playerId
         : originLost && pid === lock.playerId ? previousOwnerId
         : undefined;
-      // A won capture drops the loser's settled land in the target's reach
-      // to FRONTIER (the reach "unsettle"); tiles beyond the target's own
-      // ring would otherwise never be seeded, so check them here too.
-      const unsettledKeys = attackerWon && pid === previousOwnerId ? (context.takeUnsettledTileKeys?.(pid) ?? []) : [];
-      const changedKeys = unsettledKeys.length > 0 ? [...encirclementChangedKeys, ...unsettledKeys] : encirclementChangedKeys;
-      context.applyEncirclement(changedKeys, pid, lock.commandId, {
+      context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, {
         bfsCap: 2000,
         deferEliminationCheck: true, // resolveLock calls respawnIfEliminated itself
         ...(claimantId ? { claimantId } : {})

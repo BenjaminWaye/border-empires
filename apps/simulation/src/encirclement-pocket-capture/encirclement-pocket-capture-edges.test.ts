@@ -116,6 +116,10 @@ describe("applyCombatEncirclement claimant", () => {
       { pid: "defender", claimantId: undefined }
     ]);
   });
+
+});
+
+describe("encirclement pocket capture — unsettled changed tiles", () => {
   it("hands the claimant an unsettled changed tile that is itself cut off and touches their land", () => {
     // 20,10 was just unsettled by player-1's reach; player-2's frontier 21,10 hangs off it.
     const { tiles, context } = harness([settled(19, 10, "player-1"), frontier(20, 10, "player-2"), frontier(21, 10, "player-2"), settled(40, 40, "player-2")]);
@@ -126,11 +130,13 @@ describe("applyCombatEncirclement claimant", () => {
     expect(tiles.get("21,10")?.ownerId).toBe("player-1");
   });
 
-  it("releases an unsettled cut-off tile to neutral when it does not touch the claimant", () => {
-    const { tiles, context } = harness([settled(17, 10, "player-1"), frontier(20, 10, "player-2"), settled(40, 40, "player-2")]);
+  it("releases an unsettled cut-off tile that touches none of the claimant's land, while claiming one that does", () => {
+    // Both were unsettled in the same action; only 20,10 borders player-1.
+    const { tiles, context } = harness([settled(19, 10, "player-1"), frontier(20, 10, "player-2"), frontier(30, 10, "player-2"), settled(40, 40, "player-2")]);
 
-    applyEncirclement(context, ["20,10"], "player-2", "cmd", { claimantId: "player-1" });
+    applyEncirclement(context, ["20,10", "30,10"], "player-2", "cmd", { claimantId: "player-1" });
 
-    expect(tiles.get("20,10")?.ownerId).toBeUndefined();
+    expect(tiles.get("20,10")?.ownerId).toBe("player-1");
+    expect(tiles.get("30,10")?.ownerId).toBeUndefined();
   });
 });

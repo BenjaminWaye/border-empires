@@ -8,6 +8,9 @@ import {
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
 import { markChangedReachTilesDirty, type ReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
+// Re-exported so the runtime gets the unsettle hook's encirclement scope from
+// the module that owns the hook (see settleOvertaken below).
+export { createUnsettleEncirclementScope } from "../unsettle-encirclement/unsettle-encirclement.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -37,8 +40,12 @@ export type ReachBorderApplyContext = {
   rivalOwnerIds: () => string[];
   /** Looks up a tile's ownership by key, for the unsettle downgrade. */
   tileOwnership: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
-  /** Applies the SETTLED -> FRONTIER downgrade through the runtime's own path. */
-  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  /**
+   * Applies the SETTLED -> FRONTIER downgrade through the runtime's own path.
+   * `overtakerId` is the player whose reach took the tile ("" when the border
+   * was vacated); see unsettle-encirclement.ts.
+   */
+  downgradeToFrontier: (tileKey: string, causeCommandId: string, overtakerId: string) => void;
   /**
    * Free, instant FRONTIER claim for tiles that just entered `ownerId`'s
    * persistent reach border while genuinely unowned (`tileOwnership(tileKey)`
@@ -78,7 +85,7 @@ export const createReachBorderApplyContext = (deps: {
   gatherReachAnchors: () => ReachAnchor[];
   playerSummaryIds: () => Iterable<string>;
   getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
-  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  downgradeToFrontier: (tileKey: string, causeCommandId: string, overtakerId: string) => void;
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   contestedDirtyState: ReachChangedTilesDirtyState;
   isLandTile?: LandConnectivityQuery;
@@ -153,7 +160,7 @@ const settleOvertaken = (
     if (fromOwnerId.startsWith("barbarian-")) continue;
     const tile = context.tileOwnership(tileKey);
     if (!tile || tile.ownerId !== fromOwnerId || tile.ownershipState !== "SETTLED") continue;
-    context.downgradeToFrontier(tileKey, causeCommandId);
+    context.downgradeToFrontier(tileKey, causeCommandId, toOwnerId);
   }
 };
 

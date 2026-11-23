@@ -93,4 +93,65 @@ describe("encirclement of tiles unsettled by a town capture", () => {
     expect(tileAt(runtime, 20, 21)?.ownerId).toBe("player-1");
     expect(tileAt(runtime, 22, 21)?.ownerId).toBe("player-2");
   });
+  it("hands the captor the loser's land around a captured town that no other anchor covered", async () => {
+    // player-1's own reach (town at 20,17) stops at y=20, so the captured
+    // town was the only anchor over 22,23: the capture vacates its border
+    // slot and drops it to FRONTIER with player-1's frontier at 21,22 beside it.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player("player-1")], ["player-2", player("player-2")]]),
+      initialState: {
+        tiles: [
+          { ...settled(20, 17, "player-1"), town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          settled(20, 18, "player-1"),
+          settled(20, 19, "player-1"),
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
+          { ...settled(20, 21, "player-2"), town: { name: "Rival Town", type: "FARMING", populationTier: "TOWN" } },
+          { x: 21, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          settled(22, 23, "player-2"),
+          { ...settled(60, 60, "player-2"), town: { type: "MARKET", populationTier: "SETTLEMENT" } }
+        ],
+        activeLocks: []
+      }
+    });
+    runtime.submitCommand({
+      commandId: "cmd-deep-capture", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "ATTACK", payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 20, toY: 21 })
+    });
+    await Promise.resolve();
+    vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+
+    expect(tileAt(runtime, 20, 21)?.ownerId).toBe("player-1");
+    expect(tileAt(runtime, 22, 23)).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+  });
+
+  it("hands a player the rival settled land their newly settled town's reach cuts off", async () => {
+    // No anchor covers 22,20 until player-1's town at 20,20 finishes settling;
+    // its reach then unsettles player-2's 22,20, which player-1's land wraps.
+    const ring = [[21, 19], [22, 19], [23, 19], [21, 20], [23, 20], [21, 21], [22, 21], [23, 21]] as const;
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player("player-1")], ["player-2", player("player-2")]]),
+      initialState: {
+        tiles: [
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          ...ring.map(([x, y]) => settled(x, y, "player-1")),
+          settled(22, 20, "player-2"),
+          { ...settled(60, 60, "player-2"), town: { type: "MARKET", populationTier: "SETTLEMENT" } }
+        ],
+        activeLocks: []
+      }
+    });
+    expect(tileAt(runtime, 22, 20)).toMatchObject({ ownerId: "player-2", ownershipState: "SETTLED" });
+
+    runtime.submitCommand({
+      commandId: "cmd-settle-town", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "SETTLE", payloadJson: JSON.stringify({ x: 20, y: 20 })
+    });
+    await Promise.resolve();
+    vi.advanceTimersByTime(10 * 60_000);
+
+    expect(tileAt(runtime, 20, 20)?.ownershipState).toBe("SETTLED");
+    expect(tileAt(runtime, 22, 20)).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+  });
 });
