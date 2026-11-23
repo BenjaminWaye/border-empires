@@ -36,7 +36,7 @@ describe("Diplomacy deal pact line", () => {
     const html = dealPactHtml(input({ activeTruces: [truce()] }));
     expect(html).toContain("Truce · 14h left");
     expect(html).toContain('data-v2-dip-break="truce" data-player-id="ai-4"');
-    expect(html).toContain('data-v2-dip-alliances="ai-4"');
+    expect(html).not.toContain("data-v2-dip-alliances");
   });
 
   // Playtest run 2: a truce ran out with no warning.
@@ -69,29 +69,17 @@ describe("Diplomacy deal pact line", () => {
     const sheets: BreakPactSheetOptions[] = [];
     const state = { playerNames: new Map([["ai-4", "Bryn"]]) } as never;
     const button = element(dealPactHtml(input({ activeTruces: [truce()] })), "[data-v2-dip-break]");
-    expect(dealPactClick({ state, sendGameMessage, renderHud: vi.fn() }, button, vi.fn(), (o) => { sheets.push(o); return true; })).toBe(true);
+    expect(dealPactClick({ state, sendGameMessage }, button, (o) => { sheets.push(o); return true; })).toBe(true);
     expect(sendGameMessage).not.toHaveBeenCalled();
     expect(sheets[0]?.title).toBe("Break truce with Bryn?");
     sheets[0]!.onConfirm();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "ai-4" }, expect.any(String));
   });
 
-  // Playtest 2026-11-13 (pt-diplomat): the Alliances panel opened only from an ally's tile.
-  it("opens the Alliances panel at that empire's row, closing the screen first", () => {
-    const state = { activePanel: null, socialFocus: undefined, expandedSocialPlayerId: undefined, playerNames: new Map() };
-    const closeToMap = vi.fn();
-    const button = element(dealPactHtml(input({ activeTruces: [truce()] })), "[data-v2-dip-alliances]");
-    dealPactClick({ state: state as never, sendGameMessage: vi.fn(), renderHud: vi.fn() }, button, closeToMap);
-    expect(closeToMap).toHaveBeenCalled();
-    expect(state.activePanel).toBe("alliance");
-    expect(state.expandedSocialPlayerId).toBe("ai-4");
-  });
-
-  it("opens the Alliances panel from the list link with no empire focused", () => {
-    const state = { activePanel: null, expandedSocialPlayerId: undefined, playerNames: new Map() };
-    const button = element(`<button data-v2-dip-alliances="">Alliances</button>`, "button");
-    dealPactClick({ state: state as never, sendGameMessage: vi.fn(), renderHud: vi.fn() }, button, vi.fn());
-    expect(state.activePanel).toBe("alliance");
-    expect(state.expandedSocialPlayerId).toBeUndefined();
+  // 2026-11-21: the old Alliances side panel was deleted; the deal screen is the only Diplomacy UI.
+  it("has no link out to the removed Alliances panel", () => {
+    const allied = dealPactHtml(input({ allies: ["ai-4"] }));
+    expect(allied).toContain("Break Alliance");
+    expect(allied).not.toContain("Alliances ▸");
   });
 });
