@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
 import { houseChargeDeckCardHtml } from "./client-house-charges-deck.js";
 import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
+import { houseChargesPanelHtml } from "./client-house-charges-panel.js";
 
 const guestId = "3YpddqToNoQp5byMr6DHC5DPjKH2";
 // What the simulation deals for a guest rival: it knows the guest only by their account id.
@@ -34,5 +35,12 @@ describe("rival House names on charges", () => {
     expect(renamed.charges[1]).toBe(desert);
     expect(houseChargesWithLiveNames(payload, new Map())).toBe(payload);
     expect(houseChargesWithLiveNames(null, new Map())).toBeNull();
+  });
+
+  // Review of #2922: the helper alone proves nothing if the panel stops calling it.
+  it("is what the Charges panel shows", () => {
+    const html = houseChargesPanelHtml({ activePanel: "charges", houseCharges: payload, houseChargesDraftKeep: undefined, playerNames: new Map([[guestId, "House Noname 4"]]) }, 5);
+    expect(html).toContain("The Correction of House Noname 4");
+    expect(html).not.toContain(`House ${guestId}`);
   });
 });

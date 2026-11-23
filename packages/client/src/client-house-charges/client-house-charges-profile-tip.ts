@@ -6,8 +6,8 @@ const SEEN_KEY = "be.houseCharges.profileTipSeen";
 /** How long Manage charges glows after "Show me". */
 export const MANAGE_CHARGES_CALLOUT_MS = 6_000;
 
-/** The deal whose save is waiting to be confirmed (then the tip shows), or showing the tip now. */
-let pendingDeal: number | undefined;
+/** The save waiting for the server's word (then the tip shows), or the one the tip is showing for. */
+let pending: { dealtAt: number; keptKey: string } | undefined;
 let calloutUntil = 0;
 
 const readSeen = (): string | null => {
@@ -26,28 +26,34 @@ const writeSeen = (dealtAt: number): void => {
   }
 };
 
+const keptKeyOf = (ids: readonly string[]): string => [...ids].sort().join("|");
+
 /** The player pressed Keep: once the server confirms, the tip shows (unless already seen for this deal). */
-export const noteHouseChargesSaved = (dealtAt: number): void => {
-  if (readSeen() !== String(dealtAt)) pendingDeal = dealtAt;
+export const noteHouseChargesSaved = (dealtAt: number, keptIds: readonly string[]): void => {
+  if (readSeen() !== String(dealtAt)) pending = { dealtAt, keptKey: keptKeyOf(keptIds) };
 };
 
 /** The save never left (not signed in): no tip, and it can still show after a later save. */
 export const forgetHouseChargesSave = (): void => {
-  pendingDeal = undefined;
+  pending = undefined;
 };
 
-/** Whether the tip shows now: a save of this deal is pending and nothing is left unsaved. */
-export const houseChargesProfileTipShown = (dealtAt: number, unsaved: boolean): boolean => pendingDeal === dealtAt && !unsaved;
+/**
+ * Whether the tip shows now: the server's kept list is the one saved, with nothing left unsaved. A rejected save
+ * leaves the server's old list, so tapping the cards back to it never shows "kept".
+ */
+export const houseChargesProfileTipShown = (dealtAt: number, serverKeptIds: readonly string[], unsaved: boolean): boolean =>
+  !unsaved && pending?.dealtAt === dealtAt && pending.keptKey === keptKeyOf(serverKeptIds);
 
 /** The tip is done with (dismissed, Show me, or the panel closed): never shown again for this deal. */
 export const dismissHouseChargesProfileTip = (): void => {
-  if (pendingDeal !== undefined) writeSeen(pendingDeal);
-  pendingDeal = undefined;
+  if (pending) writeSeen(pending.dealtAt);
+  pending = undefined;
 };
 
 export const houseChargesProfileTipHtml = (): string =>
   `<div class="house-charges-popover house-charges-tip" role="status">
-    <p>Your charges are kept. To see or change them later, open your profile.</p>
+    <p>Charges kept. Find them in your profile.</p>
     <div class="house-charges-popover-actions">
       <button class="panel-btn" type="button" data-house-charges-tip-show>Show me</button>
       <button class="panel-btn house-charges-popover-close" type="button" data-house-charges-tip-close aria-label="Dismiss">×</button>
@@ -73,6 +79,6 @@ export const scrollManageChargesIntoView = (root: ParentNode, tries = 10): void 
 
 /** Test-only. */
 export const resetHouseChargesProfileTipForTests = (): void => {
-  pendingDeal = undefined;
+  pending = undefined;
   calloutUntil = 0;
 };

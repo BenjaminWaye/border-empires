@@ -142,7 +142,7 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
         </div>
         <button class="panel-btn" type="button" data-house-charges-save${draft.length === wanted ? "" : " disabled"}>Keep these ${wanted}</button>
       </div>`
-    : houseChargesProfileTipShown(payload.dealtAt, changed) ? houseChargesProfileTipHtml() : "";
+    : houseChargesProfileTipShown(payload.dealtAt, kept, changed) ? houseChargesProfileTipHtml() : "";
   const swapWindow = choosing ? `<p class="house-charges-saved">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>` : "";
   const tiles = state.tiles;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
@@ -235,7 +235,7 @@ export const renderHouseChargesPanel = (
       const keptIds = state.houseChargesDraftKeep;
       if (!keptIds) return;
       // Noted before sending: the server's confirmation can arrive (and re-render the panel) before send returns.
-      noteHouseChargesSaved(payload.dealtAt);
+      noteHouseChargesSaved(payload.dealtAt, keptIds);
       if (!deps.sendGameMessage({ type: "CHOOSE_HOUSE_CHARGES", keptIds }, "Finish sign-in before choosing your charges.")) forgetHouseChargesSave();
     };
   }

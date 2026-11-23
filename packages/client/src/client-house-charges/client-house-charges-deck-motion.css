@@ -84,6 +84,9 @@
      hand stretching to the longest card. */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { align-items: start; }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { height: auto; min-height: 0; aspect-ratio: 2 / 3; max-width: 340px; }
+  /* Never taller than the screen leaves room for (panel top, title row, padding, the hover lift): on a short laptop
+     the card gets shorter and its letter scrolls, instead of the card bottoms falling below the fold. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { max-height: max(320px, calc(100vh - 270px)); max-height: max(320px, calc(100dvh - 270px)); }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card > .hc-frame { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: 3 / 1; }
   /* The House's letter shrinks and scrolls first, so the objective, progress and whether it is held show; if even
@@ -115,7 +118,7 @@
     left: 50%;
     transform: translateX(-50%);
     width: max-content;
-    max-width: max(300px, calc(100% - 560px));
+    max-width: max(420px, calc(100% - 560px));
     display: flex;
     align-items: center;
     gap: 12px;

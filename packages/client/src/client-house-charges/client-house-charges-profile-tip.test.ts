@@ -102,6 +102,20 @@ describe("House Charges profile tip", () => {
     expect(again.panelEl.querySelector(".house-charges-tip")).toBeNull();
   });
 
+  // Review of #2922: the tip waited only for "nothing unsaved", so after a rejected save, tapping the cards back to
+  // the server's kept pair showed "Charges kept" for a save that never happened.
+  it("does not show after a rejected save, even once the draft matches the server again", () => {
+    const { state, panelEl, tap, sendGameMessage } = openPanel();
+    sendGameMessage.mockImplementation(() => true); // sent, but the server keeps its old list
+    tap('[data-house-charge-pick="c"]');
+    tap('[data-house-charge-pick="a"]');
+    tap("[data-house-charges-save]");
+    tap('[data-house-charge-pick="c"]');
+    tap('[data-house-charge-pick="a"]');
+    expect(state.houseChargesDraftKeep?.slice().sort()).toEqual(["a", "b"]);
+    expect(panelEl.querySelector(".house-charges-tip")).toBeNull();
+  });
+
   it("does not show when the save could not be sent", () => {
     const { panelEl, tap, sendGameMessage } = openPanel();
     sendGameMessage.mockImplementation(() => false);
@@ -129,5 +143,7 @@ describe("House Charges card shape", () => {
     expect(motion).toMatch(/charges-panel-active \.hcd-card\.hc-card \{[^}]*aspect-ratio: 2 \/ 3/);
     expect(motion).toMatch(/charges-panel-active \.hcd-card\.hc-card \{[^}]*min-height: 0/);
     expect(motion).toMatch(/charges-panel-active \.hcd-card \.hc-text \{[^}]*overflow-y: auto/);
+    // Review of #2922: a fixed shape alone pushed card bottoms below the fold on a short laptop screen.
+    expect(motion).toMatch(/charges-panel-active \.hcd-card\.hc-card \{[^}]*max-height: max\(320px, calc\(100dvh - 270px\)\)/);
   });
 });

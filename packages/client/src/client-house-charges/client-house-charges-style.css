@@ -53,7 +53,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 5;
+  /* Over the Keep popover (z 6): the player opened it on purpose. */
+  z-index: 7;
   width: min(640px, 100%);
   box-sizing: border-box;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
