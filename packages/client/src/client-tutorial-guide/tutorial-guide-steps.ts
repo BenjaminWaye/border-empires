@@ -29,7 +29,7 @@ import { exploreHighlight, foodCopy, foodTitle, needsTownForBuild, targetHighlig
 
 export { guideBeaconSite, needsTownForBuild } from "./tutorial-guide-foothold-copy.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "activity" | "diplomacy";
+export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "muster" | "activity" | "diplomacy";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
@@ -288,7 +288,9 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     isDone: (i) => i.ownsMusterFlag,
     isAvailable: (i) => i.musterUnlocked,
     waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
-    highlight: (i) => i.musterTargetTiles
+    highlight: (i) => i.musterTargetTiles,
+    // The Stage Muster button once a tile is picked, then the first-flag confirm sheet's button.
+    anchor: "muster"
   },
   {
     id: "diplomacy-truce",

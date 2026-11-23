@@ -49,7 +49,7 @@ import { buildTileVisibilityDebugReport, type TileVisibilityDebugQuery, type Til
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { restoreReachBorder } from "../runtime-reach-update/runtime-reach-border-restore.js";
-import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachAnchorActivationOptions, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js"; import { createReachChangedTilesDirtyState, type ReachChangedTilesDirtyState } from "../runtime-reach-update/runtime-reach-contested-tiles.js"; import { flushAllReachUpdates } from "../runtime-reach-update/runtime-reach-flush-all.js";
+import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, createUnsettleEncirclementScope, type ReachAnchorActivationOptions, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js"; import { createReachChangedTilesDirtyState, type ReachChangedTilesDirtyState } from "../runtime-reach-update/runtime-reach-contested-tiles.js"; import { flushAllReachUpdates } from "../runtime-reach-update/runtime-reach-flush-all.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { clearLegacyOutOfReachDecayStamps, isTileBeyondReach as isTileBeyondReachImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, syncReachVision, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
@@ -511,6 +511,7 @@ export class SimulationRuntime {
     () => this.state, () => this.structureCommandContext()
   );
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
+  private readonly unsettleEncirclement = createUnsettleEncirclementScope({ applyEncirclement: (keys, id, cid, options) => this.applyEncirclement(keys, id, cid, options) }); // encircles land a capture/settle unsettles
   private readonly superTileSync = createLandmarkSuperTileSync({ tiles: { get: key => this.state.tiles.get(key) }, replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: tile => this.tileDeltaFromState(tile), emitEvent: event => this.emitEvent(event) }); // AFC/relic super tile ownership — landmark-super-tile/
   private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
@@ -2149,12 +2150,11 @@ export class SimulationRuntime {
     return withAfcReachRadii(newlyDeactivatedReachAnchorsImpl(previous, tile, this.now()), this.state.players);
   }
 
-  // Border mutation lives in runtime-reach-border-apply.ts, next to the
-  // REACH_UPDATE push it feeds. This is the runtime-side adapter: it supplies
-  // the world lookups and routes the unsettle downgrade back through replaceTileState.
+  // Runtime-side adapter for runtime-reach-border-apply.ts: world lookups, plus the unsettle
+  // downgrade routed through replaceTileState and recorded for unsettle-encirclement.ts.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
-      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), hasClaimInFlight: (k) => this.state.locksByTile.targetLockAt(k) !== undefined, isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), hasClaimInFlight: (k) => this.state.locksByTile.targetLockAt(k) !== undefined, isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0, overtakerId) => this.unsettleEncirclement.downgrade(tileKey, this.state.tiles.get(tileKey)?.ownerId, overtakerId, () => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })),
       autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) })
     });
   }
@@ -2548,7 +2548,7 @@ export class SimulationRuntime {
   // match check fails and the timer's call is a no-op — same pattern
   // completeStructureBuild already relies on for its own status guard.
   private resolvePendingSettlement(input: SettlementResolutionInput): void {
-    resolvePendingSettlementImpl({
+    this.unsettleEncirclement.scope([input.ownerId], input.commandId, () => resolvePendingSettlementImpl({
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       tiles: this.state.tiles, players: this.state.players,
       removePendingSettlement: (key) => this.removePendingSettlement(key),
@@ -2565,7 +2565,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
       emitAutoFillForSettlement: (tile, ownerId, key) => this.emitAutoFillForSettlement(tile, ownerId, key)
-    }, input);
+    }, input));
   }
 
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
@@ -3005,7 +3005,7 @@ export class SimulationRuntime {
 
   private resolveLock(lock: LockRecord): void {
     this.deltaBuffer.begin();
-    try { resolveLockImpl(this.lockResolutionContext(), lock); }
+    try { this.unsettleEncirclement.scope([lock.playerId], lock.commandId, () => resolveLockImpl(this.lockResolutionContext(), lock)); }
     finally { this.deltaBuffer.flush(lock.commandId, lock.playerId, (e: SimulationEvent) => this.emitEvent(e)); }
   }
 
