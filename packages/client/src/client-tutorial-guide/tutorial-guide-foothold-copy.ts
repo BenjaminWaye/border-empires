@@ -10,32 +10,34 @@ import { guideTargetAction, type GuideTargetAction } from "./tutorial-guide-foot
 import { GUIDE_EXPLORE_MAX_FLIGHTS } from "./tutorial-guide-explore-target.js";
 import type { GuideInput } from "./tutorial-guide-steps.js";
 
-const EXPLORE_TITLE = "tap the marked unexplored ground and Explore";
+const EXPLORE_TITLE = "tap the marked dark ground, then Explore";
 
+// Plain words, one short line each (Playtest Run 4: "frontier", "garrison", "reach" lost first-time players).
+// Button names (Explore, Expand To, Garrison, Relay Beacon) stay exact, so the line matches what's on screen.
 export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
-  explore: { title: `No town in sight: ${EXPLORE_TITLE}`, why: "Your scout drone is free and reports the towns it flies over." },
-  scouting: { title: "Your scout drone is out: wait for its report", why: "Towns it finds stay on your map. Then Expand To one." },
-  pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
+  explore: { title: `No town nearby: ${EXPLORE_TITLE}`, why: "Your drone shows the towns it flies over." },
+  scouting: { title: "Your drone is flying: wait for its report", why: "Then tap a town it found and Expand To it." },
+  pending: { title: "Taking the marked town…", why: "It's yours in a moment." },
   // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
-  garrison: { title: "Tap the marked town and Garrison it", why: "It's your frontier now; a garrison makes it count and grow." },
-  expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
+  garrison: { title: "Tap the marked town, then Garrison", why: "Garrison makes it yours for good. Then it grows and earns coin." },
+  expand: { title: "Tap the marked town, then Expand To", why: "Expand To takes the land on the way to it." },
+  beacon: { title: "No town nearby: build a Relay Beacon", why: "A beacon lets you take land further out and see more of the map." }
 };
 
 const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
-  explore: { title: `No food in sight: ${EXPLORE_TITLE}`, why: "Your scout drone is free and reports the grain and fish it flies over." },
-  scouting: { title: "Your scout drone is out: wait for its report", why: "Grain and fish it finds stay on your map." },
-  pending: { title: "Your claim on the marked food tile is underway", why: "Once your claim lands, it garrisons itself." },
-  garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
-  expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No food in sight: build a Relay Beacon", why: "Its reach and vision push outward to more grain and fish." }
+  explore: { title: `No food nearby: ${EXPLORE_TITLE}`, why: "Your drone shows the grain and fish it flies over." },
+  scouting: { title: "Your drone is flying: wait for its report", why: "Grain and fish it finds stay on your map." },
+  pending: { title: "Taking the marked food tile…", why: "It's yours in a moment." },
+  garrison: { title: "Tap a marked food tile, then Garrison", why: "Food only counts once garrisoned. Fish counts double." },
+  expand: { title: "Tap a marked food tile, then Expand To", why: "Expand To takes the land on the way to it." },
+  beacon: { title: "No food nearby: build a Relay Beacon", why: "A beacon lets you take land further out, toward more grain and fish." }
 };
 
 /** The town and food steps ask for Explore only for the first few flights: past that, a target the drone can't reach would loop, so they fall back to a beacon. */
 const canExplore = (input: GuideInput): boolean =>
   input.scout === "ready" && input.scoutFlights < GUIDE_EXPLORE_MAX_FLIGHTS && input.exploreTarget() !== undefined;
 /** The beacon ask when grain or fish is known but only outside reach, where Garrison is refused. */
-const FOOD_OUT_OF_REACH = { title: "No food in your reach: build a Relay Beacon", why: "Garrison only works inside your reach. A beacon pushes it out to the grain and fish you've found." };
+const FOOD_OUT_OF_REACH = { title: "Food is too far away: build a Relay Beacon", why: "You can only Garrison close to your towns and beacons. A beacon brings that food in range." };
 
 export const foodCopy = (input: GuideInput): { title: string; why: string } => {
   const action = foodAction(input);
@@ -95,25 +97,25 @@ export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number;
 
 /** Where to build the beacon: the marked recommended site when there is one, otherwise any garrisoned border tile. */
 const beaconWhere = (input: GuideInput): string =>
-  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " on a garrisoned tile at the edge of your land";
+  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " at the edge of your land";
 
-/** "No town in sight" is wrong when the drone already found towns across water: say none can be reached. */
+/** "No town nearby" is wrong when the drone already found towns across water: say none can be reached. */
 const townActionTitle = (input: GuideInput, action: GuideTargetAction): string => {
   const title = TOWN_STEP[action].title;
-  return input.footholdTargets.town.unreachable > 0 ? title.replace("No town in sight", "No town you can reach") : title;
+  return input.footholdTargets.town.unreachable > 0 ? title.replace("No town nearby", "No town you can reach") : title;
 };
 
 /** The town is more legs away than charges are ready: flying part-way again would loop, so wait. */
 const leadNeedsCharges = (input: GuideInput): number => (followsTownLead(input) && input.scout === "ready" ? (input.townLeadChargesShort ?? 0) : 0);
 
 const townLeadWait = (short: number) => ({
-  title: `A town lies this way: wait for ${short} more drone charge${short === 1 ? "" : "s"} to reach it`,
-  why: "Each stop costs a charge, and the town is too far for the charges you have. They come back every 4 hours."
+  title: `A town is this way: wait for ${short} more drone charge${short === 1 ? "" : "s"}`,
+  why: "It's too far for the charges you have. Used charges come back after 4 hours."
 });
 
 const TOWN_LEAD_EXPLORE = {
-  title: "A town lies this way: tap the marked fog and Explore",
-  why: "Your drone reports the towns it flies over. Then Expand To the town."
+  title: "A town is this way: tap the mark, then Explore",
+  why: "Your drone flies there. Then Expand To the town."
 };
 
 export const townWhy = (input: GuideInput): string => {

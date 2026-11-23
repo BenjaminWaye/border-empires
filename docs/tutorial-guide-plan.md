@@ -169,10 +169,10 @@ the same rule.
   tiles offer Expand To too), in practice one outside reach: "Expand To it".
   Expand To walks the border across through a waypoint chain.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
-  (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
+  (Manhattan): "Food is too far away: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
 - Otherwise, no town known at all and the server names one (the town step
-  only): "A town lies this way: tap the marked fog and Explore", ringed at the
+  only): "A town is this way: tap the mark, then Explore", ringed at the
   nearest unowned town (`guideTownLead` on PLAYER_UPDATE, computed by
   `apps/simulation/src/guide-town-lead/` from the neutral-town index, sent while
   the player holds no town beyond their landing settlement), for as many
@@ -182,15 +182,15 @@ the same rule.
   leg range every flight. Added after Playtest Run 4, where a newcomer flew
   five flights in random directions over three mornings, built four beacons
   and quit.
-- Otherwise, nothing known: "tap the marked unexplored ground and Explore"
-  while the drone can launch (ringed at the Explore target), or "Your scout
-  drone is out: wait for its report" while it flies. Only for the first 3
+- Otherwise, nothing known: "tap the marked dark ground, then Explore"
+  while the drone can launch (ringed at the Explore target), or "Your drone
+  is flying: wait for its report" while it flies. Only for the first 3
   flights of the session: a target the drone can't reach (a rival border,
   open sea) would otherwise be asked for again and again.
 - Otherwise (no AFC, or nothing unexplored near home): "build a Relay Beacon:
   tap the marked tile, then Build" when the checklist has a recommended beacon
-  site (only that site is ringed). Without a site, the step says "…on a
-  garrisoned tile at the edge of your land".
+  site (only that site is ringed). Without a site, the step says "…at the
+  edge of your land".
 - While a claim or garrison on a target is already underway
   (`optimisticPending`, for example right after Expand To), the step says so
   instead of asking for a Garrison that is already queued.
