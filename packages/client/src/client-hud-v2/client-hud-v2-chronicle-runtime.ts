@@ -6,13 +6,15 @@ import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } f
 import { activityDashboardUnreadCount } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { latestClientChangelogTimestamp, markClientChangelogSeen, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
 import { storageGet, storageSet } from "../client-state/client-storage.js";
-import { focusCamera, screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
+import { focusCamera, screen, screenCentre, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleProgressForState } from "./client-hud-v2-chronicle-progress.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 import { aheadTabHtml } from "./client-hud-v2-chronicle-ahead.js";
 import { visitForecast, type VisitForecast } from "../client-visit-forecast/client-visit-forecast.js";
+import { visitAgenda, type AgendaItem } from "../client-visit-agenda/client-visit-agenda.js";
+import { agendaInputForState } from "../client-visit-agenda/client-visit-agenda-state.js";
 import { forecastInputForState } from "../client-visit-forecast/client-visit-forecast-state.js";
 import { myTowns } from "./client-hud-v2-town-runtime.js";
 import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
@@ -76,7 +78,8 @@ export const renderChronicle = (deps: HudV2Deps): void => {
     return;
   }
   if (tab === "ahead") {
-    writeHtml("v2c-drawer", `${chronicleHeadHtml(tabs)}${aheadTabHtml(aheadForecast(deps, Date.now()))}`);
+    const ahead = aheadForecast(deps, Date.now());
+    writeHtml("v2c-drawer", `${chronicleHeadHtml(tabs)}${aheadTabHtml(ahead.forecast, ahead.agenda)}`);
     return;
   }
   const body = tab === "world"
@@ -90,17 +93,20 @@ export const renderChronicle = (deps: HudV2Deps): void => {
 
 /** The forecast scans every tile for work in progress, so it is rebuilt at most this often while the tab is open. */
 const AHEAD_MAX_AGE_MS = 5_000;
-let aheadCache: { at: number; forecast: VisitForecast } | undefined;
+let aheadCache: { at: number; forecast: VisitForecast; agenda: AgendaItem[] } | undefined;
 
-const aheadForecast = (deps: HudV2Deps, nowMs: number): VisitForecast => {
+const aheadForecast = (deps: HudV2Deps, nowMs: number): { forecast: VisitForecast; agenda: AgendaItem[] } => {
   if (!aheadCache || nowMs - aheadCache.at >= AHEAD_MAX_AGE_MS || nowMs < aheadCache.at) {
-    aheadCache = { at: nowMs, forecast: visitForecast(forecastInputForState(deps.state, myTowns(deps, nowMs), nowMs)) };
+    const towns = myTowns(deps, nowMs);
+    aheadCache = { at: nowMs, forecast: visitForecast(forecastInputForState(deps.state, towns, nowMs)), agenda: visitAgenda(agendaInputForState(deps.state, towns, nowMs)) };
   }
-  return aheadCache.forecast;
+  return aheadCache;
 };
 
 /** Fetches what a tab shows the first time it is opened (the activity timeline refetches on every open). */
 export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
+  // Opening the Chronicle or a tab rebuilds Ahead, so a decision just acted on is not still listed.
+  aheadCache = undefined;
   if (tab === "yours") requestPersonalActivity(deps.state, deps);
   else if (tab === "world" && !deps.state.activityDashboard.worldPulse) requestWorldPulse(deps.state, deps);
 };
@@ -115,6 +121,12 @@ export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => 
     const y = Number(ahead.dataset.y);
     if (Number.isFinite(x) && Number.isFinite(y)) {
       focusCamera(deps, x, y);
+      // An agenda row is a decision: open the tile's own menu, where the action is (as the timeline's Show does).
+      const tile = ahead.hasAttribute("data-v2-ahead-select") ? deps.state.tiles.get(`${deps.wrapX(x)},${deps.wrapY(y)}`) : undefined;
+      if (tile) {
+        const centre = screenCentre();
+        deps.actionFlow.openSingleTileActionMenu(tile, centre.x, centre.y);
+      }
       deps.renderHud();
     }
     return true;
