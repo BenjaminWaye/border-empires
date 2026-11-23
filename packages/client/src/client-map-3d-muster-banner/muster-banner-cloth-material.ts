@@ -14,6 +14,12 @@
 //
 // Per instance, `aBannerWind` = (phase 0..1, speed multiplier): banners
 // across the map don't billow in lockstep, and ADVANCE-mode banners whip faster.
+//
+// Per instance, `aBannerDesign` picks the livery (BANNER_DESIGN_INDEX). It is
+// an account cosmetic (docs/gdd.md §8) and may change the embroidery only:
+// the cloth's outline, its wind, the owner's colour as the field and the
+// ADVANCE cues are the same for every design, and no design covers more of
+// the owner's colour than the standard one does.
 import {
   Color,
   DoubleSide,
@@ -22,7 +28,14 @@ import {
   RGBADepthPacking,
   type WebGLProgramParametersWithUniforms
 } from "three";
+import type { MusterFlagDesign } from "../client-cosmetics/client-cosmetics.js";
 import { BANNER_CLOTH } from "./muster-banner-geometry.js";
+
+/**
+ * `aBannerDesign` value per muster flag design. 0 is the standard livery and
+ * is what a geometry without the attribute (the relic banner) reads.
+ */
+export const BANNER_DESIGN_INDEX = { default: 0, "flag-chevron": 1 } as const satisfies Record<MusterFlagDesign, number>;
 
 /** The shader clock wraps every this many seconds, so float precision never degrades. */
 const TIME_PERIOD = 3600;
@@ -85,11 +98,14 @@ vec3 bannerNormal(vec2 uv, float t, float gust) {
 }
 varying vec2 vBannerUv;
 varying float vBannerFold;
+attribute float aBannerDesign;
+varying float vBannerDesign;
 `;
 
 const FRAGMENT_DECLARATIONS = /* glsl */ `
 varying vec2 vBannerUv;
 varying float vBannerFold;
+varying float vBannerDesign;
 uniform vec3 uBannerTrim;
 uniform vec3 uBannerBand;
 ${SHAPE_CONSTANTS}
@@ -106,6 +122,12 @@ float bannerCog(vec2 p) {
   float hole = bannerFill(r - 0.27);
   float hub = bannerFill(r - 0.12);
   return clamp(outer - hole + hub, 0.0, 1.0);
+}
+// Chevron standard: an open lozenge round a small solid one. p is in the
+// lozenge's own half-extents, so its outline is |p.x| + |p.y| = 1.
+float bannerLozenge(vec2 p) {
+  float d = abs(p.x) + abs(p.y) - 1.0;
+  return clamp(bannerFill(d) - bannerFill(d + 0.36) + bannerFill(d + 0.68), 0.0, 1.0);
 }
 `;
 
@@ -130,6 +152,21 @@ const COLOR_PATCH = /* glsl */ `
   vec2 cogP = vec2((u - 0.5) * BANNER_WIDTH, (0.42 - drop) * column) / (BANNER_WIDTH * 0.5);
   float device = bannerCog(cogP / 0.8);
   float outline = clamp(bannerCog(cogP / 0.92) - device, 0.0, 1.0);
+  if (vBannerDesign > 0.5) {
+    // Chevron standard. Two pale chevrons point down the cloth, echoing its
+    // pointed hem, over a brass lozenge. Hem, edge trim and fringe are shared
+    // with the standard livery, so the outline is identical.
+    float across = abs(u - 0.5) * BANNER_WIDTH;
+    float down = drop * column;
+    float rake = down + across * 0.5;
+    float edge = 1.0 - bannerFill(side - 0.008);
+    band = max(bannerFill(abs(rake - 0.165) - 0.014), bannerFill(abs(rake - 0.225) - 0.014)) * edge;
+    // Running stitch along the lower edge of each chevron.
+    seam = max(bannerFill(abs(rake - 0.181) - 0.002), bannerFill(abs(rake - 0.241) - 0.002)) * step(0.45, fract(across / 0.016)) * edge;
+    vec2 lozengeP = vec2(across / 0.05, (down - 0.365) / 0.07);
+    device = bannerLozenge(lozengeP);
+    outline = clamp(bannerLozenge(lozengeP / 1.12) - device, 0.0, 1.0);
+  }
   // Folds turned away from the camera sit in their own shade.
   float shade = 0.84 + 0.16 * (vBannerFold * 0.5 + 0.5);
   // On light (yellow, gold) banners the brass thread would vanish: darken it to bronze.
@@ -184,7 +221,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
       )
       .replace(
         "#include <begin_vertex>",
-        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
+        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nvBannerDesign = aBannerDesign;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
       );
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_DECLARATIONS}`)

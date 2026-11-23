@@ -16,7 +16,8 @@ import {
 } from "three";
 
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
-import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
+import type { MusterFlagDesign } from "./client-cosmetics/client-cosmetics.js";
+import { BANNER_DESIGN_INDEX, createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
@@ -112,6 +113,8 @@ type TileEntry = {
   fillRatio: number; advance: boolean;
   worldTileX: number; worldTileY: number;
   tintColor: Color;
+  /** The owner's muster flag cosmetic: embroidery only (muster-banner-cloth-material.ts). */
+  design: MusterFlagDesign;
   /** Epoch ms the siege on this flag's tile resolves; 0 when not besieged. */
   siegeEndsAt: number;
 };
@@ -121,7 +124,7 @@ export type MusterOverlay = {
   readonly addMuster: (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt?: number
+    worldTileX: number, worldTileY: number, siegeEndsAt?: number, design?: MusterFlagDesign
   ) => void;
   readonly commit: () => void;
   readonly tick:    (nowMs: number) => void;
@@ -162,6 +165,8 @@ export const createMusterOverlay = (
   const clothGeometry = geometry.cloth.clone();
   const wind = new InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
   clothGeometry.setAttribute("aBannerWind", wind);
+  const design = new InstancedBufferAttribute(new Float32Array(MAX), 1);
+  clothGeometry.setAttribute("aBannerDesign", design);
 
   const body = new InstancedMesh(geometry.body, bodyMaterial, MAX);
   const metal = new InstancedMesh(geometry.metal, metalMaterial, MAX);
@@ -213,12 +218,12 @@ export const createMusterOverlay = (
   const addMuster = (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt = 0
+    worldTileX: number, worldTileY: number, siegeEndsAt = 0, design: MusterFlagDesign = "default"
   ): void => {
     if (entries.length >= MAX) return;
     tmpColor.set(ownerColor);
     if (advance) tmpColor.lerp(white, 0.30); // brighter in ADVANCE
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt });
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt, design });
   };
 
   const commit = (): void => {
@@ -230,14 +235,18 @@ export const createMusterOverlay = (
       enamel.setColorAt(i, e.tintColor);
       cloth.setColorAt(i, e.tintColor);
       wind.setXY(i, hash01(e.worldTileX, e.worldTileY, 0, 99), e.advance ? ADVANCE_WIND_SPEED : 1);
+      design.setX(i, BANNER_DESIGN_INDEX[e.design]);
     }
     body.instanceMatrix.clearUpdateRanges();
     wind.clearUpdateRanges();
+    design.clearUpdateRanges();
     if (count === 0) return;
     body.instanceMatrix.addUpdateRange(0, count * 16);
     body.instanceMatrix.needsUpdate = true;
     wind.addUpdateRange(0, count * 2);
     wind.needsUpdate = true;
+    design.addUpdateRange(0, count);
+    design.needsUpdate = true;
     for (const mesh of [enamel, cloth]) {
       const colors = mesh.instanceColor;
       if (!colors) continue;

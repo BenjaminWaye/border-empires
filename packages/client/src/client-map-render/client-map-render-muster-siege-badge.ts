@@ -5,13 +5,20 @@
 // the flag: a pennant in the owner's colour inside a pulsing red ring, drawn
 // over the usual under-attack cross so "your muster is under siege" reads at
 // a glance on the accessibility renderer too.
+//
+// `design` is the owner's muster flag cosmetic (docs/gdd.md §8). It changes
+// only the embroidery on the pennant: the ring, the pole, the pennant's shape
+// and its owner-colour field are the same for every design.
+import type { MusterFlagDesign } from "../client-cosmetics/client-cosmetics.js";
+
 export const drawMusterSiegeBadge = (
   ctx: CanvasRenderingContext2D,
   px: number,
   py: number,
   size: number,
   ownerColor: string,
-  nowMs: number
+  nowMs: number,
+  design: MusterFlagDesign = "default"
 ): void => {
   if (size < 10) return;
   const cx = px + size * 0.74;
@@ -43,5 +50,18 @@ export const drawMusterSiegeBadge = (
   ctx.lineTo(poleX, top + radius * 0.6);
   ctx.closePath();
   ctx.fill();
+  if (design === "flag-chevron") {
+    // Two pale chevrons pointing toward the fly, clipped to the pennant.
+    ctx.clip();
+    ctx.strokeStyle = "#ece3cc";
+    ctx.lineWidth = Math.max(0.8, radius * 0.09);
+    for (const offset of [0.16, 0.36]) {
+      ctx.beginPath();
+      ctx.moveTo(poleX + radius * (offset - 0.16), top);
+      ctx.lineTo(poleX + radius * (offset + 0.1), top + radius * 0.3);
+      ctx.lineTo(poleX + radius * (offset - 0.16), top + radius * 0.6);
+      ctx.stroke();
+    }
+  }
   ctx.restore();
 };
