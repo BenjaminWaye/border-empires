@@ -22,6 +22,7 @@ import {
 } from "@border-empires/shared";
 import { leadRouteStops } from "./client-scout-drone-lead-route.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type Point = { x: number; y: number };
@@ -88,6 +89,42 @@ export const SCOUT_DRONE_MAX_ROUTE_STOPS = SCOUT_DRONE_MAX_STOPS * 2;
 /** The drone in the air at `nowMs`, if any. */
 export const flyingScoutDrone = (state: Pick<ClientState, "scoutDroneFlight">, nowMs: number): ScoutDroneFlight | undefined =>
   state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs ? state.scoutDroneFlight : undefined;
+
+/**
+ * The flying drone's stops it has not reached yet, with each one's number on the route (1-based). Each stop's
+ * step is found in flight order: a route that crosses a later stop's tile on an earlier leg must not count that
+ * stop as reached (review 2026-11-21). The 3D route numbers these, and a tap on one is never a new stop.
+ */
+export const flyingStopsAhead = (flight: ScoutDroneFlight, nowMs: number): Array<Point & { n: number }> => {
+  const from = Math.max(0, scoutDroneStepIndexAt(flight, nowMs));
+  const ahead: Array<Point & { n: number }> = [];
+  let cursor = 0;
+  (flight.waypoints ?? []).forEach((stop, i) => {
+    let at = cursor;
+    while (at <= flight.turnIndex && (flight.steps[at]!.x !== stop.x || flight.steps[at]!.y !== stop.y)) at += 1;
+    if (at > flight.turnIndex) return;
+    cursor = at + 1;
+    if (at > from) ahead.push({ x: stop.x, y: stop.y, n: i + 1 });
+  });
+  return ahead;
+};
+
+/**
+ * How near a tap must land to count as a tap on a flying drone's numbered stop, in tiles. The badge covers more
+ * than its own tile, so a tap on it that missed the tile by one added a stop beside it (player report 2026-11-21).
+ */
+export const SCOUT_STOP_TAP_RADIUS_TILES = 1;
+
+/**
+ * True when (wx, wy) is on or beside a stop the flying drone has yet to reach, as the true-3D map numbers them.
+ * Only with no plan open: an open plan draws its own route instead, and the 2D map numbers no stops, so there
+ * the tap is on nothing the player can see (review 2026-11-22).
+ */
+const onFlyingStopBadge = (state: ScoutPlanState, wx: number, wy: number, nowMs: number, true3D: boolean): boolean => {
+  const flying = flyingScoutDrone(state, nowMs);
+  if (!flying || !true3D || state.scoutDronePicking.active) return false;
+  return flyingStopsAhead(flying, nowMs).some((stop) => distance(stop, { x: wx, y: wy }) <= SCOUT_STOP_TAP_RADIUS_TILES);
+};
 
 /** How many stops the plan can hold now: charges left, and room on the flying drone's route. */
 export const scoutPlanCapacity = (state: ScoutPlanState, nowMs: number): number => {
@@ -158,15 +195,25 @@ export const scoutPlanTapStarts = (state: ScoutPlanState, wx: number, wy: number
  * Returns true when the tap was consumed.
  */
 
-export const handleScoutPlanTap = (state: ScoutPlanState, wx: number, wy: number, nowMs: number): boolean => {
+export const handleScoutPlanTap = (
+  state: ScoutPlanState,
+  wx: number,
+  wy: number,
+  nowMs: number,
+  true3D: boolean = isTrue3DRendererActive()
+): boolean => {
   const plan = state.scoutDronePicking;
+  // A tap on a flying drone's numbered stop is spent: the stop is already on its way, and a plan started there
+  // numbered its stop after the whole route, so it read as a stop the player never placed (player report 2026-11-21).
+  if (onFlyingStopBadge(state, wx, wy, nowMs, true3D)) return scoutPlanTapStarts(state, wx, wy);
   if (!plan.active) {
     // Only fog starts a plan: a tile never explored that the client has no data for, off home ground.
     if (!scoutPlanTapStarts(state, wx, wy, nowMs)) return false;
     plan.active = true;
     plan.stops = [];
   }
-  // A tap on a stop (as reached) takes it and the ones after it off the plan.
+  // A tap on a stop (as reached) takes it and the ones after it off the plan. Exact tile only: a near miss that
+  // adds a stop is one Undo away, while one that removed a stop also dropped every stop after it (review 2026-11-22).
   const preview = scoutPlanPreview(state, plan.stops, nowMs);
   const hit = preview?.route.stops.findIndex((stop) => distance(stop, { x: wx, y: wy }) <= 0) ?? -1;
   if (hit >= 0) {
