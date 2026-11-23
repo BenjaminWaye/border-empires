@@ -121,6 +121,7 @@ const PLAYER_MERGE_RULES = {
   autoSettle: (p) => (parseAutoSettleCategoryPrefs(p.autoSettle) ? { autoSettle: autoSettlePrefsForOutput(p.autoSettle) } : undefined),
   // Stamped fresh on every SubscribePlayer reply; never live-patched onto a cached snapshot.
   exploredTiles: () => undefined,
+  lostTiles: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   relicMapHints: p => "relicMapHints" in p ? { relicMapHints: parseRelicMapHints(p.relicMapHints) } : undefined,
   guideTownLead: p => "guideTownLead" in p ? { guideTownLead: parseGuideTownLead(p.guideTownLead) } : undefined,

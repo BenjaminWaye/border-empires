@@ -39,6 +39,7 @@ import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-st
 import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/client-restored-camera-fog.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
+import { applyLostTileMemory } from "../client-lost-tile-memory/client-lost-tile-memory.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, markWaystationActivationsSeenFromEventLog, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
@@ -385,6 +386,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   // Server-held fog memory: restores explored land the browser copy lost (cleared storage, new device).
   applyServerExploredTiles(state.discoveredTiles, player.exploredTiles);
+  applyLostTileMemory(state, player.lostTiles); // who took land lost out of sight (client-lost-tile-memory.ts)
   state.bridgeDebugInitialTileCount = appliedInitialTileCount;
   if (appliedInitialTileCount > 0) {
     state.firstChunkAt = Date.now();

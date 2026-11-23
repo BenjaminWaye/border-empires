@@ -1,6 +1,6 @@
 import { createFullVisibilitySource } from "./full-visibility-source.js";
 import { resolveRecoveredSeason } from "./recovered-season-fallback.js";
-import { logDebugSubscribePlayer, withExploredTiles } from "./subscribe-player-reply.js";
+import { logDebugSubscribePlayer, withFogMemory } from "./subscribe-player-reply.js";
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
 import crypto from "node:crypto";
@@ -1884,7 +1884,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         async (snapshotPayload) => {
           try {
             const [playerJson, worldStatusJson, seasonJson] = await Promise.all([
-              snapshotPayload.player ? stringifySnapshot(withExploredTiles(snapshotPayload.player, runtime.exploredTilesFor(snapshotPayload.playerId))) : undefined,
+              snapshotPayload.player ? stringifySnapshot(withFogMemory(snapshotPayload.player, runtime.fogMemoryFor(snapshotPayload.playerId))) : undefined,
               snapshotPayload.worldStatus ? stringifySnapshot(snapshotPayload.worldStatus) : undefined,
               snapshotPayload.season ? stringifySnapshot(snapshotPayload.season) : undefined,
             ]);

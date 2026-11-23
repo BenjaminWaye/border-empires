@@ -12,6 +12,7 @@ import { createPersonalImpactLog, type PersonalImpactEvent } from "../personal-i
 import { createTerritoryFlipLog, isBarbarianRoamingFlip, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 import { topCaptorOf } from "../elimination-captor/elimination-captor.js";
+import { lostTilesOf, type LostTile } from "../lost-tile-memory/lost-tile-memory.js";
 
 // Cohesive ownership of all non-snapshot, rolling activity history. Keeping
 // this state out of runtime.ts both honors the source-file cap and makes the
@@ -31,6 +32,8 @@ export const createRuntimeActivityLogs = (now: () => number) => {
     restore: (logs: PersistedActivityLogs | undefined): void => restoreActivityLogs(territory, combat, personalImpacts, logs, now()),
     /** Who took the most of this player's land in the last 24h (elimination notice). */
     topCaptorOf: (playerId: string): string | undefined => topCaptorOf(playerId, territory.entries()),
+    /** Land this player lost in the last 24h and who took it, for their fog memory (lost-tile-memory.ts). */
+    lostTilesOf: (playerId: string): LostTile[] => lostTilesOf(playerId, territory.entries()),
     territoryGauge: () => territory.gauge(),
     combatGauge: () => combat.gauge(),
     personalImpactGauge: () => personalImpacts.gauge(),
