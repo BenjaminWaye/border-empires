@@ -1,7 +1,7 @@
 // The forecast's town rows come from the same server figures the town screen shows.
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
-import { forecastInputForState, townReadyForecast } from "./client-visit-forecast-state.js";
+import { forecastInputForState, manpowerFullInMs, townReadyForecast } from "./client-visit-forecast-state.js";
 
 const NOW = 1_000_000;
 
@@ -69,5 +69,37 @@ describe("forecast input from client state", () => {
     }), [], NOW);
     expect(input.active.map((slot) => [slot.label, slot.x, slot.y])).toEqual([["Garrisoning", 3, 3]]);
     expect(input.queued).toBe(2);
+    expect(input.planned).toBe(0);
+  });
+
+  // Review of #2944: entries past the server's queue of 20 live in this browser only.
+  it("splits a long queue into what the server holds and what is only planned here", () => {
+    const developmentQueue = Array.from({ length: 35 }, (_, i) => ({ label: "Fort", tileKey: `${i},0`, x: i, y: 0 }));
+    const input = forecastInputForState(state({ developmentQueue }), [], NOW);
+    expect([input.queued, input.planned]).toEqual([20, 15]);
+  });
+
+  it("names a rival whose name has not arrived", () => {
+    const input = forecastInputForState(state({ seasonVictory: [{ id: "TOWN_CONTROL", name: "Town Control", leaderPlayerId: "k", leaderName: "", conditionMet: true, holdRemainingSeconds: 60 }] }), [], NOW);
+    expect(input.holds[0]?.holderName).toBe("A rival");
+  });
+});
+
+// Review of #2944: after spending from a full pool the next batch is small, so "full at the next batch" was 4h early.
+describe("time until manpower is full", () => {
+  const WINDOW = 4 * 3_600_000;
+  const pool = { manpower: 550, manpowerCap: 750, manpowerRegenPerMinute: 1 };
+
+  it("uses the server's figure for the first batch and full windows after it", () => {
+    // Room 200, the batch brings 60, the remaining 140 needs one more window of 240.
+    expect(manpowerFullInMs(pool, NOW + 3_600_000, 60, NOW)).toBe(3_600_000 + WINDOW);
+    // A batch that covers the room fills the pool when it lands, whatever the current rate.
+    expect(manpowerFullInMs({ ...pool, manpowerRegenPerMinute: 0.1 }, NOW + 3_600_000, 450, NOW)).toBe(3_600_000);
+    expect(manpowerFullInMs({ ...pool, manpower: 750 }, NOW + 3_600_000, 60, NOW)).toBe(0);
+    expect(manpowerFullInMs({ ...pool, manpowerRegenPerMinute: 0 }, NOW + 3_600_000, 60, NOW)).toBeUndefined();
+  });
+
+  it("falls back to full batches when the server's figure is not current", () => {
+    expect(manpowerFullInMs(pool, NOW + 3_600_000, undefined, NOW)).toBe(3_600_000);
   });
 });

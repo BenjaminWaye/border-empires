@@ -6,7 +6,7 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 
 const input = (extra: Partial<ForecastInput> = {}): ForecastInput => ({
-  active: [], queued: 0, expansions: { total: 0, paused: 0 },
+  active: [], queued: 0, planned: 0, expansions: { total: 0, paused: 0 },
   manpower: { current: 750, cap: 750, fullInMs: 0, nextBatchInMs: HOUR, nextBatchGain: 0 },
   towns: [], holds: [], truces: [], ...extra
 });
@@ -90,5 +90,33 @@ describe("visit forecast", () => {
     }));
     expect(forecast.items.map((item) => item.text).join(" ")).not.toMatch(/\bturns?\b/i);
     expect(forecast.items.find((item) => item.kind === "expansions")?.text).toBe("1 queued expansion keeps claiming toward its target (waiting for manpower)");
+  });
+
+  // Review of #2944: only the server-held queue runs while the game is closed.
+  it("tells queued work the server holds apart from entries planned in this browser", () => {
+    const texts = visitForecast(input({ queued: 20, planned: 15 })).items.map((item) => item.text);
+    expect(texts).toEqual(["20 more queued: each starts when a slot is free", "15 more planned past the queue: they start only while the game is open"]);
+  });
+
+  // Review of #2944: with work queued behind it, a finished build frees nothing.
+  it("does not suggest coming back for free slots while work is queued or paused behind the build", () => {
+    const fort = { label: "Fort", x: 1, y: 1, remainingMs: 20 * MIN };
+    expect(visitForecast(input({ active: [fort], queued: 6 })).returnIn).toBeUndefined();
+    expect(visitForecast(input({ active: [fort], planned: 1 })).returnIn).toBeUndefined();
+    expect(visitForecast(input({ active: [fort, { label: "Foundry", x: 2, y: 2, remainingMs: 5 * MIN, paused: true }] })).returnIn).toBeUndefined();
+  });
+
+  // Review of #2944: a hold ten minutes from deciding the contest must not be answered with "come back in 7h".
+  it("suggests no later return while a hold is about to complete", () => {
+    const forecast = visitForecast(input({
+      manpower: { current: 100, cap: 750, fullInMs: 7 * HOUR, nextBatchInMs: HOUR, nextBatchGain: 200 },
+      holds: [{ pathName: "Town Control", holderName: "Konrad", mine: false, remainingMs: 10 * MIN }]
+    }));
+    expect(forecast.returnIn).toBeUndefined();
+    expect(forecast.items[0]?.kind).toBe("hold_rival");
+  });
+
+  it("says a build past its time is finishing instead of counting a second", () => {
+    expect(visitForecast(input({ active: [{ label: "Fort", x: 3, y: 4, remainingMs: 0 }] })).items[0]?.text).toBe("Fort at (3, 4) is finishing");
   });
 });

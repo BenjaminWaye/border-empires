@@ -3,7 +3,7 @@
 // screen's growth estimate, the victory hold clock). It promises nothing it can't see: queued work that has
 // not started gets a count, not a time. Pure; client-visit-forecast-state.ts reads ClientState into the input.
 
-export type ForecastKind = "builds" | "paused" | "queue" | "expansions" | "manpower_batch" | "manpower_full" | "town_ready" | "hold_own" | "hold_rival" | "truce_end";
+export type ForecastKind = "builds" | "paused" | "queue" | "planned" | "expansions" | "manpower_batch" | "manpower_full" | "town_ready" | "hold_own" | "hold_rival" | "truce_end";
 
 export type ForecastItem = {
   kind: ForecastKind;
@@ -19,8 +19,10 @@ export type ForecastItem = {
 export type ForecastInput = {
   /** Builds and garrisons holding a development slot now. */
   active: ReadonlyArray<{ label: string; x: number; y: number; remainingMs: number; paused?: boolean }>;
-  /** Builds and garrisons waiting for a slot. */
+  /** Builds and garrisons waiting for a slot that the server holds: they start whether or not the game is open. */
   queued: number;
+  /** Entries planned past the server's queue: kept in this browser only, so they start only while the game is open. */
+  planned: number;
   /** Queued Expand To targets, and how many of them are waiting for manpower. */
   expansions: { total: number; paused: number };
   manpower: {
@@ -79,13 +81,16 @@ const workItems = (input: ForecastInput): ForecastItem[] => {
   const paused = input.active.length - running.length;
   const only = running[0];
   if (running.length === 1 && only) {
-    items.push({ kind: "builds", text: `${only.label} at (${only.x}, ${only.y}) finishes in ${formatAhead(only.remainingMs)}`, inMs: only.remainingMs, focus: { x: only.x, y: only.y } });
+    // Overdue and waiting on the server's word: no made-up second count.
+    const when = only.remainingMs > 0 ? `finishes in ${formatAhead(only.remainingMs)}` : "is finishing";
+    items.push({ kind: "builds", text: `${only.label} at (${only.x}, ${only.y}) ${when}`, inMs: only.remainingMs, focus: { x: only.x, y: only.y } });
   } else if (running.length > 1) {
     const last = Math.max(...running.map((slot) => slot.remainingMs));
     items.push({ kind: "builds", text: `${running.length} builds and garrisons finish within ${formatAhead(last)}`, inMs: last });
   }
   if (paused > 0) items.push({ kind: "paused", text: `${paused} build${paused === 1 ? " is" : "s are"} paused by an attack on the tile` });
   if (input.queued > 0) items.push({ kind: "queue", text: `${count(input.queued)} more queued: each starts when a slot is free` });
+  if (input.planned > 0) items.push({ kind: "planned", text: `${count(input.planned)} more planned past the queue: ${input.planned === 1 ? "it starts" : "they start"} only while the game is open` });
   const { total, paused: waiting } = input.expansions;
   if (total > 0) {
     const note = waiting === 0 ? "" : waiting === total ? " (waiting for manpower)" : ` (${waiting} waiting for manpower)`;
@@ -119,7 +124,12 @@ export const visitForecast = (input: ForecastInput): VisitForecast => {
     .map((item, index) => ({ item, index }))
     .sort((a, b) => (a.item.inMs ?? Infinity) - (b.item.inMs ?? Infinity) || a.index - b.index)
     .map(({ item }) => item);
-  const next = items.find((item) => item.inMs !== undefined && item.inMs >= MIN_RETURN_MS && RETURN_REASON[item.kind] !== undefined);
+  // Slots are only free again when nothing is queued behind the running work and nothing is paused in a slot.
+  const slotsFree = input.queued === 0 && input.planned === 0 && input.active.every((slot) => !slot.paused);
+  // A hold about to decide the contest is a reason to stay, not to come back later.
+  const holdImminent = input.holds.some((hold) => hold.remainingMs < MIN_RETURN_MS);
+  const next = holdImminent ? undefined : items.find((item) =>
+    item.inMs !== undefined && item.inMs >= MIN_RETURN_MS && RETURN_REASON[item.kind] !== undefined && (item.kind !== "builds" || slotsFree));
   const reason = next ? RETURN_REASON[next.kind] : undefined;
   return { items, ...(next && next.inMs !== undefined && reason ? { returnIn: { inMs: next.inMs, reason } } : {}) };
 };

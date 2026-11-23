@@ -1,8 +1,8 @@
 // Reads ClientState into the forecast's input (client-visit-forecast.ts). Every figure comes from a helper
 // another screen already uses, so the forecast never disagrees with the orb, the tracker or the town screen.
 
+import { DEV_QUEUE_SERVER_CAP, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
-import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
 import { freshNextBatchAmount, msUntilManpowerFull, nextBatchGain, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused } from "../client-town-growth/client-town-growth.js";
@@ -33,10 +33,28 @@ export const townReadyForecast = (tile: Tile, me: string, nowMs: number): Foreca
   return { name: town.name ?? tile.townName ?? `Town ${tile.x}, ${tile.y}`, x: tile.x, y: tile.y, nextTier, readyInMs: (remaining / growth) * 60_000 };
 };
 
+/**
+ * Time until the pool is full. The server says what the next batch adds (less than a full window of regen
+ * when manpower was spent after sitting at the cap), so that figure is used for the first batch and a full
+ * window of regen for each one after it. Without the server's figure every batch is assumed full.
+ */
+export const manpowerFullInMs = (
+  state: Pick<ForecastState, "manpower" | "manpowerCap" | "manpowerRegenPerMinute">, nextRefillAt: number, nextBatchAmount: number | undefined, nowMs: number
+): number | undefined => {
+  if (nextBatchAmount === undefined) return msUntilManpowerFull(state.manpower, state.manpowerCap, state.manpowerRegenPerMinute, nextRefillAt, nowMs);
+  const room = state.manpowerCap - state.manpower;
+  if (room <= 0) return 0;
+  const untilBatch = Math.max(0, nextRefillAt - nowMs);
+  if (nextBatchAmount >= room) return untilBatch;
+  const perRefill = state.manpowerRegenPerMinute * (MANPOWER_REFILL_WINDOW_MS / 60_000);
+  if (!(perRefill > 0)) return undefined;
+  return untilBatch + Math.ceil((room - nextBatchAmount) / perRefill) * MANPOWER_REFILL_WINDOW_MS;
+};
+
 /** `towns` is the player's town tiles (the HUD keeps that list; passing it avoids a scan of every tile). */
 export const forecastInputForState = (state: ForecastState, towns: Iterable<Tile>, nowMs: number): ForecastInput => {
-  const busy = Math.max(state.activeDevelopmentProcessCount, busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size));
-  const development = deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, busy, state.developmentProcessLimit);
+  // The busy count is not read here, so the tile scan that refines it is skipped.
+  const development = deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, state.activeDevelopmentProcessCount, state.developmentProcessLimit);
   const nextRefillAt = nextManpowerRefillForPlayer(state.me, nowMs);
   const batch = freshNextBatchAmount(state.me, state.nextManpowerBatchAmount, state.nextManpowerBatchAmountAt, nowMs);
   const townRows: ForecastInput["towns"][number][] = [];
@@ -46,19 +64,21 @@ export const forecastInputForState = (state: ForecastState, towns: Iterable<Tile
   }
   return {
     active: development.activeSlots.map((slot) => ({ label: slot.label, x: slot.x, y: slot.y, remainingMs: slot.remainingMs, ...(slot.paused ? { paused: true } : {}) })),
-    queued: development.queue.length,
+    // Only the first DEV_QUEUE_SERVER_CAP entries are held by the server; the rest wait in this browser.
+    queued: Math.min(development.queue.length, DEV_QUEUE_SERVER_CAP),
+    planned: Math.max(0, development.queue.length - DEV_QUEUE_SERVER_CAP),
     expansions: { total: state.waypoint.length, paused: state.waypoint.filter((waypoint) => Boolean(waypoint.pausedForManpower)).length },
     manpower: {
       current: state.manpower,
       cap: state.manpowerCap,
-      fullInMs: nextRefillAt === undefined ? undefined : msUntilManpowerFull(state.manpower, state.manpowerCap, state.manpowerRegenPerMinute, nextRefillAt, nowMs),
+      fullInMs: nextRefillAt === undefined ? undefined : manpowerFullInMs(state, nextRefillAt, batch, nowMs),
       nextBatchInMs: nextRefillAt === undefined ? undefined : Math.max(0, nextRefillAt - nowMs),
       nextBatchGain: batch === undefined ? undefined : nextBatchGain(state.manpower, state.manpowerCap, batch)
     },
     towns: townRows,
     holds: state.seasonVictory
       .filter((objective) => objective.conditionMet && typeof objective.holdRemainingSeconds === "number" && objective.holdRemainingSeconds > 0)
-      .map((objective) => ({ pathName: objective.name, holderName: objective.leaderName, mine: objective.leaderPlayerId === state.me, remainingMs: (objective.holdRemainingSeconds ?? 0) * 1000 })),
+      .map((objective) => ({ pathName: objective.name, holderName: objective.leaderName || "A rival", mine: objective.leaderPlayerId === state.me, remainingMs: (objective.holdRemainingSeconds ?? 0) * 1000 })),
     truces: state.activeTruces.filter((truce) => truce.endsAt > nowMs).map((truce) => ({ name: truce.otherPlayerName, endsInMs: truce.endsAt - nowMs }))
   };
 };
