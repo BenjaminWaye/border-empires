@@ -19,6 +19,7 @@ import { HOUSE_CHARGES_KEPT, type HouseChargeView, type HouseChargesPayload } fr
 import { houseChargeCardBackHtml } from "./client-house-charge-cards.js";
 import { houseChargeEmblemSvg } from "./client-house-charge-emblems.js";
 import "../client-callout/client-callout.css";
+import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-bubble.css";
 
@@ -153,6 +154,8 @@ export type HouseChargesBubbleState = {
   houseCharges?: HouseChargesPayload | null | undefined;
   activePanel: string | null;
   houseChargeFocusId?: string | undefined;
+  /** Names the client knows now, for a rival House on a Writ of Correction. */
+  playerNames?: ReadonlyMap<string, string>;
 };
 
 let lastHtml = "";
@@ -195,7 +198,7 @@ export const syncHouseChargesBubble = (
   refreshMap: () => void = () => {}
 ): void => {
   if (typeof document === "undefined") return;
-  const payload = state.houseCharges;
+  const payload = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
   // Any opening counts, also with the choice closed or nothing to choose: the dock note waits for it.
   if (payload && state.activePanel === "charges" && !flagsFor(payload.dealtAt).handled) markHouseChargesHandled(payload.dealtAt);
   let root = document.getElementById(ROOT_ID);
