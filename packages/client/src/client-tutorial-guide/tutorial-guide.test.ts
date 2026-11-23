@@ -144,10 +144,10 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Tap the marked dark ground, then Explore");
+    expect(cardTitle()).toBe("Tap the marked unexplored ground, then Explore");
     click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("No town nearby: tap the marked dark ground, then Explore");
+    expect(cardTitle()).toBe("No town nearby: tap the marked unexplored ground, then Explore");
     expect(state.onboardingHighlightTiles).toHaveLength(1);
   });
 

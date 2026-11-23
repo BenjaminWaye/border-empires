@@ -1,7 +1,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const GUIDE_PLAIN_WORDS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
-  introducedIn: "2026.11.24",
+  introducedIn: "2026.11.23",
   title: "The guide speaks plainly",
   why: "First-time players got lost on words like frontier and reach.",
   changes: [

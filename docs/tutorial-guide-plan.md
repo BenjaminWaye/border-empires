@@ -162,11 +162,11 @@ the same rule.
   tile outside reach (even the player's own frontier from Expand To) shows
   "Outside your reach" and can never complete the step. With no food in reach,
   the step asks for a Relay Beacon. Towns ignore reach (`settleIgnoresReach`).
-- A target that is already the player's frontier: "Garrison it". Its tile
+- A target that is already the player's frontier: "…, then Garrison". Its tile
   menu offers Garrison, not Expand To.
 - Otherwise, a neutral target the player has seen, in vision or remembered
   under fog (a scout drone's reveal drops back to fog behind it, and fogged
-  tiles offer Expand To too), in practice one outside reach: "Expand To it".
+  tiles offer Expand To too), in practice one outside reach: "…, then Expand To".
   Expand To walks the border across through a waypoint chain.
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
   (Manhattan): "Food is too far away: build a Relay Beacon". Exploring more

@@ -10,16 +10,16 @@ import { guideTargetAction, type GuideTargetAction } from "./tutorial-guide-foot
 import { GUIDE_EXPLORE_MAX_FLIGHTS } from "./tutorial-guide-explore-target.js";
 import type { GuideInput } from "./tutorial-guide-steps.js";
 
-const EXPLORE_TITLE = "tap the marked dark ground, then Explore";
+const EXPLORE_TITLE = "tap the marked unexplored ground, then Explore";
 
 // Plain words, one short line each (Playtest Run 4: "frontier", "garrison", "reach" lost first-time players).
 // Button names (Explore, Expand To, Garrison, Relay Beacon) stay exact, so the line matches what's on screen.
 export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   explore: { title: `No town nearby: ${EXPLORE_TITLE}`, why: "Your drone shows the towns it flies over." },
   scouting: { title: "Your drone is flying: wait for its report", why: "Then tap a town it found and Expand To it." },
-  pending: { title: "Taking the marked town…", why: "It's yours in a moment." },
+  pending: { title: "Taking the marked town...", why: "Your troops are on their way." },
   // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
-  garrison: { title: "Tap the marked town, then Garrison", why: "Garrison makes it yours for good. Then it grows and earns coin." },
+  garrison: { title: "Tap the marked town, then Garrison", why: "A garrisoned town counts as yours: it grows and earns coin." },
   expand: { title: "Tap the marked town, then Expand To", why: "Expand To takes the land on the way to it." },
   beacon: { title: "No town nearby: build a Relay Beacon", why: "A beacon lets you take land further out and see more of the map." }
 };
@@ -27,7 +27,7 @@ export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }
 const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
   explore: { title: `No food nearby: ${EXPLORE_TITLE}`, why: "Your drone shows the grain and fish it flies over." },
   scouting: { title: "Your drone is flying: wait for its report", why: "Grain and fish it finds stay on your map." },
-  pending: { title: "Taking the marked food tile…", why: "It's yours in a moment." },
+  pending: { title: "Taking the marked food tile...", why: "Your troops are on their way." },
   garrison: { title: "Tap a marked food tile, then Garrison", why: "Food only counts once garrisoned. Fish counts double." },
   expand: { title: "Tap a marked food tile, then Expand To", why: "Expand To takes the land on the way to it." },
   beacon: { title: "No food nearby: build a Relay Beacon", why: "A beacon lets you take land further out, toward more grain and fish." }
@@ -37,7 +37,9 @@ const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
 const canExplore = (input: GuideInput): boolean =>
   input.scout === "ready" && input.scoutFlights < GUIDE_EXPLORE_MAX_FLIGHTS && input.exploreTarget() !== undefined;
 /** The beacon ask when grain or fish is known but only outside reach, where Garrison is refused. */
-const FOOD_OUT_OF_REACH = { title: "Food is too far away: build a Relay Beacon", why: "You can only Garrison close to your towns and beacons. A beacon brings that food in range." };
+const FOOD_OUT_OF_REACH = { title: "Food is too far away: build a Relay Beacon", why: "You can only Garrison close to your own land. A beacon brings that food in range." };
+/** A town the drone found, but out of range to Garrison: "No town nearby" contradicted the map (review of PR #2951). */
+const TOWN_OUT_OF_REACH = { title: "Town is too far away: build a Relay Beacon", why: "A beacon brings that town in range." };
 
 export const foodCopy = (input: GuideInput): { title: string; why: string } => {
   const action = foodAction(input);
@@ -97,7 +99,7 @@ export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number;
 
 /** Where to build the beacon: the marked recommended site when there is one, otherwise any garrisoned border tile. */
 const beaconWhere = (input: GuideInput): string =>
-  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " at the edge of your land";
+  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " on garrisoned land at your edge";
 
 /** "No town nearby" is wrong when the drone already found towns across water: say none can be reached. */
 const townActionTitle = (input: GuideInput, action: GuideTargetAction): string => {
@@ -121,6 +123,7 @@ const TOWN_LEAD_EXPLORE = {
 export const townWhy = (input: GuideInput): string => {
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).why;
+  if (townAction(input) === "beacon" && input.footholdTargets.town.outOfReach > 0) return TOWN_OUT_OF_REACH.why;
   return followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
 };
 
@@ -129,6 +132,7 @@ export const townTitle = (input: GuideInput): string => {
   if (short > 0) return townLeadWait(short).title;
   if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;
   const action = townAction(input);
+  if (action === "beacon" && input.footholdTargets.town.outOfReach > 0) return TOWN_OUT_OF_REACH.title + beaconWhere(input);
   return townActionTitle(input, action) + (action === "beacon" ? beaconWhere(input) : "");
 };
 

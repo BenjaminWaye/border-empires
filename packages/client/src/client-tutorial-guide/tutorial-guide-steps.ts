@@ -135,7 +135,7 @@ export type GuideStepDef = {
 export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   look: "Explore",
   foothold: "A foothold",
-  reach: "Your reach",
+  reach: "More land",
   manpower: "Manpower",
   manifest: "Manifests",
   afc: "AFC upgrade",
@@ -168,7 +168,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "look-explore",
     chapter: "look",
-    title: (i) => (i.exploreTarget() ? "Tap the marked dark ground, then Explore" : "Tap dark ground, then Explore"),
+    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground, then Explore" : "Tap unexplored ground, then Explore"),
     why: "Your drone is free. It shows towns, food and rivals.",
     // A launch completes it (sticky), and so does having nothing left to explore near home.
     isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.nothingToExplore()),
@@ -201,11 +201,11 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "reach-beacon",
     chapter: "reach",
-    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on garrisoned land at your edge"),
     why: (i) =>
       townBeforeBeacon(i)
-        ? "Take this town first: it lets you take more land around it for free."
-        : "A beacon lets you take land further out. It costs manpower and one food slot.",
+        ? "Take this town first: once garrisoned, it widens the land you can take."
+        : "A beacon lets you take land further out. It costs manpower, and no Manifest is needed.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
@@ -218,7 +218,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manpower-open",
     chapter: "manpower",
     title: () => "Tap your manpower gauge",
-    why: "Manpower pays for taking land, building and attacking. It refills every 4 hours.",
+    why: "Manpower pays for taking land, garrisoning, building and attacking. It refills every 4 hours.",
     isDone: (i) => i.openPanel === "manpower",
     anchor: "manpower"
   },
@@ -250,7 +250,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "afc-upgrade",
     chapter: "afc",
     title: () => "Open AFC and install the Founding Concession",
-    why: "Your first three towns earn +50% coin and need 2 less food each.",
+    why: "Your first three towns earn +50% coin and need 2 fewer food slots each.",
     isDone: (i) => i.afcUpgradeInstalled,
     isAvailable: (i) => i.afcUpgradeReady,
     waitingNote: "Your Manifest is docking at your AFC: then an upgrade unlocks.",
@@ -260,7 +260,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "build-food-slot",
     chapter: "build",
     title: (i) => `A Manufactory needs a free food slot. ${foodCopy(i).title}`,
-    why: (i) => `All your food is in use. ${foodCopy(i).why}${needsTownForBuild(i) ? "" : " No food nearby? Build a Farm Plot by your town."}`,
+    why: (i) => `All your food slots are in use. ${foodCopy(i).why}${needsTownForBuild(i) ? "" : " No food nearby? Build a Farm Plot by your town with manpower."}`,
     // A free slot only counts once the Manufactory is reachable, so a spare slot a Relay Beacon
     // later uses up isn't ticked off early. Skipped when the player chose another Manifest.
     isDone: (i) => (i.manufactoryResearched && i.foodSlotFree) || i.ownsBuiltStructure || otherManifestChosen(i),

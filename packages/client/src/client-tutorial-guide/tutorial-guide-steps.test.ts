@@ -141,7 +141,7 @@ describe("tutorial guide steps", () => {
 
     const garrison = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(garrison).toEqual(expect.objectContaining({ title: "Tap the marked town, then Garrison", highlightTiles: [{ x: 3, y: 0 }] }));
-    expect(garrison.kind === "step" && garrison.why).toMatch(/for good/);
+    expect(garrison.kind === "step" && garrison.why).toMatch(/counts as yours/);
 
     const expand = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(expand).toEqual(expect.objectContaining({ title: "Tap the marked town, then Expand To", highlightTiles: [{ x: 9, y: 9 }] }));
@@ -151,7 +151,7 @@ describe("tutorial guide steps", () => {
     // No recommended site: say where instead of pointing at a ring that isn't there.
     const noSite = evaluateGuide(baseInput({ checklist: { ...found, step: "EXPAND_RELAY_BEACON" } }), pastFind);
     expect(noSite).toEqual(
-      expect.objectContaining({ title: "No town nearby: build a Relay Beacon at the edge of your land", highlightTiles: [] })
+      expect.objectContaining({ title: "No town nearby: build a Relay Beacon on garrisoned land at your edge", highlightTiles: [] })
     );
 
     // Right after Expand To, the town is our pending frontier: don't ask for a Garrison that is already queued.
@@ -159,7 +159,7 @@ describe("tutorial guide steps", () => {
       baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [{ x: 3, y: 0 }], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }),
       pastFind
     );
-    expect(pending).toEqual(expect.objectContaining({ title: "Taking the marked town…", highlightTiles: [{ x: 3, y: 0 }] }));
+    expect(pending).toEqual(expect.objectContaining({ title: "Taking the marked town...", highlightTiles: [{ x: 3, y: 0 }] }));
   });
 
   it("treats food like towns: Garrison own frontier food, Expand To food in vision, else a beacon, and shows the grain and fish icons", () => {
@@ -248,12 +248,12 @@ describe("tutorial guide steps", () => {
     const site = { x: 12, y: 3 };
     const input = baseInput({ checklist: footholdDone, beaconSite: () => site });
     const view = evaluateGuide(input, pastFoothold);
-    expect(view).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", chapterTitle: "Your reach", highlightTiles: [site] }));
+    expect(view).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", chapterTitle: "More land", highlightTiles: [site] }));
     // The marked tile's build menu badges the beacon as Recommended.
     expect(guideBeaconSite("reach-beacon", input)).toEqual(site);
 
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), pastFoothold)).toEqual(
-      expect.objectContaining({ title: "Build a Relay Beacon on a tile at the edge of your land", highlightTiles: [] })
+      expect.objectContaining({ title: "Build a Relay Beacon on garrisoned land at your edge", highlightTiles: [] })
     );
 
     const built = evaluateGuide(baseInput({ checklist: footholdDone, ownsRelayBeacon: true }), pastFoothold);
@@ -360,7 +360,7 @@ describe("tutorial guide steps", () => {
     const noTown = { ...footholdDone, step: "EXPAND_TOWN" as const, townExpanded: false };
     const input = baseInput({ checklist: noTown, beaconSite: () => site, footholdTargets: townInSight });
     expect(evaluateGuide(input, pastFoothold)).toEqual(
-      expect.objectContaining({ title: "Tap the marked town, then Expand To", chapterTitle: "Your reach", highlightTiles: [{ x: 4, y: 1 }] })
+      expect.objectContaining({ title: "Tap the marked town, then Expand To", chapterTitle: "More land", highlightTiles: [{ x: 4, y: 1 }] })
     );
     // No beacon badge in the build menu while the step points at the town.
     expect(guideBeaconSite("reach-beacon", input)).toBeUndefined();
