@@ -39,8 +39,9 @@ describe("restored free AI truce offers", () => {
     socialStore.upsertPlayer("ai-1", "Alden");
     socialStore.upsertPlayer("player-1", "Human");
     socialStore.saveTruceRequest({
+      // A truce counts from its offer, so a 12h offer made 10h ago still has 2h to run.
       id: "offline-peace", fromPlayerId: "ai-1", toPlayerId: "player-1", durationHours: 12,
-      createdAt: Date.now() - 20 * HOUR, expiresAt: Date.now() + HOUR
+      createdAt: Date.now() - 10 * HOUR, expiresAt: Date.now() + 2 * HOUR
     });
     socialStore.saveTruceRequest({
       id: "expired-peace", fromPlayerId: "ai-2", toPlayerId: "player-1", durationHours: 12,

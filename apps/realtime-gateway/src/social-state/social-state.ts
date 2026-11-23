@@ -28,7 +28,7 @@ import {
 import { aiNameFromStored, diplomacyTermsAreEmpty, type DiplomacyTerms } from "@border-empires/shared";
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
-import { extendTruce, STALE_TRUCE_OFFER, truceExtensionRequestError, truceOfferIsStale } from "./social-truce-extension.js";
+import { extendTruce, formatTruceTimeLeft, offeredTruceEndsAt, STALE_TRUCE_OFFER, truceExtensionRequestError, truceOfferExpiresAt, truceOfferIsStale } from "./social-truce-extension.js";
 import { resolveSocialPlayerByName } from "./social-player-lookup.js";
 import { createCombatOfferWithdrawal } from "./social-combat-offer-withdrawal.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
@@ -344,7 +344,7 @@ export const createSocialState = (options: {
         fromPlayerId: actor.id,
         toPlayerId: target.id,
         createdAt: now(),
-        expiresAt: now() + TRUCE_REQUEST_TTL_MS,
+        expiresAt: truceOfferExpiresAt({ createdAt: now(), durationHours, extendsTruce: Boolean(runningTruce) }, now() + TRUCE_REQUEST_TTL_MS),
         durationHours,
         fromName: actor.name,
         toName: target.name,
@@ -362,8 +362,10 @@ export const createSocialState = (options: {
     acceptTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
-      // A settling offer may pass its expiry while the simulation pays out; it still completes.
-      if (!request || request.toPlayerId !== playerId || (request.expiresAt < now() && !settlingRequestIds.has(requestId))) {
+      // A settling offer may pass its stored expiry while the simulation pays out; it still completes.
+      // A new truce whose window closed is refused even then, so a paid accept is refunded.
+      const windowClosed = request && !request.extendsTruce && offeredTruceEndsAt(request) <= now();
+      if (!request || request.toPlayerId !== playerId || windowClosed || (request.expiresAt < now() && !settlingRequestIds.has(requestId))) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
       settlingRequestIds.delete(requestId);
@@ -403,20 +405,21 @@ export const createSocialState = (options: {
         : {
             playerAId: actor.id < from.id ? actor.id : from.id,
             playerBId: actor.id < from.id ? from.id : actor.id,
-            startedAt: now(),
-            endsAt: now() + request.durationHours * 60 * 60_000,
+            // The clock started when the truce was offered (offeredTruceEndsAt).
+            startedAt: request.createdAt,
+            endsAt: offeredTruceEndsAt(request),
             createdByPlayerId: from.id
           };
       if (sink?.commitAcceptedTruce) sink.commitAcceptedTruce(requestId, truce);
       else { sink?.saveActiveTruce(truce); sink?.deleteTruceRequest(requestId); }
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
-      // An extension logs the hours it actually added: extendTruce caps the total length.
-      const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : request.durationHours;
-      if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", running ? now() : truce.startedAt, { durationHours: addedHours, endsAt: truce.endsAt });
+      // Logs the hours actually added: extendTruce caps the total; a new truce runs from its offer.
+      const addedHours = running ? Math.round((truce.endsAt - running.endsAt) / 3_600_000) : Math.max(1, Math.round((truce.endsAt - now()) / 3_600_000));
+      if (addedHours > 0) diplomacyHistory.recordPair(actor.id, from.id, running ? "TRUCE_EXTENDED" : "TRUCE_STARTED", now(), { durationHours: addedHours, endsAt: truce.endsAt });
       const announcement = running
         ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
-        : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
+        : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce, counted from the offer: ${formatTruceTimeLeft(truce.endsAt - now())} left.`;
       return ok([actor.id, from.id], announcementByPlayerId ?? { [actor.id]: announcement, [from.id]: announcement });
     },
     rejectTruce(playerId, requestId, options) {

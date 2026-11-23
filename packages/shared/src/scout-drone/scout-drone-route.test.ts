@@ -62,13 +62,15 @@ describe("planScoutDroneWaypointFlight", () => {
     expect(flight.landsAt).toBe(legMs.reduce((sum, ms) => sum + ms, 0));
   });
 
-  it("retraces its route home when a rival border ends it", () => {
+  it("flies straight home, not back along its route, when a rival border ends it", () => {
     const flight = planScoutDroneWaypointFlight({ x: 2, y: 30 }, [{ x: 20, y: 30 }, { x: 35, y: 30 }, { x: 35, y: 50 }], 0, world)!;
     expect(flight.endReason).toBe("BLOCKED");
     expect(flight.blockedByPlayerId).toBe("rival");
-    const out = flight.steps.slice(0, flight.turnIndex + 1).map(({ x, y }) => `${x},${y}`);
-    const back = flight.steps.slice(flight.turnIndex).map(({ x, y }) => `${x},${y}`);
-    expect(back).toEqual([...out].reverse());
+    const turn = flight.steps[flight.turnIndex]!;
+    const home = flight.steps.slice(flight.turnIndex + 1);
+    expect(home.at(-1)).toMatchObject({ x: 2, y: 30 });
+    expect(home).toHaveLength(Math.max(Math.abs(turn.x - 2), Math.abs(turn.y - 30)));
+    expect(home.some((step) => step.x === 20 && step.y === 30)).toBe(false);
   });
 
   it("can't launch with nowhere to go", () => {

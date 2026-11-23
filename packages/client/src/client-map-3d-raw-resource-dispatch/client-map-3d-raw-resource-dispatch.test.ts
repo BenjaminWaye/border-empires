@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { addRawResourceInstance, type RawResourceOverlays } from "./client-map-3d-raw-resource-dispatch.js";
+import { refinedDepositAt } from "../client-refineries/refinery-scene.js";
+import { addRawResourceInstance, umbriteDepositDrawnOnTile, type RawResourceOverlays } from "./client-map-3d-raw-resource-dispatch.js";
+
+vi.mock("../client-refineries/refinery-scene.js", () => ({ refinedDepositAt: vi.fn(() => undefined) }));
 
 const recordingOverlays = (): { overlays: RawResourceOverlays; drawn: string[] } => {
   const drawn: string[] = [];
@@ -55,5 +58,29 @@ describe("addRawResourceInstance", () => {
     // are lifted onto the plot instead (FarmlandOverlay.standLiftAt).
     expect(dispatch("FARM", tileWith("FARM", "HYDROWORKS"))).toEqual(["farmland"]);
     expect(dispatch("FARM", tileWith("FARM", "MINISTRY_HALL"))).toEqual(["farmland"]);
+  });
+
+  it("reports the Umbrite deposit (which brings its own trees) exactly when it is drawn", () => {
+    expect(umbriteDepositDrawnOnTile("UMBRITE", tileWith("UMBRITE"), 4, 4)).toBe(true);
+    expect(umbriteDepositDrawnOnTile("UMBRITE", undefined, 4, 4)).toBe(true);
+    expect(umbriteDepositDrawnOnTile("TITANIUM", tileWith("TITANIUM"), 4, 4)).toBe(false);
+    expect(umbriteDepositDrawnOnTile(undefined, tileWith("UMBRITE"), 4, 4)).toBe(false);
+  });
+
+  afterEach(() => { vi.mocked(refinedDepositAt).mockReturnValue(undefined); });
+
+  it("seats the Umbrite deposit on the hill dome (flatOverlayY), not the prop height", () => {
+    const ys: number[] = [];
+    const { overlays } = recordingOverlays();
+    const withY = { ...overlays, umbriteDeposit: { addInstance: (_x: number, _z: number, y: number) => { ys.push(y); } } };
+    addRawResourceInstance(withY, "UMBRITE", tileWith("UMBRITE"), { sceneX: 0, sceneZ: 0, surfaceY: 0.5, flatOverlayY: 0.2, worldTileX: 4, worldTileY: 4 }, () => undefined);
+    expect(ys).toEqual([0.2]);
+  });
+
+  it("does not report the deposit where a refinery's rig replaces it, but does under a structure", () => {
+    vi.mocked(refinedDepositAt).mockReturnValue("UMBRITE");
+    expect(umbriteDepositDrawnOnTile("UMBRITE", tileWith("UMBRITE"), 4, 4)).toBe(false);
+    // A structure on the tile keeps the raw deposit (and the forest gate removes the trees itself).
+    expect(umbriteDepositDrawnOnTile("UMBRITE", tileWith("UMBRITE", "TITANIUM_REFINERY"), 4, 4)).toBe(true);
   });
 });

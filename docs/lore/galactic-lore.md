@@ -474,7 +474,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 | The Imperium's name | "Imperium" is new; the game says "Imperial" and "Emperor" but has no player-facing name for the state yet. |
 | Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
-| Umbrite in forests | Storybook **Sandbox / Umbrite Forest / Concepts** shows violet Umbrite in roots and dead wood. Art proposal only; its origin is undecided. |
+| Umbrite in forests | Since 2026-11-23 the 3D map draws every Umbrite deposit as violet Umbrite inside wood: a mineralized elder tree, a bed of split roots, or a fallen log (Storybook **Sandbox / Umbrite Forest / Concepts**). Why Umbrite grows through wood, and what it is doing in deserts and tundra, is still undecided. |
 
 ### Retired concepts
 

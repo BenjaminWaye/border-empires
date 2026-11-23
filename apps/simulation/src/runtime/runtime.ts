@@ -390,7 +390,7 @@ import {
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js";
 import { handleActivateWaystationCommand } from "../waystation-activation/waystation-activation-command.js";
-import { activateWaystationAt as activateWaystationAtImpl, seedWaystationVisionBonus } from "../runtime-waystation-activation.js";
+import { activateWaystationAt as activateWaystationAtImpl } from "../runtime-waystation-activation.js";
 import type { EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
   emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
@@ -915,9 +915,9 @@ export class SimulationRuntime {
         registerFortSupportAnchorImpl(this.ownerIndexes.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
       }
       this.ownerIndexes.seedActiveStructuresFromBootTile(tileKey, tile);
-      // Seed Outpost/Observatory/Waystation vision bonuses here — see the first-pass comment above.
+      // Seed Outpost/Observatory vision bonuses here (a waystation VISION look is temporary, never reseeded) — see the first-pass comment above.
       seedOutpostVisionBonus(this.structureVision.outpostVisionDeps(), tile);
-      seedObservatoryVisionBonus(this.structureVision.observatoryVisionDeps(), tile); seedWaystationVisionBonus(this.state.visibilityCoverage, this.visionTransitions.callbacks, tile);
+      seedObservatoryVisionBonus(this.structureVision.observatoryVisionDeps(), tile);
       this.ownerIndexes.seedMusterAndManpowerStructuresFromBootTile(tileKey, tile);
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     // Restore the persisted reach border, then reconcile it with the loaded anchors
@@ -1102,7 +1102,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string, automatic = true): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; }, progressionContext: () => this.progressionCommandContext() }, targetKey, x, y, playerId, commandId, automatic); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string, automatic = true): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, scheduleRevealExpiry: (reveal) => { this.pendingWatchtowerReveals.push(reveal); }, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; }, progressionContext: () => this.progressionCommandContext() }, targetKey, x, y, playerId, commandId, automatic); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);

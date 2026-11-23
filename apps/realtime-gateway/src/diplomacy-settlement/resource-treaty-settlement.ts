@@ -10,7 +10,7 @@ export async function settleResourceTreaty(
   request: SocialPendingOffer["request"],
   terms: DiplomacyTerms,
   record: () => SocialActionResult,
-  coinTermHours?: 12 | 24
+  coinTermHours?: number
 ): Promise<SocialActionResult> {
   const commandId = treatySettlementId(kind, request.id);
   const closeOffer = (): void => {

@@ -35,3 +35,30 @@ export const extendTruce = (running: SocialActiveTruce, durationHours: 12 | 24, 
   const { origin: _origin, ...negotiated } = running;
   return { ...negotiated, endsAt: extendedTruceEndsAt(running.startedAt, running.endsAt, durationHours, now) };
 };
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * A new truce's clock starts when it is offered, not when it is accepted: the
+ * sender picks the window, and an offer answered late covers only what is left
+ * of it. Extensions are not clocked from the offer; they add to the running end.
+ */
+export const offeredTruceEndsAt = (request: Pick<SocialTruceRequest, "createdAt" | "durationHours">): number =>
+  request.createdAt + request.durationHours * HOUR_MS;
+
+/** When an unanswered offer lapses: a new truce's offer lapses with the truce it offers. */
+export const truceOfferExpiresAt = (
+  request: Pick<SocialTruceRequest, "createdAt" | "durationHours"> & { extendsTruce?: boolean | undefined },
+  backstopExpiresAt: number
+): number =>
+  request.extendsTruce ? backstopExpiresAt : Math.min(backstopExpiresAt, offeredTruceEndsAt(request));
+
+/** Hours of a new truce still left at `now` (what a Coin-per-hour pledge pays for). */
+export const offeredTruceHoursLeft = (request: Pick<SocialTruceRequest, "createdAt" | "durationHours">, now: number): number =>
+  Math.max(0, offeredTruceEndsAt(request) - now) / HOUR_MS;
+
+/** "15h 59m" left on a truce, for its announcement. */
+export const formatTruceTimeLeft = (remainingMs: number): string => {
+  const minutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+};

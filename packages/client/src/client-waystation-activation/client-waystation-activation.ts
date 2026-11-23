@@ -1,4 +1,4 @@
-import { WAYSTATION_MANPOWER_GRANT, WAYSTATION_POP_BURST, type WaystationGoldTier, type WaystationGrantedEffect } from "@border-empires/shared";
+import { WAYSTATION_MANPOWER_GRANT, WAYSTATION_POP_BURST, WAYSTATION_VISION_REVEAL_TTL_MS, type WaystationGoldTier, type WaystationGrantedEffect } from "@border-empires/shared";
 
 import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
@@ -50,8 +50,8 @@ const RESOURCE_LABEL: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", string
 const narrativeForEffect = (info: WaystationActivationInfo): string | undefined => {
   if (info.grantedEffect === "VISION") {
     return info.revealedTown
-      ? "Scouts stationed at the waystation spotted a nearby settlement and marked its coordinates on your maps."
-      : "Scouts stationed at the waystation surveyed the surrounding land and charted it for you.";
+      ? "Scouts stationed at the waystation spotted a nearby settlement and are watching it for a few minutes. It stays on your maps after they leave."
+      : "Scouts stationed at the waystation are surveying the surrounding land for a few minutes and charting it for you.";
   }
   if (info.grantedEffect === "POPULATION") {
     const destination = info.grantedTownName ? `into ${info.grantedTownName}` : "into your nearest town";
@@ -90,7 +90,8 @@ const narrativeForEffect = (info: WaystationActivationInfo): string | undefined 
  */
 const modifierForEffect = (info: WaystationActivationInfo): string | undefined => {
   if (info.grantedEffect === "VISION") {
-    return info.revealedTown ? "Revealed: nearby town location" : "Revealed: surrounding tiles";
+    const minutes = Math.round(WAYSTATION_VISION_REVEAL_TTL_MS / 60_000);
+    return info.revealedTown ? `Revealed: nearby town for ${minutes} min` : `Revealed: surrounding tiles for ${minutes} min`;
   }
   if (info.grantedEffect === "POPULATION") {
     return `+${WAYSTATION_POP_BURST.toLocaleString()} Population`;
