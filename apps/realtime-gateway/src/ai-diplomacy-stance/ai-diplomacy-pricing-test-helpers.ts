@@ -38,6 +38,8 @@ export const price = (options: {
   giftToPleased?: number;
   retaliation?: AiRetaliationReadiness;
   temperament?: AiTemperament;
+  /** How many times stronger the AI is than the requester. */
+  aiToRequesterStrength?: number;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -69,6 +71,7 @@ export const price = (options: {
       ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
       ...(options.retaliation ? { retaliation: options.retaliation } : {}),
       ...(options.temperament ? { temperament: options.temperament } : {}),
+      ...(options.aiToRequesterStrength !== undefined ? { aiToRequesterStrength: options.aiToRequesterStrength } : {}),
       now: NOW
     })
   };

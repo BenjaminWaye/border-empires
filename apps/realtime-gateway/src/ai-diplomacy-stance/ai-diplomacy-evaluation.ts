@@ -10,7 +10,7 @@ import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizi
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { AT_WAR_WINDOW_MS, atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
-import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
+import { aiToRequesterStrength, computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
@@ -186,6 +186,7 @@ export const evaluateAiDiplomacy = (input: {
     aiPlayerId: input.aiPlayerId,
     requesterAlliesAtWarWithAi: input.requesterAlliesAtWarWithAi,
     ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
+    aiToRequesterStrength: aiToRequesterStrength(stanceInput),
     now: input.now
   });
   return {

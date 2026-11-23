@@ -200,6 +200,19 @@ describe("AI alliance pricing", () => {
     expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
   });
 
+  // Playtest Run 4: a rank-34 player bought three of the top five AIs for about 31 coin of tribute. Like Civ, a
+  // great power doesn't ally a minor, and a clearly stronger AI can't be paid up to Pleased.
+  it("refuses a much weaker requester, and takes no tribute from a clearly weaker one", () => {
+    expect(price({ giftToPleased: 31, aiToRequesterStrength: 3 }).allianceRefusal).toBe("Milo sees nothing to gain from an alliance with an empire your size.");
+    const stronger = price({ giftToPleased: 31, aiToRequesterStrength: 2 });
+    expect(stronger.allianceRefusal).toBe("Milo is much stronger than you and won't be paid into an alliance. Win their goodwill first.");
+    expect(stronger.pricing.required.alliance).toBeNull();
+    // Already Pleased on its own: a stronger AI still allies, for nothing.
+    expect(price({ stanceKind: "OUTMATCHED", bordersTouch: false, aiToRequesterStrength: 2 }).pricing.required.alliance).toBe(0);
+    // Near equals: tribute still wins it over.
+    expect(price({ giftToPleased: 31, aiToRequesterStrength: 1.2 }).pricing.required.alliance).toBe(31);
+  });
+
   it("needs at least Pleased, and the AI never pays", () => {
     expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
     // Borders apart (+5) and fear (+10): Pleased, and alliances aren't bought (playtest 2026-11-19: 625 coin).
