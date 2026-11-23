@@ -173,6 +173,48 @@ Per-town decisions must stay manageable at 50 towns (`docs/core-loop.md`
   victory counts are untouched.
 - Money buys nothing here (`docs/gdd.md` §8).
 
+## Proposed fiction
+
+Proposal only; none of this is canon until the owner accepts it and
+`docs/lore/galactic-lore.md` is updated. It adds no rule: every effect below
+is already in the multiplier table.
+
+The three focuses are three things a House does with a town's people. Two of
+them take people away, which is why both slow growth.
+
+- **Growth.** The House supplies and shelters the town, so its people stay
+  and multiply. The world bible already says of large towns that "where the
+  House supplies what they depend on, they stay put".
+- **Levy.** More of the town's people are remade into Ancillaries and kept
+  by the House. This is existing canon ("bodies from towns") turned up.
+- **Commerce.** The House signs the town's labour away offworld. Part of the
+  population leaves as contracted crews, and creditors extend more Coin
+  against the people who remain. The world bible already has Coin paying
+  offworld for "transported crews"; this says where such crews come from.
+
+### Why Manufactories still matter
+
+A **Manufactory** raises what the town produces: it "grows the local
+production that backs Coin". It is permanent, costs manpower and holds a
+slot. **Commerce focus** is how hard the House cashes that backing in: a
+reversible policy that liquidates instead of building, paid for in growth.
+The two reinforce each other, because Commerce multiplies the town's Coin
+including its Manufactory share.
+
+### Limits
+
+- Commerce and Levy slow growth; they never remove existing population.
+  Forced Ancillarification remains the only lever that does (2% of the town,
+  4-hour cooldown).
+- Player-facing text states the trade plainly and does not soften it.
+
+### What accepting this would change in the world bible
+
+- §11 "Coin and local production": that a House's population counts toward
+  the credit extended to it, and that Houses contract labour offworld.
+- §11 "Manpower and materials": a line tying Levy to Ancillary intake.
+- §14: remove the open question recorded with this proposal.
+
 ## Pillar check
 
 | Pillar (`docs/gdd.md` §4) | Effect |
@@ -203,6 +245,12 @@ Per-town decisions must stay manageable at 50 towns (`docs/core-loop.md`
 6. **Delay.** Next refill is drafted. An alternative is "applies now, then
    locked for four hours", which feels more responsive but rewards being
    online at a particular moment.
+7. **How dark is Commerce?** Drafted as contracted crews (indenture), which
+   fits the existing "transported crews" line. The stronger option is that
+   people are sold outright, which says more about the Houses and the Court.
+8. **Does population back Coin?** The world bible says Coin is backed by
+   planetary output. Commerce as drafted adds that creditors also lend
+   against the population a House controls.
 
 ## Phases
 
@@ -256,4 +304,5 @@ Each phase ships and is played before the next starts.
 - `docs/afc-specializations-plan.md`: specialisations are empire-wide and
   permanent per tier; focus is per town and reversible.
 
-Lore reviewed; no canon change at proposal stage.
+Lore reviewed; no canon change at proposal stage. The open question is
+recorded in `docs/lore/galactic-lore.md` §14.
