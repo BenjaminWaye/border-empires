@@ -6,8 +6,8 @@
 // told them it "refills every 4 hours". The scout drone is free, so Explore
 // leads: it is how a player finds the towns that manpower then takes.
 
-// The verbs are the loop in docs/core-loop.md §0 (scout, push reach, develop,
-// research, contest); "expand" is not one of them, since reach is what grows.
+// The verbs follow the loop in docs/core-loop.md §0. "Expand" is not one of
+// them: reach is what grows (owner wording, 2026-11-23).
 
 export type GuideManpower = { current: number; cap: number };
 
@@ -23,5 +23,5 @@ export const turnFinishTitle = (): string => "That's the basics.";
 
 export const turnFinishWhy = (manpower: GuideManpower | undefined, chronicleName: string): string =>
   isAtOrOverCap(manpower)
-    ? `Spend your ${fmt(manpower.current)} manpower: scout, push your reach with beacons, garrison and build, commission Manifests, attack. No refill until you're under ${fmt(manpower.cap)}. The ${chronicleName} shows what happened while you were away.`
-    : `Manpower refills every 4 hours: scout, push your reach with beacons, garrison and build, commission Manifests, attack. The ${chronicleName} shows what happened while you were away.`;
+    ? `Spend your ${fmt(manpower.current)} manpower: explore for towns and resources, push your reach with beacons, garrison, build defences, improve your economy, attack. No refill until you're under ${fmt(manpower.cap)}. The ${chronicleName} shows what happened while you were away.`
+    : `Manpower refills every 4 hours: explore for towns and resources, push your reach with beacons, garrison, build defences, improve your economy, attack. The ${chronicleName} shows what happened while you were away.`;

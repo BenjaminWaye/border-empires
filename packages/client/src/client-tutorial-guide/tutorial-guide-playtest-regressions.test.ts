@@ -40,7 +40,6 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   ownsBuiltStructure: false,
   ownsRelayBeacon: true,
   beaconSite: () => undefined,
-  garrison: () => ({ garrisonedPlain: true, targets: [] }),
   buildTargetTiles: [],
   musterUnlocked: false,
   ownsMusterFlag: false,

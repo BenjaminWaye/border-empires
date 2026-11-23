@@ -18,10 +18,10 @@ export const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }
   pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
   // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
   garrison: { title: "Tap the marked town and Garrison it", why: "It's your frontier now; a garrison makes it count and grow." },
-  // Says what Expand To is for: other land claimed beyond reach can't be garrisoned (core-loop.md §12, tension 4).
+  // Says what Expand To is for: plain land claimed beyond reach can't be garrisoned (core-loop.md §12, tension 4).
   expand: {
     title: "Tap the marked town and Expand To it",
-    why: "Expand To claims a path across to it. Cross only for a town or dock: other land beyond your reach can't be garrisoned, and is lost if it's cut off."
+    why: "Expand To claims a path across to it. Plain land beyond your reach can't be garrisoned, so cross for a prize, not for ground."
   },
   beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
 };

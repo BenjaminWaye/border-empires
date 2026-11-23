@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 describe("renderOnboardingChecklistOverlay", () => {
-  it("renders 4 goal checkboxes -- Find/Garrison for the town, Find/Garrison for food", () => {
+  it("renders 4 goal checkboxes -- Find/Expand To for the town, Find/Expand To for food", () => {
     const tiles = tilesMap([tile(1, 1)]);
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
 
@@ -36,14 +36,14 @@ describe("renderOnboardingChecklistOverlay", () => {
     const goals = document.querySelectorAll(".onb-goal");
     expect(goals).toHaveLength(4);
     expect(goals[0]?.textContent).toContain("Find a town");
-    expect(goals[1]?.textContent).toContain("Garrison it");
+    expect(goals[1]?.textContent).toContain("Expand To it");
     expect(goals[2]?.textContent).toContain("Find food tiles");
-    expect(goals[3]?.textContent).toContain("Garrison food tiles");
+    expect(goals[3]?.textContent).toContain("Expand To");
     // Nothing owned at all -- all 4 goals still open.
     expect(document.querySelector(".onb-badge")?.textContent).toBe("4");
   });
 
-  it("checks off Find a town once a candidate is known, independently of Garrison it", () => {
+  it("checks off Find a town once a candidate is known, independently of Expand To it", () => {
     // Player's free starting SETTLEMENT plus an out-of-reach neutral town --
     // enough of a reach anchor to land on EXPAND_TOWN (not EXPAND_RELAY_BEACON).
     const tiles = tilesMap([
@@ -54,7 +54,7 @@ describe("renderOnboardingChecklistOverlay", () => {
 
     const goals = document.querySelectorAll(".onb-goal");
     expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true); // Find a town
-    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(false); // Garrison it
+    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(false); // Expand To it
     expect(highlights).toEqual([{ x: 2, y: 0 }]);
   });
 
@@ -69,7 +69,7 @@ describe("renderOnboardingChecklistOverlay", () => {
     const goals = document.querySelectorAll(".onb-goal");
     // "Find food tiles (X/4)": X is the weighted known total (1 claimed FARM + 2-slot FISH candidate = 3), not a tile count.
     expect(goals[2]?.textContent).toContain("Find food tiles (3/4)");
-    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("Garrison food tiles (1/4 slots)");
+    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("Expand To food tiles (1/4)");
     expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true); // town found
     expect(goals[1]?.classList.contains("onb-goal-done")).toBe(true); // town expanded
     expect(goals[2]?.classList.contains("onb-goal-done")).toBe(false); // food found: 1 + 2 known = 3, short of 4

@@ -50,7 +50,7 @@ or withdraw and redeploy. See [AFC recovery](docs/afc-recovery-plan.md).
 ### Territory and Combat
 
 - **Expand**: claim an adjacent neutral tile after a short frontier lock (`FRONTIER_CLAIM_MS`), spending manpower. An ungarrisoned frontier claim has zero defense until garrisoned (the player-facing name for the SETTLE action).
-- **Attack**: target an adjacent enemy tile; combat resolves after a 3-second lock, spending manpower. The origin tile risks counter-capture on a failed assault.
+- **Attack**: target an adjacent enemy tile; combat resolves after a 15-second lock (`COMBAT_LOCK_MS`), spending manpower. The origin tile risks counter-capture on a failed assault.
 - **Defense** scales with exposure — how surrounded a tile is by friendly tiles. Forts multiply the manpower cost to crack a tile by 5×–20×.
 - **Mustering** (combat advance): stage manpower on a frontier, then execute a coordinated multi-tile push rather than a single-tile click.
 - Frontier actions can originate from dock-linked tiles and aether-bridged tiles, extending geographic reach beyond adjacency.

@@ -2,7 +2,7 @@
 
 Status: active; phases 1–3 implemented, phase 4 (telemetry and playtests) open
 Owner: client maintainers
-Last verified: 2026-11-17
+Last verified: 2026-11-23
 
 ## Why
 
@@ -140,13 +140,13 @@ is unavailable until the recommended Manifest exists.
 |---|---|---|---|
 | 1 | Explore | drag the map; zoom (player input, via `client-map-input.ts`, shared by both renderers); then **Explore**: the scout drone is in the air (`scoutDroneFlight` with `landsAt` ahead). The drone is free and reports towns, food and rivals, so it is the guide's way to find what the foothold asks for. Explore is skipped for a House with no AFC (`afcRecovery.requiredSince`, no drone to send), counts as done when nothing within 16 tiles of home is unexplored, and, added after launch, counts as done for saved progress past it (`doneIfLaterStepDone`). There is no separate "tap a tile" step: the foothold steps teach tapping with a real objective ("Tap the marked town and …"). A bare tap had no goal: a tap only selects (claims wait for the tile's Expand To or a second tap) | an unexplored tile: the nearest unexplored tile to home, pushed 8 tiles further along the same line (at most 16 from home, so the first flights report back within a visit) while that tile is also unexplored (`tutorial-guide-explore-target.ts`), so tapping it opens the Explore menu |
 | 2 | A foothold | two of the checklist goals (`onboardingChecklistState`): take a town, then take 4 food slots (judged from live tiles until the guide's own foothold steps are saved, then a constant DONE so later chapters skip the reach scan; never from the checklist's saved completion flag, which is account-wide and never resets). There are no separate "find" steps: they could only wait, with no instruction, when nothing was in sight | see below |
-| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first, never an Explore; once a town is held it always asks for the beacon | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
+| 3 | Your reach | owns (or is building) a Relay Beacon. A beacon needs no Manifest, so it comes before the Manifest chapter; one built during the foothold completes it. Added after launch, so it also counts as done for a player whose saved progress already has a later step (`doneIfLaterStepDone`). It completes only on a beacon. Before the player holds any town (the foothold's town step was skipped), a town they can take (Garrison, Expand To, or a claim underway) is pointed at first, never an Explore; once a town is held it always asks for the beacon. Its why line (`BEACON_WHY`) carries the reach lesson: a beacon claims the free land inside its reach, that land has no defence until garrisoned, and land beyond reach can't be garrisoned | the town; otherwise the tile where a beacon adds the most new reach (`bestRelayBeaconSites`, computed only while this step asks; never a town or dock the player hasn't garrisoned); its build menu badges the beacon Recommended |
 | 4 | Manpower | the manpower panel is open | manpower gauge |
 | 5 | Manifests | the Manifest panel is open; a Manifest commissioned (`techIds`, minus any Manifest a Waystation granted for free: the activated waystation tile's `grantedTechId`). The step recommends the **Industrial Tooling Module** (`trade`): tier 1, 10 Coin, and it unlocks the Manufactory. A free Manifest raises the next price (10 to 40 Coin), so the commission step waits while the player's Coin is below the catalog price, showing the price; Finish isn't offered during that wait (`waitBlocksFinish`) | Manifest button |
 | 6 | Build | owns a structure other than a Relay Beacon. Available once the Industrial Tooling Module is commissioned. It asks for a **Manufactory**, which goes on a garrisoned town (never the spawn settlement) or its support ring and uses one food slot. Until the module docks on an active AFC (about a minute; the tile menu hides the Manufactory until then), the step says it is docking. Without the module, the step waits with a pointer to that Manifest. The Manifest step itself completes only on that Manifest, or once anything has been built. Without any garrisoned town (the town step was skipped), it asks for a town first, with the town step's wording and target | the player's garrisoned towns; without one, the town to take |
 | 7 | Contest | owns a muster flag. Available once mustering unlocks on first contact with Planetary Defense or a rival House; until then the note says to Explore to find one | own garrisoned tiles touching another owner |
 | 8 | Diplomacy | (waiting note: Explore to find a rival House) after a rival House's land has been seen (Planetary Defense doesn't count, `isMeetablePlayerId`), the Allies panel, mobile Social panel or HUD v2 Diplomacy screen is open, or a truce or alliance is offered or in force. Opening the panel before meeting anyone doesn't count | Allies / Social / Diplomacy button |
-| 9 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." (at or over the manpower cap, where no batch is paid: "That's the basics. Spend your N manpower."). The why line leads with Explore for towns | Activity button |
+| 9 | Your turn | the Activity dashboard (or Chronicle) is open; then **Finish** on "That's the basics. Your manpower refills every 4 hours." (at or over the manpower cap, where no batch is paid: "That's the basics. Spend your N manpower."). The why line lists what to do with manpower: explore for towns and resources, push your reach with beacons, garrison, build defences, improve your economy, attack ("expand" is deliberately not a verb here) | Activity button |
 
 **Finish rule:** Finish appears once every other step left is waiting (no
 Planetary Defense or rival House met yet), so a player with no neighbours can
@@ -167,7 +167,10 @@ the same rule.
 - Otherwise, a neutral target the player has seen, in vision or remembered
   under fog (a scout drone's reveal drops back to fog behind it, and fogged
   tiles offer Expand To too), in practice one outside reach: "Expand To it".
-  Expand To walks the border across through a waypoint chain.
+  Expand To walks the border across through a waypoint chain. The town's why
+  line says plain land beyond reach can't be garrisoned, so cross for a
+  prize; the food line says the tile is inside reach but not yet the
+  player's (a food target is never outside reach).
 - Otherwise, with grain or fish known outside reach within 12 tiles of home
   (Manhattan): "No food in your reach: build a Relay Beacon". Exploring more
   can't bring it into reach; food further out is no reason to stop exploring.
