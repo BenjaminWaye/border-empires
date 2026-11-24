@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RequestCosmeticsMessageSchema, SetCosmeticMessageSchema } from "./cosmetics-messages.js";
+import { COSMETICS_CLIENT_MESSAGE_SCHEMAS } from "./cosmetics-messages.js";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
@@ -104,8 +104,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // to the player's name in the season lobby roster (see
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
-  RequestCosmeticsMessageSchema,
-  SetCosmeticMessageSchema,
+  ...COSMETICS_CLIENT_MESSAGE_SCHEMAS,
   // Server-persisted hint/tutorial state (see player-profile-store.ts's
   // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
   // update -- omitted fields leave the stored value unchanged.

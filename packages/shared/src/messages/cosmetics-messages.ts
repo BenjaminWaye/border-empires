@@ -10,3 +10,6 @@ export const SetCosmeticMessageSchema = z.object({
   slot: z.string().min(1).max(24),
   cosmeticId: z.string().min(1).max(24).nullable()
 });
+
+/** Both, for ClientMessageSchema's union. */
+export const COSMETICS_CLIENT_MESSAGE_SCHEMAS = [RequestCosmeticsMessageSchema, SetCosmeticMessageSchema] as const;
