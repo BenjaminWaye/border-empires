@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+import { hostedSectorsEnabled } from "../client-hosted-sectors/client-hosted-sector-session.js";
 // Settings panel content: a hub of focused sub-pages (Account, Gameplay,
 // Diagnostics & Support, plus an Admin page for fog-admin accounts) instead of
 // one flat card. Pure HTML builders only — event binding stays in client-hud.ts
@@ -137,12 +139,23 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
   `;
 };
 
+export const hostedSectorsCardHtml = (state: Pick<ClientState, "authSessionReady">, enabled: boolean): string => {
+  if (!state.authSessionReady || !enabled) return "";
+  return `
+    <div class="card auth-settings-card auth-hosted-sectors">
+      <button type="button" class="panel-btn" data-hosted-sectors-open>My sectors</button>
+      <p>Switch between the public sector and any private Sector Contest you have been invited to.</p>
+    </div>
+  `;
+};
+
 export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionReady" | "authEmail" | "autoSettle" | "photoModeActive">): string => `
     <div class="card auth-settings-card">
       ${audioSettingsFieldHtml()}
       ${hintsSettingsFieldHtml(state.authEmail)}
     </div>
     ${rallyLinkCardHtml(state)}
+    ${hostedSectorsCardHtml(state, hostedSectorsEnabled(Capacitor.isNativePlatform()))}
     <div class="card auth-settings-card">${photoModeCardHtml(state)}</div>
     <div class="card auth-settings-card">${autoSettleSettingsFieldHtml(state.autoSettle)}</div>
     <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>

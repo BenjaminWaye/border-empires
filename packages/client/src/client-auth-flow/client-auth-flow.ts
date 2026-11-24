@@ -24,6 +24,8 @@ import { openReportDialog } from "../client-bug-report/client-bug-report-hud.js"
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import { createActiveSectorTicketProvider, safeSessionStorage } from "../client-hosted-sectors/client-hosted-sector-session.js";
+import { createHostingApi } from "../client-hosted-sectors/client-hosted-sectors-api.js";
 import { APPLE_PROVIDER_ID, createSsoSignInHandler, DISCORD_PROVIDER_ID, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
@@ -151,7 +153,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   // clearAuthInFlight must be called by the caller (client-network.ts) on
   // INIT/ERROR/close/error so a rejected or dropped login doesn't get stuck
   // unable to retry.
-  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId);
+  const sectorTicketProvider = createActiveSectorTicketProvider({
+    issueTicket: createHostingApi({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() }).issueTicket,
+    storage: safeSessionStorage()
+  });
+  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId, sectorTicketProvider);
   bindInitTransferProgress(ws, state, syncAuthOverlay);
 
   const setAuthBusy = (busy: boolean): void => {
