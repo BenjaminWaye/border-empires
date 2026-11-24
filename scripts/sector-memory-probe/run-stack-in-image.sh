@@ -19,6 +19,7 @@
 #   PROBE_MEMORY     container memory limit (default 4g -- a CX23 has 4 GB)
 #   PROBE_PORT_BASE  gateway port; simulation uses +1 and metrics +2 (default 13101)
 #   PROBE_NAME       container name (default be-probe-<port>)
+#   PROBE_DETACH=1   start the container in the background and return (soak.sh uses this)
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -36,7 +37,9 @@ node_options="$(grep -E '^NODE_OPTIONS=' "${PROBE_ENV_FILE:-$repo_root/deploy/en
 overrides=()
 for pair in "$@"; do overrides+=(-e "$pair"); done
 
-exec docker run --rm --name "$name" --network host --init --stop-timeout 60 \
+mode=(--rm)
+[ "${PROBE_DETACH:-0}" = 1 ] && mode=(-d)
+exec docker run "${mode[@]}" --name "$name" --network host --init --stop-timeout 60 \
   --cpuset-cpus "${PROBE_CPUSET:-0,1}" --memory "${PROBE_MEMORY:-4g}" \
   -v "$repo_root:$repo_root:ro" -v "$run_dir:$run_dir" -w "$repo_root" \
   --env-file "$run_dir/stack.env" \

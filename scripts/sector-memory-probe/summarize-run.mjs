@@ -30,8 +30,10 @@ const avg = (values) => (values.length ? Math.round(values.reduce((sum, value) =
 const phases = [];
 let open;
 for (const raw of existsSync(`${dir}/stack.log`) ? readFileSync(`${dir}/stack.log`, "utf8").split("\n") : []) {
-  const stamp = /^(\d\d:\d\d:\d\d) /.exec(raw)?.[1];
-  const line = stamp ? raw.slice(9) : raw;
+  // Lines may carry an "HH:MM:SS " prefix or `docker logs -t`'s ISO timestamp.
+  const stamped = /^(?:\d{4}-\d\d-\d\dT)?(\d\d:\d\d:\d\d)(?:\.\d+Z)? /.exec(raw);
+  const stamp = stamped?.[1];
+  const line = stamped ? raw.slice(stamped[0].length) : raw;
   const phase = /^\s+phase: '([a-z_]+)'/.exec(line)?.[1];
   if (phase) { open = { phase, stamp }; continue; }
   if (!open) continue;

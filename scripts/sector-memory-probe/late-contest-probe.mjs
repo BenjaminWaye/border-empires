@@ -1,7 +1,7 @@
 // Probe client for the stack started by launch-stack.mjs in which the humans
 // play: each one sends real game commands on an interval (claim, attack,
-// garrison, build, research, diplomacy), moves its viewport, and drops its
-// connection and logs back in from time to time. Optionally one human is the
+// garrison, build, research, diplomacy) and moves its viewport, in turns the
+// way players do: on for 15-30 minutes, then away for about four hours. Optionally one human is the
 // fog admin and reveals the whole map. Appends one row to
 // PROBE_DIR/play-timeline.jsonl every PROBE_SAMPLE_S seconds.
 //
@@ -15,10 +15,16 @@
 //   PROBE_DURATION_S          how long to run, in real seconds (default 600)
 //   PROBE_SAMPLE_S            metrics sampling period, real seconds (default 30)
 //   PROBE_ACT_INTERVAL_MS     game time between one human's commands (default 6000)
-//   PROBE_RECONNECT_EVERY_S   game time between one human's reconnects (default 900; 0 = never)
+//   PROBE_SESSION_MIN_S / PROBE_SESSION_MAX_S
+//                             a human plays for this long (default 900-1800, a 15-30 minute
+//                             turn), then logs out
+//   PROBE_AWAY_S              and comes back about this much later (default 14400, four
+//                             hours, when manpower has refilled; each absence is 0.5-1.5x
+//                             this). 0 = every human stays connected for the whole run and
+//                             only reconnects every PROBE_RECONNECT_EVERY_S (default 900)
 //   PROBE_REVEAL_AFTER_S      real seconds until human 1, logged in as the fog admin,
 //                             reveals the map (unset = nobody reveals)
-//   PROBE_TAP_INTERVAL_MS     real time between tile-detail latency taps by 5 humans (default 5000)
+//   PROBE_TAP_INTERVAL_MS     five tile-detail latency taps are sent per this much real time (default 5000)
 //   PROBE_PORT_BASE           gateway port; metrics are on +2 (default 13101)
 //
 // "Game time" follows PROBE_DIR/clock.json when the stack runs on a scaled
@@ -42,6 +48,9 @@ const durationS = Number(process.env.PROBE_DURATION_S ?? 600);
 const sampleS = Number(process.env.PROBE_SAMPLE_S ?? 30);
 const actIntervalMs = Number(process.env.PROBE_ACT_INTERVAL_MS ?? 6000);
 const reconnectEveryS = Number(process.env.PROBE_RECONNECT_EVERY_S ?? 900);
+const sessionMinS = Number(process.env.PROBE_SESSION_MIN_S ?? 900);
+const sessionMaxS = Number(process.env.PROBE_SESSION_MAX_S ?? 1800);
+const awayS = Number(process.env.PROBE_AWAY_S ?? 14400);
 const revealAfterS = process.env.PROBE_REVEAL_AFTER_S === undefined ? undefined : Number(process.env.PROBE_REVEAL_AFTER_S);
 const tapIntervalMs = Number(process.env.PROBE_TAP_INTERVAL_MS ?? 5000);
 const adminEmail = process.env.PROBE_ADMIN_EMAIL ?? "fog-admin@example.com";
@@ -70,7 +79,7 @@ const tokenFor = (uid, email) => {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const pick = (items) => items[Math.floor(Math.random() * items.length)];
 
-const counters = { sent: {}, accepted: 0, queued: 0, errors: {}, errorSamples: {}, reconnects: 0, reconnectFailures: 0, unexpectedCloses: 0, loginMs: [] };
+const counters = { sent: {}, accepted: 0, queued: 0, errors: {}, errorSamples: {}, sessions: 0, reconnects: 0, reconnectFailures: 0, unexpectedCloses: 0, loginMs: [] };
 const bump = (bucket, key) => { bucket[key] = (bucket[key] ?? 0) + 1; };
 const tapSamples = [];
 const reveal = { requestedAt: undefined, endedAt: undefined, chunks: 0, bytes: 0, errors: [] };
@@ -153,6 +162,7 @@ const ownTiles = (human) => [...human.tiles.values()].filter((tile) => tile.owne
 // One command per call, rotating through what a player does. Frontier moves
 // (claim, attack) are the most common; the rest keep the House developing.
 const act = (human) => {
+  if (!human.ready) return;
   human.turn += 1;
   const owned = ownTiles(human);
   if (owned.length === 0) return;
@@ -212,10 +222,11 @@ const act = (human) => {
   send(human, { ...next, clientSeq: human.clientSeq, commandId: `probe-${human.uid}-${Date.now()}-${human.clientSeq}` });
 };
 
-const reconnect = async (human) => {
+const reconnect = async (human, awayMs = 1000 + Math.random() * 4000) => {
   human.closing = true;
+  human.tapPendingAt = undefined;
   human.socket.close();
-  await sleep(1000 + Math.random() * 4000);
+  await sleep(awayMs);
   human.closing = false;
   try {
     await connect(human);
@@ -224,7 +235,15 @@ const reconnect = async (human) => {
   } catch (error) {
     counters.reconnectFailures += 1;
     bump(counters.errors, `reconnect:${String(error.message).slice(0, 40)}`);
-    setTimeout(() => void reconnect(human), 10_000);
+    await reconnect(human, 10_000);
+  }
+};
+// A player's day: a turn of 15-30 minutes, then away until manpower has refilled.
+const playSessions = async (human) => {
+  for (;;) {
+    await sleep(((sessionMinS + Math.random() * (sessionMaxS - sessionMinS)) * 1000) / clockScale);
+    counters.sessions += 1;
+    await reconnect(human, (awayS * (0.5 + Math.random()) * 1000) / clockScale);
   }
 };
 
@@ -275,23 +294,29 @@ console.log(`[late-probe] ${humans.length} humans connected, clock scale ${clock
 const realActMs = actIntervalMs / clockScale;
 for (const human of humans) {
   setTimeout(() => setInterval(() => act(human), realActMs), Math.random() * realActMs);
-  if (reconnectEveryS > 0 && !human.revealer) {
+  if (human.revealer) continue;
+  if (awayS > 0) void playSessions(human);
+  else if (reconnectEveryS > 0) {
     const realReconnectMs = (reconnectEveryS * 1000) / clockScale;
     setTimeout(() => setInterval(() => void reconnect(human), realReconnectMs), Math.random() * realReconnectMs);
   }
 }
-for (const human of humans.slice(-5)) {
-  setInterval(() => {
-    if (!human.ready) return;
-    if (human.tapPendingAt !== undefined && Date.now() - human.tapPendingAt < 15_000) return;
-    if (human.tapPendingAt !== undefined) tapSamples.push({ at: Date.now(), ms: 15_000, timedOut: true });
-    const own = ownTiles(human)[0];
-    if (!own) return;
-    human.tapPendingAt = Date.now();
-    human.tapAnswers = 0;
-    human.socket.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: own.x, y: own.y }));
-  }, tapIntervalMs);
-}
+// One tile tap at a time from whichever human is online, to time the round trip.
+setInterval(() => {
+  for (const human of humans) {
+    if (human.tapPendingAt !== undefined && Date.now() - human.tapPendingAt >= 15_000) {
+      tapSamples.push({ at: Date.now(), ms: 15_000, timedOut: true });
+      human.tapPendingAt = undefined;
+    }
+  }
+  const online = humans.filter((human) => human.ready && human.tapPendingAt === undefined && ownTiles(human).length > 0);
+  if (online.length === 0) return;
+  const human = pick(online);
+  const own = ownTiles(human)[0];
+  human.tapPendingAt = Date.now();
+  human.tapAnswers = 0;
+  human.socket.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: own.x, y: own.y }));
+}, tapIntervalMs / 5);
 if (revealAfterS !== undefined) {
   setTimeout(() => { reveal.requestedAt = Date.now(); send(humans[0], { type: "REQUEST_REVEAL_MAP" }); }, revealAfterS * 1000);
 }
@@ -310,7 +335,7 @@ while (Date.now() - startedAt < durationS * 1000) {
     humanTilesKnown: { min: Math.min(...tileCounts), median: percentile(tileCounts, 0.5), max: Math.max(...tileCounts) },
     bytesToHumans: humans.reduce((sum, human) => sum + human.bytes, 0),
     sent: { ...counters.sent }, accepted: counters.accepted, queued: counters.queued, errors: { ...counters.errors }, errorSamples: { ...counters.errorSamples },
-    reconnects: counters.reconnects, reconnectFailures: counters.reconnectFailures, unexpectedCloses: counters.unexpectedCloses,
+    sessions: counters.sessions, reconnects: counters.reconnects, reconnectFailures: counters.reconnectFailures, unexpectedCloses: counters.unexpectedCloses,
     loginMs: { p50: percentile(counters.loginMs, 0.5), p95: percentile(counters.loginMs, 0.95), max: Math.max(...counters.loginMs) },
     tap: { count: taps.length, timedOut: taps.filter((sample) => sample.timedOut).length, p50: percentile(taps.map((sample) => sample.ms), 0.5), p95: percentile(taps.map((sample) => sample.ms), 0.95), max: taps.length ? Math.max(...taps.map((sample) => sample.ms)) : null },
     reveal: { ...reveal, errors: reveal.errors.slice(0, 5) },

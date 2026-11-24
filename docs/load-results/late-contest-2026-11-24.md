@@ -49,6 +49,16 @@ as it would be for a player mashing buttons; in the real-time run 2,662
 attacks and claims were accepted. They are not good players: their Houses grew
 to a median of about 220 tiles while the largest AI House reached 1,372.
 
+**All 40 humans were online for the whole of every run. Real players are not**
+(owner, 2026-11-24): a player takes a turn of 15–30 minutes and comes back
+about four hours later, when manpower has refilled. That puts 3 or 4 of 40
+online at a time, not 40. So the human load in these runs is about ten times
+what a real contest would see. CPU, tap round trips and bytes sent are
+overstated by it. Memory is mostly the AI Houses and the world, and is not
+expected to drop much; that has not been measured. The probe now plays in
+turns by default (`PROBE_SESSION_MIN_S`, `PROBE_SESSION_MAX_S`,
+`PROBE_AWAY_S`), and the long run below uses that.
+
 | Run | Clock | World | Length | Watermarks (process / heap) |
 |---|---|---|---|---|
 | A | real time | fresh, humans only tap (the old probe) | 45 min | 1,250 / 480 |
@@ -226,8 +236,8 @@ Real-time runs only, 2 cores.
   not a shared-vCPU CX23. Disk and network were local.
 - **The image CI builds.** Same base image and Node version, not the
   `Dockerfile.combined` build.
-- **Real players.** Bots, with poor play; more than 40 humans; 50 humans with
-  50 AI.
+- **Real players.** Bots, with poor play, all online all the time instead of
+  in turns; more than 40 humans; 50 humans with 50 AI.
 - **More than one revealed session** on the older world, or a reveal while
   process memory is already at its highest.
 - **What holds the slowly growing heap.** No heap snapshot of the older world.
@@ -239,10 +249,21 @@ Real-time runs only, 2 cores.
 The remaining question is whether the simulation heap stops growing, and only a
 run of days answers it. That needs the owner:
 
-1. **A throwaway CX23**, not staging or production, for about a week, or a
-   week in which staging may be used for this and its contest wiped
-   afterwards. The probe in `scripts/sector-memory-probe/` runs there as it
-   does here.
+1. **A run of days on the owner's MacBook** (owner, 2026-11-24). One command,
+   from a checkout with `pnpm install` done and Docker Desktop running with at
+   least 2 CPUs and 5 GB:
+
+   ```bash
+   scripts/sector-memory-probe/soak.sh .local-data/soak 72
+   ```
+
+   It runs the stack in `node:22-alpine` on 2 cores and 4 GB with 60 AI Houses
+   and 40 humans playing in turns, keeps the Mac awake, stops cleanly on
+   Ctrl-C and writes `.local-data/soak/summary.json`. Run again with the same
+   directory, it carries on with the same world. A MacBook is not a CX23: an
+   Apple-silicon Mac runs the arm64 build of the image on faster cores, so
+   memory carries over and CPU does not. `PROBE_REVEAL_AFTER_S=3600` in front
+   of the command adds one revealed session.
 2. **A decision on the process watermark** now that 1,250 MB is known to be
    reached within nine game hours. 1,500 MB would have put off nothing in
    these runs.
@@ -263,8 +284,9 @@ RUN="$PWD/.local-data/late-contest"
 scripts/sector-memory-probe/run-stack-in-image.sh "$RUN" SIMULATION_AI_PLAYER_COUNT=60 \
   PROBE_ADMIN_EMAIL=fog-admin@example.com > "$RUN/stack.log" 2>&1 &   # wait for "[probe-stack] ready"
 
+# PROBE_AWAY_S=0 keeps every human online, as in the runs above.
 NODE_OPTIONS= PROBE_DIR="$RUN" PROBE_HUMANS=40 PROBE_DURATION_S=6000 PROBE_SAMPLE_S=60 \
-  PROBE_REVEAL_AFTER_S=1800 node scripts/sector-memory-probe/late-contest-probe.mjs
+  PROBE_AWAY_S=0 PROBE_REVEAL_AFTER_S=1800 node scripts/sector-memory-probe/late-contest-probe.mjs
 
 docker stop -t 60 be-probe-13101        # graceful stop
 node scripts/sector-memory-probe/summarize-run.mjs "$RUN" 10
