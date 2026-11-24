@@ -289,10 +289,11 @@ deleted, not stopped.
    the next contest" and never rolls over.
 3. **Look-around period.** The ended world stays up for a few days so members
    can look at the final map (Q7 sets how long; 3 days recommended).
-4. **Export.** The hosting service fetches the final results from the sector
-   server through a new admin endpoint that builds the same archive record a
-   rollover would: winner, final standings, per-player results, House Charges,
-   records. It stores them in `hosted_results`.
+4. **Export.** The hosting service reads the ended contest's summary from the
+   sector server's existing `GET /hq/summary`, which already carries what a
+   rollover archives: winner, full standings, House Charges and records. It
+   builds the archive record from that and stores it in `hosted_results`. No
+   new endpoint on the game server is needed.
 5. **Safety copy.** A Hetzner snapshot of the server is taken and kept for 30
    days (a few cents), so a contest can be restored if something was missed.
 6. **Delete** the server and its DNS record. The sector is marked `deleted`.
@@ -437,7 +438,7 @@ players until the last one. Sales are behind a setting that is off by default.
 
 | # | PR | Needs real money or servers? |
 |---|---|---|
-| 1 | **Hosted mode on the game server.** `deploy/env/hosted.env`; members-only entry by signed ticket; no next contest; the time limit (if Q5 approves); the final-results endpoint. | No. Tested locally. |
+| 1 | **Hosted mode on the game server.** `deploy/env/hosted.env`; members-only entry by signed ticket; no next contest; the time limit (if Q5 approves, as a follow-up). | No. Tested locally. |
 | 2 | **Client connects to a chosen sector.** "My sectors" list, connection to an allowed sector address only, per-size client builds and their publishing. | No. |
 | 3 | **Hosting service skeleton.** `apps/sector-control`: database, account check, orders and sectors as state machines, invites and members, tickets, with a fake payment and a fake server provider for tests. Compose service and Caddy route. | No. |
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
