@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { publicHouseUrl, requestPublicProfileLink, sharePublicProfile } from "./client-public-house-share.js";
+import { publicHouseUrl, requestPublicProfileLink, sharePublicProfile, stopSharingPublicProfile } from "./client-public-house-share.js";
 
 const reply = (body: unknown): typeof fetch => vi.fn().mockResolvedValue({ json: async () => body }) as unknown as typeof fetch;
 const deps = (fetchImpl: typeof fetch, signedIn = true) => ({ wsUrl: "ws://localhost:3101/ws", getIdToken: async () => (signedIn ? "tok" : undefined), fetchImpl });
@@ -30,5 +30,15 @@ describe("public profile share", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     expect(await sharePublicProfile(deps(reply({ ok: true, publicId: "AbCdEfGhIjKlMnOp" })), { clipboard: { writeText } })).toBe("Link copied");
     expect(String(writeText.mock.calls[0]?.[0])).toMatch(/\/house\.html\?h=AbCdEfGhIjKlMnOp$/);
+  });
+
+  it("stops sharing with a DELETE and reports failure without throwing", async () => {
+    const fetchImpl = reply({ ok: true, publicId: null });
+    expect(await stopSharingPublicProfile(deps(fetchImpl))).toBe("Sharing stopped");
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/hq/public-profile/link");
+    expect(init).toEqual({ method: "DELETE", headers: { authorization: "Bearer tok" } });
+    expect(await stopSharingPublicProfile(deps(reply({ ok: false })))).toBe("Couldn't stop sharing. Try again");
+    expect(await stopSharingPublicProfile(deps(reply({}), false))).toBe("Sign in to stop sharing");
   });
 });

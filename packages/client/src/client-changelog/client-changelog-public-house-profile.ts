@@ -7,6 +7,7 @@ export const PUBLIC_HOUSE_PROFILE_ENTRY: Omit<ClientChangelogEntry, "createdAt">
   changes: [
     "Your profile has a Share profile button that makes a public link",
     "The page shows your contests, placements, rating, House Charges held and records, and opens without signing in",
-    "It shows your House name and results only, and nothing is public until you press Share"
+    "It shows your House name and results only, and nothing is public until you press Share",
+    "Stop sharing on your profile takes the page down"
   ]
 };

@@ -25,11 +25,49 @@ export type PublicHouseProfileRouteDeps = {
   now?: () => number;
 };
 
+/** Fails closed: only an account with a login binding and no pending or completed deletion request is "active". */
+export const publicProfileAccountState = async (
+  bindings: {
+    getByPlayerId: (playerId: string) => Promise<{ uid: string } | undefined>;
+    accountDeletion?: { isBlocked: (uid: string) => Promise<boolean> } | undefined;
+  },
+  playerId: string
+): Promise<"active" | "missing" | "deleting"> => {
+  const binding = await bindings.getByPlayerId(playerId);
+  if (!binding) return "missing";
+  return (await bindings.accountDeletion?.isBlocked(binding.uid)) ? "deleting" : "active";
+};
+
+// The view is built from two simulation calls (one returns every season archive), so an unauthenticated page
+// must not trigger them on every hit. Cached per House for a minute; the link and deletion checks still run on
+// every request, so "stop sharing" and deletion take effect at once. Bounded, oldest entry evicted first.
+const VIEW_CACHE_TTL_MS = 60_000;
+const VIEW_CACHE_MAX_ENTRIES = 500;
+
 type LinkReply = { ok: true; publicId: string | null } | { ok: false; error: string };
 type PublicReply = PublicHouseProfileView | { ok: false; error: string };
 
 export const registerPublicHouseProfileRoutes = (app: FastifyInstance, deps: PublicHouseProfileRouteDeps): void => {
   const now = deps.now ?? (() => Date.now());
+  const viewCache = new Map<string, { at: number; view: PublicHouseProfileView }>();
+  const cachedView = async (playerId: string): Promise<PublicHouseProfileView> => {
+    const hit = viewCache.get(playerId);
+    if (hit && now() - hit.at < VIEW_CACHE_TTL_MS) return hit.view;
+    const [participation, archives, storedName] = await Promise.all([
+      deps.getSeasonParticipationForPlayer(playerId),
+      deps.listSeasonArchives(),
+      deps.getDisplayName(playerId)
+    ]);
+    const name = storedName?.trim() || [...participation].sort((a, b) => b.endedAt - a.endedAt)[0]?.playerName || "Unnamed House";
+    const view = buildPublicHouseProfileView({ playerId, name, participation, archives });
+    viewCache.delete(playerId);
+    viewCache.set(playerId, { at: now(), view });
+    if (viewCache.size > VIEW_CACHE_MAX_ENTRIES) {
+      const oldest = viewCache.keys().next().value;
+      if (oldest !== undefined) viewCache.delete(oldest);
+    }
+    return view;
+  };
 
   const identityOf = async (headers: Record<string, unknown>): Promise<GatewayResolvedIdentity | undefined> => {
     const authorization = typeof headers.authorization === "string" && headers.authorization.startsWith("Bearer ") ? headers.authorization : undefined;
@@ -48,20 +86,19 @@ export const registerPublicHouseProfileRoutes = (app: FastifyInstance, deps: Pub
     };
     const publicId = (request.params as { publicId?: string }).publicId;
     if (!isPublicProfileId(publicId)) return notFound();
-    const link = await deps.store.getByPublicId(publicId);
-    if (!link) return notFound();
-    if ((await deps.accountState(link.playerId)) !== "active") return notFound();
     try {
-      const [participation, archives, storedName] = await Promise.all([
-        deps.getSeasonParticipationForPlayer(link.playerId),
-        deps.listSeasonArchives(),
-        deps.getDisplayName(link.playerId)
-      ]);
-      const name = storedName?.trim() || [...participation].sort((a, b) => b.endedAt - a.endedAt)[0]?.playerName || "Unnamed House";
+      const link = await deps.store.getByPublicId(publicId);
+      if (!link) return notFound();
+      if ((await deps.accountState(link.playerId)) !== "active") {
+        viewCache.delete(link.playerId);
+        return notFound();
+      }
+      const view = await cachedView(link.playerId);
       // Short cache: a page must not outlive a deletion or "stop sharing" by long.
       reply.header("Cache-Control", "public, max-age=60");
-      return buildPublicHouseProfileView({ playerId: link.playerId, name, participation, archives });
-    } catch {
+      return view;
+    } catch (error) {
+      request.log.warn({ err: error }, "public house profile unavailable");
       reply.code(503).header("Cache-Control", "no-store");
       return { ok: false, error: "unavailable" };
     }

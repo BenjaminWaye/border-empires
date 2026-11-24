@@ -70,20 +70,39 @@ export const sharePublicProfile = async (deps: PublicProfileShareDeps, nav: Shar
   }
 };
 
-/** One document-level listener: the profile is re-rendered as HTML, so the button itself is not stable. */
+export const PUBLIC_PROFILE_STOP_LABEL = "Stop sharing";
+
+/** Removes this account's public link (DELETE /hq/public-profile/link): the page stops working at once. Resolves the button label. */
+export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Promise<string> => {
+  const fetchImpl = deps.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
+  try {
+    const token = await deps.getIdToken();
+    if (!token) return "Sign in to stop sharing";
+    const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
+    const body = (await response.json().catch(() => undefined)) as { ok?: unknown } | undefined;
+    return body?.ok === true ? "Sharing stopped" : "Couldn't stop sharing. Try again";
+  } catch {
+    return "Couldn't stop sharing. Try again";
+  }
+};
+
+/** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. */
 export const installPublicProfileShare = (deps: PublicProfileShareDeps): void => {
   if (typeof document === "undefined") return;
   let busy = false;
-  document.addEventListener("click", (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-v2-profile-share]") : null;
-    if (!button || busy) return;
+  const run = (selector: string, pending: string, failed: string, action: () => Promise<string>): void => {
     busy = true;
-    button.textContent = "Making link…";
-    void sharePublicProfile(deps).then((label) => {
-      busy = false;
+    const label = (text: string): void => {
       // The profile may have been re-rendered meanwhile; label whichever button is on screen.
-      const current = document.querySelector<HTMLButtonElement>("[data-v2-profile-share]");
-      if (current) current.textContent = label;
-    });
+      const current = document.querySelector<HTMLButtonElement>(selector);
+      if (current) current.textContent = text;
+    };
+    label(pending);
+    void action().then(label, () => label(failed)).finally(() => { busy = false; });
+  };
+  document.addEventListener("click", (event) => {
+    if (busy || !(event.target instanceof Element)) return;
+    if (event.target.closest("[data-v2-profile-share]")) run("[data-v2-profile-share]", "Making link…", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
+    else if (event.target.closest("[data-v2-profile-unshare]")) run("[data-v2-profile-unshare]", "Stopping…", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
   });
 };
