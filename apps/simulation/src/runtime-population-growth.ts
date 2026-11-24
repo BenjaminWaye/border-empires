@@ -33,9 +33,9 @@ export function incubationEngineGrowthMultForTile(input: {
 
 /** Empire-integrity growth multiplier per player, or undefined while the integrity system is off. Moved out of runtime.ts. */
 export const integrityGrowthMultSource = (
-  metricsFor: (playerId: string) => { Ts: number; Es: number }
+  metricsFor: (playerId: string) => { T: number; Ts: number; Es: number }
 ): ((playerId: string) => number) | undefined =>
-  EMPIRE_INTEGRITY_ENABLED ? (playerId) => { const metrics = metricsFor(playerId); return integrityGrowthMult(empireIntegrity(metrics.Ts, metrics.Es)); } : undefined;
+  EMPIRE_INTEGRITY_ENABLED ? (playerId) => { const metrics = metricsFor(playerId); return integrityGrowthMult(empireIntegrity(metrics.T, metrics.Es, metrics.Ts)); } : undefined;
 
 export function tickPopulationGrowth(input: {
   nowMs: number;

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  INTEGRITY_MIN_GARRISON_SHARE,
+  INTEGRITY_UNGARRISONED_PENALTY,
   empireIntegrity,
+  integrityParts,
   integrityEconomyMult,
   integrityGrowthMult,
   defensibilityScore,
@@ -9,30 +12,28 @@ import {
 
 describe("empireIntegrity", () => {
   test("a perfect blob (E=0) scores 1.0", () => {
-    expect(empireIntegrity(100, 0)).toBeCloseTo(1.0, 5);
+    expect(empireIntegrity(100, 0, 100)).toBeCloseTo(1.0, 5);
   });
 
   test("a small empire always scores 100% because actual exposure can't reach the generous full-score threshold", () => {
     // 1 tile: idealExposure=4, fullScoreThreshold=5, max possible Es=4
-    expect(empireIntegrity(1, 0)).toBe(1);
-    expect(empireIntegrity(1, 4)).toBe(1);
+    expect(empireIntegrity(1, 0, 1)).toBe(1);
+    expect(empireIntegrity(1, 4, 1)).toBe(1);
 
     // 4 tiles: idealExposure=8, fullScoreThreshold=10
-    expect(empireIntegrity(4, 0)).toBe(1);
-    expect(empireIntegrity(4, 8)).toBe(1);
+    expect(empireIntegrity(4, 0, 4)).toBe(1);
+    expect(empireIntegrity(4, 8, 4)).toBe(1);
   });
 
   test("a ragged territory with high exposure scores well below 1", () => {
-    // Past the new-empire grace period (100 tiles, floor fully faded):
     // Ts=100, Es=800: ideal=40, ratio=0.05, score=0.05/(0.2+0.04)≈0.21
-    const score = empireIntegrity(100, 800);
-    expect(score).toBeGreaterThanOrEqual(0);
-    expect(score).toBeLessThan(0.5);
+    expect(integrityParts(100, 800, 100).shape).toBeLessThan(0.5);
+    expect(empireIntegrity(100, 800, 0)).toBeLessThan(0.5);
   });
 
   test("returns values in [0,1]", () => {
     for (const [T, E] of [[0, 0], [1, 4], [100, 40], [500, 0], [1, 1000]] as [number, number][]) {
-      const s = empireIntegrity(T, E);
+      const s = empireIntegrity(T, E, T);
       expect(s).toBeGreaterThanOrEqual(0);
       expect(s).toBeLessThanOrEqual(1);
     }
@@ -40,9 +41,9 @@ describe("empireIntegrity", () => {
 
   test("monotonically non-decreasing as exposure decreases (tiles fixed)", () => {
     const T = 50;
-    let prev = empireIntegrity(T, 200);
+    let prev = empireIntegrity(T, 200, T);
     for (const E of [150, 100, 60, 30, 10, 0]) {
-      const curr = empireIntegrity(T, E);
+      const curr = empireIntegrity(T, E, T);
       expect(curr).toBeGreaterThanOrEqual(prev);
       prev = curr;
     }
@@ -65,22 +66,35 @@ describe("integrity multipliers respond to real shape, not a fixed ~50% (the bug
     expect(integrityGrowthMult(0.25)).toBeLessThan(integrityGrowthMult(0.75));
   });
 
-  test("stays at or above 90% until 50 settled tiles, however ragged", () => {
-    for (const Ts of [1, 10, 30, 50]) {
-      expect(empireIntegrity(Ts, 10_000)).toBeGreaterThanOrEqual(0.9);
-    }
+  // Owner call 2026-11-24: no new-empire floor; a ragged small empire scores its real shape.
+  test("has no new-empire floor", () => {
+    expect(empireIntegrity(30, 10_000, 30)).toBeLessThan(0.1);
+    expect(empireIntegrity(200, 10_000, 0)).toBeCloseTo(Math.max(0, defensibilityScore(200, 10_000) - INTEGRITY_UNGARRISONED_PENALTY), 5);
   });
 
-  test("the grace floor fades out smoothly after 50 tiles instead of dropping off a cliff", () => {
-    expect(empireIntegrity(51, 10_000)).toBeLessThan(0.9);
-    expect(empireIntegrity(51, 10_000)).toBeGreaterThan(0.85);
-    expect(empireIntegrity(75, 10_000)).toBeCloseTo(0.45, 1);
-    expect(empireIntegrity(100, 10_000)).toBeLessThan(0.15);
-    expect(empireIntegrity(200, 10_000)).toBeCloseTo(defensibilityScore(200, 10_000), 5);
+  test("a perfect, fully garrisoned empire scores 1", () => {
+    expect(empireIntegrity(100, 0, 100)).toBe(1);
+  });
+});
+
+// Owner rule (Playtest Run 4 follow-up): Integrity is the shape of all owned land, less a penalty when under 10%
+// of it is garrisoned.
+describe("empireIntegrity: shape and the garrison penalty", () => {
+  test("is the shape alone at 10% garrisoned or more", () => {
+    expect(INTEGRITY_MIN_GARRISON_SHARE).toBe(0.1);
+    expect(empireIntegrity(200, 0, 20)).toBe(1);
+    expect(empireIntegrity(200, 0, 200)).toBe(1);
   });
 
-  test("never lowers a score that is already above the grace floor", () => {
-    expect(empireIntegrity(100, 0)).toBe(1);
+  test("loses up to 30 points below 10% garrisoned, scaling to the full penalty at none", () => {
+    expect(INTEGRITY_UNGARRISONED_PENALTY).toBe(0.3);
+    expect(integrityParts(200, 0, 10)).toEqual({ shape: 1, garrisonShare: 0.05, garrisonPenalty: 0.15 });
+    expect(empireIntegrity(200, 0, 10)).toBeCloseTo(0.85, 5);
+    expect(empireIntegrity(200, 0, 0)).toBeCloseTo(0.7, 5);
+  });
+
+  test("a new player with only a garrisoned AFC starts at 100%", () => {
+    expect(empireIntegrity(1, 4, 1)).toBe(1);
   });
 });
 
