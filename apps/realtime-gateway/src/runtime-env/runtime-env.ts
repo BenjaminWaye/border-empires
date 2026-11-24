@@ -1,3 +1,4 @@
+import { parseHostedSectorConfig, type HostedSectorConfig } from "../hosted-sector/hosted-sector-ticket.js";
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "../seed-fallback.js";
 
 const DEFAULT_EMAIL_ALERTS_FROM = "Border Empires <alerts@borderempires.com>";
@@ -17,6 +18,7 @@ export type RealtimeGatewayRuntimeEnv = {
   adminApiToken?: string;
   adminEmail?: string;
   aiPlayerCount?: number;
+  hostedSector?: HostedSectorConfig;
   // Files player bug reports/suggestions as GitHub issues when both
   // GATEWAY_GITHUB_ISSUES_TOKEN and GATEWAY_GITHUB_ISSUES_REPO are set.
   playerReportGithubIssues?: { token: string; repo: string };
@@ -122,6 +124,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
     );
   }
 
+  const hostedSector = parseHostedSectorConfig(env);
+
   return {
     host: env.HOST ?? "127.0.0.1",
     port: parsePort(env.PORT, 3101),
@@ -146,6 +150,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
       const count = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
       return count !== undefined ? { aiPlayerCount: count } : {};
     })(),
+    ...(hostedSector ? { hostedSector } : {}),
     emailAlerts: {
       ...(env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY ? { resendApiKey: env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY } : {}),
       ...(env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET ? { unsubscribeSecret: env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET } : {}),
