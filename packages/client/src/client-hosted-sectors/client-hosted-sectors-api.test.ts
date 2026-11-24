@@ -42,4 +42,17 @@ describe("hosting API client", () => {
     expect(await makeApi(notFound as unknown as typeof fetch).issueTicket("s-abc")).toMatchObject({ ok: false, code: "UNAVAILABLE" });
     expect(await makeApi(notFound as unknown as typeof fetch).acceptInvite("code1")).toMatchObject({ ok: false });
   });
+
+  it("starts an order with the chosen options and returns the payment page, and makes an invite link", async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => reply(200, { ok: true, sector: { ...SECTOR, state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" } }));
+    const ordered = await makeApi(fetchImpl as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" });
+    expect(ordered).toMatchObject({ ok: true, sector: { state: "awaiting_payment", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" } });
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.borderempires.com/hosting/orders");
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual({ method: "POST", headers: { authorization: "Bearer id-token", "content-type": "application/json" }, body: JSON.stringify({ mapStyle: "continents", mapSize: "standard" }) });
+
+    const invite = vi.fn(async () => reply(200, { ok: true, invite: { code: "abc123" } }));
+    expect(await makeApi(invite as unknown as typeof fetch).createInvite("s-abc")).toEqual({ ok: true, code: "abc123" });
+    const closed = vi.fn(async () => reply(503, { ok: false, code: "SALES_CLOSED", message: "Hosting is not on sale right now." }));
+    expect(await makeApi(closed as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" })).toEqual({ ok: false, code: "SALES_CLOSED", message: "Hosting is not on sale right now." });
+  });
 });
