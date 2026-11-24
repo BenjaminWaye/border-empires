@@ -16,9 +16,13 @@ export type RelicWakeNoticeState = {
 
 const STORAGE_KEY = "be.seenRelicWakes";
 const MAX_REMEMBERED = 60;
+/** Right after login the operator's name may not have arrived yet; wait this long for it before posting "A rival House". */
+const NAME_WAIT_MS = 30_000;
 
 /** Wakes already announced this session, seeded from storage so a reload does not repeat them. */
 const seen = new Set<string>();
+/** Unseen wakes held back while their operator's name is unknown: key -> first seen at. */
+const waitingForName = new Map<string, number>();
 let loaded = false;
 
 const loadSeen = (): void => {
@@ -70,8 +74,15 @@ export const announceNewRelicWakes = (
     if (hint.kind !== "WAKE" || hint.ownerId === state.me) continue;
     const key = relicWakeNoticeKey(state.me, hint);
     if (seen.has(key)) continue;
+    const name = ownerName(hint.ownerId);
+    const waitingSince = waitingForName.get(key) ?? now;
+    if (name === undefined && now - waitingSince < NAME_WAIT_MS) {
+      waitingForName.set(key, waitingSince);
+      continue;
+    }
+    waitingForName.delete(key);
     seen.add(key);
-    push(relicWakeFeedEntry(hint, ownerName(hint.ownerId), now));
+    push(relicWakeFeedEntry(hint, name, now));
     posted += 1;
   }
   if (posted > 0) saveSeen();
@@ -87,5 +98,6 @@ export const announceRelicWakesForClient = (
 /** Test seam: forget announced wakes and re-read storage on next use. */
 export const resetRelicWakeNoticesForTest = (): void => {
   seen.clear();
+  waitingForName.clear();
   loaded = false;
 };
