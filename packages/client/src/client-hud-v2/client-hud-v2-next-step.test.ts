@@ -127,10 +127,21 @@ describe("tracker wiring", () => {
   // Owner: the phone HUD is crowded; the next step replaces Dev on the one folded line instead of adding a row.
   it("puts the next step on the folded phone line in place of Dev slots", () => {
     const line = trackerSummaryHtml(input);
-    expect(line).toContain('<b class="v2c-track-next" title="Take a neutral town">Next ›</b>');
+    expect(line).toContain('title="Take a neutral town">Next ›');
     expect(line).not.toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).toContain("Dev 0/3");
     expect(trackerSummaryHtml({ ...input, nextSteps: [] })).not.toContain("v2c-track-next");
+  });
+
+  // Playtest Run 4 ("what do I do next?"): on the phone, "Next ›" runs the top step in one tap.
+  it("makes the folded phone line's Next run the top step's action, beside the fold toggle", () => {
+    const line = trackerSummaryHtml({ ...input, nextSteps: [{ title: "Take a neutral town", sub: "", focus: { x: 7, y: 8 } }] });
+    expect(line).toContain('<button type="button" class="v2c-track-next v2c-track-next-go" data-hud-v2-focus-x="7" data-hud-v2-focus-y="8" title="Take a neutral town">Next ›</button>');
+    const toggle = line.slice(0, line.indexOf("</button>"));
+    expect(toggle).toContain("data-v2c-tracker-toggle");
+    expect(toggle).not.toContain("Next ›");
+    // A step with nothing to tap keeps the old hint inside the toggle, which unfolds the tracker.
+    expect(trackerSummaryHtml({ ...input, nextSteps: [{ title: "Save up", sub: "" }] })).toContain('<b class="v2c-track-next" title="Save up">Next ›</b>');
   });
 
   // Review of #2867: busy slots keep their count on the folded phone line; "Next" follows it.

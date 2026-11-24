@@ -202,11 +202,15 @@ export const foodShortageSteps = (food: FoodShortage): FoodStep[] => {
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const stepHtml = (step: FoodStep): string => {
-  const attr = step.plots
+/** The data attributes that make a food step act on tap; "" when it only informs. */
+export const foodStepActionAttrs = (step: FoodStep): string =>
+  step.plots
     ? ` data-hud-v2-food-plots="${step.plots.x},${step.plots.y}" data-hud-v2-food-plots-count="${step.plots.count}"`
     : step.beacon ? ` data-hud-v2-beacon="RELAY_BEACON" data-hud-v2-beacon-x="${step.beacon.x}" data-hud-v2-beacon-y="${step.beacon.y}"`
     : step.focus ? ` data-hud-v2-focus-x="${step.focus.x}" data-hud-v2-focus-y="${step.focus.y}"` : "";
+
+const stepHtml = (step: FoodStep): string => {
+  const attr = foodStepActionAttrs(step);
   const tag = attr ? "button" : "div";
   const type = attr ? ` type="button"` : "";
   return `<${tag}${type} class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-step"${attr}><span class="hud-v2-tracker-title">${esc(step.title)}</span><span class="hud-v2-tracker-sub">${esc(step.sub)}</span></${tag}>`;
