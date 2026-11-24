@@ -144,6 +144,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         // Derived from owned wonders (recomputed at boot); exported so the player snapshot prices Manifests as charged.
         ...(player.wonderTechGoldDiscount ? { wonderTechGoldDiscount: player.wonderTechGoldDiscount } : {}),
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
+        ...(typeof player.redeploys === "number" && player.redeploys > 0 ? { redeploys: player.redeploys } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
         ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
