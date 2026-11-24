@@ -301,7 +301,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | "credits" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,

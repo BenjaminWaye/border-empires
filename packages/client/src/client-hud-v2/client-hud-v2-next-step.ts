@@ -121,11 +121,15 @@ export const nextSteps = (input: NextStepInput): NextStep[] => {
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/** The data attributes that make a step's row act on tap (client-hud-v2.ts handles them); "" when it only informs. */
+export const nextStepActionAttrs = (s: NextStep): string =>
+  s.focus ? ` data-hud-v2-focus-x="${s.focus.x}" data-hud-v2-focus-y="${s.focus.y}"` : !s.open ? "" : s.open.kind === "open" ? ` data-hud-v2-open="${esc(s.open.key)}"` : s.open.kind === "chip" ? ` data-hud-v2-chip="${esc(s.open.key)}"` : ` data-hud-v2-beacon="${esc(s.open.key)}"`;
+
 /** `lead` is HTML placed first under the head: the "Short N FOOD" section (client-hud-v2-food-shortage.ts). */
 export const nextStepsHtml = (steps: readonly NextStep[], lead = ""): string => {
   if (steps.length === 0 && !lead) return "";
   const rows = steps.map((s) => {
-    const attr = s.focus ? ` data-hud-v2-focus-x="${s.focus.x}" data-hud-v2-focus-y="${s.focus.y}"` : !s.open ? "" : s.open.kind === "open" ? ` data-hud-v2-open="${esc(s.open.key)}"` : s.open.kind === "chip" ? ` data-hud-v2-chip="${esc(s.open.key)}"` : ` data-hud-v2-beacon="${esc(s.open.key)}"`;
+    const attr = nextStepActionAttrs(s);
     const title = s.hint ? ` title="${esc(s.hint)}"` : "";
     const tag = s.open || s.focus ? "button" : "div";
     const type = s.open || s.focus ? ` type="button"` : "";
