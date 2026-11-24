@@ -25,16 +25,15 @@ they sit in `packages/client/public/`.
 ## Still to fill in
 
 Confirmed by the owner on 2026-11-24 and filled in: organisation number
-559265-3249, VAT number SE559265324901, the street address Fållnäsgatan 53,
+559265-3249, VAT number SE559265324901, the address Fållnäsgatan 53, 122 48
 Enskede, and `benjamin@borderempires.com` as the contact address for
 purchases. The company details were first taken from public company listings
 (allabolag.se, hitta.se, ratsit.se).
 
-Two markers are left. Publishing is blocked until neither remains.
+One marker is left. Publishing is blocked until it is filled in.
 
 | Marker | What is needed |
 |---|---|
-| `[[POSTCODE]]` | The postcode of Fållnäsgatan 53. The listings do not give it and it was not guessed |
 | `[[EFFECTIVE_DATE]]` | The date the pages go live |
 
 ## Change to the Terms of Service
@@ -43,7 +42,7 @@ Two markers are left. Publishing is blocked until neither remains.
 are published. Proposed wording:
 
 - Section 1, add: "Border Empires is operated by TIDN AB, company registration
-  number 559265-3249, Fållnäsgatan 53, `[[POSTCODE]]` Enskede, Sweden."
+  number 559265-3249, Fållnäsgatan 53, 122 48 Enskede, Sweden."
 - New section before "Disclaimers": "**Purchases.** Purchases made on the
   Border Empires website are covered by the
   Terms of Sale (linked to `/purchase-terms.html`), which include your right to withdraw
@@ -89,8 +88,7 @@ are published. Proposed wording:
 
 ## How to publish
 
-1. Fill in the two remaining markers in both files and in the Terms of Service
-   wording above.
+1. Fill in the effective date in both files.
 2. Have the texts reviewed.
 3. Move `purchase-terms.html` and `privacy.html` into
    `packages/client/public/`, apply the Terms of Service change, link the
