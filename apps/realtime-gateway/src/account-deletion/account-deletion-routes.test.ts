@@ -49,7 +49,7 @@ describe("account deletion", () => {
     });
     expect(await resolvers.resolveHttpBearerIdentity("Bearer signed.token.value")).toMatchObject({ playerId: "empire" });
     await post(app);
-    expect(await resolvers.resolveIdentityForToken("signed.token.value")).toBeUndefined();
+    expect(await resolvers.resolveLogin("signed.token.value")).toMatchObject({ error: { code: "AUTH_FAIL" } });
     expect(await resolvers.resolveHttpBearerIdentity("Bearer signed.token.value")).toBeUndefined();
     expect(onReject).toHaveBeenCalledTimes(2);
     const newAccount = await reconcileGatewayAuthBinding({ authUid: "new-owner", authEmail: "owner@example.invalid", playerId: "new-owner", playerName: "Fresh" }, bindings);
