@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-23
+Last verified: 2026-11-24
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -11,7 +11,9 @@ built yet. Building starts only after the owner has answered §13.
 ## 1. What is already decided
 
 From [`gdd.md`](gdd.md) §6, §8 and §9 (including the 2026-11-23 decisions in
-PR #2948). This plan does not reopen any of them.
+PR #2948). This plan does not reopen any of them. The owner's later answers
+to §13 (no time limit, idle closure, seller) are recorded in `gdd.md` §8 in
+the same branch.
 
 - Money never buys power inside a Sector Contest.
 - A hosted sector is a private Sector Contest for a host and the people they
@@ -117,11 +119,11 @@ out of card-data compliance scope.
 | Webhook is delivered twice | Every Stripe event id is recorded; a repeat is ignored. Order state changes only move forward, so "paid" twice is a no-op. |
 | Webhook never arrives | The status page asks the service, which asks Stripe for the session directly. A check every few minutes does the same for any order still `awaiting_payment`. |
 | Player clicks Buy twice | An account may have one open order. The second click gets the same Checkout Session back. |
-| Player pays for two sectors on purpose | Two orders, two sectors, if the limits in §11 allow it. |
+| Player pays for two sectors on purpose | Not at launch: an account hosts one live sector at a time (§11). The second order is refused until the first has ended. |
 | A second server for one order | The Hetzner server is named after the order id, and names are unique in a Hetzner project, so a repeated create fails harmlessly. |
-| Refund (issued by the owner in Stripe) | `charge.refunded` arrives. If the sector is not open yet, the order is cancelled. If it is running, what happens is the owner's policy (§13, Q1). |
+| Refund (issued by the owner in Stripe) | `charge.refunded` arrives. If the sector is not open yet, the order is cancelled. If it is running, what happens is the owner's policy (§13, Q2). |
 | Dispute (chargeback) | `charge.dispute.created` alerts the owner at once. The sector's fate is the owner's policy (§13, Q2). A lost dispute costs about EUR 20 in fees, roughly the whole price. |
-| Server cannot be created after payment | §9. |
+| Server cannot be created after payment | §10. |
 
 A receipt email comes from Stripe. A "your sector is ready" email comes from us
 through the existing Resend integration.
@@ -139,15 +141,20 @@ kept by another tool would be one more thing to go out of step.
 
 1. **Create the server.** `POST /servers` in a Hetzner project that holds only
    hosted sectors: type CX23, Nuremberg, labelled with the order id, with a
-   cloud-init script. The script runs the existing bootstrap steps and writes
-   this sector's configuration: sector id, map type, map size, AI count, human
-   cap, a random admin token, and the address of the hosting service.
+   cloud-init script. The script runs a hosted variant of the bootstrap
+   (`deploy/bin/bootstrap-server.sh` today needs admin and CI SSH keys and
+   `BE_ENV=staging|production`; the variant takes `BE_ENV=hosted` and installs
+   no SSH key) and writes this sector's configuration: sector id, map type, map
+   size, AI count, human cap, a random admin token, the ticket public key, the
+   sending-only email key (Q14), and the address of the hosting service.
+   Cloud-init user data is readable from inside the server only, and every
+   secret in it is specific to hosted sectors.
 2. **Create the DNS name** `s-<id>.sectors.borderempires.com` pointing at the
    new server. This needs `sectors.borderempires.com` delegated once, by the
    owner, from Namecheap to Hetzner DNS, so the same token can manage it.
 3. **The server deploys itself**: pulls the public image at the release the
-   production server runs, starts it, and generates the world. Caddy obtains
-   its HTTPS certificate.
+   production server runs, starts it, and generates the world. Caddy loads the
+   wildcard certificate it fetched from the hosting service (§11).
 4. **The hosting service polls** `https://s-<id>…/health`. When it answers
    healthy, the sector is marked `open`, the host is added as its first
    member, and the "ready" email is sent.
@@ -175,7 +182,7 @@ A status page that survives a reload and can be closed:
 
 It states the expected wait, says an email will arrive when the sector is
 ready, and shows the invite link already, so friends can be gathered meanwhile.
-If creation is slow or failing it says so plainly (§9).
+If creation is slow or failing it says so plainly (§10).
 
 ### Credentials
 
@@ -185,6 +192,8 @@ If creation is slow or failing it says so plainly (§9).
 | Hetzner API token, read and write, for the hosted-sectors project only | Hosting service | Same file. A separate Hetzner project means this token cannot touch the production or staging servers. Staging uses a second project. |
 | Per-sector admin token | Hosting service and that one sector server | Generated at creation, stored in the hosting database, deleted with the sector. |
 | Signing key for membership tickets (§7) | Hosting service (private half); sector servers get only the public half | Same secrets file. |
+| Sending-only Resend key (Q14) | Every sector server | Sector configuration, written at creation. Separate from the production key, so it can be revoked alone. |
+| Wildcard certificate key for `*.sectors.borderempires.com` (§11) | Hosting service obtains it; every sector server holds a copy | Fetched by each sector server from the hosting service with its own admin token. |
 
 During Stage 2 development, test-mode keys and a test-project token are asked
 for through the secure credential request. Live keys are entered by the owner
@@ -197,7 +206,11 @@ production deploy, so every sector server must run the same release as
 production. Recommended: each sector server asks the hosting service every
 minute which release to run, and deploys it with the existing
 `deploy/bin/deploy` script (which already rolls back an unhealthy release). The
-hosting service answers with its own build, which is the production build. No
+hosting service answers with the release production reports as healthy (its
+`/health` release, read after production's own health gate has passed), not
+with its own build, so a release production rolls back never reaches sectors.
+This is the only call a sector server makes to the hosting service; nothing on
+the login path depends on it. No
 SSH key that can reach every sector server is stored anywhere. A sector
 restart for a deploy is the same short interruption the public sector has
 today.
@@ -212,14 +225,14 @@ no in-memory cache is the source of truth, and every table is bounded.
 |---|---|---|
 | `orders` | Account, options, Stripe session id, state, timestamps | One open order per account |
 | `sectors` | Server id, hostname, state, opened and ended times | One live row per paid order; ended rows are small and kept |
-| `sector_members` | Sector, account, role (host or guest), joined time | Human cap per sector |
+| `sector_members` | Sector, account, role (host or member), joined time | Human cap per sector |
 | `sector_invites` | Sector, code, uses left, expiry | A few per sector |
 | `contributions` | Split funding only: order, account, amount, Stripe payment id | Minimum contribution caps the count |
 | `stripe_events` | Processed event ids | Pruned after 90 days |
 | `hosted_results` | Final standings and per-player results of ended sectors | Kept; one row per player per sector |
 
-Every order and sector moves through named states (`awaiting_payment → paid →
-creating → open → ended → archived → deleted`, plus `failed`, `cancelled`,
+Every order and sector moves through named states (`awaiting_payment → creating → open →
+ended → deleted`, plus `open → deleted` for an idle closure, `cancelled` and
 `refunded`). A loop that runs every minute picks up anything not in a resting
 state and performs the next step. Each step is safe to repeat. That is what
 makes a restart in the middle of creating a server harmless. Counters and a
@@ -242,8 +255,8 @@ anyone who has the address. Hiding those too is possible and is Q9.
   The client connects to the sector server and presents it with the usual
   sign-in token. The sector server checks the ticket's signature with a public
   key and refuses anyone without one. It keeps no member list of its own and
-  makes no call back to the hosting service, so a hosting-service restart does
-  not lock players out.
+  makes no call to the hosting service at login, so a hosting-service restart
+  does not lock players out.
 - **Guests** (anonymous "Play now" accounts) cannot host and, as recommended in
   Q8, cannot join: a guest account is easily lost, and guests are locked out
   of diplomacy, which is most of the point of playing with friends.
@@ -295,7 +308,10 @@ deleted, not stopped.
    sector server's existing `GET /hq/summary`, which already carries what a
    rollover archives: winner, full standings, House Charges and records. It
    builds the archive record from that and stores it in `hosted_results`. No
-   new endpoint on the game server is needed.
+   new endpoint on the game server is needed. A contest closed before anyone
+   was crowned (idle closure, or a refund under Q2) has standings but no
+   winner, awards or House Charges, since those are set at crowning; its
+   profile entry shows the standing only, marked as not finished.
 5. **Safety copy.** A Hetzner snapshot of the server is taken and kept for 30
    days (a few cents), so a contest can be restored if something was missed.
 6. **Delete** the server and its DNS record. The sector is marked `deleted`.
@@ -303,6 +319,17 @@ deleted, not stopped.
 **Kept:** the final results (for the profile, Q4), the order and payment
 record, the member list, and the 30-day snapshot. **Not kept:** the live
 world, its event log and its per-server social data.
+
+**Account deletion.** The existing deletion flow
+([`agents/account-deletion.md`](agents/account-deletion.md)) works per
+database, so it is extended to cover what this plan adds: on an accepted
+deletion request the hosting service removes the account from
+`hosted_sector_members` and `hosted_results` (keeping payment records, which
+the law requires, under the purchase-record retention), and sends the deletion
+to every live sector the account belongs to through that sector's admin API.
+Snapshots expire after 30 days, inside the deletion page's promise; restoring
+one re-applies the deletion ledger first, as for any restore. This is part of
+PR 4.
 
 The "My sectors" list keeps showing an ended sector with its results.
 
@@ -355,8 +382,15 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 - **Let's Encrypt** issues at most 50 new certificates a week for
   `borderempires.com`. With no cap this would stop new sectors in a busy
   week, so sector servers use one wildcard certificate for
-  `*.sectors.borderempires.com` instead of one certificate each. This is part
-  of PR 4.
+  `*.sectors.borderempires.com` instead of one certificate each. A wildcard
+  needs a DNS challenge, so the hosting service obtains and renews it with the
+  Hetzner DNS token it already holds (sector servers never get that token),
+  and each sector server fetches the certificate and key from the hosting
+  service with its own admin token, at boot and daily. The cost: a compromised
+  sector server exposes the key for all sectors until it is replaced, so the
+  certificate is reissued and the old one revoked after any such incident.
+  The alternative, if this proves awkward, is to proxy sector WebSockets
+  through the production Caddy by path. This is part of PR 4.
 - **A kill switch**: one setting turns sales off without a deploy. Running
   sectors are not affected.
 
@@ -384,8 +418,8 @@ refunded contribution. What happens to a half-funded bar is Q10.
 
 ## 13. Decisions for the owner
 
-Each has a recommendation. None is decided here, except where a row says
-"Decided".
+Each has a recommendation. A row marked "Decided" is the owner's answer; the
+answers given as "accepted as recommended" below count the same.
 
 **Owner answers, 2026-11-23:** Q1 and Q2 (refunds and disputes) accepted as
 recommended. Q3: no cap. Q4 (shown on the profile, not counted toward rating)
@@ -398,26 +432,28 @@ open: Q12 (legal pages and seller details) and Q13 (tax).
 
 **Owner answer, 2026-11-24:** the seller is TIDN AB. Drafts for Q12 are in
 [`legal-drafts/README.md`](legal-drafts/README.md) and a proposal for Q13 in
-[`hosted-sectors-tax.md`](hosted-sectors-tax.md). Both still need TIDN AB's
-company details, a legal review and the accountant's confirmation, and sales
-stay off until then. One point changes Q1(b): for EU, EEA and UK consumers the
-drafts give a 14-day right to withdraw with a deduction for days used, because
-"no refund once opened" is unlikely to hold for a service there.
+[`hosted-sectors-tax.md`](hosted-sectors-tax.md). The company details
+are filled in; both still need a legal review and the accountant's
+confirmation, and sales stay off until then. One point changes Q1(b) and needs
+the owner's approval: for EU, EEA and UK consumers the drafts give a 14-day
+right to withdraw with a deduction for days used, because "no refund once
+opened" is unlikely to hold for a service there. The right ends once the
+contest has ended.
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU buyers have a 14-day right to withdraw from a digital service unless they agree at checkout that it starts at once; the checkout needs that consent tick-box. Have this wording checked. |
-| Q2 | **A refund or dispute on a running sector.** | Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
+| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23, (b) pending the note above.** |
+| Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
-| Q4 | **Does a hosted contest count toward rating and the public profile?** | Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
+| Q4 | **Does a hosted contest count toward rating and the public profile?** | **Accepted 2026-11-23.** Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
 | Q5 | **The 30-day limit.** Is it enforced for hosted sectors, and who wins at the limit? Does the same rule apply to the public sector? | **Decided 2026-11-24: no time limit.** A hosted sector is closed after 7 days with no human visit; see §9. No game rule changes. (The recommendation was to end at day 30.) |
-| Q6 | **Which map sizes are offered**, all at USD 20? | Standard (640×320, 60 AI Houses, 40 human places) and Small (320×160, 20 AI Houses, 12 human places; this size ran on staging in October). No size larger than standard until its memory is measured. If per-size client builds prove fragile, launch with Standard only. |
+| Q6 | **Which map sizes are offered**, all at USD 20? | **Accepted 2026-11-23.** Standard (640×320, 60 AI Houses, 40 human places) and Small (320×160, 20 AI Houses, 12 human places; this size ran on staging in October). No size larger than standard until its memory is measured. If per-size client builds prove fragile, launch with Standard only. |
 | Q7 | **How long an ended sector stays up** before deletion. | **Decided 2026-11-24, as recommended.** 3 days. Each day costs about EUR 0.20. |
 | Q8 | **May guest accounts join a hosted sector?** | **Decided 2026-11-24, as recommended.** No. Hosts and invited players need a registered account. |
 | Q9 | **How private is private?** | **Decided 2026-11-24, as recommended.** Unlisted and members-only to play; standings are not secret from someone who has the address. |
 | Q10 | **A funding bar that never fills.** | **Decided 2026-11-24, as recommended.** Holds are released at the 72-hour deadline and nobody is charged. Contributors are emailed. The host can reopen a new bar. |
 | Q11 | **When does a funded contest start?** | **Decided 2026-11-24, as recommended.** At once, as the GDD pitch says ("starting now"). The invite link exists before payment so friends can be ready. A host-chosen start time is a later option. |
-| Q12 | **Legal pages and seller details.** Terms of sale, refund policy, updated privacy policy (Stripe as a processor), and the seller's legal name and address, which EU law requires on the checkout. Who writes them, and under which legal entity is Stripe opened? | The owner provides the entity and has the texts written or reviewed by someone qualified. An agent can draft from a template but must not be the final word. Sales stay off until the pages are live. |
+| Q12 | **Legal pages and seller details.** Terms of sale, refund policy, updated privacy policy (Stripe as a provider), and the seller's legal name and address, which EU law requires on the checkout. Who writes them, and under which legal entity is Stripe opened? | The owner provides the entity and has the texts written or reviewed by someone qualified. An agent can draft from a template but must not be the final word. Sales stay off until the pages are live. |
 | Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
 | Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
 | Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
@@ -432,12 +468,12 @@ on Hetzner's and Stripe's own price pages before launch.
 
 | Item | Amount |
 |---|---|
-| Hetzner CX23 with IPv4 | about EUR 6 a month, billed by the hour (EUR 5.49 + 0.50, before VAT) |
-| A full 30-day contest plus 3 days look-around | about EUR 6.60 |
+| Hetzner CX23 with IPv4 | about EUR 6 a month, billed by the hour (EUR 5.49 + 0.50, before VAT). The GDD's "about USD 10 a month" includes margin. |
+| A 30-day contest plus 3 days look-around (contests have no time limit; 30 days is a typical length, not a cap) | about EUR 6.60 |
 | 30-day safety snapshot | under EUR 0.10 |
 | Stripe fee on USD 20 | about USD 0.55 for a European card, up to about USD 1.35 for a card from outside Europe with currency conversion |
-| VAT, if the price is inclusive (Q13) | up to USD 4 of the USD 20 for an EU buyer; none for many others |
-| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card |
+| VAT, if the price is inclusive (Q13) | USD 4 of the USD 20 at Sweden's 25% (up to about USD 4.25 at the highest EU rate); none for many others |
+| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, before the Stripe Tax fee and any fees lost on refunds |
 
 A contest that ends early costs less. With no time limit (Q5), a sector that
 humans keep visiting runs until someone wins: each extra month costs about
@@ -514,5 +550,5 @@ the staging rehearsal in PR 6; `pnpm ci:local` on every PR. When delivered, the
 runbook and [`agents/deploys.md`](agents/deploys.md) become the canonical
 references and this plan is archived.
 
-Lore reviewed; no canon change in this plan. Q5, if approved, needs a lore
-check in its own PR.
+Lore reviewed; no canon change in this plan. Q5 as decided changes no game
+rule, so it needs no canon change.

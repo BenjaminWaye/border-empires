@@ -22,7 +22,9 @@ collects tax but does not file it: registration and filing stay with TIDN AB
    numbers at launch.
 4. **Start with Swedish VAT only**, and add other registrations as the
    thresholds below are reached. Stripe Tax watches the thresholds and warns
-   before one is crossed.
+   before one is crossed. Countries that need a registration from the first
+   sale (the United Kingdom, below) are either registered before launch or
+   left out of the checkout's allowed billing countries until they are.
 
 ## What the rules are
 
@@ -83,7 +85,7 @@ mode first.
 | Tax registrations | Sweden, with TIDN AB's VAT number. Add "EU OSS (Union scheme)" when the accountant says so |
 | Default tax behaviour | Inclusive |
 | Product tax category | An electronically supplied service category; the accountant confirms which. Stripe's general one is "General - Electronically Supplied Services" |
-| Checkout | Automatic tax on; billing country collected; no business tax-ID field |
+| Checkout | Automatic tax on; billing country collected; no business tax-ID field; billing countries limited to those where TIDN AB may sell without a registration it lacks (at launch, every country except the United Kingdom unless it is registered) |
 
 In the code (plan PR 5): the Checkout Session is created with automatic tax
 enabled and the price marked tax-inclusive, and requires the buyer to accept
