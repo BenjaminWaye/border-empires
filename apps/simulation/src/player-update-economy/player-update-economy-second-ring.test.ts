@@ -53,6 +53,6 @@ describe("supportSummaryForTown: second support ring", () => {
       [`${WORLD_WIDTH - 2},10`, farSupport]
     ]);
 
-    expect(supportSummaryForTown(player.id, greatCity, tiles)).toEqual({ supportCurrent: 1, supportMax: 1 });
+    expect(supportSummaryForTown(player.id, greatCity, tiles)).toEqual({ supportCurrent: 1, supportMax: 1, innerCurrent: 0, innerMax: 0 });
   });
 });
