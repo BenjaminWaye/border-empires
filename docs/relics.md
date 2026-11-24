@@ -60,6 +60,12 @@ hands operating, every online human House is sent a fresh `PLAYER_UPDATE`
 with its hints on the runtime's scheduler, outside the command turn, once per
 burst of changes (`relic-wake-broadcast.ts`); offline Houses get theirs on
 connect, and seeding at boot sends nothing.
+The first time a client sees a given House operating a given site it posts
+one alert naming the House and the coordinates, with Show to centre the map
+(`relic-wake-notice.ts`; remembered in local storage so reloads do not repeat
+it). Pressing a relic's minimap box, including one pinned to the edge, centres
+the camera on the relic rather than the pressed edge
+(`client-minimap-relic-hit.ts`).
 
 A maintenance transponder identifies a relic's location once a House has a
 garrison within 12 tiles. The anonymous column can appear through unexplored

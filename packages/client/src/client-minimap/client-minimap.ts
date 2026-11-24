@@ -2,6 +2,7 @@ import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
 import { computeMiniMapViewBox, unwrapIntoBox } from "./client-minimap-view-box.js";
+import { miniMapEdgeArrowPoint } from "./client-minimap-relic-hit.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { drawMiniMapTileLayer, drawWrappedWorldImage, miniMapBoxPoint, miniMapTileRect } from "./client-minimap-tile-layer.js";
@@ -43,26 +44,8 @@ const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, 
   return unwrapIntoBox(coord, center - worldSize / 2, worldSize);
 };
 
-export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
-
-// Clamps a pixel point that falls outside the [0,w]x[0,h] minimap canvas onto
-// its border, along the ray from the canvas center through that point,
-// inset by `margin` px — used to draw a direction indicator for things (like
-// a distant relic hint) that fell outside the minimap's current view
-// box rather than just omitting them.
-export const miniMapEdgeArrowPoint = (targetX: number, targetY: number, w: number, h: number, margin = 8): MiniMapEdgeArrow => {
-  const cx = w / 2;
-  const cy = h / 2;
-  const dx = targetX - cx;
-  const dy = targetY - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy, angle: 0 };
-  const halfW = Math.max(1, w / 2 - margin);
-  const halfH = Math.max(1, h / 2 - margin);
-  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const scale = Math.min(scaleX, scaleY);
-  return { x: cx + dx * scale, y: cy + dy * scale, angle: Math.atan2(dy, dx) };
-};
+// Kept exported here for existing callers; it lives beside the relic hit-test that must match it.
+export { miniMapEdgeArrowPoint, type MiniMapEdgeArrow } from "./client-minimap-relic-hit.js";
 
 export const drawMiniMap = (options: {
   nowMs: number;

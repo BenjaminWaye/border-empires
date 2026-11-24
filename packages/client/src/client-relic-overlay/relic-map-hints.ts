@@ -1,5 +1,7 @@
 import { parseGuideTownLead, parseRelicMapHints, isChosenTrickleResource, type GuideTownLead, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
+export { announceRelicWakesForClient } from "./relic-wake-notice.js";
+
 export interface RelicHintClientState {
   relicMapHints: Map<string, RelicMapHint>;
   tilesRevision: number;

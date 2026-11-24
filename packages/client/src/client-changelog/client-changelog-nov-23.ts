@@ -19,6 +19,7 @@ import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
 import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
+import { RELIC_WAKE_ALERT_ENTRY } from "./client-changelog-relic-wake-alert.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
@@ -40,4 +41,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
+  { ...RELIC_WAKE_ALERT_ENTRY, createdAt: 1795556156092, }, // Date.now() captured once for this entry.
 ];
