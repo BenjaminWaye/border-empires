@@ -28,6 +28,27 @@ describe("createSocketAuthenticator dev bypass", () => {
     expect(authSession.uid).toBe("player-1");
   });
 
+  it("adds the hosted sector ticket to AUTH, asking for a fresh one when the last login was refused", async () => {
+    const ws = fakeOpenSocket();
+    const requested: boolean[] = [];
+    const getSectorTicket = async (forceRefresh: boolean): Promise<string | undefined> => { requested.push(forceRefresh); return forceRefresh ? "ticket-new" : "ticket-old"; };
+    const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(undefined, ws, freshSession(), "player-1", getSectorTicket);
+
+    await authenticateSocket();
+    clearAuthInFlight();
+    await authenticateSocket(true);
+
+    expect(requested).toEqual([false, true]);
+    expect(ws.sent.map((payload) => (JSON.parse(payload) as { sectorTicket?: string }).sectorTicket)).toEqual(["ticket-old", "ticket-new"]);
+  });
+
+  it("sends AUTH without a ticket when none could be fetched, leaving the refusal to the server", async () => {
+    const ws = fakeOpenSocket();
+    const { authenticateSocket } = createSocketAuthenticator(undefined, ws, freshSession(), "player-1", async () => undefined);
+    await authenticateSocket();
+    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "player-1", initChunking: true })]);
+  });
+
   it("falls back to the normal Firebase-token path when no devAuthPlayerId is set", async () => {
     const ws = fakeOpenSocket();
     const authSession = freshSession();
