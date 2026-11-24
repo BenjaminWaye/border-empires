@@ -15,6 +15,8 @@ export type HostedSectorSummary = {
   members: number;
   humanPlaces: number;
   delayed: boolean;
+  /** Only for the host, only while payment is outstanding. */
+  checkoutUrl?: string;
 };
 
 export type HostedSectorTicket = { ticket: string; expiresAt: number; wsUrl: string };
@@ -50,18 +52,23 @@ const parseSector = (value: unknown): HostedSectorSummary | undefined => {
     options: { mapStyle: options.mapStyle, mapSize: options.mapSize },
     members: record.members,
     humanPlaces: record.humanPlaces,
-    delayed: record.delayed === true
+    delayed: record.delayed === true,
+    ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {})
   };
 };
 
 export const createHostingApi = (deps: HostingApiDeps) => {
   const fetchImpl = deps.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
 
-  const call = async (method: "GET" | "POST", path: string): Promise<{ status: number; body: unknown } | HostingApiFailure> => {
+  const call = async (method: "GET" | "POST", path: string, json?: unknown): Promise<{ status: number; body: unknown } | HostingApiFailure> => {
     const token = await deps.getIdToken();
     if (!token) return { ok: false, code: "UNAUTHORIZED", message: "Sign in to continue." };
     try {
-      const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}${path}`, { method, headers: { authorization: `Bearer ${token}` } });
+      const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}${path}`, {
+        method,
+        headers: { authorization: `Bearer ${token}`, ...(json !== undefined ? { "content-type": "application/json" } : {}) },
+        ...(json !== undefined ? { body: JSON.stringify(json) } : {})
+      });
       return { status: response.status, body: await response.json().catch(() => undefined) };
     } catch {
       return { ok: false, code: "UNAVAILABLE", message: "Couldn't reach the hosting service. Try again." };
@@ -88,6 +95,21 @@ export const createHostingApi = (deps: HostingApiDeps) => {
       const body = okBody(reply);
       if (!body || typeof body.ticket !== "string" || typeof body.expiresAt !== "number" || typeof body.wsUrl !== "string") return failure(reply.body, "This sector can't be entered right now.");
       return { ok: true, ticket: body.ticket, expiresAt: body.expiresAt, wsUrl: body.wsUrl };
+    },
+
+    /** Starts an order. The reply carries the address of the payment page. */
+    async createOrder(options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> {
+      const reply = await call("POST", "/hosting/orders", options);
+      if ("ok" in reply) return reply;
+      const sector = parseSector(okBody(reply)?.sector);
+      return sector ? { ok: true, sector } : failure(reply.body, "The order could not be started. Nothing was charged.");
+    },
+
+    async createInvite(sectorId: string): Promise<HostingApiResult<{ code: string }>> {
+      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/invites`);
+      if ("ok" in reply) return reply;
+      const invite = okBody(reply)?.invite as { code?: unknown } | undefined;
+      return invite && typeof invite.code === "string" ? { ok: true, code: invite.code } : failure(reply.body, "An invite link could not be made.");
     },
 
     async acceptInvite(code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> {

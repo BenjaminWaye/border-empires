@@ -27,6 +27,7 @@ export const mountBootstrapSidePanels = (deps: { state: ClientState; firebaseAut
       isSignedIn: () => Boolean(firebaseAuth?.currentUser),
       navigate: (path) => window.location.assign(path),
       storage: window.sessionStorage,
+      shareOrigin: window.location.origin,
       pageIsLocal: hostname === "localhost" || hostname === "127.0.0.1"
     });
   }

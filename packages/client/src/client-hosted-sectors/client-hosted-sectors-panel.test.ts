@@ -21,10 +21,12 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
   const api = {
     listSectors: vi.fn(async (): Promise<HostingApiResult<{ sectors: HostedSectorSummary[] }>> => ({ ok: true, sectors: [sector()] })),
     issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.sectors.borderempires.com/ws" })),
-    acceptInvite: vi.fn(async (_code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector() }))
+    acceptInvite: vi.fn(async (_code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector() })),
+    createOrder: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
+    createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" }))
   };
   const navigate = vi.fn();
-  const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, ...overrides };
+  const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, shareOrigin: "https://play.borderempires.com", refreshMs: 0, ...overrides };
   return { deps, api, navigate, storage };
 };
 
@@ -133,5 +135,87 @@ describe("my sectors panel", () => {
     h.api.listSectors.mockResolvedValueOnce({ ok: false, code: "X", message: "<img src=x onerror=alert(1)>" });
     await createHostedSectorsPanel(h.deps).openList();
     expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("sells a sector: choose, accept the terms, and go to the payment page", async () => {
+    const h = makeDeps();
+    h.api.listSectors.mockResolvedValueOnce({ ok: true, sectors: [] });
+    await createHostedSectorsPanel(h.deps).openList();
+    document.querySelector<HTMLButtonElement>("[data-hosted-sector-host]")?.click();
+    const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
+    expect(form).not.toBeNull();
+    // Options that cannot be played yet are shown but cannot be chosen.
+    expect(form?.querySelector<HTMLInputElement>('input[value="islands"]')?.disabled).toBe(true);
+    expect(form?.querySelector<HTMLInputElement>('input[value="small"]')?.disabled).toBe(true);
+    expect(form?.textContent).toContain("USD 20");
+
+    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flush();
+    expect(h.api.createOrder).not.toHaveBeenCalled();
+    expect(form?.querySelector("[data-hosted-sector-form-error]")?.textContent).toContain("accept the Terms of Sale");
+
+    const consent = form?.querySelector<HTMLInputElement>('input[name="consent"]');
+    if (consent) consent.checked = true;
+    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flush();
+    expect(h.api.createOrder).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" });
+    expect(h.navigate).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/abc");
+  });
+
+  it("does not send the player to a payment page that is not Stripe's", async () => {
+    const h = makeDeps();
+    h.api.listSectors.mockResolvedValueOnce({ ok: true, sectors: [] });
+    h.api.createOrder.mockResolvedValueOnce({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com.evil.example/pay" }) });
+    await createHostedSectorsPanel(h.deps).openList();
+    document.querySelector<HTMLButtonElement>("[data-hosted-sector-host]")?.click();
+    const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
+    const consent = form?.querySelector<HTMLInputElement>('input[name="consent"]');
+    if (consent) consent.checked = true;
+    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flush();
+    expect(h.navigate).not.toHaveBeenCalled();
+    expect(form?.querySelector("[data-hosted-sector-form-error]")?.textContent).toContain("Nothing was charged");
+  });
+
+  it("lets a host finish paying and invite friends, and offers no second sector meanwhile", async () => {
+    const h = makeDeps();
+    h.api.listSectors.mockResolvedValueOnce({ ok: true, sectors: [sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" })] });
+    await createHostedSectorsPanel(h.deps).openList();
+    expect(document.querySelector("[data-hosted-sector-host]")).toBeNull();
+    // The payment address is never read back out of the page's markup.
+    expect(document.body.innerHTML).not.toContain("checkout.stripe.com");
+
+    document.querySelector<HTMLButtonElement>("[data-hosted-sector-invite]")?.click();
+    await flush();
+    expect(h.api.createInvite).toHaveBeenCalledWith("s-abc");
+    expect(document.querySelector<HTMLInputElement>("[data-hosted-sector-invite-url]")?.value).toBe("https://play.borderempires.com/h/invite1");
+
+    document.querySelector<HTMLButtonElement>("[data-hosted-sector-pay]")?.click();
+    expect(h.navigate).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/abc");
+  });
+
+  it("gives a member no pay or invite button", async () => {
+    const h = makeDeps();
+    await createHostedSectorsPanel(h.deps).openList();
+    expect(document.querySelector("[data-hosted-sector-invite]")).toBeNull();
+    expect(document.querySelector("[data-hosted-sector-pay]")).toBeNull();
+  });
+
+  it("keeps the list current while a sector is being prepared, and stops when closed", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = makeDeps({ refreshMs: 5_000 });
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "creating", role: "host" })] });
+      const panel = createHostedSectorsPanel(h.deps);
+      await panel.openList();
+      expect(h.api.listSectors).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(h.api.listSectors).toHaveBeenCalledTimes(2);
+      panel.close();
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(h.api.listSectors).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

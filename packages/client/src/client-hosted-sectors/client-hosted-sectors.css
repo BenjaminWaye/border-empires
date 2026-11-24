@@ -81,3 +81,49 @@
 .hosted-sector-error {
   color: var(--sp-ember-400);
 }
+
+.hosted-sector-actions,
+.hosted-sector-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hosted-sector-form fieldset {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+}
+
+.hosted-sector-form legend {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.hosted-sector-option,
+.hosted-sector-consent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+
+.hosted-sector-option.is-unavailable {
+  opacity: 0.55;
+}
+
+.hosted-sector-form-actions {
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+[data-hosted-sector-invite-output] input {
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+  background: var(--sp-iron-900);
+  color: var(--sp-parchment-100);
+}

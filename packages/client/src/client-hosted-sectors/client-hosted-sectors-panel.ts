@@ -14,10 +14,15 @@ import {
   isAllowedHostedSectorWsUrl,
   stashHostedSectorSession
 } from "./client-hosted-sector-session.js";
+import { hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorsPanelDeps = {
-  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite">;
+  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite">;
+  /** Where invite links point, for example https://play.borderempires.com. */
+  shareOrigin: string;
+  /** How often the list is refreshed while a sector is being prepared. 0 turns it off. */
+  refreshMs?: number;
   isSignedIn: () => boolean;
   /** Loads the given path; injected so tests do not navigate. */
   navigate: (path: string) => void;
@@ -47,6 +52,8 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
   const title = `${sector.options.mapStyle === "islands" ? "Islands" : "Continents"}, ${sector.options.mapSize} map`;
   const status = sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
   const enterable = sector.state === "open" || sector.state === "ended";
+  const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open");
+  const hostActions = `${sector.role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? `<button type="button" class="panel-btn" data-hosted-sector-pay="${escapeHtml(sector.sectorId)}">Pay</button>` : ""}${invitable ? `<button type="button" class="panel-btn" data-hosted-sector-invite="${escapeHtml(sector.sectorId)}">Invite</button>` : ""}`;
   const action = sector.sectorId === activeSectorId
     ? `<span class="hosted-sector-here">You are here</span>`
     : !enterable
@@ -60,7 +67,7 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
         <strong>${escapeHtml(title)}</strong>
         <span class="hosted-sector-meta">${escapeHtml(status)} · ${sector.members} of ${sector.humanPlaces} places taken${sector.role === "host" ? " · You host this sector" : ""}</span>
       </div>
-      ${action}
+      <div class="hosted-sector-actions">${hostActions}${action}</div>
     </li>`;
 };
 
@@ -73,6 +80,10 @@ const panelHtml = (body: string): string => `
 
 export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   let panel: HTMLElement | undefined;
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Payment pages by sector, from the last list; never taken from the page's own markup. */
+  const checkoutUrls = new Map<string, string>();
+  const stopRefresh = (): void => { if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = undefined; };
 
   const setBody = (html: string): void => {
     const body = panel?.querySelector<HTMLElement>("[data-hosted-sectors-body]");
@@ -80,6 +91,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   };
 
   const close = (): void => {
+    stopRefresh();
     panel?.remove();
     panel = undefined;
     if (hostedInviteCodeFromPath(window.location.pathname)) window.history.replaceState(null, "", "/");
@@ -101,10 +113,19 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       return;
     }
     const rows = listed.sectors.map((sector) => hostedSectorRowHtml(sector, activeHostedSectorId())).join("");
+    checkoutUrls.clear();
+    for (const sector of listed.sectors) if (sector.checkoutUrl) checkoutUrls.set(sector.sectorId, sector.checkoutUrl);
+    const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open"));
+    // While a sector is being prepared the list keeps itself current, so the host can just wait.
+    stopRefresh();
+    const refreshMs = deps.refreshMs ?? 5_000;
+    if (refreshMs > 0 && listed.sectors.some((sector) => sector.state === "creating")) refreshTimer = setTimeout(() => { if (panel) void showList(); }, refreshMs);
     setBody(`
       ${notice ? `<p class="hosted-sector-notice">${escapeHtml(notice)}</p>` : ""}
       <ul class="hosted-sector-list">${publicSectorRowHtml()}${rows}</ul>
       ${listed.sectors.length === 0 ? `<p class="hosted-sector-note">You are not a member of any hosted sector. A host can send you an invite link.</p>` : ""}
+      <div data-hosted-sector-invite-output hidden><input data-hosted-sector-invite-url readonly aria-label="Invite link" /></div>
+      ${hostsLiveSector ? "" : `<button type="button" class="panel-btn" data-hosted-sector-host>Host a sector</button>`}
       <p class="hosted-sector-error" data-hosted-sectors-error role="alert" hidden></p>`);
   };
 
@@ -113,6 +134,48 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     if (!error) return;
     error.textContent = message;
     error.hidden = false;
+  };
+
+  const pay = (checkoutUrl: string | undefined): void => {
+    if (!checkoutUrl || !isAllowedCheckoutUrl(checkoutUrl, deps.pageIsLocal)) {
+      showError("The payment page's address was not recognised, so it was not opened.");
+      return;
+    }
+    deps.navigate(checkoutUrl);
+  };
+
+  const invite = async (sectorId: string): Promise<void> => {
+    const made = await deps.api.createInvite(sectorId);
+    if (!made.ok) {
+      showError(made.message);
+      return;
+    }
+    const output = panel?.querySelector<HTMLElement>("[data-hosted-sector-invite-output]");
+    const input = panel?.querySelector<HTMLInputElement>("[data-hosted-sector-invite-url]");
+    if (!output || !input) return;
+    input.value = `${deps.shareOrigin}/h/${made.code}`;
+    output.hidden = false;
+    input.select();
+  };
+
+  const submitOrder = async (form: HTMLFormElement): Promise<void> => {
+    const error = form.querySelector<HTMLElement>("[data-hosted-sector-form-error]");
+    const fail = (message: string): void => { if (error) { error.textContent = message; error.hidden = false; } };
+    const options = readHostSectorForm(form);
+    if (!options) {
+      fail("Choose a map and accept the Terms of Sale to continue.");
+      return;
+    }
+    const ordered = await deps.api.createOrder(options);
+    if (!ordered.ok) {
+      fail(ordered.message);
+      return;
+    }
+    if (!ordered.sector.checkoutUrl || !isAllowedCheckoutUrl(ordered.sector.checkoutUrl, deps.pageIsLocal)) {
+      fail("The payment page's address was not recognised, so it was not opened. Nothing was charged.");
+      return;
+    }
+    deps.navigate(ordered.sector.checkoutUrl);
   };
 
   const enter = async (sectorId: string): Promise<void> => {
@@ -140,10 +203,21 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (target.closest("[data-hosted-sectors-close]")) close();
       const enterButton = target.closest<HTMLElement>("[data-hosted-sector-enter]");
       if (enterButton?.dataset.hostedSectorEnter) void enter(enterButton.dataset.hostedSectorEnter);
+      const payButton = target.closest<HTMLElement>("[data-hosted-sector-pay]");
+      if (payButton?.dataset.hostedSectorPay) pay(checkoutUrls.get(payButton.dataset.hostedSectorPay));
+      const inviteButton = target.closest<HTMLElement>("[data-hosted-sector-invite]");
+      if (inviteButton?.dataset.hostedSectorInvite) void invite(inviteButton.dataset.hostedSectorInvite);
+      if (target.closest("[data-hosted-sector-host]")) { stopRefresh(); setBody(hostSectorFormHtml()); }
+      if (target.closest("[data-hosted-sector-form-cancel]")) void showList();
       if (target.closest("[data-hosted-sector-leave]")) {
         clearHostedSectorSession(deps.storage);
         deps.navigate("/");
       }
+    });
+    panel.addEventListener("submit", (event) => {
+      if (!(event.target instanceof HTMLFormElement) || !event.target.matches("[data-hosted-sector-form]")) return;
+      event.preventDefault();
+      void submitOrder(event.target);
     });
     // Inside #hud so it stacks with the other panels (see client-rally-links.ts).
     (document.getElementById("hud") ?? document.body).append(panel);
