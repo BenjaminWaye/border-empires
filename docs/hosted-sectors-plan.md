@@ -470,9 +470,11 @@ PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
   id** (older accounts matched by email) need their hosted results mapped back
   to the right profile. The hosting service keys everything on the Firebase
   user id and resolves the profile on the production server.
-- **Awards** ("Never Gave Up", "Comeback Kid") and the public web profile are
-  launch item 6 and do not exist yet; hosted results are stored so that work
-  can read them.
+- **Awards and the public web profile** (launch item 6) landed on `develop`
+  on 2026-11-24 (#2953, #2954), after this plan was written. They read one
+  server's own records. Showing hosted results on the profile (Q4) means
+  joining them with the stored hosted results; that is part of the export
+  work in PR 4.
 
 ## 17. Acceptance criteria
 
