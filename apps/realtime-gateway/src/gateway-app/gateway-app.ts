@@ -890,7 +890,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   );
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
-    simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
+    simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
     onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
@@ -924,7 +924,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },
-      admin: { apiToken: options.adminApiToken, email: options.adminEmail },
+      admin: { apiToken: options.adminApiToken, email: options.adminEmail, singleContest: options.hostedSector !== undefined },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
       onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
@@ -1696,7 +1696,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token);
+            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token, message.sectorTicket);
             if (!resolvedPlayerIdentity) {
               recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
                 channel

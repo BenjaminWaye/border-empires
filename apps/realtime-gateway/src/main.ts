@@ -20,6 +20,7 @@ const gateway = await createRealtimeGatewayApp({
   ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {}),
   ...(runtimeEnv.adminEmail ? { adminEmail: runtimeEnv.adminEmail } : {}),
   ...(runtimeEnv.aiPlayerCount ? { aiPlayerCount: runtimeEnv.aiPlayerCount } : {}),
+  ...(runtimeEnv.hostedSector ? { hostedSector: runtimeEnv.hostedSector } : {}),
   emailAlerts: runtimeEnv.emailAlerts
 });
 

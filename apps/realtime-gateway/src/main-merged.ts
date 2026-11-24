@@ -192,6 +192,7 @@ const gateway = await createRealtimeGatewayApp({
   ...(gatewayEnv.adminApiToken ? { adminApiToken: gatewayEnv.adminApiToken } : {}),
   ...(gatewayEnv.adminEmail ? { adminEmail: gatewayEnv.adminEmail } : {}),
   ...(gatewayEnv.aiPlayerCount ? { aiPlayerCount: gatewayEnv.aiPlayerCount } : {}),
+  ...(gatewayEnv.hostedSector ? { hostedSector: gatewayEnv.hostedSector } : {}),
   emailAlerts: gatewayEnv.emailAlerts,
   ...(gatewayEnv.playerReportGithubIssues ? { playerReportGithubIssues: gatewayEnv.playerReportGithubIssues } : {}),
   simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`,

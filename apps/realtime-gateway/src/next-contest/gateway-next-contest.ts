@@ -7,6 +7,7 @@ import { createNextContest, type NextContest, type NextContestDeps, type NextCon
 export type GatewayNextContestDeps = {
   simulationClient: Pick<SimulationClientMethods, "getCurrentSeasonSummary" | "startNextSeason" | "joinSeason">;
   store: SectorWaitlistStore;
+  singleContest?: boolean;
   onSeasonStarted: (seasonId: string, force: boolean) => void;
   broadcast: (payload: NextContestUpdate) => void;
   recordGatewayEvent: NextContestDeps["recordGatewayEvent"];
@@ -16,6 +17,7 @@ export const createGatewayNextContest = (deps: GatewayNextContestDeps): NextCont
   const { simulationClient } = deps;
   return createNextContest({
     store: deps.store,
+    ...(deps.singleContest ? { singleContest: true } : {}),
     getCurrentSeason: async () => {
       const { seasonId, status } = await simulationClient.getCurrentSeasonSummary();
       return { seasonId, status };

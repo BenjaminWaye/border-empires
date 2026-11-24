@@ -37,6 +37,17 @@ describe("next contest", () => {
     expect(deps.broadcast).not.toHaveBeenCalled();
   });
 
+  it("never starts another contest on a hosted sector", async () => {
+    const { deps } = makeDeps({ singleContest: true });
+    const nextContest = createNextContest(deps);
+    for (const playerId of ["a", "b", "c"]) await deps.store.join({ seasonId: nextContestKey("season-1"), playerId, joinedAt: 1 });
+    expect(await nextContest.commit("d", false)).toMatchObject({ ok: false, code: "SINGLE_CONTEST" });
+    expect(await nextContest.maybeStart()).toBe(false);
+    expect(await nextContest.forceStart()).toBeUndefined();
+    expect(deps.startNextSeason).not.toHaveBeenCalled();
+    expect(await deps.store.count(nextContestKey("season-1"))).toBe(3);
+  });
+
   it("refuses commitments while the season is still running", async () => {
     const { deps, setSeason } = makeDeps();
     setSeason({ seasonId: "season-1", status: "active" });
