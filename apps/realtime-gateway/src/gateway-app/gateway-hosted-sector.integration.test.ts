@@ -47,6 +47,7 @@ describe("gateway in hosted-sector mode", () => {
       .setIssuer(HOSTED_SECTOR_TICKET_ISSUER)
       .setAudience(hostedSectorTicketAudience(sectorId))
       .setSubject(uid)
+      .setIssuedAt()
       .setExpirationTime(Math.floor(Date.now() / 1000) + 600)
       .sign(hosting.privateKey);
 
@@ -81,10 +82,24 @@ describe("gateway in hosted-sector mode", () => {
     const member = await idToken({ sub: "member-uid", user_id: "member-uid", email: "member@example.com" });
     const stranger = await idToken({ sub: "stranger-uid", user_id: "stranger-uid", email: "stranger@example.com" });
 
-    expect(await authOverSocket(address.wsUrl, { token: stranger })).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
-    expect(await authOverSocket(address.wsUrl, { token: stranger, sectorTicket: await ticket("member-uid") })).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
-    expect(await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid", "s-other") })).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
+    // Its own code: refreshing the sign-in, the client's answer to AUTH_FAIL, cannot help here.
+    const refused = { type: "ERROR", code: "SECTOR_TICKET_REJECTED" };
+    expect(await authOverSocket(address.wsUrl, { token: stranger })).toMatchObject(refused);
+    expect(await authOverSocket(address.wsUrl, { token: stranger, sectorTicket: await ticket("member-uid") })).toMatchObject(refused);
+    expect(await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid", "s-other") })).toMatchObject(refused);
+    expect(await authOverSocket(address.wsUrl, { token: "not-a-token", sectorTicket: await ticket("member-uid") })).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
     expect((await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid") })).type).toBe("INIT");
+  }, TEST_TIMEOUT_MS);
+
+  it("keeps signed-in HTTP routes for accounts that have entered the sector", async () => {
+    const { address, httpUrl } = await startGateway(true);
+    const member = await idToken({ sub: "member-uid", user_id: "member-uid", email: "member@example.com" });
+    const stranger = await idToken({ sub: "stranger-uid", user_id: "stranger-uid", email: "stranger@example.com" });
+    const waitlist = (token: string) => fetch(`${httpUrl}/sector/waitlist`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" });
+
+    expect((await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid") })).type).toBe("INIT");
+    expect((await waitlist(stranger)).status).toBe(401);
+    expect((await waitlist(member)).status).not.toBe(401);
   }, TEST_TIMEOUT_MS);
 
   it("leaves a public server open to accounts without a ticket", async () => {

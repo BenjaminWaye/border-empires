@@ -24,12 +24,35 @@ export type HostedSectorTicketVerifier = (
 const pemFromBase64 = (base64: string): string =>
   `-----BEGIN PUBLIC KEY-----\n${base64.replace(/\s+/g, "")}\n-----END PUBLIC KEY-----`;
 
+/**
+ * The hosting service issues tickets for ten minutes. Anything that claims a
+ * longer life than this is refused, so a mistake there cannot hand out
+ * permanent access. Tickets must say when they were issued.
+ */
+export const HOSTED_SECTOR_TICKET_MAX_AGE_SECONDS = 900;
+/** Allowance for the two machines' clocks disagreeing. */
+const CLOCK_TOLERANCE_SECONDS = 30;
+
+/**
+ * Call at boot. A key that cannot be read would otherwise start a server that
+ * looks healthy and turns every paying member away.
+ */
+export const assertHostedSectorTicketKey = async (config: HostedSectorConfig | undefined): Promise<void> => {
+  if (!config) return;
+  try {
+    await importSPKI(pemFromBase64(config.ticketPublicKey), HOSTED_SECTOR_TICKET_ALGORITHM);
+  } catch {
+    throw new Error("HOSTED_SECTOR_TICKET_PUBLIC_KEY is not a readable Ed25519 public key (base64 of the SPKI DER, without PEM header lines)");
+  }
+};
+
 export const createHostedSectorTicketVerifier = (
   config: HostedSectorConfig,
   options: { now?: () => number } = {}
 ): HostedSectorTicketVerifier => {
   // Imported once. A malformed key rejects every ticket rather than letting
-  // anyone in; parseHostedSectorConfig already refuses to boot without a key.
+  // anyone in; the entrypoints call assertHostedSectorTicketKey so that such
+  // a server never starts.
   const key = importSPKI(pemFromBase64(config.ticketPublicKey), HOSTED_SECTOR_TICKET_ALGORITHM);
   key.catch(() => undefined);
   const audience = hostedSectorTicketAudience(config.sectorId);
@@ -42,7 +65,9 @@ export const createHostedSectorTicketVerifier = (
         issuer: HOSTED_SECTOR_TICKET_ISSUER,
         audience,
         subject: authUid,
-        requiredClaims: ["exp"],
+        requiredClaims: ["exp", "iat"],
+        maxTokenAge: HOSTED_SECTOR_TICKET_MAX_AGE_SECONDS,
+        clockTolerance: CLOCK_TOLERANCE_SECONDS,
         ...(options.now ? { currentDate: new Date(options.now()) } : {})
       });
       return { ok: true };

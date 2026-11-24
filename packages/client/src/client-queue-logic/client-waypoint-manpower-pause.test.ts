@@ -21,8 +21,30 @@ describe("pauseWaypointForManpowerIfNeeded", () => {
   });
 
   it("never pauses ATTACK steps on the pool", () => {
-    const waypoint = { pausedForManpower: false };
+    const waypoint = { pausedForManpower: false, attacksConfirmed: true };
     const attack = { action: "ATTACK" as const, manpowerMin: 60, target: { x: 3, y: 4 } };
     expect(pauseWaypointForManpowerIfNeeded(waypoint, attack, 0, vi.fn(), 15)).toBe(false);
+  });
+});
+
+// Regression (Playtest Run 4 follow-up): a route approved with no attacks could turn a leg into an ATTACK on
+// re-plan (a barbarian moved onto it), and the attack queue then raised a muster flag nobody chose.
+describe("unapproved attack on a re-planned route", () => {
+  const attack = { action: "ATTACK" as const, manpowerMin: 60, target: { x: 3, y: 4 } };
+
+  it("parks the waypoint, tells the player once, and resumes when the path is clear", () => {
+    const waypoint: { pausedForManpower?: boolean; pausedForAttack?: boolean } = {};
+    const pushFeed = vi.fn();
+    expect(pauseWaypointForManpowerIfNeeded(waypoint, attack, 1_000, pushFeed)).toBe(true);
+    expect(pauseWaypointForManpowerIfNeeded(waypoint, attack, 1_000, pushFeed)).toBe(true);
+    expect(pushFeed).toHaveBeenCalledTimes(1);
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("now needs an attack"), "combat", "warn");
+    expect(pauseWaypointForManpowerIfNeeded(waypoint, expandStep(10), 1_000, pushFeed)).toBe(false);
+    expect(waypoint.pausedForAttack).toBe(false);
+  });
+
+  it("goes ahead when the player approved attacks or the waypoint chases a barbarian", () => {
+    expect(pauseWaypointForManpowerIfNeeded({ attacksConfirmed: true }, attack, 1_000, vi.fn())).toBe(false);
+    expect(pauseWaypointForManpowerIfNeeded({ trackBarbarian: true }, attack, 1_000, vi.fn())).toBe(false);
   });
 });

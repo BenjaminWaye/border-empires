@@ -20,9 +20,16 @@ export const allowAccountSession = async (uid: string | undefined, bindings: Gat
   socket.close(4003, "account_deleted");
   return false;
 };
+export type LoginRejection = { type: "ERROR"; code: "AUTH_FAIL" | "SECTOR_TICKET_REJECTED"; message: string };
+
+const TOKEN_REJECTED: LoginRejection = { type: "ERROR", code: "AUTH_FAIL", message: "Authentication token is not recognized by the rewrite gateway." };
+// Its own code, so a client does not answer it by refreshing the sign-in,
+// which cannot help: the account is fine, it lacks a ticket for this sector.
+const TICKET_REJECTED: LoginRejection = { type: "ERROR", code: "SECTOR_TICKET_REJECTED", message: "This sector is private. Open it from My sectors to enter." };
+
 export const createAuthResolvers = (deps: AuthResolverDeps): {
   /** WebSocket login. On a hosted sector the account must also hold a valid membership ticket. */
-  resolveIdentityForToken: (token: string, sectorTicket?: string) => Promise<GatewayResolvedIdentity | undefined>;
+  resolveLogin: (token: string, sectorTicket?: string) => Promise<{ identity: GatewayResolvedIdentity } | { error: LoginRejection }>;
   resolveHttpBearerIdentity: (header: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
 } => {
   const verify = createGatewayFirebaseVerifier({
@@ -45,24 +52,27 @@ export const createAuthResolvers = (deps: AuthResolverDeps): {
   const verifyTicket = deps.options.hostedSector
     ? createHostedSectorTicketVerifier(deps.options.hostedSector, deps.options.now ? { now: deps.options.now } : {})
     : undefined;
-  const resolveIdentityForToken = async (token: string, sectorTicket?: string): Promise<GatewayResolvedIdentity | undefined> => {
+  const resolveLogin = async (token: string, sectorTicket?: string): Promise<{ identity: GatewayResolvedIdentity } | { error: LoginRejection }> => {
     const identity = await resolveIdentity(token);
-    if (!identity || !verifyTicket) return identity;
+    if (!identity) return { error: TOKEN_REJECTED };
+    if (!verifyTicket) return { identity };
     const admitted = await verifyTicket(sectorTicket, identity.authUid);
-    if (admitted.ok) return identity;
-    deps.onReject();
+    if (admitted.ok) return { identity };
     deps.onRejectReason(admitted.reason);
-    return undefined;
+    return { error: TICKET_REJECTED };
   };
   return {
-    resolveIdentityForToken,
+    resolveLogin,
     resolveHttpBearerIdentity: async (header) => {
       const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : "";
       if (!token) return undefined;
-      // HTTP routes carry no ticket. They only read or change the caller's own
-      // records, and joining the contest goes through the WebSocket login.
       const identity = await resolveIdentity(token);
-      return identity ? deps.reconcile(identity) : undefined;
+      if (!identity) return undefined;
+      // HTTP routes carry no ticket. On a hosted sector they are open only to
+      // accounts that have already entered through the WebSocket login, which
+      // is what records the account here. Everyone else is a stranger.
+      if (verifyTicket && !(identity.authUid && (await deps.bindings.getByUid(identity.authUid)))) return undefined;
+      return deps.reconcile(identity);
     }
   };
 };
