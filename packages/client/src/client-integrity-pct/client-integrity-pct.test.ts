@@ -3,17 +3,14 @@ import { defensivenessMultiplier } from "@border-empires/shared";
 import { integrityPctFromPlayerUpdate, integrityPctFromSettledCounts } from "./client-integrity-pct.js";
 
 describe("integrityPctFromSettledCounts", () => {
-  it("applies the new-empire grace floor like the server, unlike the raw shape score", () => {
-    // A stringy 20-tile empire: the raw score is well under 90%, but the
-    // server's empireIntegrity holds it at the 90% grace floor.
-    expect(defensivenessMultiplier(20, 60) * 100).toBeLessThan(90);
-    expect(integrityPctFromSettledCounts(20, 60, 0, 20)).toBeGreaterThanOrEqual(90);
+  it("matches the server's score: the shape of all owned land", () => {
+    expect(integrityPctFromSettledCounts(20, 60, 0, 20)).toBeCloseTo(100 * defensivenessMultiplier(20, 60), 5);
   });
 
   // Integrity reads all owned land and its garrisoned share: the settled counts alone can't rebuild it.
   it("keeps the last authoritative value without a garrisoned count", () => {
     expect(integrityPctFromSettledCounts(200, 0, 64)).toBe(64);
-    expect(integrityPctFromSettledCounts(200, 0, 0, 0)).toBeCloseTo(70);
+    expect(integrityPctFromSettledCounts(200, 0, 0, 0)).toBeCloseTo(70); // nothing garrisoned: the full 30-point penalty
   });
 
   it("returns the fallback when a count is missing", () => {

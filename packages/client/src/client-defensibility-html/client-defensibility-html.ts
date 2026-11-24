@@ -1,4 +1,4 @@
-import { formatCoinPerDay, INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, INTEGRITY_SHAPE_WEIGHT, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult, integrityParts } from "@border-empires/shared";
+import { formatCoinPerDay, INTEGRITY_MIN_GARRISON_SHARE, INTEGRITY_UNGARRISONED_PENALTY, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult, integrityParts } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import "./client-defensibility-html.css";
 import { exposedSidesForTile, isOwnedLandTile } from "../client-defensibility-tile.js";
@@ -86,7 +86,7 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
   if (exposedEdges > naturalShieldEdges) tips.push("Build next to water or mountains. They work like walls that enemies can't walk through.");
   if (tiles.length > 0 && exposedEdges / tiles.length > 1.6) tips.push("Your land is too long and thin. Fill the gaps so your shape looks like a fat blob, not a snake.");
   if (internalEdges < borderEdges * 1.4) tips.push("Fat blobs are safer than long lines. Connect your scattered tiles into one big chunk.");
-  if (tiles.some((tile) => tile.ownershipState !== "SETTLED")) tips.push("Garrison more of your land. Every garrisoned tile raises your score.");
+  if (tiles.length > 0 && tiles.filter((tile) => tile.ownershipState === "SETTLED").length / tiles.length < INTEGRITY_MIN_GARRISON_SHARE) tips.push(`Garrison at least ${Math.round(INTEGRITY_MIN_GARRISON_SHARE * 100)}% of your land to avoid the penalty.`);
   if (tips.length === 0) tips.push("Nice shape! Keep growing in fat chunks and keep your water and mountain walls.");
   return {
     exposedEdges,
@@ -117,22 +117,19 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   const parts = integrityParts(ownedTiles, openSides, garrisonedTiles);
   const shapePct = Math.round(parts.shape * 100);
   const garrisonPct = Math.round(parts.garrisonShare * 100);
-  const shapeWeightPct = Math.round(INTEGRITY_SHAPE_WEIGHT * 100);
+  const minGarrisonPct = Math.round(INTEGRITY_MIN_GARRISON_SHARE * 100);
+  const penaltyPct = Math.round(parts.garrisonPenalty * 100);
   const compactFrontierTarget = ownedTiles > 0 ? idealExposureForTiles(ownedTiles) : 0;
   const fullScoreCutoff = ownedTiles > 0 ? fullDefensibilityExposureForTiles(ownedTiles) : 0;
   const weightedExposureClass = openSides <= fullScoreCutoff ? "is-positive" : "is-negative";
   const shapeClause = shapePct >= 100
     ? "Great shape: no more open sides than the most compact empire your size."
     : "Too many sides of your land face open ground. Grow into one fat blob, not long thin lines.";
-  const garrisonClause = garrisonPct >= 100 ? " All your land is garrisoned." : ` ${garrisonPct}% of your land is garrisoned; garrison more to raise it.`;
-  // New-empire grace (empire-integrity.ts) holds the score up while the two parts alone would score lower.
-  const rawPct = Math.round((INTEGRITY_SHAPE_WEIGHT * parts.shape + (1 - INTEGRITY_SHAPE_WEIGHT) * parts.garrisonShare) * 100);
-  const graceHolds = ownedTiles > 0 && rawPct < rounded;
-  const graceClause = graceHolds ? ` New empires keep at least ${Math.round(INTEGRITY_GRACE_FLOOR * 100)}% until they hold ${INTEGRITY_GRACE_TILES} tiles of land.` : "";
+  const garrisonClause = penaltyPct > 0 ? ` Only ${garrisonPct}% of your land is garrisoned: −${penaltyPct}% until you garrison ${minGarrisonPct}%.` : "";
   const economicClause = args.empireIntegrityEnabled
     ? (rounded >= 100 ? " You're earning the full income and growth bonus." : " Your income and growth bonus scales with this score.")
     : "";
-  const scoreCopy = shapeClause + garrisonClause + graceClause + economicClause;
+  const scoreCopy = shapeClause + garrisonClause + economicClause;
   // The hero's right half sat empty beside a body-size "82%" (playtest 2026-11-18: "half blank"). The score is
   // the headline, and what it is worth right now (the income effect) fills the other side.
   const heroEconPct = Math.round((integrityEconomyMult(Math.max(0, Math.min(1, args.defensibilityPct / 100))) - 1) * 100);
@@ -167,9 +164,9 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     </article>
     <article class="card defense-breakdown-card">
       <strong>Where does the % come from?</strong>
-      <p class="defense-copy">${shapeWeightPct}% is your shape: your open sides against the fewest any empire your size could have (a perfect blob). ${100 - shapeWeightPct}% is how much of your land is garrisoned.</p>
+      <p class="defense-copy">Your shape: your open sides against the fewest any empire your size could have (a perfect blob). With under ${minGarrisonPct}% of your land garrisoned, you lose up to ${Math.round(INTEGRITY_UNGARRISONED_PENALTY * 100)}%.</p>
       <div class="defense-line"><span>Shape</span><strong>${shapePct}%</strong></div>
-      <div class="defense-line"><span>Garrisoned</span><strong>${garrisonPct}%</strong></div>
+      <div class="defense-line"><span>Too little garrisoned</span><strong class="${penaltyPct > 0 ? "is-negative" : "is-positive"}">${penaltyPct > 0 ? `−${penaltyPct}%` : "none"}</strong></div>
       <div class="defense-line"><span>A perfect blob your size would have</span><strong>${formatDefenseNumber(compactFrontierTarget)}</strong></div>
       <div class="defense-line"><span>You score 100% if you stay at or below</span><strong>${formatDefenseNumber(fullScoreCutoff)}</strong></div>
       <div class="defense-line"><span>You actually have</span><strong class="${weightedExposureClass}">${formatDefenseNumber(openSides)}</strong></div>

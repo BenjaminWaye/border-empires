@@ -53,8 +53,8 @@ const blockOf = (size: number, stateAt: (x: number, y: number) => DomainTileStat
 };
 const edge = (x: number, y: number, size: number): boolean => x === 0 || y === 0 || x === size - 1 || y === size - 1;
 
-// Owner rule (Playtest Run 4 follow-up): Integrity is mostly the shape of everything the player owns (open sides
-// of all owned land) plus the share of it that is garrisoned (empireIntegrity, packages/shared).
+// Owner rule (Playtest Run 4 follow-up): Integrity is the shape of everything the player owns (open sides of all
+// owned land), less a penalty under 10% garrisoned (empireIntegrity, packages/shared).
 describe("buildPlayerDefensibilityMetrics — whole-territory shape and garrison share", () => {
   it("counts every owned tile, the garrisoned ones, and the sides facing land that isn't the player's", () => {
     const metrics = buildPlayerDefensibilityMetrics(PLAYER, blockOf(3, (x, y) => (x === 1 && y === 1 ? settled(x, y, PLAYER) : frontier(x, y, PLAYER))));
@@ -62,16 +62,16 @@ describe("buildPlayerDefensibilityMetrics — whole-territory shape and garrison
   });
 
   // Regression: under the old rule garrisoning raised exposure, so it lowered Integrity.
-  it("garrisoning, inside or on the border, never changes the shape and always raises Integrity", () => {
+  it("garrisoning, inside or on the border, never changes the shape and lifts the too-little-garrisoned penalty", () => {
     // 12x12 = 144 owned tiles: past the new-empire grace floor, so the score is the two parts alone.
     const allFrontier = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => frontier(x, y, PLAYER)));
     const coreGarrisoned = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => (edge(x, y, 12) ? frontier(x, y, PLAYER) : settled(x, y, PLAYER))));
     const borderGarrisoned = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => (edge(x, y, 12) || (x === 1 && y === 1) ? settled(x, y, PLAYER) : frontier(x, y, PLAYER))));
     for (const metrics of [coreGarrisoned, borderGarrisoned]) expect(metrics.Es).toBe(allFrontier.Es);
     const score = (m: typeof allFrontier) => empireIntegrity(m.T, m.Es, m.Ts);
-    expect(score(allFrontier)).toBeCloseTo(0.7); // perfect square shape, nothing garrisoned
-    expect(score(coreGarrisoned)).toBeGreaterThan(score(allFrontier));
-    expect(score(borderGarrisoned)).toBeGreaterThan(score(allFrontier));
+    expect(score(allFrontier)).toBeCloseTo(0.7); // perfect square shape, nothing garrisoned: the full penalty
+    expect(score(coreGarrisoned)).toBe(1);
+    expect(score(borderGarrisoned)).toBe(1);
   });
 
   it("a frontier moat hides nothing: its outward sides count", () => {
