@@ -66,7 +66,8 @@ describe("drawSalvageDeliveries2D", () => {
 
 describe("salvage delivery changelog", () => {
   it("ships in the player-facing changelog", async () => {
-    const { CLIENT_CHANGELOG_ENTRIES } = await import("../client-changelog/client-changelog-data.js");
-    expect(CLIENT_CHANGELOG_ENTRIES.some((entry) => entry.title === "Watch the Court's Ancillaries arrive")).toBe(true);
+    // The full list: players see only the last 6 days, so the entry ages out of CLIENT_CHANGELOG_ENTRIES.
+    const { ALL_CLIENT_CHANGELOG_ENTRIES } = await import("../client-changelog/client-changelog-data.js");
+    expect(ALL_CLIENT_CHANGELOG_ENTRIES.some((entry) => entry.title === "Watch the Court's Ancillaries arrive")).toBe(true);
   });
 });

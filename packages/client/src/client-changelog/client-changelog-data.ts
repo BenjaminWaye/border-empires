@@ -206,7 +206,8 @@ export type ClientChangelogEntry = {
   changes: string[];
 };
 // Register every client release here or in feature groups; createdAt determines display order.
-const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+/** Every entry ever shipped; players see only the last 6 days of it (CLIENT_CHANGELOG_ENTRIES). */
+export const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_REPLACEMENT_CHANGELOG,
   ...NOV_14_CHANGELOG,
   ...TOWN_ECONOMY_CHANGELOG,
