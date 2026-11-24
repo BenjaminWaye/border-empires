@@ -25,12 +25,13 @@ type PushFeed = (message: string, type?: "combat" | "mission" | "error" | "info"
  * caller should enqueue nothing and return).
  */
 export const pauseWaypointForManpowerIfNeeded = (
-  waypoint: Pick<ClientWaypoint, "pausedForManpower">,
+  waypoint: Pick<ClientWaypoint, "pausedForManpower" | "attacksConfirmed" | "pausedForAttack" | "trackBarbarian">,
   firstStep: Pick<WaypointStep, "action" | "manpowerMin" | "target">,
   manpower: number,
   pushFeed: PushFeed,
   expandManpowerCost = 0
 ): boolean => {
+  if (pauseWaypointForUnapprovedAttack(waypoint, firstStep, pushFeed)) return true;
   const needed = Math.max(firstStep.manpowerMin, expandManpowerCost);
   const short = firstStep.action === "EXPAND" && manpower < needed;
   if (short) {
@@ -49,4 +50,24 @@ export const pauseWaypointForManpowerIfNeeded = (
     pushFeed("Waypoint resumed — manpower available.", "info", "success");
   }
   return false;
+};
+
+/**
+ * Expand To asks before it attacks (Playtest Run 4 follow-up, client-waypoint-attack-confirm.ts), but the route is
+ * re-planned every step: a barbarian or rival moving onto the path turns a leg into an ATTACK, and the attack queue
+ * would raise a muster flag for it. Unless the player approved attacks on this route (or it chases a barbarian by
+ * design), park the waypoint instead, telling the player once; it resumes when the path is clear again.
+ */
+const pauseWaypointForUnapprovedAttack = (
+  waypoint: Pick<ClientWaypoint, "attacksConfirmed" | "pausedForAttack" | "trackBarbarian">,
+  firstStep: Pick<WaypointStep, "action" | "target">,
+  pushFeed: PushFeed
+): boolean => {
+  const blocked = firstStep.action === "ATTACK" && !waypoint.attacksConfirmed && !waypoint.trackBarbarian;
+  if (blocked && !waypoint.pausedForAttack) {
+    pushFeed(`Waypoint waiting at (${firstStep.target.x}, ${firstStep.target.y}): the way there now needs an attack. Cancel it, or Expand To again to approve.`, "combat", "warn");
+  }
+  if (blocked) waypoint.pausedForAttack = true;
+  else if (waypoint.pausedForAttack) waypoint.pausedForAttack = false;
+  return blocked;
 };

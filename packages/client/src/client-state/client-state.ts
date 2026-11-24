@@ -116,6 +116,7 @@ export const createInitialState = () => ({
   defensibilityPct: 100,
   settledT: 1,
   settledE: 4,
+  ownedT: undefined as number | undefined, // owned land tiles (PLAYER_UPDATE T): what Integrity's shape is judged against
   // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
   selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),

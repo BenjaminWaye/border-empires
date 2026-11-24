@@ -1,7 +1,7 @@
 import type { Tile } from "../client-types.js";
 import {
   exposedSidesForTile,
-  isOwnedSettledLandTile,
+  isOwnedLandTile,
   weakDefensibilitySeverity,
   type EdgeDirection,
   type ExposedSidesArgs,
@@ -30,13 +30,12 @@ const DELTAS: Record<EdgeDirection, { dx: number; dy: number }> = {
   west: { dx: -1, dy: 0 }
 };
 
-type OpenSideKind = "unclaimed land" | "rival land" | "your ungarrisoned land" | "unexplored land";
+type OpenSideKind = "unclaimed land" | "rival land" | "unexplored land";
 
 const openSideKind = (tile: Tile, side: EdgeDirection, args: ExposedSidesArgs): OpenSideKind => {
   const delta = DELTAS[side];
   const neighbor = args.tiles.get(args.keyFor(args.wrapX(tile.x + delta.dx), args.wrapY(tile.y + delta.dy)));
   if (!neighbor) return "unexplored land";
-  if (neighbor.ownerId === args.me) return "your ungarrisoned land";
   if (neighbor.ownerId) return "rival land";
   return "unclaimed land";
 };
@@ -44,7 +43,7 @@ const openSideKind = (tile: Tile, side: EdgeDirection, args: ExposedSidesArgs): 
 const joinWords = (words: readonly string[]): string =>
   words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 
-/** e.g. "3 open sides: north, east (unclaimed land) and south (rival land)". */
+/** e.g. "3 open sides: north, east (unclaimed land) and south (rival land)"; "Ungarrisoned · " leads for frontier. */
 export const weakTileReason = (tile: Tile, openSides: readonly EdgeDirection[], args: ExposedSidesArgs): string => {
   const groups = new Map<OpenSideKind, EdgeDirection[]>();
   for (const side of openSides) {
@@ -54,7 +53,7 @@ export const weakTileReason = (tile: Tile, openSides: readonly EdgeDirection[], 
     groups.set(kind, list);
   }
   const parts = [...groups].map(([kind, sides]) => `${joinWords(sides)} (${kind})`);
-  return `${openSides.length} open sides: ${joinWords(parts)}`;
+  return `${tile.ownershipState === "SETTLED" ? "" : "Ungarrisoned · "}${openSides.length} open sides: ${joinWords(parts)}`;
 };
 
 const wrappedDistanceSq = (ax: number, ay: number, bx: number, by: number, worldWidth: number, worldHeight: number): number => {
@@ -70,7 +69,7 @@ export const weakDefensibilityEntries = (
 ): WeakDefensibilityEntry[] => {
   const ranked: Array<WeakDefensibilityEntry & { distanceSq: number }> = [];
   for (const tile of args.tiles.values()) {
-    if (!isOwnedSettledLandTile(tile, args.me)) continue;
+    if (!isOwnedLandTile(tile, args.me)) continue;
     const openSides = exposedSidesForTile(tile, args);
     const severity = weakDefensibilitySeverity(openSides.length);
     if (!severity) continue;

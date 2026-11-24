@@ -8,10 +8,15 @@
 
 import { empireIntegrity } from "@border-empires/shared";
 
-/** Integrity 0-100 from settled tile/exposure counts, or `fallback` when either count is unknown. */
-export const integrityPctFromSettledCounts = (t: number | undefined, e: number | undefined, fallback: number): number => {
+/**
+ * Integrity 0-100 when a message carries tile counts but no integrityPct. Integrity now reads all owned land and
+ * its garrisoned share (empireIntegrity: owned tiles, open sides, garrisoned tiles); `t` is the owned-tile count
+ * and `garrisoned` the garrisoned count. Without either count it keeps `fallback`, the last authoritative value.
+ */
+export const integrityPctFromSettledCounts = (t: number | undefined, e: number | undefined, fallback: number, garrisoned?: number): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return fallback;
-  return Math.max(0, Math.min(100, empireIntegrity(t, e) * 100));
+  if (typeof garrisoned !== "number" || Number.isNaN(garrisoned)) return fallback;
+  return Math.max(0, Math.min(100, empireIntegrity(t, e, garrisoned) * 100));
 };
 
 /**

@@ -1,3 +1,4 @@
+import { seasonAwardsAtCrowning } from "@border-empires/shared";
 import type { ScoreHistorySeries, SeasonVictoryObjectiveSnapshot, SeasonWinnerSnapshot, SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -51,6 +52,7 @@ export const captureSeasonWinnerAtCrowning = ({
    *  crowning, persisted onto the winner the same way seasonStats is below. */
   scoreHistory?: ScoreHistorySeries[];
 }): SimulationSeasonState => {
+  const chargePlayers = freshHouseChargePlayers(runtime, winner.crownedAt);
   const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey, runtimeState.players);
   const longestRoad = computeLongestRoad(runtimeState.tiles, runtimeState.players);
   return {
@@ -65,7 +67,9 @@ export const captureSeasonWinnerAtCrowning = ({
         : {}),
       ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {})
     },
-    houseCharges: houseChargesAtCrowning(freshHouseChargePlayers(runtime, winner.crownedAt), winner.crownedAt),
+    houseCharges: houseChargesAtCrowning(chargePlayers, winner.crownedAt),
+    // Bragging rights only (docs/gdd.md §7): decided from the redeploy counts and the final leaderboard.
+    awards: seasonAwardsAtCrowning(worldStatus.leaderboard.overall, new Map(chargePlayers.map((player) => [player.id, player.redeploys ?? 0]))),
     galaxyTiers: galaxyTiersAtCrowning({
       objectives,
       crownedWinner: winner,

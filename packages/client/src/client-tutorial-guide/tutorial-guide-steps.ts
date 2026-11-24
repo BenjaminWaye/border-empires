@@ -168,12 +168,12 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "look-explore",
     chapter: "look",
-    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground and Explore" : "Tap dark, unexplored ground and Explore"),
-    why: "Your scout drone is free. It flies out and reports towns, food and rivals.",
+    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground, then Explore" : "Tap unexplored ground, then Explore"),
+    why: "Your drone is free. It shows towns, food and rivals.",
     // A launch completes it (sticky), and so does having nothing left to explore near home.
     isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.nothingToExplore()),
     isAvailable: (i) => i.scout !== "none",
-    waitingNote: "Your scout drone launches from your AFC.",
+    waitingNote: "Your drone launches from your AFC.",
     doneIfLaterStepDone: true,
     highlight: exploreHighlight
   },
@@ -201,11 +201,11 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "reach-beacon",
     chapter: "reach",
-    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on garrisoned land at your edge"),
     why: (i) =>
       townBeforeBeacon(i)
-        ? "A town pushes your reach out by itself, so take it before spending manpower on a beacon."
-        : "A beacon pushes your reach outward, so you can garrison land further out. It needs no Manifest; it costs manpower and uses one food slot.",
+        ? "Take this town first: once garrisoned, it widens your reach."
+        : "Your reach is the land close to your towns and beacons. You can only Garrison inside it. A beacon widens it.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
@@ -218,7 +218,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manpower-open",
     chapter: "manpower",
     title: () => "Tap your manpower gauge",
-    why: "Manpower pays for every claim, garrison, build and attack. It refills every 4 hours.",
+    why: "Manpower pays for taking land, garrisoning, building and attacking. It refills every 4 hours.",
     isDone: (i) => i.openPanel === "manpower",
     anchor: "manpower"
   },
@@ -226,7 +226,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manifest-open",
     chapter: "manifest",
     title: () => "Open Manifests",
-    why: "You can't build anything but Relay Beacons until you commission a Manifest.",
+    why: "Manifests unlock buildings. Only Relay Beacons work without one.",
     isDone: (i) => i.openPanel === "tech" || i.manifestCount > 0,
     anchor: "manifest"
   },
@@ -234,7 +234,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manifest-commission",
     chapter: "manifest",
     title: () => "Commission the Industrial Tooling Module",
-    why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
+    why: "It unlocks the Manufactory, which earns coin from your town.",
     // Any Manifest completes it. Choosing another than the recommended one skips the Manufactory
     // steps (otherManifestChosen) rather than waiting for a module that was never commissioned.
     // A Waystation can grant the module itself (not counted in manifestCount): nothing left to commission then.
@@ -250,7 +250,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "afc-upgrade",
     chapter: "afc",
     title: () => "Open AFC and install the Founding Concession",
-    why: "Your Manifest unlocked an AFC upgrade. The Founding Concession gives your first three towns +50% Coin and frees 2 food slots each.",
+    why: "Your first three towns earn +50% coin and need 2 fewer food slots each.",
     isDone: (i) => i.afcUpgradeInstalled,
     isAvailable: (i) => i.afcUpgradeReady,
     waitingNote: "Your Manifest is docking at your AFC: then an upgrade unlocks.",
@@ -276,7 +276,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     why: (i) =>
       needsTownForBuild(i)
         ? townWhy(i)
-        : "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
+        : "Build it on your town or right next to it. It earns coin.",
     isDone: (i) => i.ownsBuiltStructure || otherManifestChosen(i),
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
@@ -286,7 +286,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "contest-muster",
     chapter: "contest",
     title: () => "Raise a muster flag on a marked border tile",
-    why: "Flags gather manpower to attack Planetary Defense or rival Houses.",
+    why: "A flag gathers manpower so you can attack.",
     isDone: (i) => i.ownsMusterFlag,
     isAvailable: (i) => i.musterUnlocked,
     waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
@@ -298,7 +298,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "diplomacy-truce",
     chapter: "diplomacy",
     title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"} to offer a truce`,
-    why: "A truce keeps a neighbour from attacking you while you grow. AI Houses tell you their price.",
+    why: "A truce stops a neighbour attacking you while you grow. AI Houses tell you their price.",
     // Opening the panel before meeting anyone doesn't count: there was no one to offer a truce to.
     isDone: (i) => i.rivalHouseMet && i.diplomacyUsed,
     isAvailable: (i) => i.rivalHouseMet,
