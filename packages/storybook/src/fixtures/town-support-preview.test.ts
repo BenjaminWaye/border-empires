@@ -9,7 +9,7 @@ describe("shipped town plot previews", () => {
     const overlay = createTownSupportPreview(scene, supportPreviewOffsets(tier), false);
     const mesh = overlay.group.children[0];
     if (!(mesh instanceof Mesh)) throw new Error("missing plot mesh");
-    const count = tier === "SETTLEMENT" ? 0 : tier === "TOWN" || tier === "CITY" ? 8 : 24;
+    const count = tier === "SETTLEMENT" ? 0 : tier === "TOWN" ? 8 : 24;
     expect(mesh.geometry.drawRange.count).toBe(count * PLOT_VERTICES.length);
     const positions = mesh.geometry.getAttribute("position");
     for (let i = 0; i < mesh.geometry.drawRange.count; i += 1) expect(positions.getY(i)).toBeCloseTo(0.012);

@@ -1,5 +1,5 @@
 import type { Terrain } from "@border-empires/shared";
-import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier, landmarkConstructionBlocker } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, isPreferredSupportTown, supportRingRadiusForTier, landmarkConstructionBlocker } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 // Shared eligibility/anchor logic for a town's support ring, used by both
@@ -52,8 +52,9 @@ export const supportPlotAnchorTown = (selectedTile: Tile | undefined, deps: Town
   // neighbor at distance 2 doesn't anchor here even though a Great City
   // neighbor at distance 2 would. If multiple match, pick the deterministic
   // lowest (x,y) so the overlay stays stable as the user drags the selection
-  // around.
+  // around. The closer town wins a tile both reach (isPreferredSupportTown, as the server assigns it).
   let best: Tile | undefined;
+  let bestDistance = 0;
   for (let dy = -MAX_SUPPORT_LOOKUP_RADIUS; dy <= MAX_SUPPORT_LOOKUP_RADIUS; dy += 1) {
     for (let dx = -MAX_SUPPORT_LOOKUP_RADIUS; dx <= MAX_SUPPORT_LOOKUP_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -64,9 +65,11 @@ export const supportPlotAnchorTown = (selectedTile: Tile | undefined, deps: Town
       if (neighbor.town.populationTier === "SETTLEMENT") continue;
       if (neighbor.ownerId !== deps.me) continue;
       if (neighbor.ownershipState !== "SETTLED") continue;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(neighbor.town.populationTier)) continue;
-      if (!best || neighbor.x < best.x || (neighbor.x === best.x && neighbor.y < best.y)) {
+      const distance = Math.max(Math.abs(dx), Math.abs(dy));
+      if (distance > supportRingRadiusForTier(neighbor.town.populationTier)) continue;
+      if (isPreferredSupportTown({ x: neighbor.x, y: neighbor.y, distance }, best && { x: best.x, y: best.y, distance: bestDistance })) {
         best = neighbor;
+        bestDistance = distance;
       }
     }
   }

@@ -10,6 +10,7 @@ import { townPopulationMultiplier } from "@border-empires/game-domain";
 import { biotaBlend, biotaShareMet, type TownTerrainProfileId } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townSupportCoinLines } from "../client-town-support-coin/client-town-support-coin.js";
 import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
 
 export type TownStatBonus = {
@@ -73,13 +74,7 @@ export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolea
   }
   const connected = connectedTownBonus(town);
   if (connected) bonuses.push(connected);
-  if (Number.isFinite(town.supportMax) && town.supportMax > 0 && Number.isFinite(town.supportCurrent) && town.supportCurrent < town.supportMax) {
-    bonuses.push({
-      label: `Support ${town.supportCurrent}/${town.supportMax}`,
-      effect: percent((town.supportCurrent / town.supportMax - 1) * 100),
-      tone: "negative"
-    });
-  }
+  for (const line of townSupportCoinLines(town)) bonuses.push({ label: line.label, effect: percent(line.effectPct), tone: "negative" });
   if (town.firstThreeTownGoldMult && town.firstThreeTownGoldMult !== 1) {
     bonuses.push({ label: "Mercantile Charter", effect: percent((town.firstThreeTownGoldMult - 1) * 100), tone: toneFor(town.firstThreeTownGoldMult - 1) });
   }
