@@ -61,6 +61,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The preset line the sender attached (diplomacy-offer-notes.ts). */
+.offer-dock-message {
+  margin-top: 2px;
+  color: #f2e8d3;
+  font-size: 12px;
+  font-style: italic;
+}
+
 /* An offer from an empire that just attacked you says so (client-offer-dock-attacker-note.ts). */
 .offer-dock-attacker {
   margin-top: 2px;
