@@ -143,6 +143,12 @@ of AI Houses and logged-in humans and records memory per thread; it can also
 write a heap snapshot of one thread. Commands, the 2026-11-23 results for 100
 Houses and the ranked list of what holds the simulation heap are in
 [`../load-results/sector-memory-2026-11-23.md`](../load-results/sector-memory-2026-11-23.md).
+For a longer or older contest, the same directory has `run-stack-in-image.sh`
+(the stack in `node:22-alpine`, limited to 2 cores and 4 GB),
+`late-contest-probe.mjs` (humans that send real commands, reconnect and
+reveal the map), `clock-warp-preload.cjs` (a faster clock to age a world) and
+`summarize-run.mjs`. Commands, results and what a faster clock distorts are in
+[`../load-results/late-contest-2026-11-24.md`](../load-results/late-contest-2026-11-24.md).
 Local only: never point it at staging or production. On a running server,
 each checkpoint logs `simulation checkpoint tile caches` (entry counts of the
 two per-tile caches) next to the replay-cache and explored-tiles sizes, and
