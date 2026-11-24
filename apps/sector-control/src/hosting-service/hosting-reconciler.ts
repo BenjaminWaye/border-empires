@@ -1,0 +1,124 @@
+// Everything the hosting service does without a player asking: checking on
+// unpaid orders, creating servers, retrying, refunding, and tearing down.
+//
+// One pass looks at every sector that is not in a resting state and performs
+// its next step. Each step is safe to repeat and is recorded in the database
+// before the next one starts, so the service can be stopped at any moment
+// (every production deploy restarts it) and simply carries on.
+import type { HostingStore, SectorRecord } from "../hosting-store/hosting-store.js";
+import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers/providers.js";
+import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
+
+export type HostingReconcilerDeps = {
+  store: HostingStore;
+  payment: PaymentProvider;
+  servers: ServerProvider;
+  alert: HostingAlert;
+  config: HostingConfig;
+  now: () => number;
+  /** Called once when a sector opens (the "your sector is ready" email). Must not throw. */
+  onSectorOpened?: (sector: SectorRecord) => void;
+};
+
+const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 500);
+
+export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
+  const { store, config } = deps;
+  // The highest running-count mark already reported, so each is reported once per process.
+  let reportedMark = 0;
+
+  /** A webhook may have been missed: ask the provider about orders past their checkout expiry. */
+  const checkUnpaid = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (now - sector.createdAt < config.checkoutExpiryMs) return;
+    // No checkout was ever created (the service stopped mid-order): nothing can have been paid.
+    const status = sector.paymentRef ? await deps.payment.getCheckoutStatus(sector.paymentRef) : "expired";
+    if (status === "paid") store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "creating", paidAt: now, createAttempts: 0 }, now);
+    else if (status === "expired") store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "cancelled" }, now);
+  };
+
+  const refund = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (!sector.paymentRef) return;
+    try {
+      await deps.payment.refund(sector.paymentRef);
+      if (store.transitionSector(sector.sectorId, ["creating"], { state: "refunded" }, now)) {
+        deps.alert("sector_refunded_automatically", { sectorId: sector.sectorId, attempts: sector.createAttempts });
+      }
+    } catch (error) {
+      // Stays in "creating": the refund is retried on the next pass.
+      store.transitionSector(sector.sectorId, ["creating"], { lastError: errorText(error), nextAttemptAt: now + creationRetryDelayMs(1) }, now);
+      deps.alert("sector_refund_failed", { sectorId: sector.sectorId, error: errorText(error) });
+    }
+  };
+
+  const create = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (sector.nextAttemptAt !== undefined && now < sector.nextAttemptAt) return;
+    if (sector.paidAt !== undefined && now - sector.paidAt >= config.refundAfterMs) {
+      await refund(sector, now);
+      return;
+    }
+    try {
+      let { serverRef, hostname } = sector;
+      if (!serverRef || !hostname) {
+        ({ serverRef, hostname } = await deps.servers.createServer({ sectorId: sector.sectorId, options: sector.options }));
+        // Recorded before anything else, so a restart never requests a second server.
+        store.transitionSector(sector.sectorId, ["creating"], { serverRef, hostname }, now);
+      }
+      // Not healthy yet is normal while the world is generated; look again next pass.
+      if (!(await deps.servers.isHealthy(hostname))) return;
+      if (store.transitionSector(sector.sectorId, ["creating"], { state: "open", openedAt: now, lastError: null, nextAttemptAt: null }, now)) {
+        const opened = store.getSector(sector.sectorId);
+        if (opened) deps.onSectorOpened?.(opened);
+      }
+    } catch (error) {
+      const attempts = sector.createAttempts + 1;
+      store.transitionSector(sector.sectorId, ["creating"], { createAttempts: attempts, nextAttemptAt: now + creationRetryDelayMs(attempts), lastError: errorText(error) }, now);
+      // The owner hears about the first failure, not the last (plan section 10).
+      if (attempts === 1) deps.alert("sector_creation_failing", { sectorId: sector.sectorId, error: errorText(error) });
+    }
+  };
+
+  const watchForEnd = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (sector.hostname && (await deps.servers.contestHasEnded(sector.hostname))) store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
+  };
+
+  /** Deletes the server of a sector that no longer needs one; the row keeps its state. */
+  const deleteServer = async (sector: SectorRecord, now: number, thenState?: "deleted"): Promise<void> => {
+    try {
+      if (sector.serverRef) await deps.servers.deleteServer(sector.serverRef);
+      store.transitionSector(sector.sectorId, [sector.state], { ...(thenState ? { state: thenState } : {}), serverRef: null, lastError: null }, now);
+    } catch (error) {
+      store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
+      deps.alert("sector_teardown_failed", { sectorId: sector.sectorId, error: errorText(error) });
+    }
+  };
+
+  const reportRunningCount = (): void => {
+    const running = store.countSectorsByState().open;
+    const mark = [...config.runningCountAlertMarks].reverse().find((candidate) => running >= candidate) ?? 0;
+    if (mark > reportedMark) deps.alert("sector_running_count", { running, mark });
+    reportedMark = mark;
+  };
+
+  return {
+    /** One pass. A failure on one sector never stops the others. */
+    async runOnce(): Promise<void> {
+      for (const sector of store.listSectorsInStates(["awaiting_payment", "creating", "open", "ended", "cancelled", "refunded"])) {
+        const now = deps.now();
+        try {
+          if (sector.state === "awaiting_payment") await checkUnpaid(sector, now);
+          else if (sector.state === "creating") await create(sector, now);
+          else if (sector.state === "open") await watchForEnd(sector, now);
+          else if (sector.state === "ended") {
+            if (sector.endedAt !== undefined && now - sector.endedAt >= config.lookAroundMs) await deleteServer(sector, now, "deleted");
+          } else if (sector.serverRef) await deleteServer(sector, now);
+        } catch (error) {
+          store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
+        }
+      }
+      reportRunningCount();
+      store.prunePaymentEvents(deps.now() - config.paymentEventRetentionMs);
+    }
+  };
+};
+
+export type HostingReconciler = ReturnType<typeof createHostingReconciler>;

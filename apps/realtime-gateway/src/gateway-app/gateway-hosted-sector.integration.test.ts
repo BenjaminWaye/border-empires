@@ -1,9 +1,9 @@
+import { HOSTED_SECTOR_TICKET_ISSUER, hostedSectorTicketAudience } from "@border-empires/shared";
 import { SignJWT, exportSPKI, generateKeyPair, type JWTPayload } from "jose";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { createFirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
-import { HOSTED_SECTOR_TICKET_ISSUER, hostedSectorTicketAudience } from "../hosted-sector/hosted-sector-ticket.js";
 import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { closeSocket, nextNonBootstrapMessage, openSocket, silentLog } from "./rewrite-stack-test-helpers.js";

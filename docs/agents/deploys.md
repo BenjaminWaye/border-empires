@@ -88,6 +88,7 @@ A hosted sector is a private, paid Sector Contest on its own server; the design 
 - **Members only.** The WebSocket `AUTH` message must carry `sectorTicket`: a token signed by the hosting service for this sector and this account (`apps/realtime-gateway/src/hosted-sector/hosted-sector-ticket.ts`). Anyone else gets `AUTH_FAIL`. The server keeps no member list and makes no call to the hosting service at login.
 - **One contest.** "Commit to the next contest" is refused, the 15-second start check never fires, and `POST /admin/season/start-next` answers 409, with or without `force`.
 - `deploy/env/hosted.env` is the shared non-secret env for these servers (standard sector: 60 AI Houses, 40 human places). `deploy/bin/deploy` and `bootstrap-server.sh` do not accept `BE_ENV=hosted` yet.
+- `apps/sector-control` is the hosting service that will sell and run these sectors: orders, members, invite links, membership tickets, and a reconciler that creates servers, retries, refunds and tears down. It is a library with tests only. It has no entry point, is not in `Dockerfile.combined`, and talks to fake payment and server providers; Stripe and Hetzner arrive in later PRs. The ticket format and the map sizes on offer are shared in `packages/shared/src/hosted-sector/hosted-sector-contract.ts`.
 - Final results need no new endpoint: the public `GET /hq/summary` of an ended contest already carries the winner, the full standings, House Charges and records.
 
 ## Season rollover (new map, map size, AI count, worldgen)
