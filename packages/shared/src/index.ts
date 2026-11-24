@@ -82,6 +82,7 @@ export * from "./auto-settle-prefs/auto-improve-prefs.js";
 export * from "./place-name-policy/place-name-policy.js";
 export * from "./island-names/island-names.js";
 export * from "./house-charges/house-charges.js";
+export * from "./season-awards/season-awards.js";
 export * from "./afc-founder/afc-founder.js";
 export * from "./house-charges/house-charge-art.js";
 export * from "./scout-drone/scout-drone.js";

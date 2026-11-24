@@ -148,6 +148,10 @@ These commands do not upload or submit the app. The
 [App Store Connect record](https://appstoreconnect.apple.com/apps/6825524099)
 contains the first uploaded iOS build; store submission remains pending.
 
+A player can share a public, read-only House profile page
+(`/house.html?h=<public id>`, made from Share profile on their own in-game
+profile); see [game mechanics](docs/game-mechanics.md#public-house-profile).
+
 Settings → Account includes permanent account deletion; the public
 `/delete-account.html` page offers the same request outside the game. Support is
 at `/support.html`. See the [account-deletion runbook](docs/agents/account-deletion.md)

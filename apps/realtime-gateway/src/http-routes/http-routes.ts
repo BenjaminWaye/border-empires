@@ -15,6 +15,7 @@ import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerAdminWorldRoute } from "./register-admin-world-route.js";
 import { registerAdminTileVisibilityRoute, type TileVisibilityQuery } from "./register-admin-tile-visibility-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
+import { registerPublicHouseProfileRoutes, type PublicHouseProfileRouteDeps } from "../public-house-profile/public-house-profile-routes.js";
 import { registerHouseChargeRoutes } from "../house-charge-routes/house-charge-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
@@ -111,6 +112,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   rallyLinkStore?: RallyLinkStore;
   // /sector/waitlist (register-sector-waitlist-routes.ts); omitted in tests that do not exercise it.
   sectorWaitlist?: SectorWaitlistRouteDeps;
+  publicHouseProfile?: PublicHouseProfileRouteDeps;
   // /sector/board (register-sector-board-route.ts): the join screen's Sector board.
   sectorBoard?: SectorBoardRouteDeps;
   preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
@@ -354,6 +356,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   registerRallyLinkRoutes(app, deps, playOrigin);
   if (deps.sectorWaitlist) registerSectorWaitlistRoutes(app, deps.sectorWaitlist);
+  if (deps.publicHouseProfile) registerPublicHouseProfileRoutes(app, deps.publicHouseProfile);
   if (deps.sectorBoard) registerSectorBoardRoute(app, deps.sectorBoard);
   if (deps.emailUnsubscribe) registerEmailUnsubscribeRoutes(app, deps.emailUnsubscribe);
   if (deps.authBindingStore?.accountDeletion) registerAccountDeletionRoutes(app, {

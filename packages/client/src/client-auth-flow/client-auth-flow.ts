@@ -9,6 +9,7 @@ import {
   updateProfile,
   type User
 } from "firebase/auth";
+import { installPublicProfileShare } from "../client-public-house/client-public-house-share.js";
 import { createSectorWaitlistController } from "../client-sector-waitlist/client-sector-waitlist.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
@@ -90,6 +91,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     });
 
   const sectorWaitlist = createSectorWaitlistController({ state, wsUrl, sync: () => syncAuthOverlay(), getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
+  installPublicProfileShare({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
   const syncAuthOverlay = (): void => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
