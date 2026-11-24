@@ -6,6 +6,7 @@ import { isStagingHostname, selectBackend } from "../client-backend-selector/cli
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { DISCORD_PROVIDER_ID, TWITCH_PROVIDER_ID } from "../client-auth-flow/client-auth-flow-sso.js";
+import { hostedSectorsEnabled, hostedSectorIdFromSearch, readHostedSectorSession, setActiveHostedSectorSession } from "../client-hosted-sectors/client-hosted-sector-session.js";
 
 // The default Firebase authDomain (border-empires.firebaseapp.com) is a
 // different origin than the app itself (play.borderempires.com /
@@ -161,8 +162,20 @@ export const createClientSocketSetup = (
   state.activeBackend = backend;
   state.bridgeDebugWsUrl = wsUrl;
   state.bridgeDebugMode = backend === "gateway" ? "rewrite-gateway" : "legacy-server";
+  // A hosted sector (/?sector=<id>, web only) is played on its own server. Only
+  // the socket goes there: `wsUrl` stays the main gateway, so every HTTP call
+  // derived from it (profile, hosting, reports) still reaches the main API.
+  const hostedSectorId = hostedSectorsEnabled(native) ? hostedSectorIdFromSearch(window.location.search) : undefined;
+  const hostedSession = hostedSectorId ? readHostedSectorSession(hostedSectorId, window.sessionStorage, isLocalHost) : undefined;
+  if (hostedSectorId && !hostedSession) {
+    // Opened without going through "Enter" (a bookmark, a new tab): there is no
+    // server address to connect to, so fall back to the public sector.
+    window.history.replaceState(null, "", "/");
+  }
+  setActiveHostedSectorSession(hostedSession);
+  if (hostedSession) state.bridgeDebugWsUrl = hostedSession.wsUrl;
   return {
-    ws: createMultiplexWebSocket(wsUrl),
+    ws: createMultiplexWebSocket(hostedSession?.wsUrl ?? wsUrl),
     wsUrl
   };
 };
