@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { account, createHostingHarness } from "./hosting-test-support.js";
+import { account, createHostingHarness } from "../hosting-test-support.js";
 import { createSectorControlApp, randomId } from "./sector-control-app.js";
 
 describe("hosting service app", () => {

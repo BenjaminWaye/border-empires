@@ -74,14 +74,34 @@ describe("payment events", () => {
     expect(h.store.getSector(paid)?.state).toBe("creating");
   });
 
-  it("tells the owner about money for an order it does not know or had already closed", async () => {
+  it("tells the owner about money for an order it does not know, and refunds money for one it had already closed", async () => {
     const h = await createHostingHarness();
     await h.service.handlePaymentEvent({ eventId: "evt-1", kind: "paid", sectorId: "s-unknown" });
     const sectorId = await h.order();
     await h.service.handlePaymentEvent({ eventId: "evt-2", kind: "expired", sectorId });
     await h.service.handlePaymentEvent({ eventId: "evt-3", kind: "paid", sectorId });
     expect(h.alerts.map((alert) => alert.kind)).toEqual(["payment_for_unknown_sector", "payment_for_unknown_sector"]);
+    expect(h.payment.refunded).toEqual([`fake-pay-${sectorId}`]);
     expect(h.store.getSector(sectorId)?.state).toBe("cancelled");
+  });
+
+  it("throws when that refund fails, so the provider delivers the event again", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.order();
+    await h.service.handlePaymentEvent({ eventId: "evt-x", kind: "expired", sectorId });
+    h.payment.failRefunds = true;
+    await expect(h.service.handlePaymentEvent({ eventId: "evt-p", kind: "paid", sectorId })).rejects.toThrow();
+    h.payment.failRefunds = false;
+    await h.service.handlePaymentEvent({ eventId: "evt-p", kind: "paid", sectorId });
+    expect(h.payment.refunded).toEqual([`fake-pay-${sectorId}`]);
+  });
+
+  it("ignores a repeated event entirely, alerts included", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.openSector();
+    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId });
+    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId });
+    expect(h.alerts.filter((alert) => alert.kind === "payment_dispute")).toHaveLength(1);
   });
 
   it("closes a sector the owner refunded and alerts on a dispute without closing anything", async () => {

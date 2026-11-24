@@ -7,6 +7,8 @@ export type HostingConfig = {
   checkoutExpiryMs: number;
   /** After this long without an open sector, a paid order is refunded automatically (owner decision Q1: 24 hours). */
   refundAfterMs: number;
+  /** A paid sector whose server is still not healthy this long after payment is reported as failing. */
+  slowOpenAlertMs: number;
   /** How long an ended sector stays up to look around (owner decision Q7: 3 days). */
   lookAroundMs: number;
   /**
@@ -31,6 +33,7 @@ export const DEFAULT_HOSTING_CONFIG: HostingConfig = {
   allowGuestMembers: false,
   checkoutExpiryMs: 30 * MINUTE,
   refundAfterMs: 24 * HOUR,
+  slowOpenAlertMs: 30 * MINUTE,
   lookAroundMs: 3 * DAY,
   idleCloseMs: 7 * DAY,
   inviteTtlMs: 30 * DAY,

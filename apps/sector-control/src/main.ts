@@ -2,11 +2,14 @@ import { DatabaseSync } from "node:sqlite";
 
 import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-identity/firebase-token-verifier.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
+import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
 import { FakePaymentProvider, FakeServerProvider } from "./providers/fake-providers.js";
 import { parseSectorControlRuntimeEnv } from "./runtime-env/runtime-env.js";
-import { createSectorControlApp } from "./sector-control-app.js";
+import { createSectorControlApp } from "./sector-control-app/sector-control-app.js";
 
 const env = parseSectorControlRuntimeEnv(process.env);
+// A key that cannot be read would start a service that takes orders and then fails every entry.
+await assertSectorTicketKey(env.ticketPrivateKeyPem);
 
 const db = new DatabaseSync(env.sqlitePath);
 db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");

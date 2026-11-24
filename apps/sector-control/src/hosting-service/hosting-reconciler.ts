@@ -61,10 +61,23 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
       if (!serverRef || !hostname) {
         ({ serverRef, hostname } = await deps.servers.createServer({ sectorId: sector.sectorId, options: sector.options }));
         // Recorded before anything else, so a restart never requests a second server.
-        store.transitionSector(sector.sectorId, ["creating"], { serverRef, hostname }, now);
+        if (!store.transitionSector(sector.sectorId, ["creating"], { serverRef, hostname }, now)) {
+          // The order changed while the server was being made (a refund
+          // arrived): nothing would ever look after this server, so remove it.
+          await deps.servers.deleteServer(serverRef);
+          return;
+        }
       }
       // Not healthy yet is normal while the world is generated; look again next pass.
-      if (!(await deps.servers.isHealthy(hostname))) return;
+      if (!(await deps.servers.isHealthy(hostname))) {
+        // ...but not for long. Counted as the first failure, so the owner hears now
+        // and the player sees the delay, instead of both learning at the refund.
+        if (sector.createAttempts === 0 && sector.paidAt !== undefined && now - sector.paidAt >= config.slowOpenAlertMs) {
+          store.transitionSector(sector.sectorId, ["creating"], { createAttempts: 1, lastError: "server not healthy yet" }, now);
+          deps.alert("sector_creation_failing", { sectorId: sector.sectorId, error: "server not healthy yet" });
+        }
+        return;
+      }
       if (store.transitionSector(sector.sectorId, ["creating"], { state: "open", openedAt: now, lastError: null, nextAttemptAt: null }, now)) {
         const opened = store.getSector(sector.sectorId);
         if (opened) deps.onSectorOpened?.(opened);
@@ -91,7 +104,16 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
 
   const watchOpenSector = async (sector: SectorRecord, now: number): Promise<void> => {
     if (!sector.hostname) return;
-    const status = await deps.servers.getContestStatus(sector.hostname);
+    let status: Awaited<ReturnType<ServerProvider["getContestStatus"]>>;
+    try {
+      status = await deps.servers.getContestStatus(sector.hostname);
+    } catch (error) {
+      // Told once per outage: lastError is cleared when the server answers again.
+      if (sector.lastError === undefined) deps.alert("sector_unreachable", { sectorId: sector.sectorId, error: errorText(error) });
+      store.transitionSector(sector.sectorId, ["open"], { lastError: errorText(error) }, now);
+      return;
+    }
+    if (sector.lastError !== undefined) store.transitionSector(sector.sectorId, ["open"], { lastError: null }, now);
     if (status.ended) {
       store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
       return;
