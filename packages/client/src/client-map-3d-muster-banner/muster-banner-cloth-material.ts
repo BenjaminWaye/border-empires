@@ -109,6 +109,8 @@ varying float vBannerFold;
 varying float vBannerDesign;
 uniform float uBannerTime;
 uniform vec3 uBannerTrim;
+// How much of this fragment is the High-noble standard's gold thread: it shines as metal.
+float gBannerGold = 0.0;
 uniform vec3 uBannerBand;
 ${SHAPE_CONSTANTS}
 // Antialiased 1 inside / 0 outside for a signed distance d (negative inside).
@@ -177,7 +179,10 @@ const COLOR_PATCH = /* glsl */ `
     vec2 lattice = vec2(across + down, across - down) / 0.05;
     vec2 cell = abs(fract(lattice) - 0.5);
     damask = (smoothstep(0.2, 0.26, max(cell.x, cell.y)) - 0.5) * (1.0 - trim);
-    vec2 sunP = vec2(across, down - 0.25) / (BANNER_WIDTH * 0.5);
+    // A scalloped gold pelmet across the head of the cloth.
+    float scallop = 0.05 + 0.016 * abs(sin(across * 3.14159 / 0.05));
+    trim = max(trim, bannerFill(abs(down - scallop) - 0.003));
+    vec2 sunP = vec2(across, down - 0.27) / (BANNER_WIDTH * 0.5);
     device = bannerSun(sunP / 0.78);
     outline = clamp(bannerSun(sunP / 0.86) - device, 0.0, 1.0);
   }
@@ -194,6 +199,7 @@ const COLOR_PATCH = /* glsl */ `
   float glint = step(0.5, vBannerDesign) * pow(max(0.0, sin((drop * 1.6 + u * 0.7) * 3.14159 - uBannerTime * 1.1)), 40.0);
   thread = mix(thread, vec3(1.0, 0.96, 0.78), glint * 0.75);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread, max(max(trim, device), fringe));
+  gBannerGold = step(0.5, vBannerDesign) * max(max(trim, device), fringe);
   diffuseColor.rgb *= shade;
 }
 `;
@@ -243,7 +249,10 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
       );
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_DECLARATIONS}`)
-      .replace("#include <color_fragment>", COLOR_PATCH);
+      .replace("#include <color_fragment>", COLOR_PATCH)
+      // Only the High-noble standard's thread: gBannerGold is 0 for every other design, which leaves them as they were.
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.32, gBannerGold);")
+      .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.85, gBannerGold);");
   };
   cloth.customProgramCacheKey = () => "muster-banner-cloth";
 

@@ -19,7 +19,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import type { MusterFlagDesign } from "./client-cosmetics/client-cosmetics.js";
 import { BANNER_DESIGN_INDEX, createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
-import { AUREOLE_Y, AUREOLE_Z, getMusterBannerRegaliaGeometry } from "./client-map-3d-muster-banner/muster-banner-regalia-geometry.js";
+import { createMusterBannerRegalia, type RegaliaFlag } from "./client-map-3d-muster-banner/muster-banner-regalia.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
 import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
@@ -156,9 +156,7 @@ export const createMusterOverlay = (
   const enamelMaterial = new MeshPhysicalMaterial({
     color: "#ffffff", roughness: 0.4, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.12, flatShading: true
   });
-  // The High-noble standard's gilding: brighter and smoother than the brass.
-  const goldMaterial = new MeshStandardMaterial({ color: "#ffd257", roughness: 0.3, metalness: 0.6, flatShading: true });
-  for (const material of [bodyMaterial, metalMaterial, enamelMaterial, goldMaterial]) applyBuildingEnvMap(material, envMap);
+  for (const material of [bodyMaterial, metalMaterial, enamelMaterial]) applyBuildingEnvMap(material, envMap);
   const clothMaterials = createMusterBannerClothMaterials();
   applyBuildingEnvMap(clothMaterials.cloth, envMap);
   const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
@@ -190,24 +188,9 @@ export const createMusterOverlay = (
     mesh.count = 0;
   }
 
-  // Regalia of flags whose owner shows the High-noble standard cosmetic. Its
-  // own, shorter instance list: most flags carry none.
-  const regalia = getMusterBannerRegaliaGeometry();
-  const regaliaGold = new InstancedMesh(regalia.gold, goldMaterial, MAX);
-  const regaliaEnamel = new InstancedMesh(regalia.tinted, enamelMaterial, MAX);
-  regaliaEnamel.instanceMatrix = regaliaGold.instanceMatrix;
-  // The aureole turns, so it has its own matrices, written each tick.
-  const regaliaAureole = new InstancedMesh(regalia.aureole, goldMaterial, MAX);
-  const regaliaMeshes = [regaliaGold, regaliaEnamel, regaliaAureole];
-  const nobleEntries: TileEntry[] = [];
-  for (const [i, mesh] of regaliaMeshes.entries()) {
-    mesh.name = `muster-banner-regalia-${["gold", "enamel", "aureole"][i]}`;
-    mesh.customDepthMaterial = depthMaterial;
-    mesh.frustumCulled = false;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.count = 0;
-  }
+  // Gilded extras of flags whose owner shows the High-noble standard cosmetic.
+  const regalia = createMusterBannerRegalia(scene, MAX, envMap, depthMaterial);
+  const regaliaFlags: RegaliaFlag[] = [];
 
   const soldierGeom = new ConeGeometry(SOLDIER_W * 0.5, SOLDIER_H, 4); // tiny soldier silhouette
   const soldierMat  = new MeshBasicMaterial({ toneMapped: false, color: "#0a0d18", depthTest: false, depthWrite: false, transparent: true });
@@ -225,7 +208,7 @@ export const createMusterOverlay = (
   siegeRingMesh.count = 0;
   siegeRingMesh.renderOrder = 35;
 
-  scene.add(...pieceMeshes, ...regaliaMeshes, soldierMesh, siegeRingMesh);
+  scene.add(...pieceMeshes, soldierMesh, siegeRingMesh);
   const progressBadges = createMusterProgressBadgeLayer(scene);
   const badgeSlots: MusterProgressBadgeSlot[] = [];
 
@@ -251,16 +234,12 @@ export const createMusterOverlay = (
   const commit = (): void => {
     const count = entries.length;
     for (const mesh of pieceMeshes) mesh.count = count;
-    let regaliaCount = 0;
-    nobleEntries.length = 0;
+    regaliaFlags.length = 0;
     for (let i = 0; i < count; i++) {
       const e = entries[i]!;
       body.setMatrixAt(i, matrix.makeTranslation(e.sceneX, e.surfaceY + TOWN_BASE_LIFT, e.sceneZ));
       if (e.design === "flag-high-noble") {
-        regaliaGold.setMatrixAt(regaliaCount, matrix);
-        regaliaEnamel.setColorAt(regaliaCount, e.tintColor);
-        nobleEntries.push(e);
-        regaliaCount += 1;
+        regaliaFlags.push({ x: e.sceneX, y: e.surfaceY + TOWN_BASE_LIFT, z: e.sceneZ, tint: e.tintColor, seed: hash01(e.worldTileX, e.worldTileY, 0, 41) });
       }
       enamel.setColorAt(i, e.tintColor);
       cloth.setColorAt(i, e.tintColor);
@@ -270,11 +249,7 @@ export const createMusterOverlay = (
     body.instanceMatrix.clearUpdateRanges();
     wind.clearUpdateRanges();
     design.clearUpdateRanges();
-    for (const mesh of regaliaMeshes) mesh.count = regaliaCount;
-    if (regaliaCount > 0) {
-      regaliaGold.instanceMatrix.needsUpdate = true;
-      if (regaliaEnamel.instanceColor) regaliaEnamel.instanceColor.needsUpdate = true;
-    }
+    regalia.commit(regaliaFlags);
     if (count === 0) return;
     body.instanceMatrix.addUpdateRange(0, count * 16);
     body.instanceMatrix.needsUpdate = true;
@@ -349,34 +324,22 @@ export const createMusterOverlay = (
     progressBadges.sync(badgeSlots, nowMs);
   };
 
-  // One slow turn every 40 seconds; each flag starts at its own angle.
-  const applyAureoles = (nowMs: number): void => {
-    if (nobleEntries.length === 0) return;
-    for (const [i, e] of nobleEntries.entries()) {
-      dummy.position.set(e.sceneX, e.surfaceY + TOWN_BASE_LIFT + AUREOLE_Y, e.sceneZ + AUREOLE_Z);
-      dummy.rotation.set(0, 0, ((nowMs / 40_000) % 1) * Math.PI * 2 + hash01(e.worldTileX, e.worldTileY, 0, 41) * Math.PI * 2);
-      dummy.scale.setScalar(1);
-      dummy.updateMatrix();
-      regaliaAureole.setMatrixAt(i, dummy.matrix);
-    }
-    regaliaAureole.instanceMatrix.needsUpdate = true;
-  };
-
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
-    applyAureoles(nowMs);
+    regalia.tick(nowMs);
     applySoldierMatrices(nowMs);
     applySiegeRings(nowMs);
     applyProgressBadges(nowMs);
   };
 
   const dispose = (): void => {
-    scene.remove(...pieceMeshes, ...regaliaMeshes, soldierMesh, siegeRingMesh);
+    scene.remove(...pieceMeshes, soldierMesh, siegeRingMesh);
+    regalia.dispose();
     // The baked plinth geometry is shared across overlays; only the cloth copy is ours.
     clothGeometry.dispose();
-    for (const material of [bodyMaterial, metalMaterial, enamelMaterial, goldMaterial, depthMaterial]) material.dispose();
+    for (const material of [bodyMaterial, metalMaterial, enamelMaterial, depthMaterial]) material.dispose();
     clothMaterials.dispose();
-    for (const mesh of [...pieceMeshes, ...regaliaMeshes]) mesh.dispose();
+    for (const mesh of pieceMeshes) mesh.dispose();
     soldierGeom.dispose();
     soldierMat.dispose();
     siegeRingGeom.dispose();

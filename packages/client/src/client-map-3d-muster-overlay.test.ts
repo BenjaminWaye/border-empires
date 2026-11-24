@@ -127,6 +127,7 @@ describe("3d muster banner overlay", () => {
     overlay.commit();
     overlay.tick(1_000);
     expect(gold.count).toBe(0);
+    expect(meshNamed(scene, "muster-banner-regalia-sparkles").count).toBe(0);
     const standardSoldiers = soldiers.count;
     const standardCloth = new Color();
     cloth.getColorAt(0, standardCloth);
@@ -138,6 +139,8 @@ describe("3d muster banner overlay", () => {
     overlay.tick(1_000);
     expect(gold.count).toBe(1);
     expect(regaliaEnamel.count).toBe(1);
+    for (const part of ["streamers", "aureole", "halo"]) expect(meshNamed(scene, `muster-banner-regalia-${part}`).count).toBe(1);
+    expect(meshNamed(scene, "muster-banner-regalia-sparkles").count).toBeGreaterThan(0);
     expect(body.count).toBe(2);
     // The regalia's gems and streamers take the owner's colour.
     const tint = new Color();

@@ -17,9 +17,10 @@ it decorates.
 |---|---|---|---|
 | Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth; added ornament in gold and in the owner's colour | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the soldiers, the siege ring, the progress badge |
 
-Added ornament must stay inside the standard plinth's footprint and within a
-tenth of the standard flag's height (`muster-banner-regalia-geometry.test.ts`),
-so a paid flag is grander but not a taller beacon.
+Added ornament must stay inside the tile, close to the standard plinth's
+footprint, and within 15% of the standard flag's height
+(`muster-banner-regalia-geometry.test.ts`), so a paid flag is grander but not
+a taller beacon.
 
 No design may cover more of the owner's colour than the standard look does.
 Picking is by map tile, not by the drawn object, so no cosmetic affects a hit
@@ -29,7 +30,7 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
-| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays behind the head of the flag round a gem in the owner's colour, gilded wings spread from the crossbar, a banded and tasselled streamer in the owner's colour from each end of the crossbar, four gold posts topped with gems and joined by gold chains inside a double gold rim on the plinth, and a gold-bordered damask cloth with a sun in splendour, across whose gold thread a glint runs every few seconds |
+| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays inside a studded halo that turns the other way, round a glowing gem in the owner's colour; gilded wings spread from the crossbar; a long swallow-tailed streamer in the owner's colour from each end of the crossbar, edged and banded in gold, rippling in the wind; four tall gold posts topped with glowing gems and joined by gold chains inside a double gold rim on the plinth; glints that twinkle on the gilding; and a gold-bordered damask cloth with a scalloped pelmet and a sun in splendour, its gold thread shining as metal with a glint running down it |
 
 One cosmetic for now (owner decision, 2026-11-24): the muster flag is a
 House's own property and the thing to make grand. An ancillary skin, colour
@@ -43,18 +44,21 @@ placeholders; the owner sets shop names and prices. The catalogue is
 
 | | True-3D | 2D canvas |
 |---|---|---|
-| Muster flag | Every visible flag: the cloth livery (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) and the regalia (`muster-banner-regalia-geometry.ts`, its own instanced meshes in `client-map-3d-muster-overlay.ts`) | Only the pennant on your own besieged flag, which gains a gold edge, sun and finial (`client-map-render-muster-siege-badge.ts`) |
+| Muster flag | Every visible flag: the cloth livery (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) and the regalia (`muster-banner-regalia.ts`, with its geometry and materials beside it) | Only the pennant on your own besieged flag, which gains a gold edge, sun and finial (`client-map-render-muster-siege-badge.ts`) |
 
 Known gaps:
 
 - **The 2D map draws no muster flag for rivals, standard or not**, so a rival
   on the 2D map does not see the High-noble standard. Drawing one would change
   what 2D players can read and is a gameplay decision, not a cosmetic one.
-- The streamers are rigid; the cloth moves in the wind and the aureole turns.
+- It is built in code in the map's low-poly style, like the standard banner.
+  A sculpted, textured model would need an artist and a model pipeline.
+- The streamers cast no shadow, because they move in their shader.
 - The look must not be mistaken for the earned Duke title. It uses no crown.
-- The regalia adds about 2,600 triangles per High-noble flag, in three more
-  draw calls for all such flags together, and one matrix per such flag per
-  frame for the turning aureole. A standard flag costs nothing extra.
+- Cost: about 3,300 triangles per High-noble flag, six more draw calls for
+  all such flags together, and two matrices per such flag per frame for the
+  turning aureole and halo. Streamers, sparkles and the cloth glint animate in
+  their shaders. A standard flag costs nothing extra.
 
 Review story: `Map/Combat/Muster/Flag Designs` in Storybook.
 
