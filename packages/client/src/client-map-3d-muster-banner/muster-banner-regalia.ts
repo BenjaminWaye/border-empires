@@ -22,6 +22,7 @@ import {
   getMusterBannerRegaliaGeometry,
   REGALIA_SPARKLE_POINTS
 } from "./muster-banner-regalia-geometry.js";
+import { createRegaliaFx } from "./muster-banner-regalia-fx.js";
 import { createRegaliaMaterials } from "./muster-banner-regalia-materials.js";
 
 /** One High-noble flag: where its banner stands, its owner's colour, and a 0..1 seed so flags don't move in step. */
@@ -77,6 +78,7 @@ export const createMusterBannerRegalia = (scene: Scene, max: number, envMap?: Te
     mesh.count = 0;
   }
   scene.add(...meshes);
+  const fx = createRegaliaFx(scene, max, materials.time);
 
   const flags: RegaliaFlag[] = [];
   const matrix = new Matrix4();
@@ -87,6 +89,7 @@ export const createMusterBannerRegalia = (scene: Scene, max: number, envMap?: Te
     for (const flag of next) if (flags.length < max) flags.push(flag);
     for (const mesh of solid) mesh.count = flags.length;
     sparkles.count = flags.length * SPARKLES;
+    fx.commit(flags);
     if (flags.length === 0) return;
     for (const [i, flag] of flags.entries()) {
       gold.setMatrixAt(i, matrix.makeTranslation(flag.x, flag.y, flag.z));
@@ -128,6 +131,7 @@ export const createMusterBannerRegalia = (scene: Scene, max: number, envMap?: Te
 
   const dispose = (): void => {
     scene.remove(...meshes);
+    fx.dispose();
     for (const mesh of meshes) mesh.dispose();
     streamerGeometry.dispose();
     sparkleGeometry.dispose();

@@ -30,7 +30,7 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
-| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays inside a studded halo that turns the other way, round a glowing gem in the owner's colour; gilded wings spread from the crossbar; a long swallow-tailed streamer in the owner's colour from each end of the crossbar, edged and banded in gold, rippling in the wind; four tall gold posts topped with glowing gems and joined by gold chains inside a double gold rim on the plinth; glints that twinkle on the gilding; and a gold-bordered damask cloth with a scalloped pelmet and a sun in splendour, its gold thread shining as metal with a glint running down it |
+| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays inside a studded halo that turns the other way, round a glowing, pulsing gem in the owner's colour, with a soft gold glow behind it; gilded wings spread from the crossbar; two swallow-tailed streamers in the owner's colour from each end of the crossbar, edged and banded in gold, rippling in the wind; four tall gold posts topped with glowing gems and joined by gold chains inside a double gold rim on the plinth; a sheen that sweeps up the gold, glints that twinkle on it, and gold dust drifting up round the flag; and a gold-bordered damask cloth with a scalloped pelmet and a sun in splendour, its gold thread shining as metal with a glint running down it |
 
 One cosmetic for now (owner decision, 2026-11-24): the muster flag is a
 House's own property and the thing to make grand. An ancillary skin, colour
@@ -44,7 +44,7 @@ placeholders; the owner sets shop names and prices. The catalogue is
 
 | | True-3D | 2D canvas |
 |---|---|---|
-| Muster flag | Every visible flag: the cloth livery (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) and the regalia (`muster-banner-regalia.ts`, with its geometry and materials beside it) | Only the pennant on your own besieged flag, which gains a gold edge, sun and finial (`client-map-render-muster-siege-badge.ts`) |
+| Muster flag | Every visible flag: the cloth livery (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) and the regalia (`muster-banner-regalia.ts`, with its geometry, materials and effects beside it) | Only the pennant on your own besieged flag, which gains a gold edge, sun and finial (`client-map-render-muster-siege-badge.ts`) |
 
 Known gaps:
 
@@ -55,10 +55,14 @@ Known gaps:
   A sculpted, textured model would need an artist and a model pipeline.
 - The streamers cast no shadow, because they move in their shader.
 - The look must not be mistaken for the earned Duke title. It uses no crown.
-- Cost: about 3,300 triangles per High-noble flag, six more draw calls for
+- Cost: about 3,800 triangles per High-noble flag, eight more draw calls for
   all such flags together, and two matrices per such flag per frame for the
-  turning aureole and halo. Streamers, sparkles and the cloth glint animate in
-  their shaders. A standard flag costs nothing extra.
+  turning aureole and halo. Streamers, sparkles, glow, dust, the gold sheen and
+  the cloth glint animate in their shaders. A standard flag costs nothing
+  extra. Not profiled on a phone.
+- The glow, sparkles and dust are drawn additively, so they show more at
+  night. They sit on the flag's own tile, which a rival sees only with vision
+  of it.
 
 Review story: `Map/Combat/Muster/Flag Designs` in Storybook.
 

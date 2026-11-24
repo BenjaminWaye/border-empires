@@ -33,6 +33,7 @@ export const STREAMER_X = BANNER_CLOTH.width / 2 + 0.052;
 export const STREAMER_TOP_Y = MUSTER_CROSSBAR_Y - 0.03;
 export const STREAMER_LENGTH = 0.5;
 export const STREAMER_WIDTH = 0.05;
+export const STREAMER_OUTER_OFFSET = 0.046;
 const STREAMER_SEGMENTS = 16;
 const POST_RADIUS = MUSTER_PLINTH_RADIUS * 0.76;
 const WING_FEATHERS = 6;
@@ -94,14 +95,17 @@ const buildStreamerRibbons = (): BufferGeometry => {
   const uvs: number[] = [];
   const sides: number[] = [];
   const indices: number[] = [];
-  for (const side of [-1, 1]) {
+  // Per side: a long ribbon by the cloth and a shorter, narrower one outside and behind it.
+  for (const [side, outer] of [[-1, 0], [1, 0], [-1, 1], [1, 1]] as const) {
     const base = positions.length / 3;
+    const x = side * (STREAMER_X + outer * STREAMER_OUTER_OFFSET);
+    const [width, length] = outer ? [STREAMER_WIDTH * 0.7, STREAMER_LENGTH * 0.62] : [STREAMER_WIDTH, STREAMER_LENGTH];
     for (let j = 0; j <= STREAMER_SEGMENTS; j += 1) {
       const along = j / STREAMER_SEGMENTS;
       for (const across of [0, 0.5, 1]) {
-        positions.push(side * STREAMER_X + (across - 0.5) * STREAMER_WIDTH, STREAMER_TOP_Y - along * STREAMER_LENGTH, 0.012);
+        positions.push(x + (across - 0.5) * width, STREAMER_TOP_Y - along * length, outer ? -0.004 : 0.012);
         uvs.push(across, along);
-        sides.push(side);
+        sides.push(side * (outer ? 1.6 : 1)); // the outer pair flies a little wider and out of step
       }
     }
     for (let j = 0; j < STREAMER_SEGMENTS; j += 1) {
@@ -139,7 +143,11 @@ const buildBossAndWings = (gold: BufferGeometry[], tinted: BufferGeometry[]): vo
 
 /** The gold knobs the streamers hang from; the ribbons themselves are `streamers`. */
 const buildStreamerKnobs = (gold: BufferGeometry[]): void => {
-  for (const side of [-1, 1]) gold.push(new SphereGeometry(0.014, 10, 8).translate(side * STREAMER_X, STREAMER_TOP_Y + 0.004, 0.012));
+  for (const side of [-1, 1]) {
+    gold.push(new SphereGeometry(0.014, 10, 8).translate(side * STREAMER_X, STREAMER_TOP_Y + 0.004, 0.012));
+    gold.push(new SphereGeometry(0.011, 10, 8).translate(side * (STREAMER_X + STREAMER_OUTER_OFFSET), STREAMER_TOP_Y + 0.004, -0.004));
+    gold.push(new CylinderGeometry(0.005, 0.005, STREAMER_OUTER_OFFSET + 0.02, 6).rotateZ(Math.PI / 2).translate(side * (STREAMER_X + STREAMER_OUTER_OFFSET / 2), STREAMER_TOP_Y + 0.004, 0.004));
+  }
 };
 
 const buildPlinthGilding = (gold: BufferGeometry[], tinted: BufferGeometry[]): void => {
@@ -201,4 +209,13 @@ export const REGALIA_SPARKLE_POINTS: ReadonlyArray<readonly [number, number, num
   [-POST_RADIUS, MUSTER_PLINTH_TOP_Y + 0.13, 0],
   [0, MUSTER_PLINTH_TOP_Y + 0.13, POST_RADIUS],
   [0, MUSTER_PLINTH_TOP_Y + 0.13, -POST_RADIUS]
+];
+
+/** Local centres of the gems: the boss gem first, then the four post gems. Each gets a glow in the owner's colour. */
+export const REGALIA_GEM_POINTS: ReadonlyArray<readonly [number, number, number]> = [
+  [0, AUREOLE_Y, AUREOLE_Z + 0.03],
+  [POST_RADIUS, MUSTER_PLINTH_TOP_Y + 0.108, 0],
+  [-POST_RADIUS, MUSTER_PLINTH_TOP_Y + 0.108, 0],
+  [0, MUSTER_PLINTH_TOP_Y + 0.108, POST_RADIUS],
+  [0, MUSTER_PLINTH_TOP_Y + 0.108, -POST_RADIUS]
 ];

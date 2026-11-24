@@ -23,6 +23,8 @@ export type RegaliaMaterials = {
   readonly streamer: MeshPhysicalMaterial;
   /** Camera-facing glints on the gilding. */
   readonly sparkle: ShaderMaterial;
+  /** The shared shader clock, in seconds; the glow and dust (muster-banner-regalia-fx.ts) read it too. */
+  readonly time: { value: number };
   readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
 };
@@ -63,16 +65,33 @@ export const createRegaliaMaterials = (envMap?: Texture): RegaliaMaterials => {
     color: "#ffcf55", roughness: 0.24, metalness: 0.8, clearcoat: 0.6, clearcoatRoughness: 0.15,
     emissive: new Color("#3d2a06"), flatShading: true
   });
+  gold.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    // A sheen that sweeps up the gilding every few seconds, as if the light were moving.
+    shader.uniforms.uGoldTime = time;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying float vGoldSweep;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGoldSweep = transformed.y * 3.0 + transformed.x * 1.5;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vGoldSweep;\nuniform float uGoldTime;")
+      .replace(
+        "#include <emissivemap_fragment>",
+        "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, 0.82, 0.42) * 0.55 * pow(max(0.0, sin(vGoldSweep - uGoldTime * 1.3)), 24.0);"
+      );
+  };
+  gold.customProgramCacheKey = () => "muster-banner-regalia-gold";
 
   const gem = new MeshPhysicalMaterial({
     color: "#ffffff", roughness: 0.12, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05, flatShading: true
   });
   gem.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     // Lit from within in its own colour, so the owner's colour carries at a distance.
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <emissivemap_fragment>",
-      "#include <emissivemap_fragment>\n#ifdef USE_INSTANCING_COLOR\ntotalEmissiveRadiance += vColor.rgb * 0.45;\n#endif"
-    );
+    shader.uniforms.uGemTime = time;
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform float uGemTime;")
+      .replace(
+        "#include <emissivemap_fragment>",
+        "#include <emissivemap_fragment>\n#ifdef USE_INSTANCING_COLOR\ntotalEmissiveRadiance += vColor.rgb * (0.42 + 0.16 * sin(uGemTime * 1.6));\n#endif"
+      );
   };
   gem.customProgramCacheKey = () => "muster-banner-regalia-gem";
 
@@ -126,7 +145,7 @@ export const createRegaliaMaterials = (envMap?: Texture): RegaliaMaterials => {
   });
 
   return {
-    gold, gem, streamer, sparkle,
+    gold, gem, streamer, sparkle, time,
     tick: (nowMs) => { time.value = (nowMs / 1000) % TIME_PERIOD; },
     dispose: () => { for (const material of [gold, gem, streamer, sparkle]) material.dispose(); }
   };

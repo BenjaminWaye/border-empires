@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { MUSTER_CROSSBAR_Y, MUSTER_PLINTH_RADIUS } from "./muster-banner-geometry.js";
 import {
   AUREOLE_Y, getMusterBannerRegaliaGeometry, REGALIA_MAX_RADIUS, REGALIA_SPARKLE_POINTS, REGALIA_TOP_Y,
-  STREAMER_LENGTH, STREAMER_TOP_Y, STREAMER_WIDTH, STREAMER_X
+  STREAMER_LENGTH, STREAMER_OUTER_OFFSET, STREAMER_TOP_Y, STREAMER_WIDTH, STREAMER_X
 } from "./muster-banner-regalia-geometry.js";
 
 // The standard banner's spear finial tops out here (muster-banner-geometry.ts).
@@ -47,8 +47,9 @@ describe("High-noble standard regalia", () => {
       expect(AUREOLE_Y + geometry.boundingSphere!.radius).toBeLessThanOrEqual(REGALIA_TOP_Y + 1e-6);
       expect(geometry.boundingSphere!.radius).toBeLessThan(MUSTER_PLINTH_RADIUS);
     }
-    // At rest the ribbons hang inside the plinth; their ripple (muster-banner-regalia-materials.ts) swings the tail out by at most 0.07 + 0.018.
+    // The ripple (muster-banner-regalia-materials.ts) swings a tail out by at most 0.07 + 0.018, times 1.6 for the outer pair.
     expect(STREAMER_X + STREAMER_WIDTH / 2 + 0.088).toBeLessThan(0.5);
+    expect(STREAMER_X + STREAMER_OUTER_OFFSET + STREAMER_WIDTH * 0.35 + 0.088 * 1.6).toBeLessThan(0.5);
     expect(STREAMER_TOP_Y - STREAMER_LENGTH).toBeGreaterThan(0.3);
   });
 
