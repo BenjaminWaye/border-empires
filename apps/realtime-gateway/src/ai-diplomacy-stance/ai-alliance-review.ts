@@ -8,6 +8,7 @@
 // per run -- not from a subscription as each AI, which would hold a full
 // player snapshot per allied AI for the rest of the season.
 import { alliancesAiShouldLeave, dominanceSizingFor, tileLookupFor, type AllyLookup, type SeasonSizes } from "./ai-alliance-bloc.js";
+import { weakNeighboursToLeave } from "./ai-alliance-conquest-review.js";
 
 /** How often the review actually runs (it is called from the gateway's 60s alliance-break task). */
 export const AI_ALLIANCE_REVIEW_INTERVAL_MS = 5 * 60_000;
@@ -28,17 +29,27 @@ export type AiAllianceReviewDeps = {
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
   now: () => number;
+  /**
+   * One AI's own map view (a one-off export: AIs hold no subscription). Re-checks weak neighbours it allied
+   * (ai-alliance-conquest-review.ts). At most one AI per run, so at most one export every
+   * AI_ALLIANCE_REVIEW_INTERVAL_MS: per-AI view exports have stalled the simulation before.
+   */
+  fetchAiView?: (playerId: string) => Promise<{ tiles: readonly Parameters<typeof weakNeighboursToLeave>[3][number][] } | undefined>;
 };
 
 export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promise<void>) => {
   let lastRunAt = Number.NEGATIVE_INFINITY;
   let running = false;
+  // Round-robin cursor over AIs with allies: the one whose view this run re-checks for weak neighbours.
+  let viewCursor = 0;
   return async () => {
     if (running || deps.now() - lastRunAt < AI_ALLIANCE_REVIEW_INTERVAL_MS) return;
     running = true;
     lastRunAt = deps.now();
     try {
       let sizes: SeasonSizes | undefined;
+      const withAllies = [...deps.seededAiPlayerIds].filter((aiId) => !deps.hasLiveSocket(aiId) && deps.alliesOf(aiId).length > 0);
+      const viewAi = withAllies.length > 0 ? withAllies[viewCursor++ % withAllies.length] : undefined;
       for (const aiId of deps.seededAiPlayerIds) {
         if (deps.hasLiveSocket(aiId)) continue;
         const pending = new Set(deps.pendingBreaksOf(aiId));
@@ -62,6 +73,26 @@ export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promi
             ...(result.ok ? {} : { code: result.code })
           });
           if (result.ok) deps.fanoutPlayerPayloads(result.payloadsByPlayerId);
+          pending.add(allyId);
+        }
+        if (aiId === viewAi && deps.fetchAiView) {
+          const view = await deps.fetchAiView(aiId).catch(() => undefined);
+          const stillAllied = deps.alliesOf(aiId).filter((allyId) => !pending.has(allyId));
+          for (const allyId of view ? weakNeighboursToLeave(aiId, stillAllied, tilesOf, view.tiles) : []) {
+            const aiName = deps.playerName(aiId);
+            const result = deps.breakAlliance(aiId, allyId, {
+              [allyId]: `${aiName} started a 24h notice to leave your alliance: it would rather take your land. Fortify the towns and resources on your border with them to keep the alliance.`,
+              [aiId]: `You started a 24h notice to leave your alliance with ${deps.playerName(allyId)}.`
+            });
+            deps.recordGatewayEvent(result.ok ? "info" : "warn", "gateway_ai_alliance_left_weak_neighbour", {
+              aiPlayerId: aiId,
+              allyId,
+              aiTiles: tilesOf(aiId),
+              allyTiles: tilesOf(allyId),
+              ...(result.ok ? {} : { code: result.code })
+            });
+            if (result.ok) deps.fanoutPlayerPayloads(result.payloadsByPlayerId);
+          }
         }
       }
     } finally {

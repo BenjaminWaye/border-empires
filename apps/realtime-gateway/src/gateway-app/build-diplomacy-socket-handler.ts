@@ -208,7 +208,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     breakAlliance: socialState.breakAlliance,
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
     recordGatewayEvent: deps.recordGatewayEvent,
-    now: () => Date.now()
+    now: () => Date.now(),
+    fetchAiView: fetchAiSnapshot
   });
   const responder = createSeededAiDiplomacyResponder({
     seededAiPlayerIds: deps.seededAiPlayerIds,
