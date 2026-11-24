@@ -25,13 +25,14 @@ they sit in `packages/client/public/`.
 ## Still to fill in
 
 Every draft marks these as `[[NAME]]`. Publishing is blocked until none is
-left.
+left. The organisation number, 559265-3249, is already filled in; it was taken
+on 2026-11-24 from public company listings (allabolag.se, hitta.se, ratsit.se),
+not from Bolagsverket, and the owner should confirm it.
 
 | Marker | What is needed |
 |---|---|
-| `[[ORG_NUMBER]]` | TIDN AB's organisation number |
-| `[[REGISTERED_ADDRESS]]` | TIDN AB's registered postal address |
-| `[[VAT_NUMBER]]` | TIDN AB's VAT number (SE…01) |
+| `[[REGISTERED_ADDRESS]]` | TIDN AB's registered postal address. Public company listings give Fållnäsgatan 53, Enskede, without a postcode; the owner confirms the full address |
+| `[[VAT_NUMBER]]` | TIDN AB's VAT number. If the company is registered for VAT it is SE559265324901 by the standard format; the owner or accountant confirms that it is registered |
 | `[[EFFECTIVE_DATE]]` | The date the pages go live |
 
 The contact address is the one already on the live pages. Say so if purchases
@@ -43,7 +44,7 @@ should use a different one.
 are published. Proposed wording:
 
 - Section 1, add: "Border Empires is operated by TIDN AB, company registration
-  number `[[ORG_NUMBER]]`, `[[REGISTERED_ADDRESS]]`, Sweden."
+  number 559265-3249, `[[REGISTERED_ADDRESS]]`, Sweden."
 - New section before "Disclaimers": "**Purchases.** Purchases made on the
   Border Empires website are covered by the
   Terms of Sale (linked to `/purchase-terms.html`), which include your right to withdraw
@@ -89,7 +90,7 @@ are published. Proposed wording:
 
 ## How to publish
 
-1. Fill in the four markers in both files and in the Terms of Service wording
+1. Fill in the three remaining markers in both files and in the Terms of Service wording
    above.
 2. Have the texts reviewed.
 3. Move `purchase-terms.html` and `privacy.html` into
