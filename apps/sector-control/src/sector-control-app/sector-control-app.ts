@@ -5,14 +5,14 @@ import { randomBytes } from "node:crypto";
 
 import Fastify, { type FastifyInstance } from "fastify";
 
-import { addCorsHeaders } from "../../realtime-gateway/src/http-routes/cors-headers.js";
-import type { HostingConfig } from "./hosting-service/hosting-config.js";
-import { createHostingReconciler } from "./hosting-service/hosting-reconciler.js";
-import { createHostingService, type HostingAccount } from "./hosting-service/hosting-service.js";
-import type { HostingStore } from "./hosting-store/hosting-store.js";
-import { registerHostingRoutes, type HostingRoutesDeps } from "./http-routes/hosting-routes.js";
-import type { HostingAlert, PaymentProvider, ServerProvider } from "./providers/providers.js";
-import { createSectorTicketSigner } from "./sector-ticket/sector-ticket-signer.js";
+import { addCorsHeaders } from "../../../realtime-gateway/src/http-routes/cors-headers.js";
+import type { HostingConfig } from "../hosting-service/hosting-config.js";
+import { createHostingReconciler } from "../hosting-service/hosting-reconciler.js";
+import { createHostingService, type HostingAccount } from "../hosting-service/hosting-service.js";
+import type { HostingStore } from "../hosting-store/hosting-store.js";
+import { registerHostingRoutes, type HostingRoutesDeps } from "../http-routes/hosting-routes.js";
+import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers/providers.js";
+import { createSectorTicketSigner } from "../sector-ticket/sector-ticket-signer.js";
 
 export type SectorControlAppOptions = {
   store: HostingStore;

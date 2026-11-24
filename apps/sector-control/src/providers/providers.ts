@@ -25,7 +25,9 @@ export interface ServerProvider {
   isHealthy(hostname: string): Promise<boolean>;
   /**
    * Whether the sector's contest has ended, and when a human last visited
-   * (undefined if no human has yet). AI Houses playing do not count.
+   * (undefined if no human has yet). AI Houses playing do not count. The
+   * game server must keep the visit time in its database: a value lost in a
+   * restart would read as "never visited" and close a sector in play.
    */
   getContestStatus(hostname: string): Promise<{ ended: boolean; lastHumanVisitAt?: number }>;
   /** Deletes the server and its DNS record. Must be safe to repeat. */
@@ -38,6 +40,7 @@ export type HostingAlertKind =
   | "sector_refund_failed"
   | "sector_running_count"
   | "sector_closed_idle"
+  | "sector_unreachable"
   | "sector_teardown_failed"
   | "payment_dispute"
   | "payment_for_unknown_sector";

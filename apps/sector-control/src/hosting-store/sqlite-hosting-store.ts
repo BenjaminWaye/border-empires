@@ -229,6 +229,10 @@ export class SqliteHostingStore implements HostingStore {
     return Number(result.changes) > 0;
   }
 
+  hasPaymentEvent(eventId: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM hosted_payment_events WHERE event_id = ?`).get(eventId) !== undefined;
+  }
+
   prunePaymentEvents(olderThan: number): number {
     return Number(this.db.prepare(`DELETE FROM hosted_payment_events WHERE received_at < ?`).run(olderThan).changes);
   }

@@ -96,5 +96,6 @@ export interface HostingStore {
 
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;
+  hasPaymentEvent(eventId: string): boolean;
   prunePaymentEvents(olderThan: number): number;
 }

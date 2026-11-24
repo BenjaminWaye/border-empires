@@ -34,7 +34,8 @@ export type SectorView = {
   delayed: boolean;
 };
 
-export type PaymentEvent = { eventId: string; kind: "paid" | "expired" | "refunded" | "disputed"; sectorId: string };
+/** `paymentRef` is the provider's reference for the payment, when the event carries one. */
+export type PaymentEvent = { eventId: string; kind: "paid" | "expired" | "refunded" | "disputed"; sectorId: string; paymentRef?: string };
 
 export type HostingServiceDeps = {
   store: HostingStore;
@@ -77,6 +78,19 @@ export const createHostingService = (deps: HostingServiceDeps) => {
     return { ok: true, sector };
   };
 
+  const refundClosedOrder = async (sector: SectorRecord, event: PaymentEvent): Promise<void> => {
+    const paymentRef = event.paymentRef ?? sector.paymentRef;
+    try {
+      if (!paymentRef) throw new Error("no payment reference to refund");
+      await deps.payment.refund(paymentRef);
+      deps.alert("payment_for_unknown_sector", { sectorId: sector.sectorId, kind: "paid_while_cancelled_refunded" });
+    } catch (error) {
+      // Thrown on, so the provider redelivers the event and the refund is tried again.
+      deps.alert("payment_for_unknown_sector", { sectorId: sector.sectorId, kind: "paid_while_cancelled_refund_failed", error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  };
+
   return {
     async createOrder(account: HostingAccount, options: HostedSectorOptions): Promise<HostingResult<{ sector: SectorView }>> {
       if (!config.salesEnabled) return fail("SALES_CLOSED", "Hosting is not on sale right now.");
@@ -115,6 +129,8 @@ export const createHostingService = (deps: HostingServiceDeps) => {
      */
     async handlePaymentEvent(event: PaymentEvent): Promise<{ applied: boolean }> {
       const now = deps.now();
+      // Providers deliver events more than once; a repeat changes nothing and alerts nobody.
+      if (store.hasPaymentEvent(event.eventId)) return { applied: false };
       const sector = store.getSector(event.sectorId);
       if (!sector) {
         deps.alert("payment_for_unknown_sector", { sectorId: event.sectorId, kind: event.kind });
@@ -124,8 +140,9 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       let applied = false;
       if (event.kind === "paid") {
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "creating", paidAt: now, createAttempts: 0 }, now);
-        // Money arrived for an order we had already closed: never keep it silently.
-        if (!applied && (sector.state === "cancelled" || sector.state === "refunded")) deps.alert("payment_for_unknown_sector", { sectorId: sector.sectorId, kind: `paid_while_${sector.state}` });
+        // Money arrived for an order we had already closed (its checkout was
+        // still payable when we gave up on it): return it, and tell the owner.
+        if (!applied && sector.state === "cancelled") await refundClosedOrder(sector, event);
       } else if (event.kind === "expired") {
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "cancelled" }, now);
       } else if (event.kind === "refunded") {

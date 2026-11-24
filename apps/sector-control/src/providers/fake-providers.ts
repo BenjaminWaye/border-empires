@@ -32,6 +32,9 @@ export class FakeServerProvider implements ServerProvider {
   createCalls = 0;
   failCreates = false;
   failDeletes = false;
+  failStatus = false;
+  /** Runs inside createServer, after the server exists: lets a test change the world mid-request. */
+  duringCreate: (() => Promise<void>) | undefined;
 
   async createServer(input: { sectorId: string }): Promise<{ serverRef: string; hostname: string }> {
     this.createCalls += 1;
@@ -39,6 +42,7 @@ export class FakeServerProvider implements ServerProvider {
     const serverRef = `fake-server-${input.sectorId}`;
     const hostname = `${input.sectorId}.sectors.invalid`;
     this.servers.set(serverRef, hostname);
+    await this.duringCreate?.();
     return { serverRef, hostname };
   }
 
@@ -47,6 +51,7 @@ export class FakeServerProvider implements ServerProvider {
   }
 
   async getContestStatus(hostname: string): Promise<{ ended: boolean; lastHumanVisitAt?: number }> {
+    if (this.failStatus) throw new Error("fake server unreachable");
     const lastHumanVisitAt = this.lastHumanVisitAt.get(hostname);
     return { ended: this.ended.has(hostname), ...(lastHumanVisitAt !== undefined ? { lastHumanVisitAt } : {}) };
   }

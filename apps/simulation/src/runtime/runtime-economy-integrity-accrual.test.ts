@@ -55,7 +55,7 @@ const makeCtx = (): Ctx => ({
   runtimeLogInfo: () => undefined
 });
 
-const expectedMult = integrityEconomyMult(empireIntegrity(METRICS.Ts, METRICS.Es));
+const expectedMult = integrityEconomyMult(empireIntegrity(METRICS.T, METRICS.Es, METRICS.Ts));
 
 describe("cachedEconomySnapshot applies the Empire Integrity income multiplier on every path", () => {
   it("guards the fixture: this empire's integrity changes income", () => {

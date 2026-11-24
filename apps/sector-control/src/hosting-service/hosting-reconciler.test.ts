@@ -204,6 +204,42 @@ describe("hosting reconciler: teardown", () => {
     expect(h.store.getSector(sectorId)?.state).toBe("deleted");
   });
 
+  it("deletes a server that was finished after its order was refunded", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await paid(h);
+    h.servers.duringCreate = async () => { await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId }); };
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(sectorId)?.state).toBe("refunded");
+    expect(h.servers.servers.size).toBe(0);
+  });
+
+  it("reports a server that is still not healthy 30 minutes after payment, once", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await paid(h);
+    await h.reconciler.runOnce();
+    expect(h.alerts).toHaveLength(0);
+    h.clock.now += 31 * MINUTE;
+    await h.reconciler.runOnce();
+    await h.reconciler.runOnce();
+    expect(h.alerts.map((alert) => alert.kind)).toEqual(["sector_creation_failing"]);
+    expect(h.service.listSectors(account("host"))[0]?.delayed).toBe(true);
+  });
+
+  it("tells the owner once when an open sector's server stops answering, and again after it recovers", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.openSector();
+    h.servers.failStatus = true;
+    await h.reconciler.runOnce();
+    await h.reconciler.runOnce();
+    expect(h.alerts.filter((alert) => alert.kind === "sector_unreachable")).toHaveLength(1);
+    h.servers.failStatus = false;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(sectorId)?.lastError).toBeUndefined();
+    h.servers.failStatus = true;
+    await h.reconciler.runOnce();
+    expect(h.alerts.filter((alert) => alert.kind === "sector_unreachable")).toHaveLength(2);
+  });
+
   it("deletes the server of a running sector the owner refunded", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();

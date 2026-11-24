@@ -602,11 +602,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const invalidateProfileCache = (playerId: string): void => {
     profileCache.delete(playerId);
   };
-  const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
+  const { resolveLogin, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
     onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(),
-    onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected")
+    onRejectReason: (reason) => app.log[reason.endsWith("_ticket") || reason === "missing_account" ? "warn" : "debug"]({ reason }, "gateway_auth_token_rejected")
   });
   const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
     const snapshot = await simulationClient.subscribePlayer(
@@ -1696,19 +1696,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token, message.sectorTicket);
-            if (!resolvedPlayerIdentity) {
-              recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
+            const login = await resolveLogin(message.token, message.sectorTicket);
+            if ("error" in login) {
+              recordGatewayEvent("warn", login.error.code === "AUTH_FAIL" ? "gateway_auth_rejected_unmapped_token" : "gateway_auth_rejected_sector_ticket", {
                 channel
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "AUTH_FAIL",
-                message: "Authentication token is not recognized by the rewrite gateway."
-              });
-              authTrace.complete("rejected", "AUTH_FAIL");
+              sendJson(socket, login.error);
+              authTrace.complete("rejected", login.error.code);
               return;
             }
+            const resolvedPlayerIdentity = login.identity;
             loginPhase.notify(socket, "Verifying identity...", "Your Google session is being verified.");
             let playerIdentity = { ...resolvedPlayerIdentity };
             let authBindingSource: ResolvedGatewayAuthBinding["bindingSource"] | undefined;
