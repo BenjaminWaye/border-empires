@@ -34,12 +34,13 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
   const opened: SectorRecord[] = [];
   const keys = await generateKeyPair("EdDSA", { crv: "Ed25519", extractable: true });
   const ticketPublicKey = (await exportSPKI(keys.publicKey)).replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "");
+  const ticketPrivateKeyPem = await exportPKCS8(keys.privateKey);
   const config: HostingConfig = { ...DEFAULT_HOSTING_CONFIG, salesEnabled: true, ...configOverrides };
   let nextId = 0;
   const alert = (kind: HostingAlertKind, details: Record<string, string | number>): void => { alerts.push({ kind, details }); };
   const service = createHostingService({
     store, payment, alert, config, now,
-    signTicket: createSectorTicketSigner({ privateKeyPem: await exportPKCS8(keys.privateKey), now }),
+    signTicket: createSectorTicketSigner({ privateKeyPem: ticketPrivateKeyPem, now }),
     newId: (length) => `id${String((nextId += 1)).padStart(length - 2, "0")}`
   });
   const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, onSectorOpened: (sector) => { opened.push(sector); } });
@@ -59,5 +60,5 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     await reconciler.runOnce();
     return sectorId;
   };
-  return { clock, store, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, order, openSector };
+  return { clock, store, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
 };
