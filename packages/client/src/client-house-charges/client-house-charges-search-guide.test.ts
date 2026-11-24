@@ -22,6 +22,7 @@ const road: HouseChargeView = {
 const stateFor = (charge: HouseChargeView, seen: string[] = []) => ({
   houseCharges: { type: "HOUSE_CHARGES" as const, dealtAt: 0, choiceClosesAt: 0, charges: [charge] },
   houseChargeFocusId: charge.id,
+  me: "p1",
   tiles: new Map<string, Tile>(seen.map((key) => {
     const [x, y] = key.split(",").map(Number) as [number, number];
     return [key, { x, y, terrain: "LAND" }];
