@@ -301,7 +301,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
     }
     if (event.eventType === "TILE_DELTA_BATCH") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
-      if (event.redeploy) countRecoveredRedeploy(accumulator, event.playerId);
+      for (const redeployedId of event.redeployPlayerIds ?? []) countRecoveredRedeploy(accumulator, redeployedId);
       for (const tileDelta of event.tileDeltas) {
         const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
         const pendingSettlement = accumulator.pendingSettlements.find(

@@ -127,7 +127,7 @@ const times = (count: number): string => (count === 1 ? "once" : `${int(count)} 
 
 const awardHtml = (award: PublicHouseAward): string =>
   award.kind === "NEVER_GAVE_UP"
-    ? `<li><b>Never Gave Up</b><span>Knocked out and redeployed ${times(award.redeploys)}, more than any other House</span><i>${contestLabel(award.seasonSequence)}</i></li>`
+    ? `<li><b>Never Gave Up</b><span>Knocked out and redeployed ${times(award.redeploys)}, the most of any House</span><i>${contestLabel(award.seasonSequence)}</i></li>`
     : `<li><b>Comeback Kid</b><span>Knocked out and redeployed ${times(award.redeploys)}, and still finished${award.rank !== undefined ? ` #${int(award.rank)}` : " in the top 5"}</span><i>${contestLabel(award.seasonSequence)}</i></li>`;
 
 const contestHtml = (contest: PublicHouseContest): string => {

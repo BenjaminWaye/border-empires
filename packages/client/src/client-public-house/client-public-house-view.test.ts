@@ -40,7 +40,7 @@ describe("public House profile page", () => {
     expect(html).toContain("Won · Town Control");
     expect(html).toContain("20 Nov 2026 · score 90 · 20 tiles");
     expect(html).toContain("31 tiles from Aln to Bel");
-    expect(html).toContain("<b>Never Gave Up</b><span>Knocked out and redeployed 6 times, more than any other House</span><i>Sector Contest 1</i>");
+    expect(html).toContain("<b>Never Gave Up</b><span>Knocked out and redeployed 6 times, the most of any House</span><i>Sector Contest 1</i>");
     expect(html).toContain("<b>Comeback Kid</b><span>Knocked out and redeployed once, and still finished #4</span>");
     expect(html).not.toContain("MADE_UP");
     expect(html).toContain("Lost 1,500 manpower at (5, 6)");

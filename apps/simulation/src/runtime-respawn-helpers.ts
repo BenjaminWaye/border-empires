@@ -240,7 +240,7 @@ export const ensurePlayerHasSpawnTerritory = (
   ctx.replaceTileState(tileKey, spawnedTile);
   if (redeploy) countRedeploy(player);
   finalizeRespawnNotice(ctx, playerId, tileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, ...(redeploy ? { redeploy: true as const } : {}), tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile))) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, ...(redeploy ? { redeployPlayerIds: [playerId] } : {}), tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile))) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
   if (rallyAnchor && onRallySpawnPlaced) {
     // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
@@ -372,7 +372,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     eventType: "TILE_DELTA_BATCH",
     commandId: respawnCommandId,
     playerId,
-    ...(redeploy ? { redeploy: true as const } : {}),
+    ...(redeploy ? { redeployPlayerIds: [playerId] } : {}),
     tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles, ...clearedWaystationTiles].map((deltaTile) => ctx.tileDeltaFromState(liveTile(ctx, deltaTile)))
   });
   if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });

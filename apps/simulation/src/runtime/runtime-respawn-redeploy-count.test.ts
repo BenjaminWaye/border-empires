@@ -50,7 +50,7 @@ const buildContext = (options: { siteFree?: () => boolean } = {}) => {
     reachOwnerAt: () => undefined,
     topCaptorOf: () => undefined
   };
-  const redeployBatches = (): number => events.filter((event) => event.eventType === "TILE_DELTA_BATCH" && event.redeploy === true).length;
+  const redeployBatches = (): number => events.filter((event) => event.eventType === "TILE_DELTA_BATCH" && (event.redeployPlayerIds?.length ?? 0) > 0).length;
   const redeploys = (playerId = "player-1"): number | undefined => ctx.players.get(playerId)?.redeploys;
   /** Takes the House's land away again so the next knock-out can land. */
   const loseLanding = (): void => void tiles.set(simulationTileKey(10, 12), { x: 10, y: 12, terrain: "LAND" });

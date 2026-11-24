@@ -10,11 +10,6 @@ export type SeasonAward =
   /** A House that redeployed and still finished in the top 5. */
   | { kind: "COMEBACK_KID"; playerId: string; playerName: string; redeploys: number; rank: number };
 
-export const SEASON_AWARD_TITLE: Record<SeasonAward["kind"], string> = {
-  NEVER_GAVE_UP: "Never Gave Up",
-  COMEBACK_KID: "Comeback Kid"
-};
-
 export type SeasonAwardStanding = { readonly id: string; readonly name: string; readonly rank: number };
 
 /**

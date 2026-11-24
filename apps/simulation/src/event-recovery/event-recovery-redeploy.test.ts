@@ -6,8 +6,9 @@ import { applySimulationEventsToRecoveredState } from "./event-recovery.js";
 it("replays redeploys marked on landing batches since the last checkpoint", () => {
   const before = { tiles: [], activeLocks: [], players: [{ id: "a", redeploys: 2 }, { id: "b" }] };
   const after = applySimulationEventsToRecoveredState(before, [
-    { eventType: "TILE_DELTA_BATCH", commandId: "lock-1:respawn:a", playerId: "a", redeploy: true, tileDeltas: [] },
-    { eventType: "TILE_DELTA_BATCH", commandId: "lock-2:respawn:b", playerId: "b", redeploy: true, tileDeltas: [] },
+    { eventType: "TILE_DELTA_BATCH", commandId: "lock-1:respawn:a", playerId: "a", redeployPlayerIds: ["a"], tileDeltas: [] },
+    // A combat resolution's merged batch carries the attacker's id and whoever redeployed in it.
+    { eventType: "TILE_DELTA_BATCH", commandId: "lock-2", playerId: "a", redeployPlayerIds: ["b"], tileDeltas: [] },
     { eventType: "TILE_DELTA_BATCH", commandId: "expand-1", playerId: "b", tileDeltas: [] }
   ]);
   expect(after.players).toEqual([{ id: "a", redeploys: 3 }, { id: "b", redeploys: 1 }]);
