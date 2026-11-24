@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as multiplexWebSocketModule from "../client-multiplex-websocket/client-multiplex-websocket.js";
+import { activeHostedSectorId } from "../client-hosted-sectors/client-hosted-sector-session.js";
 import { createClientSocketSetup } from "./client-app-runtime-env.js";
 import { Capacitor } from "@capacitor/core";
 
@@ -74,6 +75,50 @@ describe("client app runtime env", () => {
     expect(setup.wsUrl).toBe(override ?? "wss://api.borderempires.com/ws");
     expect(state.localhostDevAetherWall).toBe(false);
     expect(state.bridgeDebugMode).toBe("rewrite-gateway");
+  });
+
+  const hostedWindow = (stash: string | null) => {
+    const replaceState = vi.fn();
+    vi.stubGlobal("window", {
+      location: { hostname: "play.borderempires.com", protocol: "https:", search: "?sector=s-abc" },
+      sessionStorage: { getItem: () => stash, setItem: () => undefined, removeItem: () => undefined },
+      history: { replaceState }
+    });
+    return replaceState;
+  };
+
+  it("connects only the socket to a hosted sector's server, keeping the main gateway for everything else", () => {
+    (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS = "1";
+    try {
+      hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 }));
+      const state = { localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" };
+      const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined, addEventListener: () => undefined } as never);
+      const setup = createClientSocketSetup(state as never);
+      expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://s-abc.sectors.borderempires.com/ws");
+      expect(setup.wsUrl).toBe("wss://api.borderempires.com/ws");
+      expect(activeHostedSectorId()).toBe("s-abc");
+    } finally {
+      delete (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS;
+    }
+  });
+
+  it("falls back to the public sector when ?sector= has no entry ticket behind it, or the feature is off", () => {
+    (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS = "1";
+    try {
+      const replaceState = hostedWindow(null);
+      const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined } as never);
+      createClientSocketSetup({ localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" } as never);
+      expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://api.borderempires.com/ws");
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/");
+      expect(activeHostedSectorId()).toBeUndefined();
+    } finally {
+      delete (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS;
+    }
+    hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 }));
+    const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined } as never);
+    createClientSocketSetup({ localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" } as never);
+    expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://api.borderempires.com/ws");
+    expect(activeHostedSectorId()).toBeUndefined();
   });
 
   it("defaults localhost websocket traffic to the rewrite gateway host binding", () => {

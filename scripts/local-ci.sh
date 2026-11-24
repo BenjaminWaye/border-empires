@@ -49,6 +49,9 @@ run_step "simulation:slow" pnpm --filter @border-empires/simulation test:slow
 run_step "realtime-gateway:build" pnpm --filter @border-empires/realtime-gateway build
 run_step "realtime-gateway:lint" pnpm --filter @border-empires/realtime-gateway lint
 run_step "realtime-gateway:test" pnpm --filter @border-empires/realtime-gateway test
+run_step "sector-control:build" pnpm --filter @border-empires/sector-control build
+run_step "sector-control:lint" pnpm --filter @border-empires/sector-control lint
+run_step "sector-control:test" pnpm --filter @border-empires/sector-control test
 run_step "client:changelog" pnpm check:client-changelog
 run_step "client:lint" pnpm --filter @border-empires/client lint
 run_step "client:test" pnpm --filter @border-empires/client test

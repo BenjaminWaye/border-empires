@@ -128,7 +128,7 @@ describe("House Charges profile tip", () => {
 
 describe("House Charges card shape", () => {
   // Regression (owner 2026-11-21): a House named by its account id is one long unbreakable word; it widened the
-  // card's frame past the card's edge once the progress line ("House …'s AFC: not taken") showed on a kept card.
+  // card's frame past the card's edge once the progress line ("House …'s AFC: not garrisoned") showed on a kept card.
   it("wraps long words inside the card instead of widening it", () => {
     const deck = source("client-house-charges-deck.css");
     expect(deck).toMatch(/\.hcd-card \.hc-frame \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // The season-end screen's next-Sector-Contest button and the newcomer card.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setActiveHostedSectorSession } from "../client-hosted-sectors/client-hosted-sector-session.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 
 const makeWinner = () => ({ playerId: "p1", playerName: "Alpha", crownedAt: 1700000000000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" });
@@ -29,6 +30,18 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("season-end next Sector Contest", () => {
+  afterEach(() => setActiveHostedSectorSession(undefined));
+
+  it("offers no next contest on a hosted sector, which runs only one", () => {
+    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 });
+    const overlayEl = document.createElement("div");
+    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
+    renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    expect(overlayEl.querySelector("#se-new-season")).toBeNull();
+    expect(overlayEl.querySelector("#se-look-around")).not.toBeNull();
+    expect(overlayEl.querySelector(".se-fineprint")?.textContent).toContain("single Sector Contest");
+  });
+
   // Regression: the button said "Vote cast (n/5)" while the server started
   // the contest at 2 votes.
   it("shows the server's commitment threshold once committed", () => {

@@ -16,6 +16,7 @@ import { ensureHouseChargeReveal, houseChargeRevealHtml } from "./client-house-c
 import { renderChargeReward, type ChargeRewardDeps } from "./client-charge-reward/client-charge-reward.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
+import { activeHostedSectorId, HOSTED_SECTOR_ENDED_FINEPRINT } from "./client-hosted-sectors/client-hosted-sector-session.js";
 
 type SeasonEndLeaderboard = {
   overall: LeaderboardOverallEntry[];
@@ -298,6 +299,7 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
   const empiresContested = leaderboard.overall.length;
   const starting = state.seasonEndStarting;
   const canForceStart = Boolean(state.mapRevealEligible && forceStartNewSeason) && !starting;
+  const hostedSector = activeHostedSectorId() !== undefined; // one contest only: no "next contest" to commit to
   // A disabled button gets no pointer events, so the admin's voted button
   // stays enabled (aria-disabled) to keep the long-press reachable.
   // While the next world builds, Houses that haven't committed can still join
@@ -377,15 +379,15 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
           ${recap ? `<footer class="se-actions">
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Close</button>
           </footer>` : `<footer class="se-actions">
-            <button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
+            ${hostedSector ? "" : `<button id="se-new-season" class="se-btn se-btn-primary" type="button" ${newSeasonDisabledAttr} ${forceHoldAttrs}>
               ${canForceStart ? `<span class="se-btn-hold-fill" aria-hidden="true"></span>` : ""}
               <span class="se-btn-cog sp-cog" aria-hidden="true"></span>
               <span class="se-btn-label">${escapeHtml(nextContestButtonLabel(state))}</span>
-            </button>
+            </button>`}
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
           ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
-          <p class="se-fineprint" aria-live="polite">${escapeHtml(nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>`}
+          <p class="se-fineprint" aria-live="polite">${escapeHtml(hostedSector ? HOSTED_SECTOR_ENDED_FINEPRINT : nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>`}
         </div>
       </div>
     </div>`;
