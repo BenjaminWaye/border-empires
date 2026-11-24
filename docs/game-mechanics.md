@@ -345,6 +345,25 @@ Secret, map-named objectives from [the House Charges plan](house-charges-plan.md
 - The crowned records are carried through login and season archives. Legacy records can gain road details from the frozen final map when the road length still matches the captured record. Retained combat logs can recover older player attribution when their losses cover the entire saved tile total and that total has complete season-history provenance. Older casualty totals without complete player attribution are labelled unavailable and offer a bug-report button; recent losses alone never establish a season-wide player record.
 - Per-player casualty attribution is bounded to 100,000 tile/player entries per runtime and 256 players per tile, with entry-count and cap-hit gauges logged on the existing persistence cadence. It is saved with the existing top 200 deadliest tiles outside the world snapshot. The existing top-200 restart tradeoff remains: lower-ranked tiles resume from zero after a restart. Truncated saves retain provenance: a tile omitted at restart cannot claim a complete player-loss record if it later becomes the deadliest tile, including across further restarts. If attribution reaches a cap, aggregate totals continue, and incomplete tiles do not claim a player record.
 
+## Season awards
+
+Two awards from [GDD §7](gdd.md#7-bragging-rights), decided once at the crowning and stored with the season (`awards` on the season state, summary and archive row; `packages/shared/src/season-awards/`, `apps/simulation/src/season-crowning/`). They are bragging rights only and grant nothing inside a contest.
+
+- **Redeploy count.** Each House carries `redeploys` for the current season: the number of times it landed again after losing its last land (`respawnIfEliminated`, plus a sign-in recovery landing that completes a knock-out which found no free site). A first landing and a voluntary **Withdraw and redeploy** are not counted, so the count can't be raised by choice. It is saved with the player, and the landing's tile batch lists the House in `redeployPlayerIds` (kept when combat merges its batches) so a restart replays it. AI Houses are counted the same way; Planetary Defense is not on the leaderboard and can't be awarded.
+- **Never Gave Up:** the one House on the final leaderboard with the most redeploys (at least one). On a tie the better placement wins.
+- **Comeback Kid:** every House that redeployed at least once and finished in the top 5.
+- A season with no crowned winner records no awards, like House Charges and records. A sign-in landing after a server restart is not counted, because the knock-out notice that identifies it is kept in memory only.
+- Awards show on the public House profile.
+
+## Public House profile
+
+Delivers [GDD §7](gdd.md#7-bragging-rights): a read-only web page for one House, reachable without signing in.
+
+- **Making the link.** Nothing is public until the owner presses **Share profile** on their own in-game profile. That calls `POST /hq/public-profile/link` (signed in, not a guest), which stores a random 16-character public id for the account (`public_profile_links` in the gateway database, `apps/realtime-gateway/src/public-house-profile/`) and the client shares or copies `/house.html?h=<public id>` (`packages/client/src/client-public-house/`). A human's `playerId` is normally their login uid, so the link never carries it. `DELETE /hq/public-profile/link` removes the link and the old address stops working; a later Share makes a new id. **Stop sharing** on the owner's profile calls it.
+- **What the page shows.** `GET /public/house/:publicId` returns the House's display name, rating (current, last change, peak), contests played, best finish, contests won, each finished contest (placement, Houses on the final leaderboard when the archive has them, score, tiles, rating after, victory path when won), House Charges held at a crowning, its season awards (Never Gave Up, Comeback Kid), and the Longest Road and Most Deadly Tile records attributed to the House. It is built from `season_participation` and the season archives, so a contest appears once it has rolled over. The reply carries no player id, login id or email.
+- **AI Houses and guests** have no public page.
+- **Deletion.** The route answers 404 for an account with a pending or completed deletion request, and for an account with no login binding, so the page is gone as soon as the request is accepted. The erasure tool deletes the link row ([account deletion](agents/account-deletion.md)).
+
 ## Galactic layer
 
 The cross-season layer players reach through Space View and the Duke panel. Server code is in `apps/realtime-gateway/src/galaxy-*`; the season hand-off is in `apps/simulation/src/season-galaxy-tiers/` and `season-crowning/`. This section describes shipped behaviour only. It replaces the retired `docs/galactic-campaign-design.md`. Code comments that cite `§N` refer to that retired doc, which is readable with `git show 7c7b451840:docs/galactic-campaign-design.md`.

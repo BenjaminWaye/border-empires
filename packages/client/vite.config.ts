@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         deletion: fileURLToPath(new URL("./delete-account.html", import.meta.url)),
+        house: fileURLToPath(new URL("./house.html", import.meta.url)),
         ...(mode !== "native" ? { admin: fileURLToPath(new URL("./admin.html", import.meta.url)) } : {})
       },
       output: {

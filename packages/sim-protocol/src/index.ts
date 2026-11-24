@@ -150,6 +150,7 @@ export type CurrentSeasonSummary = {
   seasonWinner?: SeasonWinnerSnapshot;
   seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];
   seasonHouseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
+  seasonAwards?: import("@border-empires/shared").SeasonAward[];
   leaderboard: WorldStatusSnapshot["leaderboard"];
   overall: LeaderboardOverallEntry[];
   byTiles: LeaderboardMetricEntry[];
@@ -185,6 +186,8 @@ export type SeasonArchiveRow = {
   winner?: SeasonWinnerSnapshot;
   galaxyTiers?: SeasonGalaxyTierSnapshot[];
   houseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
+  /** Never Gave Up / Comeback Kid; absent for seasons crowned before awards existed and for seasons with no crowned winner. */
+  awards?: import("@border-empires/shared").SeasonAward[];
   mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;

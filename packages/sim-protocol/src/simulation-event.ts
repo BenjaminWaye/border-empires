@@ -122,6 +122,12 @@ export type SimulationEvent =
       playerId: string;
       goldCost?: number;
       playerManpower?: number;
+      /**
+       * Houses whose landing after a knock-out is in this batch (runtime-respawn-helpers.ts). A list, because one
+       * combat resolution merges its batches (CommandDeltaBuffer) and can redeploy both sides. Recovery replays
+       * each id into DomainPlayer.redeploys.
+       */
+      redeployPlayerIds?: string[];
       tileDeltas: Array<{
         x: number;
         y: number;
