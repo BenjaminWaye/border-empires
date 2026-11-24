@@ -231,9 +231,11 @@ baseline.
     900 MB heap limit is: it held about 490 MB after nine game hours, peaked
     at 685 MB, and was still rising slowly when the runs ended.
   - Still open: whether that growth stops. Nine game hours is about 1 % of a
-    contest, and it was not on the real Hetzner server. It needs a run of
-    days on a throwaway server or on staging, which needs the owner. Until
-    then the hosting price is not settled.
+    contest, it was not on the real Hetzner server, and all 40 humans were
+    online throughout, where real players take a 15–30 minute turn about
+    every four hours. Next (owner, 2026-11-24): a run of days on the owner's
+    own machine with humans playing in turns. Until then the hosting price
+    is not settled.
   - Decided 2026-11-23 (owner): raise the checkpoint process-memory
     watermark from 700 MB to 1,250 MB, so that checkpoints stop being put off
     at 100 Houses. Done 2026-11-24 in `deploy/env/*.env`, together with the
