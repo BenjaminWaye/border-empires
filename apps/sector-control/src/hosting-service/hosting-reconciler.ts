@@ -77,19 +77,32 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     }
   };
 
-  const watchForEnd = async (sector: SectorRecord, now: number): Promise<void> => {
-    if (sector.hostname && (await deps.servers.contestHasEnded(sector.hostname))) store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
-  };
-
-  /** Deletes the server of a sector that no longer needs one; the row keeps its state. */
-  const deleteServer = async (sector: SectorRecord, now: number, thenState?: "deleted"): Promise<void> => {
+  /** Deletes the server of a sector that no longer needs one. Without `then`, the row keeps its state. */
+  const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; endedAt?: number }): Promise<boolean> => {
     try {
       if (sector.serverRef) await deps.servers.deleteServer(sector.serverRef);
-      store.transitionSector(sector.sectorId, [sector.state], { ...(thenState ? { state: thenState } : {}), serverRef: null, lastError: null }, now);
+      return store.transitionSector(sector.sectorId, [sector.state], { ...then, serverRef: null, lastError: null }, now);
     } catch (error) {
       store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
       deps.alert("sector_teardown_failed", { sectorId: sector.sectorId, error: errorText(error) });
+      return false;
     }
+  };
+
+  const watchOpenSector = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (!sector.hostname) return;
+    const status = await deps.servers.getContestStatus(sector.hostname);
+    if (status.ended) {
+      store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
+      return;
+    }
+    // There is no time limit on a contest. What stops a forgotten sector
+    // costing money for ever is this: nobody has visited for idleCloseMs.
+    // Counted from opening when no human has ever come. No look-around
+    // period follows, since there is nobody to look.
+    const lastVisit = Math.max(status.lastHumanVisitAt ?? 0, sector.openedAt ?? sector.createdAt);
+    if (now - lastVisit < config.idleCloseMs) return;
+    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000) });
   };
 
   const reportRunningCount = (): void => {
@@ -107,9 +120,9 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
         try {
           if (sector.state === "awaiting_payment") await checkUnpaid(sector, now);
           else if (sector.state === "creating") await create(sector, now);
-          else if (sector.state === "open") await watchForEnd(sector, now);
+          else if (sector.state === "open") await watchOpenSector(sector, now);
           else if (sector.state === "ended") {
-            if (sector.endedAt !== undefined && now - sector.endedAt >= config.lookAroundMs) await deleteServer(sector, now, "deleted");
+            if (sector.endedAt !== undefined && now - sector.endedAt >= config.lookAroundMs) await deleteServer(sector, now, { state: "deleted" });
           } else if (sector.serverRef) await deleteServer(sector, now);
         } catch (error) {
           store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);

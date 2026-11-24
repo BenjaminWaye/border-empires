@@ -163,6 +163,47 @@ describe("hosting reconciler: teardown", () => {
     expect(h.store.getSector(sectorId)?.state).toBe("deleted");
   });
 
+  it("closes a sector no human has visited for 7 days, and keeps one that is being played", async () => {
+    const h = await createHostingHarness();
+    const idle = await h.openSector("a");
+    const played = await h.openSector("b");
+    h.clock.now += 7 * DAY - MINUTE;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(idle)?.state).toBe("open");
+
+    h.servers.lastHumanVisitAt.set(`${played}.sectors.invalid`, h.clock.now);
+    h.clock.now += MINUTE;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(idle)).toMatchObject({ state: "deleted", endedAt: h.clock.now });
+    expect(h.servers.servers.has(`fake-server-${idle}`)).toBe(false);
+    expect(h.alerts.at(-1)).toEqual({ kind: "sector_closed_idle", details: { sectorId: idle, idleDays: 7 } });
+    expect(h.store.getSector(played)?.state).toBe("open");
+
+    // A long contest that people keep visiting is never closed for its age.
+    for (let week = 0; week < 20; week += 1) {
+      h.clock.now += 6 * DAY;
+      h.servers.lastHumanVisitAt.set(`${played}.sectors.invalid`, h.clock.now);
+      await h.reconciler.runOnce();
+    }
+    expect(h.store.getSector(played)?.state).toBe("open");
+    h.clock.now += 7 * DAY;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(played)?.state).toBe("deleted");
+  });
+
+  it("leaves an idle sector open when its server cannot be deleted, and tries again", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.openSector();
+    h.clock.now += 7 * DAY;
+    h.servers.failDeletes = true;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(sectorId)?.state).toBe("open");
+    expect(h.alerts.at(-1)?.kind).toBe("sector_teardown_failed");
+    h.servers.failDeletes = false;
+    await h.reconciler.runOnce();
+    expect(h.store.getSector(sectorId)?.state).toBe("deleted");
+  });
+
   it("deletes the server of a running sector the owner refunded", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();

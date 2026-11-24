@@ -28,6 +28,7 @@ export class FakeServerProvider implements ServerProvider {
   readonly servers = new Map<string, string>();
   readonly healthy = new Set<string>();
   readonly ended = new Set<string>();
+  readonly lastHumanVisitAt = new Map<string, number>();
   createCalls = 0;
   failCreates = false;
   failDeletes = false;
@@ -45,8 +46,9 @@ export class FakeServerProvider implements ServerProvider {
     return this.healthy.has(hostname);
   }
 
-  async contestHasEnded(hostname: string): Promise<boolean> {
-    return this.ended.has(hostname);
+  async getContestStatus(hostname: string): Promise<{ ended: boolean; lastHumanVisitAt?: number }> {
+    const lastHumanVisitAt = this.lastHumanVisitAt.get(hostname);
+    return { ended: this.ended.has(hostname), ...(lastHumanVisitAt !== undefined ? { lastHumanVisitAt } : {}) };
   }
 
   async deleteServer(serverRef: string): Promise<void> {

@@ -23,8 +23,11 @@ export interface ServerProvider {
   createServer(input: { sectorId: string; options: HostedSectorOptions }): Promise<{ serverRef: string; hostname: string }>;
   /** True once the sector's game server answers as healthy. */
   isHealthy(hostname: string): Promise<boolean>;
-  /** Whether the sector's contest has ended. */
-  contestHasEnded(hostname: string): Promise<boolean>;
+  /**
+   * Whether the sector's contest has ended, and when a human last visited
+   * (undefined if no human has yet). AI Houses playing do not count.
+   */
+  getContestStatus(hostname: string): Promise<{ ended: boolean; lastHumanVisitAt?: number }>;
   /** Deletes the server and its DNS record. Must be safe to repeat. */
   deleteServer(serverRef: string): Promise<void>;
 }
@@ -34,6 +37,7 @@ export type HostingAlertKind =
   | "sector_refunded_automatically"
   | "sector_refund_failed"
   | "sector_running_count"
+  | "sector_closed_idle"
   | "sector_teardown_failed"
   | "payment_dispute"
   | "payment_for_unknown_sector";
