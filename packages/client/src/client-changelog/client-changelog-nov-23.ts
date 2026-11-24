@@ -16,10 +16,12 @@ import { CAPTURED_TOWN_FIST_ENTRY } from "./client-changelog-captured-town-fist.
 import { UMBRITE_FOREST_DEPOSITS_ENTRY } from "./client-changelog-umbrite-forest-deposits.js";
 import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
+import { GUIDE_REACH_ENTRY } from "./client-changelog-guide-reach.js";
 import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.js";
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
 import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
+import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
@@ -36,10 +38,12 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...LOST_TILE_OWNER_ENTRY, createdAt: 1795441816662, },
   { ...VISIT_REPORT_ENTRY, createdAt: 1795448790974, },
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
+  { ...GUIDE_REACH_ENTRY, createdAt: 1795467436456, },
   { ...CHRONICLE_ROW_TIME_ENTRY, createdAt: 1795466612442, },
   { ...GUIDE_PLAIN_WORDS_ENTRY, createdAt: 1795468127235, },
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
   { ...CITY_PLOTS_ENTRY, createdAt: 1795554807385, },
+  { ...WRIT_FOUND_ENTRY, createdAt: 1795468903590, },
 ];

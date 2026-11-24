@@ -5,13 +5,8 @@
 // account. This server holds only the public key, keeps no member list and
 // never calls the hosting service on the login path, so a restart of that
 // service cannot lock players out.
+import { HOSTED_SECTOR_TICKET_ALGORITHM, HOSTED_SECTOR_TICKET_ISSUER, hostedSectorTicketAudience } from "@border-empires/shared";
 import { importSPKI, jwtVerify } from "jose";
-
-export const HOSTED_SECTOR_TICKET_ISSUER = "border-empires-hosting";
-export const HOSTED_SECTOR_TICKET_ALGORITHM = "EdDSA";
-
-/** Audience a ticket must carry to be accepted by the sector `sectorId`. */
-export const hostedSectorTicketAudience = (sectorId: string): string => `sector:${sectorId}`;
 
 export type HostedSectorConfig = {
   sectorId: string;
