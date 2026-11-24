@@ -2,7 +2,6 @@ import {
   isCosmeticId,
   isEmptyCosmeticSelection,
   sanitizeCosmeticSelection,
-  type AncillaryCosmeticId,
   type MusterFlagCosmeticId
 } from "@border-empires/shared";
 
@@ -12,19 +11,15 @@ import type { ClientState } from "../client-state/client-state.js";
 //
 // `state.playerCosmetics` holds the look of every account that shows a
 // non-default one; a missing entry is the default look. The map renderers read
-// it through the two lookups below, so a cosmetic can never reach anything but
+// it through the lookup below, so a cosmetic can never reach anything but
 // drawing code.
 
 export type CosmeticsState = Pick<ClientState, "me" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested">;
 
 export type MusterFlagDesign = "default" | MusterFlagCosmeticId;
-export type AncillarySkin = "default" | AncillaryCosmeticId;
 
 export const musterFlagDesignFor = (state: Pick<ClientState, "playerCosmetics">, ownerId: string | undefined): MusterFlagDesign =>
   (ownerId ? state.playerCosmetics.get(ownerId)?.musterFlag : undefined) ?? "default";
-
-export const ancillarySkinFor = (state: Pick<ClientState, "playerCosmetics">, ownerId: string | undefined): AncillarySkin =>
-  (ownerId ? state.playerCosmetics.get(ownerId)?.ancillary : undefined) ?? "default";
 
 const setPlayerCosmetics = (state: Pick<ClientState, "playerCosmetics">, playerId: string, raw: unknown): void => {
   const selection = sanitizeCosmeticSelection(raw);

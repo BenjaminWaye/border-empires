@@ -11,8 +11,8 @@ const buildWith = (shown?: Parameters<typeof buildInitMessage>[13]) =>
 
 describe("INIT account cosmetics", () => {
   it("sends every non-default look so a joining player sees rivals' choices", async () => {
-    const init = await buildWith({ rival: { musterFlag: "flag-chevron" } });
-    expect(init.playerCosmetics).toEqual({ rival: { musterFlag: "flag-chevron" } });
+    const init = await buildWith({ rival: { musterFlag: "flag-high-noble" } });
+    expect(init.playerCosmetics).toEqual({ rival: { musterFlag: "flag-high-noble" } });
   });
 
   it("adds nothing to INIT when nobody shows a cosmetic", async () => {

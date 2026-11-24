@@ -19,7 +19,8 @@
 // an account cosmetic (docs/gdd.md §8) and may change the embroidery only:
 // the cloth's outline, its wind, the owner's colour as the field and the
 // ADVANCE cues are the same for every design, and no design covers more of
-// the owner's colour than the standard one does.
+// the owner's colour than the standard one does. The High-noble standard's
+// gilded metalwork is separate geometry (muster-banner-regalia-geometry.ts).
 import {
   Color,
   DoubleSide,
@@ -35,7 +36,7 @@ import { BANNER_CLOTH } from "./muster-banner-geometry.js";
  * `aBannerDesign` value per muster flag design. 0 is the standard livery and
  * is what a geometry without the attribute (the relic banner) reads.
  */
-export const BANNER_DESIGN_INDEX = { default: 0, "flag-chevron": 1 } as const satisfies Record<MusterFlagDesign, number>;
+export const BANNER_DESIGN_INDEX = { default: 0, "flag-high-noble": 1 } as const satisfies Record<MusterFlagDesign, number>;
 
 /** The shader clock wraps every this many seconds, so float precision never degrades. */
 const TIME_PERIOD = 3600;
@@ -123,11 +124,17 @@ float bannerCog(vec2 p) {
   float hub = bannerFill(r - 0.12);
   return clamp(outer - hole + hub, 0.0, 1.0);
 }
-// Chevron standard: an open lozenge round a small solid one. p is in the
-// lozenge's own half-extents, so its outline is |p.x| + |p.y| = 1.
-float bannerLozenge(vec2 p) {
-  float d = abs(p.x) + abs(p.y) - 1.0;
-  return clamp(bannerFill(d) - bannerFill(d + 0.36) + bannerFill(d + 0.68), 0.0, 1.0);
+// High-noble standard: a sun in splendour, twelve rays round a ringed disc.
+// p is in half-widths, like the cog.
+float bannerSun(vec2 p) {
+  float r = length(p);
+  float ray = pow(abs(cos(atan(p.y, p.x) * 6.0)), 3.0);
+  float rays = bannerFill(r - (0.36 + 0.3 * ray));
+  float gap = bannerFill(r - 0.31);
+  float ring = bannerFill(r - 0.27);
+  float hollow = bannerFill(r - 0.2);
+  float disc = bannerFill(r - 0.13);
+  return clamp(rays - gap + ring - hollow + disc, 0.0, 1.0);
 }
 `;
 
@@ -152,26 +159,33 @@ const COLOR_PATCH = /* glsl */ `
   vec2 cogP = vec2((u - 0.5) * BANNER_WIDTH, (0.42 - drop) * column) / (BANNER_WIDTH * 0.5);
   float device = bannerCog(cogP / 0.8);
   float outline = clamp(bannerCog(cogP / 0.92) - device, 0.0, 1.0);
+  float damask = 0.0;
   if (vBannerDesign > 0.5) {
-    // Chevron standard. Two pale chevrons point down the cloth, echoing its
-    // pointed hem, over a brass lozenge. Hem, edge trim and fringe are shared
-    // with the standard livery, so the outline is identical.
+    // High-noble standard. The field stays the owner's colour, woven as a
+    // damask of lozenges a shade lighter and darker, inside a doubled gold
+    // border, under a gold sun in splendour. Hem and fringe are shared with
+    // the standard livery, so the outline is identical; the pale side bands
+    // are gone, so more of the owner's colour shows, not less.
     float across = abs(u - 0.5) * BANNER_WIDTH;
     float down = drop * column;
-    float rake = down + across * 0.5;
-    float edge = 1.0 - bannerFill(side - 0.008);
-    band = max(bannerFill(abs(rake - 0.165) - 0.014), bannerFill(abs(rake - 0.225) - 0.014)) * edge;
-    // Running stitch along the lower edge of each chevron.
-    seam = max(bannerFill(abs(rake - 0.181) - 0.002), bannerFill(abs(rake - 0.241) - 0.002)) * step(0.45, fract(across / 0.016)) * edge;
-    vec2 lozengeP = vec2(across / 0.05, (down - 0.365) / 0.07);
-    device = bannerLozenge(lozengeP);
-    outline = clamp(bannerLozenge(lozengeP / 1.12) - device, 0.0, 1.0);
+    band = 0.0;
+    seam = 0.0;
+    float top = bannerFill(down - 0.012);
+    float inner = bannerFill(abs(side - 0.02) - 0.0022) + bannerFill(abs(hem - BANNER_FRINGE - 0.026) - 0.0022) + bannerFill(abs(down - 0.024) - 0.0022);
+    trim = max(max(bannerFill(hem - BANNER_FRINGE - 0.014), bannerFill(side - 0.011)), max(top, clamp(inner, 0.0, 1.0)));
+    vec2 lattice = vec2(across + down, across - down) / 0.05;
+    vec2 cell = abs(fract(lattice) - 0.5);
+    damask = (smoothstep(0.2, 0.26, max(cell.x, cell.y)) - 0.5) * (1.0 - trim);
+    vec2 sunP = vec2(across, down - 0.25) / (BANNER_WIDTH * 0.5);
+    device = bannerSun(sunP / 0.78);
+    outline = clamp(bannerSun(sunP / 0.86) - device, 0.0, 1.0);
   }
   // Folds turned away from the camera sit in their own shade.
   float shade = 0.84 + 0.16 * (vBannerFold * 0.5 + 0.5);
   // On light (yellow, gold) banners the brass thread would vanish: darken it to bronze.
   float clothLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
   vec3 thread = uBannerTrim * mix(1.0, 0.4, smoothstep(0.3, 0.45, clothLuma));
+  diffuseColor.rgb *= 1.0 + 0.16 * damask;
   diffuseColor.rgb = mix(diffuseColor.rgb, uBannerBand, band);
   diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45, outline);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread * 0.7, seam);

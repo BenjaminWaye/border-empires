@@ -2,7 +2,7 @@
 
 Status: canonical reference
 Owner: Border Empires maintainers
-Last verified: 2026-11-23
+Last verified: 2026-11-24
 
 The product decisions are in [`gdd.md`](gdd.md) §8. This page describes what
 is built and the rules new cosmetics must follow.
@@ -15,8 +15,11 @@ it decorates.
 
 | Thing | A rival must still read | So a cosmetic may change | And may not change |
 |---|---|---|---|
-| Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the plinth, the soldiers |
-| Ancillary soldiers | Owner (colour), how many, titanium plate or not (the heavy model) | The paint on parts that are a dark shade of the House colour | The model, its size, its animation, the House-coloured plates, bare metal, glow, the x-ray silhouette |
+| Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth; added ornament in gold and in the owner's colour | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the soldiers, the siege ring, the progress badge |
+
+Added ornament must stay inside the standard plinth's footprint and within a
+tenth of the standard flag's height (`muster-banner-regalia-geometry.test.ts`),
+so a paid flag is grander but not a taller beacon.
 
 No design may cover more of the owner's colour than the standard look does.
 Picking is by map tile, not by the drawn object, so no cosmetic affects a hit
@@ -26,55 +29,51 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
-| `flag-chevron` | `musterFlag` | Chevron standard | Two pale chevrons over a brass lozenge, in place of the side bands and cog |
-| `ancillary-ivory` | `ancillary` | Ivory-trim plate | Helmet, gloves and boots in ivory |
+| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a gold sunburst behind the finial set with a gem in the owner's colour, a streamer in the owner's colour from each end of the crossbar, four gold posts topped with gems and a gold rim on the plinth, and a gold-bordered damask cloth with a sun in splendour in place of the side bands and cog |
+
+One cosmetic for now (owner decision, 2026-11-24): the muster flag is a
+House's own property and the thing to make grand. An ancillary skin, colour
+scheme and beacon skin are not built.
 
 Ids are stored and sent on the wire: never rename one. The working titles are
 placeholders; the owner sets shop names and prices. The catalogue is
 `packages/shared/src/cosmetics/cosmetics.ts`.
 
-### Where each is drawn
+### Where it is drawn
 
 | | True-3D | 2D canvas |
 |---|---|---|
-| Muster flag | Every visible flag (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) | Only the pennant on your own besieged flag (`client-map-render-muster-siege-badge.ts`). The 2D map draws no other muster flag, for any design, so a rival on the 2D map sees no flag design |
-| Ancillary soldiers | Battles, dock landings, capture-hold garrisons, marching companies (`popup-marine-material.ts`, per-soldier `uMarineSkin`) | Helmets of capture-hold garrison figures and of battle and landing squad dots (`client-cosmetics/ancillary-skin-2d.ts`) |
+| Muster flag | Every visible flag: the cloth livery (`muster-banner-cloth-material.ts`, per-flag `aBannerDesign`) and the regalia (`muster-banner-regalia-geometry.ts`, its own instanced meshes in `client-map-3d-muster-overlay.ts`) | Only the pennant on your own besieged flag, which gains a gold edge, sun and finial (`client-map-render-muster-siege-badge.ts`) |
 
 Known gaps:
 
-- Your own expand crew and salvage-delivery ancillaries keep the standard
-  paint. Only you see them.
-- On the heavy titanium armour the Ivory-trim plate is faint: that model has
-  little dark paint to repaint, and its titanium edging is left alone on
-  purpose.
-- The soldier models are baked in Blender from sources outside the repository,
-  so a skin with a new shape cannot be built from this repository alone.
+- **The 2D map draws no muster flag for rivals, standard or not**, so a rival
+  on the 2D map does not see the High-noble standard. Drawing one would change
+  what 2D players can read and is a gameplay decision, not a cosmetic one.
+- The streamers are rigid; only the cloth moves in the wind.
+- The look must not be mistaken for the earned Duke title. It uses no crown.
 
-Review stories: `Map/Combat/Muster/Flag Designs` and
-`Map/Combat/Popup Marines/Ancillary Skins` in Storybook.
+Review story: `Map/Combat/Muster/Flag Designs` in Storybook.
 
-### Standard and alternative, side by side
+### Standard and High-noble, side by side
 
-Captured from those stories on 2026-11-23. In each picture the standard look
-is the back row, the upper row or the left soldier of a pair.
+Captured from that story on 2026-11-24. The standard flag is the back row
+(upper row in 2D).
 
-Muster flag, true-3D (HOLD, then ADVANCE):
+![High-noble standards in front of standard flags, close up](design/cosmetics/muster-flag-high-noble-close.png)
+![Five Houses: standard flags behind, High-noble standards in front](design/cosmetics/muster-flag-high-noble.png)
 
-![Standard and Chevron standard muster flags in five House colours](design/cosmetics/muster-flag-3d.png)
-![The same flags in ADVANCE: brighter cloth for both designs](design/cosmetics/muster-flag-3d-advance.png)
+In ADVANCE both designs brighten the same way:
 
-Muster flag, 2D pennant:
+![The same flags in ADVANCE](design/cosmetics/muster-flag-high-noble-advance.png)
 
-![Standard and chevron pennants on the 2D siege badge](design/cosmetics/muster-flag-2d.png)
+At map distance:
 
-Ancillary soldiers, true-3D (standard armour, then titanium heavy armour):
+![Both rows from far away](design/cosmetics/muster-flag-high-noble-map-distance.png)
 
-![Standard paint and Ivory-trim plate on the standard soldier](design/cosmetics/ancillary-3d-standard.png)
-![Standard paint and Ivory-trim plate on the heavy armour](design/cosmetics/ancillary-3d-heavy.png)
+2D pennant:
 
-Ancillary soldiers, 2D:
-
-![Garrison figures and battle squad dots, standard and Ivory-trim](design/cosmetics/ancillary-2d.png)
+![Standard and High-noble pennants on the 2D siege badge](design/cosmetics/muster-flag-high-noble-2d.png)
 
 ## Ownership and selection
 
@@ -122,14 +121,14 @@ something.
 ## Wire and memory cost
 
 - A player who owns nothing adds **no bytes** to `INIT` or to any broadcast.
-- A non-default look is at most two short ids, about 60 bytes as JSON. A
+- A non-default look is one short id per slot, about 45 bytes as JSON today. A
   change is one broadcast, serialised once and shared by every recipient.
 - The gateway keeps one small object per account with a non-default look
   (`shown` in the service), loaded once at boot. It is limited to 5,000
   accounts (`MAX_LOADED_COSMETIC_SELECTIONS`); past that a choice is still
   saved but other players see the standard look, and a counter records it.
 - `INIT.playerCosmetics` lists every such account on the server, whether or
-  not it is in the current contest. At the limit that is about 300 KB per
+  not it is in the current contest. At the limit that is about 250 KB per
   login. If a server ever approaches that, filter the list to the contest's
   players.
 - Nothing is stored in the simulation, its checkpoints or its events.
@@ -148,8 +147,8 @@ the account. Payment records are a separate matter for the payment work. See
 1. Add it to `COSMETIC_CATALOG`. A new slot also goes in `COSMETIC_SLOTS` and
    `PlayerCosmeticSelection`.
 2. Give it a look in **both** renderers, or disclose the gap in the table
-   above. Add its index to `BANNER_DESIGN_INDEX` or `MARINE_SKIN_INDEX`; both
-   are typed so a catalogue id without a look does not compile.
+   above. A flag design needs an index in `BANNER_DESIGN_INDEX`, which is
+   typed so a catalogue id without a look does not compile.
 3. Check it against the rule table at the top, and add it to the side-by-side
    story.
 4. Read [`lore/README.md`](lore/README.md): a look or name that says something

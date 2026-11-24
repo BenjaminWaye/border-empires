@@ -30,41 +30,43 @@ describe.each(stores)("%s account cosmetics store", (_name, create) => {
 
   it("grants once per account and cosmetic", async () => {
     const store = create();
-    expect(await store.grant("p1", "flag-chevron", "admin")).toEqual({ newlyGranted: true });
-    expect(await store.grant("p1", "flag-chevron", "admin")).toEqual({ newlyGranted: false });
-    expect(await store.listOwned("p1")).toEqual(["flag-chevron"]);
+    expect(await store.grant("p1", "flag-high-noble", "admin")).toEqual({ newlyGranted: true });
+    expect(await store.grant("p1", "flag-high-noble", "admin")).toEqual({ newlyGranted: false });
+    expect(await store.listOwned("p1")).toEqual(["flag-high-noble"]);
     expect(await store.listOwned("p2")).toEqual([]);
   });
 
-  it("stores one cosmetic per slot and clears a slot with null", async () => {
+  it("stores the chosen cosmetic for a slot and clears it with null", async () => {
     const store = create();
-    expect(await store.setSelection("p1", "musterFlag", "flag-chevron")).toEqual({ musterFlag: "flag-chevron" });
-    expect(await store.setSelection("p1", "ancillary", "ancillary-ivory")).toEqual({ musterFlag: "flag-chevron", ancillary: "ancillary-ivory" });
-    expect(await store.setSelection("p1", "musterFlag", null)).toEqual({ ancillary: "ancillary-ivory" });
-    expect(await store.getSelection("p1")).toEqual({ ancillary: "ancillary-ivory" });
+    expect(await store.setSelection("p1", "musterFlag", "flag-high-noble")).toEqual({ musterFlag: "flag-high-noble" });
+    expect(await store.setSelection("p1", "musterFlag", "flag-high-noble")).toEqual({ musterFlag: "flag-high-noble" });
     expect(await store.counts()).toEqual({ owned: 0, selected: 1 });
+    expect(await store.setSelection("p1", "musterFlag", null)).toEqual({});
+    expect(await store.getSelection("p1")).toEqual({});
+    expect(await store.counts()).toEqual({ owned: 0, selected: 0 });
   });
 
   it("revoking removes ownership and stops the account showing it", async () => {
     const store = create();
-    await store.grant("p1", "flag-chevron", "admin");
-    await store.setSelection("p1", "musterFlag", "flag-chevron");
-    expect(await store.revoke("p1", "flag-chevron")).toEqual({ revoked: true });
-    expect(await store.revoke("p1", "flag-chevron")).toEqual({ revoked: false });
+    await store.grant("p1", "flag-high-noble", "admin");
+    await store.setSelection("p1", "musterFlag", "flag-high-noble");
+    expect(await store.revoke("p1", "flag-high-noble")).toEqual({ revoked: true });
+    expect(await store.revoke("p1", "flag-high-noble")).toEqual({ revoked: false });
     expect(await store.listOwned("p1")).toEqual([]);
     expect(await store.getSelection("p1")).toEqual({});
   });
 
   it("lists accounts with a non-default look, up to the limit", async () => {
     const store = create();
-    await store.setSelection("p1", "musterFlag", "flag-chevron");
-    await store.setSelection("p1", "ancillary", "ancillary-ivory");
-    await store.setSelection("p2", "ancillary", "ancillary-ivory");
+    await store.setSelection("p1", "musterFlag", "flag-high-noble");
+    await store.setSelection("p2", "musterFlag", "flag-high-noble");
+    await store.setSelection("p3", "musterFlag", "flag-high-noble");
+    await store.setSelection("p3", "musterFlag", null);
     const all = await store.listSelections(10);
     expect(all.truncated).toBe(false);
     expect(new Map(all.selections)).toEqual(new Map([
-      ["p1", { musterFlag: "flag-chevron", ancillary: "ancillary-ivory" }],
-      ["p2", { ancillary: "ancillary-ivory" }]
+      ["p1", { musterFlag: "flag-high-noble" }],
+      ["p2", { musterFlag: "flag-high-noble" }]
     ]));
     const capped = await store.listSelections(1);
     expect(capped.truncated).toBe(true);

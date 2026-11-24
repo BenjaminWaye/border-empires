@@ -15,7 +15,7 @@ const build = (adminApiToken: string | undefined = "secret") => {
   return { app, store };
 };
 
-const grantBody = { playerId: "p1", cosmeticId: "flag-chevron" };
+const grantBody = { playerId: "p1", cosmeticId: "flag-high-noble" };
 
 describe("account cosmetics admin routes", () => {
   it("cannot be reached without the admin bearer token", async () => {
@@ -44,8 +44,8 @@ describe("account cosmetics admin routes", () => {
     const headers = { authorization: "Bearer secret" };
     const granted = await app.inject({ method: "POST", url: "/admin/cosmetics/grant", headers, payload: { ...grantBody, grantRef: "test" } });
     expect(granted.statusCode).toBe(200);
-    expect(granted.json()).toEqual({ ok: true, newlyGranted: true, owned: ["flag-chevron"] });
-    expect(await store.listOwned("p1")).toEqual(["flag-chevron"]);
+    expect(granted.json()).toEqual({ ok: true, newlyGranted: true, owned: ["flag-high-noble"] });
+    expect(await store.listOwned("p1")).toEqual(["flag-high-noble"]);
 
     const revoked = await app.inject({ method: "POST", url: "/admin/cosmetics/revoke", headers, payload: grantBody });
     expect(revoked.json()).toEqual({ ok: true, newlyGranted: false, owned: [] });

@@ -18,12 +18,10 @@ describe("cosmeticsCardHtml", () => {
     expect(cosmeticsCardHtml(createState())).toBe("");
   });
 
-  it("offers the standard look and each owned cosmetic, never an unowned one", () => {
-    const html = cosmeticsCardHtml(createState(["flag-chevron"], { musterFlag: "flag-chevron" }));
+  it("offers the standard look and each owned cosmetic", () => {
+    const html = cosmeticsCardHtml(createState(["flag-high-noble"], { musterFlag: "flag-high-noble" }));
     expect(html).toContain('data-cosmetic-slot="musterFlag" data-cosmetic-id="" aria-pressed="false"');
-    expect(html).toContain('data-cosmetic-slot="musterFlag" data-cosmetic-id="flag-chevron" aria-pressed="true"');
-    expect(html).not.toContain("ancillary-ivory");
-    expect(html).not.toContain('data-cosmetic-slot="ancillary"');
+    expect(html).toContain('data-cosmetic-slot="musterFlag" data-cosmetic-id="flag-high-noble" aria-pressed="true"');
   });
 });
 
@@ -50,13 +48,13 @@ describe("bindCosmeticsCard", () => {
   });
 
   it("sends the chosen cosmetic, and null for the standard look", () => {
-    const state = createState(["flag-chevron"]);
+    const state = createState(["flag-high-noble"]);
     state.cosmeticsRequested = true;
     const { hud, sendGameMessage } = mount(state);
-    hud.querySelector<HTMLButtonElement>('[data-cosmetic-id="flag-chevron"]')?.click();
+    hud.querySelector<HTMLButtonElement>('[data-cosmetic-id="flag-high-noble"]')?.click();
     hud.querySelector<HTMLButtonElement>('[data-cosmetic-id=""]')?.click();
     expect(sendGameMessage.mock.calls.map(([payload]) => payload)).toEqual([
-      { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-chevron" },
+      { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" },
       { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null }
     ]);
   });

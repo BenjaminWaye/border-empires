@@ -113,5 +113,43 @@ describe("3d muster banner overlay", () => {
     expect(badges[0]!.position.y).toBeGreaterThan(0.3 + 1);
     overlay.dispose();
   });
-});
 
+  it("adds the High-noble standard's regalia only to flags whose owner shows it, and nothing else differs", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene);
+    const gold = meshNamed(scene, "muster-banner-regalia-gold");
+    const regaliaEnamel = meshNamed(scene, "muster-banner-regalia-enamel");
+    const body = meshNamed(scene, "muster-banner-body");
+    const cloth = meshNamed(scene, "muster-banner-cloth");
+    const soldiers = scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && !c.name)!;
+
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2);
+    overlay.commit();
+    overlay.tick(1_000);
+    expect(gold.count).toBe(0);
+    const standardSoldiers = soldiers.count;
+    const standardCloth = new Color();
+    cloth.getColorAt(0, standardCloth);
+
+    overlay.clear();
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, 0, "flag-high-noble");
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5);
+    overlay.commit();
+    overlay.tick(1_000);
+    expect(gold.count).toBe(1);
+    expect(regaliaEnamel.count).toBe(1);
+    expect(body.count).toBe(2);
+    // The regalia's gems and streamers take the owner's colour.
+    const tint = new Color();
+    regaliaEnamel.getColorAt(0, tint);
+    expect(tint.getHexString()).toBe("ff0000");
+    // Same cloth colour and the same number of soldiers as the standard flag: owner and strength read the same.
+    const nobleCloth = new Color();
+    cloth.getColorAt(0, nobleCloth);
+    expect(nobleCloth.getHexString()).toBe(standardCloth.getHexString());
+    expect(soldiers.count).toBe(standardSoldiers * 2);
+    expect(cloth.geometry.getAttribute("aBannerDesign").getX(0)).toBe(1);
+    expect(cloth.geometry.getAttribute("aBannerDesign").getX(1)).toBe(0);
+    overlay.dispose();
+  });
+});

@@ -8,7 +8,7 @@ import "./client-cosmetics-card.css";
 
 type BindState = CosmeticsState & Pick<ClientState, "authSessionReady" | "serverSupportedMessageTypes">;
 
-const SLOT_TITLES: Record<CosmeticSlot, string> = { musterFlag: "Muster flag", ancillary: "Ancillary soldiers" };
+const SLOT_TITLES: Record<CosmeticSlot, string> = { musterFlag: "Muster flag" };
 
 /**
  * Settings → Account card. Renders nothing for an account that owns no

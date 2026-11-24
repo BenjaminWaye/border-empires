@@ -25,14 +25,14 @@ describe("addMusterFlagForTile", () => {
   });
 
   it("draws the owner's chosen design for every viewer, not the viewer's own", () => {
-    expect(run("rival", [["rival", { musterFlag: "flag-chevron" }]]).at(-1)).toBe("flag-chevron");
-    expect(run("rival", [["me", { musterFlag: "flag-chevron" }]]).at(-1)).toBe("default");
+    expect(run("rival", [["rival", { musterFlag: "flag-high-noble" }]]).at(-1)).toBe("flag-high-noble");
+    expect(run("rival", [["me", { musterFlag: "flag-high-noble" }]]).at(-1)).toBe("default");
   });
 
   it("a cosmetic changes nothing a rival reads: fill, owner colour, ADVANCE and position are identical", () => {
     for (const mode of ["HOLD", "ADVANCE"] as const) {
       const standard = run("rival", [], mode);
-      const cosmetic = run("rival", [["rival", { musterFlag: "flag-chevron" }]], mode);
+      const cosmetic = run("rival", [["rival", { musterFlag: "flag-high-noble" }]], mode);
       expect(cosmetic.slice(0, -1)).toEqual(standard.slice(0, -1));
       expect(standard[5]).toBe(mode === "ADVANCE");
     }

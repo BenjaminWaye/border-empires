@@ -33,7 +33,7 @@ describe("account cosmetics integration", () => {
     cleanup.push(() => gateway.close());
     const addr = await gateway.start();
     const grantUrl = `http://${addr.host}:${addr.port}/admin/cosmetics/grant`;
-    const grantBody = JSON.stringify({ playerId: "player-1", cosmeticId: "flag-chevron", grantRef: "test" });
+    const grantBody = JSON.stringify({ playerId: "player-1", cosmeticId: "flag-high-noble", grantRef: "test" });
     const connect = async (playerId: string) => {
       const sock = await openSocket(addr.wsUrl);
       cleanup.push(() => closeSocket(sock.socket));
@@ -47,22 +47,22 @@ describe("account cosmetics integration", () => {
     expect("playerCosmetics" in owner.init).toBe(false);
 
     // A player cannot show a cosmetic the account does not own.
-    owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-chevron" }));
+    owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }));
     expect((await nextTypedMessage(owner.sock, "not owned", "ERROR")).code).toBe("COSMETIC_NOT_OWNED");
 
     // Granting needs the admin token.
     const refused = await fetch(grantUrl, { method: "POST", headers: { "content-type": "application/json" }, body: grantBody });
     expect(refused.status).toBe(401);
     const granted = await fetch(grantUrl, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer secret" }, body: grantBody });
-    expect(await granted.json()).toEqual({ ok: true, newlyGranted: true, owned: ["flag-chevron"] });
-    expect((await nextTypedMessage(owner.sock, "grant push", "COSMETICS_STATE")).owned).toEqual(["flag-chevron"]);
+    expect(await granted.json()).toEqual({ ok: true, newlyGranted: true, owned: ["flag-high-noble"] });
+    expect((await nextTypedMessage(owner.sock, "grant push", "COSMETICS_STATE")).owned).toEqual(["flag-high-noble"]);
 
-    owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-chevron" }));
+    owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }));
     const seenByRival = await nextTypedMessage(rival.sock, "rival sees look", "PLAYER_STYLE");
-    expect(seenByRival).toMatchObject({ playerId: "player-1", cosmetics: { musterFlag: "flag-chevron" } });
-    expect((await nextTypedMessage(owner.sock, "own state", "COSMETICS_STATE")).selected).toEqual({ musterFlag: "flag-chevron" });
+    expect(seenByRival).toMatchObject({ playerId: "player-1", cosmetics: { musterFlag: "flag-high-noble" } });
+    expect((await nextTypedMessage(owner.sock, "own state", "COSMETICS_STATE")).selected).toEqual({ musterFlag: "flag-high-noble" });
 
     const late = await connect("player-2"); // a fresh login
-    expect(late.init.playerCosmetics).toEqual({ "player-1": { musterFlag: "flag-chevron" } });
+    expect(late.init.playerCosmetics).toEqual({ "player-1": { musterFlag: "flag-high-noble" } });
   }, 30_000);
 });

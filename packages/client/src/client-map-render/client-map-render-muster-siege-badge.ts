@@ -50,18 +50,20 @@ export const drawMusterSiegeBadge = (
   ctx.lineTo(poleX, top + radius * 0.6);
   ctx.closePath();
   ctx.fill();
-  if (design === "flag-chevron") {
-    // Two pale chevrons pointing toward the fly, clipped to the pennant.
-    ctx.clip();
-    ctx.strokeStyle = "#ece3cc";
-    ctx.lineWidth = Math.max(0.8, radius * 0.09);
-    for (const offset of [0.16, 0.36]) {
-      ctx.beginPath();
-      ctx.moveTo(poleX + radius * (offset - 0.16), top);
-      ctx.lineTo(poleX + radius * (offset + 0.1), top + radius * 0.3);
-      ctx.lineTo(poleX + radius * (offset - 0.16), top + radius * 0.6);
-      ctx.stroke();
-    }
+  if (design === "flag-high-noble") {
+    // High-noble standard: a gold edge on the pennant, a gold sun on its
+    // field and a gold finial on the pole. The field stays the owner's colour.
+    const gold = "#f3c552";
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = Math.max(0.8, radius * 0.1);
+    ctx.stroke();
+    ctx.fillStyle = gold;
+    ctx.beginPath();
+    ctx.arc(poleX + radius * 0.28, top + radius * 0.3, Math.max(0.8, radius * 0.11), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(poleX, top - radius * 0.06, Math.max(1, radius * 0.14), 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 };

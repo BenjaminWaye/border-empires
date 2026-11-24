@@ -106,17 +106,17 @@ describe("cosmetics on appearance messages", () => {
 
   it("stores another player's look from PLAYER_STYLE and clears it on an empty selection", () => {
     const state = createState();
-    expect(applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: { musterFlag: "flag-chevron" } }, deps(state))).toBe(true);
-    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-chevron" });
+    expect(applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: { musterFlag: "flag-high-noble" } }, deps(state))).toBe(true);
+    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-high-noble" });
     applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", cosmetics: {} }, deps(state));
     expect(state.playerCosmetics.has("rival")).toBe(false);
   });
 
   it("leaves a player's look alone when PLAYER_STYLE carries no cosmetics field", () => {
     const state = createState();
-    state.playerCosmetics.set("rival", { musterFlag: "flag-chevron" });
+    state.playerCosmetics.set("rival", { musterFlag: "flag-high-noble" });
     applyPlayerAppearanceMessage({ type: "PLAYER_STYLE", playerId: "rival", name: "Renamed" }, deps(state));
-    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-chevron" });
+    expect(state.playerCosmetics.get("rival")).toEqual({ musterFlag: "flag-high-noble" });
   });
 
   it("drops cosmetic ids this client does not know", () => {
@@ -128,9 +128,9 @@ describe("cosmetics on appearance messages", () => {
   it("applies COSMETICS_STATE to the local account and re-renders", () => {
     const state = createState();
     const renderHud = vi.fn();
-    expect(applyPlayerAppearanceMessage({ type: "COSMETICS_STATE", owned: ["flag-chevron", "bogus"], selected: { musterFlag: "flag-chevron" } }, deps(state, renderHud))).toBe(true);
-    expect(state.ownedCosmetics).toEqual(["flag-chevron"]);
-    expect(state.playerCosmetics.get("player-1")).toEqual({ musterFlag: "flag-chevron" });
+    expect(applyPlayerAppearanceMessage({ type: "COSMETICS_STATE", owned: ["flag-high-noble", "bogus"], selected: { musterFlag: "flag-high-noble" } }, deps(state, renderHud))).toBe(true);
+    expect(state.ownedCosmetics).toEqual(["flag-high-noble"]);
+    expect(state.playerCosmetics.get("player-1")).toEqual({ musterFlag: "flag-high-noble" });
     expect(renderHud).toHaveBeenCalledTimes(1);
   });
 
@@ -140,14 +140,14 @@ describe("cosmetics on appearance messages", () => {
 
   it("INIT replaces every known look, so a look removed while offline does not linger", () => {
     const state = createState();
-    state.playerCosmetics.set("gone", { ancillary: "ancillary-ivory" });
+    state.playerCosmetics.set("gone", { musterFlag: "flag-high-noble" });
     applyInitPlayerStyles(state, {
       playerStyles: [{ id: "rival", name: "Rival", tileColor: "#112233", duke: true }],
-      playerCosmetics: { rival: { ancillary: "ancillary-ivory" } }
+      playerCosmetics: { rival: { musterFlag: "flag-high-noble" } }
     });
     expect(state.playerNames.get("rival")).toBe("Rival");
     expect(state.playerColors.get("rival")).toBe("#112233");
     expect(state.dukePlayers.has("rival")).toBe(true);
-    expect([...state.playerCosmetics]).toEqual([["rival", { ancillary: "ancillary-ivory" }]]);
+    expect([...state.playerCosmetics]).toEqual([["rival", { musterFlag: "flag-high-noble" }]]);
   });
 });

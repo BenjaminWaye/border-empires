@@ -21,31 +21,28 @@ describe("cosmetics catalogue", () => {
   });
 
   it("recognises ids and their slots", () => {
-    expect(isCosmeticId("flag-chevron")).toBe(true);
+    expect(isCosmeticId("flag-high-noble")).toBe(true);
     expect(isCosmeticId("flag-unknown")).toBe(false);
-    expect(cosmeticBelongsToSlot("flag-chevron", "musterFlag")).toBe(true);
-    expect(cosmeticBelongsToSlot("flag-chevron", "ancillary")).toBe(false);
+    expect(cosmeticBelongsToSlot("flag-high-noble", "musterFlag")).toBe(true);
+    expect(cosmeticBelongsToSlot("flag-unknown", "musterFlag")).toBe(false);
   });
 });
 
 describe("sanitizeCosmeticSelection", () => {
   it("keeps valid entries", () => {
-    expect(sanitizeCosmeticSelection({ musterFlag: "flag-chevron", ancillary: "ancillary-ivory" })).toEqual({
-      musterFlag: "flag-chevron",
-      ancillary: "ancillary-ivory"
-    });
+    expect(sanitizeCosmeticSelection({ musterFlag: "flag-high-noble" })).toEqual({ musterFlag: "flag-high-noble" });
   });
 
-  it("drops unknown ids, ids in the wrong slot and unknown slots", () => {
-    expect(sanitizeCosmeticSelection({ musterFlag: "ancillary-ivory", ancillary: "nope", crest: "flag-chevron" })).toEqual({});
+  it("drops unknown ids and unknown slots", () => {
+    expect(sanitizeCosmeticSelection({ musterFlag: "nope", crest: "flag-high-noble" })).toEqual({});
   });
 
   it("treats anything that is not an object as the default look", () => {
-    for (const value of [undefined, null, "flag-chevron", 3]) expect(sanitizeCosmeticSelection(value)).toEqual({});
+    for (const value of [undefined, null, "flag-high-noble", 3]) expect(sanitizeCosmeticSelection(value)).toEqual({});
   });
 
   it("reports an empty selection", () => {
     expect(isEmptyCosmeticSelection({})).toBe(true);
-    expect(isEmptyCosmeticSelection({ musterFlag: "flag-chevron" })).toBe(false);
+    expect(isEmptyCosmeticSelection({ musterFlag: "flag-high-noble" })).toBe(false);
   });
 });

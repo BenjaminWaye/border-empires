@@ -26,7 +26,7 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("isAdmin: session.canForceSeasonStart === true, force: message.force === true,");
     // The next-contest wiring (where the start call now lives) moved to gateway-next-contest.ts.
     expect(sourceFor("../next-contest/gateway-next-contest.ts")).toContain("startNextSeason: () => simulationClient.startNextSeason(false),");
-    expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids\n              );");
+    expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections()\n              );");
     expect(setProfileSource).toContain("canToggleFog");
     expect(setProfileSource).toContain('for (const targetSocket of socketsForPlayer(playerId))');
     expect(source).toContain('if (options?.includeFogUpdate === true) {');
@@ -163,10 +163,13 @@ describe("gateway fog capability regression guard", () => {
     const source = sourceFor("./gateway-app.ts");
 
     expect(source).toContain("const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();");
-    expect(source).toContain("const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();");
+    // The profile cache moved to profile-cache.ts; gateway-app.ts must still sweep it.
+    const profileCacheSource = sourceFor("./profile-cache.ts");
+    expect(profileCacheSource).toContain("const cache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();");
+    expect(profileCacheSource).toContain("sweepExpiredCacheEntries(cache, nowMs);");
     // The sweep itself lives in sweep-expired-cache-entries.ts (covered by its own test).
     expect(source).toContain('import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";');
     expect(source).toContain("sweepExpiredCacheEntries(authBindingCache, Date.now());");
-    expect(source).toContain("sweepExpiredCacheEntries(profileCache, Date.now());");
+    expect(source).toContain("sweepProfileCache(Date.now());");
   });
 });

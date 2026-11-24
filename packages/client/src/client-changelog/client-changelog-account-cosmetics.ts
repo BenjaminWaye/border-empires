@@ -2,11 +2,11 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const ACCOUNT_COSMETICS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.23",
-  title: "Groundwork for cosmetics",
-  why: "Houses will be able to show their own muster flag design and soldier livery. Cosmetics change looks only, never how the game plays.",
+  title: "Groundwork for the High-noble standard",
+  why: "A House will be able to fly a gilded muster flag that every rival sees. It changes looks only, never how the game plays.",
   changes: [
-    "An account that owns a cosmetic can choose it under Settings, Account",
-    "Other Houses see the chosen flag design and soldier livery on the map",
-    "Nothing is on sale yet, and nothing changes for an account that owns none"
+    "An account that owns the High-noble standard can choose it under Settings, Account",
+    "Other Houses see it on that House's muster flags",
+    "It is not on sale yet, and nothing changes for an account that does not own it"
   ]
 };
