@@ -38,6 +38,11 @@ export const price = (options: {
   giftToPleased?: number;
   retaliation?: AiRetaliationReadiness;
   temperament?: AiTemperament;
+  /** How many times stronger the AI is than the requester. */
+  aiToRequesterStrength?: number;
+  aiCanOpenFront?: boolean;
+  /** The requester holds unfortified towns or resources near the AI's border. */
+  requesterLandWorthTaking?: boolean;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -67,8 +72,11 @@ export const price = (options: {
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
       ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
+      ...(options.aiCanOpenFront !== undefined ? { aiCanOpenFront: options.aiCanOpenFront } : {}),
       ...(options.retaliation ? { retaliation: options.retaliation } : {}),
       ...(options.temperament ? { temperament: options.temperament } : {}),
+      ...(options.aiToRequesterStrength !== undefined ? { aiToRequesterStrength: options.aiToRequesterStrength } : {}),
+      ...(options.requesterLandWorthTaking !== undefined ? { requesterLandWorthTaking: options.requesterLandWorthTaking } : {}),
       now: NOW
     })
   };

@@ -13,6 +13,8 @@ import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolut
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
+import type { PublicProfileLinkStore } from "../public-house-profile/public-profile-link-store.js";
+import { publicProfileAccountState } from "../public-house-profile/public-house-profile-routes.js";
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 import { resolveMaxSeasonPlayersForGateway } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
@@ -74,6 +76,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
   sectorWaitlistStore?: SectorWaitlistStore;
+  publicProfileLinkStore?: PublicProfileLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
@@ -196,6 +199,18 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
+    ...(ctx.publicProfileLinkStore
+      ? {
+          publicHouseProfile: {
+            store: ctx.publicProfileLinkStore,
+            authenticateBearer: ctx.resolveHttpBearerIdentity,
+            accountState: (playerId: string) => publicProfileAccountState(ctx.authBindingStore, playerId),
+            getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
+            getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
+            listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
+          }
+        }
+      : {}),
     ...(ctx.sectorWaitlistStore
       ? {
           sectorWaitlist: {
