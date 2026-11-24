@@ -30,6 +30,10 @@ export type AiDiplomacyStanceInput = {
   };
   /** Any requester-owned tile is adjacent to an AI-owned tile in the AI's view. */
   bordersTouch: boolean;
+  /** An unfortified town or resource of the requester's near the AI's border (ai-conquest-worth.ts); false when omitted. */
+  requesterLandWorthTaking?: boolean;
+  /** The AI's army covers its current wars plus one more (ai-war-fronts.ts); undefined = unknown, treated as yes. */
+  aiCanOpenFront?: boolean;
   /** The requester broke a truce with this AI earlier this season. */
   requesterBrokeTruceWithAi: boolean;
 };
@@ -51,6 +55,17 @@ const strengthOf = (score: number | undefined, manpowerCap: number | undefined):
   if (score !== undefined && score > 0) return score;
   if (manpowerCap !== undefined && manpowerCap > 0) return manpowerCap;
   return undefined;
+};
+
+/**
+ * How many times stronger the AI is than the requester (score against score when both are known, else manpower
+ * cap against manpower cap); 1 when either is unknown. Prices alliances (ai-diplomacy-pricing.ts).
+ */
+export const aiToRequesterStrength = (input: Pick<AiDiplomacyStanceInput, "ai" | "requester">): number => {
+  const bothScored = (input.ai.score ?? 0) > 0 && (input.requester.score ?? 0) > 0;
+  const ai = bothScored ? input.ai.score : strengthOf(undefined, input.ai.manpowerCap);
+  const requester = bothScored ? input.requester.score : strengthOf(undefined, input.requester.manpowerCap);
+  return ai && requester ? ai / requester : 1;
 };
 
 export const computeAiDiplomacyStance = (input: AiDiplomacyStanceInput): AiDiplomacyStance => {
