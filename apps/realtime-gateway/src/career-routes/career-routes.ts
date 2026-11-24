@@ -18,7 +18,7 @@ export type CareerStatsView = {
   seasons: Array<Pick<SeasonParticipationRow, "seasonId" | "seasonSequence" | "rank" | "score" | "tiles" | "endedAt" | "ratingBefore" | "ratingAfter">>;
 };
 
-const ratingSummary = (rows: readonly SeasonParticipationRow[]): Pick<CareerStatsView, "rating" | "lastRatingDelta" | "peakRating"> => {
+export const ratingSummary = (rows: readonly SeasonParticipationRow[]): Pick<CareerStatsView, "rating" | "lastRatingDelta" | "peakRating"> => {
   const rated = rows
     .filter((row): row is SeasonParticipationRow & { ratingBefore: number; ratingAfter: number } =>
       typeof row.ratingBefore === "number" && typeof row.ratingAfter === "number")
