@@ -41,5 +41,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
-  { ...CITY_PLOTS_ENTRY, createdAt: 1795527610869, },
+  { ...CITY_PLOTS_ENTRY, createdAt: 1795554807385, },
 ];
