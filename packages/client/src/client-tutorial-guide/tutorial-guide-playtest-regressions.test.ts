@@ -170,12 +170,12 @@ describe("build step without a town (Tom skipped the town step)", () => {
   });
 });
 
-describe("last step names the Chronicle on the new HUD", () => {
+describe("last step on the new HUD", () => {
+  // The step before it ("Open the Chronicle") points at the screen, so the last card names none (owner, 2026-11-24: keep it short).
   it("doesn't mention an Activity dashboard the player can't find", () => {
     const view = evaluateGuide(stepInput(), doneExcept(["turn-finish"]));
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("turn-finish");
-    expect(view.why).toContain("Chronicle");
     expect(view.why).not.toContain("Activity dashboard");
   });
 
