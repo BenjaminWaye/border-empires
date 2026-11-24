@@ -263,3 +263,45 @@ describe("an unexplored tile's Explore button", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "EXPLORE", x: 20, y: 10 });
   });
 });
+
+// Playtest Run 4 follow-up: Expand To asks before attacking. These cover the handler wiring around that prompt.
+describe("Expand To through barbarian land", () => {
+  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ""; });
+
+  // A one-tile corridor: my land at (10,10), barbarians at (11,10), the empty target at (12,10); sea all round.
+  const corridorState = () => {
+    stubWindowStorage();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    for (let x = 9; x <= 13; x += 1) for (let y = 9; y <= 11; y += 1) state.tiles.set(keyFor(x, y), { x, y, terrain: "SEA" } as never);
+    state.tiles.set(keyFor(10, 10), { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as never);
+    state.tiles.set(keyFor(11, 10), { x: 11, y: 10, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "BARBARIAN" } as never);
+    state.tiles.set(keyFor(12, 10), { x: 12, y: 10, terrain: "LAND" } as never);
+    state.serverReach = new Set(["10,10", "11,10", "12,10"]);
+    state.serverReachRevision = 1;
+    return state;
+  };
+  const run = (state: ReturnType<typeof createInitialState>, actionId: string) =>
+    handleWaypointAction({ state, selected: { x: 12, y: 10 }, actionId, keyFor, pushFeed: noop, renderHud: noop,
+      hideTileActionMenu: noop, showCaptureAlert: noop, processActionQueue: () => false });
+
+  it("asks first, and queues an approved route only on confirm", () => {
+    const state = corridorState();
+    run(state, "expand_here");
+    expect(state.waypoint).toHaveLength(0);
+    document.querySelector<HTMLButtonElement>("[data-pact-go]")!.click();
+    expect(state.waypoint).toHaveLength(1);
+    expect(state.waypoint[0]!.attacksConfirmed).toBe(true);
+  });
+
+  // Regression: the queue was cleared before the prompt, so cancelling it wiped every waypoint.
+  it("keeps the existing queue when the clear-and-expand prompt is cancelled", () => {
+    const state = corridorState();
+    state.waypoint.push({ target: { x: 40, y: 40 }, plan: { steps: [], attackCount: 0, expandCount: 0 } } as never);
+    run(state, "clear_waypoint_and_expand_here");
+    document.querySelector<HTMLButtonElement>("[data-pact-cancel]")!.click();
+    expect(state.waypoint.map((w) => w.target)).toEqual([{ x: 40, y: 40 }]);
+  });
+});

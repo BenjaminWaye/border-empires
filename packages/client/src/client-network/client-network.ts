@@ -93,7 +93,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     centerOnOwnedTile,
     authProfileNameEl,
     authProfileColorEl,
-    defensibilityPctFromTE,
     resetStrategicReplayState,
     setWorldSeed,
     clearRenderCaches,
@@ -1056,7 +1055,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      applyPlayerUpdateIntegrity(state, msg, prevDefensibility, () => defensibilityPctFromTE(state.settledT, state.settledE));
+      applyPlayerUpdateIntegrity(state, msg, prevDefensibility);
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
