@@ -253,7 +253,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       afcJoinDrop: state.afcJoinDrop,
       resourceInstallations: deps
     };
-    const tileFeatureDeps2D = { playerCosmetics: state.playerCosmetics, relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, waystationOpenFxByKey: state.waystationOpenFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, waystationOpenFxByKey: state.waystationOpenFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const verboseTileDebug = verboseTileDebugEnabled(nowMs); // read once per frame: renderOverlayTile runs for every visible tile
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";

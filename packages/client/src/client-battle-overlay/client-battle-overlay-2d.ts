@@ -1,4 +1,3 @@
-import { drawAncillaryDotHelmet2D } from "../client-cosmetics/ancillary-skin-2d.js";
 import { pruneExpiredActiveBattles, type ActiveBattleOverlay } from "./client-battle-overlay.js";
 import { computeBattlePose, computeSkirmishPose, MARINES_PER_SIDE, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import { battleChoreographyFor } from "../client-map-3d-popup-marine/popup-marine-choreography.js";
@@ -19,7 +18,7 @@ export const battleMarkerEntry = (battle: ActiveBattleOverlay, attackerColor: st
 /** Canvas parity: two seven-dot squads exchange fire, break, or stage the same
  * last stand/comeback as the infantry. Only currently visible tiles are drawn. */
 export const drawBattleMarkers2D = (
-  ctx: CanvasRenderingContext2D, state: Pick<ClientState, "activeBattles" | "playerColors"> & Partial<Pick<ClientState, "playerCosmetics">>,
+  ctx: CanvasRenderingContext2D, state: Pick<ClientState, "activeBattles" | "playerColors">,
   tiles: readonly VisibleTile[], projection: Projection, nowMs: number,
   skirmishes?: ReadonlyMap<string, BattleOverlaySkirmishEntry>
 ): void => {
@@ -34,10 +33,6 @@ export const drawBattleMarkers2D = (
     if (unresolved?.landing && nowMs < unresolved.landing.startAt + unresolved.landing.approachMs) continue;
     const entry = resolved ?? unresolved!;
     const colors = [entry.attackerColor, entry.defenderColor] as const;
-    // Ancillary skin cosmetics: helmets only (ancillary-skin-2d.ts).
-    const skins = resolved
-      ? [state.playerCosmetics?.get(battle!.attackerOwnerId)?.ancillary, state.playerCosmetics?.get(battle!.defenderOwnerId)?.ancillary] as const
-      : [unresolved!.attackerGear?.skin, unresolved!.defenderGear?.skin] as const;
     const center = { sx: tile.px + projection.size / 2, sy: tile.py + projection.size / 2 };
     const scale = projection.size * 0.85;
     const poses = ([0, 1] as const).map((side) => Array.from({ length: MARINES_PER_SIDE }, (_, i) => {
@@ -70,7 +65,6 @@ export const drawBattleMarkers2D = (
         ctx.beginPath();
         ctx.arc(center.sx + pose.localX * scale, center.sy + pose.localZ * scale, Math.max(0.5, projection.size * 0.035) * pose.scale, 0, Math.PI * 2);
         ctx.fill();
-        drawAncillaryDotHelmet2D(ctx, center.sx + pose.localX * scale, center.sy + pose.localZ * scale, Math.max(0.5, projection.size * 0.035) * pose.scale, skins[side]);
       }
       ctx.globalAlpha = 1;
     }

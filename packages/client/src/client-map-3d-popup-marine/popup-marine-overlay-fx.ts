@@ -44,7 +44,6 @@ import { landingMarinePose } from "../client-dock-landing/client-dock-landing.js
 import { Matrix4, Quaternion, Scene, Vector3, type Texture } from "three";
 import { marineModelFor, type SquadGear } from "./popup-marine-gear.js";
 import { createMarinePools } from "./popup-marine-pools.js";
-import { setMarineSkin } from "./popup-marine-material.js";
 import { playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
 import {
   APPROACH_MS,
@@ -225,7 +224,6 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
     const writeOne = (side: 0 | 1, color: string, gear: SquadGear | undefined, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
       const slot = pools.acquire(side, marineModelFor(gear));
       if (!slot) return;
-      setMarineSkin(slot.material, gear?.skin);
       writeMarine(slot, color, tileX, tileY, tileZ, pose, nowMs);
       flashWrite = writeFlash(flashWrite, slot, pose);
     };

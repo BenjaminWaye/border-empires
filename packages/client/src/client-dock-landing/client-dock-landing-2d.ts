@@ -1,4 +1,3 @@
-import { drawAncillaryDotHelmet2D } from "../client-cosmetics/ancillary-skin-2d.js";
 import { garrisonStartFor } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { collectBattleRenderEntries } from "../client-map-3d-capture-overlays.js";
@@ -46,7 +45,6 @@ export function drawDockLandings2D(
         ctx.globalAlpha = pose.scale * (1 - pose.fallT);
         ctx.fillStyle = side === 0 ? b.attackerColor : b.defenderColor;
         ctx.beginPath(); ctx.arc(pose.localX, pose.localZ, 0.025, 0, Math.PI * 2); ctx.fill();
-        drawAncillaryDotHelmet2D(ctx, pose.localX, pose.localZ, 0.025, (side === 0 ? b.attackerGear : b.defenderGear)?.skin);
         if (pose.flash > 0) {
           ctx.strokeStyle = "#fff4b0"; ctx.lineWidth = 0.012;
           ctx.beginPath(); ctx.moveTo(pose.localX, pose.localZ);

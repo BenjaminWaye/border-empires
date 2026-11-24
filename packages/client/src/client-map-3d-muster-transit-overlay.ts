@@ -7,7 +7,7 @@ import {
 } from "./client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
 import { MARINE_MODEL_KEYS, marineModelFor, type MarineModelKey, type SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
-import { createMarineMaterial, setMarineSkin } from "./client-map-3d-popup-marine/popup-marine-material.js";
+import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-material.js";
 import { createMusterBoatOverlay, type MusterBoatVoyage } from "./client-map-3d-muster-boat-overlay.js";
 
 // Muster transit overlay: a company marching hop-by-hop along the actual
@@ -279,7 +279,6 @@ export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): Must
         soldier.root.quaternion.copy(tmpQuat);
         soldier.root.scale.setScalar(MARINE_MODEL_SCALE);
         soldier.material.color.set(e.ownerColor);
-        setMarineSkin(soldier.material, e.gear?.skin);
         soldier.root.visible = true;
 
         // Blend between the two looping clips by weight rather than

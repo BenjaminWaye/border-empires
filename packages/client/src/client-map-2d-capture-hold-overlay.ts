@@ -6,8 +6,6 @@
 // no battle animation at all (a documented scope decision, see
 // popup-marine-overlay-fx.ts), so during an attack on a held tile these
 // figures simply stay put under the under-attack marker as its defenders.
-import { ancillaryHelmetFill2D } from "./client-cosmetics/ancillary-skin-2d.js";
-import type { AncillarySkin } from "./client-cosmetics/client-cosmetics.js";
 import { CAPTURE_HOLD_MS } from "@border-empires/shared";
 import { isHoldingCapturedGround } from "./client-capture-hold/client-capture-hold.js";
 import type { Tile } from "./client-types.js";
@@ -25,8 +23,7 @@ export const drawCaptureHoldGarrison2D = (
   px: number,
   py: number,
   size: number,
-  nowEpochMs: number,
-  skin?: AncillarySkin
+  nowEpochMs: number
 ): void => {
   const remaining = captureHoldRemainingFraction(tile, nowEpochMs);
   if (remaining === undefined || size < 8) return;
@@ -45,11 +42,8 @@ export const drawCaptureHoldGarrison2D = (
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(cx, baseY - unit * 2.9, unit * 0.65, 0, Math.PI * 2);
-    // An ancillary skin cosmetic repaints the helmet only (ancillary-skin-2d.ts).
-    ctx.fillStyle = ancillaryHelmetFill2D(ownerColor, skin);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = ownerColor;
   }
   // Hold-remaining bar under the rank.
   const barX = px + size * 0.2;

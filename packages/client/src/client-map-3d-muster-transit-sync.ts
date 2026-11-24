@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { CLASH_MS } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { knownSquadGearFor, localPlayerSquadGear, squadGearWithSkin } from "./client-battle-overlay/client-battle-overlay.js";
+import { knownSquadGearFor, localPlayerSquadGear } from "./client-battle-overlay/client-battle-overlay.js";
 import type { SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
 import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
@@ -59,7 +59,7 @@ export function syncMusterTransitOverlay(
   // since most frames have no march at all.
   let ownGear: SquadGear | undefined | null = null;
   const myGear = (): SquadGear | undefined => {
-    if (ownGear === null) ownGear = squadGearWithSkin(state, state.me, localPlayerSquadGear(state));
+    if (ownGear === null) ownGear = localPlayerSquadGear(state);
     return ownGear;
   };
 
@@ -197,7 +197,7 @@ export function syncMusterTransitOverlay(
       battle.shieldX, battle.shieldY, battle.targetX, battle.targetY,
       battle.clashAt, battle.clashAt + SHIELD_REINFORCEMENT_MARCH_MS, battle.endAt,
       effectiveOverlayColor(battle.defenderOwnerId),
-      battle.defenderGear ? squadGearWithSkin(state, battle.defenderOwnerId, battle.defenderGear) : knownSquadGearFor(state, battle.defenderOwnerId)
+      battle.defenderGear ?? knownSquadGearFor(state, battle.defenderOwnerId)
     );
   }
 
