@@ -14,12 +14,11 @@ const ownedTile = (tile: DomainTileState | undefined, playerId: string, settledO
   return settledOnly ? tile.ownershipState === "SETTLED" : tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
 };
 
-const exposedEdgesFor = (
-  tile: DomainTileState,
-  playerId: string,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  settledOnly: boolean
-): number => {
+// A side is exposed when it faces land the player doesn't own: its own ungarrisoned (FRONTIER) land
+// is still its land, so garrisoning inside the empire never opens sides (Playtest Run 4: garrisoning
+// a tile next to frontier lowered Integrity). Water and mountains block. Clean-room take on the
+// "interior vs perimeter" idea of War of Conquest's geographic efficiency -- no code copied.
+const exposedEdgesFor = (tile: DomainTileState, playerId: string, tiles: ReadonlyMap<string, DomainTileState>): number => {
   const neighbors = [
     { x: wrapX(tile.x), y: wrapY(tile.y - 1) },
     { x: wrapX(tile.x + 1), y: wrapY(tile.y) },
@@ -29,7 +28,7 @@ const exposedEdgesFor = (
   let exposed = 0;
   for (const neighbor of neighbors) {
     const next = tiles.get(`${neighbor.x},${neighbor.y}`);
-    if (ownedTile(next, playerId, settledOnly)) continue;
+    if (ownedTile(next, playerId, false)) continue;
     const terrain = next?.terrain ?? "LAND";
     if (isSeaTerrain(terrain) || terrain === "MOUNTAIN") continue;
     exposed += 1;
@@ -67,10 +66,13 @@ export const buildPlayerDefensibilityMetrics = (
 
   const accumulate = (tile: DomainTileState): void => {
     T += 1;
-    if (!skipAllOwnedStats) E += exposedEdgesFor(tile, playerId, tiles, false);
-    if (!ownedTile(tile, playerId, true)) return;
+    const settled = ownedTile(tile, playerId, true);
+    if (skipAllOwnedStats && !settled) return;
+    const exposed = exposedEdgesFor(tile, playerId, tiles);
+    if (!skipAllOwnedStats) E += exposed;
+    if (!settled) return;
     Ts += 1;
-    Es += exposedEdgesFor(tile, playerId, tiles, true);
+    Es += exposed;
   };
   // Iterate the player's owned tiles only when the caller provides the
   // index — O(owned-tiles) instead of O(all-map-tiles). The summary's

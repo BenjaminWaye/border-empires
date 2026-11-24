@@ -1,7 +1,7 @@
 import { formatCoinPerDay, INTEGRITY_GRACE_FLOOR, INTEGRITY_GRACE_TILES, defensibilityScore, fullDefensibilityExposureForTiles, idealExposureForTiles, integrityEconomyMult, integrityGrowthMult } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import "./client-defensibility-html.css";
-import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
+import { exposedSidesForTile, isOwnedLandTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import { weakDefensibilityEntries, type WeakDefensibilityEntry } from "../client-defensibility-weak-tiles/client-defensibility-weak-tiles.js";
 
 type DefensibilityBreakdown = {
@@ -68,7 +68,7 @@ const defensibilityBreakdown = (args: Pick<DefensibilityArgs, "tiles" | "me" | "
     ];
     for (const neighbor of neighbors) {
       const neighborTile = args.tiles.get(args.keyFor(neighbor.x, neighbor.y));
-      if (isOwnedSettledLandTile(neighborTile, args.me)) {
+      if (isOwnedLandTile(neighborTile, args.me)) {
         internalEdges += 1;
         continue;
       }
@@ -149,7 +149,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     </article>
     <article class="card defense-breakdown-card">
       <strong>What is an "open side"?</strong>
-      <p class="defense-copy">Only garrisoned tiles count. Each has 4 sides. A side is <em>open</em> unless it touches your own garrisoned land — enemy, empty and ungarrisoned land are where enemies can walk in. Water and mountains block enemies, so those sides do <em>not</em> count as open. <strong>Fewer open sides = harder to invade = higher score.</strong></p>
+      <p class="defense-copy">Only garrisoned tiles count. Each has 4 sides. A side is <em>open</em> unless it touches your own land, garrisoned or not — enemy and empty land are where enemies can walk in. Water and mountains block enemies, so those sides do <em>not</em> count as open. <strong>Fewer open sides = harder to invade = higher score.</strong></p>
     </article>
     <article class="card defense-breakdown-card">
       <div class="defense-stat-grid">

@@ -87,3 +87,32 @@ describe("buildPlayerDefensibilityMetrics — skipAllOwnedStats", () => {
     expect(metrics.T).toBe(1);
   });
 });
+
+// Playtest Run 4: garrisoning a tile next to the player's own frontier lowered Integrity, because sides facing
+// its own ungarrisoned land counted as open. They are its land: only foreign or empty land opens a side.
+describe("buildPlayerDefensibilityMetrics — own frontier is not exposure", () => {
+  it("does not count sides facing the player's own frontier as exposed", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["5,5", settled(5, 5, PLAYER)],
+      ["5,4", frontier(5, 4, PLAYER)],
+      ["6,5", frontier(6, 5, PLAYER)],
+      ["5,6", frontier(5, 6, PLAYER)],
+      ["4,5", frontier(4, 5, PLAYER)]
+    ]);
+    expect(buildPlayerDefensibilityMetrics(PLAYER, tiles).Es).toBe(0);
+  });
+
+  it("garrisoning a frontier tile inside the empire never adds exposure", () => {
+    const ring: Array<[number, number]> = [];
+    for (let x = 0; x < 5; x += 1) for (let y = 0; y < 5; y += 1) ring.push([x, y]);
+    const build = (garrisonCentre: boolean) => new Map<string, DomainTileState>(ring.map(([x, y]) => {
+      const isCentre = x === 2 && y === 2;
+      const state = isCentre && !garrisonCentre ? frontier(x, y, PLAYER) : x >= 1 && x <= 3 && y >= 1 && y <= 3 ? settled(x, y, PLAYER) : frontier(x, y, PLAYER);
+      return [`${x},${y}`, state];
+    }));
+    const before = buildPlayerDefensibilityMetrics(PLAYER, build(false));
+    const after = buildPlayerDefensibilityMetrics(PLAYER, build(true));
+    expect(after.Ts).toBe(before.Ts + 1);
+    expect(after.Es).toBe(before.Es);
+  });
+});

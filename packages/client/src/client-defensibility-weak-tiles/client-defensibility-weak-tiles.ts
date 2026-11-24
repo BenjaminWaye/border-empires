@@ -30,13 +30,12 @@ const DELTAS: Record<EdgeDirection, { dx: number; dy: number }> = {
   west: { dx: -1, dy: 0 }
 };
 
-type OpenSideKind = "unclaimed land" | "rival land" | "your ungarrisoned land" | "unexplored land";
+type OpenSideKind = "unclaimed land" | "rival land" | "unexplored land";
 
 const openSideKind = (tile: Tile, side: EdgeDirection, args: ExposedSidesArgs): OpenSideKind => {
   const delta = DELTAS[side];
   const neighbor = args.tiles.get(args.keyFor(args.wrapX(tile.x + delta.dx), args.wrapY(tile.y + delta.dy)));
   if (!neighbor) return "unexplored land";
-  if (neighbor.ownerId === args.me) return "your ungarrisoned land";
   if (neighbor.ownerId) return "rival land";
   return "unclaimed land";
 };

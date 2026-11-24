@@ -33,7 +33,7 @@ describe("weakDefensibilityEntries", () => {
     );
     expect(entries[0]).toMatchObject({ x: 10, y: 10, severity: "critical" });
     const spur = entries.find((entry) => entry.x === 12);
-    expect(spur?.reason).toBe("3 open sides: north (rival land), east (your ungarrisoned land) and south (unclaimed land)");
+    expect(spur?.reason).toBe("2 open sides: north (rival land) and south (unclaimed land)");
   });
 
   it("breaks ties by distance from the camera", () => {
