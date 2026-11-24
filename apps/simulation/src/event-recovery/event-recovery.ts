@@ -242,6 +242,12 @@ const spendRecoveredPlayerGold = (
   player.points -= goldCost;
 };
 
+// Mirrors countRedeploy (runtime-respawn-helpers.ts), which bumps the counter as the landing's batch is emitted.
+const countRecoveredRedeploy = (accumulator: RecoveredSimulationAccumulator, playerId: string): void => {
+  const player = accumulator.players.find((entry) => entry.id === playerId);
+  if (player) player.redeploys = (player.redeploys ?? 0) + 1;
+};
+
 // Mirrors startSettlementProcess, which bumps the counter as it emits SETTLEMENT_STARTED.
 const countRecoveredLifetimeGarrison = (accumulator: RecoveredSimulationAccumulator, playerId: string): void => {
   const player = accumulator.players.find((entry) => entry.id === playerId);
@@ -295,6 +301,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
     }
     if (event.eventType === "TILE_DELTA_BATCH") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
+      for (const redeployedId of event.redeployPlayerIds ?? []) countRecoveredRedeploy(accumulator, redeployedId);
       for (const tileDelta of event.tileDeltas) {
         const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
         const pendingSettlement = accumulator.pendingSettlements.find(

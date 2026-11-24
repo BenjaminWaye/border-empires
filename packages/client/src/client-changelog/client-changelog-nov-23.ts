@@ -3,6 +3,7 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { VISIT_FORECAST_ENTRY } from "./client-changelog-visit-forecast.js";
 import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
 import { GUIDE_PLAIN_WORDS_ENTRY } from "./client-changelog-guide-plain-words.js";
+import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-strength.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
 import { SCOUT_SHORTEST_HOME_ENTRY } from "./client-changelog-scout-shortest-home.js";
@@ -14,8 +15,12 @@ import { PD_LAND_VISIBLE_ENTRY } from "./client-changelog-pd-land-visible.js";
 import { LOST_TILE_OWNER_ENTRY } from "./client-changelog-lost-tile-owner.js";
 import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.js";
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
+import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-profile.js";
+import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
+  { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
+  { ...PUBLIC_HOUSE_PROFILE_ENTRY, createdAt: 1795468951720, },
   { ...VISIT_AGENDA_ENTRY, createdAt: 1795459779781, },
   { ...VISIT_FORECAST_ENTRY, createdAt: 1795459490383, },
   { ...TRUCE_CLOCK_FROM_OFFER_ENTRY, createdAt: 1795425750299, },
@@ -30,4 +35,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
   { ...CHRONICLE_ROW_TIME_ENTRY, createdAt: 1795466612442, },
   { ...GUIDE_PLAIN_WORDS_ENTRY, createdAt: 1795468127235, },
+  { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
 ];

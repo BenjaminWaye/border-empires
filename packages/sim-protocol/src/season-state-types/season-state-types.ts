@@ -150,6 +150,8 @@ export type SimulationSeasonState = {
   galaxyTiers?: SeasonGalaxyTierSnapshot[];
   /** House Charges outcome per House, recorded at crowning (docs/house-charges-plan.md); absent for older seasons. */
   houseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
+  /** Never Gave Up / Comeback Kid, decided at the crowning (shared season-awards.ts). */
+  awards?: import("@border-empires/shared").SeasonAward[];
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
   /** Player ids that have explicitly joined this season (via JoinSeason),
    *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed
