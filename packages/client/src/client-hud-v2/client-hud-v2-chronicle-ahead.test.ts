@@ -33,4 +33,22 @@ describe("Chronicle Ahead tab", () => {
     expect(html).toContain("Nothing is underway.");
     expect(html).not.toContain("v2c-return");
   });
+
+  // Visit loop: decisions first, then what is still to come.
+  it("lists the agenda above the forecast, each row a button to the place to act", () => {
+    const html = aheadTabHtml({ items: [{ kind: "manpower_full", text: "Manpower full in 5h", inMs: 5 * 3_600_000 }], returnIn: { inMs: 5 * 3_600_000, reason: "manpower is full" } }, [
+      { kind: "town_upgrade", title: "River<gate can become a City", sub: "350 Coin · you have 400", focus: { x: 4, y: 9 } },
+      { kind: "manifest", title: "A Manifest can be commissioned", sub: "300 Coin · you have 400", open: "manifest" }
+    ]);
+    expect(html.indexOf("WORTH DOING NOW")).toBeLessThan(html.indexOf("Good moment to come back"));
+    expect(html.indexOf("Good moment to come back")).toBeLessThan(html.indexOf("WHILE YOU ARE AWAY"));
+    expect(html).toContain(`<button type="button" class="v2c-agenda-row v2c-agenda-town-upgrade" data-v2-ahead-focus data-v2-ahead-select data-x="4" data-y="9">`);
+    expect(html).toContain("River&lt;gate can become a City");
+    expect(html).toContain(`class="v2c-agenda-row v2c-agenda-manifest" data-hud-v2-open="manifest"`);
+    expect(html).toContain("Manifest ›");
+  });
+
+  it("says nothing needs a decision when the agenda is empty", () => {
+    expect(aheadTabHtml({ items: [] })).toContain("Nothing needs a decision right now.");
+  });
 });

@@ -1,0 +1,40 @@
+/* Public House profile page (/house.html). Phone first: one column, widening at 640px. Tokens come from /legal.css. */
+body { padding: 16px 16px 40px; }
+.ph-shell { width: min(720px, 100%); margin: 0 auto; }
+.ph-hero { display: flex; align-items: center; gap: 14px; padding: 8px 0 18px; }
+.ph-crest { flex: none; width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); font-size: 30px; font-weight: 700; }
+.ph-kicker { margin: 0 0 2px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.ph-hero h1 { margin: 0; font-size: 30px; line-height: 1.1; overflow-wrap: anywhere; }
+.ph-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.ph-stat { display: grid; gap: 4px; padding: 12px 14px; background: var(--bg-soft); }
+.ph-stat span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.ph-stat b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.ph-stat i { font-style: normal; font-size: 13px; color: var(--muted); }
+.ph-note, .ph-empty { margin: 12px 0 0; font-size: 15px; line-height: 1.4; color: var(--muted); }
+.ph-section { margin-top: 26px; }
+.ph-section h2 { margin: 0 0 10px; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.ph-list, .ph-contests { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ph-list li, .ph-contest { padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); }
+.ph-list li { display: grid; gap: 3px; }
+.ph-list b, .ph-contest-main b { font-size: 17px; }
+.ph-list span, .ph-contest-main span { font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
+.ph-list i { font-style: normal; font-size: 13px; color: var(--muted); }
+.ph-contest { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.ph-place { display: grid; text-align: center; }
+.ph-place b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.ph-place span { font-size: 12px; color: var(--muted); }
+.ph-contest-main { display: grid; gap: 3px; min-width: 0; }
+.ph-contest-main span { color: var(--muted); font-size: 14px; }
+.ph-rating { font-size: 17px; font-variant-numeric: tabular-nums; text-align: right; }
+.ph-rating em { display: block; font-style: normal; font-size: 13px; }
+.ph-up { color: #4ade80; }
+.ph-down { color: #f87171; }
+.ph-won, .ph-foil { border-color: var(--accent); }
+.ph-tag { display: inline-block; margin-left: 4px; padding: 1px 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); }
+.ph-foot { margin-top: 30px; font-size: 15px; color: var(--muted); }
+.ph-foot a { color: var(--accent); }
+@media (min-width: 640px) {
+  body { padding: 32px 18px 48px; }
+  .ph-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ph-hero h1 { font-size: 38px; }
+}
