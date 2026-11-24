@@ -6,7 +6,7 @@ import type { Tile } from "../client-types.js";
 
 type DefensibilityPanelState = Pick<
   ClientState,
-  "tiles" | "tilesRevision" | "me" | "defensibilityPct" | "settledT" | "settledE" | "showWeakDefensibility"
+  "tiles" | "tilesRevision" | "me" | "defensibilityPct" | "ownedT" | "settledT" | "settledE" | "showWeakDefensibility"
   | "incomePerMinute" | "upkeepPerMinute" | "economyBreakdown"
 >;
 
@@ -36,7 +36,7 @@ export const renderDefensibilityPanels = (
 ): void => {
   // The panel shows the Integrity line from the same coin breakdown the Economy panel lists.
   const integrityCoinPerMinute = empireCoinIncome(state).integrityPerMinute;
-  const key = [state.tilesRevision, state.tiles.size, state.me, state.defensibilityPct, state.settledT, state.settledE, state.showWeakDefensibility, integrityCoinPerMinute].join("|");
+  const key = [state.tilesRevision, state.tiles.size, state.me, state.defensibilityPct, state.ownedT, state.settledT, state.settledE, state.showWeakDefensibility, integrityCoinPerMinute].join("|");
   if (key !== cachedKey || !cachedHtml) {
     const html = deps.safeValue("renderDefensibilityPanelHtml", "", () =>
       renderDefensibilityPanelHtml({
@@ -45,6 +45,7 @@ export const renderDefensibilityPanels = (
         defensibilityPct: state.defensibilityPct,
         settledT: state.settledT,
         settledE: state.settledE,
+        ...(state.ownedT !== undefined ? { ownedT: state.ownedT } : {}),
         showWeakDefensibility: state.showWeakDefensibility,
         empireIntegrityEnabled: EMPIRE_INTEGRITY_ENABLED,
         integrityCoinPerMinute,

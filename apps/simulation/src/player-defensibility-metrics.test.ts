@@ -78,4 +78,10 @@ describe("buildPlayerDefensibilityMetrics — whole-territory shape and garrison
     const moat = buildPlayerDefensibilityMetrics(PLAYER, blockOf(5, (x, y) => (edge(x, y, 5) ? frontier(x, y, PLAYER) : settled(x, y, PLAYER))));
     expect(moat.Es).toBe(20);
   });
+  // Review fix: T was floored at 1 while Ts was 0, so a House with no land showed the full penalty (70%).
+  it("a player with no land counts no tiles and scores 100%", () => {
+    const metrics = buildPlayerDefensibilityMetrics(PLAYER, new Map());
+    expect(metrics.T).toBe(0);
+    expect(empireIntegrity(metrics.T, metrics.Es, metrics.Ts)).toBe(1);
+  });
 });

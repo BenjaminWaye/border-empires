@@ -34,7 +34,7 @@ const openSidesFor = (tile: DomainTileState, playerId: string, tiles: ReadonlyMa
 };
 
 export type PlayerDefensibilityMetrics = {
-  /** Owned land tiles, garrisoned and frontier: the size the shape is judged against. */
+  /** Owned land tiles, garrisoned and frontier: the size the shape is judged against (0 with no land: 100%, no penalty). */
   T: number;
   /** Open sides of all owned land, unweighted (display). */
   E: number;
@@ -77,7 +77,7 @@ export const buildPlayerDefensibilityMetrics = (
     }
   }
   return {
-    T: Math.max(1, T),
+    T,
     E,
     Ts,
     Es

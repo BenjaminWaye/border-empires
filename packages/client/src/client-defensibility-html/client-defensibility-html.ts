@@ -18,6 +18,8 @@ type DefensibilityArgs = {
   defensibilityPct: number;
   settledT: number;
   settledE: number;
+  /** Owned land tiles from the server (PLAYER_UPDATE T); counted from `tiles` until the first update arrives. */
+  ownedT?: number;
   showWeakDefensibility: boolean;
   empireIntegrityEnabled: boolean;
   /** The Empire Integrity line of the shared coin breakdown (what accrual actually pays). */
@@ -111,7 +113,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
   const weakEntries = weakDefensibilityEntries(sharedArgs);
   const weakCount = weakEntries.length;
   // Owned land counts from the tiles here (your own land is always known); garrisoned and open sides from the server.
-  const ownedTiles = ownedLandTiles(sharedArgs).length;
+  const ownedTiles = args.ownedT ?? ownedLandTiles(sharedArgs).length;
   const garrisonedTiles = Math.max(0, Number.isFinite(args.settledT) ? args.settledT : 0);
   const openSides = Math.max(0, Number.isFinite(args.settledE) ? args.settledE : 0);
   const parts = integrityParts(ownedTiles, openSides, garrisonedTiles);

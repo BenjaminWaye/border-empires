@@ -34,6 +34,8 @@ type PersistedWaypointEntry = {
   target: { x: number; y: number };
   trackBarbarian?: boolean;
   commitManpower?: number;
+  /** Attacks on the route were approved (Expand To's "Attack on the way?"). */
+  attacksConfirmed?: boolean;
 };
 
 const readSessionStorage = (key: string): string | null => {
@@ -127,7 +129,8 @@ const parsePersistedWaypointEntry = (value: unknown): PersistedWaypointEntry | u
   return {
     target: { x, y },
     ...(typeof value.trackBarbarian === "boolean" ? { trackBarbarian: value.trackBarbarian } : {}),
-    ...(isPositiveNumber(value.commitManpower) ? { commitManpower: value.commitManpower } : {})
+    ...(isPositiveNumber(value.commitManpower) ? { commitManpower: value.commitManpower } : {}),
+    ...(value.attacksConfirmed === true ? { attacksConfirmed: true } : {})
   };
 };
 
@@ -218,7 +221,8 @@ export const persistWaypointQueueForPlayer = (playerId: string, queue: readonly 
   const entries: PersistedWaypointEntry[] = queue.map((w) => ({
     target: w.target,
     ...(w.trackBarbarian ? { trackBarbarian: true } : {}),
-    ...(w.commitManpower != null ? { commitManpower: w.commitManpower } : {})
+    ...(w.commitManpower != null ? { commitManpower: w.commitManpower } : {}),
+    ...(w.attacksConfirmed ? { attacksConfirmed: true } : {})
   }));
   writeSessionStorage(WAYPOINT_QUEUE_SESSION_KEY, JSON.stringify({ playerId, queue: entries }));
 };
@@ -303,13 +307,16 @@ export const restorePersistedWaypointQueueForPlayer = (
     // legacy target-only entry, or a session-only (not server-known) one.
     const serverEntry = entry.serverEntry;
     const resumedPlan = serverEntry && !serverEntry.stalled ? planFromServerSteps(serverEntry, deps) : undefined;
+    // The server only holds ATTACK steps the player approved when queuing (the enqueue follows the prompt).
+    const attacksConfirmed = entry.attacksConfirmed === true || (resumedPlan?.attackCount ?? 0) > 0;
     restored.push({
       target: entry.target,
       plan: resumedPlan ?? planWaypoint(entry.target, { state: deps.state, keyFor: deps.keyFor, isInReach }),
       ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
       ...(serverEntry?.planId ? { planId: serverEntry.planId } : {}),
       ...(serverEntry?.plannedAt !== undefined ? { plannedAt: serverEntry.plannedAt } : {}),
-      ...(entry.commitManpower != null ? { commitManpower: entry.commitManpower } : {})
+      ...(entry.commitManpower != null ? { commitManpower: entry.commitManpower } : {}),
+      ...(attacksConfirmed ? { attacksConfirmed: true } : {})
     });
     if (restored.length >= WAYPOINT_QUEUE_CLIENT_CAP) break;
   }

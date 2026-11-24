@@ -25,6 +25,11 @@ export type ClientWaypoint = {
   trackBarbarian?: boolean;
   // Paused on an unaffordable EXPAND leg — see client-waypoint-manpower-pause.ts.
   pausedForManpower?: boolean;
+  // The player approved attacks on this route (Expand To's "Attack on the way?", client-waypoint-attack-confirm.ts).
+  // Without it a re-plan that turns the next leg into an ATTACK parks the waypoint instead of attacking.
+  attacksConfirmed?: boolean;
+  // Parked because the next leg became an unapproved ATTACK; resumes when the route is clear again.
+  pausedForAttack?: boolean;
   // Identity of the client-side plan that produced `plan.steps` -- sent to
   // the server alongside the wire projection of those steps (see
   // client-waypoint-persistence.ts's waypointEnqueueWirePayload and

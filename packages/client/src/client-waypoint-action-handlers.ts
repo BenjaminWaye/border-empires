@@ -48,13 +48,15 @@ const setWaypointForSelected = (
     processActionQueue: () => boolean;
     renderHud: () => void;
     sendGameMessage?: (payload: unknown) => boolean;
-    /** The player already agreed to the attacks on the route (confirmWaypointAttacks). */
-    attacksConfirmed?: boolean;
+    /** How many attacks the player approved on this route (confirmWaypointAttacks); more on a re-plan asks again. */
+    approvedAttacks?: number;
+    /** Clear every queued waypoint first, but only once the route is approved: a cancelled prompt keeps the queue. */
+    clearQueueFirst?: boolean;
   },
   feedPrefix?: string
 ): boolean => {
   const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, sendGameMessage } = params;
-  if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
+  if (!params.clearQueueFirst && state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
     showVisibleActionWarning(
       { pushFeed, showCaptureAlert },
       "Action blocked",
@@ -72,14 +74,16 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
-  if (plan.attackCount > 0 && !params.attacksConfirmed) {
+  // Asks again when the route now needs more attacks than were approved (it is re-planned on confirm).
+  if (plan.attackCount > (params.approvedAttacks ?? 0)) {
     hideTileActionMenu();
     confirmWaypointAttacks(plan, state, keyFor, () => {
-      setWaypointForSelected({ ...params, attacksConfirmed: true }, feedPrefix);
+      setWaypointForSelected({ ...params, approvedAttacks: plan.attackCount }, feedPrefix);
     });
     renderHud();
     return true;
   }
+  if (params.clearQueueFirst) feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   // Anchors and captured structures can be garrisoned without existing reach.
   if (!isInReach(selected.x, selected.y) && !settleIgnoresReach(selectedTile ?? {}) && state.discoveryTipQueue) {
@@ -93,7 +97,8 @@ const setWaypointForSelected = (
     plan,
     trackBarbarian,
     planId,
-    plannedAt
+    plannedAt,
+    ...(plan.attackCount > 0 ? { attacksConfirmed: true } : {})
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
   sendGameMessage?.(
@@ -175,11 +180,10 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "clear_waypoint_and_expand_here" && selected) {
-    const feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
-    return setWaypointForSelected(
-      { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) },
-      feedPrefix
-    );
+    return setWaypointForSelected({
+      state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, clearQueueFirst: true,
+      ...(sendGameMessage ? { sendGameMessage } : {})
+    });
   }
 
   // Reachable from any tile's menu (see appendCancelAllWaypointsAction in
