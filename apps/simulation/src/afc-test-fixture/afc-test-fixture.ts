@@ -13,8 +13,9 @@ const TIER_MODULE_TECH_IDS = new Set([...FORT_TIER_ORDER.map(fortTierTechId), ..
  * with that module installed. Tests that grant techIds directly (bypassing
  * research-time commissioning) add this tile so those builds stay reachable.
  * Placed at (1, 1), clear of the coordinates the structure tests use.
+ * `include` adds tier modules; `exclude` drops modules a test needs missing.
  */
-export const afcModuleFixtureTile = (ownerId: string) => ({
+export const afcModuleFixtureTile = (ownerId: string, options: { include?: readonly string[]; exclude?: readonly string[] } = {}) => ({
   x: 1,
   y: 1,
   terrain: "LAND" as const,
@@ -24,6 +25,8 @@ export const afcModuleFixtureTile = (ownerId: string) => ({
     ownerId,
     status: "active" as const,
     activatedAt: 0,
-    modules: [...techEntryById.values()].filter((tech) => tech.manifestCategory === "AFC_MODULE" && !TIER_MODULE_TECH_IDS.has(tech.id)).map((tech) => tech.id)
+    modules: [...techEntryById.values()]
+      .filter((tech) => tech.manifestCategory === "AFC_MODULE" && (!TIER_MODULE_TECH_IDS.has(tech.id) || options.include?.includes(tech.id)) && !options.exclude?.includes(tech.id))
+      .map((tech) => tech.id)
   }
 });

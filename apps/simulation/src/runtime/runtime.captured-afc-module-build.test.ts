@@ -37,7 +37,7 @@ const capturedAfcTile = (modules: string[]) => ({
   }
 });
 
-const buildFort = async (researched: string[], installed: string[]) => {
+const buildFort = async (researched: string[], installed: string[], tier?: string) => {
   const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
   for (let x = 0; x <= 20; x += 1) {
     for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
@@ -51,8 +51,8 @@ const buildFort = async (researched: string[], installed: string[]) => {
         capturedAfcTile(installed),
         ...tiles,
         { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
-        // A free TITANIUM slot -- FORT's resource-slot requirement.
-        { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "TITANIUM" as const }
+        // Free TITANIUM slots -- the Fort tiers' resource-slot requirement.
+        ...[0, 2, 3, 4, 5, 6, 7, 8].map((x) => ({ x, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "TITANIUM" as const }))
       ],
       activeLocks: []
     }
@@ -68,7 +68,7 @@ const buildFort = async (researched: string[], installed: string[]) => {
     clientSeq: 0,
     issuedAt: Date.now(),
     type: "BUILD_STRUCTURE" as any,
-    payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FORT" })
+    payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FORT", ...(tier ? { tier } : {}) })
   });
   await Promise.resolve();
   vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
@@ -84,6 +84,17 @@ describe("SimulationRuntime captured AFC modules unlock their buildings", () => 
       const result = await buildFort([], ["masonry"]);
       expect(result.rejections).toEqual([]);
       expect(result.fort).toMatchObject({ ownerId: "player-1", status: "active" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("builds a Titanium Bastion from captured tier modules without researching them", async () => {
+    vi.useFakeTimers();
+    try {
+      const result = await buildFort([], ["masonry", "fortified-walls"], "TITANIUM_BASTION");
+      expect(result.rejections).toEqual([]);
+      expect(result.fort).toMatchObject({ ownerId: "player-1", variant: "TITANIUM_BASTION" });
     } finally {
       vi.useRealTimers();
     }
