@@ -1,13 +1,8 @@
+import { HOSTED_SECTOR_TICKET_ISSUER, hostedSectorTicketAudience } from "@border-empires/shared";
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 
-import {
-  assertHostedSectorTicketKey,
-  createHostedSectorTicketVerifier,
-  HOSTED_SECTOR_TICKET_ISSUER,
-  hostedSectorTicketAudience,
-  parseHostedSectorConfig
-} from "./hosted-sector-ticket.js";
+import { assertHostedSectorTicketKey, createHostedSectorTicketVerifier, parseHostedSectorConfig } from "./hosted-sector-ticket.js";
 
 const NOW = 1_800_000_000_000;
 
