@@ -9,6 +9,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { HouseChargesPayload, IslandNamesPayload } from "@border-empires/shared";
 import { createHouseChargesTicker } from "../house-charges/house-charges-ticker.js";
+import { createHouseChargesAfcWatch } from "../house-charges/house-charges-afc-watch.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { houseChargesPayloadFor } from "../house-charges/house-charges-view.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
@@ -17,7 +18,7 @@ export type RuntimeSideTickersDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   readonly docks?: () => readonly DockRouteDefinition[];
-  /** Tile keys of the AFCs a player owns (runtime summary index); a Writ of Correction checks only these. */
+  /** Tile keys of the garrisoned (SETTLED), active AFCs a player owns (runtime summary index); a Writ of Correction checks only these, and the 1s watch relies on garrisoning changing this set. */
   readonly afcTileKeys?: (playerId: string) => ReadonlySet<string>;
   readonly isPlayerSubscribed: (playerId: string) => boolean;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload) => void;
@@ -60,11 +61,14 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
       for (const playerId of [...sentChargesSignature.keys()]) if (!online.has(playerId)) sentChargesSignature.delete(playerId);
     }
   });
+  // A Writ of Correction re-checks within a second of its House's AFCs changing, not on the next 15s pass.
+  const afcWatch = deps.afcTileKeys ? createHouseChargesAfcWatch({ ...deps, afcTileKeys: deps.afcTileKeys }) : undefined;
   return {
     tick: (nowMs, force = false) => {
       islandNames.tick(nowMs);
       if (force) houseCharges.runNow(nowMs);
       else houseCharges.tick(nowMs);
+      for (const playerId of afcWatch?.tick(nowMs) ?? []) sendHouseCharges(playerId, true);
     },
     sendTo: (playerId, nowMs) => {
       islandNames.sendTo(playerId, nowMs);
