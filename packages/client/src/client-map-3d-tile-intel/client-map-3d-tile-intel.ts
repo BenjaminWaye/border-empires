@@ -6,7 +6,7 @@
 
 import type { Scene } from "three";
 import type { Terrain } from "@border-empires/shared";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
+import { exposedSidesForTile, isOwnedLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
@@ -39,7 +39,7 @@ export const createTileIntelOverlays3D = (scene: Scene, maxTiles: number, deps: 
 
   const addTile = (tile: Tile | undefined, visibility: TileVisibilityState, x: number, z: number, surfaceY: number): void => {
     if (!state || !tile) return;
-    if (state.showWeakDefensibility && isOwnedSettledLandTile(tile, state.me)) {
+    if (state.showWeakDefensibility && isOwnedLandTile(tile, state.me)) {
       const exposedSides = exposedSidesForTile(tile, { tiles: state.tiles, me: state.me, ...deps });
       const severity = weakDefensibilitySeverity(exposedSides.length);
       if (severity) defensibility.addInstance(x, z, surfaceY, severity);
