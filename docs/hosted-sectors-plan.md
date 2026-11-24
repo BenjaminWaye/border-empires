@@ -396,6 +396,14 @@ after 7 days with no human visit. Q7–Q11, Q14 and Q15 accepted as recommended.
 Q16: the owner is setting up the Hetzner project and the Stripe account. Still
 open: Q12 (legal pages and seller details) and Q13 (tax).
 
+**Owner answer, 2026-11-24:** the seller is TIDN AB. Drafts for Q12 are in
+[`legal-drafts/README.md`](legal-drafts/README.md) and a proposal for Q13 in
+[`hosted-sectors-tax.md`](hosted-sectors-tax.md). Both still need TIDN AB's
+company details, a legal review and the accountant's confirmation, and sales
+stay off until then. One point changes Q1(b): for EU, EEA and UK consumers the
+drafts give a 14-day right to withdraw with a deduction for days used, because
+"no refund once opened" is unlikely to hold for a service there.
+
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU buyers have a 14-day right to withdraw from a digital service unless they agree at checkout that it starts at once; the checkout needs that consent tick-box. Have this wording checked. |
