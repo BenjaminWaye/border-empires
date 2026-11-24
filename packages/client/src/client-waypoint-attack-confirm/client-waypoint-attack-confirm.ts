@@ -1,5 +1,5 @@
 // Expand To asks before it fights (owner rule, Playtest Run 4 follow-up). The route to an empty tile can run
-// through barbarian or rival land, and each step there is an ATTACK the server runs on its own. The menu row's
+// through barbarian or rival land, and each step there is an ATTACK that raises a muster flag when none is near (parkOrReuseMusterFlagForAttack). The menu row's
 // "2 expand + 1 attack" was the only warning, so a click could start a war. Now Expand To asks first.
 import type { WaypointPlan } from "@border-empires/shared";
 import { showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
@@ -39,7 +39,7 @@ export const confirmWaypointAttacks = (
   const shown = show({
     title: "Attack on the way?",
     subtitle: `The way there goes through land held by ${joinNames(waypointAttackedOwners(plan, state, keyFor))}.`,
-    consequences: [`${attacks} on the way, up to ${plan.totalManpower} manpower in all.`, "Attacks can fail."],
+    consequences: [`${attacks} on the way, up to ${plan.totalManpower} manpower in all.`, "A muster flag is raised to fund them if none is near.", "Attacks can fail."],
     confirmLabel: "Expand and attack",
     onConfirm: proceed
   });

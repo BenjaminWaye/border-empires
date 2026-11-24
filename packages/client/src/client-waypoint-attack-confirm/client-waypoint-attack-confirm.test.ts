@@ -35,7 +35,7 @@ describe("Expand To asks before it fights", () => {
     expect(show).toHaveBeenCalledWith(expect.objectContaining({
       title: "Attack on the way?",
       subtitle: "The way there goes through land held by barbarians and Rasmus.",
-      consequences: ["2 attacks on the way, up to 40 manpower in all.", "Attacks can fail."]
+      consequences: ["2 attacks on the way, up to 40 manpower in all.", "A muster flag is raised to fund them if none is near.", "Attacks can fail."]
     }));
     show.mock.calls[0]![0].onConfirm();
     expect(proceed).toHaveBeenCalledOnce();
