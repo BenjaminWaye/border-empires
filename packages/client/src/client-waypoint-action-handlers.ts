@@ -18,6 +18,7 @@ import { dispatchDockCrossAction } from "./client-dock-navigator/client-dock-nav
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { confirmWaypointAttacks } from "./client-waypoint-attack-confirm/client-waypoint-attack-confirm.js";
 
 type WaypointHandlerDeps = {
   state: ClientState;
@@ -47,6 +48,8 @@ const setWaypointForSelected = (
     processActionQueue: () => boolean;
     renderHud: () => void;
     sendGameMessage?: (payload: unknown) => boolean;
+    /** The player already agreed to the attacks on the route (confirmWaypointAttacks). */
+    attacksConfirmed?: boolean;
   },
   feedPrefix?: string
 ): boolean => {
@@ -66,6 +69,14 @@ const setWaypointForSelected = (
   if (!plan.reachable) {
     showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
     hideTileActionMenu();
+    renderHud();
+    return true;
+  }
+  if (plan.attackCount > 0 && !params.attacksConfirmed) {
+    hideTileActionMenu();
+    confirmWaypointAttacks(plan, state, keyFor, () => {
+      setWaypointForSelected({ ...params, attacksConfirmed: true }, feedPrefix);
+    });
     renderHud();
     return true;
   }
