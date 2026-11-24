@@ -11,7 +11,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const envFiles = [
   { path: "deploy/env/staging.env", appName: "border-empires-combined-staging", nodeEnv: "staging" },
-  { path: "deploy/env/production.env", appName: "border-empires-combined", nodeEnv: "production" }
+  { path: "deploy/env/production.env", appName: "border-empires-combined", nodeEnv: "production" },
+  // Hosted sectors are production servers (managed-runtime checks apply).
+  { path: "deploy/env/hosted.env", appName: "border-empires-hosted", nodeEnv: "production" }
 ];
 
 const parseEnvFile = (source) =>

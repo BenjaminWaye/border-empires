@@ -31,6 +31,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("AUTH"),
     token: z.string().min(1),
     rallyCode: z.string().min(1).optional(),
+    // Hosted sectors only: the membership ticket from the hosting service.
+    sectorTicket: z.string().min(1).max(4096).optional(),
     // Client can reassemble a chunked INIT (see init-transfer.ts).
     initChunking: z.boolean().optional()
   }),
