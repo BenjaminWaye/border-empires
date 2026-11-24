@@ -32,6 +32,8 @@ export type AiDiplomacyStanceInput = {
   bordersTouch: boolean;
   /** An unfortified town or resource of the requester's near the AI's border (ai-conquest-worth.ts); false when omitted. */
   requesterLandWorthTaking?: boolean;
+  /** The AI's army covers its current wars plus one more (ai-war-fronts.ts); undefined = unknown, treated as yes. */
+  aiCanOpenFront?: boolean;
   /** The requester broke a truce with this AI earlier this season. */
   requesterBrokeTruceWithAi: boolean;
 };

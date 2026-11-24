@@ -131,6 +131,8 @@ export const aiDiplomacyPricing = (input: {
   aiToRequesterStrength?: number;
   /** The requester holds unfortified towns or resources near the AI's border (ai-conquest-worth.ts). */
   requesterLandWorthTaking?: boolean;
+  /** False when the AI's army can't cover one more war (ai-war-fronts.ts): it allies rather than conquer. */
+  aiCanOpenFront?: boolean;
   /** Towns the requester holds that it could hand back (any empire's; only this AI's are priced). */
   returnableTowns?: readonly ReturnableTown[];
   /** This AI's id, to pick its own towns out of returnableTowns. */
@@ -229,7 +231,8 @@ export const aiDiplomacyPricing = (input: {
   const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
   const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
   const strength = finite(input.aiToRequesterStrength ?? 1) || 1;
-  const wouldRatherConquer = input.bordersTouch && strength >= WEAK_NEIGHBOUR_STRENGTH_RATIO && input.requesterLandWorthTaking === true;
+  const wouldRatherConquer = input.bordersTouch && strength >= WEAK_NEIGHBOUR_STRENGTH_RATIO && input.requesterLandWorthTaking === true &&
+    input.aiCanOpenFront !== false;
   const enemyAllies = input.requesterAlliesAtWarWithAi ?? [];
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;

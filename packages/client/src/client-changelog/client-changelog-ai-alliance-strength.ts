@@ -7,6 +7,8 @@ export const AI_ALLIANCE_STRENGTH_ENTRY: Omit<ClientChangelogEntry, "createdAt">
   changes: [
     "An AI much stronger than you, on your border, refuses an alliance while your border towns and resources are unfortified",
     "Fortify them, or hold nothing worth taking there, and it may agree",
+    "An AI already fighting wars on other fronts keeps the alliance rather than start another",
+    "Every 4 hours an AI rechecks its weak allies: leave a border town or resource unfortified again and it may give 24h notice to leave",
     "Alliance offers say what an alliance binds you to"
   ]
 };

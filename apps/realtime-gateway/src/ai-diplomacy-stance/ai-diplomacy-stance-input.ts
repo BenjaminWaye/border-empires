@@ -1,5 +1,6 @@
 import { MANPOWER_BASE_CAP, WORLD_HEIGHT, WORLD_WIDTH, manpowerPerBatch, nextManpowerRefillAtMs, wrapX, wrapY } from "@border-empires/shared";
 import { requesterLandWorthTaking } from "./ai-conquest-worth.js";
+import { canOpenAnotherFront, warFrontsInView } from "./ai-war-fronts.js";
 // Reads AiDiplomacyStanceInput off subscription snapshots. Kept apart from
 // the pure decision in ai-diplomacy-stance.ts so the rules can be tested
 // without building snapshots.
@@ -123,6 +124,8 @@ export const buildAiDiplomacyStanceInput = (input: {
   requesterBrokeTruceWithAi: boolean;
   /** Wall-clock for the refill schedule; omitted = refill timing unknown. */
   now?: number;
+  /** Whether the AI is at war with a player; omitted = fronts unknown. */
+  aiAtWarWith?: (playerId: string) => boolean;
 }): AiDiplomacyStanceInput | undefined => {
   const aiPlayer = input.aiSnapshot?.player;
   if (!input.aiSnapshot || !aiPlayer) return undefined;
@@ -133,13 +136,15 @@ export const buildAiDiplomacyStanceInput = (input: {
   const hasOtherExpansion = hasOtherExpansionInTiles(tiles, input.aiPlayerId);
   const requesterPlayer = input.requesterSnapshot?.player;
   const nextRefillManpower = nextRefillOf(aiPlayer, manpowerCap);
+  const musterManpower = musterManpowerFromTiles(tiles, input.aiPlayerId);
+  const fronts = input.aiAtWarWith ? warFrontsInView(tiles, input.aiPlayerId, input.aiAtWarWith, input.requesterId) : undefined;
   const requesterRefill = requesterPlayer ? nextRefillOf(requesterPlayer, requesterPlayer.manpowerCap > 0 ? requesterPlayer.manpowerCap : MANPOWER_BASE_CAP) : undefined;
   return {
     aiName: input.aiName,
     ai: {
       manpower: aiPlayer.manpower,
       manpowerCap,
-      musterManpower: musterManpowerFromTiles(tiles, input.aiPlayerId),
+      musterManpower,
       ...(input.now !== undefined && nextRefillManpower !== undefined
         ? { nextRefillInMs: nextManpowerRefillAtMs(input.aiPlayerId, input.now) - input.now, nextRefillManpower }
         : {}),
@@ -162,6 +167,7 @@ export const buildAiDiplomacyStanceInput = (input: {
     },
     bordersTouch: bordersTouchInTiles(tiles, input.aiPlayerId, input.requesterId),
     requesterLandWorthTaking: requesterLandWorthTaking(tiles, input.aiPlayerId, input.requesterId),
+    ...(fronts !== undefined ? { aiCanOpenFront: canOpenAnotherFront(aiPlayer.manpower + musterManpower, manpowerCap, fronts) } : {}),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi
   };
 };

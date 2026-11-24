@@ -49,6 +49,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   returnableTowns?: readonly ReturnableTown[];
   /** Names of the requester's allies the AI is at war with (requesterAlliesAtWarWithAi): it refuses an alliance. */
   requesterAlliesAtWarWithAi: readonly string[];
+  /** Whether the AI is at war with a player: counts its fronts before it turns on a weak neighbour (ai-war-fronts.ts). */
+  aiAtWarWith?: (playerId: string) => boolean;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -188,6 +190,7 @@ export const evaluateAiDiplomacy = (input: {
     ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
     aiToRequesterStrength: aiToRequesterStrength(stanceInput),
     requesterLandWorthTaking: stanceInput.requesterLandWorthTaking === true,
+    ...(stanceInput.aiCanOpenFront !== undefined ? { aiCanOpenFront: stanceInput.aiCanOpenFront } : {}),
     now: input.now
   });
   return {

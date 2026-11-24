@@ -13,6 +13,7 @@ import type { PlayerTradeHoldingsResult } from "../sim-client/sim-client-trade-h
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { atWarFromMemory } from "../ai-diplomacy-stance/ai-diplomacy-opinion.js";
 import { createDiplomacyMemoryWriter, type DiplomacyMemoryPersistence } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
@@ -189,6 +190,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
       now,
+      aiAtWarWith: (playerId) => atWarFromMemory(memory.view(aiPlayerId, playerId), now),
       returnableTowns,
       alliesOf,
       requesterAlliesAtWarWithAi: requesterAlliesAtWarWithAi({
@@ -209,7 +211,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
     recordGatewayEvent: deps.recordGatewayEvent,
     now: () => Date.now(),
-    fetchAiView: fetchAiSnapshot
+    fetchAiView: fetchAiSnapshot,
+    atWarWith: (aiId, playerId) => atWarFromMemory(memory.view(aiId, playerId), Date.now())
   });
   const responder = createSeededAiDiplomacyResponder({
     seededAiPlayerIds: deps.seededAiPlayerIds,

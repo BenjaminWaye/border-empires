@@ -211,7 +211,8 @@ describe("AI alliance pricing", () => {
     // A small House far away is only a pledge of support: it allies.
     expect(price({ ...pleased, bordersTouch: false, aiToRequesterStrength: 5, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);
     // A neighbour about as strong: no conquest to give up.
-    expect(price({ ...pleased, aiToRequesterStrength: 1.2, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);
+    expect(price({ ...pleased, aiToRequesterStrength: 1.2, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);    // Already stretched across other wars: no army for one more front, so it allies.
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: true, aiCanOpenFront: false }).pricing.required.alliance).toBe(0);
   });
 
   it("needs at least Pleased, and the AI never pays", () => {

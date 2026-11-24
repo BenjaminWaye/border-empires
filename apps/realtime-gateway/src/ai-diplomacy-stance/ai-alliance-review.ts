@@ -8,10 +8,12 @@
 // per run -- not from a subscription as each AI, which would hold a full
 // player snapshot per allied AI for the rest of the season.
 import { alliancesAiShouldLeave, dominanceSizingFor, tileLookupFor, type AllyLookup, type SeasonSizes } from "./ai-alliance-bloc.js";
-import { weakNeighboursToLeave } from "./ai-alliance-conquest-review.js";
+import { weakNeighboursToLeave, type AiAllianceView } from "./ai-alliance-conquest-review.js";
 
 /** How often the review actually runs (it is called from the gateway's 60s alliance-break task). */
 export const AI_ALLIANCE_REVIEW_INTERVAL_MS = 5 * 60_000;
+/** Each AI re-weighs its weak-neighbour allies at most this often (owner call: every 4h is enough). */
+export const AI_WEAK_NEIGHBOUR_RECHECK_MS = 4 * 60 * 60_000;
 
 type BreakResult = { ok: true; payloadsByPlayerId: Map<string, unknown[]> } | { ok: false; code: string; message: string };
 
@@ -31,25 +33,30 @@ export type AiAllianceReviewDeps = {
   now: () => number;
   /**
    * One AI's own map view (a one-off export: AIs hold no subscription). Re-checks weak neighbours it allied
-   * (ai-alliance-conquest-review.ts). At most one AI per run, so at most one export every
-   * AI_ALLIANCE_REVIEW_INTERVAL_MS: per-AI view exports have stalled the simulation before.
+   * (ai-alliance-conquest-review.ts): one AI per run, each at most every AI_WEAK_NEIGHBOUR_RECHECK_MS, so at
+   * most one export every AI_ALLIANCE_REVIEW_INTERVAL_MS: per-AI view exports have stalled the simulation before.
    */
-  fetchAiView?: (playerId: string) => Promise<{ tiles: readonly Parameters<typeof weakNeighboursToLeave>[3][number][] } | undefined>;
+  fetchAiView?: (playerId: string) => Promise<AiAllianceView | undefined>;
+  /** Whether the AI is at war with a player: the fronts it already fights on (ai-war-fronts.ts). */
+  atWarWith?: (aiId: string, playerId: string) => boolean;
 };
 
 export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promise<void>) => {
   let lastRunAt = Number.NEGATIVE_INFINITY;
   let running = false;
-  // Round-robin cursor over AIs with allies: the one whose view this run re-checks for weak neighbours.
-  let viewCursor = 0;
+  // When each AI last re-weighed its weak-neighbour allies. Keyed by seeded AI id only, so bounded by that set.
+  const lastViewCheckAt = new Map<string, number>();
   return async () => {
     if (running || deps.now() - lastRunAt < AI_ALLIANCE_REVIEW_INTERVAL_MS) return;
     running = true;
     lastRunAt = deps.now();
     try {
       let sizes: SeasonSizes | undefined;
-      const withAllies = [...deps.seededAiPlayerIds].filter((aiId) => !deps.hasLiveSocket(aiId) && deps.alliesOf(aiId).length > 0);
-      const viewAi = withAllies.length > 0 ? withAllies[viewCursor++ % withAllies.length] : undefined;
+      // The AI longest without a re-check, once its 4h are up: never more than one view export per run.
+      const viewAi = [...deps.seededAiPlayerIds]
+        .filter((aiId) => !deps.hasLiveSocket(aiId) && deps.alliesOf(aiId).length > 0)
+        .filter((aiId) => lastRunAt - (lastViewCheckAt.get(aiId) ?? Number.NEGATIVE_INFINITY) >= AI_WEAK_NEIGHBOUR_RECHECK_MS)
+        .sort((a, b) => (lastViewCheckAt.get(a) ?? Number.NEGATIVE_INFINITY) - (lastViewCheckAt.get(b) ?? Number.NEGATIVE_INFINITY))[0];
       for (const aiId of deps.seededAiPlayerIds) {
         if (deps.hasLiveSocket(aiId)) continue;
         const pending = new Set(deps.pendingBreaksOf(aiId));
@@ -76,9 +83,11 @@ export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promi
           pending.add(allyId);
         }
         if (aiId === viewAi && deps.fetchAiView) {
+          lastViewCheckAt.set(aiId, lastRunAt);
           const view = await deps.fetchAiView(aiId).catch(() => undefined);
           const stillAllied = deps.alliesOf(aiId).filter((allyId) => !pending.has(allyId));
-          for (const allyId of view ? weakNeighboursToLeave(aiId, stillAllied, tilesOf, view.tiles) : []) {
+          const atWarWith = (playerId: string): boolean => deps.atWarWith?.(aiId, playerId) ?? false;
+          for (const allyId of view ? weakNeighboursToLeave(aiId, stillAllied, tilesOf, view, atWarWith) : []) {
             const aiName = deps.playerName(aiId);
             const result = deps.breakAlliance(aiId, allyId, {
               [allyId]: `${aiName} started a 24h notice to leave your alliance: it would rather take your land. Fortify the towns and resources on your border with them to keep the alliance.`,
