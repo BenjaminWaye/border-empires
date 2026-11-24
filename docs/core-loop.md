@@ -649,31 +649,30 @@ deliberately no decay for simply being offline.
    `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
    panel and only puts a top-bar chip and warning up once it is below 50%
    (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
-4. **Onboarding taught the wrong growth verb.** *Addressed 2026-11-23.* The
+4. **Onboarding taught the wrong growth verb.** *Addressed 2026-11-24.* The
    old checklist framed Expand To as how you grow. The tutorial guide
-   ([plan](tutorial-guide-plan.md)) replaced it for every player: it has a
-   "Your reach" step that completes only on a Relay Beacon, and food targets
-   only inside reach. What was still wrong, and is now fixed in the guide's
-   copy: the beacon step says reach claims the free land inside it, that this
-   land has no defence until garrisoned, and that land beyond reach can't be
-   garrisoned; the town step says Expand To is for crossing to a prize, not
-   for plain ground; the last step no longer lists "expand" as a verb.
-   Note that the old 5-minute decay for ground beyond reach no longer exists
-   (§2): such land stays FRONTIER, can't be settled, and is lost only if cut
-   off from supply. Still open: the older four-row checklist (shown only when
-   no contest is known and the account is not new) still says "Expand To";
+   ([plan](tutorial-guide-plan.md)) replaced it for every player: its "Your
+   reach" step completes only on a Relay Beacon, explains reach once ("You
+   can only Garrison inside it. A beacon widens it."), and food targets are
+   only ever inside reach. The plain-words pass (PR #2951) removed the false
+   "uses one food slot" line, and the last step no longer lists "expand" as a
+   verb. Note that the old 5-minute decay for ground beyond reach no longer
+   exists (§2): such land stays FRONTIER, can't be settled, and is lost only
+   if cut off from supply. Still open: the town step's Expand To line does
+   not say that plain land beyond reach can't be garrisoned, and the older
+   four-row checklist (shown only when no contest is known and the account is
+   not new) still says "Expand To";
    [the opening contract](product/new-player-opening.md) keeps those rows.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a
    roll, unless you spend 20 MP a tile settling it. That isn't necessarily
    bad: it makes *which* plain tiles to settle a real choice between defense,
-   road corridors between towns, and beacon sites. Since 2026-11-23 the
-   guide's beacon step states the rule (claimed land has no defence until
-   garrisoned). It does not ask the player to garrison a plain tile: a
-   dedicated step was drafted and dropped, because it lengthens a 16-step
-   guide and telling every new player to spend manpower there is an owner
-   decision. The UI still doesn't show which frontier is worth garrisoning.
+   road corridors between towns, and beacon sites. But neither the UI nor the
+   guide explains the trade-off. A guide step asking the player to garrison
+   one plain border tile was drafted and dropped (2026-11-23): it lengthens a
+   16-step guide, and telling every new player to spend manpower there is an
+   owner decision.
 6. **The runaway leader** is held back only by the 24h hold and social
    pile-on. There is no systemic catch-up mechanic besides respawn.
 7. **Siphon: design intent and code may disagree.** Siphon has been
@@ -698,8 +697,8 @@ deliberately no decay for simply being offline.
    - *Fixed:* the in-game guide no longer says "plant up to 5 muster flags"
      (the 8-slide guide was removed; the client shows the server's limit).
      `MUSTER_MAX_TILES` is 2, plus 1–2 from each of four domains.
-   - *Fixed 2026-11-23:* the tutorial guide said a Relay Beacon "uses one
-     food slot". The first 5 need none (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT`).
+   - *Fixed 2026-11-24 (PR #2951):* the tutorial guide said a Relay Beacon
+     "uses one food slot". The first 5 need none (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT`).
 
 ## Auto-settle is opt-in per category
 

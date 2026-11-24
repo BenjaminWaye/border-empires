@@ -165,6 +165,7 @@ describe("buildArchiveRow", () => {
         longestRoad: { tileCount: 39, playerId: "p1", playerName: "Waypoint",
           fromCity: { x: 1, y: 2, name: "Port Brass" }, toCity: { x: 3, y: 4, name: "Northgate" } }
       },
+      seasonAwards: [{ kind: "NEVER_GAVE_UP", playerId: "p1", playerName: "Waypoint", redeploys: 4 }],
       leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] } as CurrentSeasonSummary["leaderboard"],
       overall: [],
       byTiles: [],
@@ -185,6 +186,8 @@ describe("buildArchiveRow", () => {
     // to catch the field being dropped by serialization rather than mapping.
     const roundTripped = JSON.parse(JSON.stringify(archiveRow));
     expect(roundTripped.seasonStats).toEqual(summary.seasonStats);
+    // The season awards ride the same path into the archive (public House profile).
+    expect(roundTripped.awards).toEqual(summary.seasonAwards);
   });
 
   it("omits seasonStats when the live summary has none", () => {
@@ -212,5 +215,6 @@ describe("buildArchiveRow", () => {
     const archiveRow = buildArchiveRow(summary);
 
     expect(archiveRow.seasonStats).toBeUndefined();
+    expect(archiveRow.awards).toBeUndefined();
   });
 });
