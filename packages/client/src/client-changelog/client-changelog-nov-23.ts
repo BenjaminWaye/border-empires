@@ -5,6 +5,7 @@ import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
 import { GUIDE_PLAIN_WORDS_ENTRY } from "./client-changelog-guide-plain-words.js";
 import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-strength.js";
 import { EXPAND_ATTACK_CONFIRM_ENTRY } from "./client-changelog-expand-attack-confirm.js";
+import { CITY_PLOTS_ENTRY } from "./client-changelog-city-plots.js";
 import { INTEGRITY_OWN_LAND_ENTRY } from "./client-changelog-integrity-own-land.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -43,5 +44,6 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
+  { ...CITY_PLOTS_ENTRY, createdAt: 1795554807385, },
   { ...WRIT_FOUND_ENTRY, createdAt: 1795468903590, },
 ];

@@ -49,17 +49,19 @@ describe("authoritative per-viewer district anchors", () => {
     expect(deltas.find(tile => tile.x === 12)?.economicStructureJson).toContain('"supportAnchor":null');
     expect(deltas.find(tile => tile.x === 12)).not.toHaveProperty("combatJson");
   });
-  it("matches economy assignment on overlap, not nearest visible town", () => {
-    const first = town(10, 10), nearest = town(12, 10), building = structure(12, 11);
-    const tiles = index(first, nearest, building);
-    expect(supportTileBelongsToTown("p1", building, first, tiles)).toBe(true);
-    expect(districtOverlayProjection(tiles, building, () => true).economicStructureJson).toContain('"supportAnchor":{"x":10,"y":10}');
+  // Owner call 2026-11-24: a plot two towns reach belongs to the closer town (isPreferredSupportTown).
+  it("matches economy assignment on overlap: the closer town", () => {
+    const farther = town(10, 10), nearest = town(12, 10), building = structure(12, 11);
+    const tiles = index(farther, nearest, building);
+    expect(supportTileBelongsToTown("p1", building, nearest, tiles)).toBe(true);
+    expect(supportTileBelongsToTown("p1", building, farther, tiles)).toBe(false);
+    expect(districtOverlayProjection(tiles, building, () => true).economicStructureJson).toContain('"supportAnchor":{"x":12,"y":10}');
   });
   it("never leaks a hidden anchor and does not reassign to a visible competitor", () => {
     const tiles = index(town(10, 10), town(12, 10), structure(12, 11));
-    const output = districtOverlayProjection(tiles, tiles.get("12,11")!, key => key !== "10,10");
+    const output = districtOverlayProjection(tiles, tiles.get("12,11")!, key => key !== "12,10");
     expect(output.economicStructureJson).not.toContain("supportAnchor");
-    expect(output.economicStructureJson).not.toContain('"x":10');
+    expect(output.economicStructureJson).not.toContain('"x":12');
   });
   it("sends a confirmed absent anchor after the town is lost, without persisting derived metadata", () => {
     const anchor = town(10, 10), building = structure(12, 10), tiles = index(anchor, building);

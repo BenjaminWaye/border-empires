@@ -44,14 +44,14 @@ describe("supportedConverterGoldPerMinuteForTown", () => {
     expect(result.claimedTileKeys.has(`${WORLD_WIDTH - 2},20`)).toBe(true);
   });
 
-  it("does not credit a distance-2 converter for a CITY-tier town (its own radius is only 1)", () => {
+  it("does not credit a distance-2 converter for a TOWN-tier town (its own radius is only 1)", () => {
     const cityTown: DomainTileState = {
       x: 10,
       y: 10,
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      town: { name: "Rookhaven", type: "MARKET", populationTier: "CITY" }
+      town: { name: "Rookhaven", type: "MARKET", populationTier: "TOWN" }
     };
     const farConverter: DomainTileState = {
       x: 12,

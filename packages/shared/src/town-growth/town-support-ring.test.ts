@@ -147,3 +147,14 @@ describe("wideSupportRingScanRadiusFor", () => {
     expect(wideSupportRingScanRadiusFor(tiles, "player-1", 12, 10, isOwnedWideRingTown("player-1"))).toBe(2);
   });
 });
+
+describe("support ring radius by tier", () => {
+  // Owner call 2026-11-23 (Playtest Run 4): a full Town had spare food and nothing left to build on, so the
+  // second ring of plots comes at City, not Great City.
+  it("gives City and up the second ring", async () => {
+    const { hasWideSupportRing, supportRingRadiusForTier } = await import("./town-growth.js");
+    expect(["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"].map(supportRingRadiusForTier)).toEqual([1, 1, 2, 2, 2]);
+    expect(hasWideSupportRing("CITY")).toBe(true);
+    expect(hasWideSupportRing("TOWN")).toBe(false);
+  });
+});
