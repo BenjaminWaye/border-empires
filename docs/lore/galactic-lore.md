@@ -432,7 +432,10 @@ knowledge.
 Modules can be moved between a House's own AFCs. Capturing an AFC captures
 its machinery but not the right to redeploy it, and never its founding: an AFC
 is known by the House that landed or built it for as long as it stands. Losing an AFC does not erase
-knowledge or buildings it enabled.
+knowledge or buildings it enabled. Captured machinery still works for its captor: it fabricates the
+structures it enables even if the captor never acquired that Manifest. Its
+other capabilities, such as Aether abilities, still need the Manifest
+(added 2026-11-23).
 
 ### Campaign specialization
 

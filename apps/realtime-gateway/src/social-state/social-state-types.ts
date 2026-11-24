@@ -5,7 +5,7 @@ import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-s
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
 import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
-import type { DiplomacyTerms } from "@border-empires/shared";
+import type { DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
 import type { DiplomacyHistoryEntry, StoredDiplomacyHistoryEntry } from "./social-diplomacy-history.js";
@@ -19,6 +19,8 @@ export type SocialAllianceRequest = {
   toName?: string;
   /** Coin the deal moves, from the proposer's side; settled in the simulation on accept. */
   terms?: DiplomacyTerms;
+  /** A preset line the proposer attached (diplomacy-offer-notes.ts); not persisted, so lost on a gateway restart. */
+  note?: OfferNoteId;
   settlementPhase?: TreatySettlementPhase;
 };
 
@@ -34,6 +36,8 @@ export type SocialTruceRequest = {
   terms?: DiplomacyTerms;
   /** Sent while a truce was already running: accepting adds durationHours to its end. */
   extendsTruce?: true;
+  /** A preset line the proposer attached (diplomacy-offer-notes.ts); not persisted, so lost on a gateway restart. */
+  note?: OfferNoteId;
   settlementPhase?: TreatySettlementPhase;
 };
 
@@ -179,6 +183,7 @@ export type SocialRejectOptions = {
 
 export type SocialOfferOptions = {
   terms?: DiplomacyTerms;
+  note?: OfferNoteId;
   /** Address the target by id instead of display name (e.g. an AI's counter-offer back to the requester). */
   targetPlayerId?: string;
 };

@@ -8,3 +8,5 @@ export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => st
 export const hasAetherWallCapability = (state: ClientState): boolean =>
   playerHasAbilityTech(state.techIds, "aether_wall") || hasLocalDevAetherWallOverride(state);
 export const hasSiphonCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "siphon");
+export const hasRetortRecastingCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "retort_recast");
+export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");

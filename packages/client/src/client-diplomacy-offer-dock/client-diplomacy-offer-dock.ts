@@ -1,5 +1,5 @@
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
-import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
+import { OFFER_NOTE_TEXT, describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, isOfferNoteId, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -47,6 +47,8 @@ export type OfferDockEntry = {
   attackerNote?: string;
   /** Why you can't pay what this offer asks of you right now; Accept stays disabled while set. */
   blockedReason?: string;
+  /** The preset line the sender attached, as text (diplomacy-offer-notes.ts). */
+  message?: string;
 };
 
 /** Time left on the server's clock, once the client has a server timestamp to align with. */
@@ -124,7 +126,9 @@ export const offerDockEntries = (
     const note = attackerNoteText(attacks.get(fromPlayerId));
     return note ? { ...entry, attackerNote: note } : entry;
   };
-  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withNote(withBlocked({
+  const withMessage = (entry: OfferDockEntry, request: { note?: unknown }): OfferDockEntry =>
+    isOfferNoteId(request.note) ? { ...entry, message: OFFER_NOTE_TEXT[request.note] } : entry;
+  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "truce",
     id: request.id,
     fromName: senderName(request),
@@ -133,8 +137,8 @@ export const offerDockEntries = (
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
     costsYou: costsRecipient(request)
-  }, acceptBlockedReason(request, state)), request.fromPlayerId));
-  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withNote(withBlocked({
+  }, acceptBlockedReason(request, state)), request.fromPlayerId), request));
+  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "alliance",
     id: request.id,
     fromName: senderName(request),
@@ -143,7 +147,7 @@ export const offerDockEntries = (
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
     costsYou: costsRecipient(request)
-  }, acceptBlockedReason(request, state)), request.fromPlayerId));
+  }, acceptBlockedReason(request, state)), request.fromPlayerId), request));
   const liveIds = new Set([...truces, ...alliances].map((entry) => entry.id));
   for (const id of firstSeenAtById.keys()) if (!liveIds.has(id)) firstSeenAtById.delete(id);
   // An offer about to run out comes first; offers without an expiry keep their order after them.
@@ -186,6 +190,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined, canCou
     <span class="offer-dock-icon" aria-hidden="true">${ICON[entry.kind]}</span>
     <div class="offer-dock-text">
       <div class="offer-dock-headline"><strong>${esc(entry.fromName)}</strong> ${esc(entry.headline)}${countdown}</div>
+      ${entry.message ? `<div class="offer-dock-message">“${esc(entry.message)}”</div>` : ""}
       ${entry.attackerNote ? `<div class="offer-dock-attacker">${esc(entry.attackerNote)}</div>` : ""}
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
       ${entry.blockedReason ? `<div class="offer-dock-blocked" data-offer-blocked="${esc(entry.id)}">${esc(blockedText(entry.blockedReason, canCounter))}</div>` : ""}

@@ -15,6 +15,9 @@ export type ClientTownWireSummary = {
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;
+  /** Inner-ring (distance 1) part of the support counts; the outer ring is the rest (town-support-coin.ts). */
+  supportInnerCurrent?: number;
+  supportInnerMax?: number;
   goldPerMinute: number;
   cap: number;
   isFed: boolean;

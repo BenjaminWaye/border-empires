@@ -1,6 +1,6 @@
 import { hydroworksSiteBoostsGardens, uncoveredHydrogardens } from "./build/hydroworks-placement.js";
 import { isNetworkResource, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, structureStacksPerTown } from "@border-empires/shared";
-import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
+import { hasAiBuildTech, hasAiTierTech } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
@@ -218,8 +218,7 @@ export const canAffordStructure = (
   // — would silently skip its own tech gate unless someone remembered to add
   // it to both places).
   const requiredTechId = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
-  if (requiredTechId && !techSet.has(requiredTechId)) return false;
-  if (!hasInstalledAiBuildModule(player.installedModuleTechIds, requiredTechId)) return false;
+  if (!hasAiBuildTech(techSet, player.installedModuleTechIds, requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
   // Same existingOwnedCount the runtime scales by (it passes
   // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so
@@ -391,7 +390,7 @@ export const chooseBestFortBuild = (
   // used before the TITANIUM cost moved to slots.
   freeTitaniumSlots?: number
 ): StructurePlannerTile | undefined => {
-  if (!playerTechSet(player).has("masonry") || !hasInstalledAiBuildModule(player.installedModuleTechIds, "masonry")) return undefined;
+  if (!hasAiBuildTech(playerTechSet(player), player.installedModuleTechIds, "masonry")) return undefined;
   // Gold requirement must match the tier the runtime will actually build
   // (runtime-structure-command-handlers.ts always resolves a fresh fort via
   // bestFortTierForTech, never the flat base-FORT cost) — using the flat
@@ -408,7 +407,7 @@ export const chooseBestFortBuild = (
   // the runtime's hasFreeResourceSlots actually enforces — omitting it
   // reintroduces the same forever-rejected-every-tick failure mode via slot
   // exhaustion instead of stockpile.
-  const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
+  const fortTier = bestFortTierForTech((id) => hasAiTierTech(playerTechSet(player), player.installedModuleTechIds, id));
   if (!canAffordGold(player, fortTier.gold)) return undefined;
   if (freeTitaniumSlots !== undefined) {
     const titaniumSlotsNeeded = structureSlotRequirements(fortTier.variant)
@@ -454,7 +453,7 @@ export const chooseBestSiegeBatteryBuild = (
   tilesByKey: TileLookup,
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
-  if (!playerTechSet(player).has("leatherworking") || !hasInstalledAiBuildModule(player.installedModuleTechIds, "leatherworking")) return undefined;
+  if (!hasAiBuildTech(playerTechSet(player), player.installedModuleTechIds, "leatherworking")) return undefined;
   // Match the actual built tier. Retired UMBRITE/TITANIUM stockpiles do
   // not gate construction; their capacity is occupied for the tower's life.
   // A fresh build steps down to the best tier whose UMBRITE slots fit (siegeTierForFreshBuild), same as the build handler.
@@ -463,7 +462,7 @@ export const chooseBestSiegeBatteryBuild = (
     if (!supply || !demand) return true;
     return structureSlotRequirements(variant).every((requirement) => (supply[requirement.resource] ?? 0) - (demand[requirement.resource] ?? 0) >= requirement.count);
   };
-  const siegeTier = siegeTierForFreshBuild((id) => playerTechSet(player).has(id), slotsFit);
+  const siegeTier = siegeTierForFreshBuild((id) => hasAiTierTech(playerTechSet(player), player.installedModuleTechIds, id), slotsFit);
   if (!slotsFit(siegeTier.variant)) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
   if (!canAffordManpower(player, siegeTier.variant, siegeTier.manpower)) return undefined;

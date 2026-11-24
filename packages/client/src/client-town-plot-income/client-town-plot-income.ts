@@ -6,7 +6,7 @@
 // playtest), so the coin line and the Towns list now name it.
 import type { Tile } from "../client-types.js";
 
-type TownSupport = Partial<Pick<NonNullable<Tile["town"]>, "isFed" | "supportCurrent" | "supportMax" | "populationTier">>;
+type TownSupport = Partial<Pick<NonNullable<Tile["town"]>, "isFed" | "supportCurrent" | "supportMax" | "supportInnerCurrent" | "populationTier">>;
 
 const finite = (value: number | undefined): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -41,7 +41,8 @@ export const townZeroCoinReason = (tile: ZeroCoinTile, nowMs: number = Date.now(
   if (town.populationTier === "SETTLEMENT") return undefined;
   if (town.isFed === false) return "Unfed";
   const plots = townPlotIncomeNote(town);
-  if (plots && town.supportCurrent === 0) return plots;
+  // Base coin comes from the inner ring (town-support-coin.ts): none garrisoned there earns nothing.
+  if (plots && (town.supportInnerCurrent ?? town.supportCurrent) === 0) return plots;
   if (tile.sabotage && tile.sabotage.endsAt > nowMs && tile.sabotage.outputMultiplier <= 0) return "Sabotaged";
   return undefined;
 };

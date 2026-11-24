@@ -1,7 +1,7 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
 import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-three-towns.js";
-import { converterModeOf, resolvedTownCoastal, townTerrainModifiers, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
+import { converterModeOf, resolvedTownCoastal, townSupportCoinMultiplier, townTerrainModifiers, type TownSupportCounts, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
 import { nextPopulationTierUpgradeForSnapshotTown } from "./tile-detail-next-population-tier-upgrade.js";
 import { derivedTownIsFed, derivedTownSupportStructures, supportSummaryForTown } from "./tile-detail-support-ring.js";
 import { snapshotTownGrowth } from "./tile-detail-town-growth.js";
@@ -48,8 +48,7 @@ const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wra
 const fallbackTownGoldPerMinute = (input: {
   isSettlement: boolean;
   isFed: boolean;
-  supportCurrent: number;
-  supportMax: number;
+  support: TownSupportCounts;
   populationTier: string;
   connectedTownBonus: number;
   manufactoryCount: number;
@@ -67,12 +66,11 @@ const fallbackTownGoldPerMinute = (input: {
 }): number => {
   if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * input.terrainGoldMultiplier * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
-  const supportRatio = input.supportMax <= 0 ? 1 : input.supportCurrent / input.supportMax;
   return (
     (
       TOWN_BASE_GOLD_PER_MIN * input.terrainGoldMultiplier *
-      supportRatio *
-      townPopulationMultiplier(input.populationTier) *
+      // Base from the inner ring, tier bonus from the outer (town-support-coin.ts).
+      townSupportCoinMultiplier(input.support, townPopulationMultiplier("TOWN"), townPopulationMultiplier(input.populationTier)) *
       (1 + input.connectedTownBonus) *
       manufactoryGoldProductionMultiplier(input.manufactoryCount, input.clearingHouseActive) *
       input.firstThreeTownGoldMult *
@@ -221,8 +219,7 @@ export const buildSnapshotTileDetail = (
       : fallbackTownGoldPerMinute({
           isSettlement: populationTierIsSettlement,
           isFed,
-          supportCurrent: supportSummary.supportCurrent,
-          supportMax: supportSummary.supportMax,
+          support: supportSummary,
           populationTier,
           connectedTownBonus:
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
@@ -262,6 +259,8 @@ export const buildSnapshotTileDetail = (
         populationTier,
         supportCurrent: supportSummary.supportCurrent,
         supportMax: supportSummary.supportMax,
+        supportInnerCurrent: supportSummary.innerCurrent,
+        supportInnerMax: supportSummary.innerMax,
         isFed,
         hasManufactory: supportStructures.hasManufactory,
         manufactoryActive: supportStructures.hasManufactory && isFed,

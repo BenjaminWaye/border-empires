@@ -5,6 +5,8 @@ import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
 import { GUIDE_PLAIN_WORDS_ENTRY } from "./client-changelog-guide-plain-words.js";
 import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-strength.js";
 import { EXPAND_ATTACK_CONFIRM_ENTRY } from "./client-changelog-expand-attack-confirm.js";
+import { CITY_PLOTS_ENTRY } from "./client-changelog-city-plots.js";
+import { CREDITS_PAGE_ENTRY, OFFER_MESSAGES_ENTRY, PHONE_NEXT_STEP_ENTRY } from "./client-changelog-credits-next.js";
 import { INTEGRITY_OWN_LAND_ENTRY } from "./client-changelog-integrity-own-land.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -22,6 +24,7 @@ import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-prof
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
 import { ACCOUNT_COSMETICS_ENTRY } from "./client-changelog-account-cosmetics.js";
 import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
+import { CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...ACCOUNT_COSMETICS_ENTRY, createdAt: 1795471602875, },
@@ -45,5 +48,10 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
+  { ...CITY_PLOTS_ENTRY, createdAt: 1795554807385, },
   { ...WRIT_FOUND_ENTRY, createdAt: 1795468903590, },
+  { ...CAPTURED_AFC_MODULES_ENTRY, createdAt: 1795471587295, },
+  { ...CREDITS_PAGE_ENTRY, createdAt: 1795561375435, },
+  { ...PHONE_NEXT_STEP_ENTRY, createdAt: 1795561375436, },
+  { ...OFFER_MESSAGES_ENTRY, createdAt: 1795561375437, },
 ];

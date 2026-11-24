@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { hostedSectorsEnabled } from "../client-hosted-sectors/client-hosted-sector-session.js";
+import { settingsCreditsPageHtml } from "../client-credits/client-credits-page.js";
 // Settings panel content: a hub of focused sub-pages (Account, Gameplay,
 // Diagnostics & Support, plus an Admin page for fog-admin accounts) instead of
 // one flat card. Pure HTML builders only — event binding stays in client-hud.ts
@@ -70,6 +71,7 @@ const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: stri
   { id: "gameplay", title: "Gameplay", desc: "Sound, hints, photo mode, auto-garrison, map" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
+  { id: "credits", title: "Credits", desc: "Who makes Border Empires" },
   { id: "admin", title: "Admin", desc: "Map reveal, alerts feed, lighting tuner" }
 ];
 
@@ -78,6 +80,7 @@ const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
   gameplay: "Gameplay",
   notifications: "Email Notifications",
   diagnostics: "Diagnostics & Support",
+  credits: "Credits",
   admin: "Admin"
 };
 
@@ -194,6 +197,8 @@ export const settingsPanelHtml = (state: SettingsPanelState, wsUrl: string, fire
           ? settingsNotificationsPageHtml()
           : subPage === "admin"
             ? settingsAdminPageHtml(state)
+            : subPage === "credits"
+              ? settingsCreditsPageHtml()
             : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
   return `
     <div class="settings-page-header">

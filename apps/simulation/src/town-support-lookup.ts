@@ -21,6 +21,8 @@ import {
   structureShowsOnTile,
   type LandmarkTile,
   supportRingCandidates,
+  hasWideSupportRing,
+  isPreferredSupportTown,
   supportRingRadiusForTier,
   wideSupportRingScanRadiusFor,
   type EconomicStructureType,
@@ -61,7 +63,7 @@ const adjacentTileStates = <T extends TownSupportTile>(
 };
 
 const isOwnedWideRingTown = <T extends TownSupportTile>(playerId: string) => (tile: T): boolean =>
-  tile.ownerId === playerId && tile.ownershipState === "SETTLED" && (tile.town?.populationTier === "GREAT_CITY" || tile.town?.populationTier === "METROPOLIS");
+  tile.ownerId === playerId && tile.ownershipState === "SETTLED" && hasWideSupportRing(tile.town?.populationTier);
 
 export function supportedTownKeysForTile<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
@@ -86,7 +88,7 @@ export function assignedTownKeyForSupportTile<T extends TownSupportTile>(
   // site that incident traced back to: autoSettlementQueueForPlayer's
   // hasTownSupport callback (runtime.ts) calls this once per frontier tile.
   const scanRadius = wideSupportRingScanRadiusFor(tiles, playerId, x, y, isOwnedWideRingTown<T>(playerId));
-  return supportRingCandidates(tiles, x, y, scanRadius)
+  const best = supportRingCandidates(tiles, x, y, scanRadius)
     .filter(
       ({ tile, dx, dy }) =>
         tile.ownerId === playerId &&
@@ -95,9 +97,9 @@ export function assignedTownKeyForSupportTile<T extends TownSupportTile>(
         tile.town.populationTier !== "SETTLEMENT" &&
         Math.max(Math.abs(dx), Math.abs(dy)) <= supportRingRadiusForTier(tile.town.populationTier)
     )
-    .map(({ tile }) => tile)
-    .sort((a, b) => a.x - b.x || a.y - b.y)
-    .map((tile) => tileKeyOf(tile.x, tile.y))[0];
+    .map(({ tile, dx, dy }) => ({ x: tile.x, y: tile.y, distance: Math.max(Math.abs(dx), Math.abs(dy)) }))
+    .reduce<{ x: number; y: number; distance: number } | undefined>((chosen, town) => (isPreferredSupportTown(town, chosen) ? town : chosen), undefined);
+  return best ? tileKeyOf(best.x, best.y) : undefined;
 }
 
 export function supportedDockKeysForTile<T extends TownSupportTile>(
