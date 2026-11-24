@@ -8,7 +8,7 @@ import { harness, homeRow, land, lastPayload } from "./scout-drone-runtime.test-
 
 const rivalWall = [6, 7, 8, 9, 10, 11, 12, 13, 14].map((y) => land(8, y, { ownerId: "rival" }));
 const rivalTile = (x: number): boolean => x === 8;
-/** The player has seen everything but the rival's land. */
+/** The player can see everything but the rival's land (until the drone shows it). */
 const fogOverRival = (_playerId: string, x: number): boolean => !rivalTile(x);
 const stops = [
   { x: 12, y: 10 },

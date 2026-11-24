@@ -5,8 +5,8 @@ import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact
 import { createScoutDroneRuntime } from "./scout-drone-runtime.js";
 
 // The scout drone runtime with in-memory tiles, players and a recording reveal (scout-drone-runtime.test.ts,
-// scout-drone-hidden-border.test.ts). `explored` decides which tiles the player has seen: every tile by
-// default, so a rival border on the map is known when the route is planned.
+// scout-drone-hidden-border.test.ts). `visible` decides which tiles the player can see besides what the
+// drone's reveal shows: every tile by default, so a rival border on the map is known when the route is planned.
 
 export const W = 100;
 export const H = 60;
@@ -18,7 +18,7 @@ export type Harness = ReturnType<typeof harness>;
 export const harness = (
   tileList: DomainTileState[],
   players: DomainPlayer[] = [player("me"), player("rival"), player("friend")],
-  explored: (playerId: string, x: number, y: number) => boolean = () => true
+  visible: (playerId: string, x: number, y: number) => boolean = () => true
 ) => {
   let now = 1_000;
   const tiles = new Map(tileList.map((tile) => [`${tile.x},${tile.y}`, tile]));
@@ -29,8 +29,14 @@ export const harness = (
   const reach = new Map<string, string>();
   const reveals: string[] = [];
   const live = new Map<string, number>();
-  // What the drone's reveal has shown the player, as the explored-tile memory records it in the runtime.
-  const seen = new Set<string>();
+  // How many live reveals cover each tile, as the coverage tracker counts them in the runtime.
+  const revealed = new Map<string, number>();
+  const cover = (viewer: string, x: number, y: number, radius: number, by: number): void => {
+    for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1) {
+      const key = `${viewer}@${x + dx},${y + dy}`;
+      revealed.set(key, (revealed.get(key) ?? 0) + by);
+    }
+  };
   const runtime = createScoutDroneRuntime({
     now: () => now,
     worldWidth: W,
@@ -39,16 +45,17 @@ export const harness = (
     players: () => playerMap,
     afcTileKeys: (id) => (id === "me" ? ["2,10"] : []),
     reachOwnerAt: (x, y) => reach.get(`${x},${y}`),
-    isExplored: (playerId, x, y) => explored(playerId, x, y) || seen.has(`${playerId}@${x},${y}`),
+    isVisible: (playerId, x, y) => visible(playerId, x, y) || (revealed.get(`${playerId}@${x},${y}`) ?? 0) > 0,
     visibilityCoverage: () => ({
       addTemporaryReveal: (viewer, x, y, radius) => {
         reveals.push(`+${viewer}@${x},${y}r${radius}`);
         live.set(`${viewer}@${x},${y}`, (live.get(`${viewer}@${x},${y}`) ?? 0) + 1);
-        for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1) seen.add(`${viewer}@${x + dx},${y + dy}`);
+        cover(viewer, x, y, radius, 1);
       },
       removeTemporaryReveal: (viewer, x, y, radius) => {
         reveals.push(`-${viewer}@${x},${y}r${radius}`);
         live.set(`${viewer}@${x},${y}`, (live.get(`${viewer}@${x},${y}`) ?? 0) - 1);
+        cover(viewer, x, y, radius, -1);
       }
     }),
     visionTransitionCallbacks: () => ({}),
