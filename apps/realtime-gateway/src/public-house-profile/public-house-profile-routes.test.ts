@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import Fastify from "fastify";
 import type { SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
-import { registerPublicHouseProfileRoutes, type PublicHouseProfileRouteDeps } from "./public-house-profile-routes.js";
+import { publicProfileAccountState, registerPublicHouseProfileRoutes, type PublicHouseProfileRouteDeps } from "./public-house-profile-routes.js";
 import { InMemoryPublicProfileLinkStore } from "./public-profile-link-store.js";
 
 const UID = "firebaseUid0123456789abcdefgh";
@@ -118,5 +118,45 @@ describe("public House profile routes", () => {
 
     expect((await app.inject({ method: "DELETE", url: "/hq/public-profile/link", headers: own })).json()).toEqual({ ok: true, publicId: null });
     expect((await app.inject({ method: "GET", url: `/public/house/${publicId}` })).statusCode).toBe(404);
+  });
+
+  it("builds the view at most once a minute per House, but re-checks the link and deletion on every hit", async () => {
+    let clock = 1_000;
+    let archiveCalls = 0;
+    let state: "active" | "deleting" = "active";
+    const { app } = build({ now: () => clock, accountState: async () => state, listSeasonArchives: async () => { archiveCalls += 1; return []; } });
+    const publicId = await mint(app);
+    const get = () => app.inject({ method: "GET", url: `/public/house/${publicId}` });
+    expect((await get()).statusCode).toBe(200);
+    expect((await get()).statusCode).toBe(200);
+    expect(archiveCalls).toBe(1);
+    clock += 60_001;
+    expect((await get()).statusCode).toBe(200);
+    expect(archiveCalls).toBe(2);
+    state = "deleting";
+    expect((await get()).statusCode).toBe(404);
+    expect(archiveCalls).toBe(2);
+  });
+
+  it("answers 503 in the usual shape when the store or the simulation fails", async () => {
+    const { app } = build({ getSeasonParticipationForPlayer: async () => { throw new Error("sim down"); } });
+    const publicId = await mint(app);
+    const response = await app.inject({ method: "GET", url: `/public/house/${publicId}` });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ ok: false, error: "unavailable" });
+  });
+});
+
+describe("publicProfileAccountState", () => {
+  const bindings = (blocked: boolean | undefined, bound = true) => ({
+    getByPlayerId: async () => (bound ? { uid: "uid-1" } : undefined),
+    ...(blocked === undefined ? {} : { accountDeletion: { isBlocked: async (uid: string) => uid === "uid-1" && blocked } })
+  });
+
+  it("is active only for a bound account with no deletion request", async () => {
+    expect(await publicProfileAccountState(bindings(false), "p")).toBe("active");
+    expect(await publicProfileAccountState(bindings(undefined), "p")).toBe("active");
+    expect(await publicProfileAccountState(bindings(true), "p")).toBe("deleting");
+    expect(await publicProfileAccountState(bindings(false, false), "p")).toBe("missing");
   });
 });

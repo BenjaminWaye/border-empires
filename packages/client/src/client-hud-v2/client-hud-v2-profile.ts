@@ -78,7 +78,7 @@ const heroHtml = (input: ProfileInput): string => {
       ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
       : "";
   // Your own profile only: makes (on first use) and shares the public web link (client-public-house-share.ts).
-  const share = input.relation.kind === "self" ? `<button type="button" class="v2p-action" data-v2-profile-share title="Share a public web page of your House's contests, rating, charges and records">Share profile</button>` : "";
+  const share = input.relation.kind === "self" ? `<button type="button" class="v2p-action" data-v2-profile-share title="Share a public web page of your House's contests, rating, charges and records">Share profile</button><button type="button" class="v2p-action" data-v2-profile-unshare title="Take your public House page down. The old link stops working">Stop sharing</button>` : "";
   return `<aside class="v2p-hero">
     <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
     <h2 class="v2p-name">${esc(input.name)}</h2>

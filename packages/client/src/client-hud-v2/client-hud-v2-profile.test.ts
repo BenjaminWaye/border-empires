@@ -46,7 +46,8 @@ describe("player profile screen", () => {
 
   it("offers Share profile on your own profile only", () => {
     expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
-    expect(render(base).querySelector("[data-v2-profile-share]")).toBeNull();
+    expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
+    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
   });
 
   it("offers Show on map only for an empire you have seen", () => {
