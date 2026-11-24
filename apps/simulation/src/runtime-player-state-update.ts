@@ -136,7 +136,7 @@ export function emitPlayerStateUpdate(
       // (still used by client breakdown/tips UI) so the client can display the
       // real mechanic instead of recomputing an approximation client-side from
       // just two aggregate numbers.
-      integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.Ts, metrics.Es))) * 100),
+      integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.T, metrics.Es, metrics.Ts))) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
       devQueue: summary.devQueue.map((entry) => ({

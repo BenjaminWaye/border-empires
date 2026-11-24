@@ -33,7 +33,7 @@ describe("weakDefensibilityEntries", () => {
     );
     expect(entries[0]).toMatchObject({ x: 10, y: 10, severity: "critical" });
     const spur = entries.find((entry) => entry.x === 12);
-    expect(spur?.reason).toBe("3 open sides: north (rival land), east (your ungarrisoned land) and south (unclaimed land)");
+    expect(spur?.reason).toBe("2 open sides: north (rival land) and south (unclaimed land)");
   });
 
   it("breaks ties by distance from the camera", () => {
@@ -47,5 +47,10 @@ describe("weakDefensibilityEntries", () => {
   it("skips tiles with fewer than 2 open sides", () => {
     const water = (x: number, y: number): Tile => ({ x, y, terrain: "SEA" });
     expect(weakDefensibilityEntries(argsFor([settled(5, 5), water(5, 4), water(4, 5), water(6, 5)]))).toEqual([]);
+  });
+  // Integrity scores all owned land, so an ungarrisoned edge tile is weak too, and says so.
+  it("lists ungarrisoned land with open sides, marked as such", () => {
+    const entries = weakDefensibilityEntries(argsFor([{ x: 30, y: 30, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }]));
+    expect(entries[0]?.reason).toBe("Ungarrisoned · 4 open sides: north, east, south and west (unexplored land)");
   });
 });

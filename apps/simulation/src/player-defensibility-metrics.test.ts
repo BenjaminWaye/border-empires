@@ -1,5 +1,6 @@
 import { describe, expect, it, test } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { empireIntegrity } from "@border-empires/shared";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 
 const PLAYER = "player-1";
@@ -33,20 +34,11 @@ describe("buildPlayerDefensibilityMetrics — T/E/Ts/Es", () => {
     const tiles = tilesMap([tile(10, 10)]);
     const metrics = buildPlayerDefensibilityMetrics(PLAYER, tiles);
     expect(metrics.T).toBe(1);
-    expect(metrics.Ts).toBe(1);
+    expect(metrics.Ts).toBe(1); // the one tile is garrisoned
     expect(typeof metrics.E).toBe("number");
     expect(typeof metrics.Es).toBe("number");
   });
 });
-
-/**
- * 2026-07-29 login-stall investigation: T/E (all-owned exposed-edge count)
- * is display-only — every gameplay consumer (integrityEconomyMult,
- * integrityGrowthMult) reads Ts/Es (settled-only). skipAllOwnedStats lets AI
- * callers (nobody ever reads their T/E) skip the all-owned pass. Pins that
- * Ts/Es stay IDENTICAL with or without the flag — only E (and T, which stops
- * incrementing) changes.
- */
 
 const settled = (x: number, y: number, ownerId: string): DomainTileState =>
   ({ x, y, terrain: "LAND", ownerId, ownershipState: "SETTLED" });
@@ -54,36 +46,42 @@ const settled = (x: number, y: number, ownerId: string): DomainTileState =>
 const frontier = (x: number, y: number, ownerId: string): DomainTileState =>
   ({ x, y, terrain: "LAND", ownerId, ownershipState: "FRONTIER" });
 
-describe("buildPlayerDefensibilityMetrics — skipAllOwnedStats", () => {
-  it("computes identical Ts/Es with and without skipAllOwnedStats, but E stays 0 when skipped", () => {
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", settled(5, 5, "player-1")],
-      ["6,5", frontier(6, 5, "player-1")], // exposes 5,5's east edge as owned (not exposed)
-      ["4,5", frontier(4, 5, "player-1")], // owned frontier to the west
-      ["5,4", frontier(5, 4, "player-1")], // owned frontier north
-      // South (5,6) left unowned/unset -> exposed on both passes
-    ]);
-    const ownedTileKeys = new Set(tiles.keys());
+const blockOf = (size: number, stateAt: (x: number, y: number) => DomainTileState): Map<string, DomainTileState> => {
+  const tiles = new Map<string, DomainTileState>();
+  for (let x = 0; x < size; x += 1) for (let y = 0; y < size; y += 1) tiles.set(`${x},${y}`, stateAt(x, y));
+  return tiles;
+};
+const edge = (x: number, y: number, size: number): boolean => x === 0 || y === 0 || x === size - 1 || y === size - 1;
 
-    const full = buildPlayerDefensibilityMetrics("player-1", tiles, ownedTileKeys, false);
-    const skipped = buildPlayerDefensibilityMetrics("player-1", tiles, ownedTileKeys, true);
-
-    // Settled-only stats (the ones that actually feed gameplay math) must be
-    // byte-for-byte identical regardless of the flag.
-    expect(skipped.Ts).toBe(full.Ts);
-    expect(skipped.Es).toBe(full.Es);
-
-    // T is cheap (a plain counter) so it's still tracked either way; only the
-    // expensive exposedEdgesFor(..., false) call behind E is skipped.
-    expect(skipped.T).toBe(full.T);
-    expect(full.E).toBeGreaterThan(0);
-    expect(skipped.E).toBe(0);
+// Owner rule (Playtest Run 4 follow-up): Integrity is the shape of everything the player owns (open sides of all
+// owned land), less a penalty under 10% garrisoned (empireIntegrity, packages/shared).
+describe("buildPlayerDefensibilityMetrics — whole-territory shape and garrison share", () => {
+  it("counts every owned tile, the garrisoned ones, and the sides facing land that isn't the player's", () => {
+    const metrics = buildPlayerDefensibilityMetrics(PLAYER, blockOf(3, (x, y) => (x === 1 && y === 1 ? settled(x, y, PLAYER) : frontier(x, y, PLAYER))));
+    expect(metrics).toEqual({ T: 9, E: 12, Ts: 1, Es: 12 });
   });
 
-  it("defaults to full (non-skipped) stats when the flag is omitted", () => {
-    const tiles = new Map<string, DomainTileState>([["0,0", settled(0, 0, "player-1")]]);
-    const metrics = buildPlayerDefensibilityMetrics("player-1", tiles, new Set(["0,0"]));
-    expect(metrics.E).toBeGreaterThan(0); // all 4 neighbors unowned -> fully exposed
-    expect(metrics.T).toBe(1);
+  // Regression: under the old rule garrisoning raised exposure, so it lowered Integrity.
+  it("garrisoning, inside or on the border, never changes the shape and lifts the too-little-garrisoned penalty", () => {
+    // 12x12 = 144 owned tiles: past the new-empire grace floor, so the score is the two parts alone.
+    const allFrontier = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => frontier(x, y, PLAYER)));
+    const coreGarrisoned = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => (edge(x, y, 12) ? frontier(x, y, PLAYER) : settled(x, y, PLAYER))));
+    const borderGarrisoned = buildPlayerDefensibilityMetrics(PLAYER, blockOf(12, (x, y) => (edge(x, y, 12) || (x === 1 && y === 1) ? settled(x, y, PLAYER) : frontier(x, y, PLAYER))));
+    for (const metrics of [coreGarrisoned, borderGarrisoned]) expect(metrics.Es).toBe(allFrontier.Es);
+    const score = (m: typeof allFrontier) => empireIntegrity(m.T, m.Es, m.Ts);
+    expect(score(allFrontier)).toBeCloseTo(0.7); // perfect square shape, nothing garrisoned: the full penalty
+    expect(score(coreGarrisoned)).toBe(1);
+    expect(score(borderGarrisoned)).toBe(1);
+  });
+
+  it("a frontier moat hides nothing: its outward sides count", () => {
+    const moat = buildPlayerDefensibilityMetrics(PLAYER, blockOf(5, (x, y) => (edge(x, y, 5) ? frontier(x, y, PLAYER) : settled(x, y, PLAYER))));
+    expect(moat.Es).toBe(20);
+  });
+  // Review fix: T was floored at 1 while Ts was 0, so a House with no land showed the full penalty (70%).
+  it("a player with no land counts no tiles and scores 100%", () => {
+    const metrics = buildPlayerDefensibilityMetrics(PLAYER, new Map());
+    expect(metrics.T).toBe(0);
+    expect(empireIntegrity(metrics.T, metrics.Es, metrics.Ts)).toBe(1);
   });
 });
