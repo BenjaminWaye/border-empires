@@ -282,9 +282,11 @@ A server is billed for every hour it exists, running or not, so it must be
 deleted, not stopped.
 
 1. **End.** The contest ends when a House holds a victory path for 24 hours,
-   as today. A hosted sector also needs a **hard time limit**, because without
-   one it could run for ever on USD 20. The GDD already says "up to 30 days";
-   enforcing it and naming the winner at the limit is Q5.
+   as today. There is no time limit (owner decision 2026-11-24). To stop a
+   forgotten sector costing money for ever, a sector that **no human has
+   visited for 7 days is closed**: its results are saved and its server is
+   deleted, with no look-around period. Members are emailed two days before.
+   AI Houses playing on do not count as a visit.
 2. **No second contest.** In hosted mode the server does not offer "commit to
    the next contest" and never rolls over.
 3. **Look-around period.** The ended world stays up for a few days so members
@@ -387,7 +389,12 @@ Each has a recommendation. None is decided here, except where a row says
 
 **Owner answers, 2026-11-23:** Q1 and Q2 (refunds and disputes) accepted as
 recommended. Q3: no cap. Q4 (shown on the profile, not counted toward rating)
-accepted. Q6 (Standard and Small, both USD 20) accepted. Still open: Q5, Q7–Q16.
+accepted. Q6 (Standard and Small, both USD 20) accepted.
+
+**Owner answers, 2026-11-24:** Q5: no time limit; a hosted sector is closed
+after 7 days with no human visit. Q7–Q11, Q14 and Q15 accepted as recommended.
+Q16: the owner is setting up the Hetzner project and the Stripe account. Still
+open: Q12 (legal pages and seller details) and Q13 (tax).
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -395,17 +402,17 @@ accepted. Q6 (Standard and Small, both USD 20) accepted. Still open: Q5, Q7–Q1
 | Q2 | **A refund or dispute on a running sector.** | Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
-| Q5 | **The 30-day limit.** Is it enforced for hosted sectors, and who wins at the limit? Does the same rule apply to the public sector? | Enforce 30 days in hosted sectors. At the limit the House at the top of the final standings wins, marked as a time-limit win. The public sector is left as it is until the owner decides separately. This is a rule the game does not enforce today; if approved, `game-mechanics.md` and the lore check are part of that PR. |
+| Q5 | **The 30-day limit.** Is it enforced for hosted sectors, and who wins at the limit? Does the same rule apply to the public sector? | **Decided 2026-11-24: no time limit.** A hosted sector is closed after 7 days with no human visit; see §9. No game rule changes. (The recommendation was to end at day 30.) |
 | Q6 | **Which map sizes are offered**, all at USD 20? | Standard (640×320, 60 AI Houses, 40 human places) and Small (320×160, 20 AI Houses, 12 human places; this size ran on staging in October). No size larger than standard until its memory is measured. If per-size client builds prove fragile, launch with Standard only. |
-| Q7 | **How long an ended sector stays up** before deletion. | 3 days. Each day costs about EUR 0.20. |
-| Q8 | **May guest accounts join a hosted sector?** | No. Hosts and invited players need a registered account. |
-| Q9 | **How private is private?** | Unlisted and members-only to play; standings are not secret from someone who has the address. |
-| Q10 | **A funding bar that never fills.** | Holds are released at the 72-hour deadline and nobody is charged. Contributors are emailed. The host can reopen a new bar. |
-| Q11 | **When does a funded contest start?** | At once, as the GDD pitch says ("starting now"). The invite link exists before payment so friends can be ready. A host-chosen start time is a later option. |
+| Q7 | **How long an ended sector stays up** before deletion. | **Decided 2026-11-24, as recommended.** 3 days. Each day costs about EUR 0.20. |
+| Q8 | **May guest accounts join a hosted sector?** | **Decided 2026-11-24, as recommended.** No. Hosts and invited players need a registered account. |
+| Q9 | **How private is private?** | **Decided 2026-11-24, as recommended.** Unlisted and members-only to play; standings are not secret from someone who has the address. |
+| Q10 | **A funding bar that never fills.** | **Decided 2026-11-24, as recommended.** Holds are released at the 72-hour deadline and nobody is charged. Contributors are emailed. The host can reopen a new bar. |
+| Q11 | **When does a funded contest start?** | **Decided 2026-11-24, as recommended.** At once, as the GDD pitch says ("starting now"). The invite link exists before payment so friends can be ready. A host-chosen start time is a later option. |
 | Q12 | **Legal pages and seller details.** Terms of sale, refund policy, updated privacy policy (Stripe as a processor), and the seller's legal name and address, which EU law requires on the checkout. Who writes them, and under which legal entity is Stripe opened? | The owner provides the entity and has the texts written or reviewed by someone qualified. An agent can draft from a template but must not be the final word. Sales stay off until the pages are live. |
 | Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
-| Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
-| Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
+| Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
+| Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
 | Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; delegating `sectors.borderempires.com` to Hetzner DNS at Namecheap. | Needed before the first real server or test payment. |
 
 ## 14. Cost
@@ -424,8 +431,10 @@ on Hetzner's and Stripe's own price pages before launch.
 | VAT, if the price is inclusive (Q13) | up to USD 4 of the USD 20 for an EU buyer; none for many others |
 | **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card |
 
-A contest that ends early costs less; the price is taken up front, so a hosted
-sector cannot run at a loss as long as the time limit (Q5) is enforced.
+A contest that ends early costs less. With no time limit (Q5), a sector that
+humans keep visiting runs until someone wins: each extra month costs about
+EUR 6, so a contest still going after roughly three months has used up its
+USD 20. The 7-day idle rule bounds the cost of abandoned sectors only.
 
 **Fixed costs:** none new. The hosting service runs on the production server,
 Hetzner DNS is free, and Stripe has no monthly fee. Stripe Tax, if turned on,
@@ -438,7 +447,7 @@ players until the last one. Sales are behind a setting that is off by default.
 
 | # | PR | Needs real money or servers? |
 |---|---|---|
-| 1 | **Hosted mode on the game server.** `deploy/env/hosted.env`; members-only entry by signed ticket; no next contest; the time limit (if Q5 approves, as a follow-up). | No. Tested locally. |
+| 1 | **Hosted mode on the game server.** `deploy/env/hosted.env`; members-only entry by signed ticket; no next contest. | No. Tested locally. |
 | 2 | **Client connects to a chosen sector.** "My sectors" list, connection to an allowed sector address only, per-size client builds and their publishing. | No. |
 | 3 | **Hosting service skeleton.** `apps/sector-control`: database, account check, orders and sectors as state machines, invites and members, tickets, with a fake payment and a fake server provider for tests. Compose service and Caddy route. | No. |
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
