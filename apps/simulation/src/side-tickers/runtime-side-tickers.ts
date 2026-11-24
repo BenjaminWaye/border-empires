@@ -18,7 +18,7 @@ export type RuntimeSideTickersDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   readonly docks?: () => readonly DockRouteDefinition[];
-  /** Tile keys of the AFCs a player owns (runtime summary index); a Writ of Correction checks only these. */
+  /** Tile keys of the garrisoned (SETTLED), active AFCs a player owns (runtime summary index); a Writ of Correction checks only these, and the 1s watch relies on garrisoning changing this set. */
   readonly afcTileKeys?: (playerId: string) => ReadonlySet<string>;
   readonly isPlayerSubscribed: (playerId: string) => boolean;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload) => void;

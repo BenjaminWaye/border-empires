@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { correctionGarrisonHint } from "./client-house-charges-correction-afcs.js";
+import { correctionAfcsInView, correctionFramePoints, correctionGarrisonHint } from "./client-house-charges-correction-afcs.js";
 import { houseChargeFitDiscs } from "./client-house-charges-fit.js";
 import { houseChargeMarkerTiles } from "./client-house-charges-map.js";
 import { houseChargeSearchGuide } from "./client-house-charges-search-guide.js";
@@ -60,8 +60,25 @@ describe("Writ of Correction map guide", () => {
   });
 
   it("asks for a garrison only while the captured AFC is unsettled", () => {
-    expect(correctionGarrisonHint(writ, stateFor(writ, [captured("FRONTIER")]), "House Gerald")).toBe("House Gerald's AFC taken: garrison it to hold the Writ");
-    expect(correctionGarrisonHint(writ, stateFor(writ, [captured("SETTLED")]), "House Gerald")).toBeUndefined();
-    expect(correctionGarrisonHint({ ...writ, held: true }, stateFor(writ, [captured("SETTLED")]), "House Gerald")).toBeUndefined();
+    expect(correctionGarrisonHint(writ, stateFor(writ, [captured("FRONTIER")]))).toBe("Taken: garrison it to hold");
+    expect(correctionGarrisonHint(writ, stateFor(writ, [captured("SETTLED")]))).toBeUndefined();
+    expect(correctionGarrisonHint({ ...writ, held: true }, stateFor(writ, [captured("SETTLED")]))).toBeUndefined();
+  });
+
+  it("frames only the player's own captured AFC once it has one, not the rival's far-off home AFC", () => {
+    const home = land(10, 10, { ownerId: "p2", afc: { ownerId: "p2", status: "active" } });
+    expect(correctionFramePoints(writ, stateFor(writ, [home, captured("SETTLED")]))).toEqual([{ x: 120, y: 90 }]);
+    expect(correctionFramePoints(writ, stateFor(writ, [home]))).toEqual([{ x: 10, y: 10 }]);
+  });
+
+  it("caches per rival and revision, and rescans after the same tile map is cleared without a revision bump", () => {
+    const other: HouseChargeView = { ...writ, id: "CORRECTION:y", targets: [{ key: "house:p3", name: "Varn", x: 40, y: 30 }] };
+    const state = { ...stateFor(writ, [captured("SETTLED"), land(5, 5, { ownerId: "p3", afc: { ownerId: "p3", status: "active" } })]), tilesRevision: 7 };
+    const first = correctionAfcsInView(writ, state);
+    expect(correctionAfcsInView(other, state)).toEqual([expect.objectContaining({ x: 5, y: 5 })]);
+    // The other rival's lookup must not evict this one.
+    expect(correctionAfcsInView(writ, state)).toBe(first);
+    state.tiles.clear();
+    expect(correctionAfcsInView(writ, state)).toEqual([]);
   });
 });

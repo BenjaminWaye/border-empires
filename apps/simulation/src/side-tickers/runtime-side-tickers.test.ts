@@ -28,12 +28,17 @@ const setup = () => {
       if (payload.type === "HOUSE_CHARGES") sent.push(payload as HouseChargesPayload);
     }
   });
+  const recapture = (): void => {
+    tiles.set(RIVAL_AFC, { ...tiles.get(RIVAL_AFC)!, ownerId: "p2", afc: { ownerId: "p2", status: "active", capturedAt: 60, foundedBy: "p2" } });
+    ownedAfcs.set("p1", new Set());
+    ownedAfcs.set("p2", new Set([RIVAL_AFC]));
+  };
   const capture = (): void => {
     tiles.set(RIVAL_AFC, { ...tiles.get(RIVAL_AFC)!, ownerId: "p1", afc: { ownerId: "p1", status: "active", capturedAt: 50, foundedBy: "p2" } });
     ownedAfcs.set("p1", new Set([RIVAL_AFC]));
     ownedAfcs.set("p2", new Set());
   };
-  return { tickers, sent, capture };
+  return { tickers, sent, capture, recapture };
 };
 
 describe("runtime side tickers: Writ of Correction refresh", () => {
@@ -42,10 +47,19 @@ describe("runtime side tickers: Writ of Correction refresh", () => {
     tickers.tick(0);
     expect(sent.at(-1)?.charges[0]).toMatchObject({ held: false });
     capture();
-    // Well inside the 15s throttle: only the AFC watch can notice.
-    tickers.tick(1_000);
-    expect(1_000).toBeLessThan(HOUSE_CHARGES_TICK_MIN_INTERVAL_MS);
+    // Well inside the 15s throttle (HOUSE_CHARGES_TICK_MIN_INTERVAL_MS): only the AFC watch can notice.
+    tickers.tick(HOUSE_CHARGES_TICK_MIN_INTERVAL_MS / 15);
     expect(sent.at(-1)?.charges[0]).toMatchObject({ held: true, size: 1 });
+  });
+
+  it("pushes the loss within a second when the rival retakes its AFC", () => {
+    const { tickers, sent, capture, recapture } = setup();
+    tickers.tick(0);
+    capture();
+    tickers.tick(1_000);
+    recapture();
+    tickers.tick(2_000);
+    expect(sent.at(-1)?.charges[0]).toMatchObject({ held: false, lostAt: 2_000 });
   });
 
   it("does not re-push while the House's AFCs are unchanged", () => {
