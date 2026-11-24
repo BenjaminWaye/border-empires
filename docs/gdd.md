@@ -148,7 +148,14 @@ product, including paid Houses.
 
 - **Paid sectors cover themselves.** A hosted sector opens only when it is
   funded, so it cannot run at a loss. The only uncovered cost is the one free
-  sector.
+  sector. *Changed 2026-11-24:* hosted contests have no time limit; a hosted
+  sector is closed after 7 days with no human visit. A sector played for more
+  than about three months therefore costs more than its price; the owner
+  accepted this.
+- **Hosted sector terms** (decided 2026-11-23 and 2026-11-24): Standard
+  (640×320) and Small (320×160) maps, both USD 20 including tax; no cap on
+  sectors running at once; the seller is TIDN AB. Details in
+  [`hosted-sectors-plan.md`](hosted-sectors-plan.md) §13.
 - **The hosting pitch:** your own world, starting now, with the people you
   choose. A solo game is a hosted sector with one human; there is no separate
   single-player product at launch.
