@@ -4,7 +4,7 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor } from "@border-empires/shared";
+import { hasWideSupportRing, supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor } from "@border-empires/shared";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -28,7 +28,7 @@ export const supportTileBelongsToTown = (
     playerId,
     supportTile.x,
     supportTile.y,
-    (t) => t.ownerId === playerId && t.ownershipState === "SETTLED" && (t.town?.populationTier === "GREAT_CITY" || t.town?.populationTier === "METROPOLIS")
+    (t) => t.ownerId === playerId && t.ownershipState === "SETTLED" && hasWideSupportRing(t.town?.populationTier)
   );
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tiles, supportTile.x, supportTile.y, scanRadius)) {
     if (!candidate.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
