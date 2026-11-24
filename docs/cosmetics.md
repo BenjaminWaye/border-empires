@@ -16,7 +16,7 @@ it decorates.
 | Thing | A rival must still read | So a cosmetic may change | And may not change |
 |---|---|---|---|
 | Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth; added ornament in gold and in the owner's colour | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the soldiers, the siege ring, the progress badge |
-| Ancillaries (soldiers) | Owner (colour), how many stand and fall, their stance, shots, and a Titanium Weapons Factory (heavy armour) | The soldier model, on the same rig, clips, size and tint | Their number, poses, timing, shot colour, Umbrite rounds, and the heavy armour: **titanium always wins over the cosmetic** (`marineModelFor`), so a rival still sees that strength |
+| Ancillaries (soldiers) | Owner (colour), how many stand and fall, their stance, shots, and a Titanium Weapons Factory (heavy armour) | The soldier model, on the same rig, clips and tint, up to about 12% taller (the Lancet guard's hood) | Their number, poses, timing, shot colour, Umbrite rounds, and the heavy armour: **titanium always wins over the cosmetic** (`marineModelFor`), so a rival still sees that strength |
 
 Added ornament must stay inside the tile, close to the standard plinth's
 footprint, and within 15% of the standard flag's height
@@ -100,6 +100,7 @@ At map distance:
   sculpt and rifle by `packages/client/scripts/bake-popup-marine-lancet-model.py`
   then `retarget-popup-marine-heavy-clips.py`; the asset test checks its rig,
   clips and size like the other two.
+- Height 0.058 against the standard marine's 0.052 (owner request, 2026-11-24): about 12% taller, hood included. Soldiers are picked by tile, so this changes no hit area, and their count and spacing are unchanged.
 - Loaded only once a House showing it is on screen. No extra cost per soldier
   over the heavy armour.
 - Not drawn: salvage-delivery ancillaries (`client-map-3d-salvage-ancillaries.ts`)

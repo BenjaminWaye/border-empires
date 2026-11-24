@@ -58,7 +58,9 @@ CLIP_SOURCE = argv[1]
 OUT = argv[2]
 RIFLE_SRC = argv[3]
 TARGET_TRIS = int(argv[4]) if len(argv) > 4 else 5000
-TARGET_HEIGHT = 0.052  # same local-unit convention as the standard marine
+# The standard marine is 0.052. The Lancet guard stands about 12% taller
+# (owner request, 2026-11-24); its tall hood is part of that height.
+TARGET_HEIGHT = 0.058
 # Voxel size as a fraction of the soldier's height: fine enough to keep the
 # collar, the headdress and the coat panels apart at the triangle budget.
 VOXEL_DIVISIONS = 240
