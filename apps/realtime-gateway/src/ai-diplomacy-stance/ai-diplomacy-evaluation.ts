@@ -10,7 +10,7 @@ import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizi
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { AT_WAR_WINDOW_MS, atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
-import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
+import { aiToRequesterStrength, computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
@@ -49,6 +49,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   returnableTowns?: readonly ReturnableTown[];
   /** Names of the requester's allies the AI is at war with (requesterAlliesAtWarWithAi): it refuses an alliance. */
   requesterAlliesAtWarWithAi: readonly string[];
+  /** Whether the AI is at war with a player: counts its fronts before it turns on a weak neighbour (ai-war-fronts.ts). */
+  aiAtWarWith?: (playerId: string) => boolean;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -186,6 +188,9 @@ export const evaluateAiDiplomacy = (input: {
     aiPlayerId: input.aiPlayerId,
     requesterAlliesAtWarWithAi: input.requesterAlliesAtWarWithAi,
     ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
+    aiToRequesterStrength: aiToRequesterStrength(stanceInput),
+    requesterLandWorthTaking: stanceInput.requesterLandWorthTaking === true,
+    ...(stanceInput.aiCanOpenFront !== undefined ? { aiCanOpenFront: stanceInput.aiCanOpenFront } : {}),
     now: input.now
   });
   return {

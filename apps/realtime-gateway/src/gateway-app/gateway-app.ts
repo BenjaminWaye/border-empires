@@ -545,7 +545,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
-  const { rallyLinkStore, sectorWaitlistStore } = await createGatewayJoinStores(commandStoreFactoryOptions);
+  const { rallyLinkStore, sectorWaitlistStore, publicProfileLinkStore } = await createGatewayJoinStores(commandStoreFactoryOptions);
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
@@ -916,7 +916,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       growthBaselineStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
-      rallyLinkStore, sectorWaitlistStore,
+      rallyLinkStore, sectorWaitlistStore, publicProfileLinkStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,

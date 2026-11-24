@@ -34,7 +34,7 @@ export function withdrawAndRedeploy(context: RuntimeRespawnContext, command: Com
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: effectId, playerId: actor.id, tileDeltas: deltas });
   // Marks the redeploy notice as a withdrawal (respawnIfEliminated keeps a pending notice).
   if (!actor.isAi) preparePlayerRespawnNotice(context, actor.id, "eliminated", effectId, { wasOnline: true, withdrawn: true });
-  respawnIfEliminated(context, actor.id, effectId);
+  respawnIfEliminated(context, actor.id, effectId, { voluntary: true });
   if (context.summaryForPlayer(actor.id).ownedAfcTileKeys.size === 0) {
     actor.afcRecovery.requiredSince = context.now();
     actor.afcRecovery.cancellation = "Redeployment is waiting for a clear landing site. Try withdrawing and redeploying again.";

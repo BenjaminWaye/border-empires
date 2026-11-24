@@ -134,7 +134,7 @@ describe("alliance tribute", () => {
     expect(verdict({ reply: cautious, selection: { ...selection(0, "alliance"), terms: deal! }, own: { gold: 5_000 } })).toEqual(
       expect.objectContaining({
         tone: "good",
-        text: "Milo would accept an alliance on these terms. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance."
+        text: "Milo would accept an alliance on these terms. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance. Allies can't attack each other and count as one bloc toward Diplomatic Dominance. Breaking it takes 24 hours' notice."
       })
     );
     expect(verdict({ reply: cautious, selection: selection(0, "alliance"), own: { gold: 100 } }).text).toBe(
@@ -152,7 +152,7 @@ describe("alliance tribute", () => {
 
   it("names no tribute once the AI is Pleased", () => {
     const pleased = { ...cautious, attitude: { level: "PLEASED" as const, score: 12, modifiers: [] }, pricing: { ...pricing, required: { ...pricing.required, alliance: 2880 } } };
-    expect(verdict({ reply: pleased, selection: selection(2880, "alliance"), own: { gold: 5_000 } }).text).toBe("Milo would accept an alliance on these terms.");
+    expect(verdict({ reply: pleased, selection: selection(2880, "alliance"), own: { gold: 5_000 } }).text).toBe("Milo would accept an alliance on these terms. Allies can't attack each other and count as one bloc toward Diplomatic Dominance. Breaking it takes 24 hours' notice.");
   });
 });
 

@@ -200,6 +200,21 @@ describe("AI alliance pricing", () => {
     expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
   });
 
+  // Owner rule (Playtest Run 4 follow-up): an alliance is a pledge to help the bloc's largest member win, so a
+  // big AI allies a small House it can't reach; a weak neighbour only when its land isn't worth taking.
+  it("refuses a weak neighbour whose border land is worth taking, and allies otherwise", () => {
+    const pleased = { stanceKind: "OUTMATCHED" as const, bordersTouch: true, memory: memory({ goodwillCoin: 600 }) };
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: true }).allianceRefusal)
+      .toBe("Milo would rather take your land. Fortify the towns and resources on your border with them, and they may think again.");
+    // Fortified or worthless border land: not worth the effort, so it allies as usual.
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: false }).pricing.required.alliance).toBe(0);
+    // A small House far away is only a pledge of support: it allies.
+    expect(price({ ...pleased, bordersTouch: false, aiToRequesterStrength: 5, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);
+    // A neighbour about as strong: no conquest to give up.
+    expect(price({ ...pleased, aiToRequesterStrength: 1.2, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);    // Already stretched across other wars: no army for one more front, so it allies.
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: true, aiCanOpenFront: false }).pricing.required.alliance).toBe(0);
+  });
+
   it("needs at least Pleased, and the AI never pays", () => {
     expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
     // Borders apart (+5) and fear (+10): Pleased, and alliances aren't bought (playtest 2026-11-19: 625 coin).
