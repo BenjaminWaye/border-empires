@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { HostedSectorSummary, HostedSectorTicket, HostingApiResult } from "./client-hosted-sectors-api.js";
 import { setActiveHostedSectorSession } from "./client-hosted-sector-session.js";
-import { createHostedSectorsPanel, hostedSectorRowHtml, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
+import { createHostedSectorsPanel, hostedSectorRowHtml, mountHostedSectorsPanel, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
 
 vi.mock("./client-hosted-sectors.css", () => ({}));
 
@@ -217,5 +217,62 @@ describe("my sectors panel", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("does not wipe an invite link the host has just made", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = makeDeps({ refreshMs: 5_000 });
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "creating", role: "host" })] });
+      h.api.createInvite.mockResolvedValue({ ok: true, code: "code-1" });
+      const panel = createHostedSectorsPanel(h.deps);
+      await panel.openList();
+      document.querySelector<HTMLElement>("[data-hosted-sector-invite]")?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(document.querySelector<HTMLInputElement>("[data-hosted-sector-invite-url]")?.value).toBe("https://play.borderempires.com/h/code-1");
+      panel.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let a slow refresh replace the Host form opened meanwhile", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = makeDeps({ refreshMs: 5_000 });
+      let resolveList: ((value: HostingApiResult<{ sectors: HostedSectorSummary[] }>) => void) | undefined;
+      const listed = { ok: true as const, sectors: [sector({ state: "creating", role: "member" })] };
+      h.api.listSectors.mockResolvedValueOnce(listed);
+      const panel = createHostedSectorsPanel(h.deps);
+      await panel.openList();
+      h.api.listSectors.mockImplementationOnce(() => new Promise((resolve) => { resolveList = resolve; }));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(h.api.listSectors).toHaveBeenCalledTimes(2);
+      document.querySelector<HTMLElement>("[data-hosted-sector-host]")?.click();
+      resolveList?.(listed);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(document.querySelector("[data-hosted-sector-form]")).not.toBeNull();
+      panel.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("waits for the sign-in to be restored before opening an invite link", async () => {
+    window.history.replaceState(null, "", "/h/code-1");
+    let signedIn = false;
+    let authReady: (() => void) | undefined;
+    const h = makeDeps({ isSignedIn: () => signedIn });
+    h.api.acceptInvite.mockResolvedValue({ ok: true, sector: sector({ state: "open" }) });
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [] });
+    mountHostedSectorsPanel({ ...h.deps, whenAuthReady: () => new Promise<void>((resolve) => { authReady = resolve; }) });
+    await Promise.resolve();
+    expect(h.api.acceptInvite).not.toHaveBeenCalled();
+    signedIn = true;
+    authReady?.();
+    await vi.waitFor(() => expect(h.api.acceptInvite).toHaveBeenCalledWith("code-1"));
+    document.querySelector<HTMLElement>("[data-hosted-sectors-close]")?.click();
+    window.history.replaceState(null, "", "/");
   });
 });

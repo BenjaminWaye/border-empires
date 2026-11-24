@@ -6,7 +6,7 @@
 import { Capacitor } from "@capacitor/core";
 import type { Auth } from "firebase/auth";
 import { createHostingApi } from "../client-hosted-sectors/client-hosted-sectors-api.js";
-import { hostedSectorsEnabled } from "../client-hosted-sectors/client-hosted-sector-session.js";
+import { hostedSectorsEnabled, safeSessionStorage } from "../client-hosted-sectors/client-hosted-sector-session.js";
 import { mountHostedSectorsPanel } from "../client-hosted-sectors/client-hosted-sectors-panel.js";
 import { mountRallyInvitePanel, mountRallyNewPanel } from "../client-rally-links/client-rally-links.js";
 import { mountGalaxyView } from "../client-galaxy-view/client-galaxy-view.js";
@@ -26,7 +26,8 @@ export const mountBootstrapSidePanels = (deps: { state: ClientState; firebaseAut
       api: createHostingApi({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() }),
       isSignedIn: () => Boolean(firebaseAuth?.currentUser),
       navigate: (path) => window.location.assign(path),
-      storage: window.sessionStorage,
+      storage: safeSessionStorage(),
+      whenAuthReady: async () => { await firebaseAuth?.authStateReady(); },
       shareOrigin: window.location.origin,
       pageIsLocal: hostname === "localhost" || hostname === "127.0.0.1"
     });

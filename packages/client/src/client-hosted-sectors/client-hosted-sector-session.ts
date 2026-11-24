@@ -28,7 +28,16 @@ export const HOSTED_SECTOR_ENDED_FINEPRINT = "This hosted sector ran a single Se
 export const hostedSectorsEnabled = (native: boolean, flag: string | undefined = import.meta.env.VITE_HOSTED_SECTORS as string | undefined): boolean =>
   !native && flag === "1";
 
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/** sessionStorage, or undefined where the browser blocks it (reading the property itself can throw). */
+export const safeSessionStorage = (): StorageLike | undefined => {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return undefined;
+  }
+};
 
 export const hostedSectorIdFromSearch = (search: string): string | undefined => {
   const id = new URLSearchParams(search).get("sector");
@@ -42,33 +51,45 @@ export const hostedInviteCodeFromPath = (pathname: string): string | undefined =
 
 /**
  * The address came from our own hosting service, but it decides where the
- * player's sign-in token is sent, so it is checked again here. On a local
- * development page any ws(s) address is allowed, for the fake providers.
+ * player's sign-in token is sent, so it is checked again here: it must be
+ * exactly this sector's own host, on the default port, with no credentials.
+ * On a local development page any ws(s) address is allowed, for the fakes.
  */
-export const isAllowedHostedSectorWsUrl = (wsUrl: string, pageIsLocal: boolean): boolean => {
+export const isAllowedHostedSectorWsUrl = (wsUrl: string, pageIsLocal: boolean, sectorId: string): boolean => {
   try {
     const url = new URL(wsUrl);
     if (pageIsLocal) return url.protocol === "ws:" || url.protocol === "wss:";
-    return url.protocol === "wss:" && url.hostname.endsWith(HOSTED_SECTOR_HOST_SUFFIX) && url.pathname === "/ws";
+    return url.protocol === "wss:" && url.hostname === `${sectorId}${HOSTED_SECTOR_HOST_SUFFIX}` && url.port === "" &&
+      url.username === "" && url.password === "" && url.pathname === "/ws";
   } catch {
     return false;
   }
 };
 
-export const stashHostedSectorSession = (session: HostedSectorSession, storage: StorageLike): void => {
-  storage.setItem(STORAGE_KEY, JSON.stringify(session));
-};
-
-export const clearHostedSectorSession = (storage: StorageLike): void => {
-  storage.removeItem(STORAGE_KEY);
-};
-
-export const readHostedSectorSession = (sectorId: string, storage: StorageLike, pageIsLocal: boolean): HostedSectorSession | undefined => {
+/** False when the browser refuses to store it (storage blocked or full). */
+export const stashHostedSectorSession = (session: HostedSectorSession, storage: StorageLike | undefined): boolean => {
   try {
-    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? "null") as Partial<HostedSectorSession> | null;
+    storage?.setItem(STORAGE_KEY, JSON.stringify(session));
+    return storage !== undefined;
+  } catch {
+    return false;
+  }
+};
+
+export const clearHostedSectorSession = (storage: StorageLike | undefined): void => {
+  try {
+    storage?.removeItem(STORAGE_KEY);
+  } catch {
+    // Nothing stored that could be read back either.
+  }
+};
+
+export const readHostedSectorSession = (sectorId: string, storage: StorageLike | undefined, pageIsLocal: boolean): HostedSectorSession | undefined => {
+  try {
+    const parsed = JSON.parse(storage?.getItem(STORAGE_KEY) ?? "null") as Partial<HostedSectorSession> | null;
     if (!parsed || parsed.sectorId !== sectorId) return undefined;
     if (typeof parsed.wsUrl !== "string" || typeof parsed.ticket !== "string" || typeof parsed.expiresAt !== "number") return undefined;
-    if (!isAllowedHostedSectorWsUrl(parsed.wsUrl, pageIsLocal)) return undefined;
+    if (!Number.isFinite(parsed.expiresAt) || !isAllowedHostedSectorWsUrl(parsed.wsUrl, pageIsLocal, sectorId)) return undefined;
     return { sectorId, wsUrl: parsed.wsUrl, ticket: parsed.ticket, expiresAt: parsed.expiresAt };
   } catch {
     return undefined;
@@ -109,7 +130,7 @@ export const createSectorTicketProvider = (deps: {
 };
 
 /** The provider for the page's own hosted sector, or undefined on the public sector. */
-export const createActiveSectorTicketProvider = (deps: { issueTicket: HostingApi["issueTicket"]; storage?: StorageLike }): ((forceRefresh: boolean) => Promise<string | undefined>) | undefined => {
+export const createActiveSectorTicketProvider = (deps: { issueTicket: HostingApi["issueTicket"]; storage?: StorageLike | undefined }): ((forceRefresh: boolean) => Promise<string | undefined>) | undefined => {
   if (!active) return undefined;
   const session = active;
   return createSectorTicketProvider({
@@ -117,5 +138,28 @@ export const createActiveSectorTicketProvider = (deps: { issueTicket: HostingApi
     issueTicket: deps.issueTicket,
     // Kept in step so a reload within the ticket's life needs no round trip.
     onTicket: (ticket) => { if (deps.storage) stashHostedSectorSession({ sectorId: session.sectorId, wsUrl: session.wsUrl, ticket: ticket.ticket, expiresAt: ticket.expiresAt }, deps.storage); }
+  });
+};
+
+/**
+ * A hosted sector that refuses this account (removed, closed, or the ticket
+ * could not be renewed) answers SECTOR_TICKET_REJECTED. Retrying cannot help,
+ * so the page forgets the sector and goes back to the public one.
+ */
+export const leaveHostedSectorWhenRefused = (deps: {
+  ws: { addEventListener: (type: "message", listener: (event: MessageEvent) => void) => void };
+  storage: StorageLike | undefined;
+  navigate: (path: string) => void;
+}): void => {
+  deps.ws.addEventListener("message", (event) => {
+    if (typeof event.data !== "string" || !event.data.includes("SECTOR_TICKET_REJECTED")) return;
+    try {
+      const message = JSON.parse(event.data) as { type?: unknown; code?: unknown };
+      if (message.type !== "ERROR" || message.code !== "SECTOR_TICKET_REJECTED") return;
+    } catch {
+      return;
+    }
+    clearHostedSectorSession(deps.storage);
+    deps.navigate("/");
   });
 };

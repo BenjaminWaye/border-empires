@@ -92,7 +92,7 @@ describe("client app runtime env", () => {
     try {
       hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 }));
       const state = { localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" };
-      const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined } as never);
+      const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined, addEventListener: () => undefined } as never);
       const setup = createClientSocketSetup(state as never);
       expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://s-abc.sectors.borderempires.com/ws");
       expect(setup.wsUrl).toBe("wss://api.borderempires.com/ws");

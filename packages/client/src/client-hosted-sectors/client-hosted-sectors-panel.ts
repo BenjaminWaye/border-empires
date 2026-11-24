@@ -12,7 +12,8 @@ import {
   clearHostedSectorSession,
   hostedInviteCodeFromPath,
   isAllowedHostedSectorWsUrl,
-  stashHostedSectorSession
+  stashHostedSectorSession,
+  type StorageLike
 } from "./client-hosted-sector-session.js";
 import { hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
@@ -26,7 +27,7 @@ export type HostedSectorsPanelDeps = {
   isSignedIn: () => boolean;
   /** Loads the given path; injected so tests do not navigate. */
   navigate: (path: string) => void;
-  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+  storage: StorageLike | undefined;
   pageIsLocal: boolean;
 };
 
@@ -101,14 +102,37 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     ? `<li class="hosted-sector-row"><div><strong>The public sector</strong><span class="hosted-sector-meta">Free, always running</span></div><button type="button" class="panel-btn" data-hosted-sector-leave>Go there</button></li>`
     : `<li class="hosted-sector-row"><div><strong>The public sector</strong><span class="hosted-sector-meta">Free, always running</span></div><span class="hosted-sector-here">You are here</span></li>`;
 
-  const showList = async (notice = ""): Promise<void> => {
+  const scheduleRefresh = (): void => {
+    const refreshMs = deps.refreshMs ?? 5_000;
+    if (refreshMs <= 0) return;
+    stopRefresh();
+    refreshTimer = setTimeout(() => {
+      if (!panel) return;
+      if (listIsBusy()) scheduleRefresh();
+      else void showList("", { quiet: true });
+    }, refreshMs);
+  };
+
+  /** Only the newest request may draw: a slow reply must not replace a form the player has opened since. */
+  let listRequest = 0;
+
+  /** The automatic refresh leaves the list alone while the player is using it. */
+  const listIsBusy = (): boolean => Boolean(panel?.querySelector("[data-hosted-sector-invite-output]:not([hidden]), [data-hosted-sectors-error]:not([hidden])"));
+
+  const showList = async (notice = "", options: { quiet?: boolean } = {}): Promise<void> => {
     if (!deps.isSignedIn()) {
       setBody(`<p>Sign in to see your sectors.</p>`);
       return;
     }
-    setBody(`<p>Loading…</p>`);
+    const request = (listRequest += 1);
+    if (!options.quiet) setBody(`<p>Loading…</p>`);
     const listed = await deps.api.listSectors();
+    if (request !== listRequest || !panel) return;
     if (!listed.ok) {
+      if (options.quiet) {
+        scheduleRefresh();
+        return;
+      }
       setBody(`<p role="alert">${escapeHtml(listed.message)}</p>`);
       return;
     }
@@ -118,8 +142,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open"));
     // While a sector is being prepared the list keeps itself current, so the host can just wait.
     stopRefresh();
-    const refreshMs = deps.refreshMs ?? 5_000;
-    if (refreshMs > 0 && listed.sectors.some((sector) => sector.state === "creating")) refreshTimer = setTimeout(() => { if (panel) void showList(); }, refreshMs);
+    if (listed.sectors.some((sector) => sector.state === "creating")) scheduleRefresh();
     setBody(`
       ${notice ? `<p class="hosted-sector-notice">${escapeHtml(notice)}</p>` : ""}
       <ul class="hosted-sector-list">${publicSectorRowHtml()}${rows}</ul>
@@ -184,11 +207,14 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       showError(issued.message);
       return;
     }
-    if (!isAllowedHostedSectorWsUrl(issued.wsUrl, deps.pageIsLocal)) {
+    if (!isAllowedHostedSectorWsUrl(issued.wsUrl, deps.pageIsLocal, sectorId)) {
       showError("This sector's address was not recognised, so it was not opened.");
       return;
     }
-    stashHostedSectorSession({ sectorId, wsUrl: issued.wsUrl, ticket: issued.ticket, expiresAt: issued.expiresAt }, deps.storage);
+    if (!stashHostedSectorSession({ sectorId, wsUrl: issued.wsUrl, ticket: issued.ticket, expiresAt: issued.expiresAt }, deps.storage)) {
+      showError("This browser is blocking the storage a hosted sector needs. Allow site data for Border Empires and try again.");
+      return;
+    }
     deps.navigate(`/?sector=${encodeURIComponent(sectorId)}`);
   };
 
@@ -207,7 +233,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (payButton?.dataset.hostedSectorPay) pay(checkoutUrls.get(payButton.dataset.hostedSectorPay));
       const inviteButton = target.closest<HTMLElement>("[data-hosted-sector-invite]");
       if (inviteButton?.dataset.hostedSectorInvite) void invite(inviteButton.dataset.hostedSectorInvite);
-      if (target.closest("[data-hosted-sector-host]")) { stopRefresh(); setBody(hostSectorFormHtml()); }
+      if (target.closest("[data-hosted-sector-host]")) { stopRefresh(); listRequest += 1; setBody(hostSectorFormHtml()); }
       if (target.closest("[data-hosted-sector-form-cancel]")) void showList();
       if (target.closest("[data-hosted-sector-leave]")) {
         clearHostedSectorSession(deps.storage);
@@ -251,12 +277,16 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   };
 };
 
-/** Mounts the panel's two ways in: the settings card button and an invite link. */
-export const mountHostedSectorsPanel = (deps: HostedSectorsPanelDeps): void => {
+/**
+ * Mounts the panel's two ways in: the settings card button and an invite link.
+ * The sign-in is restored after page load, so an invite link waits for
+ * `whenAuthReady` before deciding whether the player is signed in.
+ */
+export const mountHostedSectorsPanel = (deps: HostedSectorsPanelDeps & { whenAuthReady: () => Promise<void> }): void => {
   const panel = createHostedSectorsPanel(deps);
   document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest("[data-hosted-sectors-open]")) void panel.openList();
   });
   const inviteCode = hostedInviteCodeFromPath(window.location.pathname);
-  if (inviteCode) void panel.openInvite(inviteCode);
+  if (inviteCode) void deps.whenAuthReady().catch(() => undefined).then(() => panel.openInvite(inviteCode));
 };
