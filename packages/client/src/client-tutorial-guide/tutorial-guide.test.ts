@@ -100,7 +100,7 @@ describe("tutorial guide in the onboarding corner", () => {
     click("skip");
     click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Tap the marked town and Expand To it");
+    expect(cardTitle()).toBe("Tap the marked town, then Expand To");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
     expect(card()?.querySelector('[data-guide-action="show-me"]')).not.toBeNull();
   });
@@ -114,7 +114,7 @@ describe("tutorial guide in the onboarding corner", () => {
     click("skip");
     click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Tap the marked town and Garrison it");
+    expect(cardTitle()).toBe("Tap the marked town, then Garrison");
     expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
   });
 
@@ -126,7 +126,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toMatch(/^No food in sight: build a Relay Beacon/); // no grain or fish on this tiny test map
+    expect(cardTitle()).toMatch(/^No food nearby: build a Relay Beacon/); // no grain or fish on this tiny test map
     const icons = Array.from(card()?.querySelectorAll(".tg-lookfor img") ?? []);
     expect(icons).toHaveLength(2);
     // The visible "Grain" / "Fish" label names each icon, so the image is decorative to screen readers.
@@ -144,10 +144,10 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Tap the marked unexplored ground and Explore");
+    expect(cardTitle()).toBe("Tap the marked unexplored ground, then Explore");
     click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("No town in sight: tap the marked unexplored ground and Explore");
+    expect(cardTitle()).toBe("No town nearby: tap the marked unexplored ground, then Explore");
     expect(state.onboardingHighlightTiles).toHaveLength(1);
   });
 
@@ -161,7 +161,7 @@ describe("tutorial guide in the onboarding corner", () => {
     refreshOnboardingChecklistHighlight(state);
     click("skip"); // zoom
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toMatch(/^No town in sight: build a Relay Beacon/);
+    expect(cardTitle()).toMatch(/^No town nearby: build a Relay Beacon/);
   });
 
   it("hides while a dialog covers the map, then comes back", () => {

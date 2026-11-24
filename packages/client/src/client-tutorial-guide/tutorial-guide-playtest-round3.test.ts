@@ -91,7 +91,7 @@ describe("placement: the card stays off its target and notifications", () => {
 
   it("flips the live card off a ringed town under it, using the renderer's projection", () => {
     setGuideStatus("active", EMAIL);
-    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL); // on "Tap the marked town and Garrison it"
+    markGuideStepsCompleted(["look-pan", "look-zoom", "look-explore"], EMAIL); // on "Tap the marked town, then Garrison"
     const state = mapState();
     state.tiles.set(tileKey(2, 0), tile(2, 0, { ownerId: ME, ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } as never }));
     state.tilesRevision += 1;
@@ -100,7 +100,7 @@ describe("placement: the card stays off its target and notifications", () => {
     });
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
     tickOnboardingUiGateForFrame(state, vi.fn(), () => ({ x: 100, y: 500 })); // every target lands under the card
-    expect(cardTitle()).toBe("Tap the marked town and Garrison it");
+    expect(cardTitle()).toBe("Tap the marked town, then Garrison");
     expect(card()?.classList.contains(GUIDE_SIDE_END_CLASS)).toBe(true);
   });
 

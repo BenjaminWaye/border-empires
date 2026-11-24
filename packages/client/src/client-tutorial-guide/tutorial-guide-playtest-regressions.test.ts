@@ -165,7 +165,7 @@ describe("build step without a town (Tom skipped the town step)", () => {
     );
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("build-first");
-    expect(view.title).toBe("A Manufactory needs a town. Tap the marked town and Expand To it");
+    expect(view.title).toBe("A Manufactory needs a town. Tap the marked town, then Expand To");
     expect(view.highlightTiles).toEqual([{ x: 7, y: 2 }]);
   });
 });
