@@ -187,6 +187,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterAlliesAtWarWithAi: input.requesterAlliesAtWarWithAi,
     ...(input.returnableTowns ? { returnableTowns: input.returnableTowns } : {}),
     aiToRequesterStrength: aiToRequesterStrength(stanceInput),
+    requesterLandWorthTaking: stanceInput.requesterLandWorthTaking === true,
     now: input.now
   });
   return {

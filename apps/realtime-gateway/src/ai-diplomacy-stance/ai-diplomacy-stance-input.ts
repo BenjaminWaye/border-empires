@@ -1,4 +1,5 @@
 import { MANPOWER_BASE_CAP, WORLD_HEIGHT, WORLD_WIDTH, manpowerPerBatch, nextManpowerRefillAtMs, wrapX, wrapY } from "@border-empires/shared";
+import { requesterLandWorthTaking } from "./ai-conquest-worth.js";
 // Reads AiDiplomacyStanceInput off subscription snapshots. Kept apart from
 // the pure decision in ai-diplomacy-stance.ts so the rules can be tested
 // without building snapshots.
@@ -8,7 +9,7 @@ import type { AiDiplomacyStanceInput } from "./ai-diplomacy-stance.js";
 
 type SnapshotPlayer = NonNullable<PlayerSubscriptionSnapshot["player"]>;
 type SnapshotTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson"> &
-  Partial<Pick<PlayerSubscriptionSnapshot["tiles"][number], "terrain" | "reachOwnerId">>;
+  Partial<Pick<PlayerSubscriptionSnapshot["tiles"][number], "terrain" | "reachOwnerId" | "townJson" | "fortJson" | "resource">>;
 export type AiDiplomacySnapshot = {
   playerId: string;
   tiles: readonly SnapshotTile[];
@@ -160,6 +161,7 @@ export const buildAiDiplomacyStanceInput = (input: {
         : {})
     },
     bordersTouch: bordersTouchInTiles(tiles, input.aiPlayerId, input.requesterId),
+    requesterLandWorthTaking: requesterLandWorthTaking(tiles, input.aiPlayerId, input.requesterId),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi
   };
 };

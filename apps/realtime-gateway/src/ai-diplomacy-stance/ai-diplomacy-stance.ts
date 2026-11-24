@@ -30,6 +30,8 @@ export type AiDiplomacyStanceInput = {
   };
   /** Any requester-owned tile is adjacent to an AI-owned tile in the AI's view. */
   bordersTouch: boolean;
+  /** An unfortified town or resource of the requester's near the AI's border (ai-conquest-worth.ts); false when omitted. */
+  requesterLandWorthTaking?: boolean;
   /** The requester broke a truce with this AI earlier this season. */
   requesterBrokeTruceWithAi: boolean;
 };

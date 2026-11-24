@@ -2,11 +2,11 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const AI_ALLIANCE_STRENGTH_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.24",
-  title: "Great powers don't ally with minor Houses",
-  why: "A small House could buy alliances with the strongest AI empires for a few coin.",
+  title: "Strong AI neighbours would rather take your land",
+  why: "An alliance pledges you to help its biggest member win, so a strong AI gladly takes a small ally far away. A weak neighbour is land it could take instead.",
   changes: [
-    "An AI three or more times your strength won't ally with you",
-    "An AI clearly stronger than you can't be paid into an alliance: it has to like you first",
+    "An AI much stronger than you, on your border, refuses an alliance while your border towns and resources are unfortified",
+    "Fortify them, or hold nothing worth taking there, and it may agree",
     "Alliance offers say what an alliance binds you to"
   ]
 };

@@ -40,6 +40,8 @@ export const price = (options: {
   temperament?: AiTemperament;
   /** How many times stronger the AI is than the requester. */
   aiToRequesterStrength?: number;
+  /** The requester holds unfortified towns or resources near the AI's border. */
+  requesterLandWorthTaking?: boolean;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -72,6 +74,7 @@ export const price = (options: {
       ...(options.retaliation ? { retaliation: options.retaliation } : {}),
       ...(options.temperament ? { temperament: options.temperament } : {}),
       ...(options.aiToRequesterStrength !== undefined ? { aiToRequesterStrength: options.aiToRequesterStrength } : {}),
+      ...(options.requesterLandWorthTaking !== undefined ? { requesterLandWorthTaking: options.requesterLandWorthTaking } : {}),
       now: NOW
     })
   };

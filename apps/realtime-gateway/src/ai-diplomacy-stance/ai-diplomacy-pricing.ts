@@ -33,11 +33,13 @@
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
 // lifts it to Pleased -- deal payments count as goodwill once accepted.
 // Past that an alliance costs nothing: it is earned, not bought.
-// Like Civ, a great power doesn't ally a minor (Playtest Run 4: a rank-34 player
-// bought three of the top five AIs for about 31 coin of tribute): an AI
-// ALLIANCE_REFUSE_STRENGTH_RATIO times stronger refuses outright, and one
-// ALLIANCE_NO_TRIBUTE_STRENGTH_RATIO times stronger won't be paid up to Pleased:
-// it has to think well of you on its own.
+// An alliance is a pledge to help the bloc's largest member win, so a big AI
+// gladly allies a small House it can't reach. A weak *neighbour* is different:
+// allying it means giving up land it could take, so an AI at least
+// WEAK_NEIGHBOUR_STRENGTH_RATIO times stronger refuses while that land is worth
+// taking -- a town or resource near its border that no fort covers
+// (ai-conquest-worth.ts). Fortified or worthless border land: it allies as usual
+// (owner rule, Playtest Run 4 follow-up).
 import { GOODWILL_POINTS_PER_INCOME_HOUR, type AiDiplomacyPricing, type DiplomacyGoods, type ReturnableTown } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
@@ -70,10 +72,8 @@ export const ALLIANCE_NO_FIGHTING_MS = 24 * 60 * 60_000;
 export const NEIGHBOUR_PRICE_WINDOW_MS = 24 * 60 * 60_000;
 /** Alliances are earned, Civ VI-style: Pleased and a day without fighting, then free. Gifts lift attitude to Pleased. */
 export const ALLIANCE_HOURS: Partial<Record<AiAttitude, number>> = { PLEASED: 0, FRIENDLY: 0 };
-/** An AI this many times stronger than the requester won't ally with them at all. */
-export const ALLIANCE_REFUSE_STRENGTH_RATIO = 3;
-/** An AI this many times stronger won't take tribute in place of goodwill: it must already be Pleased. */
-export const ALLIANCE_NO_TRIBUTE_STRENGTH_RATIO = 1.5;
+/** A neighbour this much weaker than the AI is one it could conquer, so it allies only if the land isn't worth it. */
+export const WEAK_NEIGHBOUR_STRENGTH_RATIO = 1.5;
 
 /** Income floor so prices never collapse to zero: 10 coin a day, in coin/min. */
 export const MIN_INCOME_PER_MINUTE = 10 / (24 * 60);
@@ -129,6 +129,8 @@ export const aiDiplomacyPricing = (input: {
   outlook?: AiWarOutlook;
   /** How many times stronger the AI is than the requester (ai-diplomacy-stance.ts aiToRequesterStrength); 1 when omitted. */
   aiToRequesterStrength?: number;
+  /** The requester holds unfortified towns or resources near the AI's border (ai-conquest-worth.ts). */
+  requesterLandWorthTaking?: boolean;
   /** Towns the requester holds that it could hand back (any empire's; only this AI's are priced). */
   returnableTowns?: readonly ReturnableTown[];
   /** This AI's id, to pick its own towns out of returnableTowns. */
@@ -225,18 +227,16 @@ export const aiDiplomacyPricing = (input: {
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
   // Below Pleased, tribute that wins the AI over stands in for the attitude it lacks.
   const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
+  const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
   const strength = finite(input.aiToRequesterStrength ?? 1) || 1;
-  // A clearly stronger AI can't be paid up to Pleased by a smaller empire: no tribute is offered.
-  const tributeAllowed = strength < ALLIANCE_NO_TRIBUTE_STRENGTH_RATIO;
-  const tribute = belowPleased && tributeAllowed && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
+  const wouldRatherConquer = input.bordersTouch && strength >= WEAK_NEIGHBOUR_STRENGTH_RATIO && input.requesterLandWorthTaking === true;
   const enemyAllies = input.requesterAlliesAtWarWithAi ?? [];
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   // No tribute buys this one: allying would bind the AI to peace with its enemy's friend mid-war.
   else if (enemyAllies.length > 0) allianceRefusal = `${aiName} is at war with ${joinNames(enemyAllies)} and won't ally with a friend of theirs.`;
-  else if (strength >= ALLIANCE_REFUSE_STRENGTH_RATIO) allianceRefusal = `${aiName} sees nothing to gain from an alliance with an empire your size.`;
-  else if (belowPleased && !tributeAllowed) allianceRefusal = `${aiName} is much stronger than you and won't be paid into an alliance. Win their goodwill first.`;
+  else if (wouldRatherConquer) allianceRefusal = `${aiName} would rather take your land. Fortify the towns and resources on your border with them, and they may think again.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;

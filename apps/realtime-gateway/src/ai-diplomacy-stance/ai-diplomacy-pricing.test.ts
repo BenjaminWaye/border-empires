@@ -200,17 +200,18 @@ describe("AI alliance pricing", () => {
     expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
   });
 
-  // Playtest Run 4: a rank-34 player bought three of the top five AIs for about 31 coin of tribute. Like Civ, a
-  // great power doesn't ally a minor, and a clearly stronger AI can't be paid up to Pleased.
-  it("refuses a much weaker requester, and takes no tribute from a clearly weaker one", () => {
-    expect(price({ giftToPleased: 31, aiToRequesterStrength: 3 }).allianceRefusal).toBe("Milo sees nothing to gain from an alliance with an empire your size.");
-    const stronger = price({ giftToPleased: 31, aiToRequesterStrength: 2 });
-    expect(stronger.allianceRefusal).toBe("Milo is much stronger than you and won't be paid into an alliance. Win their goodwill first.");
-    expect(stronger.pricing.required.alliance).toBeNull();
-    // Already Pleased on its own: a stronger AI still allies, for nothing.
-    expect(price({ stanceKind: "OUTMATCHED", bordersTouch: false, aiToRequesterStrength: 2 }).pricing.required.alliance).toBe(0);
-    // Near equals: tribute still wins it over.
-    expect(price({ giftToPleased: 31, aiToRequesterStrength: 1.2 }).pricing.required.alliance).toBe(31);
+  // Owner rule (Playtest Run 4 follow-up): an alliance is a pledge to help the bloc's largest member win, so a
+  // big AI allies a small House it can't reach; a weak neighbour only when its land isn't worth taking.
+  it("refuses a weak neighbour whose border land is worth taking, and allies otherwise", () => {
+    const pleased = { stanceKind: "OUTMATCHED" as const, bordersTouch: true, memory: memory({ goodwillCoin: 600 }) };
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: true }).allianceRefusal)
+      .toBe("Milo would rather take your land. Fortify the towns and resources on your border with them, and they may think again.");
+    // Fortified or worthless border land: not worth the effort, so it allies as usual.
+    expect(price({ ...pleased, aiToRequesterStrength: 2, requesterLandWorthTaking: false }).pricing.required.alliance).toBe(0);
+    // A small House far away is only a pledge of support: it allies.
+    expect(price({ ...pleased, bordersTouch: false, aiToRequesterStrength: 5, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);
+    // A neighbour about as strong: no conquest to give up.
+    expect(price({ ...pleased, aiToRequesterStrength: 1.2, requesterLandWorthTaking: true }).pricing.required.alliance).toBe(0);
   });
 
   it("needs at least Pleased, and the AI never pays", () => {
