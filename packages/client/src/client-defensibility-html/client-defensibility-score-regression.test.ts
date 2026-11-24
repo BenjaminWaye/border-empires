@@ -15,7 +15,7 @@ describe("defensibility score regression guard", () => {
     // while the server held it at 90%+ (playtest report).
     expect(sourceOf("../client-tech-panel-flow.ts")).toContain("integrityPctFromSettledCounts(t, e, state.defensibilityPct)");
     const helper = sourceOf("../client-integrity-pct/client-integrity-pct.ts");
-    expect(helper).toContain("empireIntegrity(t, e) * 100");
+    expect(helper).toContain("empireIntegrity(t, e, garrisoned) * 100");
     expect(helper).not.toContain("defensivenessMultiplier(");
   });
 });

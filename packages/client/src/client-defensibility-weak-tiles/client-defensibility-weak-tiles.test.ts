@@ -48,4 +48,9 @@ describe("weakDefensibilityEntries", () => {
     const water = (x: number, y: number): Tile => ({ x, y, terrain: "SEA" });
     expect(weakDefensibilityEntries(argsFor([settled(5, 5), water(5, 4), water(4, 5), water(6, 5)]))).toEqual([]);
   });
+  // Integrity scores all owned land, so an ungarrisoned edge tile is weak too, and says so.
+  it("lists ungarrisoned land with open sides, marked as such", () => {
+    const entries = weakDefensibilityEntries(argsFor([{ x: 30, y: 30, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }]));
+    expect(entries[0]?.reason).toBe("Ungarrisoned · 4 open sides: north, east, south and west (unexplored land)");
+  });
 });

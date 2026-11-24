@@ -7,7 +7,13 @@ describe("integrityPctFromSettledCounts", () => {
     // A stringy 20-tile empire: the raw score is well under 90%, but the
     // server's empireIntegrity holds it at the 90% grace floor.
     expect(defensivenessMultiplier(20, 60) * 100).toBeLessThan(90);
-    expect(integrityPctFromSettledCounts(20, 60, 0)).toBeGreaterThanOrEqual(90);
+    expect(integrityPctFromSettledCounts(20, 60, 0, 20)).toBeGreaterThanOrEqual(90);
+  });
+
+  // Integrity reads all owned land and its garrisoned share: the settled counts alone can't rebuild it.
+  it("keeps the last authoritative value without a garrisoned count", () => {
+    expect(integrityPctFromSettledCounts(200, 0, 64)).toBe(64);
+    expect(integrityPctFromSettledCounts(200, 0, 0, 0)).toBeCloseTo(70);
   });
 
   it("returns the fallback when a count is missing", () => {

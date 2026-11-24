@@ -43,7 +43,7 @@ export const toggleWeakDefensibility = (state: WeakToggleState, deps: WeakDefens
     });
     const first = entries[0];
     if (!first) {
-      deps.pushFeed("No weak tiles: every garrisoned tile has at most 1 open side.", "info", "info");
+      deps.pushFeed("No weak tiles: none of your land has more than 1 open side.", "info", "info");
     } else {
       focusCameraOnTile(state, first.x, first.y, deps);
       deps.pushFeed(`Showing ${entries.length} weak tile${entries.length === 1 ? "" : "s"}. Weakest at (${first.x}, ${first.y}): ${first.reason}.`, "info", "info");
