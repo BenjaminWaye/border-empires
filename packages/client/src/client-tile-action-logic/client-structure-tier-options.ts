@@ -26,7 +26,7 @@ import { settleDurationMsForState } from "../client-queue-logic/client-queue-log
 import type { ClientState } from "../client-state/client-state.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
-import { afcModuleInstalled } from "../client-tile-action-support/client-tech-locked-tile-action.js";
+import { afcModuleInstalled, hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 import type { StructureTierOption, Tile } from "../client-types.js";
 import { FORT_MODULE_TECH_ID, freeFortAvailable, hasFortTech } from "./client-tile-action-fort-siege-variants.js";
 import { missingResourceSlotReason } from "./client-resource-slot-gate.js";
@@ -83,7 +83,7 @@ export const fortTierOptionsForTile = (state: OptionState, tile: Tile): Structur
       { disabledReason: missingResourceSlotReason(state, "PALISADE") ?? affordReason(state, manpower, palisade.gold, settlesFirst) }
     ));
   }
-  const has = (id: string): boolean => state.techIds.includes(id);
+  const has = (id: string): boolean => hasBuildTech(state, id);
   for (const variant of FORT_TIER_ORDER) {
     if (variant === "PALISADE") continue;
     if (current && current !== "PALISADE" && FORT_TIER_ORDER.indexOf(variant) <= FORT_TIER_ORDER.indexOf(current)) continue;
@@ -91,7 +91,7 @@ export const fortTierOptionsForTile = (state: OptionState, tile: Tile): Structur
     const free = freeFortAvailable(state, variant, current);
     const manpower = free ? 0 : structureManpowerCostForState(state, variant, tier.manpower);
     const tierTech = fortTierTechId(variant);
-    const blocked: Blocker = !hasFortTech(state)
+    const blocked: Blocker = !hasFortTech(state) && !afcModuleInstalled(state, FORT_MODULE_TECH_ID)
       ? requiresTech(state, FORT_MODULE_TECH_ID)
       : tierTech && !fortTierForChoice(variant, current, has).ok
         ? requiresTech(state, tierTech)
@@ -116,7 +116,7 @@ export const fortTierOptionsForTile = (state: OptionState, tile: Tile): Structur
 /** Every siege tier above the standing one. Siege never garrisons first; `outOfReach` is the row's reach gate. */
 export const siegeTierOptionsForTile = (state: OptionState, tile: Tile, outOfReach: boolean): StructureTierOption[] => {
   const current = tile.siegeBattery?.variant;
-  const has = (id: string): boolean => state.techIds.includes(id);
+  const has = (id: string): boolean => hasBuildTech(state, id);
   const options: StructureTierOption[] = [];
   for (const variant of SIEGE_TIER_ORDER) {
     if (current && SIEGE_TIER_ORDER.indexOf(variant) <= SIEGE_TIER_ORDER.indexOf(current)) continue;

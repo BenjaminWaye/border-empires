@@ -36,6 +36,7 @@ import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
 import { afcPlayerStatePayload } from "./afc-specializations/afc-player-state.js";
 import { afcInstantBuild, fortBuildManpowerCharge, fortTechWaived, structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
+import { installedAfcModuleTechIds, isAfcModuleTech } from "./afc-module-build-access/afc-module-build-access.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { hasFreeResourceSlots, missingResourceSlotMessage } from "./runtime-structure-slot-gate.js";
@@ -201,19 +202,24 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   context.applyManpowerRegen(actor);
 
+  // A module tech counts once a copy is installed on an active, settled AFC
+  // the actor owns -- researched or captured with the AFC (afc-module-build-access.ts).
+  // Lazy: most builds name no module tech and never need the AFC scan.
+  let installedCache: ReadonlySet<string> | undefined;
+  const installedModules = (): ReadonlySet<string> =>
+    (installedCache ??= installedAfcModuleTechIds(actor.id, context.tiles, context.summaryForPlayer?.(actor.id).ownedAfcTileKeys));
   for (const techId of spec.techIds) {
+    if (isAfcModuleTech(techId)) {
+      if (installedModules().has(techId)) continue;
+      const reason = actor.techIds.has(techId) || (spec.kind === "FORT" && fortTechWaived(actor, techId))
+        ? `Requires an active AFC with ${techEntryById.get(techId)?.name ?? techId} installed`
+        : `unlock ${structureLabel(structureType)} first`;
+      rejectCommand(context, command, "BUILD_INVALID", reason);
+      return;
+    }
     if (!actor.techIds.has(techId) && !(spec.kind === "FORT" && fortTechWaived(actor, techId))) {
       rejectCommand(context, command, "BUILD_INVALID", `unlock ${structureLabel(structureType)} first`);
       return;
-    }
-    if (techEntryById.get(techId)?.manifestCategory === "AFC_MODULE") {
-      const accessible = [...context.tiles.values()].some(
-        (tile) => tile.ownerId === command.playerId && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes(techId)
-      );
-      if (!accessible) {
-        rejectCommand(context, command, "BUILD_INVALID", `Requires an active AFC with ${techEntryById.get(techId)?.name ?? techId} installed`);
-        return;
-      }
     }
   }
 
@@ -300,7 +306,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const refineryField = refineryFieldForBuild(context, command, target, structureType, payload.field);
   if (refineryField === null) return;
-  const hasTech = (id: string) => actor.techIds.has(id);
+  const hasTech = (id: string) => actor.techIds.has(id) || installedModules().has(id);
   const buildingFort = spec.kind === "FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;

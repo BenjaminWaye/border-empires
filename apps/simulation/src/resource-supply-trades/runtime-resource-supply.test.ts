@@ -44,6 +44,18 @@ describe("resource trade inventory projection",()=>{
     expect(supply.network("new")).toEqual(emptyNetworkSiteCounts());expect(reads).toBe(0);
   });
 
+  // Regression: Reclamation Works built from a captured, unresearched Industrial Tooling Module supplied nothing.
+  it("counts salvage sites when Industrial Tooling is only installed (captured), not researched",()=>{
+    const player=buildPlayer("captor");
+    const works={x:2,y:3,terrain:"LAND" as const,ownerId:"captor",ownershipState:"SETTLED" as const,resource:"PRECURSOR_SALVAGE" as const,
+      economicStructure:{ownerId:"captor",type:"RECLAMATION_WORKS" as const,status:"active" as const}};
+    const make=(installed:ReadonlySet<string>)=>new RuntimeResourceSupply({now:()=>1,player:()=>player,ownedTiles:()=>[works],installedModules:()=>installed,
+      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
+      tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined});
+    expect(make(new Set(["trade"])).network("captor").PRECURSOR_SALVAGE).toBe(1);
+    expect(make(new Set()).network("captor").PRECURSOR_SALVAGE).toBe(0);
+  });
+
   it("refreshes supply for both a siphoned owner and a trading caster when sabotage changes",()=>{
     let siphoned=false;
     const beforeChange=vi.fn(),invalidate=vi.fn(),publish=vi.fn();

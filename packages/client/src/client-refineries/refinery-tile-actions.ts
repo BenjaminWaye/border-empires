@@ -13,6 +13,7 @@ import {
 import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
 import { hasFreeResourceSlots, missingResourceSlotReason } from "../client-tile-action-logic/client-resource-slot-gate.js";
@@ -44,7 +45,7 @@ const BOOSTER_RESOURCE_NAME: Readonly<Record<RefineryBoosterType, string>> = { T
 
 const techReason = (state: ActionState, type: RefineryType | RefineryBoosterType): string | undefined => {
   const tech = TECH_REQUIREMENTS_BY_STRUCTURE[type];
-  if (!tech || state.techIds.includes(tech)) return undefined;
+  if (!tech || hasBuildTech(state, tech)) return undefined;
   return `Requires ${state.techCatalog.find((entry) => entry.id === tech)?.name ?? tech.split("-").join(" ")}`;
 };
 
