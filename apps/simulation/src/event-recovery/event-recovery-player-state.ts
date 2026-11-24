@@ -37,6 +37,8 @@ export type RecoveredPlayerState = {
   chosenTrickleResource?: ChosenTrickleResource;
   // Lifetime garrisons started (DomainPlayer.lifetimeGarrisons); SETTLEMENT_STARTED replays bump it.
   lifetimeGarrisons?: number;
+  // Redeploys after a knock-out (DomainPlayer.redeploys); a TILE_DELTA_BATCH's `redeployPlayerIds` bump it on replay.
+  redeploys?: number;
   islandNames?: IslandNameClaim[];
   houseCharges?: import("@border-empires/shared").HouseChargesState;
   scoutChargeSpends?: number[];

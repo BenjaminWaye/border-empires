@@ -126,6 +126,10 @@ export type DomainPlayer = {
   // INSTANT_GARRISON_COUNT are instant (shared garrison-duration.ts).
   // Persisted with the player and never reset on respawn; missing = 0.
   lifetimeGarrisons?: number;
+  // Times this House landed again after being knocked out (lost its last land)
+  // in the current season; a voluntary Withdraw and redeploy is not counted.
+  // Persisted with the player; decides the season awards (shared season-awards.ts).
+  redeploys?: number;
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];
