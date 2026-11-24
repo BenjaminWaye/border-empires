@@ -3,11 +3,11 @@
 // Waystation grant; the sim pays no batch while manpower >= cap) must be told
 // to spend it, never to come back later: in the 2026-11 persona playtest
 // players quit "with nothing to do" on 2,000-5,000 manpower after this step
-// told them it "refills every 4 hours". The scout drone is free, so Explore
-// leads: it is how a player finds the towns that manpower then takes.
-
-// The verbs follow the loop in docs/core-loop.md §0. "Expand" is not one of
-// them: reach is what grows (owner wording, 2026-11-23).
+// told them it "refills every 4 hours".
+//
+// Owner, 2026-11-24: lines over about six words go unread, so each sentence
+// here stays at six words or fewer. The earlier list of things to spend
+// manpower on is gone: the steps before this one already taught each of them.
 
 export type GuideManpower = { current: number; cap: number };
 
@@ -21,7 +21,5 @@ const fmt = (n: number): string => Math.floor(n).toLocaleString("en-US");
 // manpower" made Finish look premature).
 export const turnFinishTitle = (): string => "That's the basics.";
 
-export const turnFinishWhy = (manpower: GuideManpower | undefined, chronicleName: string): string =>
-  isAtOrOverCap(manpower)
-    ? `Spend your ${fmt(manpower.current)} manpower: explore for towns and resources, push your reach with beacons, garrison, build defences, improve your economy, attack. No refill until you're under ${fmt(manpower.cap)}. The ${chronicleName} shows what happened while you were away.`
-    : `Manpower refills every 4 hours: explore for towns and resources, push your reach with beacons, garrison, build defences, improve your economy, attack. The ${chronicleName} shows what happened while you were away.`;
+export const turnFinishWhy = (manpower: GuideManpower | undefined): string =>
+  isAtOrOverCap(manpower) ? `Spend your ${fmt(manpower.current)} manpower. No refill while full.` : "Manpower refills every 4 hours.";

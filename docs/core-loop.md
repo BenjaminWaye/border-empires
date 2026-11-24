@@ -649,20 +649,23 @@ deliberately no decay for simply being offline.
    `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
    panel and only puts a top-bar chip and warning up once it is below 50%
    (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
-4. **Onboarding taught the wrong growth verb.** *Addressed 2026-11-24.* The
-   old checklist framed Expand To as how you grow. The tutorial guide
-   ([plan](tutorial-guide-plan.md)) replaced it for every player: its "Your
-   reach" step completes only on a Relay Beacon, explains reach once ("You
-   can only Garrison inside it. A beacon widens it."), and food targets are
-   only ever inside reach. The plain-words pass (PR #2951) removed the false
-   "uses one food slot" line, and the last step no longer lists "expand" as a
-   verb. Note that the old 5-minute decay for ground beyond reach no longer
-   exists (§2): such land stays FRONTIER, can't be settled, and is lost only
-   if cut off from supply. Still open: the town step's Expand To line does
-   not say that plain land beyond reach can't be garrisoned, and the older
-   four-row checklist (shown only when no contest is known and the account is
-   not new) still says "Expand To";
-   [the opening contract](product/new-player-opening.md) keeps those rows.
+4. **Onboarding taught the wrong growth verb.** *Mostly addressed
+   2026-11-24; open items below.* The old checklist framed Expand To as how
+   you grow. The tutorial guide ([plan](tutorial-guide-plan.md)) replaced it
+   for players enrolled in it (every player once a season is known). Its
+   "Your reach" step asks for a Relay Beacon and ticks from game state only
+   when one is built (saved progress past it also counts it done). The beacon
+   step explains reach ("You can only Garrison inside it. A beacon widens
+   it."), and food targets are only ever inside reach. The plain-words pass
+   (PR #2951) removed the false "uses one food slot" line, and the last card
+   no longer lists "expand". The old 5-minute decay for ground beyond reach
+   no longer exists (§2): such land stays FRONTIER, can't be settled, and is
+   lost only if cut off from supply. Still open: the town step still says
+   "Expand To" without saying that plain land beyond reach can't be
+   garrisoned; and the older four-row checklist, still shown to an account
+   with no guide progress when the gateway sends no season id
+   (`isEnrolledInTutorialGuide`), still says "Expand To".
+   [The opening contract](product/new-player-opening.md) keeps those rows.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a

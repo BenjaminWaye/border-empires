@@ -317,7 +317,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "turn-finish",
     chapter: "turn",
     title: () => turnFinishTitle(),
-    why: (i) => turnFinishWhy(i.manpower, i.hudV2 ? "Chronicle" : "Activity dashboard"),
+    why: (i) => turnFinishWhy(i.manpower),
     isDone: () => false,
     acknowledge: true
   }
