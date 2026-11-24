@@ -25,8 +25,8 @@ describe("expandCrewArmour", () => {
     expect(expandCrewArmour(stateWith([{ x: 1, y: 1, ownerId: "rival", type: "TITANIUM_WEAPONS_FACTORY" }], 3))).toBe("standard");
   });
 
-  it("wears the Lancet guard when the player shows it, unless titanium armour must show", () => {
+  it("wears the Lancet guard when the player shows it, in titanium plate once it owns a Titanium Weapons Factory", () => {
     expect(expandCrewArmour(stateWith([], 4, true))).toBe("lancet");
-    expect(expandCrewArmour(stateWith([{ x: 1, y: 1, ownerId: "me", type: "TITANIUM_WEAPONS_FACTORY" }], 5, true))).toBe("heavy");
+    expect(expandCrewArmour(stateWith([{ x: 1, y: 1, ownerId: "me", type: "TITANIUM_WEAPONS_FACTORY" }], 5, true))).toBe("lancetTitan");
   });
 });

@@ -37,25 +37,27 @@ export const STRUCTURE_BY_FACTORY = {
 export type SquadGear = Partial<Record<WeaponsFactoryKind, boolean>> & { skin?: AncillariesCosmeticId };
 
 /** The soldier models a squad can wear: the standard marine, the heavy
- * armour of an empire running a Titanium Weapons Factory, or the paid Lancet
- * guard look. */
-export const MARINE_MODEL_KEYS = ["standard", "heavy", "lancet"] as const;
+ * armour of an empire running a Titanium Weapons Factory, the paid Lancet
+ * guard look, and that guard in titanium plate. */
+export const MARINE_MODEL_KEYS = ["standard", "heavy", "lancet", "lancetTitan"] as const;
 export type MarineModelKey = (typeof MARINE_MODEL_KEYS)[number];
 
 /** One empty slot per model, for the overlays that pool soldiers by model. */
 export const perMarineModel = <T>(make: () => T): Record<MarineModelKey, T> =>
-  ({ standard: make(), heavy: make(), lancet: make() });
+  ({ standard: make(), heavy: make(), lancet: make(), lancetTitan: make() });
 
 /** Whether a model's bake carries the _MASK surface classes (bare metal,
  * glow) that createMarineMaterial reads; only the original marine lacks it. */
 export const marineModelSurfaceMasked = (model: MarineModelKey): boolean => model !== "standard";
 
-/** Titanium armour wins over the cosmetic: the heavy model is how a rival
- * reads that a squad fights with a Titanium Weapons Factory's bonus, and a
- * paid look must never hide strength (docs/gdd.md §8). */
+/** A Titanium Weapons Factory always shows as titanium plate -- bulky
+ * armour edged in bare metal -- because that is how a rival reads the
+ * factory's combat bonus, and a paid look must never hide strength
+ * (docs/gdd.md §8). The Lancet guard has its own titanium version. */
 export const marineModelFor = (gear: SquadGear | undefined): MarineModelKey => {
-  if (gear?.titanium === true) return "heavy";
-  return gear?.skin === "ancillaries-lancet-guard" ? "lancet" : "standard";
+  const lancet = gear?.skin === "ancillaries-lancet-guard";
+  if (gear?.titanium === true) return lancet ? "lancetTitan" : "heavy";
+  return lancet ? "lancet" : "standard";
 };
 
 /** Per-side gear on a battle/skirmish render entry; absent = no factories. */

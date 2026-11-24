@@ -29,8 +29,8 @@ import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 // armour (Titanium), and Umbrite rounds (violet core, orange glow, ember
 // bursts). The stage gets the game's building environment map so the
 // armour's titanium edging reflects as it does on the map. The Lancet toggles
-// show the paid "ancillaries-lancet-guard" cosmetic (docs/cosmetics.md), which
-// titanium armour overrides so the factory's strength still reads.
+// show the paid "ancillaries-lancet-guard" cosmetic (docs/cosmetics.md); with
+// Titanium too it wears its titanium plate, so the factory's strength reads.
 
 const TILE_GAP = 2.4;
 const LANCET = "ancillaries-lancet-guard" as const;
@@ -204,8 +204,8 @@ export const LancetGuard: Story = {
   args: { cameraDistance: 2.5, attackerLancet: true }
 };
 
-/** Both sides show the Lancet guard, but blue also owns a Titanium Weapons
- * Factory, so it keeps the heavy armour that tells a rival so. */
+/** Both sides show the Lancet guard; blue also owns a Titanium Weapons
+ * Factory, so its guards wear titanium plate that tells a rival so. */
 export const LancetGuardUnderTitanium: Story = {
   args: { cameraDistance: 2.5, attackerLancet: true, defenderLancet: true, attackerTitanium: true }
 };

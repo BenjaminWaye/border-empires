@@ -19,6 +19,13 @@
 #     head inside the outline of its dark surface, and the slit is a thin
 #     strip of extra geometry laid on the glass (see add_slit).
 #
+# With --titan it builds the TITANIUM LANCET GUARD
+# (popup-marine-lancet-titan-24bone.glb) instead: the same guard in bulky
+# titanium plate, worn when a House showing the Lancet guard also runs a
+# Titanium Weapons Factory, so a rival still reads that strength from bulk
+# and bare metal. Its plates' polished titanium edging is read off the
+# metallic map, as the heavy bake does (metallic above TITAN_METALLIC).
+#
 # Like the heavy bake, the clips this writes crumple the armour until
 # retarget-popup-marine-heavy-clips.py has been run on the output; run it
 # before shipping (it works for any rig on Meshy's 24-bone template).
@@ -27,11 +34,14 @@
 # (concept), image-to-image 01a20f9d-d6c4-71ce-ba43-a0f8a1c345cc (A-pose
 # sheet), image-to-3d 01a20f9e-afda-74cf-8c1d-0be1af30b5a5 (textured mesh),
 # rigging 01a20faf-c070-77f1-811e-6ded028f196d (height 2.1 m). Meshy keeps
-# task outputs only for a limited time.
+# task outputs only for a limited time. Titanium: image-to-image
+# 01a20fce-5c5c-769f-ad88-d40bbb326b49 (from the A-pose sheet), image-to-3d
+# 01a20fce-e11c-70b5-9b15-2339cc65f481, rigging
+# 01a20fd0-d69d-7517-8329-1e63a2ac8b31 (height 1.8 m).
 #
 # Run (Blender 5.x, or `python -I` with the bpy wheel):
 #   blender --background --python bake-popup-marine-lancet-model.py -- \
-#     <meshy-rigged.glb> <popup-marine-titan-24bone.glb> <out.glb> <meshy-rifle.glb> [targetTriangleCount]
+#     <meshy-rigged.glb> <popup-marine-titan-24bone.glb> <out.glb> <meshy-rifle.glb> [targetTriangleCount] [--titan]
 import os
 import sys
 import bpy
@@ -48,11 +58,16 @@ from bake_marine_surface import (  # noqa: E402
     PANEL,
     hsv_columns,
     rebuild_game_mesh,
+    surface_metallic,
     surface_rgb,
     write_surface_data,
 )
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+TITAN = "--titan" in argv
+argv = [a for a in argv if a != "--titan"]
+# Above this on the metallic map is the titanium variant's polished edging.
+TITAN_METALLIC = 0.6
 SRC_RIG = argv[0]
 CLIP_SOURCE = argv[1]
 OUT = argv[2]
@@ -387,6 +402,10 @@ game_mesh = rebuild_game_mesh(mesh, armature, TARGET_TRIS, VOXEL_DIVISIONS)
 armature.data.pose_position = "REST"
 bpy.context.view_layer.update()
 surface_classes, surface, face_box = classify_lancet(game_mesh, surface_rgb(game_mesh, mesh))
+if TITAN:
+    bare = (surface_metallic(game_mesh, mesh) > TITAN_METALLIC) & (surface_classes == PANEL)
+    surface_classes[bare] = METAL
+    print(f"titanium edging verts {int(bare.sum())}")
 added = add_slit(game_mesh, mesh, face_box) if face_box else 0
 print(f"slit strip: {added} verts")
 rifle_added, rifle_rgb = graft_rifle(game_mesh, RIFLE_SRC)

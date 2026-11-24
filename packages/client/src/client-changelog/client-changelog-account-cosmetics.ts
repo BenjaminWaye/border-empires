@@ -7,7 +7,7 @@ export const ACCOUNT_COSMETICS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
   changes: [
     "An account that owns the High-noble standard or the Lancet guard can choose it under Settings, Account",
     "Other Houses see it on that House's muster flags, or on its soldiers in battle, on the march and in its expand crew",
-    "A House with a Titanium Weapons Factory still shows heavy armour, so rivals can always read that strength",
+    "With a Titanium Weapons Factory the Lancet guard wears titanium plate, so rivals can always read that strength",
     "Neither is on sale yet, and nothing changes for an account that owns neither"
   ]
 };

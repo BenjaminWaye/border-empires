@@ -50,10 +50,14 @@ export const HEAVY_POPUP_MARINE_MODEL_URL = "/models/popup-marine-heavy-24bone.g
 // guard holding its own baked-in rifle, built by
 // packages/client/scripts/bake-popup-marine-lancet-model.py.
 export const LANCET_POPUP_MARINE_MODEL_URL = "/models/popup-marine-lancet-24bone.glb";
+// The Lancet guard in titanium plate, for a House showing it that also runs a
+// Titanium Weapons Factory (same bake script, --titan).
+export const LANCET_TITAN_POPUP_MARINE_MODEL_URL = "/models/popup-marine-lancet-titan-24bone.glb";
 const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
   standard: ACTIVE_POPUP_MARINE_MODEL_URL,
   heavy: HEAVY_POPUP_MARINE_MODEL_URL,
-  lancet: LANCET_POPUP_MARINE_MODEL_URL
+  lancet: LANCET_POPUP_MARINE_MODEL_URL,
+  lancetTitan: LANCET_TITAN_POPUP_MARINE_MODEL_URL
 };
 
 // Kept only as documented, easy revert targets: models this file used before

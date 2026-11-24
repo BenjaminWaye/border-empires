@@ -16,7 +16,7 @@ it decorates.
 | Thing | A rival must still read | So a cosmetic may change | And may not change |
 |---|---|---|---|
 | Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth; added ornament in gold and in the owner's colour | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the soldiers, the siege ring, the progress badge |
-| Ancillaries (soldiers) | Owner (colour), how many stand and fall, their stance, shots, and a Titanium Weapons Factory (heavy armour) | The soldier model, on the same rig, clips and tint, up to about 12% taller (the Lancet guard's hood) | Their number, poses, timing, shot colour, Umbrite rounds, and the heavy armour: **titanium always wins over the cosmetic** (`marineModelFor`), so a rival still sees that strength |
+| Ancillaries (soldiers) | Owner (colour), how many stand and fall, their stance, shots, and a Titanium Weapons Factory (heavy armour) | The soldier model, on the same rig, clips and tint, up to about 12% taller (the Lancet guard's hood) | Their number, poses, timing, shot colour, Umbrite rounds, and the titanium look: **with a Titanium Weapons Factory every ancillaries look must have a titanium version** (bulky plate edged in bare metal, like the heavy armour), which `marineModelFor` picks, so a rival still sees that strength |
 
 Added ornament must stay inside the tile, close to the standard plinth's
 footprint, and within 15% of the standard flag's height
@@ -31,7 +31,7 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
-| `ancillaries-lancet-guard` | `ancillaries` | Lancet guard | A House guard in a long coat and tall hooded helm, in the owner's colour, with a black faceplate split by a white sight slit and a slim rifle with a blue-lit barrel, baked into the model and skinned to the right hand like the standard marine's |
+| `ancillaries-lancet-guard` | `ancillaries` | Lancet guard | A House guard in a long coat and tall hooded helm, in the owner's colour, with a black faceplate split by a white sight slit and a slim rifle with a blue-lit barrel, baked into the model and skinned to the right hand like the standard marine's. With a Titanium Weapons Factory: the same guard in titanium plate, with massive pauldrons, armoured forearms and greaves, every plate edged in bare titanium |
 | `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays inside a studded halo that turns the other way, round a glowing, pulsing gem in the owner's colour, with a soft gold glow behind it; gilded wings spread from the crossbar; two swallow-tailed streamers in the owner's colour from each end of the crossbar, edged and banded in gold, rippling in the wind; four tall gold posts topped with glowing gems and joined by gold chains inside a double gold rim on the plinth; a sheen that sweeps up the gold, glints that twinkle on it, and gold dust drifting up round the flag; and a gold-bordered damask cloth with a scalloped pelmet and a sun in splendour, its gold thread shining as metal with a glint running down it |
 
 The muster flag came first (owner decision, 2026-11-24): the muster flag,
@@ -95,8 +95,10 @@ At map distance:
 |---|---|---|
 | Ancillaries | Every soldier a House fields: battles and skirmishes, capture-hold garrisons, marches from a muster flag, and its expand crew. `withSquadSkin` (`client-cosmetics.ts`) adds the owner's choice to the squad gear at each gear lookup in `client-battle-overlay.ts`, `client-map-3d-muster-transit-sync.ts` and `client-map-3d-expand-crew.ts`; `marineModelFor` picks the model | Not drawn: the 2D map draws no soldiers for anyone |
 
-- Model: `packages/client/public/models/popup-marine-lancet-24bone.glb`
-  (about 5,000 triangles, 1.3 MB, like the heavy armour). Built from a Meshy
+- Models: `packages/client/public/models/popup-marine-lancet-24bone.glb` and,
+  for Houses with a Titanium Weapons Factory,
+  `popup-marine-lancet-titan-24bone.glb` (each about 5,000 triangles,
+  1.3 MB, like the heavy armour; the titanium one is baked with `--titan`). Built from a Meshy
   sculpt and rifle by `packages/client/scripts/bake-popup-marine-lancet-model.py`
   then `retarget-popup-marine-heavy-clips.py`; the asset test checks its rig,
   clips and size like the other two.
@@ -122,12 +124,15 @@ Kneeling and up close:
 
 ![The Lancet guard kneeling and standing](design/cosmetics/ancillaries-lancet-guard-close.png)
 
+Heavy armour, the Lancet guard and the titanium Lancet guard:
+
+![Heavy armour, Lancet guard, titanium Lancet guard](design/cosmetics/ancillaries-lancet-guard-titanium.png)
+
 In the game's renderer, Lancet guards (blue) against standard marines (red),
-and with a Titanium Weapons Factory blue keeps the heavy armour while red shows
-the Lancet guard:
+and with a Titanium Weapons Factory blue's guards wear titanium plate:
 
 ![Lancet guards in a skirmish](design/cosmetics/ancillaries-lancet-guard-skirmish.png)
-![Titanium overrides the cosmetic](design/cosmetics/ancillaries-lancet-guard-under-titanium.png)
+![The titanium Lancet guard against the Lancet guard](design/cosmetics/ancillaries-lancet-guard-under-titanium.png)
 
 ## Ownership and selection
 
