@@ -29,6 +29,7 @@ import {
 } from "@border-empires/shared";
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { installedAfcModuleTechIds } from "./afc-module-build-access/afc-module-build-access.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 import { fortBuildManpowerCharge, structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
@@ -128,7 +129,9 @@ function estimateDevQueueBuildReservation(
   if (target.ownerId === playerId && !redirectsFromTown && landmarkConstructionBlocker(context.tiles, target.x, target.y)) {
     return { ok: false, code: "BUILD_INVALID", message: "This tile is reserved by an AFC or relic" };
   }
-  const hasTech = (id: string) => actor.techIds.has(id);
+  // Same tier rule as the build handler: research or an installed (possibly captured) module copy.
+  const installedModules = installedAfcModuleTechIds(playerId, context.tiles, context.summaryForPlayer?.(playerId).ownedAfcTileKeys);
+  const hasTech = (id: string) => actor.techIds.has(id) || installedModules.has(id);
   let manpowerCost: number;
   let slotStructureType: SlotStructureType = structureType as BuildableStructureType;
   let fortVariant: string | undefined;

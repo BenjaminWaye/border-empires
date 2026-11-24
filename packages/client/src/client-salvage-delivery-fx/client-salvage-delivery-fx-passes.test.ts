@@ -65,9 +65,10 @@ describe("drawSalvageDeliveries2D", () => {
 });
 
 describe("salvage delivery changelog", () => {
+  // The shown changelog keeps only the last 6 days (client-changelog-recent.ts), so this checks the entry is
+  // registered in its group rather than still recent: a newer entry ages it out of the shown list by design.
   it("ships in the player-facing changelog", async () => {
-    // The full list: players see only the last 6 days, so the entry ages out of CLIENT_CHANGELOG_ENTRIES.
-    const { ALL_CLIENT_CHANGELOG_ENTRIES } = await import("../client-changelog/client-changelog-data.js");
-    expect(ALL_CLIENT_CHANGELOG_ENTRIES.some((entry) => entry.title === "Watch the Court's Ancillaries arrive")).toBe(true);
+    const { SALVAGE_TRIBUTE_UI_CHANGELOG } = await import("../client-changelog/client-changelog-salvage-tribute-ui.js");
+    expect(SALVAGE_TRIBUTE_UI_CHANGELOG.some((entry) => entry.title === "Watch the Court's Ancillaries arrive")).toBe(true);
   });
 });

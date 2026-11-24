@@ -255,7 +255,7 @@ a development slot. It buys three things:
   already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
-  1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
+  1, or 2 at City and up; owner call 2026-11-23, it was Great City) (`isAutoSettlementEligibleTarget` in
   `territory-automation.ts`). The rest stays FRONTIER, with zero defense,
   unless you settle it by hand (20 MP, only while in reach).
 - **Ground outside reach stays thin.** FRONTIER claimed or captured outside

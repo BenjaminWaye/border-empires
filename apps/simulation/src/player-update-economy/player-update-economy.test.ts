@@ -56,8 +56,8 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ["12,10", eastTown]
     ]);
 
-    expect(supportSummaryForTown(player.id, westTown, tiles)).toEqual({ supportCurrent: 1, supportMax: 1 });
-    expect(supportSummaryForTown(player.id, eastTown, tiles)).toEqual({ supportCurrent: 0, supportMax: 0 });
+    expect(supportSummaryForTown(player.id, westTown, tiles)).toEqual({ supportCurrent: 1, supportMax: 1, innerCurrent: 1, innerMax: 1 });
+    expect(supportSummaryForTown(player.id, eastTown, tiles)).toEqual({ supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 });
     expect(hasSupportedStructure(player.id, westTown, "MANUFACTORY", tiles)).toBe(true);
     expect(hasSupportedStructure(player.id, eastTown, "MANUFACTORY", tiles)).toBe(false);
   });

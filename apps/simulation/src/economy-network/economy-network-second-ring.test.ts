@@ -45,14 +45,14 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
     expect(countSupportedStructures("player-1", greatCityTile, "MANUFACTORY", tiles)).toBe(1);
   });
 
-  it("does not assign the same distance-2 tile to a same-owner CITY-tier town (its own radius is only 1)", () => {
+  it("does not assign the same distance-2 tile to a same-owner TOWN-tier town (its own radius is only 1)", () => {
     const cityTile: DomainTileState = {
       x: 50,
       y: 50,
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      town: { name: "Rookhaven", type: "MARKET", populationTier: "CITY" }
+      town: { name: "Rookhaven", type: "MARKET", populationTier: "TOWN" }
     };
     const cityTiles = new Map<string, DomainTileState>([
       [`${cityTile.x},${cityTile.y}`, cityTile],
@@ -62,14 +62,14 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
     expect(hasSupportedStructure("player-1", cityTile, "MANUFACTORY", cityTiles)).toBe(false);
   });
 
-  it("a player with no GREAT_CITY/METROPOLIS town still gets the normal base-8 ring for their CITY town", () => {
+  it("a player with no CITY-or-larger town still gets the normal base-8 ring for their TOWN", () => {
     const cityTile: DomainTileState = {
       x: 80,
       y: 80,
       terrain: "LAND",
       ownerId: "player-2",
       ownershipState: "SETTLED",
-      town: { name: "Fenmoor", type: "MARKET", populationTier: "CITY" }
+      town: { name: "Fenmoor", type: "MARKET", populationTier: "TOWN" }
     };
     const distance1Structure: DomainTileState = {
       x: 81,

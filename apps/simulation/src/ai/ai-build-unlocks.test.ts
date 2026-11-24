@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeAfcModuleTechIds, hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
+import { activeAfcModuleTechIds, hasAiBuildTech, hasAiTierTech, hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import { canAffordStructure } from "./structure-command-planner.js";
 import { TECH_REQUIREMENTS_BY_STRUCTURE } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -29,4 +29,20 @@ describe("AI installed AFC build modules", () => {
     player.installedModuleTechIds.push(TECH_REQUIREMENTS_BY_STRUCTURE.SKY_DOCK);
     expect(canAffordStructure(player, techs, "SKY_DOCK", 0)).toBe(true);
   });
+  // Regression: an AI that captured an AFC could not build from its modules unless it had also researched them.
+  it("builds from an installed captured module without research", () => {
+    const player = { id: "ai-1", points: 100000, manpower: 100000, installedModuleTechIds: [TECH_REQUIREMENTS_BY_STRUCTURE.SKY_DOCK] as string[] };
+    expect(canAffordStructure(player, new Set<string>(), "SKY_DOCK", 0)).toBe(true);
+    expect(hasAiBuildTech(new Set(), ["masonry"], "masonry")).toBe(true);
+    expect(hasAiBuildTech(new Set(["masonry"]), [], "masonry")).toBe(false);
+    expect(hasAiBuildTech(new Set(["masonry"]), undefined, "masonry")).toBe(true);
+  });
+  // Regression: the planner priced Fort/Siege tiers from research only, so a captured tier module made the
+  // runtime resolve a costlier tier than the planner checked, and every BUILD_FORT was rejected.
+  it("counts installed tier modules when picking the tier to price", () => {
+    expect(hasAiTierTech(new Set(), ["fortified-walls"], "fortified-walls")).toBe(true);
+    expect(hasAiTierTech(new Set(["fortified-walls"]), [], "fortified-walls")).toBe(true);
+    expect(hasAiTierTech(new Set(), undefined, "fortified-walls")).toBe(false);
+  });
 });
+

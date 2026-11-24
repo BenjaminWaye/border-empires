@@ -92,6 +92,7 @@ export * from "./scout-drone/scout-drone-charges.js";
 export * from "./muster-capture/muster-capture.js";
 export * from "./town-growth/town-growth.js";
 export * from "./town-growth/town-support-ring.js";
+export * from "./town-growth/town-support-coin.js";
 export * from "./structure-registry/structure-registry.js";
 export * from "./structure-registry-index.js";
 export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";

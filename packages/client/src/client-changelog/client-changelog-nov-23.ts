@@ -5,6 +5,7 @@ import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
 import { GUIDE_PLAIN_WORDS_ENTRY } from "./client-changelog-guide-plain-words.js";
 import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-strength.js";
 import { EXPAND_ATTACK_CONFIRM_ENTRY } from "./client-changelog-expand-attack-confirm.js";
+import { CITY_PLOTS_ENTRY } from "./client-changelog-city-plots.js";
 import { INTEGRITY_OWN_LAND_ENTRY } from "./client-changelog-integrity-own-land.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -22,6 +23,7 @@ import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-prof
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
 import { SCOUT_HIDDEN_BORDER_ENTRY } from "./client-changelog-scout-hidden-border.js";
 import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
+import { CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
@@ -45,5 +47,7 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...INTEGRITY_OWN_LAND_ENTRY, createdAt: 1795527054636, },
   { ...EXPAND_ATTACK_CONFIRM_ENTRY, createdAt: 1795527179362, },
   { ...SCOUT_HIDDEN_BORDER_ENTRY, createdAt: 1795556109834, },
+  { ...CITY_PLOTS_ENTRY, createdAt: 1795554807385, },
   { ...WRIT_FOUND_ENTRY, createdAt: 1795468903590, },
+  { ...CAPTURED_AFC_MODULES_ENTRY, createdAt: 1795471587295, },
 ];
