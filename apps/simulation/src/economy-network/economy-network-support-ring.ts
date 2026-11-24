@@ -4,7 +4,7 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { hasWideSupportRing, supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor } from "@border-empires/shared";
+import { hasWideSupportRing, isPreferredSupportTown, supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor } from "@border-empires/shared";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -19,6 +19,7 @@ export const supportTileBelongsToTown = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): boolean => {
   let assignedTown: DomainTileState | undefined;
+  let assignedDistance = 0;
   // Only scan the wider distance-2 shell when supportTile is actually within
   // range of one of this player's real GREAT_CITY/METROPOLIS towns -- not
   // merely because the player owns one somewhere (that coarser gate caused
@@ -33,9 +34,11 @@ export const supportTileBelongsToTown = (
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tiles, supportTile.x, supportTile.y, scanRadius)) {
     if (!candidate.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
     if (candidate.town.populationTier === "SETTLEMENT") continue;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.town.populationTier)) continue;
-    if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    if (distance > supportRingRadiusForTier(candidate.town.populationTier)) continue;
+    if (isPreferredSupportTown({ x: candidate.x, y: candidate.y, distance }, assignedTown && { x: assignedTown.x, y: assignedTown.y, distance: assignedDistance })) {
       assignedTown = candidate;
+      assignedDistance = distance;
     }
   }
   return assignedTown?.x === townTile.x && assignedTown.y === townTile.y;
