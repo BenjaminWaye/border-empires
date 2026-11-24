@@ -80,6 +80,16 @@ available for historical rollback, and Hetzner workflows skip its deploy steps.
 - A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
 - `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size). `season.victory` lists each win path's leader, 0..1 progress, `conditionMet` and `holdRemainingSeconds` (the 24h hold resets whenever the leader changes or the condition lapses).
 
+## Hosted sector mode (built, not deployed anywhere yet)
+
+A hosted sector is a private, paid Sector Contest on its own server; the design is in `docs/hosted-sectors-plan.md` (PR #2952 until merged). Nothing creates such a server yet. The game server side exists:
+
+- `HOSTED_SECTOR_ID` turns the mode on. Unset, the server is an ordinary public one. With it set, `HOSTED_SECTOR_TICKET_PUBLIC_KEY` is required (base64 of an Ed25519 SPKI key) and the gateway refuses to boot without it.
+- **Members only.** The WebSocket `AUTH` message must carry `sectorTicket`: a token signed by the hosting service for this sector and this account (`apps/realtime-gateway/src/hosted-sector/hosted-sector-ticket.ts`). Anyone else gets `SECTOR_TICKET_REJECTED` (a bad sign-in still gets `AUTH_FAIL`). A ticket must say when it was issued and may be at most 15 minutes old. Signed-in HTTP routes answer 401 until the account has entered through the WebSocket once. Routes without sign-in, such as `/hq/summary`, stay readable by anyone who has the address. The server keeps no member list and makes no call to the hosting service at login. A public key that cannot be read stops the server from starting.
+- **One contest.** "Commit to the next contest" is refused, the 15-second start check never fires, and `POST /admin/season/start-next` answers 409, with or without `force`.
+- `deploy/env/hosted.env` is the shared non-secret env for these servers (standard sector: 60 AI Houses, 40 human places). `deploy/bin/deploy` and `bootstrap-server.sh` do not accept `BE_ENV=hosted` yet.
+- Final results need no new endpoint: the public `GET /hq/summary` of an ended contest already carries the winner, the full standings, House Charges and records.
+
 ## Season rollover (new map, map size, AI count, worldgen)
 
 Worldgen code, `SIMULATION_MAP_STYLE`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `WATCHTOWERS_ENABLED` and `SIMULATION_AI_PLAYER_COUNT` only take effect for a **new** season. A deploy or restart reloads the persisted season unchanged. Learned on 2026-10-02 (PR #2208, staging 320x160 / 20 AI):

@@ -97,7 +97,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
   // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
   // endpoints (admin-firebase-auth.ts).
-  admin?: { apiToken?: string | undefined; email?: string | undefined };
+  admin?: { apiToken?: string | undefined; email?: string | undefined; singleContest?: boolean };
   adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
@@ -191,6 +191,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       return result.diagnostics ?? [];
     },
     startNextSeason: async (force?: boolean) => {
+      // A hosted sector is paid for one contest; its server is deleted afterwards.
+      if (ctx.admin?.singleContest) throw new Error("a hosted sector runs a single Sector Contest");
       const result = await ctx.simulationClient.startNextSeason(force);
       ctx.alertSeasonStarted?.(result.seasonId, force === true);
       ctx.onSeasonStarted?.();

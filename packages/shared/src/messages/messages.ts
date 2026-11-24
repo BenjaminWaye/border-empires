@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RequestCosmeticsMessageSchema, SetCosmeticMessageSchema } from "./cosmetics-messages.js";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
@@ -31,6 +32,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("AUTH"),
     token: z.string().min(1),
     rallyCode: z.string().min(1).optional(),
+    // Hosted sectors only: the membership ticket from the hosting service.
+    sectorTicket: z.string().min(1).max(4096).optional(),
     // Client can reassemble a chunked INIT (see init-transfer.ts).
     initChunking: z.boolean().optional()
   }),
@@ -100,11 +103,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // to the player's name in the season lobby roster (see
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
-  // Account cosmetics (cosmetics/cosmetics.ts). REQUEST_COSMETICS asks what the
-  // account owns and shows; SET_COSMETIC picks an owned cosmetic for a slot, or
-  // null for the default look. The gateway re-validates slot, id and ownership.
-  z.object({ type: z.literal("REQUEST_COSMETICS") }),
-  z.object({ type: z.literal("SET_COSMETIC"), slot: z.string().min(1).max(24), cosmeticId: z.string().min(1).max(24).nullable() }),
+  RequestCosmeticsMessageSchema,
+  SetCosmeticMessageSchema,
   // Server-persisted hint/tutorial state (see player-profile-store.ts's
   // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
   // update -- omitted fields leave the stored value unchanged.

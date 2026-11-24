@@ -590,11 +590,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return fresh;
   };
   const { get: cachedProfileGet, invalidate: invalidateProfileCache, sweep: sweepProfileCache } = createProfileCache(profileStore, Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000)));
-  const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
+  const { resolveLogin, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
     onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(),
-    onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected")
+    onRejectReason: (reason) => app.log[reason.endsWith("_ticket") || reason === "missing_account" ? "warn" : "debug"]({ reason }, "gateway_auth_token_rejected")
   });
   const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
     const snapshot = await simulationClient.subscribePlayer(
@@ -879,7 +879,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message) });
   const nextContest = createGatewayNextContest({
-    simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
+    simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
     onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
@@ -914,7 +914,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },
-      admin: { apiToken: options.adminApiToken, email: options.adminEmail },
+      admin: { apiToken: options.adminApiToken, email: options.adminEmail, singleContest: options.hostedSector !== undefined },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
       onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
@@ -1686,19 +1686,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token);
-            if (!resolvedPlayerIdentity) {
-              recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
+            const login = await resolveLogin(message.token, message.sectorTicket);
+            if ("error" in login) {
+              recordGatewayEvent("warn", login.error.code === "AUTH_FAIL" ? "gateway_auth_rejected_unmapped_token" : "gateway_auth_rejected_sector_ticket", {
                 channel
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "AUTH_FAIL",
-                message: "Authentication token is not recognized by the rewrite gateway."
-              });
-              authTrace.complete("rejected", "AUTH_FAIL");
+              sendJson(socket, login.error);
+              authTrace.complete("rejected", login.error.code);
               return;
             }
+            const resolvedPlayerIdentity = login.identity;
             loginPhase.notify(socket, "Verifying identity...", "Your Google session is being verified.");
             let playerIdentity = { ...resolvedPlayerIdentity };
             let authBindingSource: ResolvedGatewayAuthBinding["bindingSource"] | undefined;

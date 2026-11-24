@@ -2,6 +2,7 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import type { FirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { EmailAlertConfig } from "../email-alerts/email-alerts.js";
+import type { HostedSectorConfig } from "../hosted-sector/hosted-sector-ticket.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
@@ -30,5 +31,7 @@ export type RealtimeGatewayAppOptions = {
   simulationPrepareTimeoutMs?: number; simulationSubscribeTimeoutMs?: number; simulationSubmitTimeoutMs?: number;
   simulationRpcRetryAttempts?: number; adminApiToken?: string; adminEmail?: string; emailAlerts?: EmailAlertConfig;
   playerReportGithubIssues?: PlayerReportGithubIssueConfig;
+  // Set on a hosted sector: members-only entry and a single Sector Contest.
+  hostedSector?: HostedSectorConfig;
   playOrigin?: string; simMetricsUrl?: string; simDiagnostics?: () => unknown[]; wsHeartbeatIntervalMs?: number;
 };
