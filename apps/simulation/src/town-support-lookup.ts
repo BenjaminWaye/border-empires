@@ -21,7 +21,6 @@ import {
   structureShowsOnTile,
   type LandmarkTile,
   supportRingCandidates,
-  hasWideSupportRing,
   supportRingRadiusForTier,
   wideSupportRingScanRadiusFor,
   type EconomicStructureType,
@@ -62,7 +61,7 @@ const adjacentTileStates = <T extends TownSupportTile>(
 };
 
 const isOwnedWideRingTown = <T extends TownSupportTile>(playerId: string) => (tile: T): boolean =>
-  tile.ownerId === playerId && tile.ownershipState === "SETTLED" && hasWideSupportRing(tile.town?.populationTier);
+  tile.ownerId === playerId && tile.ownershipState === "SETTLED" && (tile.town?.populationTier === "GREAT_CITY" || tile.town?.populationTier === "METROPOLIS");
 
 export function supportedTownKeysForTile<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,

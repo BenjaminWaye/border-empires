@@ -53,7 +53,7 @@ describe("town district connections", () => {
     town.ownerId = "p2";
     expect(network(tiles)).toEqual([]);
     town.ownerId = "p1";
-    if (town.town) town.town.populationTier = "TOWN";
+    if (town.town) town.town.populationTier = "CITY";
     expect(network(tiles)).toEqual([]);
   });
   it("does not reveal a hidden anchor or hidden building", () => {

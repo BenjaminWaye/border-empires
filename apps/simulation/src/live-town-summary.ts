@@ -15,7 +15,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, biotaBlend, hasWideSupportRing, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, biotaBlend, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -235,7 +235,7 @@ export const supportTileBelongsToTown = (
     ownerId,
     supportTile.x,
     supportTile.y,
-    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && hasWideSupportRing(t.townPopulationTier)
+    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && (t.townPopulationTier === "GREAT_CITY" || t.townPopulationTier === "METROPOLIS")
   );
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tilesByKey, supportTile.x, supportTile.y, scanRadius)) {
     if (candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;

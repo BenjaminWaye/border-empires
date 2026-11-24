@@ -58,8 +58,8 @@ const depsFor = (tiles: ReadonlyMap<string, Tile>): TownSupportLookupDeps => ({
 });
 
 describe("townSupportPlotEntries", () => {
-  it("returns only the base 8-tile ring for a TOWN-tier town", () => {
-    const anchor = townTile(10, 10, "TOWN");
+  it("returns only the base 8-tile ring for a CITY-tier town", () => {
+    const anchor = townTile(10, 10, "CITY");
     const tiles = new Map<string, Tile>([[keyFor(10, 10), anchor]]);
     const entries = townSupportPlotEntries(anchor, depsFor(tiles));
     expect(entries).toHaveLength(8);
@@ -94,9 +94,9 @@ describe("supportPlotAnchorTown", () => {
     expect(found).toMatchObject({ x: 10, y: 10 });
   });
 
-  it("does not treat a distance-2 TOWN-tier town as an anchor (its own radius is only 1)", () => {
-    const anchor = townTile(10, 10, "TOWN");
-    const farSupportTile = landTile(12, 10); // distance 2 -- outside TOWN's own radius
+  it("does not treat a distance-2 CITY-tier town as an anchor (its own radius is only 1)", () => {
+    const anchor = townTile(10, 10, "CITY");
+    const farSupportTile = landTile(12, 10); // distance 2 -- outside CITY's own radius
     const tiles = new Map<string, Tile>([
       [keyFor(10, 10), anchor],
       [keyFor(12, 10), farSupportTile]
@@ -125,7 +125,7 @@ describe("empty plot eligibility in both renderers", () => {
 
 describe("landmark-reserved ground", () => {
   it.each(["afc", "naturalWonder"] as const)("hides the center and neighboring footprint of a %s in both renderers", kind => {
-    const town = townTile(10, 10, "TOWN");
+    const town = townTile(10, 10, "CITY");
     const landmark: Tile = landTile(11, 10);
     if (kind === "afc") landmark.afc = {} as NonNullable<Tile["afc"]>;
     else landmark.naturalWonder = {} as NonNullable<Tile["naturalWonder"]>;

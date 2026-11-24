@@ -132,12 +132,12 @@ describe("town growth tile actions", () => {
       id: "grow_town_to_city",
       label: "Upgrade Town to City",
       cost: "40 coin + 1 FOOD slot",
-      detail: "+25% coin income, 450 manpower cap, +150 manpower per batch. Adds a second ring of build tiles around the town."
+      detail: "+25% coin income, 450 manpower cap, +150 manpower per batch."
     });
     expect(action?.disabled).toBe(false);
   });
 
-  it("shows a great-city growth action without a ring note (City already has the second ring)", () => {
+  it("shows a great-city growth action that calls out the added support ring", () => {
     const state = createInitialState();
     state.me = "me";
     state.gold = 100;
@@ -183,7 +183,7 @@ describe("town growth tile actions", () => {
       id: "grow_city_to_great_city",
       label: "Upgrade City to Great City",
       cost: "80 coin + 1 FOOD slot",
-      detail: "+75% coin income, 750 manpower cap, +250 manpower per batch."
+      detail: "+75% coin income, 750 manpower cap, +250 manpower per batch. Adds a second ring of build tiles around the town."
     });
     expect(action?.disabled).toBe(false);
   });

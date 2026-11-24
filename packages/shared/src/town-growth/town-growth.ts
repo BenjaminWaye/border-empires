@@ -17,10 +17,9 @@ export const GREAT_CITY_POPULATION_MIN = 1_000_000;
 export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
 // A town's support ring is the tiles it can draw structures/tiles-owned from
-// (chebyshev-distance neighborhood). Reaching CITY adds a second ring
-// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a
-// city's larger footprint (owner call 2026-11-23, Playtest Run 4: a full
-// Town had spare food and nothing left to build on; it was GREAT_CITY before). Don't hand-roll a scan against these two raw
+// (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
+// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
+// city's larger footprint. Don't hand-roll a scan against these two raw
 // values -- use supportRingCandidates (town-support-ring.ts), the one place
 // that actually walks the ring (wrap-aware); see its doc comment for why.
 //
@@ -52,10 +51,7 @@ export const METROPOLIS_POPULATION_MIN = 5_000_000;
 // empire -- see that function's own doc comment.
 export const MAX_SUPPORT_RING_RADIUS = 2;
 export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
-  populationTier === "CITY" || populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
-/** True for tiers with the second ring: every wide-ring check goes through here, never a hand-listed tier set. */
-export const hasWideSupportRing = (populationTier: string | undefined): boolean =>
-  supportRingRadiusForTier(populationTier) > 1;
+  populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
 
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,
