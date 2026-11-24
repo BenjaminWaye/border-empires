@@ -103,7 +103,8 @@ the Terms of Sale, including the request to start the service at once
 
 ## Questions for the accountant
 
-1. Is TIDN AB registered for VAT in Sweden, and what is its VAT number?
+1. Answered by the owner on 2026-11-24: TIDN AB is registered for VAT in
+   Sweden; its VAT number is SE559265324901.
 2. Does the product fall under electronically supplied services, and which
    Stripe tax category should it use?
 3. Start under the EUR 10,000 simplification, or register for OSS from the
