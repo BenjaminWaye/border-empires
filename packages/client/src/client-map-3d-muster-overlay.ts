@@ -19,7 +19,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import type { MusterFlagDesign } from "./client-cosmetics/client-cosmetics.js";
 import { BANNER_DESIGN_INDEX, createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
-import { getMusterBannerRegaliaGeometry } from "./client-map-3d-muster-banner/muster-banner-regalia-geometry.js";
+import { AUREOLE_Y, AUREOLE_Z, getMusterBannerRegaliaGeometry } from "./client-map-3d-muster-banner/muster-banner-regalia-geometry.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
 import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
@@ -196,9 +196,12 @@ export const createMusterOverlay = (
   const regaliaGold = new InstancedMesh(regalia.gold, goldMaterial, MAX);
   const regaliaEnamel = new InstancedMesh(regalia.tinted, enamelMaterial, MAX);
   regaliaEnamel.instanceMatrix = regaliaGold.instanceMatrix;
-  const regaliaMeshes = [regaliaGold, regaliaEnamel];
+  // The aureole turns, so it has its own matrices, written each tick.
+  const regaliaAureole = new InstancedMesh(regalia.aureole, goldMaterial, MAX);
+  const regaliaMeshes = [regaliaGold, regaliaEnamel, regaliaAureole];
+  const nobleEntries: TileEntry[] = [];
   for (const [i, mesh] of regaliaMeshes.entries()) {
-    mesh.name = `muster-banner-regalia-${["gold", "enamel"][i]}`;
+    mesh.name = `muster-banner-regalia-${["gold", "enamel", "aureole"][i]}`;
     mesh.customDepthMaterial = depthMaterial;
     mesh.frustumCulled = false;
     mesh.castShadow = true;
@@ -249,12 +252,14 @@ export const createMusterOverlay = (
     const count = entries.length;
     for (const mesh of pieceMeshes) mesh.count = count;
     let regaliaCount = 0;
+    nobleEntries.length = 0;
     for (let i = 0; i < count; i++) {
       const e = entries[i]!;
       body.setMatrixAt(i, matrix.makeTranslation(e.sceneX, e.surfaceY + TOWN_BASE_LIFT, e.sceneZ));
       if (e.design === "flag-high-noble") {
         regaliaGold.setMatrixAt(regaliaCount, matrix);
         regaliaEnamel.setColorAt(regaliaCount, e.tintColor);
+        nobleEntries.push(e);
         regaliaCount += 1;
       }
       enamel.setColorAt(i, e.tintColor);
@@ -344,8 +349,22 @@ export const createMusterOverlay = (
     progressBadges.sync(badgeSlots, nowMs);
   };
 
+  // One slow turn every 40 seconds; each flag starts at its own angle.
+  const applyAureoles = (nowMs: number): void => {
+    if (nobleEntries.length === 0) return;
+    for (const [i, e] of nobleEntries.entries()) {
+      dummy.position.set(e.sceneX, e.surfaceY + TOWN_BASE_LIFT + AUREOLE_Y, e.sceneZ + AUREOLE_Z);
+      dummy.rotation.set(0, 0, ((nowMs / 40_000) % 1) * Math.PI * 2 + hash01(e.worldTileX, e.worldTileY, 0, 41) * Math.PI * 2);
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      regaliaAureole.setMatrixAt(i, dummy.matrix);
+    }
+    regaliaAureole.instanceMatrix.needsUpdate = true;
+  };
+
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
+    applyAureoles(nowMs);
     applySoldierMatrices(nowMs);
     applySiegeRings(nowMs);
     applyProgressBadges(nowMs);

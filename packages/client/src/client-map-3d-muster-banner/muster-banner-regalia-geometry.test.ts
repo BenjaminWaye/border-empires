@@ -33,7 +33,8 @@ describe("High-noble standard regalia", () => {
   });
 
   it("keeps its poly count small enough for every flag on screen to carry it", () => {
-    const triangles = (regalia.gold.getAttribute("position").count + regalia.tinted.getAttribute("position").count) / 3;
-    expect(triangles).toBeLessThan(2_500);
+    const triangles = [regalia.gold, regalia.tinted, regalia.aureole].reduce((sum, g) => sum + g.getAttribute("position").count, 0) / 3;
+    // Half a Great Project monument's 6,000-triangle budget (docs/monument-models.md).
+    expect(triangles).toBeLessThan(3_000);
   });
 });

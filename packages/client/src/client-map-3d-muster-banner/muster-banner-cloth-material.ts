@@ -107,6 +107,7 @@ const FRAGMENT_DECLARATIONS = /* glsl */ `
 varying vec2 vBannerUv;
 varying float vBannerFold;
 varying float vBannerDesign;
+uniform float uBannerTime;
 uniform vec3 uBannerTrim;
 uniform vec3 uBannerBand;
 ${SHAPE_CONSTANTS}
@@ -189,6 +190,9 @@ const COLOR_PATCH = /* glsl */ `
   diffuseColor.rgb = mix(diffuseColor.rgb, uBannerBand, band);
   diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45, outline);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread * 0.7, seam);
+  // High-noble standard: a glint runs down the gold thread every few seconds.
+  float glint = step(0.5, vBannerDesign) * pow(max(0.0, sin((drop * 1.6 + u * 0.7) * 3.14159 - uBannerTime * 1.1)), 40.0);
+  thread = mix(thread, vec3(1.0, 0.96, 0.78), glint * 0.75);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread, max(max(trim, device), fringe));
   diffuseColor.rgb *= shade;
 }

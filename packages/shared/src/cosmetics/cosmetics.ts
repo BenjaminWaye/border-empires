@@ -27,7 +27,7 @@ export const COSMETIC_CATALOG = [
     id: "flag-high-noble",
     slot: "musterFlag",
     label: "High-noble standard",
-    description: "A gilded muster standard: sunburst finial, House streamers, gold-bordered damask cloth."
+    description: "A gilded muster standard: turning aureole, golden wings, House streamers, gold-bordered damask cloth."
   }
 ] as const satisfies readonly CosmeticDefinition[];
 

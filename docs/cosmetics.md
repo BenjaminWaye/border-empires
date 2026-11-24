@@ -29,7 +29,7 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
-| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a gold sunburst behind the finial set with a gem in the owner's colour, a streamer in the owner's colour from each end of the crossbar, four gold posts topped with gems and a gold rim on the plinth, and a gold-bordered damask cloth with a sun in splendour in place of the side bands and cog |
+| `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays behind the head of the flag round a gem in the owner's colour, gilded wings spread from the crossbar, a banded and tasselled streamer in the owner's colour from each end of the crossbar, four gold posts topped with gems and joined by gold chains inside a double gold rim on the plinth, and a gold-bordered damask cloth with a sun in splendour, across whose gold thread a glint runs every few seconds |
 
 One cosmetic for now (owner decision, 2026-11-24): the muster flag is a
 House's own property and the thing to make grand. An ancillary skin, colour
@@ -50,8 +50,11 @@ Known gaps:
 - **The 2D map draws no muster flag for rivals, standard or not**, so a rival
   on the 2D map does not see the High-noble standard. Drawing one would change
   what 2D players can read and is a gameplay decision, not a cosmetic one.
-- The streamers are rigid; only the cloth moves in the wind.
+- The streamers are rigid; the cloth moves in the wind and the aureole turns.
 - The look must not be mistaken for the earned Duke title. It uses no crown.
+- The regalia adds about 2,600 triangles per High-noble flag, in three more
+  draw calls for all such flags together, and one matrix per such flag per
+  frame for the turning aureole. A standard flag costs nothing extra.
 
 Review story: `Map/Combat/Muster/Flag Designs` in Storybook.
 

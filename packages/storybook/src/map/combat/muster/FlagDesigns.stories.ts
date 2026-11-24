@@ -75,8 +75,9 @@ const meta: Meta<Args> = {
       description: {
         component: [
           "Muster flag cosmetics (docs/cosmetics.md). Back row: the standard flag every account has. Front row: the same five",
-          "Houses showing the High-noble standard: a gilded sunburst behind the finial, a House streamer from each end of the",
-          "crossbar, gold posts and a gold rim on the plinth, and a gold-bordered damask cloth with a sun in splendour.",
+          "Houses showing the High-noble standard: a slowly turning aureole of gold rays, gilded wings, a tasselled House",
+          "streamer from each end of the crossbar, chained gold posts and a double gold rim on the plinth, and a gold-bordered",
+          "damask cloth with a sun in splendour and a glint that runs down its gold thread.",
           "The cloth's outline, the owner's colour as the field, the brighter and faster ADVANCE banner and the soldier",
           "count are identical, so a rival reads owner, mode and strength exactly as from the standard flag.",
           "The 2D map has no banner; its only muster flag is the pennant on your own besieged flag (Pennant2D)."
