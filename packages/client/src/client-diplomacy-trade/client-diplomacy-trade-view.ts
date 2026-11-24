@@ -59,6 +59,9 @@ export type DiplomacyStanceReply = {
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
 
+/** What an alliance obliges both sides to (game-mechanics.md Alliances; the break notice and bloc rules). */
+export const ALLIANCE_OBLIGATIONS = "Allies can't attack each other and count as one bloc toward Diplomatic Dominance. Breaking it takes 24 hours' notice.";
+
 export const ATTITUDE_LABEL: Record<DiplomacyAttitude, string> = {
   FURIOUS: "Furious",
   ANNOYED: "Annoyed",
@@ -187,6 +190,8 @@ export const tradeVerdict = (input: {
   const { targetName, reply, selection, own } = input;
   const kind = selection.kind;
   if (kind === "gift") return giftVerdict(input);
+  // What an alliance binds you to, said plainly (Playtest Run 4: Henrik couldn't tell what he had signed up for).
+  const binds = kind === "alliance" ? ` ${ALLIANCE_OBLIGATIONS}` : "";
   const sendLabel =
     kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
   const lockoutReason = kind === "truce" ? activeTruceLockoutReason(reply, input.nowMs) : undefined;
@@ -226,7 +231,7 @@ export const tradeVerdict = (input: {
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };
-  if (!reply.ai) return { tone: "neutral", text: `${targetName} will decide for themselves.`, canSend: true, sendLabel };
+  if (!reply.ai) return { tone: "neutral", text: `${targetName} will decide for themselves.${binds}`, canSend: true, sendLabel };
   if (!reply.pricing) return { tone: "neutral", text: `${targetName} can't be read right now. You can still send the offer.`, canSend: true, sendLabel };
 
   const pricing = pricingFor(reply.pricing, selection);
@@ -234,7 +239,7 @@ export const tradeVerdict = (input: {
   // An AI counts Coin per day only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
   const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
   const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per day only up to your spare income (${spare * 24}/day).` : "");
-  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
+  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}${binds}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
     return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
