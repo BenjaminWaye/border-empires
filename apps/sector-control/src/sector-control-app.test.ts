@@ -35,6 +35,15 @@ describe("hosting service app", () => {
     expect(ticket.json()).toMatchObject({ ok: true, wsUrl: `wss://${sectorId}.sectors.invalid/ws` });
   });
 
+  it("lets the game client call it from another origin", async () => {
+    const { control } = await start();
+    const preflight = await control.app.inject({ method: "OPTIONS", url: "/hosting/sectors", headers: { origin: "https://play.borderempires.com", "access-control-request-method": "GET", "access-control-request-headers": "authorization" } });
+    expect(preflight.statusCode).toBe(204);
+    expect(preflight.headers["access-control-allow-headers"]).toContain("Authorization");
+    const listed = await control.app.inject({ method: "GET", url: "/hosting/sectors", headers: { authorization: "Bearer token-host", origin: "https://play.borderempires.com" } });
+    expect(listed.headers["access-control-allow-origin"]).toBe("*");
+  });
+
   it("survives a provider that throws during a reconciler pass", async () => {
     const { h, control } = await start();
     await h.openSector();

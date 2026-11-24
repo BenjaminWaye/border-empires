@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 
 import Fastify, { type FastifyInstance } from "fastify";
 
+import { addCorsHeaders } from "../../realtime-gateway/src/http-routes/cors-headers.js";
 import type { HostingConfig } from "./hosting-service/hosting-config.js";
 import { createHostingReconciler } from "./hosting-service/hosting-reconciler.js";
 import { createHostingService, type HostingAccount } from "./hosting-service/hosting-service.js";
@@ -43,6 +44,8 @@ export const createSectorControlApp = (options: SectorControlAppOptions): { app:
   });
   const reconciler = createHostingReconciler({ store: options.store, payment: options.payment, servers: options.servers, alert, config: options.config, now });
 
+  // The client is served from the play origin and calls this API on the API origin with a bearer token (no cookies).
+  addCorsHeaders(app);
   registerHostingRoutes(app, {
     service,
     verifyIdToken: options.verifyIdToken,
