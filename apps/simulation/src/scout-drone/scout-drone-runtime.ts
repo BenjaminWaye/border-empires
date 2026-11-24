@@ -10,8 +10,6 @@ import {
   planScoutDroneWaypointFlight,
   SCOUT_DRONE_MAX_STOPS,
   extendScoutDroneFlight,
-  rerouteScoutDroneFlightHome,
-  scoutDroneBlockAt,
   scoutDroneStepIndexAt,
   speedUpScoutDroneFlight,
   turnScoutDroneFlightHome,
@@ -28,6 +26,7 @@ import { holdScoutReport, markScoutReportSeen, unseenScoutReport } from "./scout
 import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
+import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge } from "./scout-drone-borders.js";
 import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
 
 export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
@@ -52,23 +51,11 @@ export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
 /** Hard bounds (docs/agents/state-and-persistence-discipline.md); each eviction or refusal counts in gauge(). */
 export const SCOUT_DRONE_MAX_ACTIVE_FLIGHTS = 10_000;
 export const SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES = 20_000;
-/** Times one flight goes round a border on its way home; past this it keeps its route (counted in homeRerouteCapHits). */
-export const SCOUT_DRONE_MAX_HOME_REROUTES = 16;
 
-type ActiveFlight = {
-  readonly playerId: string;
-  readonly commandId: string;
-  /** Replaced when a border appears on the path mid-flight and the drone turns back early. */
-  flight: ScoutDroneFlight;
-  /** Last step index applied to vision and findings; -1 before launch. */
-  lastStepIndex: number;
-  /** The tile currently holding this drone's temporary reveal. */
-  revealAt: { x: number; y: number } | undefined;
+/** A flight in the air. `flight` is replaced when a border turns it back or sends it round (scout-drone-borders.ts); `lastStepIndex` is the last step applied to vision and findings (-1 before launch); `revealAt` the tile holding its reveal. */
+type ActiveFlight = ScoutBorderFlight & {
   readonly findings: ScoutFindings;
   alerted: boolean;
-  /** Rival tiles this drone has met in flight (scout-drone-worlds.ts noteBordersAround): at most ~49 per border met, and a flight meets at most SCOUT_DRONE_MAX_HOME_REROUTES on the way home. */
-  readonly bordersSeen: Set<string>;
-  homeReroutes: number;
 };
 
 export type ScoutDroneRuntimeDeps = {
@@ -92,7 +79,7 @@ export type ScoutDroneRuntimeDeps = {
   readonly isPlayerSubscribed?: (playerId: string) => boolean;
 };
 
-export type ScoutDroneGauge = {
+export type ScoutDroneGauge = ScoutDroneBorderGauge & {
   activeFlights: number;
   alertCooldownEntries: number;
   capRefusals: number;
@@ -109,14 +96,6 @@ export type ScoutDroneGauge = {
   heldReportsSeen: number;
   /** Unseen reports dropped after a day. */
   heldReportsExpired: number;
-  /** Times a rival border met on the way out turned the drone back (borders are planned on what the player knows). */
-  borderTurnBacks: number;
-  /** Times a rival border on the way home sent the drone round it. */
-  homeReroutes: number;
-  /** Charges given back for stops past a border the drone was turned back at. */
-  chargesRefunded: number;
-  /** Borders met on the way home after a flight's SCOUT_DRONE_MAX_HOME_REROUTES: the drone kept its route over them. */
-  homeRerouteCapHits: number;
 };
 
 /** Stops one flight may hold once extended mid-flight (EXPLORE while the drone is out). */
@@ -167,11 +146,6 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   let heldReportsResent = 0;
   let heldReportsSeen = 0;
   let heldReportsExpired = 0;
-  // Rival borders met in flight (unseen at planning, or claimed since): turned back on the way out, rerouted on the way home.
-  let borderTurnBacks = 0;
-  let homeReroutes = 0;
-  let chargesRefunded = 0;
-  let homeRerouteCapHits = 0;
 
   const reject = (command: CommandEnvelope, code: string, message: string): void =>
     deps.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
@@ -293,56 +267,13 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     });
   };
 
-  /** The drone over the last tile before a border: its reveal moves there, and the border it sees is kept for this flight. */
-  const meetBorder = (active: ActiveFlight, tile: { x: number; y: number }): void => {
-    if (active.revealAt?.x !== tile.x || active.revealAt.y !== tile.y) moveReveal(active, { x: tile.x, y: tile.y });
-    worlds.noteBordersAround(active.playerId, tile.x, tile.y, SCOUT_DRONE_VISION_RADIUS, active.bordersSeen);
-  };
-
-  /** A rival border on the next outbound tile (claimed, or an alliance ended, mid-flight): turn back now. Returns true when it did. */
-  const turnBackIfBlocked = (active: ActiveFlight, stepIndex: number, nowMs: number): boolean => {
-    if (stepIndex <= 0) return false;
-    const { steps } = active.flight;
-    const wall = scoutDroneBlockAt(steps[stepIndex - 1]!, steps[stepIndex]!, worlds.truth(active.playerId));
-    if (!wall) return false;
-    // Over the last tile it can reach first: the border comes into its sight, so the way home is planned round it.
-    meetBorder(active, steps[stepIndex - 1]!);
-    const stopsBefore = active.flight.waypoints?.length ?? 1;
-    active.flight = turnScoutDroneFlightHome(active.flight, stepIndex - 1, nowMs, worlds.known(active.playerId, active.bordersSeen), wall);
-    active.lastStepIndex = stepIndex - 1;
-    // Each stop was charged at launch. The leg cut short still costs one, as a route cut at a border the
-    // player could see does; the stops past the border were never reached, so they come back.
-    const unreached = stopsBefore - (active.flight.waypoints?.length ?? 1) - 1;
-    charges.refund(active.playerId, unreached, nowMs);
-    chargesRefunded += Math.max(0, unreached);
-    borderTurnBacks += 1;
-    alertRival(active, nowMs);
-    send(active.playerId, `scout-drone-turned:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
-    return true;
-  };
-
-  /**
-   * A rival border on the next homeward tile: the way home was planned on what the player knew, so
-   * it can run into land they had never seen (or land claimed since). The drone goes round it from
-   * the tile before. Returns true when it did; with no way round it keeps flying, never stranded.
-   */
-  const rerouteHomeIfBlocked = (active: ActiveFlight, stepIndex: number, nowMs: number): boolean => {
-    const { steps } = active.flight;
-    if (stepIndex <= active.flight.turnIndex || !scoutDroneBlockAt(steps[stepIndex - 1]!, steps[stepIndex]!, worlds.truth(active.playerId))) return false;
-    if (active.homeReroutes >= SCOUT_DRONE_MAX_HOME_REROUTES) {
-      homeRerouteCapHits += 1;
-      return false;
-    }
-    meetBorder(active, steps[stepIndex - 1]!);
-    const rerouted = rerouteScoutDroneFlightHome(active.flight, stepIndex - 1, nowMs, worlds.known(active.playerId, active.bordersSeen));
-    if (!rerouted) return false;
-    active.flight = rerouted;
-    active.lastStepIndex = stepIndex - 1;
-    active.homeReroutes += 1;
-    homeReroutes += 1;
-    send(active.playerId, `scout-drone-rerouted:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
-    return true;
-  };
+  const borders = createScoutDroneBorders<ActiveFlight>({
+    worlds,
+    charges,
+    moveReveal,
+    alertRival,
+    sendFlight: (active, prefix) => send(active.playerId, `${prefix}${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight })
+  });
 
   const advance = (active: ActiveFlight, nowMs: number): void => {
     speedUpOverHomeGround(active, nowMs);
@@ -352,8 +283,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const owner = deps.players().get(active.playerId);
       // Steps passed since the last tick all count toward the report, even when a slow tick skipped them,
       // and the way home too: a straight return flies over new ground. Only outbound steps can turn it
-      // back. A border on the way home sends it round (rerouteHomeIfBlocked), or, with no way round,
-      // it keeps flying home: a border must never strand the drone.
+      // back. A border on the way home sends it round, or, with no way round, it keeps flying home:
+      // a border must never strand the drone.
       // What the steps passed this tick found, sent as it happens so the client can pop it over the map:
       // players waited 2-3 minutes with nothing to show until the landing report (review 2026-11-21).
       const found: ScoutFind[] = [];
@@ -366,8 +297,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         findsSent += found.length;
       };
       for (let i = Math.max(0, active.lastStepIndex + 1); i <= index; i += 1) {
-        // Either one leaves the reveal over the tile before the border.
-        if ((i <= flight.turnIndex && turnBackIfBlocked(active, i, nowMs)) || (i > flight.turnIndex && rerouteHomeIfBlocked(active, i, nowMs))) {
+        // A border turns it back on the way out, or sends it round on the way home (scout-drone-borders.ts).
+        if (borders.meetIfBlocked(active, i, nowMs)) {
           sendFound();
           return;
         }
@@ -492,10 +423,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       heldReportsResent,
       heldReportsSeen,
       heldReportsExpired,
-      borderTurnBacks,
-      homeReroutes,
-      chargesRefunded,
-      homeRerouteCapHits
+      ...borders.gauge()
     })
   };
 };
