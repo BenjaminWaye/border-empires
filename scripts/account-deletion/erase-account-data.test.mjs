@@ -203,3 +203,13 @@ test("erases the account's owned and selected cosmetics and keeps other players'
     assert.deepEqual(db.prepare("SELECT player_id FROM account_cosmetics_selected").all().map((row) => row.player_id), ["p10"]);
   } finally { db.close(); }
 });
+
+test("deletes the erased account's public profile link so its public page is gone, keeping other Houses' links", () => {
+  const { db } = fixture();
+  try {
+    db.exec(`CREATE TABLE public_profile_links(public_id TEXT PRIMARY KEY, player_id TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL);
+      INSERT INTO public_profile_links VALUES('AAAAAAAAAAAAAAAA', 'p1', 1), ('BBBBBBBBBBBBBBBB', 'p10', 2);`);
+    assert.equal(eraseAccountData(db, "receipt", { apply: true, now: 50 }).completed, true);
+    assert.deepEqual(db.prepare("SELECT public_id, player_id FROM public_profile_links").all().map((row) => ({ ...row })), [{ public_id: "BBBBBBBBBBBBBBBB", player_id: "p10" }]);
+  } finally { db.close(); }
+});
