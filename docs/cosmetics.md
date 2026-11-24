@@ -16,6 +16,7 @@ it decorates.
 | Thing | A rival must still read | So a cosmetic may change | And may not change |
 |---|---|---|---|
 | Muster flag | Owner (colour), ADVANCE or not (brighter cloth, faster wind), strength (soldier count) | The embroidery on the cloth; added ornament in gold and in the owner's colour | The cloth's outline, its wind, the owner colour as the field, how much of the field shows, the soldiers, the siege ring, the progress badge |
+| Ancillaries (soldiers) | Owner (colour), how many stand and fall, their stance, shots, and a Titanium Weapons Factory (heavy armour) | The soldier model, on the same rig, clips, size and tint | Their number, poses, timing, shot colour, Umbrite rounds, and the heavy armour: **titanium always wins over the cosmetic** (`marineModelFor`), so a rival still sees that strength |
 
 Added ornament must stay inside the tile, close to the standard plinth's
 footprint, and within 15% of the standard flag's height
@@ -30,11 +31,13 @@ area.
 
 | Id | Slot | Working title | Look |
 |---|---|---|---|
+| `ancillaries-lancet-guard` | `ancillaries` | Lancet guard | A House guard in a long coat and tall hooded helm, in the owner's colour, with a black faceplate split by a white sight slit and a slim rifle with a blue-lit barrel, baked into the model and skinned to the right hand like the standard marine's |
 | `flag-high-noble` | `musterFlag` | High-noble standard | A gilded standard: a slowly turning aureole of gold rays inside a studded halo that turns the other way, round a glowing, pulsing gem in the owner's colour, with a soft gold glow behind it; gilded wings spread from the crossbar; two swallow-tailed streamers in the owner's colour from each end of the crossbar, edged and banded in gold, rippling in the wind; four tall gold posts topped with glowing gems and joined by gold chains inside a double gold rim on the plinth; a sheen that sweeps up the gold, glints that twinkle on it, and gold dust drifting up round the flag; and a gold-bordered damask cloth with a scalloped pelmet and a sun in splendour, its gold thread shining as metal with a glint running down it |
 
-One cosmetic for now (owner decision, 2026-11-24): the muster flag is a
-House's own property and the thing to make grand. An ancillary skin, colour
-scheme and beacon skin are not built.
+The muster flag came first (owner decision, 2026-11-24): the muster flag,
+soldiers and AFC are a House's own property. The owner then picked the Lancet
+guard as a paid ancillaries look. A colour scheme and beacon skin are not
+built.
 
 Ids are stored and sent on the wire: never rename one. The working titles are
 placeholders; the owner sets shop names and prices. The catalogue is
@@ -85,6 +88,45 @@ At map distance:
 2D pennant:
 
 ![Standard and High-noble pennants on the 2D siege badge](design/cosmetics/muster-flag-high-noble-2d.png)
+
+## The Lancet guard
+
+| | True-3D | 2D canvas |
+|---|---|---|
+| Ancillaries | Every soldier a House fields: battles and skirmishes, capture-hold garrisons, marches from a muster flag, and its expand crew. `withSquadSkin` (`client-cosmetics.ts`) adds the owner's choice to the squad gear at each gear lookup in `client-battle-overlay.ts`, `client-map-3d-muster-transit-sync.ts` and `client-map-3d-expand-crew.ts`; `marineModelFor` picks the model | Not drawn: the 2D map draws no soldiers for anyone |
+
+- Model: `packages/client/public/models/popup-marine-lancet-24bone.glb`
+  (about 5,000 triangles, 1.3 MB, like the heavy armour). Built from a Meshy
+  sculpt and rifle by `packages/client/scripts/bake-popup-marine-lancet-model.py`
+  then `retarget-popup-marine-heavy-clips.py`; the asset test checks its rig,
+  clips and size like the other two.
+- Loaded only once a House showing it is on screen. No extra cost per soldier
+  over the heavy armour.
+- Not drawn: salvage-delivery ancillaries (`client-map-3d-salvage-ancillaries.ts`)
+  stay standard; they belong to no House's squad.
+- Known flaws at close range: the back of the coat stretches a little when
+  kneeling, and the Meshy sculpt's gold trim was too faint to keep.
+- Lore reviewed; no canon change. Ancillaries are a House's remade bodies run
+  by its AI (`lore/galactic-lore.md`); this is a guard livery on them, not a
+  different kind of soldier.
+
+Review stories: `Map/Combat/Popup Marines/Skirmish`, `Lancet Guard` and
+`Lancet Guard Under Titanium`.
+
+The standard marine and the Lancet guard, idle and running (viewer renders):
+
+![Standard marine beside the Lancet guard](design/cosmetics/ancillaries-lancet-guard-vs-standard.png)
+
+Kneeling and up close:
+
+![The Lancet guard kneeling and standing](design/cosmetics/ancillaries-lancet-guard-close.png)
+
+In the game's renderer, Lancet guards (blue) against standard marines (red),
+and with a Titanium Weapons Factory blue keeps the heavy armour while red shows
+the Lancet guard:
+
+![Lancet guards in a skirmish](design/cosmetics/ancillaries-lancet-guard-skirmish.png)
+![Titanium overrides the cosmetic](design/cosmetics/ancillaries-lancet-guard-under-titanium.png)
 
 ## Ownership and selection
 

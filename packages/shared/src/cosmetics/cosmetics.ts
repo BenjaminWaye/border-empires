@@ -8,9 +8,9 @@
 // A slot holds at most one selected cosmetic. No selection means the default
 // look, which is what every account that owns nothing sees and shows.
 
-// One slot today. Colour scheme, beacon and ancillary slots are added here
-// when their cosmetics are built; nothing else in the plumbing is per slot.
-export const COSMETIC_SLOTS = ["musterFlag"] as const;
+// Colour scheme and beacon slots are added here when their cosmetics are
+// built; nothing else in the plumbing is per slot.
+export const COSMETIC_SLOTS = ["musterFlag", "ancillaries"] as const;
 export type CosmeticSlot = (typeof COSMETIC_SLOTS)[number];
 
 export type CosmeticDefinition = {
@@ -28,15 +28,23 @@ export const COSMETIC_CATALOG = [
     slot: "musterFlag",
     label: "High-noble standard",
     description: "A gilded muster standard: turning aureole and halo, golden wings, flowing House streamers, glowing gems, gold-thread damask."
+  },
+  {
+    id: "ancillaries-lancet-guard",
+    slot: "ancillaries",
+    label: "Lancet guard",
+    description: "House ancillaries in the long coat and hooded helm of a high-noble guard: black faceplate, white sight slit, slim lancet rifle."
   }
 ] as const satisfies readonly CosmeticDefinition[];
 
 export type CosmeticId = (typeof COSMETIC_CATALOG)[number]["id"];
 export type MusterFlagCosmeticId = Extract<(typeof COSMETIC_CATALOG)[number], { slot: "musterFlag" }>["id"];
+export type AncillariesCosmeticId = Extract<(typeof COSMETIC_CATALOG)[number], { slot: "ancillaries" }>["id"];
 
 /** What a player shows to everyone. A missing slot means the default look. */
 export type PlayerCosmeticSelection = {
   musterFlag?: MusterFlagCosmeticId;
+  ancillaries?: AncillariesCosmeticId;
 };
 
 const DEFINITION_BY_ID: ReadonlyMap<string, CosmeticDefinition> = new Map(COSMETIC_CATALOG.map((entry) => [entry.id, entry]));

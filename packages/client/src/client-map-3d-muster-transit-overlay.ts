@@ -6,7 +6,7 @@ import {
   type PopupMarineTemplate
 } from "./client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
-import { MARINE_MODEL_KEYS, marineModelFor, type MarineModelKey, type SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
+import { MARINE_MODEL_KEYS, marineModelFor, marineModelSurfaceMasked, perMarineModel, type MarineModelKey, type SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
 import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-material.js";
 import { createMusterBoatOverlay, type MusterBoatVoyage } from "./client-map-3d-muster-boat-overlay.js";
 
@@ -141,12 +141,12 @@ type Soldier = {
 // shared building environment map the heavy armour's bare metal reflects.
 export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): MusterTransitOverlay => {
   let disposed = false;
-  const pools: Record<MarineModelKey, Soldier[]> = { standard: [], heavy: [] };
+  const pools: Record<MarineModelKey, Soldier[]> = perMarineModel((): Soldier[] => []);
   const requested = new Set<MarineModelKey>();
 
   const makeSoldier = (template: PopupMarineTemplate, index: number, model: MarineModelKey): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
-    const material = createMarineMaterial(model === "heavy", envMap);
+    const material = createMarineMaterial(marineModelSurfaceMasked(model), envMap);
     const mesh = firstSkinnedMesh(root);
     mesh.material = material;
     mesh.frustumCulled = false;
@@ -234,7 +234,7 @@ export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): Must
     for (const model of MARINE_MODEL_KEYS) for (const soldier of pools[model]) soldier.root.visible = false;
     if (entries.length === 0) return;
 
-    const writeIdx: Record<MarineModelKey, number> = { standard: 0, heavy: 0 };
+    const writeIdx: Record<MarineModelKey, number> = perMarineModel(() => 0);
     for (const e of entries) {
       let model = marineModelFor(e.gear);
       if (model !== "standard") request(model);

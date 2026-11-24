@@ -8,7 +8,7 @@ import {
 } from "../client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import { createMarineMaterial } from "../client-map-3d-popup-marine/popup-marine-material.js";
-import { MARINE_MODEL_KEYS, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
+import { MARINE_MODEL_KEYS, marineModelSurfaceMasked, perMarineModel, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 import { FRONTIER_CLAIM_PLATE_CAP } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 import type { PlacedFrontierClaim } from "../client-map-3d-frontier-claim-plates.js";
 import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from "../client-expand-crew/client-expand-crew.js";
@@ -69,15 +69,15 @@ export type ExpandCrewSoldiers = {
 // reflects (same as the muster transit overlay).
 export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): ExpandCrewSoldiers => {
   let disposed = false;
-  const pools: Record<MarineModelKey, Soldier[]> = { standard: [], heavy: [] };
+  const pools: Record<MarineModelKey, Soldier[]> = perMarineModel((): Soldier[] => []);
   const requested = new Set<MarineModelKey>();
   // Soldiers left visible last frame, per pool.
-  const shown: Record<MarineModelKey, number> = { standard: 0, heavy: 0 };
+  const shown: Record<MarineModelKey, number> = perMarineModel(() => 0);
   const tmpQuat = new Quaternion();
 
   const makeSoldier = (template: PopupMarineTemplate, model: MarineModelKey): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
-    const material = createMarineMaterial(model === "heavy", envMap);
+    const material = createMarineMaterial(marineModelSurfaceMasked(model), envMap);
     // Drawn in the transparent pass after the claim plate (renderOrder 7, no
     // depth test) so the plate doesn't wash over the soldiers standing on it.
     material.transparent = true;
@@ -177,7 +177,7 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
 
   const dispose = (): void => {
     disposed = true;
-    for (const soldier of [...pools.standard, ...pools.heavy]) {
+    for (const soldier of MARINE_MODEL_KEYS.flatMap((key) => pools[key])) {
       soldier.mixer.stopAllAction();
       soldier.mixer.uncacheRoot(soldier.root);
       scene.remove(soldier.root);
@@ -186,10 +186,10 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
       });
       soldier.material.dispose();
     }
-    pools.standard = [];
-    pools.heavy = [];
-    shown.standard = 0;
-    shown.heavy = 0;
+    for (const key of MARINE_MODEL_KEYS) {
+      pools[key] = [];
+      shown[key] = 0;
+    }
   };
 
   return { update, dispose };

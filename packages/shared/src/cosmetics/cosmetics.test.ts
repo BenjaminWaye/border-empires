@@ -33,6 +33,14 @@ describe("sanitizeCosmeticSelection", () => {
     expect(sanitizeCosmeticSelection({ musterFlag: "flag-high-noble" })).toEqual({ musterFlag: "flag-high-noble" });
   });
 
+  it("keeps one choice per slot, and drops an id shown in the wrong slot", () => {
+    expect(sanitizeCosmeticSelection({ musterFlag: "flag-high-noble", ancillaries: "ancillaries-lancet-guard" })).toEqual({
+      musterFlag: "flag-high-noble",
+      ancillaries: "ancillaries-lancet-guard"
+    });
+    expect(sanitizeCosmeticSelection({ musterFlag: "ancillaries-lancet-guard", ancillaries: "flag-high-noble" })).toEqual({});
+  });
+
   it("drops unknown ids and unknown slots", () => {
     expect(sanitizeCosmeticSelection({ musterFlag: "nope", crest: "flag-high-noble" })).toEqual({});
   });

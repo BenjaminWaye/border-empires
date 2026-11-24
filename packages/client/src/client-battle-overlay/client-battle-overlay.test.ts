@@ -11,7 +11,8 @@ const gearState = () => ({
   squadGearByOwner: new Map<string, SquadGear>(),
   tiles: new Map() as ClientState["tiles"],
   me: "spectator",
-  tilesRevision: 0
+  tilesRevision: 0,
+  playerCosmetics: new Map() as ClientState["playerCosmetics"]
 });
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
@@ -177,5 +178,21 @@ describe("registerActiveBattleFromTileDelta", () => {
     expect(localPlayerSquadGear(state)).toEqual({});
     state.tilesRevision = 8;
     expect(localPlayerSquadGear(state)).toEqual({ titanium: true });
+  });
+
+  // The paid Lancet guard look rides on the gear every soldier overlay reads,
+  // for resolved battles, skirmishes and the local player alike -- and never
+  // displaces the titanium armour a rival reads as a strength signal.
+  it("dresses a House that shows the Lancet guard cosmetic in it, everywhere its gear is read", () => {
+    const state = gearState();
+    state.playerCosmetics.set("attacker", { ancillaries: "ancillaries-lancet-guard" });
+    state.squadGearByOwner.set("victim", { umbrite: true });
+
+    expect(knownSquadGearFor(state, "attacker")).toEqual({ skin: "ancillaries-lancet-guard" });
+    expect(knownSquadGearFor(state, "victim")).toEqual({ umbrite: true });
+    expect(squadGearFields(state, "attacker", "victim", { attackerGear: { titanium: true }, defenderGear: {} })).toEqual({
+      attackerGear: { titanium: true, skin: "ancillaries-lancet-guard" },
+      defenderGear: {}
+    });
   });
 });

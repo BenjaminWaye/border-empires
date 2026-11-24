@@ -44,9 +44,16 @@ export const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.
 // popup-marine-material.ts) -- built by
 // packages/client/scripts/bake-popup-marine-heavy-model.py.
 export const HEAVY_POPUP_MARINE_MODEL_URL = "/models/popup-marine-heavy-24bone.glb";
+// The Lancet guard: the paid "ancillaries-lancet-guard" cosmetic
+// (packages/shared/src/cosmetics/cosmetics.ts, docs/cosmetics.md) -- the
+// standard marine's clips on a Meshy sculpt of a hooded, long-coated House
+// guard holding its own baked-in rifle, built by
+// packages/client/scripts/bake-popup-marine-lancet-model.py.
+export const LANCET_POPUP_MARINE_MODEL_URL = "/models/popup-marine-lancet-24bone.glb";
 const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
   standard: ACTIVE_POPUP_MARINE_MODEL_URL,
-  heavy: HEAVY_POPUP_MARINE_MODEL_URL
+  heavy: HEAVY_POPUP_MARINE_MODEL_URL,
+  lancet: LANCET_POPUP_MARINE_MODEL_URL
 };
 
 // Kept only as documented, easy revert targets: models this file used before

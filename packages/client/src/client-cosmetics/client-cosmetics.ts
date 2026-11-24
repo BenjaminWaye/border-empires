@@ -6,6 +6,7 @@ import {
 } from "@border-empires/shared";
 
 import type { ClientState } from "../client-state/client-state.js";
+import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
 // Account cosmetics on the client (docs/gdd.md §8).
 //
@@ -43,4 +44,17 @@ export const applyPlayerStyleCosmetics = (state: Pick<ClientState, "playerCosmet
 export const applyCosmeticsStateMessage = (state: CosmeticsState, msg: Record<string, unknown>): void => {
   state.ownedCosmetics = Array.isArray(msg.owned) ? msg.owned.filter(isCosmeticId) : [];
   if (state.me) setPlayerCosmetics(state, state.me, msg.selected);
+};
+
+/** `gear` with the ancillaries cosmetic `ownerId` shows, for the soldier
+ * overlays (marineModelFor picks the model; titanium armour still wins).
+ * Returns `gear` itself when the owner shows the default look, so the common
+ * case allocates nothing. */
+export const withSquadSkin = (
+  state: Pick<ClientState, "playerCosmetics">,
+  ownerId: string | undefined,
+  gear: SquadGear
+): SquadGear => {
+  const skin = ownerId ? state.playerCosmetics.get(ownerId)?.ancillaries : undefined;
+  return skin === undefined || gear.skin === skin ? gear : { ...gear, skin };
 };

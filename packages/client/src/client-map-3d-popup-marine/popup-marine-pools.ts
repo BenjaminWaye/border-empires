@@ -12,13 +12,13 @@
 // standard pool, so a battle never renders with a squad member missing.
 import type { Scene, Texture } from "three";
 import { loadPopupMarineTemplate, type PopupMarineTemplate } from "./popup-marine-asset.js";
-import { MARINE_MODEL_KEYS, type MarineModelKey } from "./popup-marine-gear.js";
+import { MARINE_MODEL_KEYS, perMarineModel, type MarineModelKey } from "./popup-marine-gear.js";
 import { createMarineSlot, disposeMarineSlot, type MarineSlot } from "./popup-marine-slot.js";
 
 type SidePools = Record<MarineModelKey, MarineSlot[]>;
 
-const emptyPools = (): SidePools => ({ standard: [], heavy: [] });
-const zeroCursors = (): Record<MarineModelKey, number> => ({ standard: 0, heavy: 0 });
+const emptyPools = (): SidePools => perMarineModel((): MarineSlot[] => []);
+const zeroCursors = (): Record<MarineModelKey, number> => perMarineModel(() => 0);
 
 export type MarinePools = {
   /** Hides every slot and rewinds every pool's cursor -- call once per frame

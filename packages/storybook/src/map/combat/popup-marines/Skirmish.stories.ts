@@ -28,9 +28,12 @@ import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 // The factory toggles show each side's weapons-factory gear: the heavy
 // armour (Titanium), and Umbrite rounds (violet core, orange glow, ember
 // bursts). The stage gets the game's building environment map so the
-// armour's titanium edging reflects as it does on the map.
+// armour's titanium edging reflects as it does on the map. The Lancet toggles
+// show the paid "ancillaries-lancet-guard" cosmetic (docs/cosmetics.md), which
+// titanium armour overrides so the factory's strength still reads.
 
 const TILE_GAP = 2.4;
+const LANCET = "ancillaries-lancet-guard" as const;
 
 type Args = {
   attackerColor: string;
@@ -41,6 +44,8 @@ type Args = {
   attackerUmbrite: boolean;
   defenderTitanium: boolean;
   defenderUmbrite: boolean;
+  attackerLancet: boolean;
+  defenderLancet: boolean;
 };
 
 // hashSeed 1 == tileHashSeed(0, 1) — the tile coordinate the "siege tower
@@ -81,8 +86,8 @@ const render = (args: Args): HTMLElement => {
     hashSeed: 1,
     // A beaming tower is boosting this fight, so the opening lance plays too.
     siegeBoosted: args.siegeTowerBeaming,
-    attackerGear: { titanium: args.attackerTitanium, umbrite: args.attackerUmbrite },
-    defenderGear: { titanium: args.defenderTitanium, umbrite: args.defenderUmbrite }
+    attackerGear: { titanium: args.attackerTitanium, umbrite: args.attackerUmbrite, ...(args.attackerLancet ? { skin: LANCET } : {}) },
+    defenderGear: { titanium: args.defenderTitanium, umbrite: args.defenderUmbrite, ...(args.defenderLancet ? { skin: LANCET } : {}) }
   };
 
   const label = document.createElement("div");
@@ -145,7 +150,9 @@ const meta: Meta<Args> = {
     attackerTitanium: { control: "boolean" },
     attackerUmbrite: { control: "boolean" },
     defenderTitanium: { control: "boolean" },
-    defenderUmbrite: { control: "boolean" }
+    defenderUmbrite: { control: "boolean" },
+    attackerLancet: { control: "boolean" },
+    defenderLancet: { control: "boolean" }
   },
   args: {
     attackerColor: "#4fb3ff",
@@ -155,7 +162,9 @@ const meta: Meta<Args> = {
     attackerTitanium: false,
     attackerUmbrite: false,
     defenderTitanium: false,
-    defenderUmbrite: false
+    defenderUmbrite: false,
+    attackerLancet: false,
+    defenderLancet: false
   },
   render
 };
@@ -188,4 +197,15 @@ export const WeaponsFactoryGear: Story = {
 /** Both factories on both sides: heavy armour and Umbrite rounds together. */
 export const BothFactoriesBothSides: Story = {
   args: { cameraDistance: 2.5, attackerTitanium: true, attackerUmbrite: true, defenderTitanium: true, defenderUmbrite: true }
+};
+
+/** Red shows the Lancet guard cosmetic; blue the standard marine. */
+export const LancetGuard: Story = {
+  args: { cameraDistance: 2.5, attackerLancet: true }
+};
+
+/** Both sides show the Lancet guard, but blue also owns a Titanium Weapons
+ * Factory, so it keeps the heavy armour that tells a rival so. */
+export const LancetGuardUnderTitanium: Story = {
+  args: { cameraDistance: 2.5, attackerLancet: true, defenderLancet: true, attackerTitanium: true }
 };
