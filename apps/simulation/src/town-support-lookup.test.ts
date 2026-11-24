@@ -124,8 +124,8 @@ describe("GREAT_CITY/METROPOLIS second ring", () => {
     expect(result[0]).toBe(farOpenTile);
   });
 
-  it("openTownSupportNeighborTiles does not reach distance 2 for a CITY-tier town", () => {
-    const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "CITY" } });
+  it("openTownSupportNeighborTiles does not reach distance 2 for a TOWN-tier town", () => {
+    const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "TOWN" } });
     const farOpenTile = tile(10, 8, { ownerId: "p1", ownershipState: "SETTLED" }); // distance 2
     const tiles = new Map<string, TownSupportTile>([
       ["10,10", town],
