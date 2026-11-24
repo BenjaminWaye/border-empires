@@ -2,8 +2,10 @@
  * Which AFC_MODULE techs a player can build with. A module is usable when a
  * copy sits on an active AFC the player owns on SETTLED ground -- whether
  * the player researched it (a House copy) or captured it with the AFC.
- * Research alone is not enough: an uninstalled module unlocks nothing.
- * Non-module techs still need research. Shared by the build handler, the
+ * For a building's own unlock tech, research alone is not enough: an
+ * uninstalled module unlocks nothing. Fort/Siege tier techs accept research
+ * or an installed copy (the build handler's hasTech). Non-module techs still
+ * need research. Shared by the build handler, the
  * auto-improve pass and the AI planner export so they cannot disagree.
  */
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -20,9 +22,13 @@ export function installedAfcModuleTechIds(
   tiles: ReadonlyMap<string, DomainTileState>,
   afcKeys?: Iterable<string>
 ): Set<string> {
+  return installedAfcModuleTechIdsAmong(playerId, afcKeys ? [...afcKeys].map((key) => tiles.get(key)) : tiles.values());
+}
+
+/** Same as installedAfcModuleTechIds over any tile list (e.g. the player's settled tiles, which include their AFCs). */
+export function installedAfcModuleTechIdsAmong(playerId: string, tiles: Iterable<DomainTileState | undefined>): Set<string> {
   const installed = new Set<string>();
-  const candidates = afcKeys ? [...afcKeys].map((key) => tiles.get(key)) : tiles.values();
-  for (const tile of candidates) {
+  for (const tile of tiles) {
     if (tile?.ownerId !== playerId || tile.ownershipState !== "SETTLED" || tile.afc?.status !== "active" || tile.afc.ownerId !== playerId) continue;
     for (const techId of tile.afc.modules ?? []) installed.add(techId);
   }

@@ -6,30 +6,41 @@
  * Abilities and other tech effects still need research.
  */
 import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
 
 type ModuleAccessState = Pick<ClientState, "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
 
-// tilesRevision moves on every tile change; the map identity guards a new session reusing revision numbers.
-const cache = new WeakMap<ClientState["tiles"], { key: string; installed: ReadonlySet<string> }>();
+// tilesRevision moves on most tile changes. Some paths (combat-result
+// changes in client-action-flow.ts) write tiles without bumping it, so a hit
+// also re-checks that every contributing AFC tile still qualifies; that
+// catches a lost AFC. Gaining one needs a settled AFC, which arrives in a
+// revision-bumping tile delta.
+type CacheEntry = { key: string; installed: ReadonlySet<string>; sources: readonly string[] };
+const cache = new WeakMap<ClientState["tiles"], CacheEntry>();
 
-const scanInstalledModules = (state: ModuleAccessState): ReadonlySet<string> => {
+const qualifies = (tile: Tile | undefined, me: string | undefined): tile is Tile & { afc: NonNullable<Tile["afc"]> } =>
+  tile?.ownerId === me && tile?.ownershipState === "SETTLED" && tile?.afc?.status === "active" && tile.afc.ownerId === me;
+
+const scanInstalledModules = (state: ModuleAccessState): Omit<CacheEntry, "key"> => {
   const installed = new Set<string>();
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED" || tile.afc?.status !== "active") continue;
+  const sources: string[] = [];
+  for (const [key, tile] of state.tiles) {
+    if (!qualifies(tile, state.me)) continue;
+    sources.push(key);
     for (const techId of tile.afc.modules ?? []) installed.add(techId);
   }
-  return installed;
+  return { installed, sources };
 };
 
 /** Module tech ids installed on the player's active, settled AFCs (House or captured copies). */
 export const installedAfcModuleIds = (state: ModuleAccessState): ReadonlySet<string> => {
-  if (state.tilesRevision === undefined) return scanInstalledModules(state);
+  if (state.tilesRevision === undefined) return scanInstalledModules(state).installed;
   const key = `${state.tilesRevision}:${state.me}`;
   const hit = cache.get(state.tiles);
-  if (hit?.key === key) return hit.installed;
-  const installed = scanInstalledModules(state);
-  cache.set(state.tiles, { key, installed });
-  return installed;
+  if (hit?.key === key && hit.sources.every((source) => qualifies(state.tiles.get(source), state.me))) return hit.installed;
+  const entry = { ...scanInstalledModules(state), key };
+  cache.set(state.tiles, entry);
+  return entry.installed;
 };
 
 export const afcModuleInstalled = (state: ModuleAccessState, techId: string): boolean => installedAfcModuleIds(state).has(techId);

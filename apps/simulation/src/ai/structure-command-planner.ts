@@ -1,6 +1,6 @@
 import { hydroworksSiteBoostsGardens, uncoveredHydrogardens } from "./build/hydroworks-placement.js";
 import { isNetworkResource, RESOURCE_NETWORKS, SALVAGE_ARMS_BONUS_MAX, SALVAGE_ARMS_BONUS_PER_SITE, structureStacksPerTown } from "@border-empires/shared";
-import { hasAiBuildTech } from "./ai-build-unlocks.js";
+import { hasAiBuildTech, hasAiTierTech } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
@@ -407,7 +407,7 @@ export const chooseBestFortBuild = (
   // the runtime's hasFreeResourceSlots actually enforces — omitting it
   // reintroduces the same forever-rejected-every-tick failure mode via slot
   // exhaustion instead of stockpile.
-  const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
+  const fortTier = bestFortTierForTech((id) => hasAiTierTech(playerTechSet(player), player.installedModuleTechIds, id));
   if (!canAffordGold(player, fortTier.gold)) return undefined;
   if (freeTitaniumSlots !== undefined) {
     const titaniumSlotsNeeded = structureSlotRequirements(fortTier.variant)
@@ -462,7 +462,7 @@ export const chooseBestSiegeBatteryBuild = (
     if (!supply || !demand) return true;
     return structureSlotRequirements(variant).every((requirement) => (supply[requirement.resource] ?? 0) - (demand[requirement.resource] ?? 0) >= requirement.count);
   };
-  const siegeTier = siegeTierForFreshBuild((id) => playerTechSet(player).has(id), slotsFit);
+  const siegeTier = siegeTierForFreshBuild((id) => hasAiTierTech(playerTechSet(player), player.installedModuleTechIds, id), slotsFit);
   if (!slotsFit(siegeTier.variant)) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
   if (!canAffordManpower(player, siegeTier.variant, siegeTier.manpower)) return undefined;

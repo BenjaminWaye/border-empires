@@ -1,5 +1,6 @@
 import { biotaDemandTowns, networkSupplyStatus } from "../resource-networks/resource-network-status.js";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
+import { installedAfcModuleTechIds } from "../afc-module-build-access/afc-module-build-access.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -266,7 +267,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
-  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds, installedAfcModuleTechIds(player.id, tiles, summary.ownedAfcTileKeys));
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();

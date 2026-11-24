@@ -204,11 +204,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   // A module tech counts once a copy is installed on an active, settled AFC
   // the actor owns -- researched or captured with the AFC (afc-module-build-access.ts).
-  const installedModules = installedAfcModuleTechIds(actor.id, context.tiles, context.summaryForPlayer?.(actor.id).ownedAfcTileKeys);
+  // Lazy: most builds name no module tech and never need the AFC scan.
+  let installedCache: ReadonlySet<string> | undefined;
+  const installedModules = (): ReadonlySet<string> =>
+    (installedCache ??= installedAfcModuleTechIds(actor.id, context.tiles, context.summaryForPlayer?.(actor.id).ownedAfcTileKeys));
   for (const techId of spec.techIds) {
     if (isAfcModuleTech(techId)) {
-      if (installedModules.has(techId)) continue;
-      const reason = actor.techIds.has(techId)
+      if (installedModules().has(techId)) continue;
+      const reason = actor.techIds.has(techId) || (spec.kind === "FORT" && fortTechWaived(actor, techId))
         ? `Requires an active AFC with ${techEntryById.get(techId)?.name ?? techId} installed`
         : `unlock ${structureLabel(structureType)} first`;
       rejectCommand(context, command, "BUILD_INVALID", reason);
@@ -303,7 +306,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const refineryField = refineryFieldForBuild(context, command, target, structureType, payload.field);
   if (refineryField === null) return;
-  const hasTech = (id: string) => actor.techIds.has(id) || installedModules.has(id);
+  const hasTech = (id: string) => actor.techIds.has(id) || installedModules().has(id);
   const buildingFort = spec.kind === "FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;

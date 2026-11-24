@@ -19,3 +19,12 @@ export function hasAiBuildTech(techSet: ReadonlySet<string>, installed: readonly
   if (installed !== undefined && isAfcModuleTech(techId)) return installed.includes(techId);
   return techSet.has(techId);
 }
+
+/**
+ * The runtime's Fort/Siege tier rule (runtime-structure-command-handlers.ts
+ * hasTech): a tier tech counts when researched or installed, so the planner
+ * prices the same tier the build handler will resolve.
+ */
+export function hasAiTierTech(techSet: ReadonlySet<string>, installed: readonly string[] | undefined, techId: string): boolean {
+  return techSet.has(techId) || Boolean(installed?.includes(techId));
+}

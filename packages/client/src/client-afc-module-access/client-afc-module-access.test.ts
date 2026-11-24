@@ -47,4 +47,29 @@ describe("captured AFC modules unlock builds", () => {
     state.tilesRevision = 2;
     expect(installedAfcModuleIds(state).has("trade")).toBe(true);
   });
+
+  // Regression (review): combat-result tile writes don't bump tilesRevision, so a lost AFC stayed cached.
+  it("drops a cached AFC that was lost without a tilesRevision bump", () => {
+    const tile = capturedAfc(["trade"]);
+    const state = { me: "me", tiles: new Map([["1,1", tile]]), tilesRevision: 7 };
+    expect(installedAfcModuleIds(state).has("trade")).toBe(true);
+    state.tiles.set("1,1", { ...tile, ownerId: "rival", ownershipState: "FRONTIER" });
+    expect(installedAfcModuleIds(state).has("trade")).toBe(false);
+  });
+
+  it("ignores an AFC whose afc.ownerId is someone else (server mirror)", () => {
+    const tile = capturedAfc(["trade"]);
+    tile.afc!.ownerId = "rival";
+    expect(hasBuildTech({ techIds: [], me: "me", tiles: new Map([["1,1", tile]]) }, "trade")).toBe(false);
+  });
+
+  // Regression (review): a captured, unresearched terrain module unhid the Create Mountain ability row.
+  it("keeps ability rows hidden when their module is captured but not researched", () => {
+    const state: TileActionFilterState = {
+      techIds: [], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", capturedAfc(["terrain-engineering"])]])
+    };
+    const action = { id: "create_mountain", label: "Create Mountain" } as TileActionDef;
+    expect(hideTechLockedTileAction(action, state, () => "terrain-engineering")).toBe(true);
+  });
 });
+
