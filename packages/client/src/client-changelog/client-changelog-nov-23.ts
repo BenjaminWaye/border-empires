@@ -2,6 +2,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { VISIT_FORECAST_ENTRY } from "./client-changelog-visit-forecast.js";
 import { VISIT_AGENDA_ENTRY } from "./client-changelog-visit-agenda.js";
+import { GUIDE_PLAIN_WORDS_ENTRY } from "./client-changelog-guide-plain-words.js";
 import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-strength.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -33,5 +34,6 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...VISIT_REPORT_ENTRY, createdAt: 1795448790974, },
   { ...DOCK_CROSS_SEA_ENTRY, createdAt: 1795447943074, },
   { ...CHRONICLE_ROW_TIME_ENTRY, createdAt: 1795466612442, },
+  { ...GUIDE_PLAIN_WORDS_ENTRY, createdAt: 1795468127235, },
   { ...AI_ALLIANCE_STRENGTH_ENTRY, createdAt: 1795468439390, },
 ];
