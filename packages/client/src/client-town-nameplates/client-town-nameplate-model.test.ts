@@ -28,6 +28,16 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(tile({ ownershipState: "FRONTIER", ownerId: "rival" }), "me", 0)?.status).toBeUndefined();
   });
 
+  // Owner request 2026-11-25: an unruly City with plots left to garrison showed only the unruly badge.
+  it("shows the garrison badge on a garrisoned town with plots left to garrison, ahead of unruly, without growth pausing", () => {
+    const city = tile({ town: town({ populationTier: "CITY" }) });
+    const plate = townNameplateFor(city, "me", 0, new Set(["4,5"]), undefined, () => true);
+    expect(plate).toMatchObject({ status: "plots", growth: "growing" });
+    expect(townNameplateFor(city, "me", 0, new Set(["4,5"]), undefined, () => false)?.status).toBe("unruly");
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER" }), "me", 0, undefined, undefined, () => true)?.status).toBe("ungarrisoned");
+    expect(townNameplateFor(city, "rival", 0, undefined, undefined, () => true)?.status).toBeUndefined();
+  });
+
   it("flags an own large town short of biota as unruly, below unfed", () => {
     const city = tile({ town: town({ populationTier: "CITY" }) });
     expect(townNameplateFor(city, "me", 0, new Set(["4,5"]))?.status).toBe("unruly");
