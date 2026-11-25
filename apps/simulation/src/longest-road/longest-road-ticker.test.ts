@@ -26,7 +26,7 @@ describe("live Longest Road", () => {
     expect(computeLongestRoad(exported as never, [...players.values()])?.tileCount).toBe(live?.tileCount);
   });
 
-  it("checks one empire per tick, pushes to online humans when the holder changes, and waits 5 minutes between passes", () => {
+  it("checks one empire per tick, pushes to online humans when the holder changes, and waits 4 hours between passes", () => {
     const tiles = world();
     const sent: Array<{ playerId: string; road: unknown }> = [];
     const ticker = createLongestRoadTicker({ tiles: () => tiles, players: () => players, townTileKeys: townTileKeys(tiles), territoryTileKeys: territory(tiles), isPlayerSubscribed: (id) => id === "p2", emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, road: payload.road }) });
@@ -37,7 +37,9 @@ describe("live Longest Road", () => {
     expect(sent).toEqual([{ playerId: "p2", road: expect.objectContaining({ playerId: "p1", tileCount: 4 }) }]);
     tiles.delete("12,10"); // p1's road is cut
     ticker.tick(2_000);
+    ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS - 1); // still inside the 4 hours
     expect(sent).toHaveLength(1);
+    expect(LONGEST_ROAD_PASS_INTERVAL_MS).toBe(4 * 60 * 60_000);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS + 1_000);
     expect(sent.at(-1)?.road).toEqual(expect.objectContaining({ playerId: "p2", tileCount: 2 }));
