@@ -56,8 +56,7 @@ export const relicWakeFeedEntry = (hint: Extract<RelicMapHint, { kind: "WAKE" }>
   at,
   focusX: hint.x,
   focusY: hint.y,
-  actionLabel: "Show",
-  alert: true
+  actionLabel: "Show"
 });
 
 /** Posts one alert per unseen wake. Returns how many were posted. */
