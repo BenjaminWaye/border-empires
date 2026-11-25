@@ -131,7 +131,7 @@ describe("auto-settle question (category off, never asked)", () => {
     render(state, tile({ resource: "FARM" }));
     const yes = document.querySelector('[data-tile-auto-settle-answer="yes"]')!;
     const no = document.querySelector('[data-tile-auto-settle-answer="no"]')!;
-    expect([...yes.classList]).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
+    expect(Array.from(yes.classList)).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
     expect(no.classList.contains("v2s-btn")).toBe(true);
     expect(no.classList.contains("v2s-btn-primary")).toBe(false);
     answer("no");

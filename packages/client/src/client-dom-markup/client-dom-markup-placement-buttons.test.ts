@@ -15,7 +15,7 @@ describe("placement bar buttons", () => {
   const confirm = host.querySelector("#placement-confirm")!;
 
   it("Confirm is the shared primary button and Cancel the shared secondary one", () => {
-    expect([...confirm.classList]).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
+    expect(Array.from(confirm.classList)).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
     expect(cancel.classList.contains("v2s-btn")).toBe(true);
     expect(cancel.classList.contains("v2s-btn-primary")).toBe(false);
   });

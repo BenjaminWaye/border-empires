@@ -55,7 +55,7 @@ describe("town capture card garrison prompt", () => {
   it("draws Garrison now and Jump to Town with the shared HUD button classes", () => {
     install(tile());
     showTownCaptureOverlay(info());
-    expect([...el("town-capture-garrison")!.classList]).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
+    expect(Array.from(el("town-capture-garrison")!.classList)).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
     expect(el("town-capture-jump")!.classList.contains("v2s-btn")).toBe(true);
     expect(el("town-capture-jump")!.classList.contains("v2s-btn-primary")).toBe(false);
   });
