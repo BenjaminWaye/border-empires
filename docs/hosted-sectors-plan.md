@@ -434,15 +434,22 @@ open: Q12 (legal pages and seller details) and Q13 (tax).
 [`legal-drafts/README.md`](legal-drafts/README.md) and a proposal for Q13 in
 [`hosted-sectors-tax.md`](hosted-sectors-tax.md). The company details
 are filled in; both still need a legal review and the accountant's
-confirmation, and sales stay off until then. One point changes Q1(b) and needs
-the owner's approval: for EU, EEA and UK consumers the drafts give a 14-day
-right to withdraw with a deduction for days used, because "no refund once
-opened" is unlikely to hold for a service there. The right ends once the
-contest has ended.
+confirmation, and sales stay off until then. One point changed Q1(b): for EU,
+EEA and UK consumers the drafts give a 14-day right to withdraw with a
+deduction for days used, because "no refund once opened" is unlikely to hold
+for a service there. The right ends once the contest has ended.
+
+**Owner answer, 2026-11-25:** the withdrawal right above is approved. Still
+open: the owner suggested removing the accounts of players who withdraw. It is
+not built. Removing a whole account for using a statutory right is likely to
+count as penalising that right, and would take the player's profile,
+cosmetics and other contests with it; the recommendation is that a withdrawal
+ends access to that one hosted sector only, which the refund already does
+(Q2). Waiting for the owner's answer after reading this.
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23, (b) pending the note above.** |
+| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23. (b) decided 2026-11-25: EU, EEA and UK consumers get the 14-day withdrawal with a deduction for days used, as drafted.** |
 | Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | **Accepted 2026-11-23.** Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
