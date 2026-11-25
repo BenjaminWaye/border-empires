@@ -10,6 +10,12 @@
 //   PROBE_DIR         directory for signing-key.pem and process-samples.jsonl (required)
 //   PROBE_STACK_ROOT  checkout whose built apps to run (default: this one), so an
 //                     untouched build can be measured next to a changed one
+//   PROBE_ADMIN_EMAIL the one account allowed to reveal the map (default
+//                     fog-admin@example.com), for late-contest-probe.mjs
+//
+// SIGTERM or SIGINT stops it the way main-merged.ts does: the gateway closes,
+// then the simulation saves its final checkpoint. The time that takes is
+// logged as "[probe-stack] graceful stop".
 //
 // Writes one line per second to process-samples.jsonl: whole-process RSS (the
 // number the checkpoint watermark compares against), the gateway thread's
@@ -62,6 +68,7 @@ const gateway = await createRealtimeGatewayApp({
   ...(env.aiPlayerCount ? { aiPlayerCount: env.aiPlayerCount } : {}),
   emailAlerts: env.emailAlerts,
   firebaseProjectId: projectId,
+  adminEmail: process.env.PROBE_ADMIN_EMAIL ?? "fog-admin@example.com",
   firebaseTokenVerifier: createFirebaseTokenVerifier({ projectId, keySet: async () => keys.publicKey }),
   simMetricsUrl: `http://${ready.metricsHost}:${ready.metricsPort}/metrics`
 });
@@ -93,5 +100,25 @@ setInterval(() => {
   );
   loop.reset();
 }, 1000).unref();
+
+let stopping = false;
+const stop = async (signal) => {
+  if (stopping) return;
+  stopping = true;
+  const startedAt = performance.now();
+  setTimeout(() => process.exit(1), 60_000).unref();
+  await gateway.close().catch((error) => console.error("[probe-stack] gateway close failed", error));
+  const closed = new Promise((resolve) => {
+    worker.on("message", (msg) => { if (msg?.type === "closed" || msg?.type === "fatal") resolve(); });
+    worker.removeAllListeners("exit");
+    worker.on("exit", resolve);
+  });
+  worker.postMessage({ type: "shutdown", reason: signal });
+  await closed;
+  console.log(`[probe-stack] graceful stop signal=${signal} ms=${Math.round(performance.now() - startedAt)}`);
+  process.exit(0);
+};
+process.on("SIGTERM", () => void stop("SIGTERM"));
+process.on("SIGINT", () => void stop("SIGINT"));
 
 console.log(`[probe-stack] ready port=${started.port} projectId=${projectId}`);
