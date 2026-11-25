@@ -13,7 +13,7 @@ import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
-import { drawLoopMinFrameGapMs, isPhoneViewport } from "./client-runtime-loop-frame-gap.js";
+import { drawLoopMinFrameGapMs, isPhoneViewport, renderTileSize, startGuardedDrawLoop } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
@@ -196,12 +196,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(frame); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), isPhoneViewport());
     if (nowMs - lastDrawAt < minFrameGap) {
-      requestAnimationFrame(draw);
+      requestAnimationFrame(frame);
       return;
     }
     const frameStartAt = nowMs;
@@ -235,7 +235,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
     }
 
-    const size = state.zoom;
+    const size = renderTileSize(state.zoom); // never negative or NaN, whatever state.zoom holds mid-glide (client-render-frame-guard.ts)
     const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
     const dockEndpointKeys = dockEndpointKeySet(state.dockPairs, deps.keyFor);
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
@@ -857,11 +857,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       cameraRefreshMs
     });
     recordDrawFrame(previousDrawAt, frameStartAt);
-    requestAnimationFrame(draw);
+    requestAnimationFrame(frame);
   };
 
   deps.initTerrainTextures();
-  draw();
+  const frame = startGuardedDrawLoop(draw, deps.ctx); // one throwing frame is skipped, not fatal
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
   setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);

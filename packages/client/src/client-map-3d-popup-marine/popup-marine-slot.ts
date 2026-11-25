@@ -7,7 +7,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { MARINE_CLIP_NAMES, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
 import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
-import type { MarineModelKey } from "./popup-marine-gear.js";
+import { marineModelSurfaceMasked, type MarineModelKey } from "./popup-marine-gear.js";
 import { createMarineMaterial } from "./popup-marine-material.js";
 
 // Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
@@ -52,7 +52,7 @@ export const createMarineSlot = (
   envMap?: Texture
 ): MarineSlot => {
   const root = cloneSkinned(template.root) as Object3D;
-  const material = createMarineMaterial(model === "heavy", envMap);
+  const material = createMarineMaterial(marineModelSurfaceMasked(model), envMap);
   const mesh = firstSkinnedMesh(root);
   mesh.material = material;
   mesh.frustumCulled = false;

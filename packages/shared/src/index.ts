@@ -27,6 +27,7 @@ export * from "./waystation-rewards.js";
 export * from "./galaxy-system-bodies.js";
 export type { ActiveAetherWallView, RevealEmpireStatsView } from "./types.js";
 export * from "./messages/messages.js";
+export * from "./cosmetics/cosmetics.js";
 export type { ClientMessage } from "./messages/messages.js";
 export * from "./aether-wall/aether-wall.js";
 export { aetherWallEdgeKey, buildAetherWallSegments } from "./aether-wall/aether-wall.js";

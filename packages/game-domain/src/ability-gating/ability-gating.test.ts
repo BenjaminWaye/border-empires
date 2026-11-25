@@ -77,4 +77,11 @@ describe("Aether branch layout", () => {
   it("only references prerequisites that exist", () => {
     for (const tech of techs) for (const prereqId of tech.prereqIds ?? []) expect(techById.has(prereqId), `${tech.id} -> ${prereqId}`).toBe(true);
   });
+
+  it("accepts an installed module in place of research", () => {
+    expect(playerHasAbilityTech([], "aether_emp")).toBe(false);
+    expect(playerHasAbilityTech([], "aether_emp", new Set(["cryptography"]))).toBe(true);
+    expect(playerHasAbilityTech(["cryptography"], "aether_emp", new Set())).toBe(true);
+    expect(playerHasAbilityTech([], "aether_lance", new Set(["cryptography"]))).toBe(false);
+  });
 });

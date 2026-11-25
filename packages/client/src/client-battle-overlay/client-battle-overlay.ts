@@ -5,6 +5,7 @@ import { skirmishCasualtyMasksAt } from "../client-map-3d-popup-marine/popup-mar
 import type { MarineCasualtyMasks } from "../client-dock-landing/client-battle-render-types.js";
 import type { GarrisonFacing } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { withSquadSkin } from "../client-cosmetics/client-cosmetics.js";
 import {
   ownedFactories,
   squadGearFromStructures,
@@ -94,15 +95,16 @@ const rememberSquadGear = (owners: Map<string, SquadGear>, ownerId: string, gear
   }
 };
 
-type SquadGearState = Pick<ClientState, "squadGearByOwner" | "tiles" | "me" | "tilesRevision">;
+type SquadGearState = Pick<ClientState, "squadGearByOwner" | "tiles" | "me" | "tilesRevision" | "playerCosmetics">;
 
 /** Squad gear to render for `ownerId` when no broadcast has said otherwise
  * for this specific fight (skirmishes, capture-hold garrisons, marches). The
  * local player's own gear comes straight off their tiles, which are always
- * current -- their first fight already shows a factory they just built. */
+ * current -- their first fight already shows a factory they just built.
+ * Carries the owner's ancillaries cosmetic too (withSquadSkin). */
 export const knownSquadGearFor = (state: SquadGearState, ownerId: string | undefined): SquadGear => {
-  if (ownerId !== undefined && ownerId === state.me) return localPlayerSquadGear(state);
-  return (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {};
+  if (ownerId !== undefined && ownerId === state.me) return withSquadSkin(state, ownerId, localPlayerSquadGear(state));
+  return withSquadSkin(state, ownerId, (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {});
 };
 
 // One entry: the last scan, valid until any render-relevant tile change
@@ -131,8 +133,8 @@ export const squadGearFields = (
   defenderOwnerId: string,
   resolved?: Pick<ActiveBattleOverlay, "attackerGear" | "defenderGear">
 ): SquadGearFields => ({
-  attackerGear: resolved?.attackerGear ?? knownSquadGearFor(state, attackerOwnerId),
-  defenderGear: resolved?.defenderGear ?? knownSquadGearFor(state, defenderOwnerId)
+  attackerGear: resolved?.attackerGear ? withSquadSkin(state, attackerOwnerId, resolved.attackerGear) : knownSquadGearFor(state, attackerOwnerId),
+  defenderGear: resolved?.defenderGear ? withSquadSkin(state, defenderOwnerId, resolved.defenderGear) : knownSquadGearFor(state, defenderOwnerId)
 });
 
 /** Parses a tile delta's raw `combatJson` field (if present) and, when valid,

@@ -24,3 +24,5 @@ export const drawLoopMinFrameGapMs = (isTrue3DActive: boolean, isMobile: boolean
 
 /** Device budgets (frame gaps, pixel counts) follow the phone viewport, not the HUD layout drawn on it. */
 export { isPhoneViewport } from "./client-panel-nav/client-phone-viewport.js";
+/** Draw-loop guards: the tile size a frame draws with, and a loop that survives one throwing frame. */
+export { renderTileSize, startGuardedDrawLoop } from "./client-render-frame-guard/client-render-frame-guard.js";

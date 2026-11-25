@@ -288,6 +288,9 @@ body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-minor { padding: 2px 0; border: 0; border-bottom: 1px solid var(--v2-line); background: none; font-family: var(--v2-body); font-size: 13px; color: var(--v2-soft); }
 .hud-v2-minor:hover:not(:disabled) { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
 .hud-v2-minor-off { opacity: 0.5; }
+/* A blocked minor action's reason, on the button: phones show no tooltips (Playtest Run 5). */
+.hud-v2-minor-why { display: block; font-size: 11px; color: var(--v2-amber); }
+.hud-v2-minor-off:has(.hud-v2-minor-why) { opacity: 0.8; }
 .hud-v2-minor-link { color: var(--v2-gold); }
 /* Facts that matter on sight (a waystation's bonus). */
 .hud-v2-tile-facts { display: flex; flex-wrap: wrap; gap: 6px; }

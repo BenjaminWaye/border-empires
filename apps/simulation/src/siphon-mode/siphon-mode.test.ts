@@ -296,4 +296,32 @@ describe("Siphon siphon mode", () => {
     const restartedAgain = buildRuntime([], { ...recoveredAfterEnd, players: [] } as RecoveredSimulationState);
     expectSiphonEnded(restartedAgain);
   });
+
+  it("ends once the caster loses the captured module they cast it with", async () => {
+    // Regression: Siphon has no timer, so a siphon cast from a captured
+    // Transposition Array Module kept draining after the AFC was retaken.
+    let clock = 10_000;
+    const afcKey = "0,3";
+    const afcTile = {
+      x: 0, y: 3, terrain: "LAND", ownerId: CASTER, ownershipState: "SETTLED",
+      afc: { ownerId: CASTER, status: "active", activatedAt: 0, capturedAt: 0, modules: ["logistics"], houseModules: [], capturedModuleHouses: { logistics: VICTIM } }
+    };
+    const unresearched = players();
+    unresearched.set(CASTER, buildPlayer(CASTER, { points: 20_000, manpower: 10_000, techIds: new Set<string>() }));
+    const runtime = new SimulationRuntime({ now: () => clock, initialPlayers: unresearched, initialState: { tiles: initialTiles([afcTile]), activeLocks: [] } });
+    const seen = collectEvents(runtime);
+    const cast = await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(rejection(seen, cast)).toBeUndefined();
+    expectSiphonActive(runtime);
+
+    clock = 15_000;
+    runtime.tickAetherShields(clock);
+    expectSiphonActive(runtime);
+
+    const held = tileAt(runtime, afcKey)!;
+    internals(runtime).replaceTileState(afcKey, { ...held, ownerId: VICTIM, afc: { ...held.afc!, ownerId: VICTIM } }, "retake-afc");
+    clock = 20_001;
+    runtime.tickAetherShields(clock);
+    expectSiphonEnded(runtime);
+  });
 });

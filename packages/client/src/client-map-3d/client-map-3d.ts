@@ -20,7 +20,7 @@ import {
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { addMusterFlagForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowContainsPoint, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
@@ -861,12 +861,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // set, so it's harmless in production. The MINE entry passes a
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
-        if (tile?.muster && terrain === "LAND") {
-          const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
-          const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
-          const advance = tile.muster.mode === "ADVANCE";
-          musterOverlay.addMuster(x, z, surfaceY + farmlandOverlay.standLiftAt(wx, wy), fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
-        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
+        if (tile?.muster && terrain === "LAND") addMusterFlagForTile(musterOverlay, tile, { sceneX: x, sceneZ: z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), wx, wy, tileKey: deps.keyFor(wx, wy), siegeResolvesAt: incomingAttack?.resolvesAt ?? 0 }, deps);
+        /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
         if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
         if (terrain === "LAND") addDemoInstancesForTile({ structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, relayBeaconOverlay, fortOverlay }, { x, z, surfaceY, wx, wy }, window.camX, window.camY);
