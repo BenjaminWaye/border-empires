@@ -7,7 +7,7 @@ import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-stren
 import { EXPAND_ATTACK_CONFIRM_ENTRY } from "./client-changelog-expand-attack-confirm.js";
 import { CITY_PLOTS_ENTRY } from "./client-changelog-city-plots.js";
 import { CREDITS_PAGE_ENTRY, OFFER_MESSAGES_ENTRY, PHONE_NEXT_STEP_ENTRY } from "./client-changelog-credits-next.js";
-import { ACHIEVEMENTS_ENTRY, LIVE_LONGEST_ROAD_ENTRY } from "./client-changelog-achievements.js";
+import { ACHIEVEMENTS_ENTRY, LIVE_LONGEST_ROAD_ENTRY, LONGEST_ROAD_CADENCE_ENTRY } from "./client-changelog-achievements.js";
 import { INTEGRITY_OWN_LAND_ENTRY } from "./client-changelog-integrity-own-land.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -60,5 +60,6 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...FOGGED_RESOURCES_ENTRY, createdAt: 1795591213251, },
   { ...ACHIEVEMENTS_ENTRY, createdAt: 1795592580793, },
   { ...LIVE_LONGEST_ROAD_ENTRY, createdAt: 1795592580794, },
+  { ...LONGEST_ROAD_CADENCE_ENTRY, createdAt: 1795603984598, },
   { ...MARCH_FRIENDLY_ROUTE_ENTRY, createdAt: 1795607462228, },
 ];
