@@ -109,7 +109,8 @@ export const expandToAction = (
 export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId) return [];
   const action = expandToAction(state, tile, deps);
-  const toward = relayBeaconTowardAction(state, tile);
+  // Only beside Expand To: a fogged tile with no path from your land offers nothing.
+  const toward = action ? relayBeaconTowardAction(state, tile) : undefined;
   return [...(action ? [action] : []), ...(toward ? [toward] : [])];
 };
 

@@ -15,7 +15,7 @@ import { tileActionAvailability } from "../client-tile-action-logic/client-tile-
 type At = { x: number; y: number };
 type ReachState = Parameters<typeof resolveMyReach>[0] & Pick<ClientState, "tiles" | "me">;
 
-export const RELAY_BEACON_TOWARD_ACTION_ID = "build_relay_beacon_toward" as const;
+export const RELAY_BEACON_TOWARD_ACTION_ID = "relay_beacon_toward" as const;
 export const NO_BEACON_SITE_REASON = "No garrisoned land for a beacon";
 
 /**

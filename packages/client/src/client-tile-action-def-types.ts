@@ -82,7 +82,7 @@ export type TileActionDef = {
     | "build_siege_camp"
     | "build_relay_beacon"
     | "build_relay_beacon_frontier"
-    | "build_relay_beacon_toward"
+    | "relay_beacon_toward"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"

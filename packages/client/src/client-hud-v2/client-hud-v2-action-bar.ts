@@ -54,7 +54,7 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "diplomacy",
   "city_overclock",
   // Outside your reach: a beacon on your land toward this tile (client-relay-beacon-toward.ts).
-  "build_relay_beacon_toward"
+  "relay_beacon_toward"
 ];
 
 const MAX_SECONDARY = 2;
