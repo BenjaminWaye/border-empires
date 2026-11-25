@@ -34,6 +34,7 @@ import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
+import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
@@ -368,6 +369,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           state.authRetryAttempt = 0;
           state.authRetryNextAt = 0;
           dom.authProfileNameEl.value = "";
+          clearFoundingNameDraft();
           dom.authProfileColorEl.value = "#38b000";
           syncAuthOverlay();
           return;

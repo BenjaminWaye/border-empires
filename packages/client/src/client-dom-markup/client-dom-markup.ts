@@ -1,3 +1,5 @@
+import { profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
+
 export const hudMarkup = `
   <div id="mini-map-wrap">
     <canvas id="mini-map" width="220" height="220"></canvas>
@@ -160,7 +162,10 @@ export const hudMarkup = `
             <div class="auth-panel-title">Found your first standard.</div>
             <div class="auth-panel-subtitle">Choose the name and color other empires will remember.</div>
           </div>
-          <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" />
+          <div class="profile-name-field">
+            <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" aria-describedby="auth-profile-name-count" />
+            ${profileNameCountHtml("auth-profile-name-count")}
+          </div>
           <div class="auth-color-block">
             <div class="auth-color-label">Nation color</div>
             <div id="auth-color-presets" class="auth-color-presets">

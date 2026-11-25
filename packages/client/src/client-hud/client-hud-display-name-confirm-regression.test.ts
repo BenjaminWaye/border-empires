@@ -15,14 +15,13 @@ describe("client HUD display-name rename confirmation regression", () => {
     // is unchanged, just now combined across both fields in one dialog.
     const overlaySource = readFileSync(new URL("./client-hud-profile-edit-overlay.ts", import.meta.url), "utf8");
 
-    const saveHandlerStart = overlaySource.indexOf("saveBtn.onclick = async ()");
-    const saveHandlerEnd = overlaySource.indexOf("close();", saveHandlerStart);
-    const saveHandlerSource = overlaySource.slice(saveHandlerStart, saveHandlerEnd);
-
-    expect(saveHandlerSource).toContain("const nameChanged = newName !== state.meName;");
-    expect(saveHandlerSource).toContain('if (typeof window !== "undefined" && typeof window.confirm === "function") {');
-    expect(saveHandlerSource).toContain("window.confirm(");
-    expect(saveHandlerSource).toContain("once per Sector Contest");
-    expect(saveHandlerSource).toContain("if (!confirmed) return;");
+    // Since 2026-11: the warning is the in-game confirm sheet, not
+    // window.confirm, which embedded/webview browsers block or auto-cancel
+    // (Save then silently did nothing).
+    expect(overlaySource).not.toContain("window.confirm");
+    expect(overlaySource).toContain("showConfirm = showBreakPactSheet");
+    expect(overlaySource).toContain("const nameChanged = newName !== state.meName;");
+    expect(overlaySource).toContain('subtitle: "Once per Sector Contest."');
+    expect(overlaySource).toContain('onCancel: () => setStatus("Not saved")');
   });
 });
