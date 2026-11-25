@@ -307,7 +307,7 @@ unlimited range and Expand To pace.
 | Charges | 1 per stop; 8 held; each back 4h after it was spent; saved on the player record with snapshots |
 | Pace | 3s per open tile, 1s over home ground (2026-11-21; 1s / 0.5s explored too fast) |
 | Route | AFC → each stop → straight home; when a rival border lies across the line home (or ended the route) it takes the way round with fewest tiles (`scoutDroneHomePath`, 2026-11-23), retracing when that is no faster than the route back (open ground is 3s a tile, home 1s) or no way round is found; a border met mid-flight or a recall turns it home the same way |
-| Hidden borders | Routes are planned on what the player can see: rival land in fog (unexplored or remembered) is open ground, so the plan sent on Go never gives a border away. The drone meets it in flight: on the way out it turns home and the stops past the border are refunded; on the way home it goes round (2026-11-24) |
+| Hidden borders | Routes are planned on what the player can see: rival land in fog (unexplored or remembered) is open ground, so the plan sent on Go never gives a border away. The drone meets it in flight: on the way out it turns home and the stops past the border are refunded; on the way home it goes round, and when it cannot it flies on over that land and the rival is alerted (2026-11-24) |
 | Drones | One in the air per player; planning while it flies adds stops to its route (up to 16 in all). No Recall button |
 
 Guidance, with almost no text, in one bottom slot (`client-scout-drone-hud.ts`):

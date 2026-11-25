@@ -78,4 +78,19 @@ describe("scout drone and a rival border in fog", () => {
     expect(h.runtime.gauge().homeReroutes).toBeGreaterThanOrEqual(1);
     expect(lastPayload(h).flight).toBeNull();
   });
+
+  it("keeps its route over a border it cannot go round, searches once, and the rival sees it", () => {
+    // Its AFC is taken while it is out: no way home avoids the rival's land, so it flies on over it.
+    const h = harness([...homeRow()]);
+    h.exploreRoute([{ x: 14, y: 10 }]);
+    const planned = h.runtime.flightFor("me")!;
+    h.advanceTo(planned.steps[planned.turnIndex + 1]!.at);
+    for (let y = 7; y <= 13; y += 1) for (let x = 0; x <= 7; x += 1) h.tiles.set(`${x},${y}`, land(x, y, { ownerId: "rival" }));
+    for (let t = h.now(); h.runtime.flightFor("me"); t += 500) h.advanceTo(t);
+    // Several homeward steps cross the rival's land; without keeping the route each would search again.
+    expect(h.runtime.gauge()).toMatchObject({ homeRerouteFailures: 1, homeReroutes: 0 });
+    expect(h.messages.filter((m) => m.playerId === "rival" && m.payload.type === "SCOUT_SIGHTED")).toHaveLength(1);
+    expect(lastPayload(h, "rival")).toMatchObject({ scoutPlayerId: "me", x: 7 });
+    expect(lastPayload(h).flight).toBeNull();
+  });
 });

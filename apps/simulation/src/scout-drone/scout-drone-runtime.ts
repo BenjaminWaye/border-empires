@@ -26,7 +26,7 @@ import { holdScoutReport, markScoutReportSeen, unseenScoutReport } from "./scout
 import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
-import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge } from "./scout-drone-borders.js";
+import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge, type ScoutSighting } from "./scout-drone-borders.js";
 import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
 
 export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
@@ -198,8 +198,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `scout-drone-vision:${active.commandId}`, playerId: active.playerId, tileDeltas: [] });
   };
 
-  const alertRival = (active: ActiveFlight, nowMs: number): void => {
-    const { blockedByPlayerId: rivalId, blockedAtX, blockedAtY } = active.flight;
+  const alertRival = (active: ActiveFlight, nowMs: number, sighting?: ScoutSighting): void => {
+    const { blockedByPlayerId: rivalId, blockedAtX, blockedAtY } = sighting ? { blockedByPlayerId: sighting.rivalId, blockedAtX: sighting.x, blockedAtY: sighting.y } : active.flight;
     if (active.alerted || !rivalId || blockedAtX === undefined || blockedAtY === undefined) return;
     active.alerted = true;
     const cooldownKey = `${rivalId}|${active.playerId}`;
@@ -333,6 +333,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     charges.spend(active.playerId, extended.newStopsReached, now);
     active.flight = extended.flight;
     active.alerted = false;
+    active.homeRouteKept = false;
     send(active.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
     deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   };
@@ -367,7 +368,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.
       charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
-      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false, bordersSeen: new Set(), homeReroutes: 0 };
+      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
       flights.set(actor.id, active);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
