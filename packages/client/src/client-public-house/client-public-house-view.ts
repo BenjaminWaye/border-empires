@@ -3,6 +3,10 @@
 // GET /public/house/:publicId reply and renders it to HTML, so it can be
 // tested without a browser. Mirrors PublicHouseProfileView in
 // apps/realtime-gateway/src/public-house-profile/public-house-profile-view.ts.
+import { isAccountTitle } from "@border-empires/shared";
+
+import { titledNameHtml } from "../client-account-title/client-account-title.js";
+
 export type PublicHouseContest = {
   seasonSequence: number;
   endedAt: number;
@@ -26,6 +30,8 @@ export type PublicHouseAward = { kind: "NEVER_GAVE_UP" | "COMEBACK_KID"; seasonS
 
 export type PublicHouseProfile = {
   name: string;
+  /** A title the account holds, e.g. "Count". */
+  title?: string;
   rating: number | null;
   lastRatingDelta: number | null;
   peakRating: number | null;
@@ -61,6 +67,7 @@ export const parsePublicHouseProfile = (body: unknown): PublicHouseProfile | und
   if (raw.ok !== true || !str(raw.name)) return undefined;
   return {
     name: raw.name,
+    ...(isAccountTitle(raw.title) ? { title: raw.title } : {}),
     rating: numOrNull(raw.rating),
     lastRatingDelta: numOrNull(raw.lastRatingDelta),
     peakRating: numOrNull(raw.peakRating),
@@ -154,7 +161,7 @@ export const publicHouseHtml = (profile: PublicHouseProfile): string => {
     ? stat("Rating", int(profile.rating), profile.lastRatingDelta !== null ? `${signed(profile.lastRatingDelta)} last contest` : "")
     : stat("Rating", "—", "after a first contest");
   return `<header class="ph-hero"><span class="ph-crest" aria-hidden="true">${esc(initial)}</span>
-    <div><p class="ph-kicker">Border Empires · House profile</p><h1>${esc(profile.name)}</h1></div></header>
+    <div><p class="ph-kicker">Border Empires · House profile</p><h1>${titledNameHtml(esc(profile.name), profile.title)}</h1></div></header>
   <div class="ph-stats">
     ${rating}
     ${stat("Sector Contests", int(profile.contestsPlayed))}

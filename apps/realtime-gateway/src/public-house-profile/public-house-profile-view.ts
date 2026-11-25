@@ -43,6 +43,8 @@ export type PublicHouseAward = { kind: "NEVER_GAVE_UP" | "COMEBACK_KID"; seasonS
 export type PublicHouseProfileView = {
   ok: true;
   name: string;
+  /** A title the account holds, e.g. "Count"; absent when it holds none. */
+  title?: string;
   rating: number | null;
   lastRatingDelta: number | null;
   peakRating: number | null;
@@ -61,6 +63,7 @@ const MAX_CHARGES = 200;
 export const buildPublicHouseProfileView = (input: {
   playerId: string;
   name: string;
+  title?: string;
   participation: readonly SeasonParticipationRow[];
   archives: readonly SeasonArchiveRow[];
 }): PublicHouseProfileView => {
@@ -128,6 +131,7 @@ export const buildPublicHouseProfileView = (input: {
   return {
     ok: true,
     name: input.name,
+    ...(input.title ? { title: input.title } : {}),
     ...ratingSummary(rows),
     contestsPlayed: rows.length,
     bestRank: rows.length > 0 ? Math.min(...rows.map((row) => row.rank)) : null,

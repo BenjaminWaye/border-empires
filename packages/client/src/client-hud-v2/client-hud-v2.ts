@@ -38,6 +38,7 @@ import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./cl
 import { foodShortageForState } from "./client-hud-v2-food-shortage.js";
 import { handleFoodShortageClick } from "./client-hud-v2-food-plots.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
+import { RELAY_BEACON_TOWARD_ACTION_ID } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
 import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
 import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
@@ -376,7 +377,12 @@ export const installHudV2 = (deps: HudV2Deps): void => {
       return townOnMenuView(deps, view, tileKey, tapPress);
     },
     onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
-    onBarAction: battleOnBarAction
+    onBarAction: (id, view, tileKey) => {
+      // Relay Beacon toward here: placement on your land toward this tile, centred (client-relay-beacon-toward.ts).
+      const [x, y] = tileKey.split(",").map(Number);
+      if (id === RELAY_BEACON_TOWARD_ACTION_ID && Number.isFinite(x) && Number.isFinite(y)) startRelayBeaconPlacement(deps, { x: x!, y: y! });
+      battleOnBarAction(id, view, tileKey);
+    }
   });
   installBattleWatch(deps);
   let tick = 0;

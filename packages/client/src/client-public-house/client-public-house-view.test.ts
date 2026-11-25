@@ -61,4 +61,11 @@ describe("public House profile page", () => {
     expect(html).toContain("after a first contest");
     expect(PUBLIC_HOUSE_NOT_FOUND_HTML).toContain("no longer shared");
   });
+
+  it("shows a Count's title before the House name, and ignores an unknown title", () => {
+    const counted = parsePublicHouseProfile({ ...body, title: "Count" })!;
+    expect(counted.title).toBe("Count");
+    expect(publicHouseHtml(counted)).toContain('<h1><span class="account-title">Count</span> Varn</h1>');
+    expect(parsePublicHouseProfile({ ...body, title: "<i>Emperor</i>" })!.title).toBeUndefined();
+  });
 });

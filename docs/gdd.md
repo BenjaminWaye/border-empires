@@ -171,6 +171,12 @@ product, including paid Houses.
 - **A funded sector starts by itself.** Once payment completes, the server is
   created and the contest opened automatically; the owner does not start
   servers by hand (decided 2026-11-23).
+- **The first cosmetic product: "Claim the title of Count", USD 4.99**
+  (decided 2026-11-24 and 2026-11-25). One purchase gives the High-noble muster
+  standard and the Lancet guard soldier look, and the title of Count, shown
+  before the House name on the contest roster and the public profile. It is
+  sold as one bundle, not as separate items. The title confers nothing in a
+  contest; Duke is still only earned. Details: [`cosmetics.md`](cosmetics.md).
 - **Cosmetics not in the launch set:** an AFC skin, because rivals rarely see
   the AFC; and a House crest, until it can be shown without cluttering the
   diplomacy screen.

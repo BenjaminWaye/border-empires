@@ -68,6 +68,8 @@ export const supportedClientMessageTypes = [
   "UPGRADE_TOWN_TIER",
   "SET_TILE_COLOR",
   "SET_COUNTRY_FLAG",
+  "REQUEST_COSMETICS",
+  "SET_COSMETIC",
   "SET_HINT_STATE",
   "SET_EMAIL_NOTIFICATION_PREFS",
   "SET_PROFILE",
