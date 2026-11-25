@@ -11,6 +11,12 @@ import { longestRoadFrom, type LongestRoad, type RoadTile } from "./longest-road
 
 /** A new pass starts this long after the last one started. */
 export const LONGEST_ROAD_PASS_INTERVAL_MS = 4 * 60 * 60_000;
+/**
+ * While nobody holds a road (a new season, or after a restart before anyone
+ * has joined two towns) passes repeat this often, so the first road shows
+ * within minutes instead of hours. Cheap: such passes find few or no empires.
+ */
+export const LONGEST_ROAD_EMPTY_RETRY_MS = 5 * 60_000;
 
 export type LongestRoadTickerDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
@@ -87,7 +93,8 @@ export const createLongestRoadTicker = (deps: LongestRoadTickerDeps): LongestRoa
   return {
     tick: (nowMs) => {
       if (pending.length === 0) {
-        if (nowMs - passStartedAt < LONGEST_ROAD_PASS_INTERVAL_MS) return;
+        const interval = current === null ? LONGEST_ROAD_EMPTY_RETRY_MS : LONGEST_ROAD_PASS_INTERVAL_MS;
+        if (nowMs - passStartedAt < interval) return;
         passStartedAt = nowMs;
         pending = roadCandidates(deps);
         if (pending.length === 0) { finishPass(); return; }

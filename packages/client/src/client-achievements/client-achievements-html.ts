@@ -26,7 +26,7 @@ export const achievementsProfileSectionHtml = (view: AchievementsView | undefine
   return `<section class="v2p-panel ach-panel"><h3>Achievements <span class="v2s-meta">${earnedCount} / ${ACHIEVEMENTS.length}</span></h3><ul class="ach-grid">${badges}</ul></section>`;
 };
 
-const UPDATED_NOTE = `<span class="v2r-path-line v2r-road-updated">Updated every 4 hours</span>`;
+const UPDATED_NOTE = `<span class="v2r-path-line">Updated every 4 hours</span>`;
 
 /** Ranks aside card: who holds Longest Road right now. Hidden until the first push. */
 export const longestRoadCardHtml = (road: LiveLongestRoad | null | undefined, me: string, nameOf: (id: string) => string): string => {

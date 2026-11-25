@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { computeLongestRoad } from "../season-stats/season-stats.js";
-import { computeLiveLongestRoad, createLongestRoadTicker, LONGEST_ROAD_PASS_INTERVAL_MS } from "./longest-road-ticker.js";
+import { computeLiveLongestRoad, createLongestRoadTicker, LONGEST_ROAD_EMPTY_RETRY_MS, LONGEST_ROAD_PASS_INTERVAL_MS } from "./longest-road-ticker.js";
 
 const land = (x: number, y: number, ownerId: string, townName?: string): DomainTileState =>
   ({ x, y, terrain: "LAND", ownerId, ownershipState: "SETTLED", ...(townName ? { town: { name: townName, type: "MARKET", populationTier: "TOWN" } } : {}) }) as DomainTileState;
@@ -46,5 +46,20 @@ describe("live Longest Road", () => {
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS * 2);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS * 2 + 1_000);
     expect(sent).toHaveLength(2);
+  });
+
+  it("re-checks every 5 minutes while nobody holds a road, so a new season's first road shows quickly", () => {
+    const tiles = new Map<string, DomainTileState>();
+    const sent: Array<{ playerId: string; road: unknown }> = [];
+    const ticker = createLongestRoadTicker({ tiles: () => tiles, players: () => players, townTileKeys: townTileKeys(tiles), territoryTileKeys: territory(tiles), isPlayerSubscribed: (id) => id === "p2", emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, road: payload.road }) });
+    ticker.tick(0); // season start: no towns, pass ends at once with no road
+    expect(sent).toEqual([{ playerId: "p2", road: null }]);
+    for (const [key, tile] of world()) tiles.set(key, tile); // p1 joins two towns
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS - 1);
+    expect(sent).toHaveLength(1);
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS);
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS + 1_000);
+    expect(sent.at(-1)?.road).toEqual(expect.objectContaining({ playerId: "p1", tileCount: 4 }));
+    expect(LONGEST_ROAD_EMPTY_RETRY_MS).toBeLessThan(LONGEST_ROAD_PASS_INTERVAL_MS);
   });
 });
