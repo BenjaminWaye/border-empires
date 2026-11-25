@@ -18,7 +18,7 @@
   --se-plate-1: #241809;
   --se-plate-2: #160e05;
   color: var(--se-parch);
-  font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--sp-font-body);
 }
 
 .se-backdrop {

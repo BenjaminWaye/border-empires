@@ -31,7 +31,7 @@ export const emailNotificationsSettingsPageHtml = (): string => {
       <div class="settings-email-notification-field">
         <label>
           <div class="row settings-email-notification-row">
-            <input type="checkbox" data-settings-email-notification="${category.id}" ${prefs[category.id] ? "checked" : ""} />
+            <input type="checkbox" class="sp-check" data-settings-email-notification="${category.id}" ${prefs[category.id] ? "checked" : ""} />
             <div>
               <p>${category.title}</p>
               <p class="settings-email-notification-desc">${category.desc}</p>
