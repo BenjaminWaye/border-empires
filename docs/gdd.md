@@ -155,7 +155,10 @@ product, including paid Houses.
   accepted this.
 - **Hosted sector terms** (decided 2026-11-23 and 2026-11-24): Standard
   (640×320) and Small (320×160) maps, both USD 20 including tax; no cap on
-  sectors running at once; the seller is TIDN AB. Details in
+  sectors running at once; the seller is TIDN AB. *Decided 2026-11-25:*
+  EU, EEA and UK consumers may withdraw within 14 days, paying for the days
+  the sector was open; everyone else gets no refund once a sector has opened,
+  except for faults on our side and any other right the buyer has by law. Details in
   [`hosted-sectors-plan.md`](hosted-sectors-plan.md) §13.
 - **The hosting pitch:** your own world, starting now, with the people you
   choose. A solo game is a hosted sector with one human; there is no separate

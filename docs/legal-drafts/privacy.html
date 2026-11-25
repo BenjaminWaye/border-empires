@@ -31,49 +31,49 @@
               <li>Gameplay information such as territory ownership, progression, resources, alliances, messages, combat outcomes, and other in-game state tied to your account.</li>
               <li>Technical information such as browser type, device type, IP address, coarse location inferred from network data, and diagnostic logs necessary to operate, secure, and improve the game.</li>
               <li>Support information you choose to send if you contact us with bug reports or account issues.</li>
-              <li>Purchase information if you buy something: what you bought, when, the amount, the currency, your country, and a payment reference from our payment provider. We do not receive or store your full card number.</li>
-              <li>Hosted sector information: which hosted sectors you host or have joined, and the invite links you create.</li>
+              <li>Purchase information if you buy something: what you bought, when, the amount, the currency and tax charged, a payment reference from our payment provider, and the billing address you give at checkout, which Stripe uses to charge the right tax. Stripe also records the network address you paid from. We do not receive or store your full card number.</li>
+              <li>Hosted sector information: which hosted sectors you host or have joined and when, your role in them, and the invite links you create.</li>
+              <li>Records of what you agreed to at checkout (the version of the Terms of Sale and your request to start your sector at once), and of any withdrawal, refund, complaint or payment dispute.</li>
             </ul>
           </section>
           <section>
             <h2>3. How we use your information, and on what legal basis</h2>
             <ul>
               <li>To provide the game and your account, and to deliver what you buy: this is needed to perform our contract with you.</li>
-              <li>To protect the game from abuse, fraud, cheating, service disruption and account misuse, to troubleshoot bugs, and to improve balance and reliability from the game's own records: this is our legitimate interest in running a fair and working game.</li>
-              <li>To count visits and see which features are used, with Google Analytics for Firebase: only with your consent (section 5a).</li>
+              <li>To protect the game from abuse, fraud, cheating, service disruption and account misuse, to troubleshoot bugs, and to improve balance, reliability and usability: this is our legitimate interest in running a fair and working game.</li>
+              <li>To measure how the website and game are used with Google Analytics for Firebase, which stores an identifier in your browser: only if you consent. You can withdraw your consent at any time in the game's settings.</li>
+              <li>To handle a withdrawal, refund, complaint or payment dispute, and to be able to show what was agreed: this is needed to perform our contract with you, and our legitimate interest in establishing and defending legal claims.</li>
               <li>To send you emails about your game (for example an attack on your territory, or your sector being ready). You can turn these off in the game or with the unsubscribe link in each email. Emails needed for a purchase, such as a receipt or a notice that your sector will close, are part of our contract with you.</li>
               <li>To keep accounting records of purchases and to handle tax: this is a legal obligation.</li>
             </ul>
+            <p>You need to give us an email address or a sign-in account to create a registered account, and payment and billing details to buy something. Without them we cannot provide the account or the purchase. Stripe may decline a payment automatically if its fraud checks flag it; you can contact us or Stripe if you think that was wrong.</p>
           </section>
           <section>
             <h2>4. Service providers</h2>
             <p>We use these companies to run Border Empires. They process personal data on our behalf or as independent controllers for their own services:</p>
             <ul>
-              <li><strong>Google Firebase</strong> (Google Ireland Limited, Ireland, and Google LLC, USA) for sign-in, and for usage analytics if you consent. When you sign in with Google, Twitch, Discord or email, that provider and Firebase process your login information under their own policies.</li>
-              <li><strong>Hetzner Online GmbH</strong> (Germany) for the servers the game runs on, including the server of a hosted sector.</li>
+              <li><strong>Google Firebase</strong> (Google Ireland Limited) for sign-in and for usage analytics. When you sign in with Google, Twitch, Discord or email, that provider and Firebase process your login information under their own policies.</li>
+              <li><strong>Hetzner Online GmbH</strong> (Germany) for the servers the game runs on, including the server of a hosted sector, and for the names (DNS) of hosted sector servers. These servers are in the European Union.</li>
               <li><strong>Stripe Payments Europe, Limited</strong> (Ireland) for payments. Stripe collects your payment details directly and uses them to process the payment, prevent fraud and meet its own legal duties, under its own privacy policy.</li>
-              <li><strong>Resend, Inc.</strong> (USA) for sending email.</li>
-              <li><strong>Slack Technologies, LLC</strong> (USA) for operational alerts to our team, which can include a player or sector identifier.</li>
-              <li><strong>Backblaze, Inc.</strong> (USA; data stored in [[BACKUP_REGION]]) for encrypted backups of the game database, which contain all the game data described above.</li>
-              <li><strong>GitHub, Inc.</strong> (USA) for tracking bug reports. The text of a bug report you send from the game is stored there.</li>
+              <li><strong>Resend</strong> (United States) for sending email.</li>
+              <li><strong>Slack</strong> (United States) for operational alerts to our team, which can include a player or sector identifier.</li>
+              <li><strong>Hetzner</strong> also keeps daily backups of the game servers, which contain all the game data described above.</li>
+              <li><strong>Backblaze</strong> (Backblaze B2 cloud storage, [[BACKBLAZE_REGION]]) for backups of the game database, where they are used, which contain all the game data described above.</li>
+              <li><strong>GitHub</strong> (United States) for tracking bug reports. The text of a bug report you send from the game is stored there.</li>
+              <li><strong>Google Fonts</strong> (Google) for the fonts the game displays. Your browser fetches them from Google, which sees your network address.</li>
             </ul>
-            <p>Some of these providers process data outside the European Economic Area, including in the United States. Where they do, the transfer is covered by the EU–US Data Privacy Framework or by standard contractual clauses approved by the European Commission. You can ask us for a copy of these safeguards.</p>
+            <p>Some of these providers process data outside the European Economic Area, including in the United States. Where they do, the transfer is covered by the EU–US Data Privacy Framework or by standard contractual clauses approved by the European Commission. You can ask us for a copy of the safeguards that apply.</p>
           </section>
           <section>
             <h2>5. How long we keep data</h2>
             <ul>
               <li>Account and gameplay data: for as long as you have an account. If you ask us to delete your account, we delete or anonymise it as described on the <a href="/delete-account.html">account deletion page</a>.</li>
-              <li>Purchase records: 7 years after the end of the financial year of the purchase, as Swedish accounting law requires. This applies even if you delete your account.</li>
-              <li>The live world of a hosted sector is deleted when the sector is closed. A backup copy of that world is kept for up to 30 days. The final results are kept.</li>
-              <li>Diagnostic logs: [[LOG_RETENTION_DAYS]] days.</li>
-              <li>Database backups: 14 days.</li>
-              <li>Bug reports: until the problem is closed, then [[BUG_REPORT_MONTHS]] months.</li>
+              <li>Purchase records, including what you agreed to at checkout and records of a withdrawal, refund, complaint or payment dispute: until the end of the seventh year after the end of the calendar year in which the financial year of the purchase ended, as the Swedish Bookkeeping Act requires. Records of sales reported under the EU One Stop Shop for VAT are kept for 10 years from the end of the year of the sale, as EU VAT law requires. This applies even if you delete your account.</li>
+              <li>The live world of a hosted sector is deleted when the sector is closed. A backup copy of that world is kept for up to 30 days. The final results and the list of the sector's members are kept for the profile history until a member deletes their account; their entries are then removed.</li>
+              <li>Records of the payment notices Stripe sends us: 90 days.</li>
+              <li>Backups: Hetzner's daily server backups are replaced after [[HETZNER_BACKUP_DAYS]] days; database backups at Backblaze are kept for [[BACKBLAZE_RETENTION]]. An account deletion reaches a backup when it is replaced or expires, and is applied again if a backup is ever restored.</li>
+              <li>Diagnostic logs: for a limited time needed to find and fix problems.</li>
             </ul>
-            <p>You must give an email address to have an account and to buy; without it we cannot provide these. We make no decisions about you by automated means alone; Stripe screens payments for fraud automatically under its own policy. When you sign in with Google, Twitch or Discord, we receive your email address and display name from that service.</p>
-          </section>
-          <section>
-            <h2>5a. Cookies and local storage</h2>
-            <p>We store what the game needs to work, such as your sign-in and your settings, on your device. With your consent we also use Google Analytics for Firebase to count visits and see which features are used. You can say no, or change your mind at any time in Settings. Saying no does not affect the game.</p>
           </section>
           <section>
             <h2>6. How we share information</h2>
@@ -94,10 +94,10 @@
               <li>have your data deleted, where we have no legal duty to keep it;</li>
               <li>object to processing that we base on our legitimate interests, or ask us to restrict it;</li>
               <li>receive the data you gave us in a portable format;</li>
-              <li>withdraw a consent you have given.</li>
+              <li>withdraw a consent you have given, without affecting processing before you withdrew it.</li>
             </ul>
             <p>To use these rights, email <a href="mailto:benjamin@borderempires.com">benjamin@borderempires.com</a>. You can also delete your account on the <a href="/delete-account.html">account deletion page</a>, choose which sign-in method to use, and decide whether to share a public House profile.</p>
-            <p>If you think we handle your data wrongly, you can complain to the Swedish Authority for Privacy Protection (Integritetsskyddsmyndigheten, IMY), <a href="https://www.imy.se">imy.se</a>, or to the data protection authority of the country where you live. In the United Kingdom you can complain to the Information Commissioner's Office, <a href="https://ico.org.uk">ico.org.uk</a>.</p>
+            <p>If you think we handle your data wrongly, you can complain to the Swedish Authority for Privacy Protection (Integritetsskyddsmyndigheten, IMY), <a href="https://www.imy.se">imy.se</a>, or to the data protection authority of the country where you live.</p>
           </section>
           <section>
             <h2>9. Children’s privacy</h2>

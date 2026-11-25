@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-24
+Last verified: 2026-11-25
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -455,6 +455,13 @@ cosmetics and other contests with it; the recommendation is that a withdrawal
 ends access to that one hosted sector only, which the refund already does
 (Q2). Waiting for the owner's answer after reading this.
 
+**Review of the drafts, 2026-11-25:** lists what the checkout, the hosting
+service and the emails must still do before sales open (among them a
+withdrawal button, two separate tick-boxes, proof of consent, a confirmation
+email and partial refunds), in
+[`legal-drafts/README.md`](legal-drafts/README.md#what-the-code-and-settings-must-do-before-sales-open).
+The Stripe test-mode work does not do these yet.
+
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23. (b) decided 2026-11-25: EU, EEA and UK consumers get the 14-day withdrawal with a deduction for days used, as drafted.** |
@@ -486,9 +493,10 @@ on Hetzner's and Stripe's own price pages before launch.
 | Hetzner CX23 with IPv4 | about EUR 6 a month, billed by the hour (EUR 5.49 + 0.50, before VAT). The GDD's "about USD 10 a month" includes margin. |
 | A 30-day contest plus 3 days look-around (contests have no time limit; 30 days is a typical length, not a cap) | about EUR 6.60 |
 | 30-day safety snapshot | under EUR 0.10 |
+| Stripe Tax, if turned on | 0.5 % of a sale where a registration is added, about USD 0.10 |
 | Stripe fee on USD 20 | about USD 0.55 for a European card, up to about USD 1.35 for a card from outside Europe with currency conversion |
 | VAT, if the price is inclusive (Q13) | USD 4 of the USD 20 at Sweden's 25% (up to about USD 4.25 at the highest EU rate); none for many others |
-| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, before the Stripe Tax fee and any fees lost on refunds |
+| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, after the Stripe Tax fee and before any fees lost on refunds |
 
 A contest that ends early costs less. With no time limit (Q5), a sector that
 humans keep visiting runs until someone wins: each extra month costs about
@@ -517,11 +525,11 @@ players until the last one. Sales are behind a setting that is off by default.
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
 
-**Launch blockers from the legal review (2026-11-25):** a withdrawal button,
-closing a sector only on a full refund or withdrawal, the order-confirmation,
-"ready" and idle-warning emails, the fuller checkout acknowledgement, the
-duration text on the order form, analytics consent, and a way to keep UK buyers
-out until registered. Listed in [`legal-drafts/README.md`](legal-drafts/README.md).
+**Launch blockers from the legal review (2026-11-25):** the items under "What
+the code and settings must do before sales open" in
+[`legal-drafts/README.md`](legal-drafts/README.md), among them a withdrawal
+button, closing a sector only on a full refund or withdrawal, the confirmation
+emails, the fuller checkout acknowledgement and analytics consent.
 
 ## 16. Risks and what is not known yet
 
