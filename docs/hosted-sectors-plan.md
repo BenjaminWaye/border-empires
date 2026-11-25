@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-24
+Last verified: 2026-11-25
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -440,9 +440,17 @@ right to withdraw with a deduction for days used, because "no refund once
 opened" is unlikely to hold for a service there. The right ends once the
 contest has ended.
 
+**Owner answer, 2026-11-25:** approved: EU, EEA and UK consumers get the
+14-day right to withdraw with a deduction for days used. A review of the
+drafts on 2026-11-25 added what the checkout, order record and emails must do
+before sales open (a withdrawal button, two separate tick-boxes, proof of
+consent, a confirmation email), listed in
+[`legal-drafts/README.md`](legal-drafts/README.md#what-the-code-and-settings-must-do-before-sales-open);
+those are part of PR 5.
+
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23, (b) pending the note above.** |
+| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23; (b) for EU, EEA and UK consumers decided 2026-11-25: 14-day withdrawal with a deduction for days used.** |
 | Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | **Accepted 2026-11-23.** Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
@@ -471,6 +479,7 @@ on Hetzner's and Stripe's own price pages before launch.
 | Hetzner CX23 with IPv4 | about EUR 6 a month, billed by the hour (EUR 5.49 + 0.50, before VAT). The GDD's "about USD 10 a month" includes margin. |
 | A 30-day contest plus 3 days look-around (contests have no time limit; 30 days is a typical length, not a cap) | about EUR 6.60 |
 | 30-day safety snapshot | under EUR 0.10 |
+| Stripe Tax, if turned on | 0.5 % of a sale where a registration is added, about USD 0.10 |
 | Stripe fee on USD 20 | about USD 0.55 for a European card, up to about USD 1.35 for a card from outside Europe with currency conversion |
 | VAT, if the price is inclusive (Q13) | USD 4 of the USD 20 at Sweden's 25% (up to about USD 4.25 at the highest EU rate); none for many others |
 | **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, before the Stripe Tax fee and any fees lost on refunds |
