@@ -80,7 +80,7 @@ describe("drawing a dock march", () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
     const clientState = {
-      me: "me", tiles, dockPairs, capture: undefined,
+      me: "me", tiles, dockPairs, capture: undefined, playerCosmetics: new Map(),
       musterTransitByCommand: new Map([["cmd", { musterX: 8, musterY: 5, marchToX: 11, marchToY: 5, targetX: 12, targetY: 5, transitStartAt: 100_000 - offsetMs, transitEndsAt: 100_000 - offsetMs + route.transitMs, manpower: 30 }]]),
       deferredAttackByCommand: new Map([["cmd", {}]]),
       outgoingMusterAttacksByTile: new Map(), incomingAttacksByTile: new Map(), activeBattles: new Map()

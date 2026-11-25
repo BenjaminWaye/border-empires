@@ -1,4 +1,5 @@
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
+import { applyInitPlayerStyles } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -334,14 +335,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
   seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up
-  for (const style of ((msg.playerStyles as any[]) ?? [])) {
-    if (style.name) state.playerNames.set(style.id, style.name);
-    if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
-    if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
-    if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
-    if (style.duke) state.dukePlayers.add(style.id);
-    else state.dukePlayers.delete(style.id);
-  }
+  applyInitPlayerStyles(state, msg);
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {
     state.homeTile = homeTile;

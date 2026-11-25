@@ -1,0 +1,8 @@
+/* The paid "Count" title before a House name (client-account-title.ts):
+   gold small caps, distinct from the Duke's purple and crown. */
+.account-title {
+  color: #d4a73a;
+  font-variant: small-caps;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}

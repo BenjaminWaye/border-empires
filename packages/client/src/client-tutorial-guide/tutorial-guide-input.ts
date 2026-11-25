@@ -18,7 +18,6 @@ import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
-import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
@@ -187,9 +186,9 @@ let cached:
   | undefined;
 
 /** Best Relay Beacon site for the most new reach; skipped (a reach scan) once the player has a beacon and the step is done. */
-const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBeacon: boolean): { x: number; y: number } | undefined => {
+const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBeacon: boolean, reach: ReadonlySet<string>): { x: number; y: number } | undefined => {
   if (ownsRelayBeacon) return undefined;
-  const [site] = bestRelayBeaconSites(tiles, me, { reach: computeLocalReachSet(tiles, me), limit: 1 });
+  const [site] = bestRelayBeaconSites(tiles, me, { reach, limit: 1 });
   return site ? { x: site.x, y: site.y } : undefined;
 };
 
@@ -280,7 +279,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       footholdSaved,
       // Judged from the live tiles, not the checklist's account-wide saved flag, until the guide's
       // own foothold steps are saved; then a constant DONE, so later chapters skip the reach scan.
-      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved }),
+      checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved, reach: resolveMyReach(state) }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: footholdTargetsFor(state),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
@@ -310,7 +309,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,
     ownsRelayBeacon: cached.scan.ownsRelayBeacon,
     beaconSite: () => {
-      current.beaconSite ??= { value: beaconSiteOf(state.tiles, state.me, current.scan.ownsRelayBeacon) };
+      current.beaconSite ??= { value: beaconSiteOf(state.tiles, state.me, current.scan.ownsRelayBeacon, resolveMyReach(state)) };
       return current.beaconSite.value;
     },
     buildTargetTiles: cached.scan.buildTargetTiles,

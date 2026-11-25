@@ -42,6 +42,23 @@ describe("createMarinePools", () => {
     expect(later.model).toBe("heavy");
   });
 
+  it("serves a titanium Lancet squad in heavy armour, never standard, until its own model loads", async () => {
+    const pools = createMarinePools(new Scene(), 4);
+    loaders.standard!.resolve();
+    await flush();
+    pools.acquire(0, "lancetTitan");
+    loaders.heavy!.resolve();
+    await flush();
+
+    pools.beginFrame();
+    expect((pools.acquire(0, "lancetTitan") as unknown as { model: string }).model).toBe("heavy");
+
+    loaders.lancetTitan!.resolve();
+    await flush();
+    pools.beginFrame();
+    expect((pools.acquire(0, "lancetTitan") as unknown as { model: string }).model).toBe("lancetTitan");
+  });
+
   it("caps each side's pool per model at its capacity", async () => {
     const pools = createMarinePools(new Scene(), 2);
     loaders.standard!.resolve();
