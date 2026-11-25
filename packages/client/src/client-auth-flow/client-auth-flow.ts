@@ -36,6 +36,7 @@ import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-fl
 import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 import { createProfileSubmitter } from "./client-auth-profile-submit.js";
 import { applyDeployWait, DEPLOY_WAIT_DETAIL, retryDeployWaitNow, syncDeployWaitRetryButton } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
+import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
@@ -360,6 +361,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           state.authRetryAttempt = 0;
           state.authRetryNextAt = 0;
           dom.authProfileNameEl.value = "";
+          clearFoundingNameDraft();
           dom.authProfileColorEl.value = "#38b000";
           syncAuthOverlay();
           return;
