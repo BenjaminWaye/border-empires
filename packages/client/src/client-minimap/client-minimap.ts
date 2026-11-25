@@ -2,6 +2,7 @@ import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
 import { computeMiniMapViewBox, unwrapIntoBox } from "./client-minimap-view-box.js";
+import { miniMapEdgeArrowPoint } from "./client-minimap-relic-hit.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { drawMiniMapTileLayer, drawWrappedWorldImage, miniMapBoxPoint, miniMapTileRect } from "./client-minimap-tile-layer.js";
@@ -43,26 +44,8 @@ const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, 
   return unwrapIntoBox(coord, center - worldSize / 2, worldSize);
 };
 
-export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
-
-// Clamps a pixel point that falls outside the [0,w]x[0,h] minimap canvas onto
-// its border, along the ray from the canvas center through that point,
-// inset by `margin` px — used to draw a direction indicator for things (like
-// a distant relic hint) that fell outside the minimap's current view
-// box rather than just omitting them.
-export const miniMapEdgeArrowPoint = (targetX: number, targetY: number, w: number, h: number, margin = 8): MiniMapEdgeArrow => {
-  const cx = w / 2;
-  const cy = h / 2;
-  const dx = targetX - cx;
-  const dy = targetY - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy, angle: 0 };
-  const halfW = Math.max(1, w / 2 - margin);
-  const halfH = Math.max(1, h / 2 - margin);
-  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const scale = Math.min(scaleX, scaleY);
-  return { x: cx + dx * scale, y: cy + dy * scale, angle: Math.atan2(dy, dx) };
-};
+// Kept exported here for existing callers; it lives beside the relic hit-test that must match it.
+export { miniMapEdgeArrowPoint, type MiniMapEdgeArrow } from "./client-minimap-relic-hit.js";
 
 export const drawMiniMap = (options: {
   nowMs: number;
@@ -313,10 +296,21 @@ export const drawMiniMap = (options: {
       const x = edge?.x ?? wxToPx(wrappedX + 0.5), y = edge?.y ?? wyToPy(wrappedY + 0.5);
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
-      cctx.strokeStyle = hint.kind === "WAKE" ? "#c9a8ff" : depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
-      const k = markerScale; cctx.lineWidth = 1.5 * uiScale; cctx.strokeRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k);
-      if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
-      if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
+      // The badge of the map's relic plates (relic-site-plates.ts): an ink disc, brass ring and a diamond in the
+      // operating House's colour. Pinned to the frame edge, a brass point on the ring faces the site.
+      const r = 4.4 * markerScale, d = r * 0.48; // a little larger than a town dot
+      const mark = hint.kind === "WAKE" && hint.ownerId ? options.effectiveOverlayColor(hint.ownerId) : depleted ? "#aba89c" : "#e7d69c";
+      const cx = edge ? x - Math.cos(edge.angle) * (r + 1) : x, cy = edge ? y - Math.sin(edge.angle) * (r + 1) : y;
+      cctx.lineWidth = Math.max(1, 0.6 * markerScale);
+      if (edge) {
+        cctx.save(); cctx.translate(cx, cy); cctx.rotate(edge.angle); cctx.fillStyle = "#8a6f35";
+        cctx.beginPath(); cctx.moveTo(r * 1.75, 0); cctx.lineTo(r * 0.55, -r * 0.7); cctx.lineTo(r * 0.55, r * 0.7); cctx.closePath(); cctx.fill(); cctx.restore();
+      }
+      cctx.fillStyle = "#16130e"; cctx.strokeStyle = "#8a6f35";
+      cctx.beginPath(); cctx.arc(cx, cy, r, 0, Math.PI * 2); cctx.fill(); cctx.stroke();
+      cctx.fillStyle = mark; cctx.strokeStyle = mark;
+      cctx.beginPath(); cctx.moveTo(cx, cy - d); cctx.lineTo(cx + d, cy); cctx.lineTo(cx, cy + d); cctx.lineTo(cx - d, cy); cctx.closePath(); cctx.fill();
+      if (depleted) { cctx.strokeStyle = "#aba89c"; cctx.beginPath(); cctx.moveTo(cx - r * 0.7, cy + r * 0.7); cctx.lineTo(cx + r * 0.7, cy - r * 0.7); cctx.stroke(); }
     };
     for (const hint of options.state.relicMapHints?.values() ?? []) drawRelicHint(hint);
 

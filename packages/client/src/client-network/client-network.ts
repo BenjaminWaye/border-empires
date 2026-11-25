@@ -1,5 +1,5 @@
 import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
-import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
+import { announceRelicWakesForClient, applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { aetherHijackAlertFeedEntry, applyAfcHijackMessage, applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
@@ -1075,7 +1075,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      applyRelicAndProgressionUpdate(state, msg);
+      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic reads as one named alert, not just a violet box
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (

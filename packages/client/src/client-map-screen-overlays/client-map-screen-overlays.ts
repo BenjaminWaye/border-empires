@@ -9,6 +9,7 @@ import { createTownNameplates } from "../client-town-nameplates/client-town-name
 import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
 import { createMapTipPins } from "../client-map-tip-pins/client-map-tip-pins.js";
+import { createRelicSitePlates, type RelicSiteActions } from "../client-relic-overlay/relic-site-plates.js";
 import { advanceWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 import { isMapCoveredByRewardCard } from "../client-waystation-holo-crates/holo-crate-map-covered.js";
 
@@ -16,8 +17,8 @@ type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
 type MapOverlayTiles = Parameters<AfcMapOverlays["render"]>[0];
 type MapOverlayProjection = Parameters<AfcMapOverlays["render"]>[1];
 
-/** Screen overlays for visible tiles: 2D battle markers, town plates, AFC signals, salvage and refinery toasts, tip pins. */
-export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void): {
+/** Screen overlays for visible tiles: 2D battle markers, town plates, relic site plates, AFC signals, salvage and refinery toasts, tip pins. */
+export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void, relicActions: RelicSiteActions): {
   render: (tiles: MapOverlayTiles, projection: MapOverlayProjection) => void;
 } {
   const townNameplates = createTownNameplates(canvas, state);
@@ -26,6 +27,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
   const waystationToasts = createWaystationReadyToasts(canvas, state);
   const refineryToasts = createRefineryFieldToasts(canvas, state);
   const tipPins = createMapTipPins(canvas);
+  const relicPlates = createRelicSitePlates(canvas, state, relicActions);
   return {
     render(tiles, projection) {
       // Collected waystations: one clock for both renderers, on screen or not.
@@ -52,6 +54,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       waystationToasts.render(tiles, projection);
       // The season lobby renders no tiles and a placeholder projection: no pins then.
       tipPins.render(projection, tiles.length > 0);
+      relicPlates.render(projection, tiles.length > 0);
     }
   };
 }
