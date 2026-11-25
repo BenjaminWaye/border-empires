@@ -525,12 +525,6 @@ players until the last one. Sales are behind a setting that is off by default.
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
 
-**Launch blockers from the legal review (2026-11-25):** the items under "What
-the code and settings must do before sales open" in
-[`legal-drafts/README.md`](legal-drafts/README.md), among them a withdrawal
-button, closing a sector only on a full refund or withdrawal, the confirmation
-emails, the fuller checkout acknowledgement and analytics consent.
-
 ## 16. Risks and what is not known yet
 
 - **Late-contest memory on real Hetzner hardware is unmeasured** (`gdd.md`
