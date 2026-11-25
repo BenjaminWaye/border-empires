@@ -31,7 +31,14 @@ export type AccountCosmeticsServiceDeps = {
   /** Sends a payload to every socket of one player. */
   sendToPlayer: (playerId: string, payload: unknown) => void;
   log?: (message: string, detail: Record<string, unknown>) => void;
+  now?: () => number;
 };
+
+// A look change is broadcast to every socket, so one player may change looks
+// at most this often; a request that changes nothing broadcasts nothing.
+export const COSMETIC_CHANGE_MIN_INTERVAL_MS = 1_000;
+// Bound on remembered change times; older than the interval are dropped first.
+const MAX_TRACKED_CHANGE_TIMES = 1_000;
 
 export type CosmeticGrantOutcome =
   | { ok: true; newlyGranted: boolean; owned: CosmeticId[] }
@@ -68,6 +75,21 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
   const shown = new Map<string, PlayerCosmeticSelection>();
   let hydrateTruncated = 0;
   let shownCapRejections = 0;
+  const now = deps.now ?? (() => Date.now());
+  const lastChangeAt = new Map<string, number>();
+  const changedTooRecently = (playerId: string, at: number): boolean => {
+    const last = lastChangeAt.get(playerId);
+    if (last !== undefined && at - last < COSMETIC_CHANGE_MIN_INTERVAL_MS) return true;
+    lastChangeAt.delete(playerId);
+    lastChangeAt.set(playerId, at);
+    if (lastChangeAt.size > MAX_TRACKED_CHANGE_TIMES) {
+      for (const [id, when] of lastChangeAt) {
+        if (at - when < COSMETIC_CHANGE_MIN_INTERVAL_MS) break;
+        lastChangeAt.delete(id);
+      }
+    }
+    return false;
+  };
 
   const remember = (playerId: string, selection: PlayerCosmeticSelection): void => {
     if (isEmptyCosmeticSelection(selection)) {
@@ -163,6 +185,14 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       }
       if (cosmeticId !== null && !(await store.listOwned(playerId)).includes(cosmeticId)) {
         reply({ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic." });
+        return;
+      }
+      if (((await store.getSelection(playerId))[slot] ?? null) === cosmeticId) {
+        reply(await stateFor(playerId));
+        return;
+      }
+      if (changedTooRecently(playerId, now())) {
+        reply({ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again." });
         return;
       }
       const selection = await store.setSelection(playerId, slot, cosmeticId);

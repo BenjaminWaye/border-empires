@@ -12,7 +12,7 @@
 // standard pool, so a battle never renders with a squad member missing.
 import type { Scene, Texture } from "three";
 import { loadPopupMarineTemplate, type PopupMarineTemplate } from "./popup-marine-asset.js";
-import { MARINE_MODEL_KEYS, perMarineModel, type MarineModelKey } from "./popup-marine-gear.js";
+import { MARINE_MODEL_KEYS, marineModelFallbacks, perMarineModel, type MarineModelKey } from "./popup-marine-gear.js";
 import { createMarineSlot, disposeMarineSlot, type MarineSlot } from "./popup-marine-slot.js";
 
 type SidePools = Record<MarineModelKey, MarineSlot[]>;
@@ -95,9 +95,11 @@ export const createMarinePools = (scene: Scene, capacity: number, envMap?: Textu
       cursors[1] = zeroCursors();
     },
     acquire: (side, model) => {
-      if (model === "standard") return acquireFrom(side, "standard");
-      request(model);
-      return templates[model] ? acquireFrom(side, model) : acquireFrom(side, "standard");
+      for (const candidate of marineModelFallbacks(model)) {
+        request(candidate);
+        if (candidate === "standard" || templates[candidate]) return acquireFrom(side, candidate);
+      }
+      return undefined;
     },
     hideAll,
     dispose: () => {

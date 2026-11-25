@@ -3,13 +3,17 @@ import { describe, expect, it } from "vitest";
 import { createAccountCosmeticsService } from "./account-cosmetics-service.js";
 import { InMemoryAccountCosmeticsStore } from "./account-cosmetics-store.js";
 
-const build = (store = new InMemoryAccountCosmeticsStore()) => {
+// By default every call to the clock is ten seconds later, so tests that
+// change looks several times are never rate-limited; pass `now` to pin it.
+const build = (store = new InMemoryAccountCosmeticsStore(), now?: () => number) => {
   const broadcasts: unknown[] = [];
   const direct: Array<[string, unknown]> = [];
+  let tick = 0;
   const service = createAccountCosmeticsService({
     store,
     broadcastToAll: (payload) => broadcasts.push(payload),
-    sendToPlayer: (playerId, payload) => direct.push([playerId, payload])
+    sendToPlayer: (playerId, payload) => direct.push([playerId, payload]),
+    now: now ?? (() => (tick += 10_000))
   });
   const send = async (playerId: string | undefined, message: Parameters<typeof service.handleClientMessage>[1]) => {
     const replies: unknown[] = [];
@@ -123,5 +127,24 @@ describe("account cosmetics service", () => {
     expect(await service.titleOf("p1")).toBe("Count");
     await service.revoke("p1", "ancillaries-lancet-guard");
     expect(await service.titleOf("p1")).toBeUndefined();
+  });
+
+  it("broadcasts nothing for a change to the look already shown, and limits how often a look changes", async () => {
+    let clock = 0;
+    const { service, send, broadcasts } = build(undefined, () => clock);
+    await service.grant("p1", "flag-high-noble", "admin");
+    // Clearing an empty slot, as any account could spam, reaches nobody.
+    for (let i = 0; i < 5; i += 1) await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null });
+    expect(broadcasts).toEqual([]);
+
+    await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" });
+    expect(broadcasts).toHaveLength(1);
+    const tooSoon = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null });
+    expect(tooSoon).toEqual([{ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again." }]);
+    expect(broadcasts).toHaveLength(1);
+
+    clock += 1_000;
+    await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null });
+    expect(broadcasts).toHaveLength(2);
   });
 });

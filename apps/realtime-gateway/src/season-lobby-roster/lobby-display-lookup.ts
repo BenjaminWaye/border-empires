@@ -22,6 +22,7 @@ export const resolveLobbyDisplay = async (
   const stored = override?.name ? undefined : await lookup.getStoredProfile(playerId);
   const name = override?.name ?? stored?.name ?? lookup.fallbackName(playerId);
   const countryFlag = override?.countryFlag ?? stored?.countryFlag;
-  const title = await lookup.getTitle?.(playerId);
+  // A title is decoration: a failed lookup must never fail the join.
+  const title = await lookup.getTitle?.(playerId).catch(() => undefined);
   return { name, ...(countryFlag ? { countryFlag } : {}), ...(title ? { title } : {}) };
 };

@@ -8,7 +8,7 @@ import {
 } from "../client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import { createMarineMaterial } from "../client-map-3d-popup-marine/popup-marine-material.js";
-import { MARINE_MODEL_KEYS, marineModelSurfaceMasked, perMarineModel, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
+import { MARINE_MODEL_KEYS, marineModelFallbacks, marineModelSurfaceMasked, perMarineModel, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 import { FRONTIER_CLAIM_PLATE_CAP } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 import type { PlacedFrontierClaim } from "../client-map-3d-frontier-claim-plates.js";
 import { EXPAND_CREW_SIZE, expandCrewFigurePose, type ExpandCrewStance } from "../client-expand-crew/client-expand-crew.js";
@@ -131,9 +131,9 @@ export const createExpandCrewSoldiers = (scene: Scene, envMap?: Texture): Expand
   const update: ExpandCrewSoldiers["update"] = (placed, nowEpochMs, animate, wanted, ownerColor) => {
     if (placed.some((p) => p.claim.crew > 0)) {
       request("standard");
-      if (wanted !== "standard") request(wanted);
+      for (const candidate of marineModelFallbacks(wanted)) if (candidate !== "standard") request(candidate);
     }
-    const model: MarineModelKey = pools[wanted].length > 0 ? wanted : "standard";
+    const model: MarineModelKey = marineModelFallbacks(wanted).find((candidate) => pools[candidate].length > 0) ?? "standard";
     const pool = pools[model];
     for (const other of MARINE_MODEL_KEYS) {
       if (other === model) continue;

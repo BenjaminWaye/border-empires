@@ -50,6 +50,19 @@ export const perMarineModel = <T>(make: () => T): Record<MarineModelKey, T> =>
  * glow) that createMarineMaterial reads; only the original marine lacks it. */
 export const marineModelSurfaceMasked = (model: MarineModelKey): boolean => model !== "standard";
 
+/** The models to try for `model`, best first, while it loads or if it
+ * failed: a titanium squad always falls back to another titanium look (the
+ * heavy armour) before the standard marine, so a loading or missing paid
+ * model never hides a Titanium Weapons Factory. */
+export const marineModelFallbacks = (model: MarineModelKey): readonly MarineModelKey[] => {
+  switch (model) {
+    case "lancetTitan": return ["lancetTitan", "heavy", "standard"];
+    case "heavy": return ["heavy", "standard"];
+    case "lancet": return ["lancet", "standard"];
+    case "standard": return ["standard"];
+  }
+};
+
 /** A Titanium Weapons Factory always shows as titanium plate -- bulky
  * armour edged in bare metal -- because that is how a rival reads the
  * factory's combat bonus, and a paid look must never hide strength

@@ -59,7 +59,8 @@ export const registerPublicHouseProfileRoutes = (app: FastifyInstance, deps: Pub
       deps.getSeasonParticipationForPlayer(playerId),
       deps.listSeasonArchives(),
       deps.getDisplayName(playerId),
-      deps.getTitle?.(playerId)
+      // A title is decoration: a failed lookup shows the page without it.
+      deps.getTitle?.(playerId).catch(() => undefined)
     ]);
     const name = storedName?.trim() || [...participation].sort((a, b) => b.endedAt - a.endedAt)[0]?.playerName || "Unnamed House";
     const view = buildPublicHouseProfileView({ playerId, name, participation, archives, ...(title ? { title } : {}) });
