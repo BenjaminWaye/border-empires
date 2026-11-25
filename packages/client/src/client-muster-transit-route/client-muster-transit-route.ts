@@ -22,8 +22,9 @@ import { clientTerrainAt, type DockLandingState } from "../client-dock-landing-g
  * server's arrival time stays the authority either way. Only the player's own
  * docks start a crossing, as on the server. Aether bridges aren't modelled
  * here: a march over one falls back to the straight walk. Like the server,
- * troops keep off land held by anyone but us and our allies while a way round
- * exists.
+ * troops go round land held by anyone but us and our allies when the way
+ * round is short; ownership is the client's last-seen view, so under fog that
+ * route can differ from the server's too.
  *
  * The 3D overlay asks for it every frame, so routes are memoised by
  * endpoints. Bounded: at most ROUTE_MEMO_MAX entries, oldest evicted first,
@@ -78,7 +79,7 @@ export const clientMusterTransitRoute = (state: MusterRouteState, from: TransitP
       const terrain = state.tiles.get(`${x},${y}`)?.terrain;
       return terrain === undefined || terrain === "LAND";
     },
-    // Same rule as the server: keep off land held by anyone but us and our allies while a way round exists.
+    // Same rule as the server: go round land held by anyone but us and our allies when the way round is short.
     isHostile: (x, y) => {
       const ownerId = state.tiles.get(`${x},${y}`)?.ownerId;
       return !!ownerId && ownerId !== state.me && !(state.allies?.includes(ownerId) ?? false);

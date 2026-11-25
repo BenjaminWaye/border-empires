@@ -115,13 +115,13 @@ describe("drawing a dock march", () => {
 
 // REGRESSION (player report 2026-11-25): the company was drawn walking
 // straight through enemy territory to its launch tile. Open land, flag
-// (2,25), launch (8,25), a block of "rival"/"friend" land at x 4..6, y 23..27.
+// (2,25), launch (8,25), a block of "rival" land at x 4..6, y 23..27.
 describe("clientMusterTransitRoute around rival land", () => {
   const blockTiles = new Map<string, Tile>();
   for (let x = 0; x <= 12; x += 1) {
     for (let y = 20; y <= 32; y += 1) {
       const inBlock = x >= 4 && x <= 6 && y >= 23 && y <= 27;
-      blockTiles.set(`${x},${y}`, { x, y, terrain: "LAND", ...(inBlock ? { ownerId: x === 4 && y === 23 ? "friend" : "rival" } : {}) } as Tile);
+      blockTiles.set(`${x},${y}`, { x, y, terrain: "LAND", ...(inBlock ? { ownerId: "rival" } : {}) } as Tile);
     }
   }
   const inBlock = (point: { x: number; y: number }): boolean => point.x >= 4 && point.x <= 6 && point.y >= 23 && point.y <= 27;
@@ -129,7 +129,12 @@ describe("clientMusterTransitRoute around rival land", () => {
 
   it("walks round land held by a rival", () => {
     const route = clientMusterTransitRoute({ tiles: blockTiles, dockPairs: [], me: "me", allies: [] }, { x: 2, y: 25 }, { x: 8, y: 25 });
-    for (const point of walked(route)) expect(inBlock(point)).toBe(false);
+    const points = walked(route);
+    expect(route.legs.map((leg) => leg.kind)).toEqual(["WALK"]);
+    expect(points[0]).toEqual({ x: 2, y: 25 });
+    expect(points.at(-1)).toEqual({ x: 8, y: 25 });
+    expect(points.length).toBeGreaterThan(7);
+    for (const point of points) expect(inBlock(point)).toBe(false);
   });
 
   it("walks straight through an ally's land", () => {
