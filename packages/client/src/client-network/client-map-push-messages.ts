@@ -5,6 +5,7 @@ import { announceHouseChargeLosses } from "../client-house-charges/client-house-
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
+import { applyLongestRoadMessage } from "../client-achievements/client-achievements-state.js";
 
 // The simulation's change-driven map pushes, each a full replacement of one
 // piece of map state (extracted from client-network.ts, 500-line budget).
@@ -32,6 +33,11 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
       announceHouseChargeLosses(state, houseChargesWithLiveNames(state.houseCharges, state.playerNames));
       renderHud();
     }
+    return true;
+  }
+  // Who holds Longest Road now (client-achievements/); shown on the Ranks screen.
+  if (msg.type === "LONGEST_ROAD") {
+    if (applyLongestRoadMessage(state, msg)) renderHud();
     return true;
   }
   return false;

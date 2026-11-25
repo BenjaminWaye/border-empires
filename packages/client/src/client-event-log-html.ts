@@ -49,7 +49,8 @@ const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: Fee
   NATURAL_WONDER_CLAIMED: { type: "tech", severity: "success" },
   WAYSTATION_ACTIVATED: { type: "tech", severity: "success" },
   OCCUPATION_SURVEY: { type: "tech", severity: "success" },
-  AREA_CLEARED: { type: "combat", severity: "success" }
+  AREA_CLEARED: { type: "combat", severity: "success" },
+  ACHIEVEMENT_EARNED: { type: "mission", severity: "success" }
 };
 const DEFAULT_FEED_MAPPING: { type: FeedType; severity: FeedSeverity } = { type: "info", severity: "info" };
 

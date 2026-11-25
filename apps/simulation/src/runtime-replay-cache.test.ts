@@ -48,6 +48,7 @@ describe("isReplayTrackedCommandId", () => {
       "scout-drone-landed:": "scout-drone-landed:5f0c1d2e-uuid",
       "scout-drone-sped-up:": "scout-drone-sped-up:5f0c1d2e-uuid",
       "scout-drone-turned:": "scout-drone-turned:5f0c1d2e-uuid",
+      "scout-drone-rerouted:": "scout-drone-rerouted:5f0c1d2e-uuid",
       "scout-drone:": "scout-drone:player-1",
       "scout-report:": "scout-report:5f0c1d2e-uuid",
       "scout-sighted:": "scout-sighted:5f0c1d2e-uuid",

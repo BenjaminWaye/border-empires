@@ -252,3 +252,31 @@ export const extendScoutDroneFlight = (
     }
   };
 };
+
+/**
+ * A drone on its way home whose next step meets a rival border (one the player had not seen when
+ * the way home was planned, or one claimed since): from home step `fromIndex`, the last tile it can
+ * reach, it takes the short way round to its AFC instead of flying over that land. The search may
+ * take as long as the whole planned flight. Undefined when no way round is found: it then keeps its
+ * route, so a border never strands it. Steps already flown keep their times; the stops, turn and end
+ * reason are unchanged.
+ */
+export const rerouteScoutDroneFlightHome = (
+  flight: ScoutDroneFlight,
+  fromIndex: number,
+  nowMs: number,
+  world: ScoutDroneWorld
+): ScoutDroneFlight | undefined => {
+  if (fromIndex < flight.turnIndex || fromIndex >= flight.steps.length - 1) return undefined;
+  const from = flight.steps[fromIndex]!;
+  const launch = flight.steps[0]!;
+  const home = scoutDroneHomePath(from, launch, world, flight.landsAt - launch.at);
+  if (!home) return undefined;
+  const steps: ScoutDroneStep[] = flight.steps.slice(0, fromIndex + 1).map((step) => ({ ...step }));
+  let at = Math.max(nowMs, from.at);
+  for (const tile of home) {
+    at += tile.stepMs;
+    steps.push({ x: tile.x, y: tile.y, at });
+  }
+  return { ...flight, steps, landsAt: at };
+};

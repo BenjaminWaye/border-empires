@@ -71,6 +71,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toEqual([{ socket: joining, payload: { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "New" }] } }]);
   });
 
+  it("replays the latest LONGEST_ROAD holder, including none, to a socket that joined after it", () => {
+    const { replay, sent, send } = createHarness();
+    replay.observe("p1", { type: "LONGEST_ROAD", road: { playerId: "p2", playerName: "Rival", tileCount: 9, fromTown: "A", toTown: "B" } }, [{ id: "tab-1" }]);
+    replay.observe("p1", { type: "LONGEST_ROAD", road: null }, [{ id: "tab-1" }]);
+    replay.observe("p1", { type: "LONGEST_ROAD" }, [{ id: "tab-1" }]);
+    expect(replay.replayTo("p1", { id: "tab-2" }, send)).toBe(true);
+    expect(sent).toEqual([{ socket: { id: "tab-2" }, payload: { type: "LONGEST_ROAD", road: null } }]);
+  });
+
   it("replays the scout drone in the air to a socket that joined after its launch", () => {
     const { replay, sent, send } = createHarness();
     const existing = { id: "tab-1" };
