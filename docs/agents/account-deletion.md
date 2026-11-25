@@ -115,7 +115,8 @@ as soon as the request is accepted: `GET /public/house/:publicId` answers 404
 for a pending or completed deletion. Erasure then deletes the account's
 `public_profile_links` row.
 
-The tool deletes profiles, bindings, telemetry, queued commands, invitations and
+The tool deletes profiles, bindings, telemetry, queued commands, invitations,
+owned and selected cosmetics ([`../cosmetics.md`](../cosmetics.md)) and
 private per-account rows. Shared world checkpoints, event logs, season summaries,
 social relationships and galaxy history retain consistent **random replacement
 identifiers**, with account names removed. This preserves other players' world

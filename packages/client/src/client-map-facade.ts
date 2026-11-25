@@ -1,4 +1,5 @@
 import { standingTreeFilter } from "./client-forest-war/forest-war.js";
+import { musterFlagDesignFor } from "./client-cosmetics/client-cosmetics.js";
 import { WORLD_WIDTH, clearForestAroundLandmarkTiles, isSeaTerrain, terrainAt, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
@@ -307,7 +308,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       : undefined;
     drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt, claimOverlay);
     const tile = state.tiles.get(keyFor(wx, wy));
-    if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs);
+    if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs, musterFlagDesignFor(state, tile.muster.ownerId));
   };
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
     drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined, state.townTierUpgradeFxByKey.get(keyFor(tile.x, tile.y))); // mid tier-upgrade growth

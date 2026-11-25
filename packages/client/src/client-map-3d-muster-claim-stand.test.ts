@@ -23,6 +23,7 @@ const run = (
   };
   const state = {
     me: "me",
+    playerCosmetics: new Map(),
     capture,
     tiles: new Map(targetOwnership ? [[keyFor(5, 5), { ownershipState: targetOwnership }]] : []),
     dockPairs: [],
