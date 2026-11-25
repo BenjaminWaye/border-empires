@@ -143,7 +143,7 @@ product, including paid Houses.
 | Product | What it is | Status |
 |---|---|---|
 | Free play | The full game in the one free public sector | Launch |
-| Hosted sector | A private Sector Contest for a host and the people they invite, with AI Houses filling the rest. Paid by one host or split among a group; it opens when its funding bar is full | Launch |
+| Hosted sector | A private Sector Contest for a host and the people they invite, with AI Houses filling the rest. Paid by one host; it opens as soon as the payment completes. *Changed 2026-11-25:* splitting the price among a group (a funding bar) is cut from launch and may come later | Launch |
 | Cosmetics | One-time purchases kept permanently across contests. Sell what rivals see. Launch set, in build order (decided 2026-11-23): muster flag design, ancillary soldier skin, then colour scheme and beacon skin | Launch |
 | Paid playable Houses | Houses that play differently, balanced as sidegrades | Decide after the first public contest, on its data |
 
@@ -196,8 +196,9 @@ hosting on sale.
 5. Cosmetics.
 6. Public web profile with rating and awards.
 
-**If time gets tight,** cut in this order: cosmetics, then split funding
-(keeping single-host payment), then the rating (keeping the profile). Items
+**If time gets tight,** cut in this order: cosmetics, then the rating
+(keeping the profile). Split funding was cut on 2026-11-25; single-host
+payment stays. Items
 1–3 are never cut.
 
 **How we judge the first public contest.** Targets are set once there is a

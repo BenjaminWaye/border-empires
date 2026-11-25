@@ -20,6 +20,8 @@ the same branch.
   invite, with AI Houses filling the rest.
 - One host pays, or a group splits the price through a funding bar. The sector
   opens when it is fully funded. Split funding is the first thing to cut.
+  **Cut on 2026-11-25 (owner):** launch has single-host payment only; §12
+  stays as the design for a later release.
 - USD 20 for one standard sector. No cheaper tier yet.
 - Stripe, on the web only. Purchases belong to the account. Stripe does not
   file VAT or sales tax for the owner.
@@ -401,7 +403,8 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 
 ## 12. Split funding (the funding bar)
 
-Built last; cut first.
+Built last; cut first. **Cut from launch on 2026-11-25 (owner).** Kept here
+as the design for a later release; PR 7 in §15 is not built.
 
 1. A player opens a funding bar instead of paying in full: they choose the
    options and get a link to share. A bar has a deadline.
@@ -509,7 +512,7 @@ players until the last one. Sales are behind a setting that is off by default.
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
 | 5 | **Stripe, single host, test mode.** Checkout, webhook, expiry, refunds and disputes, automatic refund on failure, status page, emails, limits and the kill switch. Client changelog entry. | Stripe test mode only. No live keys. |
 | 6 | **Staging rehearsal and measurements.** A full test-mode purchase on staging creating a real test server: time to open, a forced failure, a teardown. Results recorded in `docs/load-results/`. | Test project, test mode, with the owner's go-ahead. |
-| 7 | **Split funding.** Funding bar, holds and capture, deadline release. | Stripe test mode. |
+| 7 | **Split funding.** Funding bar, holds and capture, deadline release. **Cut from launch 2026-11-25.** | Stripe test mode. |
 | 8 | **Launch readiness.** Runbook `docs/agents/hosted-sectors.md`, updates to `deploys.md`, `gdd.md` and `README.md`, legal page links, this plan archived. The owner enters live keys and turns sales on. | **Live charges start only when the owner turns the setting on.** |
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
