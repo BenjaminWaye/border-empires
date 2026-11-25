@@ -126,7 +126,8 @@ This is how pillar 6 is delivered.
   in the game today; the public web version is launch scope.
 - **A simple rating** that moves with placement in each contest. Placement
   based at launch, not true Elo. Add it if the existing profile has none.
-- **Records** such as Longest Road and Most Deadly Tile (already built).
+- **Records** such as Longest Road and Most Deadly Tile (already built). Longest Road also shows its current holder during play (owner decision, 2026-11-25).
+- **Achievements:** hard personal badges earned once per contest, which must not repeat the victory paths, records, awards or House Charges (owner decision, 2026-11-25).
 - **Awards:**
   - **Never Gave Up:** the House that redeployed the most times in a contest.
   - **Comeback Kid:** a House that redeployed and still finished in the top 5.

@@ -110,7 +110,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       // The host is a member from the start, so the invite link can go out while they pay.
       store.addMember({ sectorId, accountUid: account.uid, role: "host", joinedAt: now });
       try {
-        const checkout = await deps.payment.createCheckout({ sectorId, accountUid: account.uid, amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd" });
+        const checkout = await deps.payment.createCheckout({ sectorId, accountUid: account.uid, amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd", options, createdAt: now });
         store.transitionSector(sectorId, ["awaiting_payment"], { paymentRef: checkout.paymentRef, checkoutUrl: checkout.checkoutUrl }, deps.now());
       } catch (error) {
         store.transitionSector(sectorId, ["awaiting_payment"], { state: "cancelled", lastError: error instanceof Error ? error.message : String(error) }, deps.now());

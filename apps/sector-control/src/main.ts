@@ -4,6 +4,9 @@ import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-ide
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
 import { FakePaymentProvider, FakeServerProvider } from "./providers/fake-providers.js";
+import { assertStripeTestMode, createStripeApi } from "./providers/stripe/stripe-api.js";
+import { createStripePaymentProvider } from "./providers/stripe/stripe-payment-provider.js";
+import { createStripeWebhookParser } from "./providers/stripe/stripe-webhook.js";
 import { parseSectorControlRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { createSectorControlApp } from "./sector-control-app/sector-control-app.js";
 
@@ -19,9 +22,20 @@ store.applySchema();
 // The same verification the game gateway applies: signature against Google's keys, issuer, audience and expiry.
 const verifyFirebaseToken = createFirebaseTokenVerifier({ ...(env.firebaseProjectId ? { projectId: env.firebaseProjectId } : {}) });
 
+// Stripe test mode, or the fake. Stripe is asked at boot whether the key is a live one.
+const stripe = env.payment.kind === "stripe-test" ? createStripeApi({ secretKey: env.payment.secretKey }) : undefined;
+if (stripe) await assertStripeTestMode(stripe);
+const payment = stripe && env.payment.kind === "stripe-test"
+  ? {
+      provider: createStripePaymentProvider(stripe, { returnOrigin: env.payment.returnOrigin, taxCode: env.payment.taxCode }),
+      parseWebhook: createStripeWebhookParser({ api: stripe, webhookSecret: env.payment.webhookSecret })
+    }
+  // The fake has no signature that could verify: every webhook is refused.
+  : { provider: new FakePaymentProvider(), parseWebhook: async () => undefined };
+
 const control = createSectorControlApp({
   store,
-  payment: new FakePaymentProvider(),
+  payment: payment.provider,
   servers: new FakeServerProvider(),
   config: env.config,
   ticketPrivateKeyPem: env.ticketPrivateKeyPem,
@@ -31,8 +45,7 @@ const control = createSectorControlApp({
     const verified = await verifyFirebaseToken(token);
     return verified ? { uid: verified.uid, isGuest: verified.isGuest === true, emailVerified: verified.emailVerified === true } : undefined;
   },
-  // No real payment provider yet, so there is no signature that could verify: every webhook is refused.
-  parsePaymentWebhook: async () => undefined
+  parsePaymentWebhook: payment.parseWebhook
 });
 
 await control.app.listen({ host: env.host, port: env.port });

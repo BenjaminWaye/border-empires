@@ -122,6 +122,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
+          ...(player.achievements ? { achievements: structuredClone(player.achievements) } : {}),
           ...(typeof player.redeploys === "number" && player.redeploys > 0 ? { redeploys: player.redeploys } : {}),
           ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
           ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),

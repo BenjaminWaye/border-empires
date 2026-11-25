@@ -251,9 +251,9 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   };
 
   return {
-    async openList(): Promise<void> {
+    async openList(notice = ""): Promise<void> {
       open();
-      await showList();
+      await showList(notice);
     },
 
     /** The page an invite link opens: join, then show the list with the new sector in it. */
@@ -289,4 +289,18 @@ export const mountHostedSectorsPanel = (deps: HostedSectorsPanelDeps & { whenAut
   });
   const inviteCode = hostedInviteCodeFromPath(window.location.pathname);
   if (inviteCode) void deps.whenAuthReady().catch(() => undefined).then(() => panel.openInvite(inviteCode));
+  // Back from Stripe Checkout: show the list, where the new sector appears as it is prepared.
+  const notice = checkoutReturnNotice(window.location.search);
+  if (notice !== undefined) {
+    window.history.replaceState(null, "", "/");
+    void deps.whenAuthReady().catch(() => undefined).then(() => panel.openList(notice));
+  }
+};
+
+/** The notice for a return from Stripe Checkout (`?hosted=paid|cancelled`), or undefined for any other page. */
+export const checkoutReturnNotice = (search: string): string | undefined => {
+  const returned = new URLSearchParams(search).get("hosted");
+  if (returned === "paid") return "Thank you. Your sector is being prepared; it appears here when it is ready, and an email follows.";
+  if (returned === "cancelled") return "Payment was cancelled. Nothing was charged. Your order stays here for 30 minutes if you want to pay after all.";
+  return undefined;
 };

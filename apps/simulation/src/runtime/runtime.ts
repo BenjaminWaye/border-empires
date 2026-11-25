@@ -652,7 +652,7 @@ export class SimulationRuntime {
   private reachBorder: Map<string, string> = new Map();
   // ISLAND_NAMES push + House Charges upkeep (side-tickers/runtime-side-tickers.ts).
   private readonly sideTickers = createRuntimeSideTickers({
-    tiles: () => this.state.tiles, players: () => this.state.players, docks: () => this.state.docks, afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys,
+    tiles: () => this.state.tiles, players: () => this.state.players, docks: () => this.state.docks, afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, townTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedTownTierByTile.keys(), territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys,
     isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
   });
   // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.
@@ -2458,7 +2458,7 @@ export class SimulationRuntime {
   private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {
     return {
       players: this.state.players,
-      mapHintsForPlayer: id => playerMapHints({ player: this.state.players.get(id), tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid), relicIndex: this.relicMapHintIndex, neutralTileKeys: this.neutralBeaconTileKeys, isExplored: (pid, x, y) => this.exploredTiles.isExplored(pid, x, y) }),
+      mapHintsForPlayer: id => playerMapHints({ player: this.state.players.get(id), tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid), relicIndex: this.relicMapHintIndex, neutralTileKeys: this.neutralBeaconTileKeys, isExplored: (pid, x, y) => this.exploredTiles.isExplored(pid, x, y) }), exploredCountForPlayer: (pid) => this.exploredTiles.exploredCount(pid), now: () => this.now(),
       lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
       hasActiveOwnedAfc: id => [...this.summaryForPlayer(id).ownedAfcTileKeys].some(key => this.state.tiles.get(key)?.afc?.status === "active"),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),

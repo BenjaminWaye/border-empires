@@ -64,6 +64,7 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     lifetimeGarrisons?: number;
+    achievements?: import("@border-empires/game-domain").PlayerAchievementState;
     redeploys?: number;
     islandNames?: IslandNameClaim[];
     houseCharges?: import("@border-empires/shared").HouseChargesState;

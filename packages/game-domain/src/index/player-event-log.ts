@@ -20,7 +20,9 @@ export type PlayerEventLogEntryType =
   | "OCCUPATION_SURVEY"
   // An ADVANCE muster flag finished clearing its area:
   // no hostile tiles are left within range of the flag.
-  | "AREA_CLEARED";
+  | "AREA_CLEARED"
+  // The House earned an achievement badge (shared achievements.ts).
+  | "ACHIEVEMENT_EARNED";
 
 // Structured fields a WAYSTATION_ACTIVATED entry carries alongside the flat
 // text/x/y every entry has, so the client can render the same rich
@@ -116,4 +118,12 @@ const trimKeepingSurveyReports = (log: PlayerEventLogEntry[]): PlayerEventLogEnt
     }
     return true;
   });
+};
+
+/** Per-player achievement counters and earned times (ms), saved with the player. */
+export type PlayerAchievementState = {
+  campsCleared?: number;
+  tilesTakenInBattle?: number;
+  structuresBuilt?: number;
+  earned?: Partial<Record<import("@border-empires/shared").AchievementId, number>>;
 };

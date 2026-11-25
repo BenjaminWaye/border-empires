@@ -8,7 +8,7 @@ export type CheckoutStatus = "open" | "paid" | "expired";
 
 export interface PaymentProvider {
   /** Must be safe to repeat for the same sector id (one checkout per sector). */
-  createCheckout(input: { sectorId: string; accountUid: string; amountCents: number; currency: string }): Promise<{ paymentRef: string; checkoutUrl: string }>;
+  createCheckout(input: { sectorId: string; accountUid: string; amountCents: number; currency: string; options: HostedSectorOptions; createdAt: number }): Promise<{ paymentRef: string; checkoutUrl: string }>;
   /** Asked when a webhook may have been missed. */
   getCheckoutStatus(paymentRef: string): Promise<CheckoutStatus>;
   /** Full refund. Must be safe to repeat. */
