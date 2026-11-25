@@ -3,7 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-identity/firebase-token-verifier.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
-import { FakePaymentProvider, FakeServerProvider } from "./providers/fake-providers.js";
+import { FakePaymentProvider } from "./providers/fake-providers.js";
+import { serverProviderFromEnv } from "./providers/server-provider-from-env.js";
 import { assertStripeTestMode, createStripeApi } from "./providers/stripe/stripe-api.js";
 import { createStripePaymentProvider } from "./providers/stripe/stripe-payment-provider.js";
 import { createStripeWebhookParser } from "./providers/stripe/stripe-webhook.js";
@@ -36,7 +37,8 @@ const payment = stripe && env.payment.kind === "stripe-test"
 const control = createSectorControlApp({
   store,
   payment: payment.provider,
-  servers: new FakeServerProvider(),
+  // Hetzner creates real servers in the hosted-sectors project; the fake creates none.
+  servers: serverProviderFromEnv(env.servers, env.ticketPrivateKeyPem),
   config: env.config,
   ticketPrivateKeyPem: env.ticketPrivateKeyPem,
   reconcileIntervalMs: env.reconcileIntervalMs,

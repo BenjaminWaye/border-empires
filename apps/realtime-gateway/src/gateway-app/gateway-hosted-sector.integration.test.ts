@@ -91,13 +91,18 @@ describe("gateway in hosted-sector mode", () => {
     expect((await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid") })).type).toBe("INIT");
   }, TEST_TIMEOUT_MS);
 
-  it("keeps signed-in HTTP routes for accounts that have entered the sector", async () => {
+  it("keeps signed-in HTTP routes for accounts that have entered the sector, and reports their visits to the hosting service", async () => {
     const { address, httpUrl } = await startGateway(true);
     const member = await idToken({ sub: "member-uid", user_id: "member-uid", email: "member@example.com" });
     const stranger = await idToken({ sub: "stranger-uid", user_id: "stranger-uid", email: "stranger@example.com" });
     const waitlist = (token: string) => fetch(`${httpUrl}/sector/waitlist`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}" });
 
+    const statusOf = async (token: string) => fetch(`${httpUrl}/admin/hosted/status`, { headers: { authorization: `Bearer ${token}` } });
+    expect((await statusOf("wrong")).status).toBe(401);
+    expect(await (await statusOf(ADMIN_TOKEN)).json()).toEqual({ ok: true });
     expect((await authOverSocket(address.wsUrl, { token: member, sectorTicket: await ticket("member-uid") })).type).toBe("INIT");
+    // The hosting service closes a sector nobody visits; a member's entry counts as a visit.
+    await expect.poll(async () => ((await (await statusOf(ADMIN_TOKEN)).json()) as { lastHumanVisitAt?: number }).lastHumanVisitAt).toBeGreaterThan(0);
     expect((await waitlist(stranger)).status).toBe(401);
     expect((await waitlist(member)).status).not.toBe(401);
   }, TEST_TIMEOUT_MS);
