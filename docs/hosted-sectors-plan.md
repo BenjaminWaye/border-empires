@@ -68,7 +68,7 @@ Player ── play.borderempires.com (client)
             │  buy / invite / list sectors          play
             ▼                                        ▼
    Hosting service  ── creates, checks, deletes ──▶  Sector server (one per hosted sector)
-   (on the production server)                        s-<id>.sectors.borderempires.com
+   (on the production server)                        s-<id>.borderempires-sectors.com
       │           │
       ▼           ▼
     Stripe     Hetzner Cloud API + DNS
@@ -149,9 +149,13 @@ kept by another tool would be one more thing to go out of step.
    sending-only email key (Q14), and the address of the hosting service.
    Cloud-init user data is readable from inside the server only, and every
    secret in it is specific to hosted sectors.
-2. **Create the DNS name** `s-<id>.sectors.borderempires.com` pointing at the
-   new server. This needs `sectors.borderempires.com` delegated once, by the
-   owner, from Namecheap to Hetzner DNS, so the same token can manage it.
+2. **Create the DNS name** `<sector id>.borderempires-sectors.com` (ids look like `s-xxxx`) pointing at the
+   new server. Sectors use their own domain, `borderempires-sectors.com`
+   (registered at Namecheap on 2026-11-25 with Hetzner's nameservers), so the same token can
+   manage it. Hetzner DNS does not accept a subdomain such as
+   `sectors.borderempires.com` as a zone (its API answered "unsupported tld" when we tried, 2026-11-25), and Namecheap's API can only replace
+   all of `borderempires.com`'s records at once, which would put the main game
+   at risk; a separate domain keeps any mistake away from it.
 3. **The server deploys itself**: pulls the public image at the release the
    production server runs, starts it, and generates the world. Caddy obtains
    the server's own HTTPS certificate (§11 on why not yet a wildcard).
@@ -193,7 +197,7 @@ If creation is slow or failing it says so plainly (§10).
 | Per-sector admin token | Hosting service and that one sector server | Generated at creation, stored in the hosting database, deleted with the sector. |
 | Signing key for membership tickets (§7) | Hosting service (private half); sector servers get only the public half | Same secrets file. |
 | Sending-only Resend key (Q14) | Every sector server | Sector configuration, written at creation. Separate from the production key, so it can be revoked alone. |
-| Wildcard certificate key for `*.sectors.borderempires.com` (§11) | Hosting service obtains it; every sector server holds a copy | Fetched by each sector server from the hosting service with its own admin token. |
+| Wildcard certificate key for `*.borderempires-sectors.com` (§11) | Hosting service obtains it; every sector server holds a copy | Fetched by each sector server from the hosting service with its own admin token. |
 
 During Stage 2 development, test-mode keys and a test-project token are asked
 for through the secure credential request. Live keys are entered by the owner
@@ -379,10 +383,11 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 - **Hetzner's own limit** on servers per project is the one ceiling we do not
   control. The owner asks Hetzner to raise it before launch, and again when
   the alert marks above are passed.
-- **Let's Encrypt** issues at most 50 new certificates a week for
-  `borderempires.com`. With no cap this would stop new sectors in a busy
-  week, so sector servers use one wildcard certificate for
-  `*.sectors.borderempires.com` instead of one certificate each. A wildcard
+- **Let's Encrypt** issues at most 50 new certificates a week per registered
+  domain, here `borderempires-sectors.com` (separate from `borderempires.com`,
+  so sectors never use up the main game's allowance). With no cap this would
+  stop new sectors in a busy week, so sector servers are to use one wildcard certificate for
+  `*.borderempires-sectors.com` instead of one certificate each. A wildcard
   needs a DNS challenge, so the hosting service obtains and renews it with the
   Hetzner DNS token it already holds (sector servers never get that token),
   and each sector server fetches the certificate and key from the hosting
@@ -401,7 +406,18 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 
 ## 12. Split funding (the funding bar)
 
-Built last; cut first.
+Built last; cut first. **Kept for launch (owner, 2026-11-25), and built in
+PR 7.** As built: checkouts in progress do not reduce what is left, so
+nobody can lock the bar by starting a payment and leaving, and a member's new
+pledge closes their own unfinished one. When the holds reach the price they
+are charged in the order they were placed; the share that crosses the price is
+charged only the part still needed, and every other hold and open checkout is
+released. A failed capture is checked with Stripe: money taken anyway is
+counted, a hold still in place is tried again, and only a lapsed hold is
+dropped (the bar then stays open). Only holds placed before the 72-hour
+deadline count; an unfilled bar at the deadline releases every hold and
+refunds anything already charged. One contributor's refund or withdrawal
+leaves the sector running.
 
 1. A player opens a funding bar instead of paying in full: they choose the
    options and get a link to share. A bar has a deadline.
@@ -476,7 +492,7 @@ The Stripe test-mode work does not do these yet.
 | Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
 | Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
 | Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
-| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; delegating `sectors.borderempires.com` to Hetzner DNS at Namecheap. | Needed before the first real server or test payment. |
+| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; a domain for sector servers whose nameservers are Hetzner's. | **Done 2026-11-25:** Stripe test account, Hetzner project and token, and `borderempires-sectors.com` bought with Hetzner's nameservers; the Hetzner zone exists. |
 
 ## 14. Cost
 
@@ -517,7 +533,7 @@ players until the last one. Sales are behind a setting that is off by default.
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
 | 5 | **Stripe, single host, test mode.** Checkout, webhook, expiry, refunds and disputes, automatic refund on failure, status page, emails, limits and the kill switch. Client changelog entry. | Stripe test mode only. No live keys. |
 | 6 | **Staging rehearsal and measurements.** A full test-mode purchase on staging creating a real test server: time to open, a forced failure, a teardown. Results recorded in `docs/load-results/`. | Test project, test mode, with the owner's go-ahead. |
-| 7 | **Split funding.** Funding bar, holds and capture, deadline release. | Stripe test mode. |
+| 7 | **Split funding.** Funding bar, holds and capture, deadline release. **Built 2026-11-25.** | Stripe test mode. |
 | 8 | **Launch readiness.** Runbook `docs/agents/hosted-sectors.md`, updates to `deploys.md`, `gdd.md` and `README.md`, legal page links, this plan archived. The owner enters live keys and turns sales on. | **Live charges start only when the owner turns the setting on.** |
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.

@@ -33,7 +33,7 @@ describe("season-end next Sector Contest", () => {
   afterEach(() => setActiveHostedSectorSession(undefined));
 
   it("offers no next contest on a hosted sector, which runs only one", () => {
-    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 });
+    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t", expiresAt: 1 });
     const overlayEl = document.createElement("div");
     const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
     renderSeasonEndOverlay({ state: state as any, overlayEl, renderHud: () => {}, startNewSeason: () => {} });

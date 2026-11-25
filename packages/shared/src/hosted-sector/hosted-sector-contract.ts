@@ -29,5 +29,12 @@ export const isHostedSectorMapStyle = (value: unknown): value is HostedSectorMap
 export const isHostedSectorMapSize = (value: unknown): value is HostedSectorMapSize =>
   typeof value === "string" && Object.hasOwn(HOSTED_SECTOR_MAP_SIZES, value);
 
+/**
+ * The DNS zone every hosted sector server lives under, as <sector id>.<zone>.
+ * The web client connects only to hosts under it and the hosting service
+ * creates records only in it, so both read it from here.
+ */
+export const HOSTED_SECTOR_DNS_ZONE = "borderempires-sectors.com";
+
 /** Launch price of one hosted sector, in US cents (owner decision 2026-11-23). */
 export const HOSTED_SECTOR_PRICE_USD_CENTS = 2000;

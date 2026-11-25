@@ -7,6 +7,7 @@ import type { HostedSectorOptions } from "@border-empires/shared";
 
 import type { CheckoutStatus, PaymentProvider } from "../providers.js";
 import { StripeApiError, type StripeApi } from "./stripe-api.js";
+import { createStripeContributionMethods } from "./stripe-contributions.js";
 
 export type StripePaymentProviderConfig = {
   /** Where the player returns after paying or cancelling, e.g. https://play.borderempires.com */
@@ -40,6 +41,7 @@ const productName = (options: HostedSectorOptions): string =>
 export const createStripePaymentProvider = (api: StripeApi, config: StripePaymentProviderConfig): PaymentProvider => {
   const origin = config.returnOrigin.replace(/\/+$/, "");
   return {
+    ...createStripeContributionMethods(api, { returnOrigin: config.returnOrigin, taxCode: config.taxCode, productName }),
     async createCheckout(input) {
       const params: Record<string, string> = {
         mode: "payment",

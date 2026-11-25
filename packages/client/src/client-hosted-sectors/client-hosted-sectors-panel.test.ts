@@ -20,10 +20,12 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
   const storage = memoryStorage();
   const api = {
     listSectors: vi.fn(async (): Promise<HostingApiResult<{ sectors: HostedSectorSummary[] }>> => ({ ok: true, sectors: [sector()] })),
-    issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.sectors.borderempires.com/ws" })),
+    issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.borderempires-sectors.com/ws" })),
     acceptInvite: vi.fn(async (_code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector() })),
     createOrder: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
-    createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" }))
+    createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" })),
+    openFundingBar: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "funding", role: "host" }) })),
+    contribute: vi.fn(async (_sectorId: string, _amountCents: number): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" }))
   };
   const navigate = vi.fn();
   const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, shareOrigin: "https://play.borderempires.com", refreshMs: 0, ...overrides };
@@ -73,7 +75,7 @@ describe("my sectors panel", () => {
     document.querySelector<HTMLButtonElement>("[data-hosted-sector-enter]")?.click();
     await flush();
     expect(h.api.issueTicket).toHaveBeenCalledWith("s-abc");
-    expect(JSON.parse(h.storage.values.get("be-hosted-sector") ?? "{}")).toEqual({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t-1", expiresAt: 99 });
+    expect(JSON.parse(h.storage.values.get("be-hosted-sector") ?? "{}")).toEqual({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t-1", expiresAt: 99 });
     expect(h.navigate).toHaveBeenCalledWith("/?sector=s-abc");
   });
 
@@ -99,7 +101,7 @@ describe("my sectors panel", () => {
   });
 
   it("offers the way back to the public sector from inside a hosted one", async () => {
-    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 });
+    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t", expiresAt: 1 });
     const h = makeDeps();
     h.storage.setItem("be-hosted-sector", "{}");
     await createHostedSectorsPanel(h.deps).openList();
@@ -287,5 +289,66 @@ describe("my sectors panel", () => {
     await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/being prepared/));
     expect(window.location.search).toBe("");
     document.querySelector<HTMLElement>("[data-hosted-sectors-close]")?.click();
+  });
+
+  it("opens a funding bar when the host chooses to split, without going to payment", async () => {
+    const h = makeDeps();
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    document.querySelector<HTMLElement>("[data-hosted-sector-host]")?.click();
+    const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
+    if (!form) throw new Error("no form");
+    form.querySelector<HTMLInputElement>('input[name="payMode"][value="split"]')!.checked = true;
+    form.querySelector<HTMLInputElement>('input[name="consent"]')!.checked = true;
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(h.api.openFundingBar).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" }));
+    expect(h.api.createOrder).not.toHaveBeenCalled();
+    expect(h.navigate).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/funding bar is open/));
+    panel.close();
+  });
+
+  it("shows a funding bar, and sends a member who chips in to the payment page for that amount", async () => {
+    const h = makeDeps();
+    const funding = { targetCents: 2000, pledgedCents: 1200, pendingCents: 0, deadline: Date.now() + 50 * 3_600_000, minimumCents: 500, yourCents: 0 };
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "member", funding })] });
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    expect(document.querySelector(".hosted-sector-funding")?.textContent).toMatch(/USD 12 of USD 20 pledged · 2 days left/);
+    expect(document.querySelector("[data-hosted-sector-pay-rest]")).toBeNull();
+    const input = document.querySelector<HTMLInputElement>("[data-hosted-sector-amount]");
+    if (!input) throw new Error("no amount");
+    expect(input.max).toBe("8");
+    input.value = "7.50";
+    document.querySelector<HTMLElement>("[data-hosted-sector-chip-in]")?.click();
+    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 750));
+    expect(h.navigate).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/share1");
+    panel.close();
+  });
+
+  it("lets the host pay exactly what is left", async () => {
+    const h = makeDeps();
+    const funding = { targetCents: 2000, pledgedCents: 1700, pendingCents: 0, deadline: Date.now() + 3_600_000, minimumCents: 500, yourCents: 0 };
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding })] });
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    const payRest = document.querySelector<HTMLElement>("[data-hosted-sector-pay-rest]");
+    expect(payRest?.textContent).toMatch(/Pay the rest · USD 3/);
+    payRest?.click();
+    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 300));
+    panel.close();
+  });
+
+  it("asks the host for the full rest even while someone else's payment is in progress", async () => {
+    const h = makeDeps();
+    // A started payment may never finish; counting it would leave the bar short.
+    const funding = { targetCents: 2000, pledgedCents: 1200, pendingCents: 500, deadline: Date.now() + 3_600_000, minimumCents: 500, yourCents: 0 };
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding })] });
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    expect(document.querySelector("[data-hosted-sector-pay-rest]")?.textContent).toMatch(/Pay the rest · USD 8/);
+    // Hosting an open bar counts as hosting: no second sector is offered.
+    expect(document.querySelector("[data-hosted-sector-host]")).toBeNull();
+    panel.close();
   });
 });

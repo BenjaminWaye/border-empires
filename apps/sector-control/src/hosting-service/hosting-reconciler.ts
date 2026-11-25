@@ -7,6 +7,7 @@
 // (every production deploy restarts it) and simply carries on.
 import type { HostingStore, SectorRecord } from "../hosting-store/hosting-store.js";
 import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers/providers.js";
+import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
 
 export type HostingReconcilerDeps = {
@@ -24,6 +25,7 @@ const errorText = (error: unknown): string => (error instanceof Error ? error.me
 
 export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   const { store, config } = deps;
+  const funding = createFundingReconciler(deps);
   // The highest running-count mark already reported, so each is reported once per process.
   let reportedMark = 0;
 
@@ -37,9 +39,10 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   };
 
   const refund = async (sector: SectorRecord, now: number): Promise<void> => {
-    if (!sector.paymentRef) return;
     try {
-      await deps.payment.refund(sector.paymentRef);
+      // A split-funded sector has no single payment: every share is given back.
+      if (sector.paymentRef) await deps.payment.refund(sector.paymentRef);
+      else if (!(await funding.unwind(sector, now))) throw new Error("some shares could not be refunded yet");
       if (store.transitionSector(sector.sectorId, ["creating"], { state: "refunded" }, now)) {
         deps.alert("sector_refunded_automatically", { sectorId: sector.sectorId, attempts: sector.createAttempts });
       }
@@ -137,10 +140,11 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   return {
     /** One pass. A failure on one sector never stops the others. */
     async runOnce(): Promise<void> {
-      for (const sector of store.listSectorsInStates(["awaiting_payment", "creating", "open", "ended", "cancelled", "refunded"])) {
+      for (const sector of store.listSectorsInStates(["awaiting_payment", "funding", "creating", "open", "ended", "cancelled", "refunded"])) {
         const now = deps.now();
         try {
           if (sector.state === "awaiting_payment") await checkUnpaid(sector, now);
+          else if (sector.state === "funding") await funding.step(sector, now);
           else if (sector.state === "creating") await create(sector, now);
           else if (sector.state === "open") await watchOpenSector(sector, now);
           else if (sector.state === "ended") {
