@@ -12,6 +12,13 @@ test("client publishing validates complete releases, rejects unsafe uploads, sup
   });
 });
 
+test("backend deploys publish a restart countdown file and record restart durations", () => {
+  execFileSync("python3", ["-m", "unittest", "discover", "-s", "deploy/tests", "-p", "test_deploy_status.py"], {
+    cwd: new URL("../../", import.meta.url), stdio: "pipe",
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" }
+  });
+});
+
 test("ordinary and forced SSH keys use the same client command allowlist; logs keys cannot publish", () => {
   const directory = mkdtempSync(join(tmpdir(), "be-client-command-"));
   try {

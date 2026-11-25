@@ -72,6 +72,18 @@ describe("planning a scout flight", () => {
     expect(state.scoutDronePicking.active).toBe(false);
   });
 
+  // Playtest 2026-11-25 18:40: Go pressed during a server restart closed the plan as if it had
+  // launched while the send was refused. A refused send keeps the plan for another Go.
+  it("keeps the plan open when Go cannot be sent", () => {
+    const state = pickingState();
+    const d = { ...deps(), sendGameMessage: vi.fn(() => false) };
+    dispatchAfcScoutAction("afc_scout_drone", state);
+    handleScoutDronePickClick(state, 1, 5, d, 0);
+    expect(launchScoutPlan(state, d, 0)).toBe(false);
+    expect(d.sendGameMessage).toHaveBeenCalledTimes(1);
+    expect(state.scoutDronePicking).toMatchObject({ active: true, stops: [{ x: 1, y: 5 }], launches: 0 });
+  });
+
   it("a tap on fog starts a plan with that tile as the first stop", () => {
     const state = pickingState();
     expect(handleScoutDronePickClick(state, 40, 40, deps(), 0)).toBe(true);
