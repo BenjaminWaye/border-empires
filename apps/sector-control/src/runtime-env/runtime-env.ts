@@ -1,11 +1,12 @@
 // Settings of the hosting service, read once at start.
 //
-// Payment: the in-memory fake, or Stripe in test mode. Servers: the fake only,
-// until the Hetzner provider exists. The fakes take no money and create no
-// servers, so the service refuses to start in production: a production
-// hosting service that "sells" sectors nobody receives must be impossible to
-// run by accident. Stripe live mode is not available at all yet.
+// Payment: the in-memory fake, or Stripe in test mode. Servers: the fake, or
+// Hetzner. The fakes take no money and create no servers, so the service
+// refuses to start in production with either of them: a production hosting
+// service that "sells" sectors nobody receives must be impossible to run by
+// accident. Stripe live mode is not available at all yet.
 import { DEFAULT_HOSTING_CONFIG, type HostingConfig } from "../hosting-service/hosting-config.js";
+import { parseServerProviderEnv, type ServerProviderEnv } from "./server-provider-env.js";
 
 export type SectorControlRuntimeEnv = {
   host: string;
@@ -15,7 +16,7 @@ export type SectorControlRuntimeEnv = {
   ticketPrivateKeyPem: string;
   firebaseProjectId?: string;
   payment: { kind: "fake" } | { kind: "stripe-test"; secretKey: string; webhookSecret: string; returnOrigin: string; taxCode: string };
-  servers: "fake";
+  servers: ServerProviderEnv;
   reconcileIntervalMs: number;
   config: HostingConfig;
 };
@@ -50,10 +51,11 @@ const parsePaymentProvider = (env: NodeJS.ProcessEnv): SectorControlRuntimeEnv["
 
 export const parseSectorControlRuntimeEnv = (env: NodeJS.ProcessEnv): SectorControlRuntimeEnv => {
   const nodeEnv = (env.NODE_ENV ?? "").toLowerCase();
-  const servers = (env.HOSTING_SERVER_PROVIDER ?? "fake").toLowerCase();
-  if (servers !== "fake") throw new Error(`HOSTING_SERVER_PROVIDER=${servers} is not available yet; only "fake" exists`);
+  const servers = parseServerProviderEnv(env);
   const payment = parsePaymentProvider(env);
-  if (nodeEnv === "production") throw new Error("the hosting service has no real payment or server provider yet and cannot run in production");
+  if (nodeEnv === "production" && (servers.kind === "fake" || payment.kind === "fake")) {
+    throw new Error("the hosting service cannot run in production with a fake payment or server provider");
+  }
   const sqlitePath = (env.HOSTING_SQLITE_PATH ?? "").trim();
   if (!sqlitePath) throw new Error("HOSTING_SQLITE_PATH is required");
   const ticketKey = (env.HOSTING_TICKET_PRIVATE_KEY ?? "").trim();
@@ -66,7 +68,7 @@ export const parseSectorControlRuntimeEnv = (env: NodeJS.ProcessEnv): SectorCont
     ticketPrivateKeyPem: privateKeyPem(ticketKey),
     ...(firebaseProjectId ? { firebaseProjectId } : {}),
     payment,
-    servers: "fake",
+    servers,
     reconcileIntervalMs: positiveInt("HOSTING_RECONCILE_INTERVAL_MS", env.HOSTING_RECONCILE_INTERVAL_MS, 60_000),
     // Sales stay off unless switched on explicitly (the kill switch, plan section 11).
     config: { ...DEFAULT_HOSTING_CONFIG, salesEnabled: env.HOSTING_SALES_ENABLED === "1" }
