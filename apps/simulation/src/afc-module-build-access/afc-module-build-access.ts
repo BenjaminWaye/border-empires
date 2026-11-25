@@ -5,8 +5,8 @@
  * For a building's own unlock tech, research alone is not enough: an
  * uninstalled module unlocks nothing. Fort/Siege tier techs accept research
  * or an installed copy (the build handler's hasTech). Non-module techs still
- * need research. Abilities follow the same rule (hasAbilityAccess): a
- * captured module casts for its captor. Shared by the build handler, the
+ * need research. Abilities (hasAbilityAccess) accept research or an
+ * installed copy, so a captured module casts for its captor. Shared by the build handler, the
  * auto-improve pass and the AI planner export so they cannot disagree.
  */
 import { playerHasAbilityTech, type AbilityId, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";

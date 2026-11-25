@@ -792,7 +792,7 @@ export class SimulationRuntime {
     });
     if (this.afcUpgradeRuleset) for (const player of this.state.players.values()) player.afcUpgradeRuleset = this.afcUpgradeRuleset;
     this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      isObservatoryShielding: (tile) => this.observatoryShots.isShielding(tile),
+      isObservatoryShielding: (tile) => this.observatoryShots.isShielding(tile), players: this.state.players, ownedAfcTileKeys: (id) => this.summaryForPlayer(id).ownedAfcTileKeys,
       isTileShieldedByOwner: (ownerId, x, y) =>
         isTileShieldedByOwnersIndexedTowers(this.state.tiles, this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? [], (tower) => this.observatoryShots.isShielding(tower), ownerId, x, y)
     });

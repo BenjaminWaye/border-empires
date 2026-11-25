@@ -136,6 +136,7 @@ export class RuntimeAutomationAdvisor {
     }
     const forceBroadFrontierScan = shouldForceBroadFrontierScan(this.hotFrontierStreakByPlayer, playerId);
     const playerScopeKeyCount = plannerPlayerScopeKeyCount(summary);
+    const installedModuleTechIds = activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles);
     const plan = planAutomationCommand({
       playerId,
       points: player.points,
@@ -151,8 +152,8 @@ export class RuntimeAutomationAdvisor {
       hasActiveLock,
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
-      installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles),
-      tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0 || activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles).includes("crystal-lattices"))
+      installedModuleTechIds,
+      tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0 || installedModuleTechIds.includes("crystal-lattices"))
         ? deps.tacticalViewForPlayer(playerId, [...(spatialFocus?.primaryFront ?? [])])
         : undefined,
       ownedStructureCounts: deps.ownedStructureCountsForPlayer(playerId),

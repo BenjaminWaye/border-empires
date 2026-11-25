@@ -60,4 +60,4 @@ export const hasBuildTech = (state: ModuleAccessState & Pick<ClientState, "techI
  * AFC module, installed on an active AFC they own (the server's hasAbilityAccess).
  */
 export const hasAbilityAccess = (state: ModuleAccessState & Pick<ClientState, "techIds">, id: AbilityId): boolean =>
-  playerHasAbilityTech(state.techIds, id) || playerHasAbilityTech(state.techIds, id, installedAfcModuleIds(state));
+  playerHasAbilityTech(state.techIds, id, installedAfcModuleIds(state));

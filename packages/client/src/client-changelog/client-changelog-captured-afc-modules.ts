@@ -18,6 +18,7 @@ export const CAPTURED_AFC_MODULE_ABILITIES_ENTRY: Omit<ClientChangelogEntry, "cr
   changes: [
     "A module on an AFC you captured now also lets you cast its abilities, such as Aether Purge, Aether EMP, Aether Bridge, Aether Wall, Siphon, Create and Remove Mountain, and Retort Transmutation, without researching its Manifest.",
     "Augury Office abilities (Reveal Empire, Survey Sweep) are a crew, not a module, and still need the Manifest.",
-    "AI Houses follow the same rule and will build Aether Towers to cast from a captured module."
+    "You keep these abilities only while you hold the AFC. Lose it and a running Siphon cast from its module ends.",
+    "AI Houses follow the same rule. A captured Aether Resonance Core lets them build Aether Towers."
   ]
 };
