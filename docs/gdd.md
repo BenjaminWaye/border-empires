@@ -253,15 +253,12 @@ baseline.
     every four hours. Next (owner, 2026-11-24): a run of days on the owner's
     own machine with humans playing in turns. Until then the hosting price
     is not settled.
-  - Decided 2026-11-23 (owner): raise the checkpoint process-memory
-    watermark from 700 MB to 1,250 MB, so that checkpoints stop being put off
-    at 100 Houses. Done 2026-11-24 in `deploy/env/*.env`, together with the
-    simulation-heap watermark (480 MB to 680 MB), which was putting
-    checkpoints off on its own once humans played.
-  - Still open, owner decision: 1,250 MB holds early in a contest but not
-    later. On a world with about nine game hours of play the process ran at
-    1.2–1.3 GB and about a third of checkpoints were put off again. In every
-    run so far a watermark of 1,500 MB would have put off none
+  - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
+    process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
+    watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
+    100 Houses. 1,250 MB held early in a contest but not on a world with about
+    nine game hours of play (1.2–1.3 GB); in every run so far 1,500 MB would
+    have put off none. Still to confirm on a run of days
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
