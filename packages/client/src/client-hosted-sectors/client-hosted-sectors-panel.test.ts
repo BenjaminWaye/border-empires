@@ -20,7 +20,7 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
   const storage = memoryStorage();
   const api = {
     listSectors: vi.fn(async (): Promise<HostingApiResult<{ sectors: HostedSectorSummary[] }>> => ({ ok: true, sectors: [sector()] })),
-    issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.sectors.borderempires.com/ws" })),
+    issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.borderempires-sectors.com/ws" })),
     acceptInvite: vi.fn(async (_code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector() })),
     createOrder: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
     createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" })),
@@ -75,7 +75,7 @@ describe("my sectors panel", () => {
     document.querySelector<HTMLButtonElement>("[data-hosted-sector-enter]")?.click();
     await flush();
     expect(h.api.issueTicket).toHaveBeenCalledWith("s-abc");
-    expect(JSON.parse(h.storage.values.get("be-hosted-sector") ?? "{}")).toEqual({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t-1", expiresAt: 99 });
+    expect(JSON.parse(h.storage.values.get("be-hosted-sector") ?? "{}")).toEqual({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t-1", expiresAt: 99 });
     expect(h.navigate).toHaveBeenCalledWith("/?sector=s-abc");
   });
 
@@ -101,7 +101,7 @@ describe("my sectors panel", () => {
   });
 
   it("offers the way back to the public sector from inside a hosted one", async () => {
-    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 });
+    setActiveHostedSectorSession({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t", expiresAt: 1 });
     const h = makeDeps();
     h.storage.setItem("be-hosted-sector", "{}");
     await createHostedSectorsPanel(h.deps).openList();

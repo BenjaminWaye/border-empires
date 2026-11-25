@@ -90,11 +90,11 @@ describe("client app runtime env", () => {
   it("connects only the socket to a hosted sector's server, keeping the main gateway for everything else", () => {
     (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS = "1";
     try {
-      hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 }));
+      hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t", expiresAt: 1 }));
       const state = { localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" };
       const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined, addEventListener: () => undefined } as never);
       const setup = createClientSocketSetup(state as never);
-      expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://s-abc.sectors.borderempires.com/ws");
+      expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://s-abc.borderempires-sectors.com/ws");
       expect(setup.wsUrl).toBe("wss://api.borderempires.com/ws");
       expect(activeHostedSectorId()).toBe("s-abc");
     } finally {
@@ -114,7 +114,7 @@ describe("client app runtime env", () => {
     } finally {
       delete (import.meta.env as Record<string, string>).VITE_HOSTED_SECTORS;
     }
-    hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "t", expiresAt: 1 }));
+    hostedWindow(JSON.stringify({ sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "t", expiresAt: 1 }));
     const createMultiplexWebSocket = vi.spyOn(multiplexWebSocketModule, "createMultiplexWebSocket").mockReturnValue({ close: () => undefined } as never);
     createClientSocketSetup({ localhostDevAetherWall: false, bridgeDebugWsUrl: "", bridgeDebugMode: "unknown" } as never);
     expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://api.borderempires.com/ws");
