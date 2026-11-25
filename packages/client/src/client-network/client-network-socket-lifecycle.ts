@@ -5,6 +5,7 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import { attackSyncLog, recordClientDebugEvent } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
+import { clearAuthOffline, DEPLOY_WAIT_DETAIL, DEPLOY_WAIT_TITLE, markAuthOffline } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
 
 // While the next Sector Contest's world is built the server can be briefly
 // unreachable; say so instead of a bare "Server unreachable".
@@ -63,6 +64,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     // resync; only a healthy session starts a new overlay grace window.
     const wasHealthy = state.connection === "initialized" && state.firstChunkAt > 0;
     if (wasHealthy || !state.disconnectedSince) state.disconnectedSince = Date.now();
+    markAuthOffline(state);
     deps.clearAuthInFlight?.();
     state.connection = "disconnected";
     releaseActivityRequestsOnDisconnect(state);
@@ -77,7 +79,9 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     if (actionKey) deps.clearOptimisticTileState(actionKey, true);
     deps.pushFeed(feedMessage, "error", "info"); // the disconnect overlay is the visible UI
     if (state.authReady && !state.authSessionReady) {
-      deps.applyLoginPhase("Connection interrupted", interruptedDetail);
+      // A first sign-in that loses its socket (usually a deploy restart)
+      // waits and reconnects in place instead of asking for a reload.
+      deps.applyLoginPhase(state.hasEverInitialized ? "Connection interrupted" : DEPLOY_WAIT_TITLE, interruptedDetail);
       state.authRetrying = false;
       state.authRetryAttempt = 0;
     }
@@ -117,7 +121,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     handleSocketTornDown(
       actionKey,
       event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new Sector Contest has started. Loading it..." : state.seasonEndStarting ? NEXT_CONTEST_BUILDING_MESSAGE : "Connection lost. Retrying...",
-      state.hasEverInitialized ? "Reconnecting automatically..." : `The realtime connection to ${deps.wsUrl} closed before sign-in finished. Reload the game to reconnect.`
+      state.hasEverInitialized ? "Reconnecting automatically..." : DEPLOY_WAIT_DETAIL
     );
   });
 
@@ -127,9 +131,14 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     handleSocketTornDown(
       actionKey,
       state.seasonEndStarting ? NEXT_CONTEST_BUILDING_MESSAGE : "Server unreachable. Retrying...",
-      state.hasEverInitialized ? "Reconnecting automatically..." : `The realtime connection to ${deps.wsUrl} failed before sign-in finished. Reload the game to reconnect.`
+      state.hasEverInitialized ? "Reconnecting automatically..." : DEPLOY_WAIT_DETAIL
     );
   });
 
-  return { recovered: reconnect.resetAttempt, noteProgress: reconnect.watchForRecovery };
+  const recovered = (): void => {
+    clearAuthOffline(state);
+    reconnect.resetAttempt();
+  };
+
+  return { recovered, noteProgress: reconnect.watchForRecovery };
 };
