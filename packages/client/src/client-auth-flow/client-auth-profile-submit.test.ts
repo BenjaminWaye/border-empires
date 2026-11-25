@@ -16,7 +16,7 @@ const setup = (overrides: { readyState?: number; connection?: string } = {}) => 
   state.authSessionReady = true;
   state.profileSetupRequired = true;
   state.connection = (overrides.connection ?? "disconnected") as typeof state.connection;
-  const ws = { OPEN: 1, readyState: overrides.readyState ?? 3, send: vi.fn() };
+  const ws = { OPEN: 1 as const, readyState: overrides.readyState ?? 3, send: vi.fn() };
   const setAuthStatus = vi.fn();
   const requireAuthedSession = vi.fn(() => false);
   const choice = { displayName: "Claire", color: "#ff8800" };

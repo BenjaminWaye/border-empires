@@ -182,7 +182,6 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId, sectorTicketProvider);
   bindInitTransferProgress(ws, state, syncAuthOverlay);
 
-
   const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
     if (!firebaseAuth) return;
     const email = emailRaw.trim();
