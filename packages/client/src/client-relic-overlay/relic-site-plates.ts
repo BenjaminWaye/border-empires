@@ -1,7 +1,8 @@
 // Relic site plates: a rival's running relic (aether wake) and a transponder
 // in signal range get a named plate on the map, in the town-plate style, in
 // place of the old light column and hollow square. A wake off screen keeps a
-// tab on the screen edge pointing at it. The plates are DOM buttons over the
+// tab on the screen edge pointing at it until the player first brings the site
+// on screen (relic-site-reached.ts). The plates are DOM buttons over the
 // canvas placed through the frame's projection, so one layer serves the 2D
 // canvas and the true-3D renderer (isTrue3DRendererActive picks the anchor).
 // A tap opens the site's card (Show, Send scout) and never reaches the map,
@@ -14,8 +15,9 @@ import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/cl
 import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-color-separation.js";
 import { handleScoutPlanTap, scoutPlanTapStarts } from "../client-scout-drone/client-scout-drone-plan.js";
 import { RELIC_WAKE_FALLBACK_COLOR } from "./relic-map-hints.js";
-import { edgeTabPoint, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
+import { edgeTabPoint, mapPointPickArmed, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { markRelicSiteReached, relicSiteReached } from "./relic-site-reached.js";
 import "./relic-site-plates.css";
 
 interface Projection { readonly size: number; readonly project: (x: number, y: number) => { sx: number; sy: number } }
@@ -35,7 +37,12 @@ const ARROW = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1.5 8.5 5
 let openKey: string | undefined;
 
 /** Opens the card for a relic site under a map tap (the tile itself, not the plate). True when there is one. */
-export const openRelicSiteCardAt = (state: Pick<ClientState, "me" | "relicMapHints" | "tiles">, wx: number, wy: number): boolean => {
+export const openRelicSiteCardAt = (
+  state: Pick<ClientState, "me" | "relicMapHints" | "tiles" | "scoutDronePicking" | "marchOriginPicking" | "musterMarchTargeting">,
+  wx: number,
+  wy: number
+): boolean => {
+  if (mapPointPickArmed(state)) return false;
   const key = `${wx},${wy}`;
   const plate = relicSitePlateFor(state.relicMapHints.get(key), state.tiles.get(key), state.me, () => undefined);
   if (!plate) return false;
@@ -119,6 +126,9 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
       const live = mapDrawn && state.authSessionReady && !state.profileSetupRequired && !doc.body.classList.contains(PHOTO_MODE_BODY_CLASS);
       const shown = new Set<string>();
       let cardShown = false;
+      // Picking a map point: plates let taps through to the map and no card is open.
+      const passive = mapPointPickArmed(state);
+      if (passive) openKey = undefined;
       for (const hint of live ? state.relicMapHints.values() : []) {
         const plate = relicSitePlateFor(hint, state.tiles.get(`${hint.x},${hint.y}`), state.me, nameOf);
         if (!plate) continue;
@@ -129,13 +139,13 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
         let edge: ReturnType<typeof edgeTabPoint>;
         if (!onScreen) {
           // Only a rival's running relic is worth a tab; the direction comes from the world, which both renderers keep north-up.
-          if (plate.kind !== "WAKE") continue;
+          if (plate.kind !== "WAKE" || !plate.ownerId || relicSiteReached(plate.ownerId, plate.key)) continue;
           const dx = wrappedDelta(state.camX, plate.x, WORLD_WIDTH), dy = wrappedDelta(state.camY, plate.y, WORLD_HEIGHT);
           const len = Math.max(1e-6, Math.hypot(dx, dy));
           edge = edgeTabPoint(bounds.width / 2 + (dx / len) * 1e5, bounds.height / 2 + (dy / len) * 1e5, bounds.width, bounds.height, EDGE_INSETS);
           if (!edge) continue;
           left = edge.x; top = edge.y;
-        }
+        } else if (plate.kind === "WAKE" && plate.ownerId) markRelicSiteReached(plate.ownerId, plate.key);
         shown.add(plate.key);
         let entry = buttons.get(plate.key);
         if (!entry) {
@@ -148,7 +158,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
           buttons.set(plate.key, entry);
         }
         const { el } = entry;
-        el.onclick = (event) => { event.stopPropagation(); openKey = openKey === plate.key ? undefined : plate.key; };
+        el.onclick = (event) => { event.stopPropagation(); if (mapPointPickArmed(state)) return; openKey = openKey === plate.key ? undefined : plate.key; };
         const html = plateHtml(plate, Boolean(edge), edge ? tilesFromCamera(state.camX, state.camY, plate.x, plate.y) : 0);
         if (entry.html !== html) {
           el.innerHTML = html; entry.html = html;
@@ -158,7 +168,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
           const detail = el.querySelector(".relic-plate-detail") as HTMLElement;
           if (detail.textContent !== plate.detail) detail.textContent = plate.detail;
         }
-        const className = `relic-plate is-${plate.kind === "WAKE" ? "wake" : "signal"}${edge ? ` is-edge${edge.x >= bounds.width / 2 ? " is-edge-right" : ""}` : ""}${openKey === plate.key ? " is-open" : ""}`;
+        const className = `relic-plate is-${plate.kind === "WAKE" ? "wake" : "signal"}${edge ? ` is-edge${edge.x >= bounds.width / 2 ? " is-edge-right" : ""}` : ""}${openKey === plate.key ? " is-open" : ""}${passive ? " is-passive" : ""}`;
         if (el.className !== className) el.className = className;
         const label = `${plate.title}, ${plate.detail}, at ${plate.x}, ${plate.y}`;
         if (el.getAttribute("aria-label") !== label) el.setAttribute("aria-label", label);

@@ -48,11 +48,13 @@ empty-cell symbol and the tile information/dialog says **Depleted**.
 depleted, it gives off an aether wake every other House sees, through fog and
 unexplored ground: a named plate on the site on both map renderers
 ("Concordance relic", the operating House, in that House's colour; a tab on
-the screen edge with the distance when the site is off screen) and a violet
+the screen edge with the distance while the site is off screen, until the
+player first brings it on screen, remembered per House and site) and a violet
 diamond on the minimap (with an edge arrow when it is off the minimap's view).
 A transponder in signal range shows a "Relic signal" plate instead. Tapping a
 plate, or the site's tile, opens the site's card (Show, Send scout) rather
-than a scout flight plan (`relic-site-plates.ts`). The wake carries the location and the operating
+than a scout flight plan (`relic-site-plates.ts`); while scout waypoints or a
+march point are being picked, the tap is that pick instead. The wake carries the location and the operating
 House only, never the installation type or reserves (`kind: "WAKE"` relic map
 hint, `relicWakeOwner` in `runtime-relic-map-hints.ts`), though a wake that
 ends while the same House still holds the site shows the relic is spent. It

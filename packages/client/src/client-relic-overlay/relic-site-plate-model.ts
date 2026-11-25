@@ -69,3 +69,14 @@ export const edgeTabPoint = (
   const scale = Math.min(scaleX, scaleY, 1);
   return { x: cx + dx * scale, y: cy + dy * scale, angle: Math.atan2(dy, dx) };
 };
+
+/**
+ * While the player is picking a map point (scout waypoints, a march origin or
+ * target), a tap on a relic is that pick, not the relic's card: plates let the
+ * tap through to the map and the tile tap does not open the card.
+ */
+export const mapPointPickArmed = (state: {
+  readonly scoutDronePicking: { readonly active: boolean };
+  readonly marchOriginPicking: { readonly active: boolean };
+  readonly musterMarchTargeting: { readonly active: boolean };
+}): boolean => state.scoutDronePicking.active || state.marchOriginPicking.active || state.musterMarchTargeting.active;
