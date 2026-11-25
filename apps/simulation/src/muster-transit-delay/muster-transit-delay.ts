@@ -9,6 +9,8 @@ export type MusterTransitDelayInput = {
   dockLanding: DockLandingIndex;
   /** The marching player: only their own docks can start a crossing, as for a dock attack. */
   playerId: string;
+  /** The marching player's allies: their land, like the player's own, is friendly ground to march through. */
+  allies?: ReadonlySet<string>;
   activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   /** The funding muster flag. */
   flag: TransitPoint;
@@ -46,6 +48,11 @@ export const musterTransitMs = (input: MusterTransitDelayInput): number => {
     isPassable: (x, y) => {
       const tile = tiles.get(simulationTileKey(x, y));
       return !tile || tile.terrain === "LAND";
+    },
+    // Troops keep to their own, allied or neutral ground while a way round exists.
+    isHostile: (x, y) => {
+      const ownerId = tiles.get(simulationTileKey(x, y))?.ownerId;
+      return !!ownerId && ownerId !== playerId && !input.allies?.has(ownerId);
     },
     crossingsFrom: (x, y) => {
       const key = simulationTileKey(x, y);

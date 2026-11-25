@@ -21,20 +21,23 @@ import { clientTerrainAt, type DockLandingState } from "../client-dock-landing-g
  * so under fog the drawn route can differ from the one the server timed; the
  * server's arrival time stays the authority either way. Only the player's own
  * docks start a crossing, as on the server. Aether bridges aren't modelled
- * here: a march over one falls back to the straight walk.
+ * here: a march over one falls back to the straight walk. Like the server,
+ * troops keep off land held by anyone but us and our allies while a way round
+ * exists.
  *
  * The 3D overlay asks for it every frame, so routes are memoised by
  * endpoints. Bounded: at most ROUTE_MEMO_MAX entries, oldest evicted first,
- * each kept ROUTE_MEMO_TTL_MS so terrain changes and lifted fog are picked up,
- * and all dropped whenever the dock pairs change.
+ * each kept ROUTE_MEMO_TTL_MS so terrain/border changes and lifted fog are picked up,
+ * and all dropped whenever the dock pairs or allies change.
  */
 const ROUTE_MEMO_MAX = 32;
 const ROUTE_MEMO_TTL_MS = 5_000;
 const routeMemo = new Map<string, { route: MusterTransitRoute; expiresAt: number }>();
 let memoDockPairs: DockLandingState["dockPairs"] | undefined;
+let memoAllies: readonly string[] | undefined;
 
-/** The client state a route reads: tiles, dock pairs, and who "we" are. */
-export type MusterRouteState = DockLandingState & { readonly me?: string | undefined };
+/** The client state a route reads: tiles, dock pairs, who "we" are, and our allies (whose land troops march through). */
+export type MusterRouteState = DockLandingState & { readonly me?: string | undefined; readonly allies?: readonly string[] | undefined };
 
 /** Where a troop transport from each dock tile may land: every linked dock and the beaches beside it. */
 const landingsByDock = (state: DockLandingState): Map<string, TransitPoint[]> => {
@@ -58,9 +61,10 @@ const landingsByDock = (state: DockLandingState): Map<string, TransitPoint[]> =>
 };
 
 export const clientMusterTransitRoute = (state: MusterRouteState, from: TransitPoint, to: TransitPoint): MusterTransitRoute => {
-  if (memoDockPairs !== state.dockPairs) {
+  if (memoDockPairs !== state.dockPairs || memoAllies !== state.allies) {
     routeMemo.clear();
     memoDockPairs = state.dockPairs;
+    memoAllies = state.allies;
   }
   const nowMs = Date.now();
   const key = `${from.x},${from.y}>${to.x},${to.y}`;
@@ -73,6 +77,11 @@ export const clientMusterTransitRoute = (state: MusterRouteState, from: TransitP
     isPassable: (x, y) => {
       const terrain = state.tiles.get(`${x},${y}`)?.terrain;
       return terrain === undefined || terrain === "LAND";
+    },
+    // Same rule as the server: keep off land held by anyone but us and our allies while a way round exists.
+    isHostile: (x, y) => {
+      const ownerId = state.tiles.get(`${x},${y}`)?.ownerId;
+      return !!ownerId && ownerId !== state.me && !(state.allies?.includes(ownerId) ?? false);
     },
     crossingsFrom: (x, y) => {
       if (state.me === undefined || state.tiles.get(`${x},${y}`)?.ownerId !== state.me) return undefined;

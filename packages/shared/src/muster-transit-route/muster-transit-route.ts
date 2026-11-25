@@ -13,6 +13,11 @@ import { MUSTER_TRANSIT_MAX_TILES, musterMarchDistanceTiles } from "../muster-co
  * same crossings a dock attack may make), march out and carry on. Before this
  * the travel time was the straight-line distance and the company walked across
  * the sea.
+ *
+ * Troops also keep off hostile land (owned by anyone but the marching player
+ * and their allies) when a way round exists within the search budget: they
+ * march through their own, allied or neutral ground instead, which can make
+ * the walk longer. Only when there is no such way do they cut across it.
  */
 
 export type TransitPoint = { readonly x: number; readonly y: number };
@@ -33,6 +38,8 @@ export type MusterTransitRouteInput = {
   to: TransitPoint;
   /** True for land a company can walk over. The two endpoints are always allowed. */
   isPassable: (x: number, y: number) => boolean;
+  /** True for land held by someone other than the marching player and their allies. Avoided while a way round exists. */
+  isHostile?: (x: number, y: number) => boolean;
   /** Tiles a troop transport from a dock at (x, y) can land on; empty or undefined when (x, y) is no dock the marching player may sail from. */
   crossingsFrom: (x: number, y: number) => readonly TransitPoint[] | undefined;
   /** The marching player's aether bridges from (x, y): crossed on foot, as one step. */
@@ -142,21 +149,13 @@ class CostHeap {
 }
 
 /**
- * Plans the company's route. A straight walk over land is taken as is (the
- * common case, and free); otherwise a search over land, with each dock
- * crossing costed at its sail time, finds the quickest route -- so a short
- * walk round a mountain beats a long voyage, and a voyage beats a long walk
- * round a bay. Aether bridges are crossed on foot as one step. Bounded at
- * maxSteps tiles of marching plus one full crossing. When no
- * route exists within that, the straight walk is returned, as before this
- * existed, so the attack is never refused for it.
+ * Quickest route from `from` to `to` over tiles `canEnter` accepts (the two
+ * endpoints always), with each dock crossing costed at its sail time and
+ * aether bridges crossed on foot as one step. Bounded at maxSteps tiles of
+ * marching plus one full crossing; undefined when nothing is found within it.
  */
-export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTransitRoute => {
+const searchTransitLegs = (input: MusterTransitRouteInput, canEnter: (x: number, y: number) => boolean): MusterTransitLeg[] | undefined => {
   const { from, to } = input;
-  const straight = straightTransitWalk(from, to);
-  const straightClear = straight.slice(1, -1).every((point) => input.isPassable(point.x, point.y));
-  if (straightClear) return routeOf([{ kind: "WALK", points: straight }]);
-
   const keyOf = (x: number, y: number): number => y * WORLD_WIDTH + x;
   const pointOf = (key: number): TransitPoint => ({ x: key % WORLD_WIDTH, y: Math.floor(key / WORLD_WIDTH) });
   const fromKey = keyOf(from.x, from.y);
@@ -165,7 +164,7 @@ export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTr
   const best = new Map<number, number>([[fromKey, 0]]);
   const parent = new Map<number, { prev: number; sail: boolean }>([[fromKey, { prev: -1, sail: false }]]);
   const done = new Set<number>();
-  const passable = new Map<number, boolean>();
+  const enterable = new Map<number, boolean>();
   const heap = new CostHeap();
   heap.push(0, fromKey);
   const relax = (currentKey: number, cost: number, x: number, y: number, sail: boolean): void => {
@@ -173,10 +172,10 @@ export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTr
     const key = keyOf(x, y);
     if (done.has(key) || cost >= (best.get(key) ?? Number.POSITIVE_INFINITY)) return;
     if (key !== toKey) {
-      let ok = passable.get(key);
+      let ok = enterable.get(key);
       if (ok === undefined) {
-        ok = input.isPassable(x, y);
-        passable.set(key, ok);
+        ok = canEnter(x, y);
+        enterable.set(key, ok);
       }
       if (!ok) return;
     }
@@ -205,7 +204,7 @@ export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTr
     }
     for (const end of input.bridgesFrom?.(current.x, current.y) ?? []) relax(key, cost + MUSTER_TRANSIT_MS_PER_TILE, end.x, end.y, false);
   }
-  if (!found) return routeOf([{ kind: "WALK", points: straight }]);
+  if (!found) return undefined;
 
   // Walk the parents back from the launch tile, then split at each crossing.
   const steps: Array<{ point: TransitPoint; sail: boolean }> = [];
@@ -229,5 +228,29 @@ export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTr
     walk = [step.point];
   }
   if (walk.length > 1) legs.push({ kind: "WALK", points: walk });
-  return routeOf(legs);
+  return legs;
+};
+
+/**
+ * Plans the company's route. A straight walk over land that crosses no hostile
+ * ground is taken as is (the common case, and free). Otherwise the quickest
+ * route that keeps off hostile land is searched for -- so a short walk round a
+ * mountain beats a long voyage, a voyage beats a long walk round a bay, and
+ * troops go round an enemy's border through their own or allied ground. When
+ * no such route exists in budget, hostile land is allowed (the old search);
+ * when there is still none, the straight walk is returned, as before this
+ * existed, so the attack is never refused for it.
+ */
+export const planMusterTransitRoute = (input: MusterTransitRouteInput): MusterTransitRoute => {
+  const { from, to, isHostile } = input;
+  const straight = straightTransitWalk(from, to);
+  const between = straight.slice(1, -1);
+  const straightPassable = between.every((point) => input.isPassable(point.x, point.y));
+  if (straightPassable && (!isHostile || !between.some((point) => isHostile(point.x, point.y)))) return routeOf([{ kind: "WALK", points: straight }]);
+  const friendlyLegs = isHostile ? searchTransitLegs(input, (x, y) => input.isPassable(x, y) && !isHostile(x, y)) : undefined;
+  if (friendlyLegs) return routeOf(friendlyLegs);
+  // Hostile land can't be avoided: cut straight across it when the terrain
+  // allows, as before, else take the quickest route over any land.
+  if (straightPassable) return routeOf([{ kind: "WALK", points: straight }]);
+  return routeOf(searchTransitLegs(input, input.isPassable) ?? [{ kind: "WALK", points: straight }]);
 };

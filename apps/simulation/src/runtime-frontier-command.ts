@@ -308,7 +308,7 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
+    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, allies: actor.allies, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's

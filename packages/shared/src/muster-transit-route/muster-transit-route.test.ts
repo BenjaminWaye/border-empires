@@ -87,5 +87,43 @@ describe("planMusterTransitRoute", () => {
     const sailed = route.legs.reduce((sum, leg, i) => sum + (leg.kind === "SAIL" ? route.legMs[i]! : 0), 0);
     expect(sailed).toBeLessThanOrEqual(MUSTER_SAIL_MAX_MS + 1);
   });
-});
 
+  // REGRESSION (player report 2026-11-25): troops walked the straight line to
+  // their launch tile even across an enemy's territory. A block of enemy land
+  // at x 4..6, y 3..7 sits between the flag (2,5) and the launch tile (8,5);
+  // open land all round it.
+  const enemyBlock = (x: number, y: number): boolean => x >= 4 && x <= 6 && y >= 3 && y <= 7;
+  const walkedPoints = (route: ReturnType<typeof planMusterTransitRoute>): TransitPoint[] =>
+    route.legs.flatMap((leg) => (leg.kind === "WALK" ? [...leg.points] : []));
+
+  it("marches round hostile land when a way round exists", () => {
+    const route = planMusterTransitRoute({
+      from: { x: 2, y: 5 }, to: { x: 8, y: 5 }, isPassable: () => true, isHostile: enemyBlock, crossingsFrom: () => undefined, maxSteps: 60
+    });
+    const points = walkedPoints(route);
+    expect(points[0]).toEqual({ x: 2, y: 5 });
+    expect(points.at(-1)).toEqual({ x: 8, y: 5 });
+    for (const point of points) expect(enemyBlock(point.x, point.y)).toBe(false);
+    // The detour is longer than the 6-tile straight line, and timed as walked.
+    expect(points.length - 1).toBeGreaterThan(6);
+    expect(route.transitMs).toBe((points.length - 1) * MUSTER_TRANSIT_MS_PER_TILE);
+  });
+
+  it("cuts straight across hostile land when there is no way round", () => {
+    // Enemy land fills the whole band between the two, so nothing friendly connects them.
+    const enemyBand = (x: number): boolean => x >= 4 && x <= 6;
+    const route = planMusterTransitRoute({
+      from: { x: 2, y: 5 }, to: { x: 8, y: 5 }, isPassable: () => true, isHostile: (x) => enemyBand(x), crossingsFrom: () => undefined, maxSteps: 60
+    });
+    expect(route.legs).toHaveLength(1);
+    expect(walkedPoints(route)).toHaveLength(7);
+  });
+
+  it("keeps the straight walk when it crosses no hostile land", () => {
+    const route = planMusterTransitRoute({
+      from: { x: 2, y: 1 }, to: { x: 8, y: 1 }, isPassable: () => true, isHostile: enemyBlock, crossingsFrom: () => undefined, maxSteps: 60
+    });
+    expect(walkedPoints(route)).toHaveLength(7);
+    expect(route.transitMs).toBe(6 * MUSTER_TRANSIT_MS_PER_TILE);
+  });
+});
