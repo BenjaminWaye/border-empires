@@ -168,7 +168,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   // A tracker row "Relay Beacon to grain/fish": straight into beacon placement.
   const beacon = target.closest<HTMLElement>("[data-hud-v2-beacon]");
   if (beacon) {
-    // A food row's beacon starts placement on your land nearest the grain or fish it names.
+    // A food row's beacon starts placement on a beacon site in reach nearest the grain or fish it names.
     const x = Number(beacon.dataset.hudV2BeaconX);
     const y = Number(beacon.dataset.hudV2BeaconY);
     startRelayBeaconPlacement(deps, beacon.dataset.hudV2BeaconX !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined);
@@ -378,7 +378,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     },
     onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
     onBarAction: (id, view, tileKey) => {
-      // Relay Beacon toward here: placement on your land toward this tile, centred (client-relay-beacon-toward.ts).
+      // Relay Beacon toward here: placement on a beacon site in reach toward this tile, centred (client-relay-beacon-toward.ts).
       const [x, y] = tileKey.split(",").map(Number);
       if (id === RELAY_BEACON_TOWARD_ACTION_ID && Number.isFinite(x) && Number.isFinite(y)) startRelayBeaconPlacement(deps, { x: x!, y: y! });
       battleOnBarAction(id, view, tileKey);
