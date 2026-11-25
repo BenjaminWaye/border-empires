@@ -10,15 +10,12 @@ import {
   planScoutDroneWaypointFlight,
   SCOUT_DRONE_MAX_STOPS,
   extendScoutDroneFlight,
-  scoutDroneBlockAt,
   scoutDroneStepIndexAt,
   speedUpScoutDroneFlight,
   turnScoutDroneFlightHome,
   type ScoutDroneFlight,
   type ScoutDronePayload,
-  type ScoutDroneTileClass,
   type ScoutReportFindings,
-  type ScoutDroneWorld,
   type ScoutFind,
   type ScoutFindsPayload,
   type ScoutSightedPayload
@@ -29,6 +26,10 @@ import { holdScoutReport, markScoutReportSeen, unseenScoutReport } from "./scout
 import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
+import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge, type ScoutSighting } from "./scout-drone-borders.js";
+import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
+
+export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
 
 // Explore (docs/explore-scout-plan.md §13): one scout drone per player, launched
 // from the active AFC nearest its first stop. It flies through its stops (each
@@ -51,15 +52,8 @@ import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./
 export const SCOUT_DRONE_MAX_ACTIVE_FLIGHTS = 10_000;
 export const SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES = 20_000;
 
-type ActiveFlight = {
-  readonly playerId: string;
-  readonly commandId: string;
-  /** Replaced when a border appears on the path mid-flight and the drone turns back early. */
-  flight: ScoutDroneFlight;
-  /** Last step index applied to vision and findings; -1 before launch. */
-  lastStepIndex: number;
-  /** The tile currently holding this drone's temporary reveal. */
-  revealAt: { x: number; y: number } | undefined;
+/** A flight in the air. `flight` is replaced when a border turns it back or sends it round (scout-drone-borders.ts); `lastStepIndex` is the last step applied to vision and findings (-1 before launch); `revealAt` the tile holding its reveal. */
+type ActiveFlight = ScoutBorderFlight & {
   readonly findings: ScoutFindings;
   alerted: boolean;
 };
@@ -73,6 +67,8 @@ export type ScoutDroneRuntimeDeps = {
   readonly afcTileKeys: (playerId: string) => Iterable<string>;
   /** Owner of the authoritative reach border at a tile, if any: own and allied reach count as home ground. */
   readonly reachOwnerAt: (x: number, y: number) => string | undefined;
+  /** Whether the player can see the tile now: routes are planned on what they can see (scout-drone-worlds.ts). */
+  readonly isVisible: (playerId: string, x: number, y: number) => boolean;
   // Getters: the runtime builds its coverage tracker after this module is created.
   readonly visibilityCoverage: () => Pick<VisibilityCoverageTracker, "addTemporaryReveal" | "removeTemporaryReveal">;
   readonly visionTransitionCallbacks: () => VisibilityTransitionCallbacks;
@@ -83,7 +79,7 @@ export type ScoutDroneRuntimeDeps = {
   readonly isPlayerSubscribed?: (playerId: string) => boolean;
 };
 
-export type ScoutDroneGauge = {
+export type ScoutDroneGauge = ScoutDroneBorderGauge & {
   activeFlights: number;
   alertCooldownEntries: number;
   capRefusals: number;
@@ -133,7 +129,6 @@ export const scoutDroneCommandDispatchHandlers = (
 
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
 const keyOf = (x: number, y: number): string => `${x},${y}`;
-export const isPlanetaryDefenseId = (playerId: string): boolean => playerId.startsWith("barbarian-");
 
 export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDroneRuntime => {
   const flights = new Map<string, ActiveFlight>();
@@ -157,26 +152,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
 
   const isOwnOrAllied = (actorId: string, ownerId: string): boolean => ownerId === actorId || (deps.players().get(actorId)?.allies.has(ownerId) ?? false);
 
-  // Read live each time, so a border that appears, an alliance that ends or reach that grows mid-flight counts.
-  const worldFor = (actorId: string): ScoutDroneWorld => ({
-    width: deps.worldWidth,
-    height: deps.worldHeight,
-    classify: (x: number, y: number): { kind: ScoutDroneTileClass; ownerId?: string } => {
-      const wx = wrap(x, deps.worldWidth);
-      const wy = wrap(y, deps.worldHeight);
-      const ownerId = deps.tiles().get(keyOf(wx, wy))?.ownerId;
-      // Planetary Defense land stays open even inside reach: the drone still scouts it.
-      if (ownerId && isPlanetaryDefenseId(ownerId)) return { kind: "OPEN" };
-      if (ownerId) return isOwnOrAllied(actorId, ownerId) ? { kind: "HOME" } : { kind: "BLOCKED", ownerId };
-      // Unclaimed ground inside the player's (or an ally's) reach is already in sight: fly it at home pace.
-      const reachOwnerId = deps.reachOwnerAt(wx, wy);
-      return reachOwnerId && isOwnOrAllied(actorId, reachOwnerId) ? { kind: "HOME" } : { kind: "OPEN" };
-    }
-  });
+  // Planned on what the player knows, flown on the live map (scout-drone-worlds.ts).
+  const worlds = createScoutDroneWorlds({ ...deps, isOwnOrAllied });
 
   /** Ground ahead that became the player's reach or land mid-flight: the drone jumps forward over it. */
   const speedUpOverHomeGround = (active: ActiveFlight, nowMs: number): void => {
-    const world = worldFor(active.playerId);
+    const world = worlds.truth(active.playerId);
     const faster = speedUpScoutDroneFlight(active.flight, nowMs, (x, y) => world.classify(x, y).kind === "HOME");
     if (!faster) return;
     active.flight = faster;
@@ -217,8 +198,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `scout-drone-vision:${active.commandId}`, playerId: active.playerId, tileDeltas: [] });
   };
 
-  const alertRival = (active: ActiveFlight, nowMs: number): void => {
-    const { blockedByPlayerId: rivalId, blockedAtX, blockedAtY } = active.flight;
+  const alertRival = (active: ActiveFlight, nowMs: number, sighting?: ScoutSighting): void => {
+    const { blockedByPlayerId: rivalId, blockedAtX, blockedAtY } = sighting ? { blockedByPlayerId: sighting.rivalId, blockedAtX: sighting.x, blockedAtY: sighting.y } : active.flight;
     if (active.alerted || !rivalId || blockedAtX === undefined || blockedAtY === undefined) return;
     active.alerted = true;
     const cooldownKey = `${rivalId}|${active.playerId}`;
@@ -286,18 +267,13 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     });
   };
 
-  /** A rival border on the next outbound tile (claimed, or an alliance ended, mid-flight): turn back now. Returns true when it did. */
-  const turnBackIfBlocked = (active: ActiveFlight, stepIndex: number, nowMs: number): boolean => {
-    if (stepIndex <= 0) return false;
-    const { steps } = active.flight;
-    const wall = scoutDroneBlockAt(steps[stepIndex - 1]!, steps[stepIndex]!, worldFor(active.playerId));
-    if (!wall) return false;
-    active.flight = turnScoutDroneFlightHome(active.flight, stepIndex - 1, nowMs, worldFor(active.playerId), wall);
-    active.lastStepIndex = stepIndex - 1;
-    alertRival(active, nowMs);
-    send(active.playerId, `scout-drone-turned:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
-    return true;
-  };
+  const borders = createScoutDroneBorders<ActiveFlight>({
+    worlds,
+    charges,
+    moveReveal,
+    alertRival,
+    sendFlight: (active, prefix) => send(active.playerId, `${prefix}${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight })
+  });
 
   const advance = (active: ActiveFlight, nowMs: number): void => {
     speedUpOverHomeGround(active, nowMs);
@@ -307,8 +283,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const owner = deps.players().get(active.playerId);
       // Steps passed since the last tick all count toward the report, even when a slow tick skipped them,
       // and the way home too: a straight return flies over new ground. Only outbound steps can turn it
-      // back: the way home was checked clear at planning, and a border that appears on it later must
-      // not strand the drone, so it keeps flying home.
+      // back. A border on the way home sends it round, or, with no way round, it keeps flying home:
+      // a border must never strand the drone.
       // What the steps passed this tick found, sent as it happens so the client can pop it over the map:
       // players waited 2-3 minutes with nothing to show until the landing report (review 2026-11-21).
       const found: ScoutFind[] = [];
@@ -321,9 +297,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         findsSent += found.length;
       };
       for (let i = Math.max(0, active.lastStepIndex + 1); i <= index; i += 1) {
-        if (i <= flight.turnIndex && turnBackIfBlocked(active, i, nowMs)) {
-          const turn = active.flight.steps[active.flight.turnIndex]!;
-          moveReveal(active, { x: turn.x, y: turn.y });
+        // A border turns it back on the way out, or sends it round on the way home (scout-drone-borders.ts).
+        if (borders.meetIfBlocked(active, i, nowMs)) {
           sendFound();
           return;
         }
@@ -353,11 +328,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       routeFullRefusals += 1;
       return reject(command, "SCOUT_ROUTE_FULL", "your scout drone's route is full");
     }
-    const extended = extendScoutDroneFlight(active.flight, now, stops, worldFor(active.playerId));
+    const extended = extendScoutDroneFlight(active.flight, now, stops, worlds.known(active.playerId, active.bordersSeen));
     if (!extended) return reject(command, "SCOUT_NO_PATH", "no clear way to those tiles");
     charges.spend(active.playerId, extended.newStopsReached, now);
     active.flight = extended.flight;
     active.alerted = false;
+    active.homeRouteKept = false;
     send(active.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
     deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   };
@@ -378,7 +354,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         return reject(command, "SCOUT_DRONE_BUSY", "no scout drones can launch right now");
       }
       const first = stops[0]!;
-      const world = worldFor(actor.id);
+      const world = worlds.known(actor.id);
       const targetOwnerId = deps.tiles().get(keyOf(first.x, first.y))?.ownerId;
       if (targetOwnerId && isOwnOrAllied(actor.id, targetOwnerId)) return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
       const launch = nearestAfc(actor.id, first);
@@ -392,7 +368,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.
       charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
-      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false };
+      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
       flights.set(actor.id, active);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
@@ -426,7 +402,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       }
       // Turn over the tile it is flying toward: it finishes this leg, then heads home
       // (turning over the last tile reached would snap it backwards mid-leg).
-      active.flight = turnScoutDroneFlightHome(active.flight, active.lastStepIndex + 1, now, worldFor(command.playerId));
+      active.flight = turnScoutDroneFlightHome(active.flight, active.lastStepIndex + 1, now, worlds.known(command.playerId, active.bordersSeen));
       send(command.playerId, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: active.flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
@@ -447,7 +423,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       findsSent,
       heldReportsResent,
       heldReportsSeen,
-      heldReportsExpired
+      heldReportsExpired,
+      ...borders.gauge()
     })
   };
 };
