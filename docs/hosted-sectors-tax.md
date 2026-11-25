@@ -2,11 +2,12 @@
 
 Status: active proposal
 Owner: Benjamin Waye, for TIDN AB; to be confirmed by TIDN AB's accountant
-Last verified: 2026-11-25 (agent review against official and Stripe sources; see the review notes at the end)
+Last verified: 2026-11-25 (agent review using web search results, not the source pages; see the review notes at the end)
 Replaces: none. When confirmed, the settings below are applied in Stripe and the decision is recorded in `docs/gdd.md` §8.
 
 This answers question Q13 of [`hosted-sectors-plan.md`](hosted-sectors-plan.md). It was written by an agent and then
-checked by a second agent review against the sources listed at the end. **It is
+checked by a second agent using web search results about the sources listed
+at the end; it could not open the pages themselves. **It is
 not tax advice.** Thresholds and rates change; every
 figure below must be checked by the accountant before the first sale. Stripe
 collects tax but does not file it: registration and filing stay with TIDN AB
@@ -42,14 +43,18 @@ sellers.
 | Another EU country, once that EUR 10,000 is passed (or earlier, by choice) | The buyer's country's VAT rate, 17–27 % | Register for the One Stop Shop (OSS) with Skatteverket and file one extra return each quarter covering all EU countries |
 | Outside the EU | That country's own rules. Many have a threshold below which a foreign seller owes nothing; some have none | Nothing until a registration is needed; see below |
 
-The threshold is counted without VAT. Under it, each USD 20 sale carries
+The threshold is counted without VAT, and also counts any distance sales of
+goods to other EU countries (TIDN AB sells none). Skatteverket applies it in
+kronor (SEK 99,680), so the dollar figures below are only a guide. Under it,
+each USD 20 sale carries
 Swedish VAT of USD 4, so USD 16 counts. At EUR 0.85–0.95 to the dollar that is
 EUR 13.60–15.20 a sale, so EUR 10,000 is roughly 650–750 sectors sold to
 consumers in other EU countries in a calendar year. (An earlier version of this
 note said about 500, which counted the price with VAT.) The threshold applies
 only to a seller established in one EU country; TIDN AB has to confirm it has no
 establishment elsewhere. Once it is passed during a year, the buyer's country's
-VAT applies from the sale that passes it.
+VAT applies from the sale that passes it, and for all of the following
+calendar year.
 
 ### Countries outside the EU
 

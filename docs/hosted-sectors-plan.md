@@ -488,7 +488,7 @@ on Hetzner's and Stripe's own price pages before launch.
 | Stripe Tax, if turned on | 0.5 % of a sale where a registration is added, about USD 0.10 |
 | Stripe fee on USD 20 | about USD 0.55 for a European card, up to about USD 1.35 for a card from outside Europe with currency conversion |
 | VAT, if the price is inclusive (Q13) | USD 4 of the USD 20 at Sweden's 25% (up to about USD 4.25 at the highest EU rate); none for many others |
-| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, before the Stripe Tax fee and any fees lost on refunds |
+| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, after the Stripe Tax fee and before any fees lost on refunds |
 
 A contest that ends early costs less. With no time limit (Q5), a sector that
 humans keep visiting runs until someone wins: each extra month costs about

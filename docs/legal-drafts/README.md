@@ -6,8 +6,10 @@ Last verified: 2026-11-25
 Replaces: on publication, `packages/client/public/privacy.html` is replaced and `purchase-terms.html` is added beside it; this folder is then removed.
 
 These are drafts written by an agent from a template and from what the code
-does, then reviewed by a second agent on 2026-11-25 against official and
-Stripe sources found by web search. **They are not legal or tax advice, have
+does, then reviewed by a second agent on 2026-11-25. That review could not
+open the official pages; it relied on web search results that quote or
+summarise them, so every citation here is for the lawyer or accountant to
+confirm. **They are not legal or tax advice, have
 not been reviewed by a lawyer or an accountant, and are not ready to
 publish.** They are kept here, outside the deployed client, so nothing goes
 live before the owner has had them checked. They answer question Q12 of
@@ -41,12 +43,17 @@ Publishing is blocked until these markers are filled in.
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
 | `[[PHONE]]` | `purchase-terms.html` | A telephone number for the seller. EU law lists it among the information a consumer must get before buying (Directive 2011/83/EU Art. 6(1)(c); lag (2005:59) 2 kap. 2 §) |
-| `[[BACKBLAZE_REGION]]` | `privacy.html` | Whether the backup bucket is in Backblaze's EU or US region (it decides whether the backups are a transfer outside the EEA) |
+| `[[BACKBLAZE_REGION]]` | `privacy.html` | Whether the backup bucket is in Backblaze's EU or US region (it decides whether the backups are a transfer outside the EEA). Production currently uses Hetzner's daily server backups and has the hourly Backblaze job turned off (`docs/agents/deploys.md`); if Backblaze is not used, remove that line |
+| `[[HETZNER_BACKUP_DAYS]]` | `privacy.html` | How long Hetzner keeps a daily server backup (check the Hetzner console) |
+| `[[BACKBLAZE_RETENTION]]` | `privacy.html` | How long hourly and daily database backups stay in the bucket (its lifecycle rules) |
 
 ## What the code and settings must do before sales open
 
-The Terms of Sale promise these things. None of them exists yet; each belongs
-to plan PR 5 (Stripe) unless marked. Sales stay off until all are done.
+The Terms of Sale promise these things. Checked against `develop` on
+2026-11-25, after the Stripe test-mode work landed: that work already turns on
+automatic tax with tax-inclusive prices, requires a billing address and shows a
+consent sentence above Stripe's Pay button. None of the items below exists
+yet. Sales stay off until all are done.
 
 1. **A withdrawal button.** Since 19 June 2026 a trader selling through a
    website must offer an online withdrawal function: a clearly labelled
@@ -54,13 +61,16 @@ to plan PR 5 (Stripe) unless marked. Sales stay off until all are done.
    confirmation step, then an acknowledgement of receipt on a durable medium
    (Directive 2011/83/EU Art. 11a, added by Directive (EU) 2023/2673; in
    Sweden prop. 2025/26:84, in force 19 June 2026). The draft places it on the
-   sector in **My sectors**. Without it, Konsumentverket says the withdrawal
-   period can be extended.
+   sector in **My sectors**. Konsumentverket has said, as reported in the press
+   in June 2026, that a missing function can extend the withdrawal period; the
+   lawyer should confirm the legal basis.
 2. **Two separate tick-boxes on the order form**, not one. The form in
    `packages/client/src/client-hosted-sectors/client-hosted-sector-order.ts`
    today has one box that combines accepting the terms with the request to
-   start at once, and it does not mention losing the right once the contest
-   has ended. Proposed wording:
+   start at once, and neither it nor the sentence above Stripe's Pay button
+   (`CHECKOUT_CONSENT_TEXT` in
+   `apps/sector-control/src/providers/stripe/stripe-payment-provider.ts`)
+   mentions losing the right once the contest has ended. Proposed wording:
    - "I accept the Terms of Sale." (link)
    - "I ask for my sector to start now, during the 14-day withdrawal period. I
      understand that if I withdraw I pay for the days it has been open, and
@@ -82,21 +92,42 @@ to plan PR 5 (Stripe) unless marked. Sales stay off until all are done.
 5. **A confirmation email** after payment containing the Terms of Sale (or a
    copy as a file), the order, and the request and acknowledgement given at
    checkout (Art. 8(7)). Stripe's receipt does not contain these.
-6. **Withdrawal handling:** compute the deduction from `opened_at` to the
-   moment the notice arrives, issue a partial refund within 14 days, close
-   the sector after saving results, and send an acknowledgement.
-7. **Analytics consent** (separate from PR 5, needed before the privacy page
+6. **Withdrawal handling:** compute the deduction as one thirtieth of the
+   price for each started 24-hour period from `opened_at` to the earlier of
+   the notice arriving and the sector being closed; issue a partial refund
+   within 14 days; close the sector after saving results; send an
+   acknowledgement.
+7. **Partial refunds.** The payment provider can only make a full refund
+   (`PaymentProvider.refund` in `apps/sector-control/src/providers/providers.ts`),
+   and any refund event moves the sector to `refunded`, after which the server
+   is deleted (`hosting-service.ts`). Stripe sends the same refund event for a
+   partial refund. So a goodwill partial refund for an outage (Terms of Sale
+   section 8) would today delete every member's contest. Partial refunds need
+   their own amount, an idempotency key, and must close the sector only for a
+   withdrawal or a full refund.
+8. **Saving results before deletion.** Terms of Sale sections 5 and 6 say
+   results are saved before a sector is deleted. Today the reconciler deletes
+   the server of a refunded or idle sector with no export
+   (`hosting-reconciler.ts`); the export and snapshot are plan PR 4.
+9. **The idle-closure warning email.** Section 5 promises an email to members
+   2 days before an idle closure. Today an idle closure only alerts the owner.
+10. **Pausing purchases after a dispute.** Section 9 (and plan Q2) say a
+    disputing account cannot buy again until it is settled. Today a dispute
+    only alerts the owner.
+11. **Analytics consent** (separate from the Stripe work, needed before the privacy page
    is published). The web client starts Google Analytics for Firebase at load
    (`packages/client/src/client-app-runtime-env/client-app-runtime-env.ts`)
    with no consent prompt. Swedish law requires consent for non-essential
    storage on the user's device, and PTS treats analytics as non-essential
    (lag (2022:482) om elektronisk kommunikation 9 kap. 28 §). The privacy
-   draft now says analytics run only with consent, so either a consent prompt
-   is built or analytics are turned off before it is published.
-8. **Hetzner locations** (PR 4). The plan lets server creation fall back to a
+   draft now says analytics run only with consent and that consent can be
+   withdrawn in the game's settings, so either a consent prompt and a setting
+   to withdraw it are built, or analytics are turned off and that sentence is
+   removed, before it is published.
+12. **Hetzner locations** (PR 4). The plan lets server creation fall back to a
    second location. The privacy draft says sector servers are in the EU, so
    the fallback must be another EU location.
-9. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
+13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
 
 ## Change to the Terms of Service
@@ -167,7 +198,9 @@ launch product. The Terms of Sale cover hosted sectors only and say so
 6. **ARN.** Section 10 names ARN. ARN hears claims only above a value limit
    (500 kronor for most categories in 2023, with increases proposed in
    2024–2025), above a USD 20 purchase. **Question:** what must the terms say
-   about ADR when ARN may not hear the claim, and should ARN be named? The EU
+   about ADR when ARN may not hear the claim, should ARN be named, and must the
+   terms say whether TIDN AB takes part in ARN's procedure (lag (2015:671) om
+   alternativ tvistlösning i konsumentförhållanden)? The EU
    ODR platform link is no longer required (Regulation (EU) 2024/3228, from
    20 July 2025), so the draft has none.
 7. **Closing a sector.** On a withdrawal or refund the sector closes for all
@@ -262,7 +295,9 @@ section.
 4. **A minimum age for buying.** Recommended: 18, or a parent's or guardian's
    permission, subject to the lawyer.
 5. **Removing a player's account when they withdraw.** Recommended: do not.
-   See the pull request for why; the safe alternative is already in the draft.
+   Removing a whole account for using a statutory right is likely to count as
+   penalising that right (see plan §13, 2026-11-25); the safe alternative,
+   ending only that sector, is already in the draft.
 6. **Analytics.** Recommended: add a consent prompt before the privacy page is
    published; until then turn analytics off for the web client.
 7. **Google Fonts.** Recommended: serve the fonts from our own server.
