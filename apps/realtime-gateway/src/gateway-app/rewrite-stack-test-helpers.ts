@@ -135,7 +135,7 @@ export const nextNonBootstrapMessage = async (
     // test: the live subscribe delivers the authoritative reach border and the
     // visible Aether Tower shields and the island name list to every socket as
     // it joins (live-subscribe-reach-push.ts).
-    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES") {
+    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES" || message.type === "LONGEST_ROAD") {
       continue;
     }
     // The subscribe also states the scout drone: `flight: null` while docked, so a client never

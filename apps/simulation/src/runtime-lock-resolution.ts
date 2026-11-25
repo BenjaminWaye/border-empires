@@ -1,4 +1,5 @@
 import { applyWinningTileCapture } from "./runtime-winning-capture.js";
+import { countWonAttack } from "./achievements/achievement-counters.js";
 import { applyBreakthroughCapture } from "./afc-specializations/afc-breakthrough-capture.js";
 import { awardFlagMomentum, fortWardIsReady, consumeFortWard } from "./afc-specializations/afc-battle-effects.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
@@ -160,6 +161,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     previousOwnerId !== lock.playerId &&
     context.isTileShieldedByAegisLock(lock.playerId, lock.targetX, lock.targetY);
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
+  countWonAttack(attacker, { attackerId: lock.playerId, attackerWon, actionType: lock.actionType, previousOwnerId, previousOwnershipState: previousTarget?.ownershipState });
   const afcPlunder = afcCapturePlunderGold({
     attackerWon, attackerId: lock.playerId, previousTarget, defenderPoints: defender?.points,
     regularDefenderGoldLoss: targetWasSettled && combatResolution ? combatResolution.defenderGoldLoss : 0
