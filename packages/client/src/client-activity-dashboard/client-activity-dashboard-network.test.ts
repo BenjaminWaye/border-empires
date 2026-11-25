@@ -182,12 +182,12 @@ describe("the dashboard on the first login of a season", () => {
     expect(state.activityDashboard.autoOpenedThisSession).toBe(false);
   });
 
-  it("opens What's New on the next login in that season (server now holds the season)", () => {
+  it("opens the Chronicle on Yours on the next login in that season (server now holds the season)", () => {
     const state = firstLoginState();
     state.activityDashboard.quietedSeasonId = "season-1"; // INIT.player.dashboardQuietedSeasonId on the next login
     applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
     expect(state.activityDashboard.open).toBe(true);
-    expect(state.activityDashboard.activeView).toBe("UPDATES");
+    expect(state.activityDashboard.activeView).toBe("YOURS");
     expect(sentHintPatches).toEqual([]);
   });
 
@@ -396,11 +396,11 @@ describe("a returning player with unread events and unread release notes", () =>
     expect(state.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
   });
 
-  it("still opens Updates once everything in the timeline has been read", () => {
+  it("unseen release notes open the Chronicle on Yours, not Updates, once the timeline is read", () => {
     const state = returningState();
     state.activitySeen.lastActivitySeenAt = 950;
     applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
     expect(state.activityDashboard.open).toBe(true);
-    expect(state.activityDashboard.activeView).toBe("UPDATES");
+    expect(state.activityDashboard.activeView).toBe("YOURS");
   });
 });

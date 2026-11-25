@@ -132,8 +132,10 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
     // never on patch notes: Updates waits while anything in the timeline is
     // unread, and a later timeline response (every Chronicle open refetches)
     // must not turn a Yours briefing that has not been shown yet into Updates.
+    // The Chronicle still opens on Yours: the Updates tab's unseen badge points
+    // at the release notes, and a login never lands on the patch-notes tab.
     state.activityDashboard.updatesAutoOpenedThisSession = true;
-    state.activityDashboard.activeView = "UPDATES";
+    state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
   }
