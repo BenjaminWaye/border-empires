@@ -28,6 +28,13 @@ const layers = () => {
       fortOverlay: { addInstance: vi.fn() },
       relayBeaconOverlay: { addInstance: vi.fn() },
       siegeTowerOverlay: { addInstance: vi.fn() }
+    },
+    rawResources: {
+      farmland: { addInstance: vi.fn() },
+      fishing: { addInstance: vi.fn() },
+      titaniumDeposit: { addInstance: vi.fn() },
+      umbriteDeposit: { addInstance: vi.fn() },
+      generic: { addInstance: vi.fn() }
     }
   };
 };
@@ -91,6 +98,24 @@ describe("remembered buildings on fogged 3D tiles", () => {
     const drop = { ...createAfcJoinDropState(), phase: "playing" as const, revealed: true, x: 5, y: 5 };
     addRememberedBuildingsForTile(tile, site, landing, context(new Map([["5,5", tile]]), new Set(), drop));
     expect(landing.afcOverlay.addAfc).not.toHaveBeenCalled();
+  });
+
+  it("draws the remembered raw resource under the fog", () => {
+    // Regression (player report 2026-11-25): the fog branch skipped the resource pass, so resources vanished under fog.
+    const target = layers();
+    const farm: Tile = { x: 5, y: 5, terrain: "LAND", resource: "FARM" };
+    addRememberedBuildingsForTile(farm, site, target, context(new Map([["5,5", farm]])));
+    expect(target.rawResources.farmland.addInstance).toHaveBeenCalledWith(1, 2, 0.3, 5, 5);
+
+    const titanium = layers();
+    const deposit: Tile = { x: 5, y: 5, terrain: "LAND", resource: "TITANIUM" };
+    addRememberedBuildingsForTile(deposit, site, titanium, context(new Map([["5,5", deposit]])));
+    expect(titanium.rawResources.titaniumDeposit.addInstance).toHaveBeenCalledWith(1, 2, 0.3, 5, 5);
+
+    const fish = layers();
+    const fishing: Tile = { x: 5, y: 5, terrain: "LAND", resource: "FISH" };
+    addRememberedBuildingsForTile(fishing, site, fish, context(new Map([["5,5", fishing]])));
+    expect(fish.rawResources.fishing.addInstance).toHaveBeenCalledWith(1, 2, 0.2, 5, 5, expect.objectContaining({ dx: 1, dy: 0 }));
   });
 
   it("draws nothing on water", () => {

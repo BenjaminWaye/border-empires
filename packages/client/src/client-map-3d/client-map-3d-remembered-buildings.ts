@@ -1,12 +1,16 @@
 // Buildings on a tile remembered under fog: seen before, out of sight now.
 // The client keeps the tile as it was the last time it was witnessed (the
 // FOG delta freezes it), so its town, structures, fort, dock, watchtower,
-// waystation and Aether Fabrication Complex (with its docked modules) are drawn where they stood -- but standing still: no spinning
+// waystation, Aether Fabrication Complex (with its docked modules) and raw resource site are drawn where they stood -- but standing still: no spinning
 // parts, no smoke or steam, no build in progress, no owner-only badges. They
 // sit under the fogged mist, which hazes every building material above the
 // sheet (client-map-3d-fogged-mist-haze.ts). The 2D counterpart is
 // drawRememberedStructures2D.
+import { isSeaTerrain } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { addRawResourceInstance, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
+import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js";
+import { fishingWaterDirection } from "../client-food-tile-placement.js";
 import type { TownOverlay } from "../client-map-3d-town-overlay.js";
 import type { DockOverlay } from "../client-map-3d-dock-overlay.js";
 import type { WatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
@@ -32,6 +36,8 @@ export type RememberedBuildingLayers = {
   /** Economic structures, district buildings and Aether Towers; its contact shadows serve every layer here. */
   readonly buildings: BuildingOverlays;
   readonly fortifications: FortificationInstanceOverlays;
+  /** The tile's raw resource (farmland, fishing site, deposit...), the same layers the live pass draws it with. */
+  readonly rawResources: RawResourceOverlays;
 };
 
 export type RememberedBuildingContext = FortificationInstanceDeps & {
@@ -88,4 +94,11 @@ export const addRememberedBuildingsForTile = (
   }
   addBuildingInstancesForTile(tile, site, layers.buildings, context.state, context.rebuildStartAt, tile.resource, true);
   addFortificationInstancesForTile(tile, site, layers.fortifications, context, context.rebuildStartAt, true);
+  // Player report 2026-11-25: resources didn't show through the fog. The tile keeps the resource it was last seen with.
+  const resource = resolvedMapResource3D(wx, wy, "LAND", tile, false, undefined, false);
+  if (resource) {
+    const isWaterAt = (nx: number, ny: number): boolean => isSeaTerrain(context.terrainAt(context.wrapX(nx), context.wrapY(ny)));
+    addRawResourceInstance(layers.rawResources, resource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY: site.flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection(isWaterAt, wx, wy));
+    shadows.addShadow(x, z, resource === "FISH" ? site.flatOverlayY : surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+  }
 };

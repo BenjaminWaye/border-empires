@@ -24,6 +24,7 @@ import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-prof
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
 import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
 import { CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
+import { FOGGED_RESOURCES_ENTRY } from "./client-changelog-fogged-resources.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
@@ -52,4 +53,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...CREDITS_PAGE_ENTRY, createdAt: 1795561375435, },
   { ...PHONE_NEXT_STEP_ENTRY, createdAt: 1795561375436, },
   { ...OFFER_MESSAGES_ENTRY, createdAt: 1795561375437, },
+  { ...FOGGED_RESOURCES_ENTRY, createdAt: 1795591213251, },
 ];
