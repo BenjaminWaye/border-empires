@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { DomainTileState } from "@border-empires/game-domain";
+import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   SCOUT_DRONE_CHARGE_REFILL_MS,
   SCOUT_DRONE_HOME_STEP_MS,
@@ -12,71 +12,7 @@ import {
   scoutDronePositionAt,
   type ScoutDronePayload
 } from "@border-empires/shared";
-import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
-import { createScoutDroneRuntime } from "./scout-drone-runtime.js";
-
-const W = 100;
-const H = 60;
-
-const player = (id: string, allies: string[] = []): DomainPlayer => ({ id, allies: new Set(allies), techIds: new Set<string>() }) as unknown as DomainPlayer;
-const land = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({ x, y, terrain: "LAND", ...extra }) as DomainTileState;
-
-type Harness = ReturnType<typeof harness>;
-const harness = (tileList: DomainTileState[], players: DomainPlayer[] = [player("me"), player("rival"), player("friend")]) => {
-  let now = 1_000;
-  const tiles = new Map(tileList.map((tile) => [`${tile.x},${tile.y}`, tile]));
-  const playerMap = new Map(players.map((p) => [p.id, p]));
-  const events: SimulationEvent[] = [];
-  const messages: Array<{ playerId: string; payload: Record<string, unknown> }> = [];
-  const impacts: PersonalImpactEvent[] = [];
-  const reach = new Map<string, string>();
-  const reveals: string[] = [];
-  const live = new Map<string, number>();
-  const runtime = createScoutDroneRuntime({
-    now: () => now,
-    worldWidth: W,
-    worldHeight: H,
-    tiles: () => tiles,
-    players: () => playerMap,
-    afcTileKeys: (id) => (id === "me" ? ["2,10"] : []),
-    reachOwnerAt: (x, y) => reach.get(`${x},${y}`),
-    visibilityCoverage: () => ({
-      addTemporaryReveal: (viewer, x, y, radius) => {
-        reveals.push(`+${viewer}@${x},${y}r${radius}`);
-        live.set(`${viewer}@${x},${y}`, (live.get(`${viewer}@${x},${y}`) ?? 0) + 1);
-      },
-      removeTemporaryReveal: (viewer, x, y, radius) => {
-        reveals.push(`-${viewer}@${x},${y}r${radius}`);
-        live.set(`${viewer}@${x},${y}`, (live.get(`${viewer}@${x},${y}`) ?? 0) - 1);
-      }
-    }),
-    visionTransitionCallbacks: () => ({}),
-    emitEvent: (event) => events.push(event),
-    emitPlayerMessage: (command, payload) => messages.push({ playerId: command.playerId, payload }),
-    recordPersonalImpact: (event) => impacts.push(event)
-  });
-  const explore = (x: number, y: number, playerId = "me", commandId = `cmd-${events.length}`): void =>
-    runtime.handleExplore({ commandId, playerId, sessionId: "s", type: "EXPLORE", payloadJson: JSON.stringify({ x, y }) } as unknown as CommandEnvelope);
-  const exploreRoute = (stops: Array<{ x: number; y: number }>, playerId = "me", commandId = `route-${events.length}`): void =>
-    runtime.handleExplore({ commandId, playerId, sessionId: "s", type: "EXPLORE", payloadJson: JSON.stringify({ ...stops[0], waypoints: stops }) } as unknown as CommandEnvelope);
-  const recall = (playerId = "me", commandId = `recall-${events.length}`): void =>
-    runtime.handleRecall({ commandId, playerId, sessionId: "s", type: "RECALL_SCOUT", payloadJson: "{}" } as unknown as CommandEnvelope);
-  const advanceTo = (ms: number): void => {
-    now = ms;
-    runtime.tick(ms);
-  };
-  const setNow = (ms: number): void => {
-    now = ms;
-  };
-  const liveReveals = (): number => [...live.values()].reduce((sum, n) => sum + n, 0);
-  return { runtime, tiles, playerMap, reach, events, messages, impacts, reveals, explore, exploreRoute, recall, advanceTo, setNow, liveReveals, now: () => now };
-};
-
-// Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).
-const homeRow = (afcStatus: "active" | "inactive" = "active"): DomainTileState[] =>
-  [0, 1, 2, 3, 4].map((x) => land(x, 10, { ownerId: "me", ...(x === 2 ? { afc: { ownerId: "me", status: afcStatus } } : {}) }));
-const lastPayload = (h: Harness, playerId = "me"): ScoutDronePayload => // the last message other than mid-flight SCOUT_FINDS
-  h.messages.filter((m) => m.playerId === playerId && m.payload.type !== "SCOUT_FINDS").at(-1)!.payload as unknown as ScoutDronePayload;
+import { H, W, harness, homeRow, land, lastPayload, player, type Harness } from "./scout-drone-runtime.test-helpers.js";
 
 describe("scout drone runtime", () => {
   it("launches from the AFC, resolves the command and starts its reveal there", () => {
@@ -481,7 +417,7 @@ describe("scout drone runtime", () => {
       expect(lastPayload(h).report).toMatchObject({ towns: 1, targetX: 10, targetY: 20 });
     });
 
-    it("keeps flying home when a rival claims a tile on its way home", () => {
+    it("goes round a rival claim on its way home, without alerting the rival", () => {
       const h = harness(homeRow());
       h.exploreRoute([{ x: 10, y: 10 }, { x: 10, y: 20 }]);
       const flight = h.runtime.flightFor("me")!;
@@ -489,8 +425,11 @@ describe("scout drone runtime", () => {
       const ahead = flight.steps[flight.turnIndex + 3]!;
       h.tiles.set(`${ahead.x},${ahead.y}`, land(ahead.x, ahead.y, { ownerId: "rival" }));
       h.advanceTo(ahead.at);
-      expect(h.runtime.flightFor("me")).toBe(flight);
-      h.advanceTo(flight.landsAt);
+      const rerouted = h.runtime.flightFor("me")!;
+      expect(rerouted).not.toBe(flight);
+      expect(rerouted.steps.some((step) => step.x === ahead.x && step.y === ahead.y)).toBe(false);
+      expect(rerouted.steps.at(-1)).toMatchObject({ x: 2, y: 10 });
+      h.advanceTo(rerouted.landsAt);
       expect(h.runtime.flightFor("me")).toBeUndefined();
       expect(h.messages.some((m) => m.playerId === "rival")).toBe(false);
     });
