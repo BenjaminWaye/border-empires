@@ -1,5 +1,7 @@
 import { parseGuideTownLead, parseRelicMapHints, isChosenTrickleResource, type GuideTownLead, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
+export { announceRelicWakesForClient } from "./relic-wake-notice.js";
+
 export interface RelicHintClientState {
   relicMapHints: Map<string, RelicMapHint>;
   tilesRevision: number;
@@ -36,29 +38,15 @@ export function shouldDrawRelicHint(hint: RelicMapHint | undefined, tile: { natu
   if (hint.kind === "WAKE" || !tile?.naturalWonder) return true;
   return hint.kind !== "RELIC" && relicRemainingUses(tile.naturalWonder) !== 0;
 }
-export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number, ownerColor?: (ownerId: string) => string): void {
+export function drawRelicHint2D(ctx: CanvasRenderingContext2D, hint: RelicMapHint | undefined, tile: { naturalWonder?: NaturalWonderState | null | undefined } | undefined, x: number, y: number, size: number, _ownerColor?: (ownerId: string) => string): void {
   if (!shouldDrawRelicHint(hint, tile)) return;
+  // Wakes and transponders are named plates now (relic-site-plates.ts), on both renderers; only survey signatures draw here.
+  if (hint.kind !== "RESOURCE") return;
   ctx.save();
   const cx = x + size / 2, cy = y + size / 2;
-  if (hint.kind === "WAKE") {
-    // A taller column in the operating House's colour, with a diamond at its foot.
-    const color = ownerColor?.(hint.ownerId) || RELIC_WAKE_FALLBACK_COLOR;
-    const gradient = ctx.createLinearGradient(cx, cy - size * 4, cx, cy);
-    gradient.addColorStop(0, "rgba(0,0,0,0)"); gradient.addColorStop(1, color);
-    ctx.globalAlpha = 0.75; ctx.fillStyle = gradient; ctx.fillRect(cx - Math.max(2, size * 0.09), cy - size * 4, Math.max(4, size * 0.18), size * 4);
-    ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 2;
-    const r = Math.max(4, size * 0.16);
-    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); ctx.stroke();
-  } else if (hint.kind === "RELIC") {
-    const gradient = ctx.createLinearGradient(cx, cy - size * 2.8, cx, cy);
-    gradient.addColorStop(0, "rgba(211,231,190,0)"); gradient.addColorStop(1, "rgba(211,231,190,0.65)");
-    ctx.fillStyle = gradient; ctx.fillRect(cx - Math.max(1.5, size * 0.06), cy - size * 2.8, Math.max(3, size * 0.12), size * 2.8);
-    ctx.strokeStyle = "#d3e7be"; ctx.lineWidth = 1.5; ctx.strokeRect(cx - 3, cy - 3, 6, 6);
-  } else {
-    ctx.fillStyle = "#202b2b"; ctx.strokeStyle = "#b5c4af"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx, cy, Math.max(7, size * 0.22), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#eee7cd"; ctx.font = `bold ${Math.max(9, size * 0.24)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(hint.resource === "TITANIUM" ? "Ti" : hint.resource === "CRYSTAL" ? "Cr" : "Um", cx, cy);
-  }
+  ctx.fillStyle = "#202b2b"; ctx.strokeStyle = "#b5c4af"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, Math.max(7, size * 0.22), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#eee7cd"; ctx.font = `bold ${Math.max(9, size * 0.24)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(hint.resource === "TITANIUM" ? "Ti" : hint.resource === "CRYSTAL" ? "Cr" : "Um", cx, cy);
   ctx.restore();
 }

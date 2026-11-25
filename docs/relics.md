@@ -46,13 +46,20 @@ empty-cell symbol and the tile information/dialog says **Depleted**.
 
 **Aether wake.** While an installation is garrisoned (SETTLED) and not
 depleted, it gives off an aether wake every other House sees, through fog and
-unexplored ground: a tall column in the operating House's colour on both map
-renderers and a violet marker on the minimap (with an edge arrow when it is
-off the minimap's view). The wake carries the location and the operating
+unexplored ground: a named plate on the site on both map renderers
+("Concordance relic", the operating House, in that House's colour; a tab on
+the screen edge with the distance while the site is off screen, until the
+player first brings it on screen, remembered per House and site) and the
+plate's badge on the minimap (with a brass point toward the site when it is pinned to the minimap edge).
+A transponder in signal range shows a "Relic signal" plate instead. Tapping a
+plate, or the site's tile, opens the site's card (Show, Send scout, and a "?" that explains what a
+relic is) rather
+than a scout flight plan (`relic-site-plates.ts`); while scout waypoints or a
+march point are being picked, the tap is that pick instead. The wake carries the location and the operating
 House only, never the installation type or reserves (`kind: "WAKE"` relic map
 hint, `relicWakeOwner` in `runtime-relic-map-hints.ts`), though a wake that
 ends while the same House still holds the site shows the relic is spent. It
-replaces that House's anonymous transponder beam for the site. The operator
+replaces that House's anonymous transponder signal for the site. The operator
 sees no wake of its own. A relic held only as frontier, unowned or depleted
 gives none. Both renderers use the same owner colour (the map overlay colour,
 so the Diplomacy view recolours it). When a relic starts, stops or changes
@@ -60,11 +67,17 @@ hands operating, every online human House is sent a fresh `PLAYER_UPDATE`
 with its hints on the runtime's scheduler, outside the command turn, once per
 burst of changes (`relic-wake-broadcast.ts`); offline Houses get theirs on
 connect, and seeding at boot sends nothing.
+The first time a client sees a given House operating a given site it posts
+one alert naming the House and the coordinates, with Show to centre the map
+(`relic-wake-notice.ts`; remembered in local storage so reloads do not repeat
+it). Pressing a relic's minimap badge, including one pinned to the edge, centres
+the camera on the relic rather than the pressed edge
+(`client-minimap-relic-hit.ts`).
 
 A maintenance transponder identifies a relic's location once a House has a
-garrison within 12 tiles. The anonymous column can appear through unexplored
+garrison within 12 tiles. Its "Relic signal" plate can appear through unexplored
 ground and is marked on the minimap. The signal discloses no installation type,
-owner or current reserve. A remembered depleted site suppresses its beam and
+owner or current reserve. A remembered depleted site suppresses its plate and
 uses a crossed minimap marker. Known ruins remain marked after leaving proximity range. Both renderers retain
 a sealed ruin in remembered terrain, using the last observed banner and reserve.
 Hidden capture or reserve changes do not update that remembered state. Survey signatures use separate resource markers and

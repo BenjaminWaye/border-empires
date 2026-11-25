@@ -1,4 +1,5 @@
 import { computeMiniMapViewBox } from "./client-minimap/client-minimap-view-box.js";
+import { miniMapRelicHintAt } from "./client-minimap/client-minimap-relic-hit.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "./client-state/client-state.js";
 
@@ -18,7 +19,9 @@ export type MinimapDragDeps = {
 };
 
 export const bindMinimapDrag = (state: ClientState, deps: MinimapDragDeps): void => {
-  const setCameraFromMinimapPointer = (clientX: number, clientY: number): void => {
+  // `onPress`: the first press may land on a relic's box (drawn at the edge when the site is out of view),
+  // which jumps to the relic itself; dragging on afterwards pans as usual.
+  const setCameraFromMinimapPointer = (clientX: number, clientY: number, onPress = false): boolean => {
     const rect = deps.miniMapEl.getBoundingClientRect();
     const px = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const py = Math.max(0, Math.min(rect.height, clientY - rect.top));
@@ -30,21 +33,29 @@ export const bindMinimapDrag = (state: ClientState, deps: MinimapDragDeps): void
       canvasW: rect.width,
       canvasH: rect.height
     });
-    state.camX = deps.wrapX(Math.floor(box.x0 + nx * box.w));
-    state.camY = deps.wrapY(Math.floor(box.y0 + ny * box.h));
+    // The minimap canvas draws in device pixels; its 8px edge inset is that many canvas pixels.
+    const canvasW = (deps.miniMapEl as Partial<HTMLCanvasElement>).width || rect.width;
+    const relic = onPress ? miniMapRelicHintAt(state.relicMapHints.values(), box, rect.width, rect.height, px, py, (8 * rect.width) / canvasW) : undefined;
+    state.camX = deps.wrapX(relic ? relic.x : Math.floor(box.x0 + nx * box.w));
+    state.camY = deps.wrapY(relic ? relic.y : Math.floor(box.y0 + ny * box.h));
     state.camSubX = 0;
     state.camSubY = 0;
     deps.requestViewRefresh(2, true);
     window.setTimeout(() => deps.maybeRefreshForCamera(), 120);
+    return relic !== undefined;
   };
 
   let minimapDragging = false;
+  // Where a press landed on a relic box: hand jitter during that click must not pan back to the edge.
+  let relicPress: { x: number; y: number } | undefined;
   deps.miniMapEl.addEventListener("mousedown", (ev) => {
     minimapDragging = true;
-    setCameraFromMinimapPointer(ev.clientX, ev.clientY);
+    relicPress = setCameraFromMinimapPointer(ev.clientX, ev.clientY, true) ? { x: ev.clientX, y: ev.clientY } : undefined;
   });
   window.addEventListener("mousemove", (ev) => {
     if (!minimapDragging) return;
+    if (relicPress && Math.hypot(ev.clientX - relicPress.x, ev.clientY - relicPress.y) < 6) return;
+    relicPress = undefined;
     setCameraFromMinimapPointer(ev.clientX, ev.clientY);
   });
   window.addEventListener("mouseup", () => {
@@ -55,7 +66,7 @@ export const bindMinimapDrag = (state: ClientState, deps: MinimapDragDeps): void
     (ev) => {
       const t = ev.touches[0];
       if (!t) return;
-      setCameraFromMinimapPointer(t.clientX, t.clientY);
+      setCameraFromMinimapPointer(t.clientX, t.clientY, true);
     },
     { passive: true }
   );
