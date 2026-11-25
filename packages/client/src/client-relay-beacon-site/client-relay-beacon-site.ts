@@ -75,7 +75,7 @@ export const isRelayBeaconPlacementTile = (tile: Tile | undefined, playerId: str
 /**
  * A settled tile where a beacon builds straight away (no expand/garrison first): a placement tile not on or
  * beside an AFC or relic center. A strict subset of what placement accepts (isRelayBeaconPlacementTarget),
- * so the HUD's next-step suggestion never leads to a placement that fails.
+ * so a suggestion built on it never leads to a placement that fails.
  */
 export const isRelayBeaconBuildTile = (tiles: ReadonlyMap<string, Tile>, tile: Tile | undefined, playerId: string): boolean =>
   isRelayBeaconPlacementTile(tile, playerId) && !landmarkConstructionBlocker(tiles, tile!.x, tile!.y);
