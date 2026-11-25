@@ -78,7 +78,15 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 SSHEOF
-systemctl reload ssh || systemctl reload sshd
+# On Ubuntu 24.04 ssh.service is socket-activated and stays inactive until the
+# first connection, so a plain `reload` fails there (and `set -e` would stop
+# this script). try-reload-or-restart does nothing for an inactive unit.
+if [ "$BE_ENV" = hosted ]; then
+  # Nobody logs in to a hosted sector (and cloud-init never connects): switch SSH off, not just firewall it.
+  systemctl disable --now ssh.socket ssh.service || true
+else
+  systemctl try-reload-or-restart ssh || systemctl try-reload-or-restart sshd
+fi
 
 # --- firewall (also attach a Hetzner Cloud Firewall: 22, 80, 443) ---
 ufw default deny incoming
