@@ -6,6 +6,6 @@ export const LORE_CATALOGUE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   why: "Names like Concordance relic, the Court and the Wardens appeared in the game with nowhere to read what they are.",
   changes: [
     "The Chronicle has a Lore tab: short entries on the old world, the Imperium, your House and this world.",
-    "Tap an entry to read it."
+    "Tap an entry to read it. The ? on a relic's card links to its entry."
   ]
 };

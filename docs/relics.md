@@ -53,7 +53,7 @@ player first brings it on screen, remembered per House and site) and the
 plate's badge on the minimap (with a brass point toward the site when it is pinned to the minimap edge).
 A transponder in signal range shows a "Relic signal" plate instead. Tapping a
 plate, or the site's tile, opens the site's card (Show, Send scout, and a "?" that explains what a
-relic is) rather
+relic is, with a link to its entry in the Chronicle's Lore tab) rather
 than a scout flight plan (`relic-site-plates.ts`); while scout waypoints or a
 march point are being picked, the tap is that pick instead. The wake carries the location and the operating
 House only, never the installation type or reserves (`kind: "WAKE"` relic map

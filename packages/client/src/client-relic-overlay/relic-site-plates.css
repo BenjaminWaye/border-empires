@@ -157,8 +157,21 @@
   cursor: pointer;
 }
 .relic-card-help[aria-expanded="true"] { background: #2a2216; }
-.relic-card-explainer {
-  margin: 8px 0 0;
+.relic-card-explainer { margin: 8px 0 0; }
+.relic-card-explainer p {
+  margin: 0;
   font: 400 11px/1.4 var(--sp-font-body, Georgia, serif);
   color: #cfc3a8;
+}
+.relic-card-lore {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #d9ad52;
+  font: 700 10.5px/1.2 var(--sp-font-display, "Cinzel", Georgia, serif);
+  letter-spacing: 0.05em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }

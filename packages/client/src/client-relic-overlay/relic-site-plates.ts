@@ -18,6 +18,7 @@ import { RELIC_WAKE_FALLBACK_COLOR } from "./relic-map-hints.js";
 import { RELIC_EXPLAINER, edgeTabPoint, mapPointPickArmed, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { markRelicSiteReached, relicSiteReached } from "./relic-site-reached.js";
+import { requestLoreEntry } from "../client-lore-catalogue/lore-catalogue-entries.js";
 import "./relic-site-plates.css";
 
 interface Projection { readonly size: number; readonly project: (x: number, y: number) => { sx: number; sy: number } }
@@ -95,13 +96,16 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
       card.innerHTML =
         `<div class="relic-card-head"><span class="relic-plate-badge">${DIAMOND}</span><div><div class="relic-card-title"></div><div class="relic-card-detail"></div></div>` +
         `<button type="button" class="relic-card-help" data-relic-help aria-label="What is this?" aria-expanded="false">?</button></div>` +
-        `<p class="relic-card-explainer" hidden></p>` +
+        `<div class="relic-card-explainer" hidden><p></p><button type="button" class="relic-card-lore" data-relic-lore>Read in Lore</button></div>` +
         `<div class="relic-card-where">(${plate.x}, ${plate.y})</div>` +
         `<div class="relic-card-actions"><button type="button" data-relic-show>Show</button>${canScout ? "<button type=\"button\" data-relic-scout>Send scout</button>" : ""}</div>`;
       (card.querySelector(".relic-card-title") as HTMLElement).textContent = plate.title;
       (card.querySelector(".relic-card-detail") as HTMLElement).textContent = plate.detail;
       const explainer = card.querySelector(".relic-card-explainer") as HTMLElement;
-      explainer.textContent = RELIC_EXPLAINER;
+      (explainer.querySelector("p") as HTMLElement).textContent = RELIC_EXPLAINER;
+      (explainer.querySelector("[data-relic-lore]") as HTMLButtonElement).onclick = (event) => {
+        event.stopPropagation(); openKey = undefined; requestLoreEntry("relics"); actions.renderHud();
+      };
       const help = card.querySelector("[data-relic-help]") as HTMLButtonElement;
       const showExplainer = (open: boolean): void => { explainer.hidden = !open; help.setAttribute("aria-expanded", String(open)); };
       showExplainer(explainerFor === plate.key);
@@ -171,7 +175,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
           buttons.set(plate.key, entry);
         }
         const { el } = entry;
-        el.onclick = (event) => { event.stopPropagation(); if (mapPointPickArmed(state)) return; openKey = openKey === plate.key ? undefined : plate.key; };
+        el.onclick = (event) => { event.stopPropagation(); if (mapPointPickArmed(state)) return; openKey = openKey === plate.key ? undefined : plate.key; actions.requestViewRefresh(); };
         const html = plateHtml(plate, Boolean(edge), edge ? tilesFromCamera(state.camX, state.camY, plate.x, plate.y) : 0);
         if (entry.html !== html) {
           el.innerHTML = html; entry.html = html;
