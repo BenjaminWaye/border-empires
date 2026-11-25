@@ -754,7 +754,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const socketLifecycle = bindClientSocketLifecycle({
     state, ws, wsUrl, keyFor, clearAuthInFlight, clearAuthReconnectTimer,
     resetAuthReconnectAttempt, clearDeferredBootstrapRefreshTimer,
-    clearOptimisticTileState, pushFeed, applyLoginPhase, authenticateSocket, renderHud
+    clearOptimisticTileState, pushFeed, applyLoginPhase, authenticateSocket, renderHud, syncAuthOverlay
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;

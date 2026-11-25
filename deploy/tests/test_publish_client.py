@@ -78,6 +78,15 @@ class PublishClientTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "links"):
             publisher.publish(self.root, self.sha, stream)
 
+    def test_client_rollback_drops_a_leftover_deploy_status(self):
+        publisher.publish(self.root, self.sha, archive(self.sha))
+        original = (self.root / "current").resolve()
+        (original / "__deploy_status.json").write_text('{"state":"deploying"}')
+        second = "b" * 40
+        publisher.publish(self.root, second, archive(second))
+        publisher.activate(self.root, original)
+        self.assertFalse((self.root / "current/__deploy_status.json").exists())
+
     def test_release_storage_is_bounded(self):
         for number in range(6):
             sha = str(number) * 40

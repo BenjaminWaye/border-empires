@@ -36,6 +36,7 @@ import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-fl
 import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 import { createProfileSubmitter } from "./client-auth-profile-submit.js";
 import { applyDeployWait, DEPLOY_WAIT_DETAIL, retryDeployWaitNow, syncDeployWaitRetryButton } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
+import { syncDeployCountdownCopy } from "../client-deploy-countdown/client-deploy-countdown.js";
 import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
@@ -137,6 +138,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthPanelState,
       setAuthStatus
     });
+    syncDeployCountdownCopy(state, { titleEl: dom.authBusyTitleEl, copyEl: dom.authBusyCopyEl, statusEl: dom.authStatusEl, setAuthStatus });
     syncGuestSaveBadge(state);
     sectorWaitlist.refreshIfNeeded();
     dom.authBusyReportBugBtn.onclick = () => openReportDialog({ kind: "bug", state, wsUrl });
