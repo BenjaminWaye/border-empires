@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasBuildTech, installedAfcModuleIds } from "./client-afc-module-access.js";
+import { hasAbilityAccess, hasBuildTech, installedAfcModuleIds } from "./client-afc-module-access.js";
 import { hideTechLockedTileAction, type TileActionFilterState } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -63,13 +63,15 @@ describe("captured AFC modules unlock builds", () => {
     expect(hasBuildTech({ techIds: [], me: "me", tiles: new Map([["1,1", tile]]) }, "trade")).toBe(false);
   });
 
-  // Regression (review): a captured, unresearched terrain module unhid the Create Mountain ability row.
-  it("keeps ability rows hidden when their module is captured but not researched", () => {
-    const state: TileActionFilterState = {
-      techIds: [], localhostDevAetherWall: false, me: "me", tiles: new Map([["1,1", capturedAfc(["terrain-engineering"])]])
-    };
+  // Regression: a captured Geoform Engine Module built its towers but left
+  // Create Mountain hidden; a captured module now casts for its captor.
+  it("shows and enables ability rows for a captured, unresearched module", () => {
+    const tiles = new Map([["1,1", capturedAfc(["terrain-engineering"])]]);
+    const state: TileActionFilterState = { techIds: [], localhostDevAetherWall: false, me: "me", tiles };
     const action = { id: "create_mountain", label: "Create Mountain" } as TileActionDef;
-    expect(hideTechLockedTileAction(action, state, () => "terrain-engineering")).toBe(true);
+    expect(hideTechLockedTileAction(action, state, () => "terrain-engineering")).toBe(false);
+    expect(hasAbilityAccess({ techIds: [], me: "me", tiles }, "create_mountain")).toBe(true);
+    expect(hasAbilityAccess({ techIds: [], me: "me", tiles }, "aether_emp")).toBe(false);
   });
 });
 

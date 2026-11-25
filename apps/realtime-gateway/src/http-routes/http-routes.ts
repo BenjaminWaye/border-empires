@@ -9,6 +9,7 @@ import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth
 import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
 import { ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS, createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
 import { registerAdminAgentTokenRoute } from "./register-admin-agent-token-route.js";
+import { registerHostedStatusRoute } from "./register-hosted-status-route.js";
 import { registerAdminTileRoute, type RegisterAdminTileRouteDeps } from "./register-admin-tile-route.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
@@ -131,6 +132,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   sovereignSiegeEngineStrikeStore?: SovereignSiegeEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
   playerInsights?: PlayerInsightsRouteDeps;
+  /** Set only on a hosted sector: what the hosting service asks it (register-hosted-status-route.ts). */
+  hostedStatus?: { lastHumanVisitAt: () => Promise<number | undefined> };
 };
 
 
@@ -361,6 +364,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   if (deps.sectorWaitlist) registerSectorWaitlistRoutes(app, deps.sectorWaitlist);
   if (deps.publicHouseProfile) registerPublicHouseProfileRoutes(app, deps.publicHouseProfile);
   if (deps.sectorBoard) registerSectorBoardRoute(app, deps.sectorBoard);
+  if (deps.hostedStatus) registerHostedStatusRoute(app, { adminAuthorized, lastHumanVisitAt: deps.hostedStatus.lastHumanVisitAt });
   if (deps.emailUnsubscribe) registerEmailUnsubscribeRoutes(app, deps.emailUnsubscribe);
   if (deps.authBindingStore?.accountDeletion) registerAccountDeletionRoutes(app, {
     ...(deps.disconnectDeletedPlayer ? { disconnectPlayer: deps.disconnectDeletedPlayer } : {}),

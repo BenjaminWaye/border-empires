@@ -9,8 +9,6 @@ export type TileActionFilterState = Pick<ClientState, "techIds" | "localhostDevA
 /** Re-exported: an AFC_MODULE tech only works while a copy sits on one of the player's active, settled AFCs (the server's build gate). */
 export { afcModuleInstalled } from "../client-afc-module-access/client-afc-module-access.js";
 
-const BUILD_ROW_ID = /^(build|upgrade)_/;
-
 export const hideTechLockedTileAction = (
   action: TileActionDef,
   state: TileActionFilterState,
@@ -18,9 +16,8 @@ export const hideTechLockedTileAction = (
 ): boolean => {
   if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
   const requiredTech = requiredTechForTileAction(action.id);
-  // An installed module copy -- researched or captured with the AFC -- unlocks a build without research.
-  // Ability rows (Create Mountain, Aether EMP, ...) still need the Manifest itself.
-  if (requiredTech && BUILD_ROW_ID.test(action.id) && state.tiles && state.me && afcModuleInstalled({ tiles: state.tiles, me: state.me, ...(state.tilesRevision === undefined ? {} : { tilesRevision: state.tilesRevision }) }, requiredTech)) return false;
+  // An installed module copy -- researched or captured with the AFC -- unlocks its builds and abilities without research.
+  if (requiredTech && state.tiles && state.me && afcModuleInstalled({ tiles: state.tiles, me: state.me, ...(state.tilesRevision === undefined ? {} : { tilesRevision: state.tilesRevision }) }, requiredTech)) return false;
   if (requiredTech && !state.techIds.includes(requiredTech)) return true;
   const isModule = state.techCatalog?.find((tech) => tech.id === requiredTech)?.manifestCategory === "AFC_MODULE";
   if (requiredTech && isModule && state.tiles && state.me) return true;

@@ -14,9 +14,10 @@ export function chooseAetherRoute<T extends AutomationPlannerTile>(
   input: AutomationPlannerInput<T>, visible: ReadonlyMap<string, T>, ready: readonly T[]
 ): AiAetherAction | undefined {
   const techs = input.techIds ?? [];
+  const installed = new Set(input.installedModuleTechIds ?? []);
   const owned = [...visible.values()].filter(tile => tile.ownerId === input.playerId && tile.terrain === "LAND");
   const inRange = (tile: T): boolean => ready.some(tower => distance(tower, tile) <= (input.tacticalView?.castRange ?? 0));
-  if (playerHasAbilityTech(techs, "remove_mountain")) {
+  if (playerHasAbilityTech(techs, "remove_mountain", installed)) {
     for (const origin of owned) for (const dir of directions) {
       const barrier = at(visible, origin.x + dir.dx, origin.y + dir.dy);
       const prize = at(visible, origin.x + dir.dx * 2, origin.y + dir.dy * 2);
@@ -24,7 +25,7 @@ export function chooseAetherRoute<T extends AutomationPlannerTile>(
       return { type: "REMOVE_MOUNTAIN", payload: { x: barrier.x, y: barrier.y }, value: 95 };
     }
   }
-  if (playerHasAbilityTech(techs, "aether_bridge")) {
+  if (playerHasAbilityTech(techs, "aether_bridge", installed)) {
     // Runtime crossings are straight, non-wrapped sea segments. Enumerating
     // at most four cardinal rays per focused coastal garrison keeps work
     // linear in the bounded visible scope, not origins × all landing tiles.
@@ -44,7 +45,7 @@ export function chooseAetherRoute<T extends AutomationPlannerTile>(
       }
     }
   }
-  if (playerHasAbilityTech(techs, "create_mountain") && input.manpower < 60) {
+  if (playerHasAbilityTech(techs, "create_mountain", installed) && input.manpower < 60) {
     const shields = [...visible.values()].filter(tile => tile.observatory || tile.economicStructure?.type === "AEGIS_DOME");
     for (const origin of owned) {
       if (!(origin.town || origin.afc)) continue;
@@ -60,7 +61,7 @@ export function chooseAetherRoute<T extends AutomationPlannerTile>(
       }
     }
   }
-  if (playerHasAbilityTech(techs, "aether_wall") && input.manpower < 60) {
+  if (playerHasAbilityTech(techs, "aether_wall", installed) && input.manpower < 60) {
     for (const origin of owned) {
       if (origin.ownershipState !== "SETTLED" || !(origin.town || origin.afc) || !inRange(origin)) continue;
       for (const dir of directions) {

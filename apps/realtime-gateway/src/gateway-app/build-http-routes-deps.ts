@@ -4,6 +4,7 @@
 // object and call this function, instead of inlining the whole ~45-line
 // literal at the call site. Also wires up the bug report alerter/routes for
 // the same reason (see bug-report-routes.ts).
+import { hostedStatusFromFunnel } from "../http-routes/register-hosted-status-route.js";
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
@@ -264,6 +265,10 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     authBindingStore: ctx.authBindingStore,
     ...emailUnsubscribeRouteDeps(ctx),
     sovereignSiegeEngineStrikeStore: ctx.sovereignSiegeEngineStrikeStore,
+    // On a hosted sector the hosting service asks when a human last came (idle closure).
+    ...(ctx.playerFunnel && ctx.admin?.singleContest
+      ? { hostedStatus: hostedStatusFromFunnel(ctx.playerFunnel.store) }
+      : {}),
     ...(ctx.playerFunnel
       ? {
           playerInsights: {

@@ -17,7 +17,7 @@ import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
-import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
+import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js"; import { createInitialAchievementsState } from "../client-achievements/client-achievements-state.js";
 import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
 import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
 import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
@@ -289,7 +289,7 @@ export const createInitialState = () => ({
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
-  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
+  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), ...createInitialAchievementsState(), // ISLAND_NAMES push; achievements + LONGEST_ROAD (client-achievements/), see client-map-name-labels/
   ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
   ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
   ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/

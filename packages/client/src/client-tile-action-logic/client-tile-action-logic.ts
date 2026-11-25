@@ -73,7 +73,7 @@ import {
 
 export { hasAetherBridgeCapability, hasAetherWallCapability, hasLocalDevAetherWallOverride, hasRetortRecastingCapability, hasRevealCapability, hasSiphonCapability, hasTerrainShapingCapability } from "./client-tile-action-capabilities.js";
 export { hasOwnedLandWithinClientRange } from "../client-owned-land-range.js";
-import { hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
+import { hasAbilityAccess, hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -314,7 +314,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const isMonumentPartType = Boolean(economicStructureType && MONUMENT_COMPONENT_KEYS.has(economicStructureType));
 
     // Aether Purge (wire command remains AETHER_LANCE for compatibility).
-    if (state.techIds.includes("crystal-lattices")) {
+    if (hasAbilityAccess(state, "aether_lance")) {
       const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
       const reason =
         !obsInRange
@@ -336,7 +336,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     }
 
     // Aether EMP
-    if (state.techIds.includes("cryptography")) {
+    if (hasAbilityAccess(state, "aether_emp")) {
       const empCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_emp"));
       const reason =
         !obsInRange

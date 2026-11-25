@@ -171,7 +171,8 @@ const renderRanks = (deps: HudV2Deps): void => {
     overall: lb.overall,
     selfOverall: lb.selfOverall,
     nameOf: (id: string) => nameOf(deps, id),
-    colorOf: (id: string) => deps.ownerColor(id)
+    colorOf: (id: string) => deps.ownerColor(id),
+    longestRoad: deps.state.liveLongestRoad
   };
   writeHtml("v2s-head-right", ranksBannerHtml(input));
   bodyMode = "ranks";
@@ -301,7 +302,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
     ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ...(state.achievements ? { achievements: state.achievements } : {}), ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
   }));
 };
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { HostedSectorSummary, HostedSectorTicket, HostingApiResult } from "./client-hosted-sectors-api.js";
 import { setActiveHostedSectorSession } from "./client-hosted-sector-session.js";
-import { createHostedSectorsPanel, hostedSectorRowHtml, mountHostedSectorsPanel, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
+import { checkoutReturnNotice, createHostedSectorsPanel, hostedSectorRowHtml, mountHostedSectorsPanel, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
 
 vi.mock("./client-hosted-sectors.css", () => ({}));
 
@@ -274,5 +274,18 @@ describe("my sectors panel", () => {
     await vi.waitFor(() => expect(h.api.acceptInvite).toHaveBeenCalledWith("code-1"));
     document.querySelector<HTMLElement>("[data-hosted-sectors-close]")?.click();
     window.history.replaceState(null, "", "/");
+  });
+
+  it("opens the list with a notice when the player returns from Stripe Checkout", async () => {
+    expect(checkoutReturnNotice("?hosted=paid&sector=s-abc")).toMatch(/being prepared/);
+    expect(checkoutReturnNotice("?hosted=cancelled&sector=s-abc")).toMatch(/Nothing was charged/);
+    expect(checkoutReturnNotice("?hosted=other")).toBeUndefined();
+    expect(checkoutReturnNotice("")).toBeUndefined();
+    window.history.replaceState(null, "", "/?hosted=paid&sector=s-abc");
+    const h = makeDeps();
+    mountHostedSectorsPanel({ ...h.deps, whenAuthReady: async () => undefined });
+    await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/being prepared/));
+    expect(window.location.search).toBe("");
+    document.querySelector<HTMLElement>("[data-hosted-sectors-close]")?.click();
   });
 });

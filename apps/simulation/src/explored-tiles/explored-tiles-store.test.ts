@@ -58,3 +58,18 @@ describe("ExploredTilesStore", () => {
     expect(store.encodedFor("p1")).toBeUndefined();
   });
 });
+
+describe("ExploredTilesStore.exploredCount", () => {
+  it("counts each tile once, survives restore and forgets removed players", () => {
+    const store = new ExploredTilesStore(8, 8);
+    store.mark("p1", 1, 1);
+    store.mark("p1", 1, 1);
+    store.markKey("p1", "2,3");
+    expect(store.exploredCount("p1")).toBe(2);
+    const restored = new ExploredTilesStore(8, 8);
+    restored.restore(store.exportSnapshot());
+    expect(restored.exploredCount("p1")).toBe(2);
+    restored.retainOnly(() => false);
+    expect(restored.exploredCount("p1")).toBe(0);
+  });
+});

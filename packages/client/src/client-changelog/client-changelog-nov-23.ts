@@ -7,6 +7,7 @@ import { AI_ALLIANCE_STRENGTH_ENTRY } from "./client-changelog-ai-alliance-stren
 import { EXPAND_ATTACK_CONFIRM_ENTRY } from "./client-changelog-expand-attack-confirm.js";
 import { CITY_PLOTS_ENTRY } from "./client-changelog-city-plots.js";
 import { CREDITS_PAGE_ENTRY, OFFER_MESSAGES_ENTRY, PHONE_NEXT_STEP_ENTRY } from "./client-changelog-credits-next.js";
+import { ACHIEVEMENTS_ENTRY, LIVE_LONGEST_ROAD_ENTRY, LONGEST_ROAD_CADENCE_ENTRY } from "./client-changelog-achievements.js";
 import { INTEGRITY_OWN_LAND_ENTRY } from "./client-changelog-integrity-own-land.js";
 import { DOCK_CROSS_SEA_ENTRY } from "./client-changelog-dock-cross-sea.js";
 import { TRUCE_CLOCK_FROM_OFFER_ENTRY } from "./client-changelog-truce-clock-from-offer.js";
@@ -25,8 +26,9 @@ import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
 import { ACCOUNT_COSMETICS_ENTRY } from "./client-changelog-account-cosmetics.js";
 import { SCOUT_HIDDEN_BORDER_ENTRY } from "./client-changelog-scout-hidden-border.js";
 import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
-import { CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
+import { CAPTURED_AFC_MODULE_ABILITIES_ENTRY, CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
 import { FOGGED_RESOURCES_ENTRY } from "./client-changelog-fogged-resources.js";
+import { MARCH_FRIENDLY_ROUTE_ENTRY } from "./client-changelog-march-friendly-route.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...ACCOUNT_COSMETICS_ENTRY, createdAt: 1795471602875, },
@@ -58,4 +60,9 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...PHONE_NEXT_STEP_ENTRY, createdAt: 1795561375436, },
   { ...OFFER_MESSAGES_ENTRY, createdAt: 1795561375437, },
   { ...FOGGED_RESOURCES_ENTRY, createdAt: 1795591213251, },
+  { ...ACHIEVEMENTS_ENTRY, createdAt: 1795592580793, },
+  { ...LIVE_LONGEST_ROAD_ENTRY, createdAt: 1795592580794, },
+  { ...CAPTURED_AFC_MODULE_ABILITIES_ENTRY, createdAt: 1795602917486, },
+  { ...LONGEST_ROAD_CADENCE_ENTRY, createdAt: 1795603984598, },
+  { ...MARCH_FRIENDLY_ROUTE_ENTRY, createdAt: 1795607462228, },
 ];
