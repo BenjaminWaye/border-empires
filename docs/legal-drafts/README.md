@@ -124,9 +124,19 @@ yet. Sales stay off until all are done.
    withdrawn in the game's settings, so either a consent prompt and a setting
    to withdraw it are built, or analytics are turned off and that sentence is
    removed, before it is published.
-12. **Hetzner locations** (PR 4). The plan lets server creation fall back to a
-   second location. The privacy draft says sector servers are in the EU, so
-   the fallback must be another EU location.
+12. **Hetzner locations.** The location is a setting of the Hetzner provider
+    (`location` in `apps/sector-control/src/providers/hetzner/hetzner-server-provider.ts`),
+    and the plan allows a fallback location. The privacy draft says sector
+    servers are in the EU, so both must be EU locations.
+
+    **Sector addresses are public in certificate logs.** As built on
+    2026-11-25, each sector server gets its own HTTPS certificate, and every
+    certificate's hostname is published in public Certificate Transparency
+    logs. The privacy draft says a hosted sector "is not listed publicly" and
+    that its standings, with members' display names, can be read by anyone
+    with its address. Until the planned wildcard certificate replaces this,
+    either that sentence changes or the standings endpoint stops answering
+    people outside the sector.
 13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
 
