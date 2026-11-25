@@ -1,6 +1,8 @@
 // Which server provider the hosting service uses, and its settings.
 // "fake" creates nothing. "hetzner" creates real servers in the Hetzner
 // project the token belongs to: a project that must hold hosted sectors only.
+import { HOSTED_SECTOR_DNS_ZONE } from "@border-empires/shared";
+
 export type ServerProviderEnv =
   | { kind: "fake" }
   | {
@@ -39,7 +41,7 @@ export const parseServerProviderEnv = (env: NodeJS.ProcessEnv): ServerProviderEn
     kind: "hetzner",
     apiToken,
     sectorAdminSecret,
-    dnsZone: plain("HOSTING_SECTOR_DNS_ZONE", (env.HOSTING_SECTOR_DNS_ZONE ?? "borderempires-sectors.com").trim(), /^[a-z0-9-]+(\.[a-z0-9-]+)+$/),
+    dnsZone: sectorDnsZone(env.HOSTING_SECTOR_DNS_ZONE),
     serverType: plain("HOSTING_SECTOR_SERVER_TYPE", (env.HOSTING_SECTOR_SERVER_TYPE ?? "cx23").trim(), /^[a-z0-9-]+$/),
     location: plain("HOSTING_SECTOR_LOCATION", (env.HOSTING_SECTOR_LOCATION ?? "nbg1").trim(), /^[a-z0-9-]+$/),
     image: plain("HOSTING_SECTOR_IMAGE", (env.HOSTING_SECTOR_IMAGE ?? "ubuntu-24.04").trim(), /^[a-z0-9.-]+$/),
@@ -47,4 +49,12 @@ export const parseServerProviderEnv = (env: NodeJS.ProcessEnv): ServerProviderEn
     githubRepo: plain("HOSTING_GITHUB_REPO", (env.HOSTING_GITHUB_REPO ?? "BenjaminWaye/border-empires").trim(), /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
     releaseUrl
   };
+};
+
+// The web client connects only to hosts under the shared zone, so a sector
+// created anywhere else could be paid for but never entered.
+const sectorDnsZone = (value: string | undefined): string => {
+  const zone = (value ?? HOSTED_SECTOR_DNS_ZONE).trim();
+  if (zone !== HOSTED_SECTOR_DNS_ZONE) throw new Error(`HOSTING_SECTOR_DNS_ZONE must be ${HOSTED_SECTOR_DNS_ZONE}: the web client connects only to sectors under it`);
+  return zone;
 };

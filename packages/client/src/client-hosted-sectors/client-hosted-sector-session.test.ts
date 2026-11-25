@@ -43,6 +43,9 @@ describe("hosted sector session", () => {
     expect(isAllowedHostedSectorWsUrl("wss://borderempires-sectors.com.evil.example/ws", false, "s-abc")).toBe(false);
     expect(isAllowedHostedSectorWsUrl("wss://s-abc.borderempires-sectors.com/other", false, "s-abc")).toBe(false);
     expect(isAllowedHostedSectorWsUrl("not a url", false, "s-abc")).toBe(false);
+    // The old sector domain, and the sector id run into the domain without a dot.
+    expect(isAllowedHostedSectorWsUrl("wss://s-abc.sectors.borderempires.com/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://s-abcborderempires-sectors.com/ws", false, "s-abc")).toBe(false);
     // Only this sector's own host, on the default port, with no credentials in the address.
     expect(isAllowedHostedSectorWsUrl("wss://s-other.borderempires-sectors.com/ws", false, "s-abc")).toBe(false);
     expect(isAllowedHostedSectorWsUrl("wss://s-abc.borderempires-sectors.com:8443/ws", false, "s-abc")).toBe(false);

@@ -44,6 +44,8 @@ describe("hosting service runtime env", () => {
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HETZNER_API_TOKEN: "" })).toThrow(/HETZNER_API_TOKEN/);
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_ADMIN_SECRET: "short" })).toThrow(/32 characters/);
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_DNS_ZONE: "a b" })).toThrow(/HOSTING_SECTOR_DNS_ZONE/);
+    // A zone the web client would refuse to connect to: sectors there could be bought but never entered.
+    expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_DNS_ZONE: "sectors.borderempires.com" })).toThrow(/HOSTING_SECTOR_DNS_ZONE must be borderempires-sectors\.com/);
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, NODE_ENV: "production" })).toThrow(/cannot run in production/);
     const both = { ...hetzner, HOSTING_PAYMENT_PROVIDER: "stripe-test", STRIPE_SECRET_KEY: "sk_test_abc", STRIPE_WEBHOOK_SECRET: "whsec_abc", HOSTING_RETURN_ORIGIN: "https://staging.borderempires.com", NODE_ENV: "production" };
     expect(parseSectorControlRuntimeEnv(both).servers.kind).toBe("hetzner");

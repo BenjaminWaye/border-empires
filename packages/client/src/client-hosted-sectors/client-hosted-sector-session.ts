@@ -6,6 +6,8 @@
 // so "Enter" (client-hosted-sectors-panel.ts) fetches the ticket first, puts
 // it in sessionStorage with the server address, and then loads the page with
 // ?sector=. This module reads that back.
+import { HOSTED_SECTOR_DNS_ZONE } from "@border-empires/shared";
+
 import type { HostedSectorTicket, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorSession = { sectorId: string; wsUrl: string; ticket: string; expiresAt: number };
@@ -13,7 +15,7 @@ export type HostedSectorSession = { sectorId: string; wsUrl: string; ticket: str
 const STORAGE_KEY = "be-hosted-sector";
 const ID_PATTERN = /^[a-z0-9-]{1,64}$/;
 /** Hosted sector servers live only under this domain; nothing else is ever connected to. */
-const HOSTED_SECTOR_HOST_SUFFIX = ".borderempires-sectors.com";
+const HOSTED_SECTOR_HOST_SUFFIX = `.${HOSTED_SECTOR_DNS_ZONE}`;
 /** A ticket this close to expiry is replaced before use. */
 const TICKET_REFRESH_MARGIN_MS = 60_000;
 

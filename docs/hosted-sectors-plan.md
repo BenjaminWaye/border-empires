@@ -149,11 +149,11 @@ kept by another tool would be one more thing to go out of step.
    sending-only email key (Q14), and the address of the hosting service.
    Cloud-init user data is readable from inside the server only, and every
    secret in it is specific to hosted sectors.
-2. **Create the DNS name** `s-<id>.borderempires-sectors.com` pointing at the
+2. **Create the DNS name** `<sector id>.borderempires-sectors.com` (ids look like `s-xxxx`) pointing at the
    new server. Sectors use their own domain, `borderempires-sectors.com`
-   (bought 2026-11-25), whose nameservers are Hetzner's, so the same token can
+   (registered at Namecheap on 2026-11-25 with Hetzner's nameservers), so the same token can
    manage it. Hetzner DNS does not accept a subdomain such as
-   `sectors.borderempires.com` as a zone, and Namecheap's API can only replace
+   `sectors.borderempires.com` as a zone (its API answered "unsupported tld" when we tried, 2026-11-25), and Namecheap's API can only replace
    all of `borderempires.com`'s records at once, which would put the main game
    at risk; a separate domain keeps any mistake away from it.
 3. **The server deploys itself**: pulls the public image at the release the
@@ -386,7 +386,7 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 - **Let's Encrypt** issues at most 50 new certificates a week per registered
   domain, here `borderempires-sectors.com` (separate from `borderempires.com`,
   so sectors never use up the main game's allowance). With no cap this would
-  stop new sectors in a busy week, so sector servers use one wildcard certificate for
+  stop new sectors in a busy week, so sector servers are to use one wildcard certificate for
   `*.borderempires-sectors.com` instead of one certificate each. A wildcard
   needs a DNS challenge, so the hosting service obtains and renews it with the
   Hetzner DNS token it already holds (sector servers never get that token),
@@ -481,7 +481,7 @@ The Stripe test-mode work does not do these yet.
 | Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
 | Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
 | Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
-| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; delegating `borderempires-sectors.com` to Hetzner DNS at Namecheap. | **Done 2026-11-25:** Stripe test account, Hetzner project and token, and `borderempires-sectors.com` bought with Hetzner's nameservers; the Hetzner zone exists. |
+| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; a domain for sector servers whose nameservers are Hetzner's. | **Done 2026-11-25:** Stripe test account, Hetzner project and token, and `borderempires-sectors.com` bought with Hetzner's nameservers; the Hetzner zone exists. |
 
 ## 14. Cost
 
