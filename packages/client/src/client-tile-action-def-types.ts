@@ -93,6 +93,7 @@ export type TileActionDef = {
     | "suppress_aether_tower"
     | "hijack_aether_tower"
     | "forced_ancillarification"
+    | "town_focus_balanced" | "town_focus_growth" | "town_focus_levy" | "town_focus_commerce"
     | "ship_salvage_to_court"
     | "activate_waystation"
     | "retort_recast_food"

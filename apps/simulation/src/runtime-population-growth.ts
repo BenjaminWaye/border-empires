@@ -1,5 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityGrowthMult, type BiotaTownSupply } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityGrowthMult, townFocusMultipliers, type BiotaTownSupply } from "@border-empires/shared";
 import { biotaCoinRefreshFor } from "./biota-coin-refresh/biota-coin-refresh.js";
 import {
   LONG_PEACE_GROWTH_MULT,
@@ -261,6 +261,7 @@ export function tickPopulationGrowth(input: {
         firstThreeMult *
         longPeaceMult *
         integrityGrowthMult *
+        townFocusMultipliers(town).growth *
         logisticFactor;
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;

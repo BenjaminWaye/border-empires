@@ -29,6 +29,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "SET_CONVERTER_STRUCTURE_ENABLED":
     case "SET_CONVERTER_STRUCTURE_MODE":
     case "ASSIGN_REFINERY_FIELD":
+    case "SET_TOWN_FOCUS":
     case "SET_OBSERVATORY_ENABLED":
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":

@@ -244,6 +244,9 @@ export type DomainTileState = {
             | "censusHallAppliedBonus"
             | "terrainProfile"
             | "coastal"
+            | "focus"
+            | "pendingFocus"
+            | "pendingFocusAt"
           >
         >)
     | undefined;
