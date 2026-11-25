@@ -4,7 +4,7 @@ import { sectorAdminToken } from "./sector-admin-token.js";
 import { sectorCloudInit, sectorEnvFile } from "./sector-cloud-init.js";
 
 const INPUT = {
-  sectorId: "s-abc", hostname: "s-abc.sectors.borderempires.com", options: { mapStyle: "islands", mapSize: "small" },
+  sectorId: "s-abc", hostname: "s-abc.borderempires-sectors.com", options: { mapStyle: "islands", mapSize: "small" },
   releaseSha: "b".repeat(40), adminToken: "tok_123", ticketPublicKey: "MCowBQYDK2VwAyEA+abc=", githubRepo: "BenjaminWaye/border-empires"
 } as const;
 
@@ -21,7 +21,7 @@ describe("sector cloud-init", () => {
     const userData = sectorCloudInit(INPUT);
     expect(userData.startsWith("#cloud-config\n")).toBe(true);
     expect(userData).toContain(`https://raw.githubusercontent.com/BenjaminWaye/border-empires/${"b".repeat(40)}/deploy/bin/bootstrap-server.sh`);
-    expect(userData).toContain("BE_ENV=hosted BE_HOSTNAME=s-abc.sectors.borderempires.com");
+    expect(userData).toContain("BE_ENV=hosted BE_HOSTNAME=s-abc.borderempires-sectors.com");
     expect(userData).toContain(`sudo -u deploy /opt/border-empires/bin/deploy ${"b".repeat(40)}`);
     // The settings file is moved into place and removed, so it is not left readable by root alone.
     expect(userData).toContain("rm -f /root/be-sector.env");

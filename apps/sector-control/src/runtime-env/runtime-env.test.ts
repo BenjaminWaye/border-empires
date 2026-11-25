@@ -37,7 +37,7 @@ describe("hosting service runtime env", () => {
   it("creates servers in Hetzner only with a token and a long admin secret, and runs in production only with both real providers", () => {
     const hetzner = { ...base, HOSTING_SERVER_PROVIDER: "hetzner", HETZNER_API_TOKEN: "token", HOSTING_SECTOR_ADMIN_SECRET: "x".repeat(32) };
     expect(parseSectorControlRuntimeEnv(hetzner).servers).toEqual({
-      kind: "hetzner", apiToken: "token", sectorAdminSecret: "x".repeat(32), dnsZone: "sectors.borderempires.com", serverType: "cx23",
+      kind: "hetzner", apiToken: "token", sectorAdminSecret: "x".repeat(32), dnsZone: "borderempires-sectors.com", serverType: "cx23",
       location: "nbg1", image: "ubuntu-24.04", githubRepo: "BenjaminWaye/border-empires", releaseUrl: "https://api.borderempires.com/__build_sha.txt"
     });
     expect(parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_FIREWALL_ID: "42" }).servers).toMatchObject({ firewallId: 42 });

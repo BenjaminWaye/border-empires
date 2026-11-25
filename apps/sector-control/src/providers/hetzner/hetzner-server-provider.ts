@@ -12,7 +12,7 @@ import { sectorAdminToken } from "./sector-admin-token.js";
 import { sectorCloudInit } from "./sector-cloud-init.js";
 
 export type HetznerServerProviderConfig = {
-  /** The DNS zone sectors live under, delegated to Hetzner DNS: sectors.borderempires.com */
+  /** The DNS zone sectors live under, delegated to Hetzner DNS: borderempires-sectors.com */
   dnsZone: string;
   serverType: string;
   location: string;

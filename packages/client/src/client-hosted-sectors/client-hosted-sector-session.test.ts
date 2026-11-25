@@ -17,7 +17,7 @@ const memoryStorage = () => {
   return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
 };
 
-const SESSION = { sectorId: "s-abc", wsUrl: "wss://s-abc.sectors.borderempires.com/ws", ticket: "ticket-1", expiresAt: 1_000_000 };
+const SESSION = { sectorId: "s-abc", wsUrl: "wss://s-abc.borderempires-sectors.com/ws", ticket: "ticket-1", expiresAt: 1_000_000 };
 
 describe("hosted sector session", () => {
   it("is off unless the build turns it on, and never on in the apps", () => {
@@ -37,16 +37,16 @@ describe("hosted sector session", () => {
   });
 
   it("only ever connects to a server under the hosted-sector domain", () => {
-    expect(isAllowedHostedSectorWsUrl("wss://s-abc.sectors.borderempires.com/ws", false, "s-abc")).toBe(true);
-    expect(isAllowedHostedSectorWsUrl("ws://s-abc.sectors.borderempires.com/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://s-abc.borderempires-sectors.com/ws", false, "s-abc")).toBe(true);
+    expect(isAllowedHostedSectorWsUrl("ws://s-abc.borderempires-sectors.com/ws", false, "s-abc")).toBe(false);
     expect(isAllowedHostedSectorWsUrl("wss://evil.example.com/ws", false, "s-abc")).toBe(false);
-    expect(isAllowedHostedSectorWsUrl("wss://sectors.borderempires.com.evil.example/ws", false, "s-abc")).toBe(false);
-    expect(isAllowedHostedSectorWsUrl("wss://s-abc.sectors.borderempires.com/other", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://borderempires-sectors.com.evil.example/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://s-abc.borderempires-sectors.com/other", false, "s-abc")).toBe(false);
     expect(isAllowedHostedSectorWsUrl("not a url", false, "s-abc")).toBe(false);
     // Only this sector's own host, on the default port, with no credentials in the address.
-    expect(isAllowedHostedSectorWsUrl("wss://s-other.sectors.borderempires.com/ws", false, "s-abc")).toBe(false);
-    expect(isAllowedHostedSectorWsUrl("wss://s-abc.sectors.borderempires.com:8443/ws", false, "s-abc")).toBe(false);
-    expect(isAllowedHostedSectorWsUrl("wss://user:pass@s-abc.sectors.borderempires.com/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://s-other.borderempires-sectors.com/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://s-abc.borderempires-sectors.com:8443/ws", false, "s-abc")).toBe(false);
+    expect(isAllowedHostedSectorWsUrl("wss://user:pass@s-abc.borderempires-sectors.com/ws", false, "s-abc")).toBe(false);
     // Local development against the fake providers.
     expect(isAllowedHostedSectorWsUrl("ws://127.0.0.1:3102/ws", true, "s-abc")).toBe(true);
     expect(isAllowedHostedSectorWsUrl("https://127.0.0.1/ws", true, "s-abc")).toBe(false);

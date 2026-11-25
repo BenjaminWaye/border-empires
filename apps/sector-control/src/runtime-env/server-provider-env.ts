@@ -39,7 +39,7 @@ export const parseServerProviderEnv = (env: NodeJS.ProcessEnv): ServerProviderEn
     kind: "hetzner",
     apiToken,
     sectorAdminSecret,
-    dnsZone: plain("HOSTING_SECTOR_DNS_ZONE", (env.HOSTING_SECTOR_DNS_ZONE ?? "sectors.borderempires.com").trim(), /^[a-z0-9-]+(\.[a-z0-9-]+)+$/),
+    dnsZone: plain("HOSTING_SECTOR_DNS_ZONE", (env.HOSTING_SECTOR_DNS_ZONE ?? "borderempires-sectors.com").trim(), /^[a-z0-9-]+(\.[a-z0-9-]+)+$/),
     serverType: plain("HOSTING_SECTOR_SERVER_TYPE", (env.HOSTING_SECTOR_SERVER_TYPE ?? "cx23").trim(), /^[a-z0-9-]+$/),
     location: plain("HOSTING_SECTOR_LOCATION", (env.HOSTING_SECTOR_LOCATION ?? "nbg1").trim(), /^[a-z0-9-]+$/),
     image: plain("HOSTING_SECTOR_IMAGE", (env.HOSTING_SECTOR_IMAGE ?? "ubuntu-24.04").trim(), /^[a-z0-9.-]+$/),

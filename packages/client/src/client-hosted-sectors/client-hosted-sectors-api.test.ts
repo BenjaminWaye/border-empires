@@ -24,8 +24,8 @@ describe("hosting API client", () => {
   });
 
   it("returns the ticket and server address for a sector", async () => {
-    const fetchImpl = vi.fn(async (_url: string) => reply(200, { ok: true, ticket: "t", expiresAt: 5, wsUrl: "wss://s-abc.sectors.borderempires.com/ws" }));
-    expect(await makeApi(fetchImpl as unknown as typeof fetch).issueTicket("s-abc")).toEqual({ ok: true, ticket: "t", expiresAt: 5, wsUrl: "wss://s-abc.sectors.borderempires.com/ws" });
+    const fetchImpl = vi.fn(async (_url: string) => reply(200, { ok: true, ticket: "t", expiresAt: 5, wsUrl: "wss://s-abc.borderempires-sectors.com/ws" }));
+    expect(await makeApi(fetchImpl as unknown as typeof fetch).issueTicket("s-abc")).toEqual({ ok: true, ticket: "t", expiresAt: 5, wsUrl: "wss://s-abc.borderempires-sectors.com/ws" });
     expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.borderempires.com/hosting/sectors/s-abc/ticket");
   });
 

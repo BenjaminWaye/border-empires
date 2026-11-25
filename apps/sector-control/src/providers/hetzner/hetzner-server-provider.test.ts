@@ -6,7 +6,7 @@ import { sectorAdminToken } from "./sector-admin-token.js";
 
 const SHA = "a".repeat(40);
 const CONFIG = {
-  dnsZone: "sectors.borderempires.com", serverType: "cx23", location: "nbg1", image: "ubuntu-24.04", firewallId: 7,
+  dnsZone: "borderempires-sectors.com", serverType: "cx23", location: "nbg1", image: "ubuntu-24.04", firewallId: 7,
   githubRepo: "BenjaminWaye/border-empires", sectorAdminSecret: "secret", ticketPublicKey: "MCowBQYDK2VwAyEA", releaseSha: async () => SHA
 };
 const OPTIONS = { mapStyle: "continents", mapSize: "standard" } as const;
@@ -36,14 +36,14 @@ const fakeHetzner = () => {
     const serverId = Number(/^\/servers\/(\d+)$/.exec(path)?.[1]);
     if (init.method === "GET" && serverId) return servers.has(serverId) ? json(200, { server: servers.get(serverId) }) : json(404, { error: { code: "not_found" } });
     if (init.method === "DELETE" && serverId) return servers.delete(serverId) ? json(200, {}) : json(404, { error: { code: "not_found" } });
-    if (init.method === "POST" && path === "/zones/sectors.borderempires.com/rrsets") {
+    if (init.method === "POST" && path === "/zones/borderempires-sectors.com/rrsets") {
       if (records.has(String(body?.name))) return json(409, { error: { code: "uniqueness_error" } });
       records.set(String(body?.name), String((body?.records as Array<{ value: string }>)[0]?.value));
       return json(201, {});
     }
-    const setRecords = /^\/zones\/sectors\.borderempires\.com\/rrsets\/([a-z0-9-]+)\/A\/actions\/set_records$/.exec(path)?.[1];
+    const setRecords = /^\/zones\/borderempires-sectors\.com\/rrsets\/([a-z0-9-]+)\/A\/actions\/set_records$/.exec(path)?.[1];
     if (init.method === "POST" && setRecords) { records.set(setRecords, String((body?.records as Array<{ value: string }>)[0]?.value)); return json(201, {}); }
-    const deleteRecord = /^\/zones\/sectors\.borderempires\.com\/rrsets\/([a-z0-9-]+)\/A$/.exec(path)?.[1];
+    const deleteRecord = /^\/zones\/borderempires-sectors\.com\/rrsets\/([a-z0-9-]+)\/A$/.exec(path)?.[1];
     if (init.method === "DELETE" && deleteRecord) return records.delete(deleteRecord) ? json(204, {}) : json(404, { error: { code: "not_found" } });
     return json(500, { error: { message: `unexpected ${init.method} ${path}` } });
   };
@@ -54,7 +54,7 @@ describe("Hetzner server provider", () => {
   it("creates one labelled server with the sector's cloud-init and points its DNS name at it", async () => {
     const hetzner = fakeHetzner();
     const provider = createHetznerServerProvider(hetzner.api, CONFIG);
-    expect(await provider.createServer({ sectorId: "s-abc", options: OPTIONS })).toEqual({ serverRef: "101", hostname: "s-abc.sectors.borderempires.com" });
+    expect(await provider.createServer({ sectorId: "s-abc", options: OPTIONS })).toEqual({ serverRef: "101", hostname: "s-abc.borderempires-sectors.com" });
     const create = hetzner.calls.find((call) => call.method === "POST" && call.path === "/servers");
     expect(create?.body).toMatchObject({
       name: "s-abc", server_type: "cx23", location: "nbg1", image: "ubuntu-24.04",
@@ -70,7 +70,7 @@ describe("Hetzner server provider", () => {
     const provider = createHetznerServerProvider(hetzner.api, CONFIG);
     await provider.createServer({ sectorId: "s-abc", options: OPTIONS });
     hetzner.records.clear(); // the record had not been made yet when the service stopped
-    expect(await provider.createServer({ sectorId: "s-abc", options: OPTIONS })).toEqual({ serverRef: "101", hostname: "s-abc.sectors.borderempires.com" });
+    expect(await provider.createServer({ sectorId: "s-abc", options: OPTIONS })).toEqual({ serverRef: "101", hostname: "s-abc.borderempires-sectors.com" });
     expect(hetzner.servers.size).toBe(1);
     expect(hetzner.records.get("s-abc")).toBe("203.0.113.1");
     // An existing record is set, not added twice.
@@ -108,7 +108,7 @@ describe("Hetzner server provider: asking a sector server", () => {
   };
 
   it("is healthy only when /health says ok", async () => {
-    const host = "s-abc.sectors.borderempires.com";
+    const host = "s-abc.borderempires-sectors.com";
     const up = createHetznerServerProvider(fakeHetzner().api, CONFIG, sectorFetch({ [`https://${host}/health`]: { status: 200, body: { ok: true } } }));
     expect(await up.isHealthy(host)).toBe(true);
     const starting = createHetznerServerProvider(fakeHetzner().api, CONFIG, sectorFetch({ [`https://${host}/health`]: { status: 503, body: { ok: false } } }));
@@ -117,7 +117,7 @@ describe("Hetzner server provider: asking a sector server", () => {
   });
 
   it("reads whether the contest ended and when a human last came, with the sector's own admin token", async () => {
-    const host = "s-abc.sectors.borderempires.com";
+    const host = "s-abc.borderempires-sectors.com";
     const http = sectorFetch({
       [`https://${host}/hq/summary`]: { status: 200, body: { status: "ended" } },
       [`https://${host}/admin/hosted/status`]: { status: 200, body: { ok: true, lastHumanVisitAt: 42 } }
