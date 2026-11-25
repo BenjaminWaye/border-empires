@@ -62,6 +62,8 @@ export * from "./hills-terrain/hills-terrain.js";
 export * from "./terrain-combat/terrain-combat.js";
 export * from "./frontier-claim-duration/frontier-claim-duration.js";
 export * from "./garrison-duration/garrison-duration.js";
+export * from "./achievements/achievements.js";
+export * from "./longest-road/longest-road-message.js";
 export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";

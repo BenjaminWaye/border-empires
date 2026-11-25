@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { countStructureBuilt } from "./achievements/achievement-counters.js";
 import { MANUFACTORY_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -125,6 +126,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
+  countStructureBuilt(context.players.get(ownerId));
   // Manufactory rebalance (structure-detail-screen task): instant one-time gold
   // grant on completion, on top of its ongoing flat/percentage gold bonuses.
   // Credited before the single emitPlayerStateUpdate call below so that
