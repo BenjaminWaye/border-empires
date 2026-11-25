@@ -6,7 +6,7 @@
 // HMAC-SHA256 signatures of `${t}.${rawBody}` under the endpoint's secret.
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import type { PaymentEvent } from "../../hosting-service/hosting-service.js";
+import type { HostingPaymentEvent } from "../../hosting-service/hosting-service.js";
 import type { StripeApi } from "./stripe-api.js";
 
 /** Stripe's own libraries allow five minutes; an older event is refused as a possible replay. */
@@ -33,15 +33,36 @@ const text = (value: unknown): string | undefined => (typeof value === "string" 
 export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret: string; now?: () => number }) => {
   const now = deps.now ?? (() => Date.now());
 
-  /** Refund and dispute events name the payment, not the sector; the sector id lives on the payment's metadata. */
-  const sectorOfPaymentIntent = async (paymentIntent: unknown): Promise<string | undefined> => {
-    const id = text(paymentIntent);
-    if (!id) return undefined;
+  /**
+   * Refund and dispute events name the payment, not the sector; the sector id
+   * (and, for a share of a split-funded sector, the contribution id) lives on
+   * the payment's metadata.
+   */
+  const paymentIntent = async (paymentIntentId: unknown): Promise<{ sectorId?: string; contributionId?: string; status?: string }> => {
+    const id = text(paymentIntentId);
+    if (!id) return {};
     const intent = await deps.api.get(`/payment_intents/${encodeURIComponent(id)}`);
-    return text((intent.metadata as Record<string, unknown> | undefined)?.sectorId);
+    const metadata = (intent.metadata ?? {}) as Record<string, unknown>;
+    const sectorId = text(metadata.sectorId);
+    const contributionId = text(metadata.contributionId);
+    const status = text(intent.status);
+    return { ...(sectorId ? { sectorId } : {}), ...(contributionId ? { contributionId } : {}), ...(status ? { status } : {}) };
   };
 
-  return async (rawBody: string, headers: Headers): Promise<PaymentEvent | "ignored" | undefined> => {
+  /** A share's event, from its Checkout Session (held or expired) or its payment (refunded or disputed). */
+  const contributionEvent = async (eventId: string, type: unknown, object: Record<string, unknown>, contributionId: string): Promise<HostingPaymentEvent | "ignored"> => {
+    if (type === "checkout.session.completed" || type === "checkout.session.async_payment_succeeded") {
+      // A share only holds the card: the session completes unpaid, and the hold shows on its payment.
+      const { status } = await paymentIntent(object.payment_intent);
+      return status === "requires_capture" ? { eventId, kind: "held", contributionId } : "ignored";
+    }
+    if (type === "checkout.session.expired" || type === "checkout.session.async_payment_failed") return { eventId, kind: "expired", contributionId };
+    if (type === "charge.refunded") return { eventId, kind: "refunded", contributionId };
+    if (type === "charge.dispute.created") return { eventId, kind: "disputed", contributionId };
+    return "ignored";
+  };
+
+  return async (rawBody: string, headers: Headers): Promise<HostingPaymentEvent | "ignored" | undefined> => {
     const header = headers["stripe-signature"];
     if (!verifyStripeSignature(rawBody, Array.isArray(header) ? header[0] : header, deps.webhookSecret, Math.floor(now() / 1000))) return undefined;
     const event = JSON.parse(rawBody) as { id?: unknown; type?: unknown; livemode?: unknown; data?: { object?: Record<string, unknown> } };
@@ -49,6 +70,16 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
     const object = event.data?.object ?? {};
     // A live event can only come from a live endpoint misconfigured to point here.
     if (!eventId || event.livemode !== false) return "ignored";
+
+    // Shares of a split-funded sector carry their contribution id on the session, or on the payment.
+    const sessionContribution = text((object.metadata as Record<string, unknown> | undefined)?.contributionId);
+    if (sessionContribution && String(event.type).startsWith("checkout.session.")) return contributionEvent(eventId, event.type, object, sessionContribution);
+    if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+      const intent = await paymentIntent(object.payment_intent);
+      if (intent.contributionId) return contributionEvent(eventId, event.type, object, intent.contributionId);
+      if (!intent.sectorId) return "ignored";
+      return { eventId, kind: event.type === "charge.refunded" ? "refunded" : "disputed", sectorId: intent.sectorId };
+    }
 
     switch (event.type) {
       case "checkout.session.completed":
@@ -63,15 +94,6 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
       case "checkout.session.async_payment_failed": {
         const sectorId = text(object.client_reference_id);
         return sectorId ? { eventId, kind: "expired", sectorId } : "ignored";
-      }
-      case "charge.refunded": {
-        // Full or partial: a partial refund is a withdrawal with a deduction, and that closes the sector too.
-        const sectorId = await sectorOfPaymentIntent(object.payment_intent);
-        return sectorId ? { eventId, kind: "refunded", sectorId } : "ignored";
-      }
-      case "charge.dispute.created": {
-        const sectorId = await sectorOfPaymentIntent(object.payment_intent);
-        return sectorId ? { eventId, kind: "disputed", sectorId } : "ignored";
       }
       default:
         return "ignored";

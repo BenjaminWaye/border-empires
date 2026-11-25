@@ -3,8 +3,12 @@ import type { DatabaseSync } from "node:sqlite";
 import { isHostedSectorMapSize, isHostedSectorMapStyle } from "@border-empires/shared";
 
 import {
+  CONTRIBUTION_STATES,
   LIVE_SECTOR_STATES,
   SECTOR_STATES,
+  type ContributionPatch,
+  type ContributionRecord,
+  type ContributionState,
   type HostingStore,
   type SectorInvite,
   type SectorMember,
@@ -17,23 +21,28 @@ type SectorRow = {
   sector_id: string; host_uid: string; map_style: string; map_size: string; state: string;
   amount_cents: number; currency: string; payment_ref: string | null; checkout_url: string | null;
   server_ref: string | null; hostname: string | null; created_at: number; updated_at: number;
-  paid_at: number | null; opened_at: number | null; ended_at: number | null;
+  funding_deadline: number | null; paid_at: number | null; opened_at: number | null; ended_at: number | null;
   create_attempts: number; next_attempt_at: number | null; last_error: string | null;
+};
+type ContributionRow = {
+  contribution_id: string; sector_id: string; account_uid: string; amount_cents: number; state: string;
+  payment_ref: string | null; checkout_url: string | null; created_at: number; updated_at: number;
 };
 type MemberRow = { sector_id: string; account_uid: string; role: string; joined_at: number };
 type InviteRow = { code: string; sector_id: string; created_by: string; created_at: number; expires_at: number; revoked_at: number | null };
 
 const SECTOR_COLUMNS =
   "sector_id, host_uid, map_style, map_size, state, amount_cents, currency, payment_ref, checkout_url, server_ref, hostname, " +
-  "created_at, updated_at, paid_at, opened_at, ended_at, create_attempts, next_attempt_at, last_error";
+  "created_at, updated_at, funding_deadline, paid_at, opened_at, ended_at, create_attempts, next_attempt_at, last_error";
+const CONTRIBUTION_COLUMNS = "contribution_id, sector_id, account_uid, amount_cents, state, payment_ref, checkout_url, created_at, updated_at";
 
 const PATCH_COLUMNS: Record<keyof SectorPatch, string> = {
-  state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url", serverRef: "server_ref", hostname: "hostname",
+  fundingDeadline: "funding_deadline", state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url", serverRef: "server_ref", hostname: "hostname",
   paidAt: "paid_at", openedAt: "opened_at", endedAt: "ended_at",
   createAttempts: "create_attempts", nextAttemptAt: "next_attempt_at", lastError: "last_error"
 };
 
-const quoted = (states: readonly SectorState[]): string => states.map((state) => `'${state}'`).join(", ");
+const quoted = (states: readonly string[]): string => states.map((state) => `'${state}'`).join(", ");
 
 const toSector = (row: SectorRow): SectorRecord => {
   if (!isHostedSectorMapStyle(row.map_style) || !isHostedSectorMapSize(row.map_size)) throw new Error(`sector ${row.sector_id} has unknown options`);
@@ -51,6 +60,7 @@ const toSector = (row: SectorRow): SectorRecord => {
     ...(row.hostname !== null ? { hostname: row.hostname } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...(row.funding_deadline !== null ? { fundingDeadline: row.funding_deadline } : {}),
     ...(row.paid_at !== null ? { paidAt: row.paid_at } : {}),
     ...(row.opened_at !== null ? { openedAt: row.opened_at } : {}),
     ...(row.ended_at !== null ? { endedAt: row.ended_at } : {}),
@@ -59,6 +69,19 @@ const toSector = (row: SectorRow): SectorRecord => {
     ...(row.last_error !== null ? { lastError: row.last_error } : {})
   };
 };
+
+const toContribution = (row: ContributionRow): ContributionRecord => {
+  if (!(CONTRIBUTION_STATES as readonly string[]).includes(row.state)) throw new Error(`contribution ${row.contribution_id} has unknown state ${row.state}`);
+  return {
+    contributionId: row.contribution_id, sectorId: row.sector_id, accountUid: row.account_uid, amountCents: row.amount_cents,
+    state: row.state as ContributionState,
+    ...(row.payment_ref !== null ? { paymentRef: row.payment_ref } : {}),
+    ...(row.checkout_url !== null ? { checkoutUrl: row.checkout_url } : {}),
+    createdAt: row.created_at, updatedAt: row.updated_at
+  };
+};
+
+const CONTRIBUTION_PATCH_COLUMNS: Record<keyof ContributionPatch, string> = { state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url" };
 
 const toInvite = (row: InviteRow): SectorInvite => ({
   code: row.code, sectorId: row.sector_id, createdBy: row.created_by, createdAt: row.created_at, expiresAt: row.expires_at,
@@ -84,6 +107,7 @@ export class SqliteHostingStore implements HostingStore {
         hostname TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        funding_deadline INTEGER,
         paid_at INTEGER,
         opened_at INTEGER,
         ended_at INTEGER,
@@ -92,7 +116,9 @@ export class SqliteHostingStore implements HostingStore {
         last_error TEXT
       );
       -- One live sector per account: the database refuses a second, whatever the caller checked.
-      CREATE UNIQUE INDEX IF NOT EXISTS hosted_sectors_one_live_per_host
+      -- Versioned by name: the list of live states is part of the index, so a change needs a new one.
+      DROP INDEX IF EXISTS hosted_sectors_one_live_per_host;
+      CREATE UNIQUE INDEX IF NOT EXISTS hosted_sectors_one_live_per_host_v2
         ON hosted_sectors (host_uid) WHERE state IN (${quoted(LIVE_SECTOR_STATES)});
       CREATE INDEX IF NOT EXISTS hosted_sectors_state_idx ON hosted_sectors (state);
       CREATE TABLE IF NOT EXISTS hosted_sector_members (
@@ -112,6 +138,18 @@ export class SqliteHostingStore implements HostingStore {
         revoked_at INTEGER
       );
       CREATE INDEX IF NOT EXISTS hosted_sector_invites_sector_idx ON hosted_sector_invites (sector_id);
+      CREATE TABLE IF NOT EXISTS hosted_contributions (
+        contribution_id TEXT PRIMARY KEY,
+        sector_id TEXT NOT NULL,
+        account_uid TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        state TEXT NOT NULL,
+        payment_ref TEXT,
+        checkout_url TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS hosted_contributions_sector_idx ON hosted_contributions (sector_id);
       CREATE TABLE IF NOT EXISTS hosted_payment_events (
         event_id TEXT PRIMARY KEY,
         received_at INTEGER NOT NULL
@@ -121,11 +159,11 @@ export class SqliteHostingStore implements HostingStore {
 
   insertSector(sector: SectorRecord): void {
     this.db
-      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         sector.sectorId, sector.hostUid, sector.options.mapStyle, sector.options.mapSize, sector.state, sector.amountCents, sector.currency,
         sector.paymentRef ?? null, sector.checkoutUrl ?? null, sector.serverRef ?? null, sector.hostname ?? null,
-        sector.createdAt, sector.updatedAt, sector.paidAt ?? null, sector.openedAt ?? null, sector.endedAt ?? null,
+        sector.createdAt, sector.updatedAt, sector.fundingDeadline ?? null, sector.paidAt ?? null, sector.openedAt ?? null, sector.endedAt ?? null,
         sector.createAttempts, sector.nextAttemptAt ?? null, sector.lastError ?? null
       );
   }
@@ -222,6 +260,39 @@ export class SqliteHostingStore implements HostingStore {
   revokeInvite(code: string, now: number): boolean {
     const result = this.db.prepare(`UPDATE hosted_sector_invites SET revoked_at = ? WHERE code = ? AND revoked_at IS NULL`).run(now, code);
     return Number(result.changes) > 0;
+  }
+
+  insertContribution(contribution: ContributionRecord): void {
+    this.db
+      .prepare(`INSERT INTO hosted_contributions (${CONTRIBUTION_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(
+        contribution.contributionId, contribution.sectorId, contribution.accountUid, contribution.amountCents, contribution.state,
+        contribution.paymentRef ?? null, contribution.checkoutUrl ?? null, contribution.createdAt, contribution.updatedAt
+      );
+  }
+
+  getContribution(contributionId: string): ContributionRecord | undefined {
+    const row = this.db.prepare(`SELECT ${CONTRIBUTION_COLUMNS} FROM hosted_contributions WHERE contribution_id = ?`).get(contributionId) as ContributionRow | undefined;
+    return row ? toContribution(row) : undefined;
+  }
+
+  transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean {
+    const assignments = ["updated_at = ?"];
+    const values: Array<string | number | null> = [now];
+    for (const [key, value] of Object.entries(patch) as Array<[keyof ContributionPatch, string | null | undefined]>) {
+      if (value === undefined) continue;
+      assignments.push(`${CONTRIBUTION_PATCH_COLUMNS[key]} = ?`);
+      values.push(value);
+    }
+    const result = this.db
+      .prepare(`UPDATE hosted_contributions SET ${assignments.join(", ")} WHERE contribution_id = ? AND state IN (${quoted(fromStates)})`)
+      .run(...values, contributionId);
+    return Number(result.changes) > 0;
+  }
+
+  listContributions(sectorId: string): ContributionRecord[] {
+    const rows = this.db.prepare(`SELECT ${CONTRIBUTION_COLUMNS} FROM hosted_contributions WHERE sector_id = ? ORDER BY created_at`).all(sectorId) as ContributionRow[];
+    return rows.map(toContribution);
   }
 
   recordPaymentEvent(eventId: string, now: number): boolean {

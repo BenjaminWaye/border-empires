@@ -50,6 +50,11 @@ export const hostSectorFormHtml = (): string => {
           return option("mapSize", size, size === "standard" ? "Standard" : "Small", `${spec.humanPlaces} human places and ${spec.aiHouses} AI Houses.`, mapSizeIsSellable(size), size === firstSize);
         }).join("")}
       </fieldset>
+      <fieldset>
+        <legend>How to pay</legend>
+        ${option("payMode", "single", `I pay it all · ${hostedSectorPriceLabel()}`, "The sector starts as soon as you have paid.", true, true)}
+        ${option("payMode", "split", "Split it with friends", "Open a funding bar and share the invite link. Each person chips in at least USD 5; cards are only held until the bar is full, then everyone is charged and the sector starts. If it is not full within 72 hours, nobody pays.", true, false)}
+      </fieldset>
       <label class="hosted-sector-consent">
         <input type="checkbox" name="consent" required />
         <span>I accept the <a href="/purchase-terms.html" target="_blank" rel="noopener">Terms of Sale</a>. I ask for my sector to start at once, and I understand that if I withdraw within 14 days I pay for the days it has run.</span>
@@ -57,19 +62,19 @@ export const hostSectorFormHtml = (): string => {
       <p class="hosted-sector-error" data-hosted-sector-form-error role="alert" hidden></p>
       <div class="hosted-sector-form-actions">
         <button type="button" class="panel-btn" data-hosted-sector-form-cancel>Back</button>
-        <button type="submit" class="panel-btn"${firstSize ? "" : " disabled"}>Continue to payment · ${hostedSectorPriceLabel()}</button>
+        <button type="submit" class="panel-btn"${firstSize ? "" : " disabled"}>Continue</button>
       </div>
       <p class="hosted-sector-note">The price includes any tax. You pay on a secure page run by Stripe.</p>
     </form>`;
 };
 
 /** Reads the form. Undefined when a choice is missing or the terms are not accepted. */
-export const readHostSectorForm = (form: HTMLFormElement): { mapStyle: HostedSectorMapStyle; mapSize: HostedSectorMapSize } | undefined => {
+export const readHostSectorForm = (form: HTMLFormElement): { mapStyle: HostedSectorMapStyle; mapSize: HostedSectorMapSize; split: boolean } | undefined => {
   const data = new FormData(form);
   const mapStyle = data.get("mapStyle");
   const mapSize = data.get("mapSize");
   if (data.get("consent") === null) return undefined;
   if (typeof mapStyle !== "string" || !(sellableMapStyles as readonly string[]).includes(mapStyle)) return undefined;
   if ((mapSize !== "standard" && mapSize !== "small") || !mapSizeIsSellable(mapSize)) return undefined;
-  return { mapStyle: mapStyle as HostedSectorMapStyle, mapSize };
+  return { mapStyle: mapStyle as HostedSectorMapStyle, mapSize, split: data.get("payMode") === "split" };
 };

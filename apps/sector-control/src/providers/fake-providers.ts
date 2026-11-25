@@ -1,6 +1,6 @@
 // In-memory stand-ins for Stripe and Hetzner, for tests and local development.
 // They take no money and create no servers.
-import type { CheckoutStatus, PaymentProvider, ServerProvider } from "./providers.js";
+import type { CheckoutStatus, ContributionStatus, PaymentProvider, ServerProvider } from "./providers.js";
 
 export class FakePaymentProvider implements PaymentProvider {
   readonly statuses = new Map<string, CheckoutStatus>();
@@ -20,6 +20,32 @@ export class FakePaymentProvider implements PaymentProvider {
   async refund(paymentRef: string): Promise<void> {
     if (this.failRefunds) throw new Error("fake refund failure");
     if (!this.refunded.includes(paymentRef)) this.refunded.push(paymentRef);
+  }
+
+  /** Contribution checkouts: "open" until a test sets "held" or "expired". */
+  readonly contributions = new Map<string, ContributionStatus>();
+  readonly captured: string[] = [];
+  readonly released: string[] = [];
+  /** Payment refs whose capture fails (the hold lapsed or was declined). */
+  readonly failCaptures = new Set<string>();
+
+  async createContributionCheckout(input: { contributionId: string }): Promise<{ paymentRef: string; checkoutUrl: string }> {
+    const paymentRef = `fake-hold-${input.contributionId}`;
+    if (!this.contributions.has(paymentRef)) this.contributions.set(paymentRef, "open");
+    return { paymentRef, checkoutUrl: `https://checkout.invalid/${paymentRef}` };
+  }
+
+  async getContributionStatus(paymentRef: string): Promise<ContributionStatus> {
+    return this.contributions.get(paymentRef) ?? "expired";
+  }
+
+  async capture(paymentRef: string): Promise<void> {
+    if (this.failCaptures.has(paymentRef)) throw new Error("fake capture failure");
+    if (!this.captured.includes(paymentRef)) this.captured.push(paymentRef);
+  }
+
+  async release(paymentRef: string): Promise<void> {
+    if (!this.released.includes(paymentRef)) this.released.push(paymentRef);
   }
 }
 

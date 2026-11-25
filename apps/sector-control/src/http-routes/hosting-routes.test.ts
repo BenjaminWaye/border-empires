@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { PaymentEvent } from "../hosting-service/hosting-service.js";
+import type { HostingPaymentEvent } from "../hosting-service/hosting-service.js";
 import { account, createHostingHarness } from "../hosting-test-support.js";
 import { registerHostingRoutes } from "./hosting-routes.js";
 
@@ -20,7 +20,7 @@ describe("hosting HTTP routes", () => {
       verifyIdToken: async (token) => (token.startsWith("token-") ? account(token.slice(6), { isGuest: token === "token-guest" }) : undefined),
       parsePaymentWebhook: async (rawBody, headers) => {
         if (headers["x-test-signature"] !== `sig:${rawBody.length}`) return undefined;
-        const parsed = JSON.parse(rawBody) as PaymentEvent | { kind: "other" };
+        const parsed = JSON.parse(rawBody) as HostingPaymentEvent | { kind: "other" };
         return parsed.kind === "other" ? "ignored" : parsed;
       },
       onWebhookRejected: () => { rejected += 1; }
@@ -36,7 +36,7 @@ describe("hosting HTTP routes", () => {
 
   it("requires a signed-in account on every player route", async () => {
     const { call } = await start();
-    for (const [method, url] of [["POST", "/hosting/orders"], ["GET", "/hosting/sectors"], ["GET", "/hosting/sectors/s-x"], ["POST", "/hosting/sectors/s-x/invites"], ["POST", "/hosting/sectors/s-x/ticket"], ["POST", "/hosting/invites/abc/accept"], ["DELETE", "/hosting/invites/abc"]] as const) {
+    for (const [method, url] of [["POST", "/hosting/orders"], ["GET", "/hosting/sectors"], ["GET", "/hosting/sectors/s-x"], ["POST", "/hosting/sectors/s-x/invites"], ["POST", "/hosting/sectors/s-x/ticket"], ["POST", "/hosting/invites/abc/accept"], ["DELETE", "/hosting/invites/abc"], ["POST", "/hosting/funding-bars"], ["POST", "/hosting/sectors/s-x/contributions"]] as const) {
       expect((await call(method, url)).statusCode, `${method} ${url}`).toBe(401);
     }
   });
@@ -82,5 +82,23 @@ describe("hosting HTTP routes", () => {
     expect(rejectedCount()).toBe(1);
     expect(h.store.getSector(sectorId)?.state).toBe("awaiting_payment");
     expect((await webhook({ kind: "other" })).statusCode).toBe(200);
+  });
+
+  it("opens a funding bar, takes a friend's share through the webhook, and refuses bad amounts", async () => {
+    const { h, call, webhook } = await start();
+    const opened = (await call("POST", "/hosting/funding-bars", "host", { mapStyle: "continents", mapSize: "standard" })).json() as { ok: boolean; sector: { sectorId: string; state: string; funding: { targetCents: number } } };
+    expect(opened).toMatchObject({ ok: true, sector: { state: "funding", funding: { targetCents: 2000 } } });
+    const sectorId = opened.sector.sectorId;
+    const invite = (await call("POST", `/hosting/sectors/${sectorId}/invites`, "host")).json() as { invite: { code: string } };
+    await call("POST", `/hosting/invites/${invite.invite.code}/accept`, "friend");
+    expect((await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: "5" })).statusCode).toBe(400);
+    expect((await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 100 })).statusCode).toBe(400);
+    const pledged = (await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 1000 })).json() as { ok: boolean; checkoutUrl: string };
+    expect(pledged.ok).toBe(true);
+    const contributionId = pledged.checkoutUrl.replace("https://checkout.invalid/fake-hold-", "");
+    expect((await webhook({ eventId: "evt-1", kind: "held", contributionId })).statusCode).toBe(200);
+    expect(h.store.getContribution(contributionId)?.state).toBe("held");
+    const viewed = (await call("GET", `/hosting/sectors/${sectorId}`, "friend")).json() as { sector: { funding: { pledgedCents: number; yourCents: number } } };
+    expect(viewed.sector.funding).toMatchObject({ pledgedCents: 1000, yourCents: 1000 });
   });
 });
