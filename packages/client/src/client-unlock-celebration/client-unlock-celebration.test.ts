@@ -7,13 +7,14 @@ import { CELEBRATION_AUTO_DISMISS_MS, pendingUnlockCelebrationCount, resetUnlock
 import { applyPlayerUpdateAchievementsAndCelebrate, celebrateNewlyHeldCharges } from "./client-unlock-celebration-triggers.js";
 import { applyMapPushMessage } from "../client-network/client-map-push-messages.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { createInitialAchievementsState } from "../client-achievements/client-achievements-state.js";
 
 const cards = (): HTMLElement[] => Array.from(document.querySelectorAll<HTMLElement>(`.${UNLOCK_CELEBRATION_CLASS}`));
 const titleOnScreen = (): string | undefined => cards()[0]?.querySelector(".uc-title")?.textContent ?? undefined;
 const tapNice = (): void => cards()[0]?.querySelector<HTMLButtonElement>("[data-uc-close]")?.click();
 
 const view = (earned: AchievementsView["earned"]): { achievements: AchievementsView } => ({ achievements: { progress: {}, earned } });
-const holder = (): { achievements: AchievementsView | undefined } => ({ achievements: undefined });
+const holder = () => createInitialAchievementsState();
 
 const reducedMotion = (reduce: boolean): void => {
   window.matchMedia = ((query: string) => ({ matches: reduce && query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
