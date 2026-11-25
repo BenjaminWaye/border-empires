@@ -24,8 +24,9 @@ const recordingContext = (): { ctx: CanvasRenderingContext2D; calls: string[] } 
 };
 
 const noInstallations: RememberedStructures2DDeps["resourceInstallations"] = {
-  builtResourceOverlayForTile: () => undefined, drawCenteredOverlayWithAlpha: () => undefined,
-  resourceOverlayScaleForTile: () => 1, economicStructureOverlayAlpha: () => 1
+  ctx: recordingContext().ctx,
+  builtResourceOverlayForTile: () => undefined, resourceOverlayForTile: () => undefined, drawCenteredOverlayWithAlpha: () => undefined,
+  resourceOverlayScaleForTile: () => 1, economicStructureOverlayAlpha: () => 1, drawResourceCornerMarker: () => undefined, resourceColor: () => undefined
 };
 
 const deps = (drawTownOverlay = vi.fn(), resourceInstallations = noInstallations): RememberedStructures2DDeps => ({
@@ -90,5 +91,39 @@ describe("remembered buildings on fogged 2D tiles", () => {
     const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "IRON", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
     drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
     expect(drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 0, 0, 32, 1, 0.9);
+  });
+
+  it("draws a remembered raw resource faded (resources showed only in sight)", () => {
+    // Regression (player report 2026-11-25): a resource with nothing built on it vanished under fog.
+    const { ctx } = recordingContext();
+    const image = { complete: true, naturalWidth: 64 } as HTMLImageElement;
+    let alphaAtDraw = 0;
+    const drawCenteredOverlayWithAlpha = vi.fn(() => { alphaAtDraw = ctx.globalAlpha; });
+    const drawResourceCornerMarker = vi.fn();
+    const installations = { ...noInstallations, ctx, resourceOverlayForTile: () => image, drawCenteredOverlayWithAlpha, drawResourceCornerMarker };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "TITANIUM" };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 0, 0, 32, 1, 1);
+    expect(alphaAtDraw).toBeCloseTo(REMEMBERED_STRUCTURE_ALPHA_2D);
+    expect(drawResourceCornerMarker).toHaveBeenCalledWith(tile, 0, 0, 32);
+  });
+
+  it("badges a remembered installation like one in sight", () => {
+    const { ctx } = recordingContext();
+    const image = { complete: true, naturalWidth: 64 } as HTMLImageElement;
+    const drawResourceCornerMarker = vi.fn();
+    const installations = { ...noInstallations, ctx, builtResourceOverlayForTile: () => image, drawResourceCornerMarker };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "FARM", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(drawResourceCornerMarker).toHaveBeenCalledWith(tile, 0, 0, 32);
+  });
+
+  it("falls back to the resource marker while the installation sprite loads", () => {
+    const { ctx, calls } = recordingContext();
+    const loading = { complete: false, naturalWidth: 0 } as HTMLImageElement;
+    const installations = { ...noInstallations, ctx, builtResourceOverlayForTile: () => loading, resourceColor: () => "#abcdef" };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "FARM", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(calls).toContain("fillStyle=#abcdef");
   });
 });
