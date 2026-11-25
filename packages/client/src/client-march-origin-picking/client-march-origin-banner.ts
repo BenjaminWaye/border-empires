@@ -32,7 +32,6 @@ export const marchOriginBannerModel = (state: ClientState, nowMs = Date.now()): 
   return { target, flags: options.flags, canRaiseFlag: Boolean(options.newFlag) };
 };
 
-const BUTTON_STYLE = "font:inherit;padding:4px 10px;border-radius:6px;border:1px solid #ffd54a;background:transparent;color:inherit;cursor:pointer";
 
 export const marchOriginBannerHtml = (model: MarchOriginBannerModel): string => {
   const { target, flags, canRaiseFlag } = model;
@@ -40,7 +39,7 @@ export const marchOriginBannerHtml = (model: MarchOriginBannerModel): string => 
   if (flags.length > 0) {
     parts.push("<span>Select one of your nearby muster flags to march from:</span>");
     const buttons = flags
-      .map((flag) => `<button type="button" data-march-origin-flag="${flag.x},${flag.y}" style="${BUTTON_STYLE}">Flag (${flag.x}, ${flag.y}) · ${flag.distance} tiles</button>`)
+      .map((flag) => `<button type="button" data-march-origin-flag="${flag.x},${flag.y}" class="v2s-btn">Flag (${flag.x}, ${flag.y}) · ${flag.distance} tiles</button>`)
       .join("");
     parts.push(`<span style="display:flex;flex-wrap:wrap;gap:6px">${buttons}</span>`);
   }
@@ -49,7 +48,7 @@ export const marchOriginBannerHtml = (model: MarchOriginBannerModel): string => 
   } else if (flags.length === 0) {
     parts.push("<span>No muster flag or tile of your land can reach this tile.</span>");
   }
-  parts.push(`<button type="button" data-march-origin-cancel style="${BUTTON_STYLE};align-self:flex-end">Cancel</button>`);
+  parts.push(`<button type="button" data-march-origin-cancel class="v2s-btn" style="align-self:flex-end">Cancel</button>`);
   return parts.join("");
 };
 
@@ -63,7 +62,7 @@ const bannerEl = (): HTMLElement | null => {
   el.style.cssText =
     "position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:none;flex-direction:column;gap:8px;" +
     "padding:10px 14px;border-radius:10px;background:rgba(20,18,12,0.92);border:1px solid #ffd54a;color:#fff3c4;" +
-    "font:600 14px/1.3 system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
+    "font:600 14px/1.3 var(--sp-font-body);box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
   document.body.appendChild(el);
   return el;
 };

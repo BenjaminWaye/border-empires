@@ -61,6 +61,47 @@ body {
   color: var(--sp-parchment-100);
 }
 
+/* Form controls take the HUD's type, not the browser's system sans. Zero specificity: any component rule wins. */
+:where(button, input, select, textarea) { font-family: inherit; }
+:where(input[type="checkbox"], input[type="radio"]) { accent-color: var(--sp-brass-300); }
+
+/* Brass checkbox. #hud input paints every input white, so the #hud form is repeated. */
+.sp-check,
+#hud .sp-check {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #0b0805, #2a2016);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+}
+.sp-check::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--sp-leather-900);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 120ms ease;
+}
+.sp-check:checked,
+#hud .sp-check:checked {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, var(--sp-brass-300), var(--sp-brass-500));
+}
+.sp-check:checked::before { transform: scale(1); }
+.sp-check:focus-visible { outline: 2px solid var(--sp-verdigris-300); outline-offset: 2px; }
+.sp-check:disabled { opacity: 0.45; cursor: not-allowed; }
+
 h1, h2, h3, .auth-panel-title, #side-panel-head h3, .auth-brand-text {
   font-family: var(--sp-font-display);
   letter-spacing: 0.01em;

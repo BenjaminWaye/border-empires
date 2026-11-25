@@ -123,6 +123,21 @@ describe("auto-settle question (category off, never asked)", () => {
     expect(document.querySelector("[data-tile-auto-settle]")).toBeNull();
   });
 
+  // Playtest 2026-11-25: the stock blue checkbox and gold pill Yes/No looked like "a different app".
+  it("uses the shared HUD button and brass checkbox classes", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: false, ...only() });
+    installAutoSettleTileOptionBinding(state, () => true);
+    render(state, tile({ resource: "FARM" }));
+    const yes = document.querySelector('[data-tile-auto-settle-answer="yes"]')!;
+    const no = document.querySelector('[data-tile-auto-settle-answer="no"]')!;
+    expect([...yes.classList]).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
+    expect(no.classList.contains("v2s-btn")).toBe(true);
+    expect(no.classList.contains("v2s-btn-primary")).toBe(false);
+    answer("no");
+    expect(document.querySelector("[data-tile-auto-settle=FARM]")?.classList.contains("sp-check")).toBe(true);
+  });
+
   it("doesn't ask when that category is already on", () => {
     const state = createInitialState();
     state.autoSettle = loadedAutoSettleState({ answered: true, ...only("FARM") });
