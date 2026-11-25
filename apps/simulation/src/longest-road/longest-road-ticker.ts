@@ -67,12 +67,13 @@ export const createLongestRoadTicker = (deps: LongestRoadTickerDeps): LongestRoa
   let passStartedAt = Number.NEGATIVE_INFINITY;
   let pending: string[] = [];
   let roads: Array<LongestRoad | undefined> = [];
-  let current: LiveLongestRoad | null = null;
+  // undefined until the first pass finishes, so a connect before then gets nothing rather than "no road".
+  let current: LiveLongestRoad | null | undefined;
   let signature = "";
-  const payload = (): LongestRoadPayload => ({ type: LONGEST_ROAD_MESSAGE_TYPE, road: current });
+  const payload = (): LongestRoadPayload => ({ type: LONGEST_ROAD_MESSAGE_TYPE, road: current ?? null });
   const sendTo = (playerId: string): void => {
     const player = deps.players().get(playerId);
-    if (!player || player.isAi) return;
+    if (!player || player.isAi || current === undefined) return;
     deps.emitPlayerMessage({ commandId: `longest-road:${playerId}`, playerId }, payload());
   };
   const finishPass = (): void => {

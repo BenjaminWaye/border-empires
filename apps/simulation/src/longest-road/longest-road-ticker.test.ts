@@ -30,6 +30,7 @@ describe("live Longest Road", () => {
     const tiles = world();
     const sent: Array<{ playerId: string; road: unknown }> = [];
     const ticker = createLongestRoadTicker({ tiles: () => tiles, players: () => players, townTileKeys: townTileKeys(tiles), territoryTileKeys: territory(tiles), isPlayerSubscribed: (id) => id === "p2", emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, road: payload.road }) });
+    ticker.sendTo("p2"); // nothing known yet
     ticker.tick(0); // p1 checked
     expect(sent).toHaveLength(0);
     ticker.tick(1_000); // p2 checked, pass done
