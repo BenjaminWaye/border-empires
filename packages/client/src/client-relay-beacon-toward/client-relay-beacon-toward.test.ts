@@ -54,6 +54,28 @@ describe("Relay Beacon toward here", () => {
     expect(startRelayBeaconTowardPlacement(state, grain)).toEqual({ x: 10, y: 10 });
   });
 
+  // Review of #2981: placement and the server refuse a beacon on or beside an AFC; the start tile must too.
+  it("never starts on or beside an AFC", () => {
+    const far = tile(30, 10, { resource: "FARM" });
+    const afc = tile(18, 10, { ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active" } as NonNullable<Tile["afc"]> });
+    const besideAfc = tile(19, 10, { ownerId: "me", ownershipState: "FRONTIER" }); // nearest the target
+    const clear = tile(15, 10, { ownerId: "me", ownershipState: "FRONTIER" });
+    const state = stateWith([afc, besideAfc, clear, far], ["18,10", "19,10", "15,10"]);
+    expect(startRelayBeaconTowardPlacement(state, far)).toEqual({ x: 15, y: 10 });
+  });
+
+  // Review of #2981: with no site adding reach, the fallback was the first accepted tile in map order.
+  it("falls back to the accepted tile nearest the target when no site adds reach", () => {
+    const near = tile(19, 10, { ownerId: "me", ownershipState: "SETTLED" });
+    const farAway = tile(8, 10, { ownerId: "me", ownershipState: "SETTLED" });
+    const state = stateWith([farAway, near, grain], []);
+    const keys = new Set<string>();
+    for (let y = 0; y < 40; y += 1) for (let x = 0; x < 40; x += 1) keys.add(`${x},${y}`);
+    keys.delete("20,10");
+    state.serverReach = keys; // everything but the grain is already in reach: no site adds any
+    expect(startRelayBeaconTowardPlacement(state, grain)).toEqual({ x: 19, y: 10 });
+  });
+
   it("says why it is greyed when nothing in reach can take a beacon", () => {
     const frontier = tile(10, 10, { ownerId: "me", ownershipState: "FRONTIER" });
     expect(relayBeaconTowardAction(stateWith([frontier, grain], []), grain)).toMatchObject({ disabled: true, disabledReason: NO_BEACON_SITE_REASON });

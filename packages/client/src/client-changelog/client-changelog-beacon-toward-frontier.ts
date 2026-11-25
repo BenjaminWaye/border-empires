@@ -5,6 +5,6 @@ export const BEACON_TOWARD_FRONTIER_ENTRY: Omit<ClientChangelogEntry, "createdAt
   title: "Relay Beacon toward here uses your frontier",
   why: "It only started on garrisoned land, so a new empire with only frontier saw it greyed.",
   changes: [
-    "Relay Beacon toward here now starts on frontier or open land inside your reach"
+    "Relay Beacon toward here now starts on frontier or neutral land inside your reach, never beside an AFC"
   ]
 };
