@@ -16,8 +16,10 @@ import {
 } from "three";
 
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
-import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
+import type { MusterFlagDesign } from "./client-cosmetics/client-cosmetics.js";
+import { BANNER_DESIGN_INDEX, createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
+import { createMusterBannerRegalia, type RegaliaFlag } from "./client-map-3d-muster-banner/muster-banner-regalia.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
 import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
@@ -112,6 +114,8 @@ type TileEntry = {
   fillRatio: number; advance: boolean;
   worldTileX: number; worldTileY: number;
   tintColor: Color;
+  /** The owner's muster flag cosmetic: embroidery only (muster-banner-cloth-material.ts). */
+  design: MusterFlagDesign;
   /** Epoch ms the siege on this flag's tile resolves; 0 when not besieged. */
   siegeEndsAt: number;
 };
@@ -121,7 +125,7 @@ export type MusterOverlay = {
   readonly addMuster: (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt?: number
+    worldTileX: number, worldTileY: number, siegeEndsAt?: number, design?: MusterFlagDesign
   ) => void;
   readonly commit: () => void;
   readonly tick:    (nowMs: number) => void;
@@ -162,6 +166,8 @@ export const createMusterOverlay = (
   const clothGeometry = geometry.cloth.clone();
   const wind = new InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
   clothGeometry.setAttribute("aBannerWind", wind);
+  const design = new InstancedBufferAttribute(new Float32Array(MAX), 1);
+  clothGeometry.setAttribute("aBannerDesign", design);
 
   const body = new InstancedMesh(geometry.body, bodyMaterial, MAX);
   const metal = new InstancedMesh(geometry.metal, metalMaterial, MAX);
@@ -181,6 +187,10 @@ export const createMusterOverlay = (
     mesh.receiveShadow = true;
     mesh.count = 0;
   }
+
+  // Gilded extras of flags whose owner shows the High-noble standard cosmetic.
+  const regalia = createMusterBannerRegalia(scene, MAX, envMap, depthMaterial);
+  const regaliaFlags: RegaliaFlag[] = [];
 
   const soldierGeom = new ConeGeometry(SOLDIER_W * 0.5, SOLDIER_H, 4); // tiny soldier silhouette
   const soldierMat  = new MeshBasicMaterial({ toneMapped: false, color: "#0a0d18", depthTest: false, depthWrite: false, transparent: true });
@@ -213,31 +223,40 @@ export const createMusterOverlay = (
   const addMuster = (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt = 0
+    worldTileX: number, worldTileY: number, siegeEndsAt = 0, design: MusterFlagDesign = "default"
   ): void => {
     if (entries.length >= MAX) return;
     tmpColor.set(ownerColor);
     if (advance) tmpColor.lerp(white, 0.30); // brighter in ADVANCE
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt });
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt, design });
   };
 
   const commit = (): void => {
     const count = entries.length;
     for (const mesh of pieceMeshes) mesh.count = count;
+    regaliaFlags.length = 0;
     for (let i = 0; i < count; i++) {
       const e = entries[i]!;
       body.setMatrixAt(i, matrix.makeTranslation(e.sceneX, e.surfaceY + TOWN_BASE_LIFT, e.sceneZ));
+      if (e.design === "flag-high-noble") {
+        regaliaFlags.push({ x: e.sceneX, y: e.surfaceY + TOWN_BASE_LIFT, z: e.sceneZ, tint: e.tintColor, seed: hash01(e.worldTileX, e.worldTileY, 0, 41) });
+      }
       enamel.setColorAt(i, e.tintColor);
       cloth.setColorAt(i, e.tintColor);
       wind.setXY(i, hash01(e.worldTileX, e.worldTileY, 0, 99), e.advance ? ADVANCE_WIND_SPEED : 1);
+      design.setX(i, BANNER_DESIGN_INDEX[e.design]);
     }
     body.instanceMatrix.clearUpdateRanges();
     wind.clearUpdateRanges();
+    design.clearUpdateRanges();
+    regalia.commit(regaliaFlags);
     if (count === 0) return;
     body.instanceMatrix.addUpdateRange(0, count * 16);
     body.instanceMatrix.needsUpdate = true;
     wind.addUpdateRange(0, count * 2);
     wind.needsUpdate = true;
+    design.addUpdateRange(0, count);
+    design.needsUpdate = true;
     for (const mesh of [enamel, cloth]) {
       const colors = mesh.instanceColor;
       if (!colors) continue;
@@ -307,6 +326,7 @@ export const createMusterOverlay = (
 
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
+    regalia.tick(nowMs);
     applySoldierMatrices(nowMs);
     applySiegeRings(nowMs);
     applyProgressBadges(nowMs);
@@ -314,6 +334,7 @@ export const createMusterOverlay = (
 
   const dispose = (): void => {
     scene.remove(...pieceMeshes, soldierMesh, siegeRingMesh);
+    regalia.dispose();
     // The baked plinth geometry is shared across overlays; only the cloth copy is ours.
     clothGeometry.dispose();
     for (const material of [bodyMaterial, metalMaterial, enamelMaterial, depthMaterial]) material.dispose();

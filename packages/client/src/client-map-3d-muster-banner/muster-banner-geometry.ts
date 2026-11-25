@@ -27,7 +27,8 @@ const PLINTH_TOP_Y = MUSTER_PLINTH_TOP_Y;
 export const MUSTER_PLINTH_LEDGES: readonly number[] = [PLINTH_TIER_Y, PLINTH_TOP_Y];
 const POLE_RADIUS = 0.016;
 const POLE_BASE_Y = PLINTH_TOP_Y + 0.046;
-const CROSSBAR_Y = 0.98;
+export const MUSTER_CROSSBAR_Y = 0.98;
+const CROSSBAR_Y = MUSTER_CROSSBAR_Y;
 
 /** Cloth rest shape. The shader (muster-banner-cloth-material.ts) rebuilds
  * these rest positions from the cloth uv, so keep the two in step through

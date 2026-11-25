@@ -6,6 +6,7 @@ import { syncFrontierClaimPlates } from "../client-map-3d-frontier-claim-plates.
 import { createUnitMotionGate, type UnitMotionGate } from "../client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 import { createExpandCrewSoldiers } from "./client-map-3d-expand-crew-soldiers.js";
 import { localPlayerSquadGear } from "../client-battle-overlay/client-battle-overlay.js";
+import { withSquadSkin } from "../client-cosmetics/client-cosmetics.js";
 import { marineModelFor, type MarineModelKey } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
 // The claim plates and the expand crew's soldiers
@@ -36,9 +37,10 @@ type SyncArgs = [
 
 // The armour this player's expand crew wears: the same as its marching and
 // fighting soldiers (heavy with a Titanium Weapons Factory), read off its own
-// tiles -- crew claims are always this player's own.
-export const expandCrewArmour = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): MarineModelKey =>
-  marineModelFor(localPlayerSquadGear(state));
+// tiles -- crew claims are always this player's own -- or the Lancet guard
+// when this player shows that ancillaries cosmetic.
+export const expandCrewArmour = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision" | "playerCosmetics">): MarineModelKey =>
+  marineModelFor(withSquadSkin(state, state.me, localPlayerSquadGear(state)));
 
 // envMap: the building environment map the heavy armour reflects.
 export const createFrontierClaimVisuals = (scene: Scene, envMap?: Texture, motionGate: UnitMotionGate = createUnitMotionGate()): FrontierClaimVisuals => {

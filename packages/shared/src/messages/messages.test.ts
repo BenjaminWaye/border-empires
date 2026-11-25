@@ -202,3 +202,16 @@ describe("Fortify / Siege picker tier on build messages", () => {
   });
 });
 
+
+describe("account cosmetics messages", () => {
+  it("accepts REQUEST_COSMETICS and SET_COSMETIC, including null for the default look", () => {
+    expect(ClientMessageSchema.safeParse({ type: "REQUEST_COSMETICS" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null }).success).toBe(true);
+  });
+
+  it("rejects a SET_COSMETIC without a slot or with an oversized id", () => {
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", cosmeticId: "flag-high-noble" }).success).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "x".repeat(25) }).success).toBe(false);
+  });
+});

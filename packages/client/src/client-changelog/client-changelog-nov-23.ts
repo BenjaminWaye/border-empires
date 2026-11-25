@@ -23,6 +23,7 @@ import { CHRONICLE_ROW_TIME_ENTRY } from "./client-changelog-chronicle-row-time.
 import { VISIT_REPORT_ENTRY } from "./client-changelog-visit-report.js";
 import { PUBLIC_HOUSE_PROFILE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { SEASON_AWARDS_ENTRY } from "./client-changelog-season-awards.js";
+import { ACCOUNT_COSMETICS_ENTRY } from "./client-changelog-account-cosmetics.js";
 import { SCOUT_HIDDEN_BORDER_ENTRY } from "./client-changelog-scout-hidden-border.js";
 import { WRIT_FOUND_ENTRY } from "./client-changelog-writ-found.js";
 import { CAPTURED_AFC_MODULE_ABILITIES_ENTRY, CAPTURED_AFC_MODULES_ENTRY } from "./client-changelog-captured-afc-modules.js";
@@ -31,6 +32,7 @@ import { MARCH_FRIENDLY_ROUTE_ENTRY } from "./client-changelog-march-friendly-ro
 import { BEACON_TOWARD_ENTRY } from "./client-changelog-beacon-toward.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
+  { ...ACCOUNT_COSMETICS_ENTRY, createdAt: 1795471602875, },
   { ...SEASON_AWARDS_ENTRY, createdAt: 1795469520596, },
   { ...PUBLIC_HOUSE_PROFILE_ENTRY, createdAt: 1795468951720, },
   { ...VISIT_AGENDA_ENTRY, createdAt: 1795459779781, },

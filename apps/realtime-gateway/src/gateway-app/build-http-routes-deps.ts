@@ -71,6 +71,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
+  accountCosmetics?: RegisterGatewayHttpRoutesDeps["accountCosmetics"];
   profileStore: GatewayPlayerProfileStore;
   growthBaselineStore: PlayerGrowthBaselineStore;
   playOrigin?: string;
@@ -199,6 +200,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       return result;
     },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
+    ...(ctx.accountCosmetics ? { accountCosmetics: ctx.accountCosmetics } : {}),
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
@@ -209,6 +211,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             authenticateBearer: ctx.resolveHttpBearerIdentity,
             accountState: (playerId: string) => publicProfileAccountState(ctx.authBindingStore, playerId),
             getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
+            ...(ctx.accountCosmetics ? { getTitle: ctx.accountCosmetics.titleOf } : {}),
             getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
             listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
           }

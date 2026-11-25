@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MODEL_DIR = resolve(__dirname, "../../public/models");
 // Every soldier model the overlay loads (popup-marine-asset.ts's
 // MODEL_URL_BY_KEY): each must pass the same rig checks.
-const MODELS = ["popup-marine-titan-24bone.glb", "popup-marine-heavy-24bone.glb"] as const;
+const MODELS = ["popup-marine-titan-24bone.glb", "popup-marine-heavy-24bone.glb", "popup-marine-lancet-24bone.glb", "popup-marine-lancet-titan-24bone.glb"] as const;
 
 // The height the bake script normalises the rig to (TARGET_HEIGHT there).
 const EXPECTED_HEIGHT = 0.052;
