@@ -406,7 +406,18 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 
 ## 12. Split funding (the funding bar)
 
-Built last; cut first.
+Built last; cut first. **Kept for launch (owner, 2026-11-25), and built in
+PR 7.** As built: checkouts in progress do not reduce what is left, so
+nobody can lock the bar by starting a payment and leaving, and a member's new
+pledge closes their own unfinished one. When the holds reach the price they
+are charged in the order they were placed; the share that crosses the price is
+charged only the part still needed, and every other hold and open checkout is
+released. A failed capture is checked with Stripe: money taken anyway is
+counted, a hold still in place is tried again, and only a lapsed hold is
+dropped (the bar then stays open). Only holds placed before the 72-hour
+deadline count; an unfilled bar at the deadline releases every hold and
+refunds anything already charged. One contributor's refund or withdrawal
+leaves the sector running.
 
 1. A player opens a funding bar instead of paying in full: they choose the
    options and get a link to share. A bar has a deadline.
@@ -522,7 +533,7 @@ players until the last one. Sales are behind a setting that is off by default.
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
 | 5 | **Stripe, single host, test mode.** Checkout, webhook, expiry, refunds and disputes, automatic refund on failure, status page, emails, limits and the kill switch. Client changelog entry. | Stripe test mode only. No live keys. |
 | 6 | **Staging rehearsal and measurements.** A full test-mode purchase on staging creating a real test server: time to open, a forced failure, a teardown. Results recorded in `docs/load-results/`. | Test project, test mode, with the owner's go-ahead. |
-| 7 | **Split funding.** Funding bar, holds and capture, deadline release. | Stripe test mode. |
+| 7 | **Split funding.** Funding bar, holds and capture, deadline release. **Built 2026-11-25.** | Stripe test mode. |
 | 8 | **Launch readiness.** Runbook `docs/agents/hosted-sectors.md`, updates to `deploys.md`, `gdd.md` and `README.md`, legal page links, this plan archived. The owner enters live keys and turns sales on. | **Live charges start only when the owner turns the setting on.** |
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.

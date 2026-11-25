@@ -5,7 +5,19 @@ import type { HostedSectorMapSize, HostedSectorMapStyle } from "@border-empires/
 
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 
-export type HostedSectorState = "awaiting_payment" | "creating" | "open" | "ended" | "deleted" | "cancelled" | "refunded";
+export type HostedSectorState = "awaiting_payment" | "funding" | "creating" | "open" | "ended" | "deleted" | "cancelled" | "refunded";
+
+/** A sector friends pay for together (split funding). Amounts in US cents. */
+export type HostedSectorFunding = {
+  targetCents: number;
+  pledgedCents: number;
+  pendingCents: number;
+  deadline: number;
+  minimumCents: number;
+  yourCents: number;
+  /** This account's unfinished payment, to resume it. */
+  yourCheckoutUrl?: string;
+};
 
 export type HostedSectorSummary = {
   sectorId: string;
@@ -17,6 +29,8 @@ export type HostedSectorSummary = {
   delayed: boolean;
   /** Only for the host, only while payment is outstanding. */
   checkoutUrl?: string;
+  /** Only while the sector is being split-funded. */
+  funding?: HostedSectorFunding;
 };
 
 export type HostedSectorTicket = { ticket: string; expiresAt: number; wsUrl: string };
@@ -31,7 +45,19 @@ export type HostingApiDeps = {
   fetchImpl?: typeof fetch;
 };
 
-const SECTOR_STATES: readonly string[] = ["awaiting_payment", "creating", "open", "ended", "deleted", "cancelled", "refunded"];
+const SECTOR_STATES: readonly string[] = ["awaiting_payment", "funding", "creating", "open", "ended", "deleted", "cancelled", "refunded"];
+
+const parseFunding = (value: unknown): HostedSectorFunding | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const numbers = ["targetCents", "pledgedCents", "pendingCents", "deadline", "minimumCents", "yourCents"] as const;
+  if (!numbers.every((key) => typeof record[key] === "number" && Number.isFinite(record[key]))) return undefined;
+  return {
+    targetCents: record.targetCents as number, pledgedCents: record.pledgedCents as number, pendingCents: record.pendingCents as number,
+    deadline: record.deadline as number, minimumCents: record.minimumCents as number, yourCents: record.yourCents as number,
+    ...(typeof record.yourCheckoutUrl === "string" ? { yourCheckoutUrl: record.yourCheckoutUrl } : {})
+  };
+};
 
 const failure = (body: unknown, fallback: string): HostingApiFailure => {
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
@@ -53,7 +79,8 @@ const parseSector = (value: unknown): HostedSectorSummary | undefined => {
     members: record.members,
     humanPlaces: record.humanPlaces,
     delayed: record.delayed === true,
-    ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {})
+    ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {}),
+    ...(parseFunding(record.funding) ? { funding: parseFunding(record.funding) as HostedSectorFunding } : {})
   };
 };
 
@@ -103,6 +130,22 @@ export const createHostingApi = (deps: HostingApiDeps) => {
       if ("ok" in reply) return reply;
       const sector = parseSector(okBody(reply)?.sector);
       return sector ? { ok: true, sector } : failure(reply.body, "The order could not be started. Nothing was charged.");
+    },
+
+    /** Opens a funding bar instead of paying in full: friends chip in, and the sector starts when it is full. */
+    async openFundingBar(options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> {
+      const reply = await call("POST", "/hosting/funding-bars", options);
+      if ("ok" in reply) return reply;
+      const sector = parseSector(okBody(reply)?.sector);
+      return sector ? { ok: true, sector } : failure(reply.body, "The funding bar could not be opened.");
+    },
+
+    /** Pledges a share. The reply carries the address of the payment page, where the card is only held. */
+    async contribute(sectorId: string, amountCents: number): Promise<HostingApiResult<{ checkoutUrl: string }>> {
+      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/contributions`, { amountCents });
+      if ("ok" in reply) return reply;
+      const checkoutUrl = okBody(reply)?.checkoutUrl;
+      return typeof checkoutUrl === "string" ? { ok: true, checkoutUrl } : failure(reply.body, "Your share could not be started. Nothing was charged.");
     },
 
     async createInvite(sectorId: string): Promise<HostingApiResult<{ code: string }>> {

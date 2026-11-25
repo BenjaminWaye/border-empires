@@ -205,9 +205,9 @@ hosting on sale.
 5. Cosmetics.
 6. Public web profile with rating and awards.
 
-**If time gets tight,** cut in this order: cosmetics, then split funding
-(keeping single-host payment), then the rating (keeping the profile). Items
-1–3 are never cut.
+**If time gets tight,** cut in this order: cosmetics, then the rating
+(keeping the profile). Items 1–3 are never cut. Split funding was first in
+line to be cut but is kept for launch (owner, 2026-11-25).
 
 **How we judge the first public contest.** Targets are set once there is a
 baseline.

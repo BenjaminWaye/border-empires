@@ -15,11 +15,12 @@ import {
   stashHostedSectorSession,
   type StorageLike
 } from "./client-hosted-sector-session.js";
+import { fundingRowHtml, readChipInCents } from "./client-hosted-sector-funding.js";
 import { hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorsPanelDeps = {
-  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite">;
+  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite" | "openFundingBar" | "contribute">;
   /** Where invite links point, for example https://play.borderempires.com. */
   shareOrigin: string;
   /** How often the list is refreshed while a sector is being prepared. 0 turns it off. */
@@ -35,6 +36,7 @@ const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) =
 
 const STATE_LABELS: Record<HostedSectorSummary["state"], string> = {
   awaiting_payment: "Waiting for payment",
+  funding: "Being funded",
   creating: "Being prepared",
   open: "Open",
   ended: "Ended, open to look around",
@@ -53,7 +55,7 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
   const title = `${sector.options.mapStyle === "islands" ? "Islands" : "Continents"}, ${sector.options.mapSize} map`;
   const status = sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
   const enterable = sector.state === "open" || sector.state === "ended";
-  const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open");
+  const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open");
   const hostActions = `${sector.role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? `<button type="button" class="panel-btn" data-hosted-sector-pay="${escapeHtml(sector.sectorId)}">Pay</button>` : ""}${invitable ? `<button type="button" class="panel-btn" data-hosted-sector-invite="${escapeHtml(sector.sectorId)}">Invite</button>` : ""}`;
   const action = sector.sectorId === activeSectorId
     ? `<span class="hosted-sector-here">You are here</span>`
@@ -67,6 +69,7 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
       <div>
         <strong>${escapeHtml(title)}</strong>
         <span class="hosted-sector-meta">${escapeHtml(status)} · ${sector.members} of ${sector.humanPlaces} places taken${sector.role === "host" ? " · You host this sector" : ""}</span>
+        ${fundingRowHtml(sector, Date.now())}
       </div>
       <div class="hosted-sector-actions">${hostActions}${action}</div>
     </li>`;
@@ -117,7 +120,10 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   let listRequest = 0;
 
   /** The automatic refresh leaves the list alone while the player is using it. */
-  const listIsBusy = (): boolean => Boolean(panel?.querySelector("[data-hosted-sector-invite-output]:not([hidden]), [data-hosted-sectors-error]:not([hidden])"));
+  const listIsBusy = (): boolean =>
+    Boolean(panel?.querySelector("[data-hosted-sector-invite-output]:not([hidden]), [data-hosted-sectors-error]:not([hidden])")) ||
+    // Someone typing an amount to chip in.
+    (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]"));
 
   const showList = async (notice = "", options: { quiet?: boolean } = {}): Promise<void> => {
     if (!deps.isSignedIn()) {
@@ -138,11 +144,15 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     }
     const rows = listed.sectors.map((sector) => hostedSectorRowHtml(sector, activeHostedSectorId())).join("");
     checkoutUrls.clear();
-    for (const sector of listed.sectors) if (sector.checkoutUrl) checkoutUrls.set(sector.sectorId, sector.checkoutUrl);
-    const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open"));
+    for (const sector of listed.sectors) {
+      if (sector.checkoutUrl) checkoutUrls.set(sector.sectorId, sector.checkoutUrl);
+      if (sector.funding?.yourCheckoutUrl) checkoutUrls.set(`share:${sector.sectorId}`, sector.funding.yourCheckoutUrl);
+    }
+    const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open"));
     // While a sector is being prepared the list keeps itself current, so the host can just wait.
     stopRefresh();
-    if (listed.sectors.some((sector) => sector.state === "creating")) scheduleRefresh();
+    // A bar being funded changes as friends chip in, so it refreshes too.
+    if (listed.sectors.some((sector) => sector.state === "creating" || sector.state === "funding")) scheduleRefresh();
     setBody(`
       ${notice ? `<p class="hosted-sector-notice">${escapeHtml(notice)}</p>` : ""}
       <ul class="hosted-sector-list">${publicSectorRowHtml()}${rows}</ul>
@@ -189,7 +199,16 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       fail("Choose a map and accept the Terms of Sale to continue.");
       return;
     }
-    const ordered = await deps.api.createOrder(options);
+    if (options.split) {
+      const opened = await deps.api.openFundingBar({ mapStyle: options.mapStyle, mapSize: options.mapSize });
+      if (!opened.ok) {
+        fail(opened.message);
+        return;
+      }
+      await showList("Your funding bar is open for 72 hours. Press Invite to get the link for your friends; everyone chips in here.");
+      return;
+    }
+    const ordered = await deps.api.createOrder({ mapStyle: options.mapStyle, mapSize: options.mapSize });
     if (!ordered.ok) {
       fail(ordered.message);
       return;
@@ -199,6 +218,20 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       return;
     }
     deps.navigate(ordered.sector.checkoutUrl);
+  };
+
+  /** A share of a funding bar: the payment page only holds the card. */
+  const pledge = async (sectorId: string, amountCents: number | undefined): Promise<void> => {
+    if (amountCents === undefined || !Number.isInteger(amountCents)) {
+      showError("Type an amount in US dollars.");
+      return;
+    }
+    const pledged = await deps.api.contribute(sectorId, amountCents);
+    if (!pledged.ok) {
+      showError(pledged.message);
+      return;
+    }
+    pay(pledged.checkoutUrl);
   };
 
   const enter = async (sectorId: string): Promise<void> => {
@@ -229,6 +262,15 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (target.closest("[data-hosted-sectors-close]")) close();
       const enterButton = target.closest<HTMLElement>("[data-hosted-sector-enter]");
       if (enterButton?.dataset.hostedSectorEnter) void enter(enterButton.dataset.hostedSectorEnter);
+      const chipIn = target.closest<HTMLElement>("[data-hosted-sector-chip-in]")?.dataset.hostedSectorChipIn;
+      if (chipIn) {
+        const input = panel?.querySelector<HTMLInputElement>(`[data-hosted-sector-amount="${CSS.escape(chipIn)}"]`);
+        void pledge(chipIn, readChipInCents(input?.value ?? ""));
+      }
+      const payRest = target.closest<HTMLElement>("[data-hosted-sector-pay-rest]");
+      if (payRest?.dataset.hostedSectorPayRest) void pledge(payRest.dataset.hostedSectorPayRest, Number(payRest.dataset.hostedSectorRest));
+      const resume = target.closest<HTMLElement>("[data-hosted-sector-resume]")?.dataset.hostedSectorResume;
+      if (resume) pay(checkoutUrls.get(`share:${resume}`));
       const payButton = target.closest<HTMLElement>("[data-hosted-sector-pay]");
       if (payButton?.dataset.hostedSectorPay) pay(checkoutUrls.get(payButton.dataset.hostedSectorPay));
       const inviteButton = target.closest<HTMLElement>("[data-hosted-sector-invite]");
@@ -301,6 +343,7 @@ export const mountHostedSectorsPanel = (deps: HostedSectorsPanelDeps & { whenAut
 export const checkoutReturnNotice = (search: string): string | undefined => {
   const returned = new URLSearchParams(search).get("hosted");
   if (returned === "paid") return "Thank you. Your sector is being prepared; it appears here when it is ready, and an email follows.";
+  if (returned === "pledged") return "Thank you. Your share is held on your card; you are charged when the bar is full, and the sector starts at once.";
   if (returned === "cancelled") return "Payment was cancelled. Nothing was charged. Your order stays here for 30 minutes if you want to pay after all.";
   return undefined;
 };
