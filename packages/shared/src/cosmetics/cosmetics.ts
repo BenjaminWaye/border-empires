@@ -76,3 +76,33 @@ export const sanitizeCosmeticSelection = (value: unknown): PlayerCosmeticSelecti
 
 export const isEmptyCosmeticSelection = (selection: PlayerCosmeticSelection): boolean =>
   COSMETIC_SLOTS.every((slot) => selection[slot] === undefined);
+
+// What the shop sells. A product grants one or more cosmetics in one
+// purchase; ownership is still stored per cosmetic, so the plumbing above
+// never needs to know about products. Owner decision, 2026-11-25: one
+// product, "Claim the title of High Noble", USD 4.99, granting the
+// High-noble standard and the Lancet guard together.
+export type CosmeticProduct = {
+  /** Stable id: sent by the payment provider's webhook. Never rename. */
+  readonly id: string;
+  /** Shop name. */
+  readonly name: string;
+  /** One-time price in US cents. Taxes and other currencies are the payment provider's. */
+  readonly priceUsdCents: number;
+  readonly grants: readonly CosmeticId[];
+};
+
+export const COSMETIC_PRODUCTS = [
+  {
+    id: "high-noble",
+    name: "Claim the title of High Noble",
+    priceUsdCents: 499,
+    grants: ["flag-high-noble", "ancillaries-lancet-guard"]
+  }
+] as const satisfies readonly CosmeticProduct[];
+
+export type CosmeticProductId = (typeof COSMETIC_PRODUCTS)[number]["id"];
+
+const PRODUCT_BY_ID: ReadonlyMap<string, CosmeticProduct> = new Map(COSMETIC_PRODUCTS.map((product) => [product.id, product]));
+
+export const cosmeticProduct = (id: string): CosmeticProduct | undefined => PRODUCT_BY_ID.get(id);

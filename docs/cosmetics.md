@@ -39,9 +39,23 @@ soldiers and AFC are a House's own property. The owner then picked the Lancet
 guard as a paid ancillaries look. A colour scheme and beacon skin are not
 built.
 
-Ids are stored and sent on the wire: never rename one. The working titles are
-placeholders; the owner sets shop names and prices. The catalogue is
-`packages/shared/src/cosmetics/cosmetics.ts`.
+Ids are stored and sent on the wire, capped at 24 characters: never rename
+one. The labels above are what Settings shows; the shop sells products. The
+catalogue is `packages/shared/src/cosmetics/cosmetics.ts`.
+
+### What the shop sells
+
+Owner decision, 2026-11-25:
+
+| Product id | Shop name | Price | Grants |
+|---|---|---|---|
+| `high-noble` | Claim the title of High Noble | USD 4.99, one-time | `flag-high-noble` and `ancillaries-lancet-guard` |
+
+Products live in `COSMETIC_PRODUCTS` beside the catalogue. Ownership is still
+stored per cosmetic, so a product is only a list of grants; taxes and other
+currencies are the payment provider's. Nothing shows the title as text yet
+(no badge on the profile or roster): the House shows it through its standard
+and its guard.
 
 ### Where it is drawn
 
@@ -157,10 +171,13 @@ the only way an account comes to own a cosmetic. It is idempotent. `revoke`
 takes a cosmetic back and returns everyone's view to the standard look. No
 client message reaches either.
 
-- **Payment work:** call `grant` from the webhook handler after verifying the
-  provider's signature, with the payment id as `grantRef`.
+- **Payment work:** call `grantProduct(playerId, productId, grantRef)` from the
+  webhook handler after verifying the provider's signature, with the payment
+  id as `grantRef`. It grants every cosmetic in the product and is idempotent.
 - **Testing and support:** `POST /admin/cosmetics/grant` and
-  `POST /admin/cosmetics/revoke`, body `{"playerId", "cosmeticId", "grantRef"?}`.
+  `POST /admin/cosmetics/revoke`, body `{"playerId", "cosmeticId", "grantRef"?}`,
+  and `POST /admin/cosmetics/grant-product`, body
+  `{"playerId", "productId", "grantRef"?}`.
   They accept only `Authorization: Bearer $ADMIN_API_TOKEN`; no player session,
   query-string token or Firebase sign-in is accepted.
 

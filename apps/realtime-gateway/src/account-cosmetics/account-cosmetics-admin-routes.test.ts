@@ -62,4 +62,20 @@ describe("account cosmetics admin routes", () => {
     expect(incomplete.statusCode).toBe(400);
     await app.close();
   });
+
+  it("grants a whole shop product with the admin token, and only with it", async () => {
+    const { app, store } = build();
+    const payload = { playerId: "p1", productId: "high-noble", grantRef: "test" };
+    const refused = await app.inject({ method: "POST", url: "/admin/cosmetics/grant-product", headers: { authorization: "Bearer wrong" }, payload });
+    expect(refused.statusCode).toBe(401);
+    expect(await store.listOwned("p1")).toEqual([]);
+
+    const headers = { authorization: "Bearer secret" };
+    const granted = await app.inject({ method: "POST", url: "/admin/cosmetics/grant-product", headers, payload });
+    expect(granted.statusCode).toBe(200);
+    expect(granted.json()).toEqual({ ok: true, newlyGranted: true, owned: expect.arrayContaining(["ancillaries-lancet-guard", "flag-high-noble"]) });
+    const unknown = await app.inject({ method: "POST", url: "/admin/cosmetics/grant-product", headers, payload: { playerId: "p1", productId: "nope" } });
+    expect(unknown.json()).toEqual({ ok: false, error: "unknown_product" });
+    await app.close();
+  });
 });

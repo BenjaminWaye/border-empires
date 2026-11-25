@@ -101,4 +101,18 @@ describe("account cosmetics service", () => {
     expect(text).toContain("gateway_account_cosmetics_shown_accounts 1");
     expect(text).toContain("gateway_account_cosmetics_shown_cap_rejections_total 0");
   });
+
+  it("grants everything in the High Noble title in one purchase, once", async () => {
+    const { service } = build();
+    // Destructured on purpose: the payment webhook may hold the method alone.
+    const { grantProduct } = service;
+    expect(await grantProduct("p1", "high-noble", "payment-1")).toEqual({
+      ok: true,
+      newlyGranted: true,
+      owned: expect.arrayContaining(["ancillaries-lancet-guard", "flag-high-noble"])
+    });
+    expect(await grantProduct("p1", "high-noble", "payment-1")).toMatchObject({ ok: true, newlyGranted: false });
+    expect(await grantProduct("p1", "no-such-product", "payment-2")).toEqual({ ok: false, error: "unknown_product" });
+    expect(await grantProduct("", "high-noble", "payment-3")).toEqual({ ok: false, error: "invalid_player" });
+  });
 });

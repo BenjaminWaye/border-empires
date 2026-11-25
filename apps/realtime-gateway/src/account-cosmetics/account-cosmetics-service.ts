@@ -1,6 +1,7 @@
 import {
   COSMETIC_CATALOG,
   cosmeticBelongsToSlot,
+  cosmeticProduct,
   isCosmeticId,
   isCosmeticSlot,
   isEmptyCosmeticSelection,
@@ -32,7 +33,7 @@ export type AccountCosmeticsServiceDeps = {
 
 export type CosmeticGrantOutcome =
   | { ok: true; newlyGranted: boolean; owned: CosmeticId[] }
-  | { ok: false; error: "unknown_cosmetic" | "invalid_player" };
+  | { ok: false; error: "unknown_cosmetic" | "unknown_product" | "invalid_player" };
 
 export type AccountCosmeticsService = {
   /** Loads the shown looks into memory. Call once before accepting sockets. */
@@ -45,6 +46,10 @@ export type AccountCosmeticsService = {
    * No client message reaches it.
    */
   grant: (playerId: string, cosmeticId: string, grantRef: string) => Promise<CosmeticGrantOutcome>;
+  /** Grants every cosmetic a shop product includes (COSMETIC_PRODUCTS) --
+   * what the payment webhook calls after a purchase. Idempotent, like grant;
+   * `newlyGranted` is true when any of them was new. */
+  grantProduct: (playerId: string, productId: string, grantRef: string) => Promise<CosmeticGrantOutcome>;
   revoke: (playerId: string, cosmeticId: string) => Promise<CosmeticGrantOutcome>;
   handleClientMessage: (
     playerId: string | undefined,
@@ -86,7 +91,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
     deps.broadcastToAll({ type: "PLAYER_STYLE", playerId, cosmetics: selection });
   };
 
-  return {
+  const service: AccountCosmeticsService = {
     async hydrate() {
       const { selections, truncated } = await store.listSelections(MAX_LOADED_COSMETIC_SELECTIONS);
       shown.clear();
@@ -108,6 +113,19 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       const state = await stateFor(playerId);
       if (newlyGranted) deps.sendToPlayer(playerId, state);
       return { ok: true, newlyGranted, owned: state.owned };
+    },
+
+    async grantProduct(playerId, productId, grantRef) {
+      const product = cosmeticProduct(productId);
+      if (!product) return { ok: false, error: "unknown_product" };
+      let last: CosmeticGrantOutcome = { ok: false, error: "unknown_product" };
+      let anyNew = false;
+      for (const cosmeticId of product.grants) {
+        last = await service.grant(playerId, cosmeticId, grantRef);
+        if (!last.ok) return last;
+        anyNew ||= last.newlyGranted;
+      }
+      return last.ok ? { ...last, newlyGranted: anyNew } : last;
     },
 
     async revoke(playerId, cosmeticId) {
@@ -153,4 +171,5 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         `# TYPE gateway_account_cosmetics_shown_cap_rejections_total counter\ngateway_account_cosmetics_shown_cap_rejections_total ${shownCapRejections + hydrateTruncated}\n`;
     }
   };
+  return service;
 };

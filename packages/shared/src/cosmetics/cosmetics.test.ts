@@ -6,7 +6,10 @@ import {
   cosmeticBelongsToSlot,
   isCosmeticId,
   isEmptyCosmeticSelection,
-  sanitizeCosmeticSelection
+  sanitizeCosmeticSelection,
+  COSMETIC_PRODUCTS,
+  cosmeticProduct,
+  isCosmeticId
 } from "./cosmetics.js";
 
 describe("cosmetics catalogue", () => {
@@ -52,5 +55,22 @@ describe("sanitizeCosmeticSelection", () => {
   it("reports an empty selection", () => {
     expect(isEmptyCosmeticSelection({})).toBe(true);
     expect(isEmptyCosmeticSelection({ musterFlag: "flag-high-noble" })).toBe(false);
+  });
+});
+
+describe("COSMETIC_PRODUCTS", () => {
+  it("sells the title of High Noble for USD 4.99 with both High-noble cosmetics", () => {
+    expect(cosmeticProduct("high-noble")).toEqual({
+      id: "high-noble",
+      name: "Claim the title of High Noble",
+      priceUsdCents: 499,
+      grants: ["flag-high-noble", "ancillaries-lancet-guard"]
+    });
+    expect(cosmeticProduct("nope")).toBeUndefined();
+  });
+
+  it("only grants cosmetics that exist, under unique product ids", () => {
+    expect(new Set(COSMETIC_PRODUCTS.map((product) => product.id)).size).toBe(COSMETIC_PRODUCTS.length);
+    for (const product of COSMETIC_PRODUCTS) for (const id of product.grants) expect(isCosmeticId(id)).toBe(true);
   });
 });

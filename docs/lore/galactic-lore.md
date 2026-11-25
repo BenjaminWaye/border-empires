@@ -38,6 +38,11 @@ The Court never gave up the powers it took for the war. It rules through
 noble **Houses**; a House that holds a world for the Court is led by a
 **Duke**.
 
+A House may also claim the style of **High Noble** at Court: a mark of
+standing, shown in its gilded muster standard and its hooded Lancet guard. It
+commands nothing and wins nothing; the title of Duke is only won by holding a
+world.
+
 ### The frontier
 
 Without the World Engine, every other colony world was cut off. For
