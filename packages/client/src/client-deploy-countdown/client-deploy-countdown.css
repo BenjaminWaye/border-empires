@@ -10,3 +10,16 @@
 #map-loading-title {
   font-variant-numeric: tabular-nums;
 }
+
+/* In-game reconnect banner (client-map-loading-layer.ts): above every HUD
+   card inside #hud, and the body-level cards that would cover it step aside
+   until the session is back. */
+body.map-reconnect-banner #map-loading-overlay {
+  z-index: 80;
+}
+
+body.map-reconnect-banner #tutorial-guide-root,
+body.map-reconnect-banner .onb-root,
+body.map-reconnect-banner #discovery-tip-overlay {
+  display: none !important;
+}
