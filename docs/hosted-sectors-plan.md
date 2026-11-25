@@ -153,8 +153,8 @@ kept by another tool would be one more thing to go out of step.
    new server. This needs `sectors.borderempires.com` delegated once, by the
    owner, from Namecheap to Hetzner DNS, so the same token can manage it.
 3. **The server deploys itself**: pulls the public image at the release the
-   production server runs, starts it, and generates the world. Caddy loads the
-   wildcard certificate it fetched from the hosting service (§11).
+   production server runs, starts it, and generates the world. Caddy obtains
+   the server's own HTTPS certificate (§11 on why not yet a wildcard).
 4. **The hosting service polls** `https://s-<id>…/health`. When it answers
    healthy, the sector is marked `open`, the host is added as its first
    member, and the "ready" email is sent.
@@ -390,7 +390,12 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
   sector server exposes the key for all sectors until it is replaced, so the
   certificate is reissued and the old one revoked after any such incident.
   The alternative, if this proves awkward, is to proxy sector WebSockets
-  through the production Caddy by path. This is part of PR 4.
+  through the production Caddy by path.
+  **As built in PR 4 (2026-11-25):** each sector server's Caddy still
+  obtains its own certificate. That works up to about 50 new sectors a week
+  (fewer if staging and production also renew in the same week); the
+  `sector_running_count` alerts give warning. The wildcard follows before
+  sales open, and the owner is told if it has not landed by then.
 - **A kill switch**: one setting turns sales off without a deploy. Running
   sectors are not affected.
 

@@ -20,6 +20,9 @@ set -euo pipefail
 . "${HOST_CONF:=/etc/border-empires/host.conf}"   # BE_ENV, BE_HOSTNAME, GITHUB_REPO, IMAGE_REPO
 if [ "$BE_ENV" = production ]; then
   BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-play.borderempires.com}"
+elif [ "$BE_ENV" = hosted ]; then
+  # A hosted sector serves only its own name; players load the client from play.borderempires.com.
+  BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-localhost}"
 else
   BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-staging.borderempires.com}"
 fi
