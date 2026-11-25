@@ -30,7 +30,9 @@ import { CAPTURED_AFC_MODULE_ABILITIES_ENTRY, CAPTURED_AFC_MODULES_ENTRY } from 
 import { FOGGED_RESOURCES_ENTRY } from "./client-changelog-fogged-resources.js";
 import { MARCH_FRIENDLY_ROUTE_ENTRY } from "./client-changelog-march-friendly-route.js";
 import { BEACON_TOWARD_ENTRY } from "./client-changelog-beacon-toward.js";
+import { BEACON_TOWARD_FRONTIER_ENTRY } from "./client-changelog-beacon-toward-frontier.js";
 import { TOWN_CLOSEUP_CRASH_ENTRY } from "./client-changelog-town-closeup-crash.js";
+import { NAME_BOX_CONFIRM_ENTRY } from "./client-changelog-name-box-confirm.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...ACCOUNT_COSMETICS_ENTRY, createdAt: 1795471602875, },
@@ -69,4 +71,6 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...MARCH_FRIENDLY_ROUTE_ENTRY, createdAt: 1795607462228, },
   { ...BEACON_TOWARD_ENTRY, createdAt: 1795613921472, },
   { ...TOWN_CLOSEUP_CRASH_ENTRY, createdAt: 1795615287618, },
+  { ...BEACON_TOWARD_FRONTIER_ENTRY, createdAt: 1795618792735, },
+  { ...NAME_BOX_CONFIRM_ENTRY, createdAt: 1795620359411, },
 ];

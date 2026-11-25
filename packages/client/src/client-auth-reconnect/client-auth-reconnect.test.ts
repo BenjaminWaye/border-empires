@@ -75,4 +75,41 @@ describe("createAuthReconnectScheduler", () => {
     expect(state.authRetryAttempt).toBe(1);
     expect(state.authBusyDetail).toBe("Retrying... Attempt 1 starts in 2s.");
   });
+
+  // Regression (2026-11-25 playtest): when the socket died during the retry
+  // wait, the scheduler gave up with a red "Reload the game to reconnect".
+  it("waits and reopens a socket that closed during the retry wait instead of asking for a reload", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const state = createInitialState();
+    const ws = { OPEN: 1, CLOSING: 2, CLOSED: 3, readyState: 1, reconnect: vi.fn() };
+    const setAuthStatus = vi.fn();
+    const authenticateSocket = vi.fn(async () => {});
+    const scheduler = createAuthReconnectScheduler({
+      state,
+      ws: ws as unknown as RealtimeSocket,
+      firebaseAuth: { currentUser: { uid: "player-1" } },
+      setAuthBusy: (busy) => {
+        state.authBusy = busy;
+      },
+      setAuthStatus,
+      syncAuthOverlay: vi.fn(),
+      renderHud: vi.fn(),
+      authenticateSocket
+    });
+
+    scheduler.schedule("Game server is still starting. Retrying sign-in...");
+    ws.readyState = 3;
+    vi.runOnlyPendingTimers();
+
+    expect(ws.reconnect).toHaveBeenCalledTimes(1);
+    expect(authenticateSocket).not.toHaveBeenCalled();
+    expect(setAuthStatus).not.toHaveBeenCalledWith(expect.anything(), "error");
+    expect(state.authBusy).toBe(true);
+    expect(state.authBusyTitle).toBe("Server updating");
+    expect(state.authBusyDetail).toBe("Reconnecting…");
+    expect(state.authOfflineSince).toBeGreaterThan(0);
+  });
 });

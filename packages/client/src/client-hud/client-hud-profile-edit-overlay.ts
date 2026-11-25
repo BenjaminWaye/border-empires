@@ -11,6 +11,8 @@
 import type { Auth } from "firebase/auth";
 import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
+import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
+import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
 import { updateFirebaseDisplayNameBestEffort, updateSettingsColor, updateSettingsDisplayName } from "./client-hud-settings.js";
@@ -27,6 +29,9 @@ export const setProfileEditOpen = (open: boolean): void => { profileEditOpen = o
 // Modal HTML
 // ---------------------------------------------------------------------------
 
+const escapeAttr = (value: string): string =>
+  value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+
 export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | "playerColors">): string => {
   const currentColor = state.playerColors.get(state.me) ?? "#38b000";
   return `
@@ -34,9 +39,12 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
   <div class="profile-edit-modal card" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title">
     <div class="auth-onboarding-head">
       <div id="profile-edit-title" class="auth-panel-title">Update your empire</div>
-      <div class="auth-panel-subtitle">Change the name and colour other empires see. Limited to once per Sector Contest.</div>
+      <div class="auth-panel-subtitle">Once per Sector Contest.</div>
     </div>
-    <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${state.meName || ""}" data-profile-edit-name />
+    <div class="profile-name-field">
+      <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${escapeAttr(state.meName || "")}" data-profile-edit-name />
+      ${profileNameCountHtml()}
+    </div>
     <div class="auth-color-block">
       <div class="auth-color-label">Nation color</div>
       <div class="auth-color-presets">
@@ -52,6 +60,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
         <input type="color" value="${currentColor}" data-profile-edit-color />
       </label>
     </div>
+    <div class="profile-edit-status" data-profile-edit-status role="status" aria-live="polite"></div>
     <div class="profile-edit-actions">
       <button type="button" class="panel-btn" data-profile-edit-cancel>Cancel</button>
       <button type="button" class="panel-btn" data-profile-edit-save>Save Changes</button>
@@ -73,6 +82,9 @@ export const bindProfileEditModal = (args: {
   setPendingDisplayNameChange: (name: string) => void;
   setPendingColorChange: (color: string) => void;
   onClose: () => void;
+  /** In-game confirm sheet (never the native browser confirm dialog, which webviews block). Returns false when it can't be shown. */
+  showConfirm?: (options: BreakPactSheetOptions) => boolean;
+  hideConfirm?: () => void;
 }): void => {
   const {
     state,
@@ -82,7 +94,9 @@ export const bindProfileEditModal = (args: {
     updateFirebaseDisplayName,
     setPendingDisplayNameChange,
     setPendingColorChange,
-    onClose
+    onClose,
+    showConfirm = showBreakPactSheet,
+    hideConfirm = hideBreakPactSheet
   } = args;
 
   const nameInput = overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]");
@@ -91,7 +105,12 @@ export const bindProfileEditModal = (args: {
   const backdrop = overlayEl.querySelector<HTMLDivElement>("[data-profile-edit-backdrop]");
   const cancelBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-cancel]");
   const saveBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]");
+  const statusEl = overlayEl.querySelector<HTMLElement>("[data-profile-edit-status]");
   if (!nameInput || !colorInput || !saveBtn) return;
+  const setStatus = (text: string): void => {
+    if (statusEl) statusEl.textContent = text;
+  };
+  bindProfileNameField(nameInput, { onUserInput: () => setStatus("") });
 
   const syncSwatches = (): void => syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value);
   syncSwatches();
@@ -107,6 +126,7 @@ export const bindProfileEditModal = (args: {
   colorInput.oninput = syncSwatches;
 
   const close = (): void => {
+    hideConfirm();
     setProfileEditOpen(false);
     overlayEl.innerHTML = "";
     onClose();
@@ -114,26 +134,8 @@ export const bindProfileEditModal = (args: {
   if (backdrop) backdrop.onclick = close;
   if (cancelBtn) cancelBtn.onclick = close;
 
-  saveBtn.onclick = async (): Promise<void> => {
+  const save = async (newName: string, newColor: string, nameChanged: boolean, colorChanged: boolean): Promise<void> => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
-    const newName = nameInput.value.trim();
-    const newColor = colorInput.value.trim();
-    if (newName.length < 2) {
-      pushFeed("Display name must be at least 2 characters.", "error", "warn");
-      return;
-    }
-    const nameChanged = newName !== state.meName;
-    const colorChanged = newColor !== currentColor;
-    if (!nameChanged && !colorChanged) {
-      pushFeed("No changes to save.", "info", "info");
-      return;
-    }
-    if (typeof window !== "undefined" && typeof window.confirm === "function") {
-      const confirmed = window.confirm(
-        "Change your empire's name and/or colour? You can only change your name and colour once per Sector Contest."
-      );
-      if (!confirmed) return;
-    }
     // Neither update function reports success/failure back to its caller
     // (the server confirms asynchronously via PLAYER_UPDATE), so track
     // whether the synchronous send itself failed (e.g. connection not
@@ -167,7 +169,43 @@ export const bindProfileEditModal = (args: {
         setPendingColorChange
       });
     }
-    if (!sendFailed) close();
+    if (sendFailed) setStatus("Not sent");
+    else close();
+  };
+
+  saveBtn.onclick = (): void => {
+    const currentColor = state.playerColors.get(state.me) ?? "#38b000";
+    const newName = nameInput.value.trim();
+    const newColor = colorInput.value.trim();
+    if (newName.length < 2) {
+      setStatus("Name too short");
+      pushFeed("Display name must be at least 2 characters.", "error", "warn");
+      return;
+    }
+    const nameChanged = newName !== state.meName;
+    const colorChanged = newColor !== currentColor;
+    if (!nameChanged && !colorChanged) {
+      setStatus("No changes");
+      pushFeed("No changes to save.", "info", "info");
+      return;
+    }
+    setStatus("");
+    const consequences = [
+      ...(nameChanged ? [`Name: ${newName}`] : []),
+      ...(colorChanged ? [`Colour: ${newColor}`] : [])
+    ];
+    const shown = showConfirm({
+      title: "Change empire?",
+      subtitle: "Once per Sector Contest.",
+      consequences,
+      confirmLabel: "Change",
+      sheetId: "profile-edit-confirm",
+      onConfirm: () => void save(newName, newColor, nameChanged, colorChanged),
+      onCancel: () => setStatus("Not saved")
+    });
+    // No DOM to show the sheet in: the modal's own subtitle already carries
+    // the once-per-contest note, so save rather than silently doing nothing.
+    if (!shown) void save(newName, newColor, nameChanged, colorChanged);
   };
 };
 

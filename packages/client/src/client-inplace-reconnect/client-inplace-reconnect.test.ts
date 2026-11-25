@@ -72,6 +72,35 @@ describe("createInPlaceReconnectScheduler", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  // Regression (2026-11-25 playtest): a new player who signed in during a
+  // staging deploy restart got "Connection interrupted ... Reload the game"
+  // because nothing reopened the socket before the first INIT.
+  it("reopens the socket for a signed-in player before the first INIT, without the stall watchdog", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    vi.stubGlobal("window", {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis)
+    });
+
+    const state = createInitialState() as any;
+    state.hasEverInitialized = false;
+    state.authConfigured = true;
+    state.authReady = true;
+    state.connection = "disconnected";
+    const ws = createFakeSocket(3);
+    const onStalled = vi.fn();
+    const scheduler = createInPlaceReconnectScheduler({ state, ws, onStalled });
+
+    scheduler.schedule();
+    vi.runOnlyPendingTimers();
+    expect(ws.reconnect).toHaveBeenCalledTimes(1);
+
+    // A first login may queue without progress frames; don't cut it off.
+    vi.advanceTimersByTime(120_000);
+    expect(onStalled).not.toHaveBeenCalled();
+  });
+
   it("keeps reconnecting through a long deployment without reloading the page", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
