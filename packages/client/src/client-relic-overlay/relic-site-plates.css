@@ -102,7 +102,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 220px;
+  width: 250px;
   box-sizing: border-box;
   padding: 10px 12px 12px;
   background: #16130e;
@@ -117,6 +117,7 @@
   font: 700 13px/1.1 var(--sp-font-display, "Cinzel", Georgia, serif);
   letter-spacing: 0.05em;
   color: #ece2cc;
+  white-space: nowrap;
 }
 .relic-card-detail {
   margin-top: 3px;
@@ -143,3 +144,21 @@
 .relic-plate.is-edge-right .relic-plate-arrow { order: 3; margin: 0 0 0 2px; }
 /* Picking a map point: the tap belongs to the map (scout waypoint, march), not the plate. */
 .relic-plate.is-passive { pointer-events: none; }
+.relic-card-help {
+  margin-left: auto;
+  align-self: flex-start;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #8a6f35;
+  border-radius: 50%;
+  background: transparent;
+  color: #d9ad52;
+  font: 700 11px/1 var(--sp-font-display, "Cinzel", Georgia, serif);
+  cursor: pointer;
+}
+.relic-card-help[aria-expanded="true"] { background: #2a2216; }
+.relic-card-explainer {
+  margin: 8px 0 0;
+  font: 400 11px/1.4 var(--sp-font-body, Georgia, serif);
+  color: #cfc3a8;
+}

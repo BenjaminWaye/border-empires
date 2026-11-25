@@ -296,12 +296,21 @@ export const drawMiniMap = (options: {
       const x = edge?.x ?? wxToPx(wrappedX + 0.5), y = edge?.y ?? wyToPy(wrappedY + 0.5);
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
-      cctx.strokeStyle = hint.kind === "WAKE" ? "#c9a8ff" : depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
-      // The diamond of the map's relic plates (relic-site-plates.ts), filled so it reads at minimap size.
-      const k = markerScale, r = 3.5 * k; cctx.lineWidth = 1.5 * uiScale; cctx.fillStyle = "#16130e";
-      cctx.beginPath(); cctx.moveTo(x, y - r); cctx.lineTo(x + r, y); cctx.lineTo(x, y + r); cctx.lineTo(x - r, y); cctx.closePath(); cctx.fill(); cctx.stroke();
-      if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
-      if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
+      // The badge of the map's relic plates (relic-site-plates.ts): an ink disc, brass ring and a diamond in the
+      // operating House's colour. Pinned to the frame edge, a brass point on the ring faces the site.
+      const r = 4.4 * markerScale, d = r * 0.48; // a little larger than a town dot
+      const mark = hint.kind === "WAKE" && hint.ownerId ? options.effectiveOverlayColor(hint.ownerId) : depleted ? "#aba89c" : "#e7d69c";
+      const cx = edge ? x - Math.cos(edge.angle) * (r + 1) : x, cy = edge ? y - Math.sin(edge.angle) * (r + 1) : y;
+      cctx.lineWidth = Math.max(1, 0.6 * markerScale);
+      if (edge) {
+        cctx.save(); cctx.translate(cx, cy); cctx.rotate(edge.angle); cctx.fillStyle = "#8a6f35";
+        cctx.beginPath(); cctx.moveTo(r * 1.75, 0); cctx.lineTo(r * 0.55, -r * 0.7); cctx.lineTo(r * 0.55, r * 0.7); cctx.closePath(); cctx.fill(); cctx.restore();
+      }
+      cctx.fillStyle = "#16130e"; cctx.strokeStyle = "#8a6f35";
+      cctx.beginPath(); cctx.arc(cx, cy, r, 0, Math.PI * 2); cctx.fill(); cctx.stroke();
+      cctx.fillStyle = mark; cctx.strokeStyle = mark;
+      cctx.beginPath(); cctx.moveTo(cx, cy - d); cctx.lineTo(cx + d, cy); cctx.lineTo(cx, cy + d); cctx.lineTo(cx - d, cy); cctx.closePath(); cctx.fill();
+      if (depleted) { cctx.strokeStyle = "#aba89c"; cctx.beginPath(); cctx.moveTo(cx - r * 0.7, cy + r * 0.7); cctx.lineTo(cx + r * 0.7, cy - r * 0.7); cctx.stroke(); }
     };
     for (const hint of options.state.relicMapHints?.values() ?? []) drawRelicHint(hint);
 

@@ -15,7 +15,7 @@ import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/cl
 import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-color-separation.js";
 import { handleScoutPlanTap, scoutPlanTapStarts } from "../client-scout-drone/client-scout-drone-plan.js";
 import { RELIC_WAKE_FALLBACK_COLOR } from "./relic-map-hints.js";
-import { edgeTabPoint, mapPointPickArmed, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
+import { RELIC_EXPLAINER, edgeTabPoint, mapPointPickArmed, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { markRelicSiteReached, relicSiteReached } from "./relic-site-reached.js";
 import "./relic-site-plates.css";
@@ -76,6 +76,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
   const closeOnMapPress = (): void => { openKey = undefined; };
   canvas.addEventListener("pointerdown", closeOnMapPress);
   let cardFor = "";
+  let explainerFor: string | undefined; // the site whose card has its "?" explanation open
   const ownerColor = createSeparatedOwnerColor((ownerId) => resolveOwnerColor(ownerId, state.playerColors, fallbackOwnerColor), () => state.me);
   const nameOf = (ownerId: string): string | undefined => playerDisplayNameForOwnerFromState(state, ownerId);
 
@@ -92,11 +93,23 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
     if (cardFor !== signature) {
       cardFor = signature;
       card.innerHTML =
-        `<div class="relic-card-head"><span class="relic-plate-badge">${DIAMOND}</span><div><div class="relic-card-title"></div><div class="relic-card-detail"></div></div></div>` +
+        `<div class="relic-card-head"><span class="relic-plate-badge">${DIAMOND}</span><div><div class="relic-card-title"></div><div class="relic-card-detail"></div></div>` +
+        `<button type="button" class="relic-card-help" data-relic-help aria-label="What is this?" aria-expanded="false">?</button></div>` +
+        `<p class="relic-card-explainer" hidden></p>` +
         `<div class="relic-card-where">(${plate.x}, ${plate.y})</div>` +
         `<div class="relic-card-actions"><button type="button" data-relic-show>Show</button>${canScout ? "<button type=\"button\" data-relic-scout>Send scout</button>" : ""}</div>`;
       (card.querySelector(".relic-card-title") as HTMLElement).textContent = plate.title;
       (card.querySelector(".relic-card-detail") as HTMLElement).textContent = plate.detail;
+      const explainer = card.querySelector(".relic-card-explainer") as HTMLElement;
+      explainer.textContent = RELIC_EXPLAINER;
+      const help = card.querySelector("[data-relic-help]") as HTMLButtonElement;
+      const showExplainer = (open: boolean): void => { explainer.hidden = !open; help.setAttribute("aria-expanded", String(open)); };
+      showExplainer(explainerFor === plate.key);
+      help.onclick = (event) => {
+        event.stopPropagation();
+        explainerFor = explainerFor === plate.key ? undefined : plate.key;
+        showExplainer(explainerFor === plate.key);
+      };
       (card.querySelector("[data-relic-show]") as HTMLButtonElement).onclick = (event) => {
         event.stopPropagation(); openKey = undefined; centerOn(plate.x, plate.y); actions.renderHud();
       };

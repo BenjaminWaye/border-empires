@@ -13,6 +13,13 @@ describe("miniMapRelicHintAt", () => {
     expect(miniMapRelicHintAt([wake], box, 200, 200, point.x + 3, point.y - 2)).toBe(wake);
   });
 
+  // Regression (2026-11-25): the edge badge is drawn in from the edge point; a press on its centre panned to the press.
+  it("finds a relic when the press lands on the badge drawn in from the edge", () => {
+    const point = miniMapRelicMarkerPoint(wake, box, 200, 200);
+    expect(miniMapRelicHintAt([wake], box, 200, 200, point.x, point.y - 18)).toBe(wake);
+    expect(miniMapRelicHintAt([wake], box, 200, 200, point.x, point.y - 40)).toBeUndefined();
+  });
+
   it("finds a relic inside the view at its tile", () => {
     const inside: RelicMapHint = { x: 450, y: 60, kind: "RELIC" };
     expect(miniMapRelicMarkerPoint(inside, box, 200, 200)).toEqual({ x: 101, y: 41 });

@@ -10,6 +10,8 @@ import { miniMapBoxPoint, type MiniMapBox } from "./client-minimap-tile-layer.js
 // press so the camera can go to the relic itself.
 
 const HIT_RADIUS_PX = 10;
+/** A badge pinned to the edge sits up to this far in from the edge point, along the ray (client-minimap.ts). */
+const EDGE_BADGE_REACH_PX = 24;
 
 export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
 
@@ -36,7 +38,13 @@ const nearBoxCenter = (coord: number, boxMin: number, boxSize: number, worldSize
   unwrapIntoBox(coord, boxMin + boxSize / 2 - worldSize / 2, worldSize);
 
 /** Where drawMiniMap puts a relic box, in the same pixel space as `w` x `h`. */
-export const miniMapRelicMarkerPoint = (hint: { x: number; y: number }, box: MiniMapBox, w: number, h: number, edgeMargin = 8): { x: number; y: number } => {
+export const miniMapRelicMarkerPoint = (
+  hint: { x: number; y: number },
+  box: MiniMapBox,
+  w: number,
+  h: number,
+  edgeMargin = 8
+): { x: number; y: number; edgeAngle?: number } => {
   const x = nearBoxCenter(hint.x, box.x0, box.w, WORLD_WIDTH);
   const y = nearBoxCenter(hint.y, box.y0, box.h, WORLD_HEIGHT);
   const px = ((x - box.x0) / box.w) * w;
@@ -44,7 +52,15 @@ export const miniMapRelicMarkerPoint = (hint: { x: number; y: number }, box: Min
   // Same in-view test as drawMiniMap's inBox, so the hit lands where the box is drawn.
   if (miniMapBoxPoint(x, y, box)) return { x: ((x + 0.5 - box.x0) / box.w) * w, y: ((y + 0.5 - box.y0) / box.h) * h };
   const edge = miniMapEdgeArrowPoint(px, py, w, h, edgeMargin);
-  return { x: edge.x, y: edge.y };
+  return { x: edge.x, y: edge.y, edgeAngle: edge.angle };
+};
+
+/** Squared distance from (px, py) to the marker: a point, or for an edge badge the short run inward from the edge point. */
+const markerDistSq = (point: { x: number; y: number; edgeAngle?: number }, px: number, py: number): number => {
+  if (point.edgeAngle === undefined) return (point.x - px) ** 2 + (point.y - py) ** 2;
+  const ix = -Math.cos(point.edgeAngle), iy = -Math.sin(point.edgeAngle);
+  const t = Math.max(0, Math.min(EDGE_BADGE_REACH_PX, (px - point.x) * ix + (py - point.y) * iy));
+  return (point.x + ix * t - px) ** 2 + (point.y + iy * t - py) ** 2;
 };
 
 /** The relic (wake or transponder) whose minimap box is under (px, py), nearest first; survey signatures are ignored. */
@@ -62,7 +78,7 @@ export const miniMapRelicHintAt = (
   for (const hint of hints) {
     if (hint.kind !== "WAKE" && hint.kind !== "RELIC") continue;
     const point = miniMapRelicMarkerPoint(hint, box, w, h, edgeMargin);
-    const dist = (point.x - px) ** 2 + (point.y - py) ** 2;
+    const dist = markerDistSq(point, px, py);
     if (dist <= bestDist) {
       best = hint;
       bestDist = dist;

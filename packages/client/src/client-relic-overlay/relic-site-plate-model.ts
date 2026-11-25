@@ -21,6 +21,10 @@ export type RelicSitePlate = {
 export const RELIC_WAKE_TITLE = "Concordance relic";
 export const RELIC_SIGNAL_TITLE = "Relic signal";
 
+/** Behind the card's "?": what a relic is (docs/lore/galactic-lore.md, Surviving relic installations). */
+export const RELIC_EXPLAINER =
+  "An old Concordance installation, dormant until a House garrisons it. Running, it gives its holder a lasting bonus. Capture and garrison it to take it over.";
+
 /** The plate for one hint, or none: survey signatures keep their own marks, and a transponder already on the map needs none. */
 export const relicSitePlateFor = (
   hint: RelicMapHint | undefined,

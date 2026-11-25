@@ -9,7 +9,8 @@ export const RELIC_WAKE_ALERT_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "A relic signal in range gets a Relic signal plate instead of a bare column.",
     "Tapping a plate or the relic's tile opens its card, with Show and Send scout, instead of starting a scout flight plan.",
     "The first time you see another House running a relic, an alert names the House and the site.",
+    "The relic card has a ? that explains what a Concordance relic is.",
     "While you place scout waypoints or pick a march, a tap on a relic is a waypoint, not its card.",
-    "On the minimap a relic is a diamond, and pressing it takes you to the relic itself, even when it is pinned to the edge."
+    "On the minimap a relic is a brass badge, like the map plates, and pressing it takes you to the relic itself, even when it is pinned to the edge."
   ]
 };
