@@ -657,7 +657,7 @@ export class SimulationRuntime {
   });
   // Explore scout drones (scout-drone/scout-drone-runtime.ts): in memory only, a restart docks any drone in the air.
   private readonly scoutDrones = createScoutDroneRuntime({ now: () => this.now(), worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, tiles: () => this.state.tiles, players: () => this.state.players,
-    afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
+    afcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys, reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), isVisible: (playerId, x, y) => this.state.visibilityCoverage.isVisible(playerId, `${x},${y}`), visibilityCoverage: () => this.state.visibilityCoverage, visionTransitionCallbacks: () => this.visionTransitions.callbacks,
     emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), isPlayerSubscribed: (id) => this.isPlayerSubscribed?.(id) ?? true });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts

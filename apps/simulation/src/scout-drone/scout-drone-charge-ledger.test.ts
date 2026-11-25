@@ -27,6 +27,17 @@ describe("scout charge ledger", () => {
     expect(createScoutChargeLedger(() => players).available("me", 300)).toBe(SCOUT_DRONE_MAX_CHARGES - 2);
   });
 
+  it("gives back the most recent spends on refund, and never more than were spent", () => {
+    const { players, ledger } = playersWith();
+    ledger.spend("me", 1, 1_000);
+    ledger.spend("me", 3, 2_000);
+    ledger.refund("me", 2, 2_500);
+    expect(players.get("me")!.scoutChargeSpends).toEqual([1_000, 2_000]);
+    ledger.refund("me", 5, 2_500);
+    expect(players.get("me")!.scoutChargeSpends).toBeUndefined();
+    expect(ledger.available("me", 2_500)).toBe(SCOUT_DRONE_MAX_CHARGES);
+  });
+
   it("never keeps more spends than charges", () => {
     const { players, ledger } = playersWith();
     ledger.spend("me", 20, 0);
