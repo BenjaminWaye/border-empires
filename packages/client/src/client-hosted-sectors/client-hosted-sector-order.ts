@@ -26,11 +26,11 @@ const TERMS_LINK = `<a href="/purchase-terms.html" target="_blank" rel="noopener
  */
 export const consentBoxesHtml = (scope = ""): string => `
   <label class="hosted-sector-consent">
-    <input type="checkbox" name="consentTerms"${scope ? ` data-hosted-sector-consent-terms="${scope}"` : ""} />
+    <input type="checkbox" class="sp-check" name="consentTerms"${scope ? ` data-hosted-sector-consent-terms="${scope}"` : ""} />
     <span>${HOSTED_SECTOR_CONSENT_TERMS.replace("Terms of Sale", TERMS_LINK)}</span>
   </label>
   <label class="hosted-sector-consent">
-    <input type="checkbox" name="consentEarlyStart"${scope ? ` data-hosted-sector-consent-early-start="${scope}"` : ""} />
+    <input type="checkbox" class="sp-check" name="consentEarlyStart"${scope ? ` data-hosted-sector-consent-early-start="${scope}"` : ""} />
     <span>${HOSTED_SECTOR_CONSENT_EARLY_START}</span>
   </label>`;
 

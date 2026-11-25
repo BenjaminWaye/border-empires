@@ -51,6 +51,15 @@ describe("town capture card garrison prompt", () => {
     expect(el("town-capture-overlay")).toBeNull();
   });
 
+  // Playtest 2026-11-25: Garrison now / Jump to Town were one-off rounded buttons in the system sans.
+  it("draws Garrison now and Jump to Town with the shared HUD button classes", () => {
+    install(tile());
+    showTownCaptureOverlay(info());
+    expect(Array.from(el("town-capture-garrison")!.classList)).toEqual(expect.arrayContaining(["v2s-btn", "v2s-btn-primary"]));
+    expect(el("town-capture-jump")!.classList.contains("v2s-btn")).toBe(true);
+    expect(el("town-capture-jump")!.classList.contains("v2s-btn-primary")).toBe(false);
+  });
+
   it("keeps the button with auto-garrison on, which still waits on coin and manpower", () => {
     install(tile(), { towns: true });
     showTownCaptureOverlay(info());

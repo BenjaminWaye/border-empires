@@ -102,15 +102,6 @@
   color: var(--sp-parchment-100);
 }
 
-/* ---- Placement overlay buttons ---- */
-.placement-confirm-btn {
-  border-color: var(--sp-verdigris-500);
-  color: var(--sp-brass-100);
-}
-.placement-cancel-btn {
-  border-color: var(--sp-ember-600);
-}
-
 /* ---- Tile progress "queued next" chip ---- */
 .tile-progress-queued-next-title {
   color: var(--sp-parchment-muted);
