@@ -13,6 +13,12 @@ import time
 def activate(root, release):
     root = root.resolve()
     release = release.resolve()
+    # deploy/bin/deploy's restart countdown lives in the live release; one a
+    # killed deploy left behind must not come back with a client rollback.
+    try:
+        (release / "__deploy_status.json").unlink(missing_ok=True)
+    except OSError:
+        pass
     pending = root / ".current-next"
     pending.unlink(missing_ok=True)
     pending.symlink_to(release.relative_to(root))

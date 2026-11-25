@@ -364,6 +364,9 @@ every pledge between them.
 ### Manpower and materials
 
 **Manpower** is bodies under House control, including captured and remade ones.
+A House sets each town's focus: it can shelter the town so its people multiply,
+take more of them into Ancillary service (Levy), or contract part of its labour
+offworld so creditors extend more Coin against the rest (Commerce).
 An **Ancillary Factory** remakes local people into such bodies. **Forced
 Ancillarification** takes residents from the supporting town at once; they are
 no longer its civilians.
@@ -485,7 +488,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 | Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
 | Umbrite in forests | Since 2026-11-23 the 3D map draws every Umbrite deposit as violet Umbrite inside wood: a mineralized elder tree, a bed of split roots, or a fallen log (Storybook **Sandbox / Umbrite Forest / Concepts**). Why Umbrite grows through wood, and what it is doing in deserts and tundra, is still undecided. |
-| Town focus and the sale of labour | Proposal, not canon ([town focus plan](../town-focus-plan.md)): a House could set a town to grow, to give more of its people to Ancillary intake, or to contract part of its population offworld for Coin. Undecided: whether those people are indentured crews or sold outright, and whether creditors lend against the population a House controls as well as its output. |
+| Town focus and the sale of labour | Canon since 2026-11-25 as contracted labour (§11, "Manpower and materials"; [town focus plan](../town-focus-plan.md)). Undecided: whether Houses also sell people outright, and whether creditors lend against population generally or only through a Commerce focus. |
 
 ### Retired concepts
 

@@ -15,7 +15,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, biotaBlend, hasWideSupportRing, isInnerSupportRing, isPreferredSupportTown, townSupportCoinMultiplier, type TownSupportCounts, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, townFocusMultipliers, biotaBlend, hasWideSupportRing, isInnerSupportRing, isPreferredSupportTown, townSupportCoinMultiplier, type TownSupportCounts, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -356,7 +356,9 @@ export const buildTownSummary = (
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
       ? supportedConverterGoldPerMinute(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys)
       : { total: 0, countsByType: {} };
-  const goldPerMinute =
+  // Town focus (docs/town-focus-plan.md) scales the town's whole Coin, as townGoldPerMinuteForPlayer does.
+  const focus = townFocusMultipliers(townPartial);
+  const goldPerMinute = focus.coin * (
     !tile.ownerId || tile.ownershipState !== "SETTLED"
       ? 0
       : isSettlement
@@ -373,7 +375,7 @@ export const buildTownSummary = (
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total;
+            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total);
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -392,6 +394,7 @@ export const buildTownSummary = (
         incubationEngineGrowthMult *
         firstThreeTownPopGrowthMult *
         (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *
+        focus.growth *
         logisticFactor;
   // The population-growth tick stamps the rate it actually applied
   // (runtime-population-growth.ts), which also folds in the owner's
@@ -474,6 +477,8 @@ export const buildTownSummary = (
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
     ...(typeof townPartial.forcedAncillarificationCooldownUntil === "number" ? { forcedAncillarificationCooldownUntil: townPartial.forcedAncillarificationCooldownUntil } : {}),
+    ...(townPartial.focus ? { focus: townPartial.focus } : {}),
+    ...(townPartial.pendingFocus && typeof townPartial.pendingFocusAt === "number" ? { pendingFocus: townPartial.pendingFocus, pendingFocusAt: townPartial.pendingFocusAt } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
     ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
     ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})

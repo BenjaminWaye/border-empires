@@ -233,7 +233,7 @@ import {
   handleUnwatchMusterCommand as handleUnwatchMusterCommandImpl
 } from "../runtime-muster-watch.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
-import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
+import { applyTownUpkeepAfterGrowth as applyTownUpkeepAfterGrowthImpl } from "../runtime-town-upkeep.js";
 import {
   applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
   cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
@@ -489,7 +489,7 @@ import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
-import { updateTileSettledAt, withoutClearedRazedWreck, withoutFadedWarScars, withoutStaleCaptureHold, withoutStrayCampId } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
+import { updateTileSettledAt, withoutClearedRazedWreck, withoutFadedWarScars, withoutForeignTownFocus, withoutStaleCaptureHold, withoutStrayCampId } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 import { ORPHAN_LOCK_GRACE_MS, RESPAWN_MINIMUM_GOLD } from "./runtime-lifecycle-constants.js";
 
 export type { VisibilityAuditSample };
@@ -1071,13 +1071,13 @@ export class SimulationRuntime {
     if (result.growthStalledNoFood > 0) {
       this.growthStalledNoFoodCounter += result.growthStalledNoFood;
     }
-    this.applyCensusHallPopulationBonuses();
+    this.applyTownUpkeepAfterGrowth(nowMs);
     return result;
   }
 
-  // Census Hall population bonus -- see runtime-census-hall-bonus.ts.
-  private applyCensusHallPopulationBonuses(): void {
-    applyCensusHallPopulationBonusesImpl({
+  // Census Hall population bonus and due town focus changes -- see runtime-town-upkeep.ts.
+  private applyTownUpkeepAfterGrowth(nowMs: number): void {
+    applyTownUpkeepAfterGrowthImpl({
       censusHallTilesByOwner: this.ownerIndexes.censusHallTilesByOwner,
       tiles: this.state.tiles,
       now: () => this.now(),
@@ -1085,8 +1085,12 @@ export class SimulationRuntime {
       connectedIncubationEngineCountForTown: (playerId, townKey) => this.censusHallConnectedIncubationEngineBonusCountForPlayer(playerId, townKey),
       replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
       emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
-    });
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      players: this.state.players,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      settleEconomy: (at, ids) => { for (const id of ids) { const p = this.state.players.get(id); if (p) { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), p, at, PASSIVE_INCOME_INACTIVITY_CAP_MS, false); this.applyManpowerRegen(p, at); } } },
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    }, nowMs);
   }
 
   private watchtowerRevealContext(): WatchtowerRevealRuntimeInput {
@@ -1563,16 +1567,7 @@ export class SimulationRuntime {
     applyManpowerRegenForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
-  /**
-   * Manpower-only variant of {@link applyManpowerRegen} that skips the
-   * economy-accrual side effect. The accrual is O(territory tiles) per call
-   * (it sorts the player's territory tile keys for upkeep collection); doing
-   * it per player on every planner-state export was the dominant source of
-   * the recurring 1.4-2.0 s `sync_players_export` block on staging. Skipping
-   * here is safe because the accrual still runs on every real command path
-   * and on the periodic tick, so player gold/resources catch up within a
-   * single planner cycle.
-   */
+  /** Manpower-only variant of {@link applyManpowerRegen}; why it skips the economy accrual: refreshManpowerOnlyForPlayer. */
   private refreshManpowerOnly(player: RuntimePlayer, nowMs = this.now()): void {
     refreshManpowerOnlyForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
@@ -1682,7 +1677,7 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     const fulfilledSupplyBefore = this.resourceSupply?.sourceWillChange(previous, nextTile);
-    let tile = withAfcFortFacts(withoutStrayCampId(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now())), this.state.players);
+    let tile = withAfcFortFacts(withoutForeignTownFocus(previous, withoutStrayCampId(withoutClearedRazedWreck(withoutFadedWarScars(withoutStaleCaptureHold(previous, nextTile, this.now()), this.now()), this.now()))), this.state.players);
     tile = prepareRelicTileWrite(previous, tile, { players: this.state.players, now: this.now(), resourceSlotSupplyForPlayer: id => this.resourceSlotSupplyForPlayer(id), resourceSlotDemandForPlayer: id => this.resourceSlotDemandForPlayer(id), playerManpowerCap: player => this.playerManpowerCap(player), commandId, emitEvent: event => this.emitEvent(event) });
     if (this.manpowerReady) settleResourceNetworkOwnersBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);

@@ -20,7 +20,7 @@ import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../clien
 import { downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { openReportDialog, renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
-import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
+import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js"; import { syncReconnectBannerLayer } from "../client-map-loading-view/client-map-loading-layer.js";
 import { renderMapLoadingCopy } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
@@ -201,7 +201,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();
   deps.miniMapReplayEl.innerHTML = replayPanelHtml();
-  const loadingActive = isMapLoadingOverlayActive(state);
+  const loadingActive = isMapLoadingOverlayActive(state); syncReconnectBannerLayer(document.body, loadingActive && state.hasEverInitialized && state.connection !== "initialized");
   if (loadingActive) {
     const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
