@@ -11,6 +11,7 @@ setting, Houses, Coin, local industry, Manifests, AFCs and Great Projects.
 | Document | Purpose |
 |---|---|
 | [World bible](galactic-lore.md) | Established fiction, terminology and explicitly recorded canon questions |
+| [In-game Lore tab](../../packages/client/src/client-lore-catalogue/lore-catalogue-entries.ts) | Short player-facing entries condensed from the world bible (Chronicle → Lore); update them when the bible changes what they say |
 | [The Sable Recollections](duke-memoir.md) | Supporting in-world memoir; the character's account cannot override the world bible |
 | [Game mechanics](../game-mechanics.md) | Current playable behavior, with implementation pointers |
 | [Resource and manpower economy](../product/resource-and-manpower-economy.md) | Current costs, capacity, income, resource slots and economic behavior |
