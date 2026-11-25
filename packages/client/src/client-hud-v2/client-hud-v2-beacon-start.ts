@@ -1,6 +1,6 @@
 // The tracker's Relay Beacon rows start beacon placement, the same overlay the tile
 // menu's Build Relay Beacon opens (client-structure-build-trigger.ts): the player can move it, then confirm.
-// The starting tile is the best-scoring site the build path accepts, else any tile it accepts.
+// The starting tile is the best-scoring site placement accepts (relayBeaconStartTile), else any tile it accepts.
 
 import { relayBeaconStartTile } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
