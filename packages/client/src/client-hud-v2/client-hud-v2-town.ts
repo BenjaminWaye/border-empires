@@ -18,6 +18,7 @@ import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-se
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { townBiota } from "./client-hud-v2-town-biota.js";
@@ -223,8 +224,7 @@ const barHtml = (input: TownScreenInput): string => {
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
-  const minor = minorActions.map(({ a, key }) =>
-    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
+  const minor = minorActions.map(({ a, key }) => minorActionButtonHtml(a, targetAttrs(a, key), a.cost ?? a.detail ?? "")).join("");
   // Raise flag on the selected tile; when it can't take one, on the town as before.
   const focusRaise = actionFor(input.focusView, "muster_hold");
   const raise = focusRaise ?? actionFor(input.townView, "muster_hold");

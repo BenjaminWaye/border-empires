@@ -9,6 +9,8 @@ import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 export interface NetworkSiphonContext {
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
+  /** AFC module techs installed on the House's active, settled AFCs (researched or captured), read without a territory scan. */
+  installedModules?(id: string): ReadonlySet<string>;
   effectiveUpkeep(id: string): ResourceSlotTotals;
   siphonedTiles(id: string): readonly DomainTileState[];
   tileSettledAtByKey: ReadonlyMap<string, number>;
@@ -20,13 +22,15 @@ export interface NetworkSiphonContext {
 export function networkSupplyWithSiphon(ctx: NetworkSiphonContext, playerId: string): NetworkSiteCounts {
   const domestic = (id: string, selected?: ReadonlySet<string>): NetworkSiteCounts => {
     const player = ctx.player(id);
-    if (!NETWORK_RESOURCES.some(resource => player?.techIds.has(RESOURCE_NETWORKS[resource].tech))) return emptyNetworkSiteCounts();
+    if (!player) return emptyNetworkSiteCounts();
+    const installed = ctx.installedModules?.(id) ?? new Set<string>();
+    if (!NETWORK_RESOURCES.some(resource => player.techIds.has(RESOURCE_NETWORKS[resource].tech) || installed.has(RESOURCE_NETWORKS[resource].tech))) return emptyNetworkSiteCounts();
     const tiles = ctx.ownedTiles(id);
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, ctx.effectiveUpkeep(id), player ? slotWaiversForPlayer(player) : undefined, ctx.tileSettledAtByKey);
     const dormant = new Set([...dormancy.FOOD].filter(key => key.endsWith(":economicStructure")).map(key => key.slice(0, -18)));
     // Salvage is finite and can't be siphoned: its owner keeps the arms bonus.
     return developedNetworkSites(tiles.filter(tile => selected ? selected.has(`${tile.x},${tile.y}`) && tile.resource !== "PRECURSOR_SALVAGE"
-      : tile.resource === "PRECURSOR_SALVAGE" || !isResourceTileSiphonedAway(tile,id)), id, dormant, player?.techIds);
+      : tile.resource === "PRECURSOR_SALVAGE" || !isResourceTileSiphonedAway(tile,id)), id, dormant, player.techIds, installed);
   };
   const result = domestic(playerId);
   const byOwner = new Map<string, Set<string>>();

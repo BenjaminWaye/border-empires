@@ -6,6 +6,8 @@ import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView, SeasonWinnerV
 import { assignLanes, LANE_STEP_PX } from "./client-hud-v2-ranks-lanes.js";
 import { crestLettersFor } from "./client-hud-v2-crest-letters.js";
 import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
+import type { LiveLongestRoad } from "@border-empires/shared";
+import { longestRoadCardHtml } from "../client-achievements/client-achievements-html.js";
 
 export type RanksInput = {
   me: string;
@@ -16,6 +18,8 @@ export type RanksInput = {
   selfOverall: LeaderboardOverallEntry | undefined;
   nameOf: (playerId: string) => string;
   colorOf: (playerId: string) => string | undefined;
+  /** Live Longest Road holder (LONGEST_ROAD push); undefined hides the card. */
+  longestRoad?: LiveLongestRoad | null | undefined;
 };
 
 export const STANDINGS_CAP = 10;
@@ -174,6 +178,6 @@ export const ranksBodyHtml = (input: RanksInput): string => {
     : "";
   return `<div class="v2r-layout">
     <section class="v2r-race"><div class="v2r-axis"><span>Start</span><span>Win line</span></div>${tracks}</section>
-    <aside class="v2r-aside">${closest}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">power score</span></h2>${standingsHtml(input, letters)}</section></aside>
+    <aside class="v2r-aside">${closest}${longestRoadCardHtml(input.longestRoad, input.me, input.nameOf)}<section class="v2r-card"><h2 class="v2s-h2">Standings <span class="v2s-meta">power score</span></h2>${standingsHtml(input, letters)}</section></aside>
   </div>`;
 };

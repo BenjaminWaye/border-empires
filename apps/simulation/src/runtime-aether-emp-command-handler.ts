@@ -9,8 +9,9 @@
 // monuments) loses it for the same window automatically via
 // isStructurePowered, which now also checks disabledUntil.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { hasAbilityAccess } from "./afc-module-build-access/afc-module-build-access.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { AETHER_EMP_DURATION_MS, AETHER_EMP_RADIUS, playerHasAbilityTech } from "@border-empires/game-domain";
+import { AETHER_EMP_DURATION_MS, AETHER_EMP_RADIUS } from "@border-empires/game-domain";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { wrappedChebyshev } from "./runtime-ability-helpers.js";
@@ -27,7 +28,7 @@ export function handleAetherEmpCommand(context: RuntimeAbilityCommandContext, co
     reject("BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!playerHasAbilityTech(actor.techIds, "aether_emp")) {
+  if (!hasAbilityAccess(context, actor, "aether_emp")) {
     reject("AETHER_EMP_INVALID", "requires Counterphase Core Module");
     return;
   }

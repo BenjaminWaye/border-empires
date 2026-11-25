@@ -6,6 +6,8 @@ export type LobbyDisplayLookup = {
   getOverride: (playerId: string) => { name?: string; countryFlag?: string } | undefined;
   getStoredProfile: (playerId: string) => Promise<{ name?: string; countryFlag?: string } | undefined>;
   fallbackName: (playerId: string) => string;
+  /** The account's title, if it holds one (account-cosmetics titleOf). */
+  getTitle?: (playerId: string) => Promise<string | undefined>;
 };
 
 // Resolves a player's display name + optional flag for the lobby roster,
@@ -15,10 +17,12 @@ export type LobbyDisplayLookup = {
 export const resolveLobbyDisplay = async (
   playerId: string,
   lookup: LobbyDisplayLookup
-): Promise<{ name: string; countryFlag?: string }> => {
+): Promise<{ name: string; countryFlag?: string; title?: string }> => {
   const override = lookup.getOverride(playerId);
   const stored = override?.name ? undefined : await lookup.getStoredProfile(playerId);
   const name = override?.name ?? stored?.name ?? lookup.fallbackName(playerId);
   const countryFlag = override?.countryFlag ?? stored?.countryFlag;
-  return { name, ...(countryFlag ? { countryFlag } : {}) };
+  // A title is decoration: a failed lookup must never fail the join.
+  const title = await lookup.getTitle?.(playerId).catch(() => undefined);
+  return { name, ...(countryFlag ? { countryFlag } : {}), ...(title ? { title } : {}) };
 };

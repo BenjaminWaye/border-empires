@@ -4,6 +4,7 @@
 // object and call this function, instead of inlining the whole ~45-line
 // literal at the call site. Also wires up the bug report alerter/routes for
 // the same reason (see bug-report-routes.ts).
+import { hostedStatusFromFunnel } from "../http-routes/register-hosted-status-route.js";
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
@@ -70,6 +71,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
+  accountCosmetics?: RegisterGatewayHttpRoutesDeps["accountCosmetics"];
   profileStore: GatewayPlayerProfileStore;
   growthBaselineStore: PlayerGrowthBaselineStore;
   playOrigin?: string;
@@ -96,7 +98,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
   // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
   // endpoints (admin-firebase-auth.ts).
-  admin?: { apiToken?: string | undefined; email?: string | undefined };
+  admin?: { apiToken?: string | undefined; email?: string | undefined; singleContest?: boolean };
   adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
@@ -190,12 +192,15 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       return result.diagnostics ?? [];
     },
     startNextSeason: async (force?: boolean) => {
+      // A hosted sector is paid for one contest; its server is deleted afterwards.
+      if (ctx.admin?.singleContest) throw new Error("a hosted sector runs a single Sector Contest");
       const result = await ctx.simulationClient.startNextSeason(force);
       ctx.alertSeasonStarted?.(result.seasonId, force === true);
       ctx.onSeasonStarted?.();
       return result;
     },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
+    ...(ctx.accountCosmetics ? { accountCosmetics: ctx.accountCosmetics } : {}),
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
@@ -206,6 +211,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             authenticateBearer: ctx.resolveHttpBearerIdentity,
             accountState: (playerId: string) => publicProfileAccountState(ctx.authBindingStore, playerId),
             getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
+            ...(ctx.accountCosmetics ? { getTitle: ctx.accountCosmetics.titleOf } : {}),
             getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
             listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
           }
@@ -259,6 +265,10 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     authBindingStore: ctx.authBindingStore,
     ...emailUnsubscribeRouteDeps(ctx),
     sovereignSiegeEngineStrikeStore: ctx.sovereignSiegeEngineStrikeStore,
+    // On a hosted sector the hosting service asks when a human last came (idle closure).
+    ...(ctx.playerFunnel && ctx.admin?.singleContest
+      ? { hostedStatus: hostedStatusFromFunnel(ctx.playerFunnel.store) }
+      : {}),
     ...(ctx.playerFunnel
       ? {
           playerInsights: {

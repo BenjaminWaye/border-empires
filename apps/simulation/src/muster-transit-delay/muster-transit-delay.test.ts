@@ -94,5 +94,34 @@ describe("muster transit through a dock", () => {
     // Via its own: 4 tiles down to (8,9), at least 3 back up from the far shore, plus the crossing.
     expect(transitMs).toBeGreaterThanOrEqual((4 + 3) * MUSTER_TRANSIT_MS_PER_TILE + MUSTER_SAIL_MIN_MS);
   });
+
+  // REGRESSION (player report 2026-11-25): the company's walk to its launch
+  // tile cut straight through enemy territory. Open land, flag (2,5), launch
+  // (8,5); a block of player-2's land at x 4..6, y 3..7 sits on the line.
+  const blockedWorld = (blockOwner: string): Map<string, DomainTileState> => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let x = 0; x <= 12; x += 1) {
+      for (let y = 0; y <= 12; y += 1) {
+        const tile = { x, y, terrain: "LAND" } as DomainTileState;
+        if (x >= 4 && x <= 6 && y >= 3 && y <= 7) Object.assign(tile, { ownerId: blockOwner, ownershipState: "SETTLED" });
+        tiles.set(`${x},${y}`, tile);
+      }
+    }
+    return tiles;
+  };
+  const transitAcross = (blockOwner: string, allies?: ReadonlySet<string>): number => {
+    const tiles = blockedWorld(blockOwner);
+    const dockLanding = buildDockLandingIndex(new Map(), (x, y) => tiles.get(`${x},${y}`)?.terrain);
+    return musterTransitMs({ tiles, dockLanding, playerId: "player-1", allies, activeAetherBridgesForPlayer: () => [], flag: { x: 2, y: 5 }, launch: { x: 8, y: 5 } });
+  };
+
+  it("marches round enemy territory instead of through it", () => {
+    // Round the block: at least 3 tiles out of line, so longer than the 6-tile straight walk.
+    expect(transitAcross("player-2")).toBeGreaterThan(6 * MUSTER_TRANSIT_MS_PER_TILE);
+  });
+
+  it("marches straight through allied territory", () => {
+    expect(transitAcross("player-2", new Set(["player-2"]))).toBe(6 * MUSTER_TRANSIT_MS_PER_TILE);
+  });
 });
 

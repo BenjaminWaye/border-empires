@@ -4,6 +4,7 @@
 // hostile player's Aether Tower protects the target tile — checked against
 // full world state here, so a tower the caster can't see still blocks it.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { hasAbilityAccess } from "../afc-module-build-access/afc-module-build-access.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { isTileShieldedByEnemyObservatory } from "../runtime-ability-helpers.js";
 import { observatoryMaxShotsForOwner } from "../runtime-ability-command-handlers.js";
@@ -32,7 +33,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("terrain-engineering")) {
+  if (!hasAbilityAccess(context, actor, "create_mountain")) {
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }
@@ -98,7 +99,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("terrain-engineering")) {
+  if (!hasAbilityAccess(context, actor, "remove_mountain")) {
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }

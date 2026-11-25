@@ -10,7 +10,7 @@
 ## Runtime and source
 
 - Staging and production use only `apps/realtime-gateway` + `apps/simulation` on Hetzner; the static client is served by Caddy. `packages/server` was deleted; archive references are historical. Fly apps were destroyed; there is no Fly rollback. Hetzner CI must not invoke Vercel.
-- Packages: `packages/shared` (rules/types), `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`, `packages/storybook`. Simulation AI is under `apps/simulation/src/ai/`. Tests live beside their module, not directly under `src/` roots.
+- Packages: `packages/shared` (rules/types), `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`, `packages/storybook`. Simulation AI is under `apps/simulation/src/ai/`. `apps/sector-control` is the hosted-sectors service (not deployed yet; `docs/hosted-sectors-plan.md`). Tests live beside their module, not directly under `src/` roots.
 - Source changes must preserve strict TypeScript, explicit dependency contracts, and the 500-line growth limit. Extract cohesive helpers from oversized files; never compact code to pass the limit. Read the matching sections of `docs/agents/implementation-rules.md` before applicable source changes.
 - Map overlays/highlights/selections must cover both 2D canvas and true-3D, guarded by `isTrue3DRendererActive()`, or explicitly disclose missing coverage and why in the PR and final summary. Check both branches before claiming completion.
 - Every bug fix requires a regression test that fails before and passes after. Failing regressions block merge. Run `pnpm ci:local` before opening a PR; inspect actual CI status. Keep required lint/build/test and changelog gates.

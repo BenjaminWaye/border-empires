@@ -25,17 +25,8 @@ import {
 import { isImprovableResourceTile } from "./improvable-resource-tile.js";
 import { emptyResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
 import { devQueueBuildReservationContext, reservedSlotDemandForQueue } from "../runtime-dev-queue-build-reservation.js";
-import { techEntryById } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { canBuildWithTech, installedAfcModuleTechIds } from "../afc-module-build-access/afc-module-build-access.js";
 import { handleBuildStructureCommand, type RuntimeStructureCommandContext } from "../runtime-structure-command-handlers.js";
-
-const isAfcModuleTech = (techId: string): boolean => techEntryById.get(techId)?.manifestCategory === "AFC_MODULE";
-
-/** The build handler's AFC_MODULE gate, read from the player's own AFC tiles rather than the whole map. */
-const hasActiveAfcModule = (context: RuntimeStructureCommandContext, afcTileKeys: ReadonlySet<string> | undefined, techId: string): boolean =>
-  [...(afcTileKeys ?? [])].some((key) => {
-    const afc = context.tiles.get(key)?.afc;
-    return afc?.status === "active" && !!afc.modules?.includes(techId);
-  });
 
 /** Builds started per player per tick, so one tick never floods a big empire's slots in one go. */
 export const AUTO_IMPROVE_MAX_BUILDS_PER_TICK = 3;
@@ -60,6 +51,7 @@ export const runAutoImproveForPlayer = (deps: AutoImproveDeps, playerId: string,
   const summary = context.summaryForPlayer?.(playerId);
   // The build handler requires an operational AFC.
   if (summary && summary.ownedAfcTileKeys.size === 0) return 0;
+  const installedModules = installedAfcModuleTechIds(playerId, context.tiles, summary?.ownedAfcTileKeys);
   const queuedTileKeys = new Set(summary?.devQueue.map((entry) => entry.tileKey) ?? []);
   // Slots already promised to the player's own queued builds stay theirs.
   const queuedSlotDemand = summary ? reservedSlotDemandForQueue(summary.devQueue) : emptyResourceSlotTotals();
@@ -79,7 +71,7 @@ export const runAutoImproveForPlayer = (deps: AutoImproveDeps, playerId: string,
     const structureType = autoImproveStructureForResource(tile.resource);
     const spec = structureType ? STRUCTURE_REGISTRY[structureType] : undefined;
     if (!structureType || !spec || blockedTypes.has(structureType)) continue;
-    if (spec.techIds.some((techId) => !actor.techIds.has(techId) || (isAfcModuleTech(techId) && !hasActiveAfcModule(context, summary?.ownedAfcTileKeys, techId)))) {
+    if (spec.techIds.some((techId) => !canBuildWithTech(actor.techIds, installedModules, techId))) {
       blockedTypes.add(structureType);
       continue;
     }

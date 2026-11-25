@@ -29,7 +29,7 @@ export const handleSetCountryFlagMessage = async (deps: SetCountryFlagMessageDep
   sendJson({ type: "COUNTRY_FLAG_SET", countryFlag: raw });
   if (lobbyRoster.has(playerId)) {
     const display = await resolveLobbyDisplay(playerId, profileOverrides);
-    lobbyRoster.checkIn(playerId, display.name, raw);
+    lobbyRoster.checkIn(playerId, display.name, raw, display.title);
     broadcastLobbyUpdate();
   }
 };

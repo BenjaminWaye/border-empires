@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { empireIntegrity } from "@border-empires/shared";
 
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { bindClientNetwork } from "./client-network.js";
@@ -109,7 +110,8 @@ describe("PLAYER_UPDATE integrityPct handling", () => {
     expect(defensibilityPctFromTE).not.toHaveBeenCalled();
   });
 
-  it("falls back to the legacy T/E recompute when integrityPct is absent", () => {
+  // Integrity reads owned land (T), open sides (Es) and garrisoned tiles (Ts); the fallback recomputes from all three.
+  it("recomputes from the update's owned, open and garrisoned counts when integrityPct is absent", () => {
     const state = createState();
     state.me = "player-1";
     const ws = new FakeWebSocket();
@@ -126,8 +128,8 @@ describe("PLAYER_UPDATE integrityPct handling", () => {
       })
     });
 
-    expect(state.defensibilityPct).toBe(42);
-    expect(defensibilityPctFromTE).toHaveBeenCalled();
+    expect(state.ownedT).toBe(10);
+    expect(state.defensibilityPct).toBeCloseTo(empireIntegrity(10, 20, 10) * 100, 5);
   });
 
   it("leaves integrity alone on a partial PLAYER_UPDATE that carries no integrity data", () => {

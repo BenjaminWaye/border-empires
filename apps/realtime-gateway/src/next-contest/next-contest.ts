@@ -26,7 +26,7 @@ export type NextContestUpdate = { type: "SEASON_START_VOTE_UPDATE"; voteCount: n
 export type NextContestInitFields = { seasonStartVoteCount: number; seasonStartVoted: boolean; seasonStartVoteThreshold: number; seasonStartStarting: boolean };
 export type NextContestCommitResult =
   | { ok: true; count: number; started: boolean }
-  | { ok: false; code: "ACCOUNT_REQUIRED" | "SEASON_NOT_ENDED"; message: string };
+  | { ok: false; code: "ACCOUNT_REQUIRED" | "SEASON_NOT_ENDED" | "SINGLE_CONTEST"; message: string };
 
 type CurrentSeason = { seasonId: string; status: string };
 
@@ -41,6 +41,8 @@ export type NextContestDeps = {
   broadcast: (payload: NextContestUpdate) => void;
   recordGatewayEvent: (level: "info" | "warn", event: string, payload: Record<string, unknown>) => void;
   minCommitted?: number;
+  // A hosted sector is paid for one contest: nothing here may start another.
+  singleContest?: boolean;
   now?: () => number;
 };
 
@@ -121,7 +123,7 @@ export const createNextContest = (deps: NextContestDeps) => {
   // Starts the next contest when the current season has ended and enough
   // Houses have committed. Resolves true when it started one.
   const maybeStart = async (): Promise<boolean> => {
-    if (starting) return false;
+    if (starting || deps.singleContest) return false;
     const season = await deps.getCurrentSeason();
     if (season.status !== "ended") {
       cache = undefined;
@@ -140,6 +142,7 @@ export const createNextContest = (deps: NextContestDeps) => {
     isStarting: (): boolean => starting,
 
     async commit(playerId: string, isGuest: boolean): Promise<NextContestCommitResult> {
+      if (deps.singleContest) return { ok: false, code: "SINGLE_CONTEST", message: "This hosted sector runs a single Sector Contest." };
       if (isGuest) return { ok: false, code: "ACCOUNT_REQUIRED", message: "Sign in with an account to join the next Sector Contest." };
       const season = await deps.getCurrentSeason();
       if (season.status !== "ended") return { ok: false, code: "SEASON_NOT_ENDED", message: "This Sector Contest is still running." };
@@ -156,7 +159,7 @@ export const createNextContest = (deps: NextContestDeps) => {
     // Admin force-start: skips the commitment threshold, still only once the
     // current season has ended. Resolves undefined when there is nothing to start.
     async forceStart(): Promise<{ seasonId: string } | undefined> {
-      if (starting) return undefined;
+      if (starting || deps.singleContest) return undefined;
       const season = await deps.getCurrentSeason();
       if (season.status !== "ended") return undefined;
       return start(season.seasonId, true);

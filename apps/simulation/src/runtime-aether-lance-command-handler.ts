@@ -1,7 +1,7 @@
 // AETHER_LANCE: purges a hostile settled/frontier tile within observatory range.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { hasAbilityAccess } from "./afc-module-build-access/afc-module-build-access.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { playerHasAbilityTech } from "@border-empires/game-domain";
 import { razedWreckFieldsOnCapture } from "@border-empires/shared";
 import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
@@ -21,7 +21,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!playerHasAbilityTech(actor.techIds, "aether_lance")) {
+  if (!hasAbilityAccess(context, actor, "aether_lance")) {
     reject("AETHER_LANCE_INVALID", "requires Aether Resonance Core");
     return;
   }

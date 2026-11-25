@@ -7,6 +7,7 @@
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/admin/:path*", "destination": "/admin.html" },
     { "source": "/rally/new", "destination": "/" },
+    { "source": "/h/:code", "destination": "/" },
     { "source": "/r/:code", "destination": "/" },
     { "source": "/__/auth/:path*", "destination": "https://border-empires.firebaseapp.com/__/auth/:path*" },
     { "source": "/__/firebase/:path*", "destination": "https://border-empires.firebaseapp.com/__/firebase/:path*" }

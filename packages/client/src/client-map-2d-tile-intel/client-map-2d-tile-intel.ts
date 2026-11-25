@@ -5,7 +5,7 @@
 // an overlay: it recolours territory itself, see client-diplomacy-overlay.ts.)
 
 import type { Terrain } from "@border-empires/shared";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
+import { exposedSidesForTile, isOwnedLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
@@ -70,5 +70,5 @@ export const drawTileIntelOverlays2D = (
   size: number,
   deps: TileIntelDeps2D
 ): void => {
-  if (deps.state.showWeakDefensibility && vis === "visible" && t && isOwnedSettledLandTile(t, deps.state.me)) drawWeakDefensibility2D(ctx, t, px, py, size, deps);
+  if (deps.state.showWeakDefensibility && vis === "visible" && t && isOwnedLandTile(t, deps.state.me)) drawWeakDefensibility2D(ctx, t, px, py, size, deps);
 };

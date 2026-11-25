@@ -9,10 +9,11 @@ import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakV
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
-import { coinPerDay, type HouseChargesPayload } from "@border-empires/shared";
+import { coinPerDay, type AchievementsView, type HouseChargesPayload } from "@border-empires/shared";
 import { NET_COIN_TITLE } from "./client-hud-v2-resource-bar.js";
 import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
 import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
+import { achievementsProfileSectionHtml } from "../client-achievements/client-achievements-html.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
@@ -37,6 +38,8 @@ export type ProfileInput = {
   ownNetCoinPerMinute?: number;
   /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
   houseCharges?: HouseChargesPayload | null;
+  /** Your own achievement badges; only set on your own profile. */
+  achievements?: AchievementsView;
   /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
   chargeCards?: HouseChargeCardView[] | "loading" | undefined;
   /** Rivals only: whether you've ever seen one of their tiles, so "Show on map" has somewhere to go. */
@@ -181,6 +184,7 @@ export const profileHtml = (input: ProfileInput): string =>
     ${input.houseCharges !== undefined ? `<div class="v2p-grid">${houseChargesProfileSectionHtml(input.houseCharges, input.nowMs)}</div>` : ""}
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat, input.ownNetCoinPerMinute)}
+    ${achievementsProfileSectionHtml(input.achievements)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
     <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
     <h3 class="v2p-h">Charge Cards</h3>

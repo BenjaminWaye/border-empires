@@ -1,5 +1,6 @@
 import { biotaDemandTowns, networkSupplyStatus } from "../resource-networks/resource-network-status.js";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
+import { installedAfcModuleTechIds } from "../afc-module-build-access/afc-module-build-access.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -12,7 +13,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { EMPIRE_INTEGRITY_INCOME_LABEL, biotaBlend, biotaShareMet, converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_INCOME_LABEL, biotaBlend, biotaShareMet, converterModeOf, isInnerSupportRing, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townSupportCoinMultiplier, townTerrainModifiers, type TownSupportCounts } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -122,18 +123,22 @@ export const supportSummaryForTown = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
-): { supportCurrent: number; supportMax: number } => {
-  if (tile.ownershipState !== "SETTLED") return { supportCurrent: 0, supportMax: 0 };
-  let supportCurrent = 0;
-  let supportMax = 0;
+): TownSupportCounts => {
+  const counts: TownSupportCounts = { supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 };
+  if (tile.ownershipState !== "SETTLED") return counts;
   const radius = supportRingRadiusForTier(tile.town?.populationTier);
-  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+  for (const { tile: neighbor, dx, dy } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
     if (neighbor.terrain !== "LAND") continue;
     if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-    supportMax += 1;
-    if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
+    const held = neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED";
+    counts.supportMax += 1;
+    if (held) counts.supportCurrent += 1;
+    if (isInnerSupportRing(dx, dy)) {
+      counts.innerMax += 1;
+      if (held) counts.innerCurrent += 1;
+    }
   }
-  return { supportCurrent, supportMax };
+  return counts;
 };
 
 export const buildStrategicProductionForSettledTiles = (
@@ -189,7 +194,6 @@ export const townGoldPerMinuteForPlayer = (
   if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT;
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
-  const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   // manufactory-stacking task: MANUFACTORY's gold bonus stacks additively per active
   // Manufactory in the support ring (manufactoryGoldProductionMultiplier), not a
   // boolean "any Manufactory" gate — see countSupportedStructures.
@@ -210,8 +214,7 @@ export const townGoldPerMinuteForPlayer = (
   return (
     TOWN_BASE_GOLD_PER_MIN *
     terrainGoldMultiplier *
-    supportRatio *
-    biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(town.populationTier), biotaShare) *
+    townSupportCoinMultiplier(support, townPopulationMultiplier("TOWN"), biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(town.populationTier), biotaShare)) *
     (1 + (town.connectedTownBonus ?? 0)) *
     manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, multiplicativeEffectForPlayer(player, "clearingHouseUpliftMult")) *
     firstThreeTownMult *
@@ -266,7 +269,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
-  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds, installedAfcModuleTechIds(player.id, tiles, summary.ownedAfcTileKeys));
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();

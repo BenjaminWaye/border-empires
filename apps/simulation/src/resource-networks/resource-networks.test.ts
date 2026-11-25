@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, type NetworkBiomeContext } from "@border-empires/shared";
 import { developedNetworkSites } from "./resource-networks.js";
+import { installedAfcModuleTechIdsAmong } from "../afc-module-build-access/afc-module-build-access.js";
 import { seedResourceNetworks } from "../resource-networks-worldgen.js";
 
 export const testBiome = (tile: DomainTileState): NetworkBiomeContext => ({
@@ -26,6 +27,15 @@ describe("developed resource eligibility", () => {
     expect(developedNetworkSites(invalid, "p", new Set(), tech)).toEqual(emptyNetworkSiteCounts());
     expect(developedNetworkSites([site()], "p", new Set(["2,3"]), tech).LUXURY_BIOTA).toBe(0);
     expect(developedNetworkSites([site()], "p", new Set(), new Set()).LUXURY_BIOTA).toBe(0);
+  });
+  // Regression: Reclamation Works built from a captured, unresearched Industrial Tooling Module produced nothing.
+  it("counts a module-gated site when the module is installed on the owner's active, settled AFC", () => {
+    const works = site({ resource: "PRECURSOR_SALVAGE", economicStructure: { ownerId: "p", type: "RECLAMATION_WORKS", status: "active" } });
+    const afc = (status: "active" | "inactive"): DomainTileState => ({ x: 9, y: 9, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", afc: { ownerId: "p", status, modules: ["trade"] } });
+    const tiles = (status: "active" | "inactive") => [works, afc(status)];
+    expect(developedNetworkSites(tiles("active"), "p", new Set(), new Set(), installedAfcModuleTechIdsAmong("p", tiles("active"))).PRECURSOR_SALVAGE).toBe(1);
+    expect(developedNetworkSites(tiles("inactive"), "p", new Set(), new Set(), installedAfcModuleTechIdsAmong("p", tiles("inactive"))).PRECURSOR_SALVAGE).toBe(0);
+    expect(developedNetworkSites([works], "p", new Set(), new Set()).PRECURSOR_SALVAGE).toBe(0);
   });
 });
 describe("economic resource map generation", () => {

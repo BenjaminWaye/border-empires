@@ -10,7 +10,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   type ModifierStructureType
 } from "@border-empires/game-domain";
-import { supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { isInnerSupportRing, supportRingCandidates, supportRingRadiusForTier, type TownSupportCounts } from "@border-empires/shared";
 
 type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
 
@@ -39,15 +39,20 @@ export const supportSummaryForTown = (
   ownerId: string,
   x: number,
   y: number
-): { supportCurrent: number; supportMax: number } => {
-  let supportCurrent = 0;
-  let supportMax = 0;
-  for (const neighbor of ringNeighbors(tilesByKey, x, y)) {
+): TownSupportCounts => {
+  const counts: TownSupportCounts = { supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 };
+  const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
+  for (const { tile: neighbor, dx, dy } of supportRingCandidates(tilesByKey, x, y, radius)) {
     if (neighbor.terrain !== "LAND" || neighbor.dockId) continue;
-    supportMax += 1;
-    if (neighbor.ownerId === ownerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
+    const held = neighbor.ownerId === ownerId && neighbor.ownershipState === "SETTLED";
+    counts.supportMax += 1;
+    if (held) counts.supportCurrent += 1;
+    if (isInnerSupportRing(dx, dy)) {
+      counts.innerMax += 1;
+      if (held) counts.innerCurrent += 1;
+    }
   }
-  return { supportCurrent, supportMax };
+  return counts;
 };
 
 const TOWN_MODIFIER_AGGREGATE_TYPE_SET = new Set<string>(TOWN_MODIFIER_AGGREGATE_TYPES);
