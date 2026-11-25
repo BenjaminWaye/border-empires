@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { computeLongestRoad } from "../season-stats/season-stats.js";
-import { computeLiveLongestRoad, createLongestRoadTicker, LONGEST_ROAD_PASS_INTERVAL_MS } from "./longest-road-ticker.js";
+import { computeLiveLongestRoad, createLongestRoadTicker, LONGEST_ROAD_EMPTY_RETRY_MS, LONGEST_ROAD_PASS_INTERVAL_MS } from "./longest-road-ticker.js";
 
 const land = (x: number, y: number, ownerId: string, townName?: string): DomainTileState =>
   ({ x, y, terrain: "LAND", ownerId, ownershipState: "SETTLED", ...(townName ? { town: { name: townName, type: "MARKET", populationTier: "TOWN" } } : {}) }) as DomainTileState;
@@ -26,7 +26,7 @@ describe("live Longest Road", () => {
     expect(computeLongestRoad(exported as never, [...players.values()])?.tileCount).toBe(live?.tileCount);
   });
 
-  it("checks one empire per tick, pushes to online humans when the holder changes, and waits 5 minutes between passes", () => {
+  it("checks one empire per tick, pushes to online humans when the holder changes, and waits 4 hours between passes", () => {
     const tiles = world();
     const sent: Array<{ playerId: string; road: unknown }> = [];
     const ticker = createLongestRoadTicker({ tiles: () => tiles, players: () => players, townTileKeys: townTileKeys(tiles), territoryTileKeys: territory(tiles), isPlayerSubscribed: (id) => id === "p2", emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, road: payload.road }) });
@@ -37,12 +37,29 @@ describe("live Longest Road", () => {
     expect(sent).toEqual([{ playerId: "p2", road: expect.objectContaining({ playerId: "p1", tileCount: 4 }) }]);
     tiles.delete("12,10"); // p1's road is cut
     ticker.tick(2_000);
+    ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS - 1); // still inside the 4 hours
     expect(sent).toHaveLength(1);
+    expect(LONGEST_ROAD_PASS_INTERVAL_MS).toBe(4 * 60 * 60_000);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS + 1_000);
     expect(sent.at(-1)?.road).toEqual(expect.objectContaining({ playerId: "p2", tileCount: 2 }));
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS * 2);
     ticker.tick(LONGEST_ROAD_PASS_INTERVAL_MS * 2 + 1_000);
     expect(sent).toHaveLength(2);
+  });
+
+  it("re-checks every 5 minutes while nobody holds a road, so a new season's first road shows quickly", () => {
+    const tiles = new Map<string, DomainTileState>();
+    const sent: Array<{ playerId: string; road: unknown }> = [];
+    const ticker = createLongestRoadTicker({ tiles: () => tiles, players: () => players, townTileKeys: townTileKeys(tiles), territoryTileKeys: territory(tiles), isPlayerSubscribed: (id) => id === "p2", emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, road: payload.road }) });
+    ticker.tick(0); // season start: no towns, pass ends at once with no road
+    expect(sent).toEqual([{ playerId: "p2", road: null }]);
+    for (const [key, tile] of world()) tiles.set(key, tile); // p1 joins two towns
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS - 1);
+    expect(sent).toHaveLength(1);
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS);
+    ticker.tick(LONGEST_ROAD_EMPTY_RETRY_MS + 1_000);
+    expect(sent.at(-1)?.road).toEqual(expect.objectContaining({ playerId: "p1", tileCount: 4 }));
+    expect(LONGEST_ROAD_EMPTY_RETRY_MS).toBeLessThan(LONGEST_ROAD_PASS_INTERVAL_MS);
   });
 });

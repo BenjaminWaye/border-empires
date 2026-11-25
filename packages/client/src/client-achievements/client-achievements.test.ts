@@ -24,6 +24,7 @@ describe("client achievements", () => {
     expect(applyLongestRoadMessage(state, { type: "LONGEST_ROAD", road: { playerId: "p2", playerName: "Rival", tileCount: 41, fromTown: "Ash", toTown: "Brine" } })).toBe(true);
     const card = longestRoadCardHtml(state.liveLongestRoad, "p1", () => "Rival <3");
     expect(card).toContain("41 tiles");
+    expect(card).toContain("Updated every 4 hours");
     expect(card).toContain("Rival &lt;3");
     expect(card).toContain('data-hud-v2-profile="p2"');
     expect(longestRoadCardHtml(state.liveLongestRoad, "p2", () => "")).toContain(">You<");
