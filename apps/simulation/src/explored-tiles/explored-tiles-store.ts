@@ -21,6 +21,8 @@ export type ExploredTilesStats = { players: number; runNumbers: number };
 
 export class ExploredTilesStore {
   private readonly bitsets = new Map<string, Uint8Array>();
+  // Explored-tile count per player, kept in step with the bitsets (Cartographer achievement).
+  private readonly counts = new Map<string, number>();
   private readonly byteLength: number;
 
   constructor(
@@ -54,7 +56,16 @@ export class ExploredTilesStore {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return;
     const cell = y * this.width + x;
     const bits = this.bitsetFor(playerId);
-    bits[cell >> 3] = (bits[cell >> 3] ?? 0) | (1 << (cell & 7));
+    const byte = bits[cell >> 3] ?? 0;
+    const bit = 1 << (cell & 7);
+    if ((byte & bit) !== 0) return;
+    bits[cell >> 3] = byte | bit;
+    this.counts.set(playerId, (this.counts.get(playerId) ?? 0) + 1);
+  }
+
+  /** How many tiles `playerId` has explored. */
+  exploredCount(playerId: string): number {
+    return this.counts.get(playerId) ?? 0;
   }
 
   isExplored(playerId: string, x: number, y: number): boolean {
@@ -84,7 +95,7 @@ export class ExploredTilesStore {
 
   /** Drops memory for ids that are no longer players (deleted accounts, removed AI). */
   retainOnly(isPlayer: (playerId: string) => boolean): void {
-    for (const playerId of [...this.bitsets.keys()]) if (!isPlayer(playerId)) this.bitsets.delete(playerId);
+    for (const playerId of [...this.bitsets.keys()]) if (!isPlayer(playerId)) { this.bitsets.delete(playerId); this.counts.delete(playerId); }
   }
 
   exportSnapshot(): ExploredTilesSnapshotEntry[] {

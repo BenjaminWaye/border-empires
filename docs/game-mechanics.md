@@ -346,9 +346,27 @@ Secret, map-named objectives from [the House Charges plan](house-charges-plan.md
 ## Season records
 
 - **Longest Road** records the owning empire, length in tiles, and the names and coordinates of both endpoint towns/cities. Only settled land belonging to the same empire connects the road; the endpoints must be towns of at least Town tier. The final-map road network supplies the record when the season ends.
+- **Live Longest Road.** During play the simulation recomputes the holder every 5 minutes from the side tickers, one empire per 1 s tick so no tick carries more than the largest empire's search (`apps/simulation/src/longest-road/longest-road-ticker.ts`, same rule via `longest-road-core.ts`) and pushes `LONGEST_ROAD` (holder, length, endpoint town names; no coordinates) to online humans when it changes and on connect; the gateway replays the latest to new sockets. The Ranks screen shows it. Derived, never snapshotted; the search uses world-sized typed scratch arrays (about 5 MB) allocated on first use.
 - **Most Deadly Tile** records the tile coordinates, total combat manpower spent attacking it, and the empire with the largest cumulative loss there, including that empire's loss count. Repeated attacks accumulate across the season and persist across restarts. This counts actual combat manpower losses, rather than expansion costs or a fictional defender casualty estimate.
 - The crowned records are carried through login and season archives. Legacy records can gain road details from the frozen final map when the road length still matches the captured record. Retained combat logs can recover older player attribution when their losses cover the entire saved tile total and that total has complete season-history provenance. Older casualty totals without complete player attribution are labelled unavailable and offer a bug-report button; recent losses alone never establish a season-wide player record.
 - Per-player casualty attribution is bounded to 100,000 tile/player entries per runtime and 256 players per tile, with entry-count and cap-hit gauges logged on the existing persistence cadence. It is saved with the existing top 200 deadliest tiles outside the world snapshot. The existing top-200 restart tradeoff remains: lower-ranked tiles resume from zero after a restart. Truncated saves retain provenance: a tile omitted at restart cannot claim a complete player-loss record if it later becomes the deadliest tile, including across further restarts. If attribution reaches a cap, aggregate totals continue, and incomplete tiles do not claim a player record.
+
+## Achievements
+
+Hard personal badges a House earns once per contest (`packages/shared/src/achievements/achievements.ts`). They are not rankings, so they repeat no victory path, record, award or House Charge.
+
+| Badge | Goal |
+|---|---|
+| Metropolis | Grow a town to Metropolis |
+| Pacifier | Clear 50 Planetary Defense camps (won ATTACKs on garrisoned camp tiles, the camp-bounty rule) |
+| Warlord | Take 500 tiles from rival Houses in battle (won ATTACKs on another House's tile) |
+| Cartographer | Explore 30,000 tiles (the explored-tiles store) |
+| Master Builder | Finish 100 structures (upgrades count) |
+| Iron Wall | Reach 100% Integrity with at least 1,000 tiles of land |
+
+- **State.** Counters and earned times live on `DomainPlayer.achievements` and are snapshotted with the player. Counters bumped after the last checkpoint are not replayed by event recovery, so a crash can lose a little progress.
+- **Judging.** Each PLAYER_UPDATE evaluates them (`apps/simulation/src/achievements/achievement-view.ts`), records a newly earned badge with an `ACHIEVEMENT_EARNED` Chronicle entry, and sends `achievements` (progress and earned times). A badge stays earned when progress later drops.
+- **Client.** Your own profile shows the badges with progress (`packages/client/src/client-achievements/`).
 
 ## Season awards
 
