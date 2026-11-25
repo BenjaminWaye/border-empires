@@ -81,7 +81,7 @@ const toContribution = (row: ContributionRow): ContributionRecord => {
   };
 };
 
-const CONTRIBUTION_PATCH_COLUMNS: Record<keyof ContributionPatch, string> = { state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url" };
+const CONTRIBUTION_PATCH_COLUMNS: Record<keyof ContributionPatch, string> = { state: "state", amountCents: "amount_cents", paymentRef: "payment_ref", checkoutUrl: "checkout_url" };
 
 const toInvite = (row: InviteRow): SectorInvite => ({
   code: row.code, sectorId: row.sector_id, createdBy: row.created_by, createdAt: row.created_at, expiresAt: row.expires_at,
@@ -155,6 +155,10 @@ export class SqliteHostingStore implements HostingStore {
         received_at INTEGER NOT NULL
       );
     `);
+    // Columns added after the first release of this table. CREATE TABLE IF NOT
+    // EXISTS leaves an existing table as it was, so each is added here once.
+    const columns = new Set((this.db.prepare("PRAGMA table_info(hosted_sectors)").all() as Array<{ name: string }>).map((column) => column.name));
+    if (!columns.has("funding_deadline")) this.db.exec("ALTER TABLE hosted_sectors ADD COLUMN funding_deadline INTEGER");
   }
 
   insertSector(sector: SectorRecord): void {
@@ -279,7 +283,7 @@ export class SqliteHostingStore implements HostingStore {
   transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean {
     const assignments = ["updated_at = ?"];
     const values: Array<string | number | null> = [now];
-    for (const [key, value] of Object.entries(patch) as Array<[keyof ContributionPatch, string | null | undefined]>) {
+    for (const [key, value] of Object.entries(patch) as Array<[keyof ContributionPatch, string | number | null | undefined]>) {
       if (value === undefined) continue;
       assignments.push(`${CONTRIBUTION_PATCH_COLUMNS[key]} = ?`);
       values.push(value);

@@ -70,7 +70,8 @@ export type ContributionRecord = {
   updatedAt: number;
 };
 
-export type ContributionPatch = { state?: ContributionState; paymentRef?: string | null; checkoutUrl?: string | null };
+/** `amountCents` changes only when a share is partly captured: it is then what was charged. */
+export type ContributionPatch = { state?: ContributionState; amountCents?: number; paymentRef?: string | null; checkoutUrl?: string | null };
 
 export type SectorMember = { sectorId: string; accountUid: string; role: "host" | "member"; joinedAt: number };
 

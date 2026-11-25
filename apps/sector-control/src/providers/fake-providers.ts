@@ -22,12 +22,18 @@ export class FakePaymentProvider implements PaymentProvider {
     if (!this.refunded.includes(paymentRef)) this.refunded.push(paymentRef);
   }
 
-  /** Contribution checkouts: "open" until a test sets "held" or "expired". */
+  /** Contribution checkouts: "open" until a test sets "held" or "expired"; capture and release update it. */
   readonly contributions = new Map<string, ContributionStatus>();
   readonly captured: string[] = [];
   readonly released: string[] = [];
-  /** Payment refs whose capture fails (the hold lapsed or was declined). */
+  /** Cents taken by each capture. */
+  readonly capturedAmounts = new Map<string, number>();
+  /** Payment refs whose capture fails without taking anything. */
   readonly failCaptures = new Set<string>();
+  /** Payment refs whose capture takes the money but whose answer is lost (a timeout). */
+  readonly loseCaptureAnswers = new Set<string>();
+  /** Payment refs whose status cannot be read. */
+  readonly failStatus = new Set<string>();
 
   async createContributionCheckout(input: { contributionId: string }): Promise<{ paymentRef: string; checkoutUrl: string }> {
     const paymentRef = `fake-hold-${input.contributionId}`;
@@ -36,16 +42,23 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 
   async getContributionStatus(paymentRef: string): Promise<ContributionStatus> {
+    if (this.failStatus.has(paymentRef)) throw new Error("fake status failure");
     return this.contributions.get(paymentRef) ?? "expired";
   }
 
-  async capture(paymentRef: string): Promise<void> {
+  async capture(paymentRef: string, amountCents: number): Promise<void> {
     if (this.failCaptures.has(paymentRef)) throw new Error("fake capture failure");
     if (!this.captured.includes(paymentRef)) this.captured.push(paymentRef);
+    this.capturedAmounts.set(paymentRef, amountCents);
+    this.contributions.set(paymentRef, "captured");
+    if (this.loseCaptureAnswers.has(paymentRef)) throw new Error("fake capture timeout");
   }
 
   async release(paymentRef: string): Promise<void> {
+    // As with Stripe, taken money cannot be released, only refunded.
+    if (this.contributions.get(paymentRef) === "captured") throw new Error("fake release of captured money");
     if (!this.released.includes(paymentRef)) this.released.push(paymentRef);
+    if (this.contributions.get(paymentRef) === "held") this.contributions.set(paymentRef, "released");
   }
 }
 

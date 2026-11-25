@@ -10,7 +10,7 @@ type ContributionMethods = Pick<PaymentProvider, "createContributionCheckout" | 
 
 /** Shown above the button on a share's Checkout page. */
 export const CONTRIBUTION_CONSENT_TEXT =
-  "Your card is only held now. You are charged when the funding bar is full, and the sector then starts at once; if the bar does not fill within 72 hours, the hold is released and you pay nothing. See the Terms of Sale.";
+  "Your card is only held now. You are charged when the funding bar is full, and the sector then starts at once; if others fill the bar first, you are charged only the part still needed, or nothing. If the bar does not fill within 72 hours, the hold is released and you pay nothing. See the Terms of Sale.";
 
 /** Counted from the share's creation, so a repeated request sends identical parameters (as for single-host checkout). */
 const CONTRIBUTION_CHECKOUT_LIFETIME_SECONDS = 35 * 60;
@@ -65,16 +65,18 @@ export const createStripeContributionMethods = (api: StripeApi, config: { return
       if (session.status === "expired") return "expired";
       if (session.status !== "complete") return "open";
       const intent = await intentOf(paymentRef);
-      if (intent?.status === "requires_capture" || intent?.status === "succeeded") return "held";
-      return intent?.status === "canceled" ? "expired" : "open";
+      if (intent?.status === "requires_capture") return "held";
+      if (intent?.status === "succeeded") return "captured";
+      return intent?.status === "canceled" ? "released" : "open";
     },
 
-    async capture(paymentRef) {
+    async capture(paymentRef, amountCents) {
       const intent = await intentOf(paymentRef);
       if (!intent) throw new Error(`Checkout Session ${paymentRef} has no payment to capture`);
       if (intent.status === "succeeded") return;
       if (intent.status !== "requires_capture") throw new Error(`payment ${intent.id} cannot be captured (${intent.status})`);
-      await api.post(`/payment_intents/${encodeURIComponent(intent.id)}/capture`, {}, `capture-${paymentRef}`);
+      // Only part of the hold when this share crosses the price; Stripe releases the rest.
+      await api.post(`/payment_intents/${encodeURIComponent(intent.id)}/capture`, { amount_to_capture: String(amountCents) }, `capture-${paymentRef}-${amountCents}`);
     },
 
     async release(paymentRef) {

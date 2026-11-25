@@ -6,7 +6,8 @@ import type { HostedSectorOptions } from "@border-empires/shared";
 
 export type CheckoutStatus = "open" | "paid" | "expired";
 /** A share of a split-funded sector: the card is only held until the bar fills. */
-export type ContributionStatus = "open" | "held" | "expired";
+/** "released": the hold was cancelled. "expired": the checkout closed unpaid. */
+export type ContributionStatus = "open" | "held" | "captured" | "released" | "expired";
 
 export interface PaymentProvider {
   /** Must be safe to repeat for the same sector id (one checkout per sector). */
@@ -24,8 +25,12 @@ export interface PaymentProvider {
     contributionId: string; sectorId: string; accountUid: string; amountCents: number; currency: string; options: HostedSectorOptions; createdAt: number;
   }): Promise<{ paymentRef: string; checkoutUrl: string }>;
   getContributionStatus(paymentRef: string): Promise<ContributionStatus>;
-  /** Takes the held money. Safe to repeat; throws when the hold can no longer be captured. */
-  capture(paymentRef: string): Promise<void>;
+  /**
+   * Takes `amountCents` of the held money (at most the hold; the rest of the
+   * hold is released). Safe to repeat; throws when the hold can no longer be
+   * captured, or when the answer is lost, so callers ask for the status.
+   */
+  capture(paymentRef: string, amountCents: number): Promise<void>;
   /** Releases a hold, or closes an unpaid checkout, so nothing is charged. Safe to repeat. */
   release(paymentRef: string): Promise<void>;
 }

@@ -148,7 +148,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (sector.checkoutUrl) checkoutUrls.set(sector.sectorId, sector.checkoutUrl);
       if (sector.funding?.yourCheckoutUrl) checkoutUrls.set(`share:${sector.sectorId}`, sector.funding.yourCheckoutUrl);
     }
-    const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "creating" || sector.state === "open"));
+    const hostsLiveSector = listed.sectors.some((sector) => sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open"));
     // While a sector is being prepared the list keeps itself current, so the host can just wait.
     stopRefresh();
     // A bar being funded changes as friends chip in, so it refreshes too.

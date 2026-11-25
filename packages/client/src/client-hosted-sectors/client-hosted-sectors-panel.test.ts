@@ -338,4 +338,17 @@ describe("my sectors panel", () => {
     await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 300));
     panel.close();
   });
+
+  it("asks the host for the full rest even while someone else's payment is in progress", async () => {
+    const h = makeDeps();
+    // A started payment may never finish; counting it would leave the bar short.
+    const funding = { targetCents: 2000, pledgedCents: 1200, pendingCents: 500, deadline: Date.now() + 3_600_000, minimumCents: 500, yourCents: 0 };
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding })] });
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    expect(document.querySelector("[data-hosted-sector-pay-rest]")?.textContent).toMatch(/Pay the rest · USD 8/);
+    // Hosting an open bar counts as hosting: no second sector is offered.
+    expect(document.querySelector("[data-hosted-sector-host]")).toBeNull();
+    panel.close();
+  });
 });

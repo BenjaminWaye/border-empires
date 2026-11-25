@@ -402,12 +402,17 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 ## 12. Split funding (the funding bar)
 
 Built last; cut first. **Kept for launch (owner, 2026-11-25), and built in
-PR 7.** As built: a share pledged while others' checkouts are open counts them
-as pending; shares are charged in the order their holds were placed, and any
-hold beyond the price is released; a hold that can no longer be charged is
-dropped and the bar stays open; an unfilled bar at the deadline releases every
-hold and refunds anything already charged; one contributor's refund or
-withdrawal leaves the sector running.
+PR 7.** As built: checkouts in progress do not reduce what is left, so
+nobody can lock the bar by starting a payment and leaving, and a member's new
+pledge closes their own unfinished one. When the holds reach the price they
+are charged in the order they were placed; the share that crosses the price is
+charged only the part still needed, and every other hold and open checkout is
+released. A failed capture is checked with Stripe: money taken anyway is
+counted, a hold still in place is tried again, and only a lapsed hold is
+dropped (the bar then stays open). Only holds placed before the 72-hour
+deadline count; an unfilled bar at the deadline releases every hold and
+refunds anything already charged. One contributor's refund or withdrawal
+leaves the sector running.
 
 1. A player opens a funding bar instead of paying in full: they choose the
    options and get a link to share. A bar has a deadline.

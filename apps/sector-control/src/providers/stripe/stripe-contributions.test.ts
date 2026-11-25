@@ -37,34 +37,41 @@ describe("Stripe shares of a split-funded sector", () => {
     expect(call?.params["custom_text[submit][message]"]).toMatch(/only held/);
   });
 
-  it("reports a share as held once its payment awaits capture", async () => {
+  it("reports what happened to a share's money: held, captured, released, or a checkout open or expired", async () => {
     const answers: Record<string, Record<string, unknown>> = {
       "/checkout/sessions/cs_held": { status: "complete", payment_intent: "pi_held" },
       "/payment_intents/pi_held": { status: "requires_capture" },
+      "/checkout/sessions/cs_taken": { status: "complete", payment_intent: "pi_taken" },
+      "/payment_intents/pi_taken": { status: "succeeded" },
+      "/checkout/sessions/cs_let_go": { status: "complete", payment_intent: "pi_let_go" },
+      "/payment_intents/pi_let_go": { status: "canceled" },
       "/checkout/sessions/cs_open": { status: "open" },
       "/checkout/sessions/cs_gone": { status: "expired" }
     };
     const { provider } = providerWith((call) => ({ body: answers[call.path] ?? {} }));
     expect(await provider.getContributionStatus("cs_held")).toBe("held");
+    // A captured share is not "held": a release would fail, so it must be refunded instead.
+    expect(await provider.getContributionStatus("cs_taken")).toBe("captured");
+    expect(await provider.getContributionStatus("cs_let_go")).toBe("released");
     expect(await provider.getContributionStatus("cs_open")).toBe("open");
     expect(await provider.getContributionStatus("cs_gone")).toBe("expired");
   });
 
-  it("captures a held payment once, and treats an earlier capture as done", async () => {
+  it("captures the asked amount of a held payment once, and treats an earlier capture as done", async () => {
     let status = "requires_capture";
     const { stripe, provider } = providerWith((call) => {
       if (call.path === "/checkout/sessions/cs_1") return { body: { status: "complete", payment_intent: "pi_1" } };
       if (call.path === "/payment_intents/pi_1") return { body: { status } };
       return { body: { id: "pi_1", status: "succeeded" } };
     });
-    await provider.capture("cs_1");
-    expect(stripe.calls.at(-1)).toMatchObject({ method: "POST", path: "/payment_intents/pi_1/capture", headers: { "idempotency-key": "capture-cs_1" } });
+    await provider.capture("cs_1", 700);
+    expect(stripe.calls.at(-1)).toMatchObject({ method: "POST", path: "/payment_intents/pi_1/capture", params: { amount_to_capture: "700" }, headers: { "idempotency-key": "capture-cs_1-700" } });
     status = "succeeded";
     const before = stripe.calls.length;
-    await provider.capture("cs_1");
+    await provider.capture("cs_1", 700);
     expect(stripe.calls.slice(before).some((call) => call.method === "POST")).toBe(false);
     status = "canceled";
-    await expect(provider.capture("cs_1")).rejects.toThrow(/cannot be captured/);
+    await expect(provider.capture("cs_1", 700)).rejects.toThrow(/cannot be captured/);
   });
 
   it("releases a hold, closes an unpaid checkout, and refuses to 'release' money already taken", async () => {

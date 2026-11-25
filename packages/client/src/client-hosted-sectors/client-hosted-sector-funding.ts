@@ -17,7 +17,8 @@ export const timeLeft = (deadline: number, now: number): string => {
 };
 
 /** What is still to pledge: neither held nor in someone's checkout. */
-export const fundingLeftCents = (funding: HostedSectorFunding): number => Math.max(0, funding.targetCents - funding.pledgedCents - funding.pendingCents);
+/** What is still needed. Payments in progress do not count: they may never finish, and any surplus is released. */
+export const fundingLeftCents = (funding: HostedSectorFunding): number => Math.max(0, funding.targetCents - funding.pledgedCents);
 
 export const fundingRowHtml = (sector: HostedSectorSummary, now: number): string => {
   const funding = sector.funding;

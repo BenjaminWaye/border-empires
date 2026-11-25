@@ -30,7 +30,7 @@ export type FundingView = {
 
 type Fail = { ok: false; code: FundingErrorCode; message: string };
 export type FundingErrorCode = "SALES_CLOSED" | "ACCOUNT_REQUIRED" | "EMAIL_NOT_VERIFIED" | "ALREADY_HOSTING" | "PAYMENT_UNAVAILABLE"
-  | "NOT_FOUND" | "NOT_MEMBER" | "FUNDING_CLOSED" | "BAD_AMOUNT" | "ALREADY_PLEDGED";
+  | "NOT_FOUND" | "FUNDING_CLOSED" | "BAD_AMOUNT";
 
 const fail = (code: FundingErrorCode, message: string): Fail => ({ ok: false, code, message });
 
@@ -57,7 +57,7 @@ export const createFundingService = (deps: {
     const contributions = store.listContributions(sector.sectorId);
     const totals = fundingTotals(contributions, deps.now(), config.checkoutExpiryMs);
     const mine = contributions.filter((c) => c.accountUid === accountUid);
-    const unfinished = mine.find((c) => c.state === "awaiting_payment" && c.checkoutUrl);
+    const unfinished = mine.find((c) => c.state === "awaiting_payment" && c.checkoutUrl && deps.now() - c.createdAt < config.checkoutExpiryMs);
     return {
       targetCents: sector.amountCents,
       ...totals,
@@ -93,7 +93,11 @@ export const createFundingService = (deps: {
     /**
      * A member pledges a share. At least the minimum (USD 5) unless less than
      * that is left, and never more than is left: the host pays "the rest" by
-     * pledging exactly what is left.
+     * pledging exactly what is left. Checkouts in progress do not reduce what
+     * is left, so nobody can lock the bar by starting a payment and leaving;
+     * if several fill it at once, the reconciler takes only what is needed
+     * and releases the rest. A new pledge replaces the member's own
+     * unfinished one.
      */
     async contribute(account: { uid: string; isGuest: boolean; emailVerified: boolean }, sectorId: string, amountCents: number): Promise<{ ok: true; checkoutUrl: string } | Fail> {
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to chip in.");
@@ -105,13 +109,20 @@ export const createFundingService = (deps: {
         return fail("FUNDING_CLOSED", "This funding bar is closed.");
       }
       const contributions = store.listContributions(sectorId);
-      const unfinished = contributions.find((c) => c.accountUid === account.uid && c.state === "awaiting_payment" && now - c.createdAt < config.checkoutExpiryMs);
-      if (unfinished?.checkoutUrl) return fail("ALREADY_PLEDGED", "Finish or cancel your open payment first.");
-      const { pledgedCents, pendingCents } = fundingTotals(contributions, now, config.checkoutExpiryMs);
-      const left = sector.amountCents - pledgedCents - pendingCents;
+      const { pledgedCents } = fundingTotals(contributions, now, config.checkoutExpiryMs);
+      const left = sector.amountCents - pledgedCents;
       const minimum = Math.min(config.minContributionCents, left);
       if (!Number.isInteger(amountCents) || left <= 0 || amountCents < minimum || amountCents > left) {
         return fail("BAD_AMOUNT", left <= 0 ? "The bar is full or about to be." : `Choose between USD ${(minimum / 100).toFixed(2)} and USD ${(left / 100).toFixed(2)}.`);
+      }
+      for (const unfinished of contributions.filter((c) => c.accountUid === account.uid && c.state === "awaiting_payment")) {
+        // Close the earlier page first, so the same person cannot end up paying twice.
+        try {
+          if (unfinished.paymentRef) await deps.payment.release(unfinished.paymentRef);
+        } catch {
+          return fail("PAYMENT_UNAVAILABLE", "Your earlier payment could not be closed. Nothing new was started; please try again.");
+        }
+        store.transitionContribution(unfinished.contributionId, ["awaiting_payment"], { state: "cancelled" }, now);
       }
       const contributionId = `c-${deps.newId(12)}`;
       store.insertContribution({ contributionId, sectorId, accountUid: account.uid, amountCents, state: "awaiting_payment", createdAt: now, updatedAt: now });
@@ -135,10 +146,12 @@ export const createFundingService = (deps: {
       }
       if (event.kind === "held") {
         const sector = store.getSector(contribution.sectorId);
-        if (sector?.state === "funding") {
+        // Only a hold placed before the deadline counts (Q10).
+        if (sector?.state === "funding" && sector.fundingDeadline !== undefined && now < sector.fundingDeadline) {
           return { applied: store.transitionContribution(contribution.contributionId, ["awaiting_payment", "cancelled"], { state: "held" }, now) };
         }
-        // A share completed after its bar closed: release it at once, so nobody is charged for a sector that will not start.
+        // A share completed after its bar filled, closed or passed its deadline:
+        // release it at once, so nobody is charged for it.
         if (contribution.paymentRef) await deps.payment.release(contribution.paymentRef);
         return { applied: store.transitionContribution(contribution.contributionId, ["awaiting_payment", "cancelled", "held"], { state: "released" }, now) };
       }
@@ -146,7 +159,10 @@ export const createFundingService = (deps: {
       if (event.kind === "refunded") {
         // One person's withdrawal or refund. The sector keeps running for everyone else; the owner is told.
         const applied = store.transitionContribution(contribution.contributionId, ["captured"], { state: "refunded" }, now);
-        if (applied) deps.alert("contribution_refunded", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
+        // Refunds the service makes itself (bar not filled, sector not created) are not news.
+        const sectorState = store.getSector(contribution.sectorId)?.state;
+        const serviceRefund = sectorState === "funding" || sectorState === "cancelled" || sectorState === "refunded";
+        if (applied && !serviceRefund) deps.alert("contribution_refunded", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
         return { applied };
       }
       deps.alert("payment_dispute", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
