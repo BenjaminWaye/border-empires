@@ -9,7 +9,7 @@
   background: #171b1d;
   border: 1px solid #b69a5e;
   border-radius: 12px;
-  font: 1rem/1.5 system-ui, sans-serif;
+  font: 1rem/1.5 var(--sp-font-body, system-ui, sans-serif);
 }
 .account-deletion-dialog::backdrop { background: #000b; }
 .account-deletion-dialog h2 { margin-top: 0; color: #e4c983; }

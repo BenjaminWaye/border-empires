@@ -69,8 +69,8 @@ const hintEl = (): HTMLElement | null => {
   el.style.cssText =
     "position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:12px;" +
     "padding:10px 14px;border-radius:10px;background:rgba(20,18,12,0.92);border:1px solid #ffd54a;color:#fff3c4;" +
-    "font:600 14px/1.3 system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
-  el.innerHTML = `<span data-march-hint-text></span><button type="button" data-march-hint-cancel style="font:inherit;padding:4px 10px;border-radius:6px;border:1px solid #ffd54a;background:transparent;color:inherit;cursor:pointer">Cancel</button>`;
+    "font:600 14px/1.3 var(--sp-font-body);box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
+  el.innerHTML = `<span data-march-hint-text></span><button type="button" data-march-hint-cancel class="v2s-btn">Cancel</button>`;
   el.querySelector("[data-march-hint-cancel]")?.addEventListener("click", cancelMarchTargeting);
   document.body.appendChild(el);
   return el;
