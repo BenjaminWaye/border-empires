@@ -69,6 +69,12 @@ is refreshed when the player next checks in or changes their flag, and the
 public profile within its one-minute cache. Unknown titles are dropped by the
 client (`isAccountTitle`).
 
+On the contest roster (beside a Duke's purple name and crown) and on the
+public profile, at phone width:
+
+![Count on the contest roster](design/cosmetics/title-count-roster.png)
+![Count on the public House profile](design/cosmetics/title-count-profile.png)
+
 ### Where it is drawn
 
 | | True-3D | 2D canvas |
