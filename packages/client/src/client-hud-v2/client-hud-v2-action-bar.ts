@@ -11,6 +11,7 @@ import { isFrontierRelayBeacon } from "../client-tile-action-support/client-tile
 import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { tileProgressHtml } from "./client-hud-v2-tile-progress.js";
+import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
 import { TILE_VIEW_PANELS, TILE_VIEW_TITLE, type TileViewPanel } from "./client-hud-v2-tile-views.js";
 
@@ -51,7 +52,9 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "muster_march",
   "muster_hunt",
   "diplomacy",
-  "city_overclock"
+  "city_overclock",
+  // Outside your reach: a beacon on your land toward this tile (client-relay-beacon-toward.ts).
+  "build_relay_beacon_toward"
 ];
 
 const MAX_SECONDARY = 2;
@@ -177,10 +180,7 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
 
 /** The minor row: small text buttons for everything else, plus links to the sidebar tile views (modules, commitment, reports). */
 const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?: BarPanel): string => {
-  const minor = moreActions(view, buttons).map((a) => {
-    const title = a.disabled ? a.disabledReason ?? a.label : [a.cost, a.detail].filter(Boolean).join(" · ") || a.label;
-    return `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}">${esc(a.label)}</button>`;
-  });
+  const minor = moreActions(view, buttons).map((a) => minorActionButtonHtml(a, targets(a), [a.cost, a.detail].filter(Boolean).join(" · ")));
   if (view.afcUpgradesReady === 0 && !buttons.some((b) => b.kind === "afc")) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-open="afc">AFC upgrades ▸</button>`);
   if (view.progress) minor.push(`<button type="button" class="hud-v2-minor hud-v2-minor-link" data-hud-v2-panel="progress" aria-expanded="${panel === "progress"}">Progress ${panel === "progress" ? "▾" : "▸"}</button>`);
   // One link per sidebar view, each named for what it opens: a muster flag carries both Attack commitment

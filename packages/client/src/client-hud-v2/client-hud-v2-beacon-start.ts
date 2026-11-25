@@ -2,27 +2,13 @@
 // menu's Build Relay Beacon opens (client-structure-build-trigger.ts): the player can move it, then confirm.
 // The starting tile is the best-scoring site the build path accepts, else any tile it accepts.
 
-import type { ClientState } from "../client-state/client-state.js";
-import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { bestRelayBeaconSites, isRelayBeaconBuildTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+import { relayBeaconStartTile } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js";
 import { focusCamera, screenCentre, type HudV2Deps } from "./client-hud-v2-context.js";
 
 type At = { x: number; y: number };
 
-/**
- * Where placement starts: a buildable tile, preferring the site that adds the most new reach -- or, with
- * `toward` (a food row's grain or fish), a site whose reach covers it, else the site nearest it.
- */
-export const relayBeaconStartTile = (state: Parameters<typeof resolveMyReach>[0] & Pick<ClientState, "tiles" | "me">, toward?: At): At | undefined => {
-  const buildable = (x: number, y: number): boolean => isRelayBeaconBuildTile(state.tiles, state.tiles.get(`${x},${y}`), state.me);
-  // With `toward`, the site scorer ranks sites whose reach covers it first, then the nearest (wrap-aware).
-  const best = bestRelayBeaconSites(state.tiles, state.me, { reach: resolveMyReach(state), limit: 5, ...(toward ? { targets: [toward] } : {}) })
-    .find((site) => buildable(site.x, site.y));
-  if (best) return { x: best.x, y: best.y };
-  for (const tile of state.tiles.values()) if (isRelayBeaconBuildTile(state.tiles, tile, state.me)) return { x: tile.x, y: tile.y };
-  return undefined;
-};
+export { relayBeaconStartTile };
 
 /** Starts Relay Beacon placement and centres the map on it; false when no tile can take a beacon. */
 export const startRelayBeaconPlacement = (deps: HudV2Deps, toward?: At): boolean => {
