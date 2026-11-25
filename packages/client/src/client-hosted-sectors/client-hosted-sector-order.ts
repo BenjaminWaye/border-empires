@@ -56,7 +56,7 @@ export const hostSectorFormHtml = (): string => {
         ${option("payMode", "split", "Split it with friends", "Open a funding bar and share the invite link. Each person chips in at least USD 5; cards are only held until the bar is full, then everyone is charged and the sector starts. If it is not full within 72 hours, nobody pays.", true, false)}
       </fieldset>
       <label class="hosted-sector-consent">
-        <input type="checkbox" name="consent" required />
+        <input type="checkbox" class="sp-check" name="consent" required />
         <span>I accept the <a href="/purchase-terms.html" target="_blank" rel="noopener">Terms of Sale</a>. I ask for my sector to start at once, and I understand that if I withdraw within 14 days I pay for the days it has run.</span>
       </label>
       <p class="hosted-sector-error" data-hosted-sector-form-error role="alert" hidden></p>

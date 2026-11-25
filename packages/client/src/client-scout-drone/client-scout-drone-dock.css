@@ -33,7 +33,8 @@
   padding: 0 10px 0 8px;
   border-radius: 999px;
   color: #f4d58c;
-  font: 700 17px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font: 700 17px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
   flex: none;
 }
 
@@ -87,7 +88,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font: 700 15px/1 "Cinzel", Georgia, serif;
+  font: 700 15px/1 var(--sp-font-display);
   letter-spacing: 0.06em;
   color: #e8fbff;
   background: linear-gradient(180deg, #33b6e0, #1679a0);
@@ -127,7 +128,8 @@
 }
 
 #scout-drone-dock .sd-time {
-  font: 600 13px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font: 600 13px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   opacity: 0.9;
 }

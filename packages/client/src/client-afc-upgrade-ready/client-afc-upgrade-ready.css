@@ -29,7 +29,8 @@
   border-radius: 8px;
   background: #241812;
   color: var(--sp-brass-100, #f4dfa6);
-  font: 600 10px/1.2 sans-serif;
+  font: 600 10px/1.2 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
   text-align: center;
   pointer-events: none;
 }
