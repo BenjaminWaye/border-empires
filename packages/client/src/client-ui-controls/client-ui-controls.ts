@@ -2,6 +2,7 @@ import type { createClientActionFlow } from "../client-action-flow.js";
 import { openBugReportFromCaptureAlert } from "../client-capture-effects/client-capture-report-bug.js";
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
+import { bindProfileNameField, writeFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -145,6 +146,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     }
   };
 
+  bindProfileNameField(authProfileNameEl, { onUserInput: writeFoundingNameDraft });
   authProfileNameEl.onkeydown = (event) => {
     if (event.key === "Enter" && state.profileSetupRequired) {
       event.preventDefault();

@@ -4,6 +4,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
 import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
+import { PROFILE_NAME_MAX_LENGTH, readFoundingNameDraft, syncProfileNameCount } from "../client-profile-name-field/client-profile-name-field.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
 
 export const setAuthStatus = (
@@ -166,6 +167,7 @@ export const syncAuthOverlay = (
   deps.authDisplayNameEl.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailResetBtn.disabled = state.authBusy;
   deps.authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
+  syncProfileNameCount(deps.authProfileNameEl);
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
   // Chunked INIT download (client-init-transfer): real progress replaces the
@@ -218,8 +220,11 @@ export const seedProfileSetupFields = (
   name?: string,
   color?: string
 ): void => {
-  const cleanedName = (name ?? "").trim();
-  if (cleanedName) deps.authProfileNameEl.value = cleanedName.slice(0, 24);
+  // A name the player already typed this tab session beats the suggestion,
+  // so a reconnect or reload before "Enter the map" keeps it.
+  const cleanedName = readFoundingNameDraft() || (name ?? "").trim();
+  if (cleanedName) deps.authProfileNameEl.value = cleanedName.slice(0, PROFILE_NAME_MAX_LENGTH);
+  syncProfileNameCount(deps.authProfileNameEl);
   if (color && /^#[0-9a-fA-F]{6}$/.test(color)) deps.authProfileColorEl.value = color;
   deps.syncAuthPanelState();
 };
