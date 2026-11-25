@@ -16,7 +16,7 @@ import {
   type StorageLike
 } from "./client-hosted-sector-session.js";
 import { fundingRowHtml, readChipInCents } from "./client-hosted-sector-funding.js";
-import { hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
+import { CHECKOUT_CONSENT, hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorsPanelDeps = {
@@ -122,8 +122,9 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   /** The automatic refresh leaves the list alone while the player is using it. */
   const listIsBusy = (): boolean =>
     Boolean(panel?.querySelector("[data-hosted-sector-invite-output]:not([hidden]), [data-hosted-sectors-error]:not([hidden])")) ||
-    // Someone typing an amount to chip in.
-    (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]"));
+    // Someone typing an amount to chip in, or who has ticked a consent box (a redraw would untick it).
+    (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]")) ||
+    Boolean(panel?.querySelector("[data-hosted-sector-consent-terms]:checked, [data-hosted-sector-consent-early-start]:checked"));
 
   const showList = async (notice = "", options: { quiet?: boolean } = {}): Promise<void> => {
     if (!deps.isSignedIn()) {
@@ -196,7 +197,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     const fail = (message: string): void => { if (error) { error.textContent = message; error.hidden = false; } };
     const options = readHostSectorForm(form);
     if (!options) {
-      fail("Choose a map and accept the Terms of Sale to continue.");
+      fail("Choose a map and tick both boxes to continue.");
       return;
     }
     if (options.split) {
@@ -208,7 +209,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       await showList("Your funding bar is open for 72 hours. Press Invite to get the link for your friends; everyone chips in here.");
       return;
     }
-    const ordered = await deps.api.createOrder({ mapStyle: options.mapStyle, mapSize: options.mapSize });
+    const ordered = await deps.api.createOrder({ mapStyle: options.mapStyle, mapSize: options.mapSize }, CHECKOUT_CONSENT);
     if (!ordered.ok) {
       fail(ordered.message);
       return;
@@ -226,7 +227,12 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       showError("Type an amount in US dollars.");
       return;
     }
-    const pledged = await deps.api.contribute(sectorId, amountCents);
+    const ticked = (attribute: string): boolean => panel?.querySelector<HTMLInputElement>(`[${attribute}="${CSS.escape(sectorId)}"]`)?.checked === true;
+    if (!ticked("data-hosted-sector-consent-terms") || !ticked("data-hosted-sector-consent-early-start")) {
+      showError("Tick both boxes above the buttons to chip in.");
+      return;
+    }
+    const pledged = await deps.api.contribute(sectorId, amountCents, CHECKOUT_CONSENT);
     if (!pledged.ok) {
       showError(pledged.message);
       return;

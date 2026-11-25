@@ -22,7 +22,7 @@ export type HostingRoutesDeps = {
 const STATUS_BY_CODE: Record<HostingErrorCode, number> = {
   SALES_CLOSED: 503, ACCOUNT_REQUIRED: 403, EMAIL_NOT_VERIFIED: 403, ALREADY_HOSTING: 409, PAYMENT_UNAVAILABLE: 502,
   NOT_FOUND: 404, NOT_HOST: 403, NOT_MEMBER: 403, SECTOR_CLOSED: 409, SECTOR_NOT_READY: 409, SECTOR_FULL: 409,
-  INVITE_INVALID: 404, TOO_MANY_INVITES: 429, FUNDING_CLOSED: 409, BAD_AMOUNT: 400
+  INVITE_INVALID: 404, TOO_MANY_INVITES: 429, FUNDING_CLOSED: 409, BAD_AMOUNT: 400, CONSENT_REQUIRED: 400
 };
 
 const ID_PATTERN = /^[a-z0-9-]{1,64}$/;
@@ -53,11 +53,11 @@ export const registerHostingRoutes = (app: FastifyInstance, deps: HostingRoutesD
   app.post("/hosting/orders", async (request, reply) => {
     const account = await authenticate(request, reply);
     if (!account) return reply;
-    const body = (request.body ?? {}) as { mapStyle?: unknown; mapSize?: unknown };
+    const body = (request.body ?? {}) as { mapStyle?: unknown; mapSize?: unknown; consent?: unknown };
     if (!isHostedSectorMapStyle(body.mapStyle) || !isHostedSectorMapSize(body.mapSize)) {
       return reply.code(400).send({ ok: false, code: "BAD_OPTIONS", message: "Choose a map type and a map size." });
     }
-    return send(reply, await service.createOrder(account, { mapStyle: body.mapStyle, mapSize: body.mapSize }));
+    return send(reply, await service.createOrder(account, { mapStyle: body.mapStyle, mapSize: body.mapSize }, body.consent));
   });
 
   // Split funding (plan section 12): open a bar instead of paying in full.
@@ -76,9 +76,9 @@ export const registerHostingRoutes = (app: FastifyInstance, deps: HostingRoutesD
     const account = await authenticate(request, reply);
     const sectorId = account ? idParam(request, reply, "sectorId") : undefined;
     if (!account || !sectorId) return reply;
-    const amountCents = ((request.body ?? {}) as { amountCents?: unknown }).amountCents;
+    const { amountCents, consent } = (request.body ?? {}) as { amountCents?: unknown; consent?: unknown };
     if (typeof amountCents !== "number") return reply.code(400).send({ ok: false, code: "BAD_AMOUNT", message: "Choose an amount." });
-    return send(reply, await service.contribute(account, sectorId, amountCents));
+    return send(reply, await service.contribute(account, sectorId, amountCents, consent));
   });
 
   app.get("/hosting/sectors", async (request, reply) => {

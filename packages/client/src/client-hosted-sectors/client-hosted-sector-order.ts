@@ -1,7 +1,38 @@
 // Buying a hosted sector: the form shown before payment and the checks on
 // where the browser is sent to pay. The payment itself happens on the payment
 // provider's page; this client never sees card details.
-import { HOSTED_SECTOR_MAP_SIZES, HOSTED_SECTOR_PRICE_USD_CENTS, WORLD_HEIGHT, WORLD_WIDTH, type HostedSectorMapSize, type HostedSectorMapStyle } from "@border-empires/shared";
+import {
+  HOSTED_SECTOR_CONSENT_EARLY_START,
+  HOSTED_SECTOR_CONSENT_TERMS,
+  HOSTED_SECTOR_MAP_SIZES,
+  HOSTED_SECTOR_PRICE_FACTS,
+  HOSTED_SECTOR_PRICE_USD_CENTS,
+  HOSTED_SECTOR_TERMS_VERSION,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  type HostedSectorConsent,
+  type HostedSectorMapSize,
+  type HostedSectorMapStyle
+} from "@border-empires/shared";
+
+/** Sent with an order or a share only when both boxes were ticked; the hosting service keeps it as proof. */
+export const CHECKOUT_CONSENT: HostedSectorConsent = { termsVersion: HOSTED_SECTOR_TERMS_VERSION, acceptedTerms: true, requestedEarlyStart: true };
+
+const TERMS_LINK = `<a href="/purchase-terms.html" target="_blank" rel="noopener">Terms of Sale</a>`;
+
+/**
+ * The two separate statements, both unticked (docs/legal-drafts/README.md,
+ * item 2). `scope` names the inputs, so one panel can hold several.
+ */
+export const consentBoxesHtml = (scope = ""): string => `
+  <label class="hosted-sector-consent">
+    <input type="checkbox" name="consentTerms"${scope ? ` data-hosted-sector-consent-terms="${scope}"` : ""} />
+    <span>${HOSTED_SECTOR_CONSENT_TERMS.replace("Terms of Sale", TERMS_LINK)}</span>
+  </label>
+  <label class="hosted-sector-consent">
+    <input type="checkbox" name="consentEarlyStart"${scope ? ` data-hosted-sector-consent-early-start="${scope}"` : ""} />
+    <span>${HOSTED_SECTOR_CONSENT_EARLY_START}</span>
+  </label>`;
 
 /** Options sold today. Others are shown but cannot be chosen until they can be played. */
 export const sellableMapStyles: readonly HostedSectorMapStyle[] = ["continents"];
@@ -55,10 +86,8 @@ export const hostSectorFormHtml = (): string => {
         ${option("payMode", "single", `I pay it all · ${hostedSectorPriceLabel()}`, "The sector starts as soon as you have paid.", true, true)}
         ${option("payMode", "split", "Split it with friends", "Open a funding bar and share the invite link. Each person chips in at least USD 5; cards are only held until the bar is full, then everyone is charged and the sector starts. If it is not full within 72 hours, nobody pays.", true, false)}
       </fieldset>
-      <label class="hosted-sector-consent">
-        <input type="checkbox" name="consent" required />
-        <span>I accept the <a href="/purchase-terms.html" target="_blank" rel="noopener">Terms of Sale</a>. I ask for my sector to start at once, and I understand that if I withdraw within 14 days I pay for the days it has run.</span>
-      </label>
+      ${consentBoxesHtml()}
+      <p class="hosted-sector-note" data-hosted-sector-price-facts>Total ${hostedSectorPriceLabel()} if you pay it all. ${HOSTED_SECTOR_PRICE_FACTS}</p>
       <p class="hosted-sector-error" data-hosted-sector-form-error role="alert" hidden></p>
       <div class="hosted-sector-form-actions">
         <button type="button" class="panel-btn" data-hosted-sector-form-cancel>Back</button>
@@ -68,12 +97,12 @@ export const hostSectorFormHtml = (): string => {
     </form>`;
 };
 
-/** Reads the form. Undefined when a choice is missing or the terms are not accepted. */
+/** Reads the form. Undefined when a choice is missing or either consent box is unticked. */
 export const readHostSectorForm = (form: HTMLFormElement): { mapStyle: HostedSectorMapStyle; mapSize: HostedSectorMapSize; split: boolean } | undefined => {
   const data = new FormData(form);
   const mapStyle = data.get("mapStyle");
   const mapSize = data.get("mapSize");
-  if (data.get("consent") === null) return undefined;
+  if (data.get("consentTerms") === null || data.get("consentEarlyStart") === null) return undefined;
   if (typeof mapStyle !== "string" || !(sellableMapStyles as readonly string[]).includes(mapStyle)) return undefined;
   if ((mapSize !== "standard" && mapSize !== "small") || !mapSizeIsSellable(mapSize)) return undefined;
   return { mapStyle: mapStyle as HostedSectorMapStyle, mapSize, split: data.get("payMode") === "split" };

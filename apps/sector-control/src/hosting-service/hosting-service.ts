@@ -7,6 +7,7 @@ import type { HostingStore, SectorInvite, SectorRecord, SectorState } from "../h
 import type { HostingAlert, PaymentProvider } from "../providers/providers.js";
 import type { SectorTicketSigner } from "../sector-ticket/sector-ticket-signer.js";
 import type { HostingConfig } from "./hosting-config.js";
+import { CONSENT_REQUIRED_MESSAGE, consentRecord } from "./hosting-consent.js";
 import { createFundingService, type ContributionEvent, type FundingErrorCode, type FundingView } from "./hosting-funding.js";
 
 /** The signed-in caller, as verified from their Firebase ID token. */
@@ -102,8 +103,11 @@ export const createHostingService = (deps: HostingServiceDeps) => {
   };
 
   return {
-    async createOrder(account: HostingAccount, options: HostedSectorOptions): Promise<HostingResult<{ sector: SectorView }>> {
+    /** `consent` is what the order form sent; nothing is sold without both boxes ticked. */
+    async createOrder(account: HostingAccount, options: HostedSectorOptions, consent: unknown): Promise<HostingResult<{ sector: SectorView }>> {
       if (!config.salesEnabled) return fail("SALES_CLOSED", "Hosting is not on sale right now.");
+      const agreed = consentRecord(consent, deps.now());
+      if (!agreed) return fail("CONSENT_REQUIRED", CONSENT_REQUIRED_MESSAGE);
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to host a sector.");
       if (!account.emailVerified) return fail("EMAIL_NOT_VERIFIED", "Verify your email address to host a sector.");
       const existing = store.liveSectorForHost(account.uid);
@@ -115,7 +119,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       const sectorId = `s-${deps.newId(10)}`;
       store.insertSector({
         sectorId, hostUid: account.uid, options, state: "awaiting_payment",
-        amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd", createdAt: now, updatedAt: now, createAttempts: 0
+        amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd", createdAt: now, updatedAt: now, createAttempts: 0, consent: agreed
       });
       // The host is a member from the start, so the invite link can go out while they pay.
       store.addMember({ sectorId, accountUid: account.uid, role: "host", joinedAt: now });

@@ -52,8 +52,10 @@ Publishing is blocked until these markers are filled in.
 The Terms of Sale promise these things. Checked against `develop` on
 2026-11-25, after the Stripe test-mode work landed: that work already turns on
 automatic tax with tax-inclusive prices, requires a billing address and shows a
-consent sentence above Stripe's Pay button. None of the items below exists
-yet. Sales stay off until all are done.
+consent sentence above Stripe's Pay button. Sales stay off until all are
+done. The order in which they are built is in `../hosted-sectors-plan.md` §15
+("Before PR 8"). Items 2, 3 and 4 were built on 2026-11-25 (PR 8a); the others
+do not exist yet.
 
 1. **A withdrawal button.** Since 19 June 2026 a trader selling through a
    website must offer an online withdrawal function: a clearly labelled

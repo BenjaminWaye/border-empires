@@ -2,6 +2,7 @@
 // for together, the Chip in form, and the host's "Pay the rest". Each share
 // only holds the card; nobody is charged until the bar is full, and if it does
 // not fill in time every hold is released.
+import { consentBoxesHtml } from "./client-hosted-sector-order.js";
 import type { HostedSectorFunding, HostedSectorSummary } from "./client-hosted-sectors-api.js";
 
 const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -38,11 +39,14 @@ export const fundingRowHtml = (sector: HostedSectorSummary, now: number): string
        <button type="button" class="panel-btn" data-hosted-sector-chip-in="${id}">Chip in</button>
        ${sector.role === "host" ? `<button type="button" class="panel-btn" data-hosted-sector-pay-rest="${id}" data-hosted-sector-rest="${left}">Pay the rest · ${usd(left)}</button>` : ""}`
     : "";
+  // Each share is a purchase of its own, so it needs both consents too.
+  const consent = chipIn ? `<div class="hosted-sector-funding-consent">${consentBoxesHtml(id)}</div>` : "";
   return `
     <div class="hosted-sector-funding">
       <div class="hosted-sector-funding-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${funding.targetCents}" aria-valuenow="${funding.pledgedCents}"><span style="width:${percent}%"></span></div>
       <span class="hosted-sector-meta">${usd(funding.pledgedCents)} of ${usd(funding.targetCents)} pledged · ${escapeHtml(timeLeft(funding.deadline, now))} left${yours}</span>
       <span class="hosted-sector-note">Cards are only held. Everyone is charged when the bar is full, and the sector starts at once. If it is not full in time, nobody pays.</span>
+      ${consent}
       <div class="hosted-sector-actions">${resume}${chipIn}</div>
     </div>`;
 };
