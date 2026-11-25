@@ -5,10 +5,10 @@ import { townFocusActions } from "./client-town-focus.js";
 import { dispatchTileAetherAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { structureCommandActions } from "../client-structure-command-actions.js";
 
-const townTile = (ownerId: string, focus: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
+const townTile = (ownerId: string, focus: Pick<NonNullable<Tile["town"]>, "focus" | "pendingFocus" | "pendingFocusAt"> = {}): Tile => ({
   x: 10, y: 10, terrain: "LAND", ownerId, ownershipState: "SETTLED", town: {
     type: "MARKET", name: "Test Town", population: 20_000, maxPopulation: 100_000, populationTier: "TOWN", isFed: true,
-    baseGoldPerMinute: 0, goldPerMinute: 0, supportCurrent: 1, supportMax: 8,
+    baseGoldPerMinute: 0, goldPerMinute: 0, supportCurrent: 1, supportMax: 8, cap: 300,
     connectedTownCount: 0, connectedTownBonus: 0, hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false,
     ...focus
   }
