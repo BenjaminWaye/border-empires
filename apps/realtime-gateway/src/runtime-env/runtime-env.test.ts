@@ -39,6 +39,12 @@ describe("realtime gateway runtime env", () => {
     ).toThrow("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
+  it("reads hosted-sector settings, and is a public server without them", () => {
+    expect(parseRealtimeGatewayRuntimeEnv({}).hostedSector).toBeUndefined();
+    expect(parseRealtimeGatewayRuntimeEnv({ HOSTED_SECTOR_ID: "s-abc", HOSTED_SECTOR_TICKET_PUBLIC_KEY: "key" }).hostedSector).toEqual({ sectorId: "s-abc", ticketPublicKey: "key" });
+    expect(() => parseRealtimeGatewayRuntimeEnv({ HOSTED_SECTOR_ID: "s-abc" })).toThrow(/HOSTED_SECTOR_TICKET_PUBLIC_KEY/);
+  });
+
   it("parses explicit production configuration", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({

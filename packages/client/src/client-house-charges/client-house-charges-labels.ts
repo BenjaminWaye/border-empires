@@ -51,7 +51,7 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
     case "RELIC":
       return first ? "Garrison the Concordance installation." : "Find the Concordance installation's beacon in the marked area, then garrison it.";
     case "CORRECTION":
-      return `Capture an AFC founded by ${houseStyledName(first?.name ?? "the rival")} and hold it to the end of the contest.`;
+      return `Capture and garrison an AFC founded by ${houseStyledName(first?.name ?? "the rival")}, and hold it to the end of the contest.`;
     case "METROPOLIS":
       return `Hold ${HOUSE_CHARGE_METROPOLIS_COUNT} towns on ${first?.name ?? "the landmass"} and grow each one to a Metropolis.`;
   }
@@ -78,7 +78,7 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
       return charge.held ? "Garrisoned" : charge.targets.length > 0 ? "Beacon found" : "Beacon not found yet";
     case "CORRECTION": {
       const house = houseStyledName(charge.targets[0]?.name ?? "the rival");
-      return charge.held ? `${house}'s AFC taken` : charge.lostAt !== undefined ? `${house}'s AFC lost` : `${house}'s AFC: not taken`;
+      return charge.held ? `${house}'s AFC garrisoned` : charge.lostAt !== undefined ? `${house}'s AFC lost` : `${house}'s AFC: not garrisoned`;
     }
     case "METROPOLIS":
       return `${charge.size} of ${HOUSE_CHARGE_METROPOLIS_COUNT} Metropolises held`;

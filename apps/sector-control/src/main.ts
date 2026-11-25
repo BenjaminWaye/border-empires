@@ -1,0 +1,60 @@
+import { DatabaseSync } from "node:sqlite";
+
+import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-identity/firebase-token-verifier.js";
+import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
+import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
+import { FakePaymentProvider } from "./providers/fake-providers.js";
+import { serverProviderFromEnv } from "./providers/server-provider-from-env.js";
+import { assertStripeTestMode, createStripeApi } from "./providers/stripe/stripe-api.js";
+import { createStripePaymentProvider } from "./providers/stripe/stripe-payment-provider.js";
+import { createStripeWebhookParser } from "./providers/stripe/stripe-webhook.js";
+import { parseSectorControlRuntimeEnv } from "./runtime-env/runtime-env.js";
+import { createSectorControlApp } from "./sector-control-app/sector-control-app.js";
+
+const env = parseSectorControlRuntimeEnv(process.env);
+// A key that cannot be read would start a service that takes orders and then fails every entry.
+await assertSectorTicketKey(env.ticketPrivateKeyPem);
+
+const db = new DatabaseSync(env.sqlitePath);
+db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+const store = new SqliteHostingStore(db);
+store.applySchema();
+
+// The same verification the game gateway applies: signature against Google's keys, issuer, audience and expiry.
+const verifyFirebaseToken = createFirebaseTokenVerifier({ ...(env.firebaseProjectId ? { projectId: env.firebaseProjectId } : {}) });
+
+// Stripe test mode, or the fake. Stripe is asked at boot whether the key is a live one.
+const stripe = env.payment.kind === "stripe-test" ? createStripeApi({ secretKey: env.payment.secretKey }) : undefined;
+if (stripe) await assertStripeTestMode(stripe);
+const payment = stripe && env.payment.kind === "stripe-test"
+  ? {
+      provider: createStripePaymentProvider(stripe, { returnOrigin: env.payment.returnOrigin, taxCode: env.payment.taxCode }),
+      parseWebhook: createStripeWebhookParser({ api: stripe, webhookSecret: env.payment.webhookSecret })
+    }
+  // The fake has no signature that could verify: every webhook is refused.
+  : { provider: new FakePaymentProvider(), parseWebhook: async () => undefined };
+
+const control = createSectorControlApp({
+  store,
+  payment: payment.provider,
+  // Hetzner creates real servers in the hosted-sectors project; the fake creates none.
+  servers: serverProviderFromEnv(env.servers, env.ticketPrivateKeyPem),
+  config: env.config,
+  ticketPrivateKeyPem: env.ticketPrivateKeyPem,
+  reconcileIntervalMs: env.reconcileIntervalMs,
+  logger: true,
+  verifyIdToken: async (token) => {
+    const verified = await verifyFirebaseToken(token);
+    return verified ? { uid: verified.uid, isGuest: verified.isGuest === true, emailVerified: verified.emailVerified === true } : undefined;
+  },
+  parsePaymentWebhook: payment.parseWebhook
+});
+
+await control.app.listen({ host: env.host, port: env.port });
+control.startReconciler();
+
+const shutdown = (): void => {
+  void control.close().finally(() => { db.close(); process.exit(0); });
+};
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

@@ -10,7 +10,14 @@
 #     BACKUP_BUCKET=be-backups-staging \
 #     bash /root/deploy/bin/bootstrap-server.sh
 #
-# Required: BE_ENV (staging|production), BE_HOSTNAME, ADMIN_PUBKEY, CI_PUBKEY.
+# Required: BE_ENV (staging|production|hosted), BE_HOSTNAME, and for staging
+# and production ADMIN_PUBKEY and CI_PUBKEY.
+#
+# BE_ENV=hosted is a hosted sector server (docs/hosted-sectors-plan.md). The
+# hosting service creates it with cloud-init, which runs this script. It gets
+# no SSH key at all and SSH is closed in the firewall: nobody logs in, the
+# server is replaced rather than repaired, and it is deleted when its contest
+# is over.
 # Optional: BACKUP_BUCKET (enables B2 upload; also place rclone.conf, see below),
 #           GITHUB_REPO (default BenjaminWaye/border-empires),
 #           IMAGE_REPO (default ghcr.io/benjaminwaye/border-empires-combined),
@@ -23,8 +30,12 @@
 set -euo pipefail
 
 [ "$(id -u)" = "0" ] || { echo "run as root" >&2; exit 1; }
-: "${BE_ENV:?}" "${BE_HOSTNAME:?}" "${ADMIN_PUBKEY:?}" "${CI_PUBKEY:?}"
-case "$BE_ENV" in staging|production) ;; *) echo "BE_ENV must be staging|production" >&2; exit 1 ;; esac
+: "${BE_ENV:?}" "${BE_HOSTNAME:?}"
+case "$BE_ENV" in
+  staging|production) : "${ADMIN_PUBKEY:?}" "${CI_PUBKEY:?}" ;;
+  hosted) ;;
+  *) echo "BE_ENV must be staging|production|hosted" >&2; exit 1 ;;
+esac
 GITHUB_REPO="${GITHUB_REPO:-BenjaminWaye/border-empires}"
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/benjaminwaye/border-empires-combined}"
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -49,10 +60,14 @@ systemctl enable --now docker
 id deploy >/dev/null 2>&1 || adduser --disabled-password --gecos "" deploy
 usermod -aG docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-cat > /home/deploy/.ssh/authorized_keys <<KEYEOF
+if [ "$BE_ENV" = hosted ]; then
+  : > /home/deploy/.ssh/authorized_keys
+else
+  cat > /home/deploy/.ssh/authorized_keys <<KEYEOF
 ${ADMIN_PUBKEY}
 command="/opt/border-empires/bin/deploy",restrict ${CI_PUBKEY}
 KEYEOF
+fi
 [ -z "${LOGS_PUBKEY:-}" ] || echo "command=\"/opt/border-empires/bin/deploy --logs-only\",restrict ${LOGS_PUBKEY}" >> /home/deploy/.ssh/authorized_keys
 chown deploy:deploy /home/deploy/.ssh/authorized_keys
 chmod 600 /home/deploy/.ssh/authorized_keys
@@ -68,7 +83,7 @@ systemctl reload ssh || systemctl reload sshd
 # --- firewall (also attach a Hetzner Cloud Firewall: 22, 80, 443) ---
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 22/tcp
+[ "$BE_ENV" = hosted ] || ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw allow 443/udp

@@ -10,7 +10,7 @@ const seats: HouseChargeView = { ...base, id: "METROPOLIS:def", kind: "METROPOLI
 describe("Writ of Correction text", () => {
   it("states the objective against any AFC the rival founded", () => {
     expect(HOUSE_CHARGE_KIND_LABEL.CORRECTION).toBe("Writ of Correction");
-    expect(houseChargeObjective(writ)).toBe("Capture an AFC founded by House Varn and hold it to the end of the contest.");
+    expect(houseChargeObjective(writ)).toBe("Capture and garrison an AFC founded by House Varn, and hold it to the end of the contest.");
   });
 
   it("carries the House's letter with one fixed offence", () => {
@@ -20,9 +20,9 @@ describe("Writ of Correction text", () => {
     expect(houseChargeLetter(writ)).toBe(letter);
   });
 
-  it("tracks taken, lost and not taken", () => {
-    expect(houseChargeProgress(writ)).toBe("House Varn's AFC: not taken");
-    expect(houseChargeProgress({ ...writ, held: true, size: 1 })).toBe("House Varn's AFC taken");
+  it("tracks garrisoned, lost and not garrisoned", () => {
+    expect(houseChargeProgress(writ)).toBe("House Varn's AFC: not garrisoned");
+    expect(houseChargeProgress({ ...writ, held: true, size: 1 })).toBe("House Varn's AFC garrisoned");
     expect(houseChargeProgress({ ...writ, lostAt: 5 })).toBe("House Varn's AFC lost");
     expect(houseChargeCardRule({ kind: "CORRECTION", places: ["Varn"] })).toBe("Pressed a grievance against House Varn, took an AFC it founded and held it to the end of the contest.");
   });

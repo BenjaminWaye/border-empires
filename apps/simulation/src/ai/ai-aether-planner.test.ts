@@ -110,4 +110,12 @@ describe("AI aether tactics", () => {
     const data = input([tower(), enemy()], { blockedActionKeys: new Map([["AETHER_LANCE:12,10", "AETHER_LANCE_INVALID"]]) });
     expect(chooseAiAetherCommand(data)).toBeUndefined();
   });
+  it("casts and builds towers from a captured module with no research", () => {
+    expect(chooseAiAetherCommand(input([tower(), enemy()], { techIds: [], installedModuleTechIds: ["crystal-lattices"] }))?.command?.type).toBe("AETHER_LANCE");
+    const open = tile(10, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    expect(chooseAiAetherCommand(input([open, enemy()], { techIds: [], installedModuleTechIds: ["crystal-lattices"] }))?.command?.type).toBe("BUILD_OBSERVATORY");
+    const barrier = [tower(), tile(11, { terrain: "MOUNTAIN" }), tile(12, { resource: "FARM" })];
+    expect(chooseAiAetherCommand(input(barrier, { techIds: [], installedModuleTechIds: ["terrain-engineering"] }))?.command?.type).toBe("REMOVE_MOUNTAIN");
+    expect(chooseAiAetherCommand(input([tower(), enemy()], { techIds: [], installedModuleTechIds: ["terrain-engineering"] }))?.command?.type).not.toBe("AETHER_LANCE");
+  });
 });

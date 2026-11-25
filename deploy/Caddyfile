@@ -27,7 +27,7 @@
 		file_server
 	}
 
-	@client_routes path / /index.html /admin /admin/ /r/* /rally/new
+	@client_routes path / /index.html /admin /admin/ /r/* /rally/new /h/*
 	handle @client_routes {
 		@admin path /admin /admin/
 		rewrite @admin /admin.html

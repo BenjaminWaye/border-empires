@@ -10,6 +10,7 @@ import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settl
 import { canAffordCost, isForestTile, isHillsTile } from "../client-constants.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { relayBeaconTowardAction } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { assignedTownForSupportTile } from "../client-support-structures/client-support-structures.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
@@ -90,5 +91,8 @@ export const settleActionsForFrontierTile = (
       cost: `${state.settleManpowerCost} manpower per tile • choose on map`
     });
   }
+  // Garrison refused here: offer the beacon that would bring this tile into reach (Playtest Run 5).
+  const toward = frontierOutOfReach ? relayBeaconTowardAction(state, tile) : undefined;
+  if (toward) out.push(toward);
   return out;
 };

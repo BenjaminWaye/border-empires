@@ -22,6 +22,7 @@ const stateWith = (overrides: Partial<ClientState>): ClientState =>
     capture: undefined,
     tiles: new Map(),
     tilesRevision: 1,
+    playerCosmetics: new Map(),
     ...overrides
   }) as unknown as ClientState;
 

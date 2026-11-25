@@ -8,7 +8,7 @@ import { createHumanRuntimePlayer } from "../runtime-player-factory.js";
 
 const STARTING_MANPOWER = 10_000;
 
-const runtimeWith = (domainIds: string[], techIds: string[] = ["masonry"], freeFortsUsed?: number): SimulationRuntime => new SimulationRuntime({
+const runtimeWith = (domainIds: string[], techIds: string[] = ["masonry"], freeFortsUsed?: number, excludeModules: string[] = []): SimulationRuntime => new SimulationRuntime({
   now: () => 1_000,
   initialPlayers: new Map([["player-1", {
     id: "player-1", isAi: false, points: 50_000, manpower: STARTING_MANPOWER,
@@ -19,7 +19,7 @@ const runtimeWith = (domainIds: string[], techIds: string[] = ["masonry"], freeF
   }]]),
   initialState: {
     tiles: [
-      afcModuleFixtureTile("player-1"),
+      afcModuleFixtureTile("player-1", { exclude: excludeModules }),
       { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
       { x: 30, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
     ],
@@ -60,8 +60,9 @@ describe("AFC manpower discounts", () => {
     expect(paidBefore - manpower(paid)).toBe(FORT_TIER_LADDER.FORT.manpower / 2);
   });
 
-  it("rejects a Fort without the tech or Fortification Patterns", async () => {
-    const runtime = runtimeWith([], []);
+  // An installed Titanium Forge Module now unlocks Forts without research, so the AFC must lack it too.
+  it("rejects a Fort without the tech, the module or Fortification Patterns", async () => {
+    const runtime = runtimeWith([], [], undefined, ["masonry"]);
     const before = manpower(runtime);
     submit(runtime, "fort-x", "BUILD_STRUCTURE", 1, { x: 10, y: 10, structureType: "FORT" });
     await Promise.resolve();

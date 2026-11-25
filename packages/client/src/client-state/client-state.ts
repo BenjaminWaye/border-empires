@@ -1,4 +1,5 @@
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
+import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
@@ -16,7 +17,7 @@ import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
-import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
+import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js"; import { createInitialAchievementsState } from "../client-achievements/client-achievements-state.js";
 import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
 import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
 import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
@@ -168,6 +169,10 @@ export const createInitialState = () => ({
   dukePlayers: new Set<string>(), // Duke title (owns a galaxy Planet) -- see client-duke-title.ts.
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
+  // Account cosmetics (client-cosmetics.ts): non-default looks by player, and what this account owns.
+  playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
+  ownedCosmetics: [] as CosmeticId[],
+  cosmeticsRequested: false,
   playerShieldUntil: new Map<string, number>(),
   serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<
@@ -284,14 +289,14 @@ export const createInitialState = () => ({
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
-  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
+  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), ...createInitialAchievementsState(), // ISLAND_NAMES push; achievements + LONGEST_ROAD (client-achievements/), see client-map-name-labels/
   ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
   ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
   ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
-  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string; title?: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
@@ -301,7 +306,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | "credits" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,

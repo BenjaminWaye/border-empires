@@ -1,4 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { installedAfcModuleTechIds } from "./afc-module-build-access/afc-module-build-access.js";
 import { allocateBiotaSlots, BIOTA_SLOTS_PER_SITE, biotaSlotsNeededForTier,
   type BiotaTown, type BiotaTownSupply, type NetworkSiteCounts, type PopulationTier } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -160,7 +161,7 @@ export const cachedManpowerStructureBonusForPlayer = (
   const summary = ctx.summaryForPlayer(player.id);
   const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
   const sites = ctx.networkSitesForPlayer?.(player.id) ??
-    developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds);
+    developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds, installedAfcModuleTechIds(player.id, ctx.tiles, summary.ownedAfcTileKeys));
   // A dormant Vivarium (FOOD upkeep unpaid) covers nothing; with none owned, skip the ring scans.
   const vivariaAt = (townKey: string): number => {
     if (!hasVivaria) return 0;

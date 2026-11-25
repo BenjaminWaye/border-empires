@@ -165,4 +165,23 @@ describe("publicProfileAccountState", () => {
     expect(await publicProfileAccountState(bindings(true), "p")).toBe("deleting");
     expect(await publicProfileAccountState(bindings(false, false), "p")).toBe("missing");
   });
+
+  it("shows the title the account holds, and no title field without one", async () => {
+    const titled = build({ getTitle: async () => "Count" });
+    const titledId = await mint(titled.app);
+    expect((await titled.app.inject({ method: "GET", url: `/public/house/${titledId}` })).json()).toMatchObject({ name: "Varn", title: "Count" });
+
+    const plain = build();
+    const plainId = await mint(plain.app);
+    expect((await plain.app.inject({ method: "GET", url: `/public/house/${plainId}` })).json()).not.toHaveProperty("title");
+  });
+
+  it("still serves the page, without a title, when the title lookup fails", async () => {
+    const { app } = build({ getTitle: async () => { throw new Error("database is locked"); } });
+    const publicId = await mint(app);
+    const response = await app.inject({ method: "GET", url: `/public/house/${publicId}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ ok: true, name: "Varn" });
+    expect(response.json()).not.toHaveProperty("title");
+  });
 });

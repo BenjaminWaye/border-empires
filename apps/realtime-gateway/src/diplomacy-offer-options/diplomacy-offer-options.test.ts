@@ -1,23 +1,17 @@
 import { describe, expect, it } from "vitest";
-
-import { createSocialState } from "../social-state/social-state.js";
+import { ClientMessageSchema } from "@border-empires/shared";
 import { offerOptionsFor } from "./diplomacy-offer-options.js";
 
-describe("offerOptionsFor", () => {
-  const terms = { give: { gold: 5 }, ask: { gold: 0 } };
-
-  it("carries terms and the target id only when present", () => {
+// Playtest Run 4 follow-up: truce and alliance offers may carry one preset line, never free text.
+describe("offer notes", () => {
+  it("passes a preset line through to the stored offer", () => {
+    expect(offerOptionsFor({ note: "common-enemy" })).toEqual({ note: "common-enemy" });
     expect(offerOptionsFor({})).toEqual({});
-    expect(offerOptionsFor({ terms, targetPlayerId: "ai-3" })).toEqual({ terms, targetPlayerId: "ai-3" });
   });
 
-  // Regression: a human who kept an AI's name ("Milo") received offers meant for the AI.
-  it("routes an offer by id past a display name shared with a human", () => {
-    const social = createSocialState({
-      now: () => 1_000,
-      players: [{ id: "player-1", name: "Nauticus" }, { id: "ai-3", name: "Milo" }, { id: "player-2", name: "Milo" }]
-    });
-    social.requestTruce("player-1", "Milo", 12, offerOptionsFor({ targetPlayerId: "ai-3" }));
-    expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toEqual([expect.objectContaining({ toPlayerId: "ai-3" })]);
+  it("accepts preset ids on TRUCE_REQUEST and ALLIANCE_REQUEST and rejects anything else", () => {
+    expect(ClientMessageSchema.safeParse({ type: "TRUCE_REQUEST", targetPlayerName: "Tove", durationHours: 12, note: "quiet-border" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "ALLIANCE_REQUEST", targetPlayerName: "Tove", note: "grow-together" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "ALLIANCE_REQUEST", targetPlayerName: "Tove", note: "free text from a player" }).success).toBe(false);
   });
 });

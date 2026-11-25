@@ -126,7 +126,8 @@ This is how pillar 6 is delivered.
   in the game today; the public web version is launch scope.
 - **A simple rating** that moves with placement in each contest. Placement
   based at launch, not true Elo. Add it if the existing profile has none.
-- **Records** such as Longest Road and Most Deadly Tile (already built).
+- **Records** such as Longest Road and Most Deadly Tile (already built). Longest Road also shows its current holder during play (owner decision, 2026-11-25).
+- **Achievements:** hard personal badges earned once per contest, which must not repeat the victory paths, records, awards or House Charges (owner decision, 2026-11-25).
 - **Awards:**
   - **Never Gave Up:** the House that redeployed the most times in a contest.
   - **Comeback Kid:** a House that redeployed and still finished in the top 5.
@@ -154,7 +155,10 @@ product, including paid Houses.
   accepted this.
 - **Hosted sector terms** (decided 2026-11-23 and 2026-11-24): Standard
   (640×320) and Small (320×160) maps, both USD 20 including tax; no cap on
-  sectors running at once; the seller is TIDN AB. Details in
+  sectors running at once; the seller is TIDN AB. *Decided 2026-11-25:*
+  EU, EEA and UK consumers may withdraw within 14 days, paying for the days
+  the sector was open; everyone else gets no refund once a sector has opened,
+  except for faults on our side and any other right the buyer has by law. Details in
   [`hosted-sectors-plan.md`](hosted-sectors-plan.md) §13.
 - **The hosting pitch:** your own world, starting now, with the people you
   choose. A solo game is a hosted sector with one human; there is no separate
@@ -167,6 +171,12 @@ product, including paid Houses.
 - **A funded sector starts by itself.** Once payment completes, the server is
   created and the contest opened automatically; the owner does not start
   servers by hand (decided 2026-11-23).
+- **The first cosmetic product: "Claim the title of Count", USD 4.99**
+  (decided 2026-11-24 and 2026-11-25). One purchase gives the High-noble muster
+  standard and the Lancet guard soldier look, and the title of Count, shown
+  before the House name on the contest roster and the public profile. It is
+  sold as one bundle, not as separate items. The title confers nothing in a
+  contest; Duke is still only earned. Details: [`cosmetics.md`](cosmetics.md).
 - **Cosmetics not in the launch set:** an AFC skin, because rivals rarely see
   the AFC; and a House crest, until it can be shown without cluttering the
   diplomacy screen.
@@ -195,9 +205,9 @@ hosting on sale.
 5. Cosmetics.
 6. Public web profile with rating and awards.
 
-**If time gets tight,** cut in this order: cosmetics, then split funding
-(keeping single-host payment), then the rating (keeping the profile). Items
-1–3 are never cut.
+**If time gets tight,** cut in this order: cosmetics, then the rating
+(keeping the profile). Items 1–3 are never cut. Split funding was first in
+line to be cut but is kept for launch (owner, 2026-11-25).
 
 **How we judge the first public contest.** Targets are set once there is a
 baseline.

@@ -7,6 +7,7 @@ import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
 import type { RuntimePassiveIncomeContext } from "../runtime-passive-income.js";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 import { supplyEndedImpacts } from "./supply-ended-impacts.js";
+import { installedAfcModuleTechIds } from "../afc-module-build-access/afc-module-build-access.js";
 
 export interface ResourceSupplyBridgeContext {
   slots(): RuntimeResourceSlotsContext;
@@ -23,6 +24,7 @@ export function createRuntimeResourceSupply(
 ): RuntimeResourceSupply {
   const supply = new RuntimeResourceSupply({ now: ctx.now, coinAccountingStartsAt: ctx.now(), journalSeasonId: ctx.journalSeasonId, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
+    installedModules: id => installedAfcModuleTechIds(id, ctx.slots().tiles, ctx.slots().summaryForPlayer(id).ownedAfcTileKeys),
     resourceSlotSources: id => {
       const slots = ctx.slots();
       cachedResourceSlots(slots, id, true);

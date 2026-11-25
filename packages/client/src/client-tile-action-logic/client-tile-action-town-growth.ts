@@ -7,12 +7,14 @@ import type { TileActionDef } from "../client-types.js";
 import { freeSlotsOf, resourceSlotReasonText } from "./client-resource-slot-reason.js";
 import { tileActionAvailability } from "./client-tile-action-logic.js";
 
+const previousTierOf = (tier: "CITY" | "GREAT_CITY" | "METROPOLIS"): string => (tier === "CITY" ? "TOWN" : tier === "GREAT_CITY" ? "CITY" : "GREAT_CITY");
+
 const townGrowthUpgradeBonusDetail = (targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS"): string => {
   const incomeBonusPercent = Math.round((townPopulationMultiplier(targetTier) - 1) * 100);
   const manpower = TOWN_MANPOWER_BY_TIER[targetTier];
   const manpowerRegen = Math.round(manpowerPerBatch(manpower.regenPerMinute));
   const ringBonus =
-    targetTier === "GREAT_CITY" && supportRingRadiusForTier(targetTier) > 1
+    supportRingRadiusForTier(targetTier) > supportRingRadiusForTier(previousTierOf(targetTier))
       ? " Adds a second ring of build tiles around the town."
       : "";
   return `+${incomeBonusPercent}% coin income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower per batch.${ringBonus}`;

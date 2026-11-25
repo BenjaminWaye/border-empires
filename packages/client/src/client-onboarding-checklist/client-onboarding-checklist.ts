@@ -120,7 +120,9 @@ export const onboardingChecklistState = (
   tiles: ReadonlyMap<string, Tile>,
   playerId: string,
   authEmail?: string | null,
-  options: { completed?: boolean } = {}
+  // `reach`: the server's border when known (resolveMyReach). The local approximation can call a tile in reach that
+  // the server and the tile menu refuse, so the guide marked targets the player couldn't act on (Playtest Run 5).
+  options: { completed?: boolean; reach?: ReadonlySet<string> } = {}
 ): OnboardingChecklistState => {
   // `completed` overrides the saved flag. The tutorial guide passes its own foothold progress: the
   // flag is account-wide and never resets (not per season, not on Restart guide), so it must not tick
@@ -175,7 +177,7 @@ export const onboardingChecklistState = (
   const foodFound = foodKnownSlots >= ONBOARDING_FOOD_SLOTS_TARGET;
   const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
 
-  const reach = computeLocalReachSet(tiles, playerId);
+  const reach = options.reach ?? computeLocalReachSet(tiles, playerId);
   const withinReach = (t: { x: number; y: number }): boolean => {
     const key = tileKey(t.x, t.y);
     const tile = tiles.get(key);

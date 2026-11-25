@@ -1,0 +1,63 @@
+/**
+ * Client mirror of the simulation's module build gate
+ * (apps/simulation/src/afc-module-build-access/afc-module-build-access.ts):
+ * an AFC_MODULE tech counts for builds once a copy sits on an active AFC the
+ * player owns on SETTLED ground -- researched or captured with the AFC.
+ * The same holds for abilities: a captured module casts for its captor
+ * (hasAbilityAccess). Other tech effects still need research.
+ */
+import { playerHasAbilityTech, type AbilityId } from "@border-empires/game-domain";
+import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
+
+type ModuleAccessState = Pick<ClientState, "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
+
+// tilesRevision moves on most tile changes. Some paths (combat-result
+// changes in client-action-flow.ts) write tiles without bumping it, so a hit
+// also re-checks that every contributing AFC tile still qualifies; that
+// catches a lost AFC. Gaining one needs a settled AFC, which arrives in a
+// revision-bumping tile delta.
+type CacheEntry = { key: string; installed: ReadonlySet<string>; sources: readonly string[] };
+const cache = new WeakMap<ClientState["tiles"], CacheEntry>();
+
+const qualifies = (tile: Tile | undefined, me: string | undefined): tile is Tile & { afc: NonNullable<Tile["afc"]> } =>
+  tile?.ownerId === me && tile?.ownershipState === "SETTLED" && tile?.afc?.status === "active" && tile.afc.ownerId === me;
+
+const scanInstalledModules = (state: ModuleAccessState): Omit<CacheEntry, "key"> => {
+  const installed = new Set<string>();
+  const sources: string[] = [];
+  for (const [key, tile] of state.tiles) {
+    if (!qualifies(tile, state.me)) continue;
+    sources.push(key);
+    for (const techId of tile.afc.modules ?? []) installed.add(techId);
+  }
+  return { installed, sources };
+};
+
+/** Module tech ids installed on the player's active, settled AFCs (House or captured copies). */
+export const installedAfcModuleIds = (state: ModuleAccessState): ReadonlySet<string> => {
+  if (state.tilesRevision === undefined) return scanInstalledModules(state).installed;
+  const key = `${state.tilesRevision}:${state.me}`;
+  const hit = cache.get(state.tiles);
+  if (hit?.key === key && hit.sources.every((source) => qualifies(state.tiles.get(source), state.me))) return hit.installed;
+  const entry = { ...scanInstalledModules(state), key };
+  cache.set(state.tiles, entry);
+  return entry.installed;
+};
+
+export const afcModuleInstalled = (state: ModuleAccessState, techId: string): boolean => installedAfcModuleIds(state).has(techId);
+
+/**
+ * Whether techId lets the player build: researched, or an installed module
+ * (a captured module needs no research). Researched-but-uninstalled modules
+ * are greyed out separately by the tech-locked filter.
+ */
+export const hasBuildTech = (state: ModuleAccessState & Pick<ClientState, "techIds">, techId: string): boolean =>
+  state.techIds.includes(techId) || afcModuleInstalled(state, techId);
+
+/**
+ * Whether the player may cast the ability: its techs researched or, for an
+ * AFC module, installed on an active AFC they own (the server's hasAbilityAccess).
+ */
+export const hasAbilityAccess = (state: ModuleAccessState & Pick<ClientState, "techIds">, id: AbilityId): boolean =>
+  playerHasAbilityTech(state.techIds, id, installedAfcModuleIds(state));

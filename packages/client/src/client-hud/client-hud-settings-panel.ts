@@ -1,9 +1,13 @@
+import { Capacitor } from "@capacitor/core";
+import { hostedSectorsEnabled } from "../client-hosted-sectors/client-hosted-sector-session.js";
+import { settingsCreditsPageHtml } from "../client-credits/client-credits-page.js";
 // Settings panel content: a hub of focused sub-pages (Account, Gameplay,
 // Diagnostics & Support, plus an Admin page for fog-admin accounts) instead of
 // one flat card. Pure HTML builders only — event binding stays in client-hud.ts
 // alongside the rest of the HUD's bindings, following the same split used by
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
+import { cosmeticsCardHtml } from "../client-cosmetics/client-cosmetics-card.js";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
 import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { emailNotificationsSettingsPageHtml } from "../client-email-notifications/client-email-notifications-settings-ui.js";
@@ -21,7 +25,7 @@ export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 export const settingsNotificationsPageHtml = (): string => emailNotificationsSettingsPageHtml();
 
 export type SettingsPanelState = AuthDebugState &
-  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive" | "autoSettle">;
+  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive" | "autoSettle" | "playerCosmetics" | "ownedCosmetics">;
 
 // Moved out of renderClientHud's closure (was a nested function reading
 // `state` from outer scope) so it can be composed here like every other
@@ -67,6 +71,7 @@ const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: stri
   { id: "gameplay", title: "Gameplay", desc: "Sound, hints, photo mode, auto-garrison, map" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
+  { id: "credits", title: "Credits", desc: "Who makes Border Empires" },
   { id: "admin", title: "Admin", desc: "Map reveal, alerts feed, lighting tuner" }
 ];
 
@@ -75,6 +80,7 @@ const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
   gameplay: "Gameplay",
   notifications: "Email Notifications",
   diagnostics: "Diagnostics & Support",
+  credits: "Credits",
   admin: "Admin"
 };
 
@@ -107,7 +113,7 @@ export const settingsHubHtml = (
 `;
 
 export const settingsAccountPageHtml = (
-  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authSessionReady">
+  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authSessionReady" | "playerCosmetics" | "ownedCosmetics">
 ): string => {
   const color = state.playerColors.get(state.me) ?? "#38b000";
   return `
@@ -122,6 +128,7 @@ export const settingsAccountPageHtml = (
       <p>Account deletion is permanent.</p>
       <div class="account-settings-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a><a href="https://play.borderempires.com/support.html" target="_blank" rel="noopener">Support</a></div>
     </div>
+    ${cosmeticsCardHtml(state)}
   `;
 };
 
@@ -135,12 +142,23 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
   `;
 };
 
+export const hostedSectorsCardHtml = (state: Pick<ClientState, "authSessionReady">, enabled: boolean): string => {
+  if (!state.authSessionReady || !enabled) return "";
+  return `
+    <div class="card auth-settings-card auth-hosted-sectors">
+      <button type="button" class="panel-btn" data-hosted-sectors-open>My sectors</button>
+      <p>Switch between the public sector and any private Sector Contest you have been invited to.</p>
+    </div>
+  `;
+};
+
 export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionReady" | "authEmail" | "autoSettle" | "photoModeActive">): string => `
     <div class="card auth-settings-card">
       ${audioSettingsFieldHtml()}
       ${hintsSettingsFieldHtml(state.authEmail)}
     </div>
     ${rallyLinkCardHtml(state)}
+    ${hostedSectorsCardHtml(state, hostedSectorsEnabled(Capacitor.isNativePlatform()))}
     <div class="card auth-settings-card">${photoModeCardHtml(state)}</div>
     <div class="card auth-settings-card">${autoSettleSettingsFieldHtml(state.autoSettle)}</div>
     <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>
@@ -179,6 +197,8 @@ export const settingsPanelHtml = (state: SettingsPanelState, wsUrl: string, fire
           ? settingsNotificationsPageHtml()
           : subPage === "admin"
             ? settingsAdminPageHtml(state)
+            : subPage === "credits"
+              ? settingsCreditsPageHtml()
             : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
   return `
     <div class="settings-page-header">

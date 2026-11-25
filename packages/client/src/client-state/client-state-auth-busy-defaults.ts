@@ -19,6 +19,9 @@ export const createInitialAuthBusyState = () => ({
   authError: "",
   authBusyTitle: "",
   authBusyDetail: "",
+  // Start of the current outage on the login overlay (0 = online); drives the
+  // late manual Retry (client-auth-deploy-wait.ts). Cleared on INIT.
+  authOfflineSince: 0,
   initTransfer: null as InitTransferProgress | null,
   // Staged 3D map build after login, shown on the same overlay (client-map-prep.ts).
   mapPrep: null as MapPrepState | null

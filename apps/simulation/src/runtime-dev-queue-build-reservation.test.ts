@@ -73,4 +73,17 @@ describe("reservedSlotDemandForQueue", () => {
     ]);
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 3, CRYSTAL: 1, UMBRITE: 0 });
   });
+
+  // Regression: a queued Titanium Bastion was rejected ("research the next tier first") when the
+  // player's only fortified-walls was a captured copy, though the direct build accepted it.
+  it("accepts an explicit tier unlocked only by an installed (captured) tier module", () => {
+    const player = makePlayer({ manpower: 10_000, techIds: new Set() });
+    const context = makeContext(player, makeTile(), { TITANIUM: 20 });
+    context.tiles.set("1,1", makeTile({ x: 1, y: 1, afc: { ownerId: PLAYER_ID, status: "active", modules: ["masonry", "fortified-walls"] } }));
+    const { estimateBuildReservation } = devQueueBuildReservationContext(context);
+    const zero = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
+    expect(estimateBuildReservation(PLAYER_ID, "FORT", 5, 5, zero, "TITANIUM_BASTION")).toMatchObject({ ok: true });
+    context.tiles.delete("1,1");
+    expect(estimateBuildReservation(PLAYER_ID, "FORT", 5, 5, zero, "TITANIUM_BASTION")).toMatchObject({ ok: false });
+  });
 });

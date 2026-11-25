@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-24
+Last verified: 2026-11-25
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -68,7 +68,7 @@ Player ── play.borderempires.com (client)
             │  buy / invite / list sectors          play
             ▼                                        ▼
    Hosting service  ── creates, checks, deletes ──▶  Sector server (one per hosted sector)
-   (on the production server)                        s-<id>.sectors.borderempires.com
+   (on the production server)                        s-<id>.borderempires-sectors.com
       │           │
       ▼           ▼
     Stripe     Hetzner Cloud API + DNS
@@ -149,12 +149,16 @@ kept by another tool would be one more thing to go out of step.
    sending-only email key (Q14), and the address of the hosting service.
    Cloud-init user data is readable from inside the server only, and every
    secret in it is specific to hosted sectors.
-2. **Create the DNS name** `s-<id>.sectors.borderempires.com` pointing at the
-   new server. This needs `sectors.borderempires.com` delegated once, by the
-   owner, from Namecheap to Hetzner DNS, so the same token can manage it.
+2. **Create the DNS name** `<sector id>.borderempires-sectors.com` (ids look like `s-xxxx`) pointing at the
+   new server. Sectors use their own domain, `borderempires-sectors.com`
+   (registered at Namecheap on 2026-11-25 with Hetzner's nameservers), so the same token can
+   manage it. Hetzner DNS does not accept a subdomain such as
+   `sectors.borderempires.com` as a zone (its API answered "unsupported tld" when we tried, 2026-11-25), and Namecheap's API can only replace
+   all of `borderempires.com`'s records at once, which would put the main game
+   at risk; a separate domain keeps any mistake away from it.
 3. **The server deploys itself**: pulls the public image at the release the
-   production server runs, starts it, and generates the world. Caddy loads the
-   wildcard certificate it fetched from the hosting service (§11).
+   production server runs, starts it, and generates the world. Caddy obtains
+   the server's own HTTPS certificate (§11 on why not yet a wildcard).
 4. **The hosting service polls** `https://s-<id>…/health`. When it answers
    healthy, the sector is marked `open`, the host is added as its first
    member, and the "ready" email is sent.
@@ -193,7 +197,7 @@ If creation is slow or failing it says so plainly (§10).
 | Per-sector admin token | Hosting service and that one sector server | Generated at creation, stored in the hosting database, deleted with the sector. |
 | Signing key for membership tickets (§7) | Hosting service (private half); sector servers get only the public half | Same secrets file. |
 | Sending-only Resend key (Q14) | Every sector server | Sector configuration, written at creation. Separate from the production key, so it can be revoked alone. |
-| Wildcard certificate key for `*.sectors.borderempires.com` (§11) | Hosting service obtains it; every sector server holds a copy | Fetched by each sector server from the hosting service with its own admin token. |
+| Wildcard certificate key for `*.borderempires-sectors.com` (§11) | Hosting service obtains it; every sector server holds a copy | Fetched by each sector server from the hosting service with its own admin token. |
 
 During Stage 2 development, test-mode keys and a test-project token are asked
 for through the secure credential request. Live keys are entered by the owner
@@ -379,10 +383,11 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
 - **Hetzner's own limit** on servers per project is the one ceiling we do not
   control. The owner asks Hetzner to raise it before launch, and again when
   the alert marks above are passed.
-- **Let's Encrypt** issues at most 50 new certificates a week for
-  `borderempires.com`. With no cap this would stop new sectors in a busy
-  week, so sector servers use one wildcard certificate for
-  `*.sectors.borderempires.com` instead of one certificate each. A wildcard
+- **Let's Encrypt** issues at most 50 new certificates a week per registered
+  domain, here `borderempires-sectors.com` (separate from `borderempires.com`,
+  so sectors never use up the main game's allowance). With no cap this would
+  stop new sectors in a busy week, so sector servers are to use one wildcard certificate for
+  `*.borderempires-sectors.com` instead of one certificate each. A wildcard
   needs a DNS challenge, so the hosting service obtains and renews it with the
   Hetzner DNS token it already holds (sector servers never get that token),
   and each sector server fetches the certificate and key from the hosting
@@ -390,13 +395,29 @@ a server by mistake loses a paid contest, while leaving one costs cents a day.
   sector server exposes the key for all sectors until it is replaced, so the
   certificate is reissued and the old one revoked after any such incident.
   The alternative, if this proves awkward, is to proxy sector WebSockets
-  through the production Caddy by path. This is part of PR 4.
+  through the production Caddy by path.
+  **As built in PR 4 (2026-11-25):** each sector server's Caddy still
+  obtains its own certificate. That works up to about 50 new sectors a week
+  (fewer if staging and production also renew in the same week); the
+  `sector_running_count` alerts give warning. The wildcard follows before
+  sales open, and the owner is told if it has not landed by then.
 - **A kill switch**: one setting turns sales off without a deploy. Running
   sectors are not affected.
 
 ## 12. Split funding (the funding bar)
 
-Built last; cut first.
+Built last; cut first. **Kept for launch (owner, 2026-11-25), and built in
+PR 7.** As built: checkouts in progress do not reduce what is left, so
+nobody can lock the bar by starting a payment and leaving, and a member's new
+pledge closes their own unfinished one. When the holds reach the price they
+are charged in the order they were placed; the share that crosses the price is
+charged only the part still needed, and every other hold and open checkout is
+released. A failed capture is checked with Stripe: money taken anyway is
+counted, a hold still in place is tried again, and only a lapsed hold is
+dropped (the bar then stays open). Only holds placed before the 72-hour
+deadline count; an unfilled bar at the deadline releases every hold and
+refunds anything already charged. One contributor's refund or withdrawal
+leaves the sector running.
 
 1. A player opens a funding bar instead of paying in full: they choose the
    options and get a link to share. A bar has a deadline.
@@ -434,15 +455,29 @@ open: Q12 (legal pages and seller details) and Q13 (tax).
 [`legal-drafts/README.md`](legal-drafts/README.md) and a proposal for Q13 in
 [`hosted-sectors-tax.md`](hosted-sectors-tax.md). The company details
 are filled in; both still need a legal review and the accountant's
-confirmation, and sales stay off until then. One point changes Q1(b) and needs
-the owner's approval: for EU, EEA and UK consumers the drafts give a 14-day
-right to withdraw with a deduction for days used, because "no refund once
-opened" is unlikely to hold for a service there. The right ends once the
-contest has ended.
+confirmation, and sales stay off until then. One point changed Q1(b): for EU,
+EEA and UK consumers the drafts give a 14-day right to withdraw with a
+deduction for days used, because "no refund once opened" is unlikely to hold
+for a service there. The right ends once the contest has ended.
+
+**Owner answer, 2026-11-25:** the withdrawal right above is approved. Still
+open: the owner suggested removing the accounts of players who withdraw. It is
+not built. Removing a whole account for using a statutory right is likely to
+count as penalising that right, and would take the player's profile,
+cosmetics and other contests with it; the recommendation is that a withdrawal
+ends access to that one hosted sector only, which the refund already does
+(Q2). Waiting for the owner's answer after reading this.
+
+**Review of the drafts, 2026-11-25:** lists what the checkout, the hosting
+service and the emails must still do before sales open (among them a
+withdrawal button, two separate tick-boxes, proof of consent, a confirmation
+email and partial refunds), in
+[`legal-drafts/README.md`](legal-drafts/README.md#what-the-code-and-settings-must-do-before-sales-open).
+The Stripe test-mode work does not do these yet.
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23, (b) pending the note above.** |
+| Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23. (b) decided 2026-11-25: EU, EEA and UK consumers get the 14-day withdrawal with a deduction for days used, as drafted.** |
 | Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | **Accepted 2026-11-23.** Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
@@ -457,7 +492,7 @@ contest has ended.
 | Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
 | Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
 | Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
-| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; delegating `sectors.borderempires.com` to Hetzner DNS at Namecheap. | Needed before the first real server or test payment. |
+| Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; a domain for sector servers whose nameservers are Hetzner's. | **Done 2026-11-25:** Stripe test account, Hetzner project and token, and `borderempires-sectors.com` bought with Hetzner's nameservers; the Hetzner zone exists. |
 
 ## 14. Cost
 
@@ -471,9 +506,10 @@ on Hetzner's and Stripe's own price pages before launch.
 | Hetzner CX23 with IPv4 | about EUR 6 a month, billed by the hour (EUR 5.49 + 0.50, before VAT). The GDD's "about USD 10 a month" includes margin. |
 | A 30-day contest plus 3 days look-around (contests have no time limit; 30 days is a typical length, not a cap) | about EUR 6.60 |
 | 30-day safety snapshot | under EUR 0.10 |
+| Stripe Tax, if turned on | 0.5 % of a sale where a registration is added, about USD 0.10 |
 | Stripe fee on USD 20 | about USD 0.55 for a European card, up to about USD 1.35 for a card from outside Europe with currency conversion |
 | VAT, if the price is inclusive (Q13) | USD 4 of the USD 20 at Sweden's 25% (up to about USD 4.25 at the highest EU rate); none for many others |
-| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, before the Stripe Tax fee and any fees lost on refunds |
+| **Left over** | roughly USD 7–12 per sector, depending on the buyer's country and card, after the Stripe Tax fee and before any fees lost on refunds |
 
 A contest that ends early costs less. With no time limit (Q5), a sector that
 humans keep visiting runs until someone wins: each extra month costs about
@@ -497,7 +533,7 @@ players until the last one. Sales are behind a setting that is off by default.
 | 4 | **Hetzner provider.** Create, DNS, cloud-init, health wait, export, snapshot, delete; the reconciliation check; alerts; sector servers following the production release. | Test project only. **Creating the first real server waits for the owner's explicit go-ahead.** |
 | 5 | **Stripe, single host, test mode.** Checkout, webhook, expiry, refunds and disputes, automatic refund on failure, status page, emails, limits and the kill switch. Client changelog entry. | Stripe test mode only. No live keys. |
 | 6 | **Staging rehearsal and measurements.** A full test-mode purchase on staging creating a real test server: time to open, a forced failure, a teardown. Results recorded in `docs/load-results/`. | Test project, test mode, with the owner's go-ahead. |
-| 7 | **Split funding.** Funding bar, holds and capture, deadline release. | Stripe test mode. |
+| 7 | **Split funding.** Funding bar, holds and capture, deadline release. **Built 2026-11-25.** | Stripe test mode. |
 | 8 | **Launch readiness.** Runbook `docs/agents/hosted-sectors.md`, updates to `deploys.md`, `gdd.md` and `README.md`, legal page links, this plan archived. The owner enters live keys and turns sales on. | **Live charges start only when the owner turns the setting on.** |
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
