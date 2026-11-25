@@ -5,10 +5,11 @@
  * For a building's own unlock tech, research alone is not enough: an
  * uninstalled module unlocks nothing. Fort/Siege tier techs accept research
  * or an installed copy (the build handler's hasTech). Non-module techs still
- * need research. Shared by the build handler, the
+ * need research. Abilities (hasAbilityAccess) accept research or an
+ * installed copy, so a captured module casts for its captor. Shared by the build handler, the
  * auto-improve pass and the AI planner export so they cannot disagree.
  */
-import type { DomainTileState } from "@border-empires/game-domain";
+import { playerHasAbilityTech, type AbilityId, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { techEntryById } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 export const isAfcModuleTech = (techId: string): boolean => techEntryById.get(techId)?.manifestCategory === "AFC_MODULE";
@@ -38,3 +39,19 @@ export function installedAfcModuleTechIdsAmong(playerId: string, tiles: Iterable
 /** True when techId lets this player build: an installed module, or a researched non-module tech. */
 export const canBuildWithTech = (researched: ReadonlySet<string>, installedModules: ReadonlySet<string>, techId: string): boolean =>
   isAfcModuleTech(techId) ? installedModules.has(techId) : researched.has(techId);
+
+/** What a cast handler context offers for the module lookup; ownedAfcTileKeys narrows the scan. */
+export type AbilityAccessContext = {
+  tiles: ReadonlyMap<string, DomainTileState>;
+  ownedAfcTileKeys?: ((playerId: string) => Iterable<string>) | undefined;
+};
+
+/**
+ * True when the actor may cast the ability: every required tech is researched
+ * or, for an AFC module, installed on an active AFC they own. Research is
+ * checked first so the usual case never scans tiles.
+ */
+export function hasAbilityAccess(context: AbilityAccessContext, actor: Pick<DomainPlayer, "id" | "techIds">, id: AbilityId): boolean {
+  if (playerHasAbilityTech(actor.techIds, id)) return true;
+  return playerHasAbilityTech(actor.techIds, id, installedAfcModuleTechIds(actor.id, context.tiles, context.ownedAfcTileKeys?.(actor.id)));
+}

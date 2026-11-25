@@ -10,6 +10,9 @@
 //     own (destroyed, captured, removed, toggled off),
 //   - a drained tile changes owner, or loses its siphon stamp any other way
 //     (so no future write path can strand a tower in siphon mode),
+//   - the caster can no longer cast Siphon: the Transposition Array Module
+//     they cast it with was a captured copy on an AFC they have since lost,
+//     and they never researched it (the periodic sweepAccessLost),
 //   - one of the victim's own Aether Towers is shielding a drained tile
 //     again (isObservatoryShielding, aether-shield/aether-shield.ts: switched
 //     on, off cooldown, powered). A siphon can be cast onto land whose tower
@@ -25,13 +28,14 @@
 // victim are invalidated by those same tile writes (sabotage/observatory are
 // economy-relevant fields — runtime-economy-cache-invalidation.ts), and a
 // player-state update is pushed to each so dormancy flips show immediately.
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { isSiphonModeSabotage } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { someProtectionSquareKey } from "../aether-shield/aether-shield.js";
 import type { ObservatoryTileWriteDeps } from "../observatory-shots/observatory-shot-spend.js";
+import { hasAbilityAccess } from "../afc-module-build-access/afc-module-build-access.js";
 
-export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory";
+export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory" | "access_lost";
 
 export type SiphonEndRequest = {
   observatoryKey: string;
@@ -47,6 +51,10 @@ export type SiphonModeLifecycleDeps = ObservatoryTileWriteDeps & {
   isObservatoryShielding: (tile: DomainTileState) => boolean;
   /** isTileShieldedByOwnersObservatory (aether-shield.ts) with that same predicate. */
   isTileShieldedByOwner: (ownerId: string, x: number, y: number) => boolean;
+  /** Casters, for the access check (hasAbilityAccess); without it access is never re-checked. */
+  players?: ReadonlyMap<string, Pick<DomainPlayer, "id" | "techIds">>;
+  /** The player's AFC tile keys, so the access check scans only those. */
+  ownedAfcTileKeys?: (playerId: string) => Iterable<string>;
 };
 
 /** A tower keeps siphoning only while it is an active tower its caster owns, on land the caster owns. */
@@ -128,6 +136,28 @@ export const siphonEndsForShieldReturn = (
   return ends;
 };
 
+/**
+ * Siphons whose caster can no longer cast Siphon, for the periodic sweep.
+ * Research is permanent, but a captured module is lost with its AFC, and a
+ * siphon has no timer to run it out. `hasAccess` is asked once per caster.
+ */
+export const siphonEndsForLostAccess = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  towerKeys: Iterable<string>,
+  hasAccess: (casterId: string) => boolean
+): SiphonEndRequest[] => {
+  const ends: SiphonEndRequest[] = [];
+  const access = new Map<string, boolean>();
+  for (const observatoryKey of towerKeys) {
+    const observatory = tiles.get(observatoryKey)?.observatory;
+    if (!observatory?.siphon) continue;
+    const casterId = observatory.ownerId;
+    if (!access.has(casterId)) access.set(casterId, hasAccess(casterId));
+    if (!access.get(casterId)) ends.push({ observatoryKey, casterId, tileKeys: observatory.siphon.tileKeys, reason: "access_lost" });
+  }
+  return ends;
+};
+
 export class SiphonModeLifecycle {
   // Drained synchronously by flush(); ending a siphon writes tiles, which
   // re-enters onTileReplaced, so follow-up ends queue here instead of
@@ -146,8 +176,19 @@ export class SiphonModeLifecycle {
 
   /** Periodic victim-tower check (see siphonEndsForShieldReturn). Returns how many siphons it ended. */
   sweepShieldReturns(towerKeys: Iterable<string>, commandId: string): number {
-    for (const end of siphonEndsForShieldReturn(this.deps.tiles, towerKeys, this.deps.isTileShieldedByOwner)) this.pending.push({ ...end, commandId });
+    const keys = [...towerKeys];
+    for (const end of siphonEndsForShieldReturn(this.deps.tiles, keys, this.deps.isTileShieldedByOwner)) this.pending.push({ ...end, commandId });
+    for (const end of this.lostAccessEnds(keys)) this.pending.push({ ...end, commandId });
     return this.flush();
+  }
+
+  private lostAccessEnds(towerKeys: readonly string[]): SiphonEndRequest[] {
+    const { players, tiles, ownedAfcTileKeys } = this.deps;
+    if (!players) return [];
+    return siphonEndsForLostAccess(tiles, towerKeys, (casterId) => {
+      const caster = players.get(casterId);
+      return !caster || hasAbilityAccess({ tiles, ownedAfcTileKeys }, caster, "siphon");
+    });
   }
 
   /** Pushes a player-state update to each player whose slot supply a siphon just moved. */
