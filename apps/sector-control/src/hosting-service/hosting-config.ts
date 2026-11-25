@@ -20,6 +20,10 @@ export type HostingConfig = {
   maxActiveInvitesPerSector: number;
   /** The owner is told when the number of running sectors first reaches each mark (owner decision Q3: no cap, alerts instead). */
   runningCountAlertMarks: readonly number[];
+  /** Split funding: an unfilled bar is given up after this long and every hold released (owner decision Q10: 72 hours). */
+  fundingDeadlineMs: number;
+  /** Split funding: the smallest share, because of the payment provider's fixed fee per payment (plan section 12: USD 5). */
+  minContributionCents: number;
   /** Processed payment event ids are kept this long. */
   paymentEventRetentionMs: number;
 };
@@ -39,6 +43,8 @@ export const DEFAULT_HOSTING_CONFIG: HostingConfig = {
   inviteTtlMs: 30 * DAY,
   maxActiveInvitesPerSector: 5,
   runningCountAlertMarks: [10, 25, 50, 100, 150, 200],
+  fundingDeadlineMs: 72 * HOUR,
+  minContributionCents: 500,
   paymentEventRetentionMs: 90 * DAY
 };
 

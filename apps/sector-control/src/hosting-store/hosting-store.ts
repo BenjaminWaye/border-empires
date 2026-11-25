@@ -9,15 +9,19 @@ import type { HostedSectorOptions } from "@border-empires/shared";
  *
  * awaiting_payment -> creating -> open -> ended -> deleted
  *                  \-> cancelled   \-> refunded (creation failed, or refunded by the owner)
+ *
+ * A sector paid by several people (split funding, plan section 12) starts in
+ * "funding" instead: funding -> creating once its bar is full, or
+ * funding -> cancelled when the deadline passes first.
  */
-export const SECTOR_STATES = ["awaiting_payment", "creating", "open", "ended", "deleted", "cancelled", "refunded"] as const;
+export const SECTOR_STATES = ["awaiting_payment", "funding", "creating", "open", "ended", "deleted", "cancelled", "refunded"] as const;
 export type SectorState = (typeof SECTOR_STATES)[number];
 
 /**
  * States in which an account's order occupies its one slot. An ended sector
  * (kept up a few days to look around) does not stop its host buying the next.
  */
-export const LIVE_SECTOR_STATES: readonly SectorState[] = ["awaiting_payment", "creating", "open"];
+export const LIVE_SECTOR_STATES: readonly SectorState[] = ["awaiting_payment", "funding", "creating", "open"];
 
 export type SectorRecord = {
   sectorId: string;
@@ -34,6 +38,8 @@ export type SectorRecord = {
   hostname?: string;
   createdAt: number;
   updatedAt: number;
+  /** Split funding only: when an unfilled bar is given up and every hold released. */
+  fundingDeadline?: number;
   paidAt?: number;
   openedAt?: number;
   endedAt?: number;
@@ -42,6 +48,30 @@ export type SectorRecord = {
   nextAttemptAt?: number;
   lastError?: string;
 };
+
+/**
+ * One person's share of a split-funded sector.
+ *
+ * awaiting_payment -> held -> captured (the bar filled) -> refunded
+ *                  \-> cancelled  \-> released (the deadline passed, or the sector was closed)
+ */
+export const CONTRIBUTION_STATES = ["awaiting_payment", "held", "captured", "released", "cancelled", "refunded"] as const;
+export type ContributionState = (typeof CONTRIBUTION_STATES)[number];
+
+export type ContributionRecord = {
+  contributionId: string;
+  sectorId: string;
+  accountUid: string;
+  amountCents: number;
+  state: ContributionState;
+  paymentRef?: string;
+  checkoutUrl?: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+/** `amountCents` changes only when a share is partly captured: it is then what was charged. */
+export type ContributionPatch = { state?: ContributionState; amountCents?: number; paymentRef?: string | null; checkoutUrl?: string | null };
 
 export type SectorMember = { sectorId: string; accountUid: string; role: "host" | "member"; joinedAt: number };
 
@@ -57,6 +87,7 @@ export type SectorInvite = {
 /** Fields a transition may change. `null` clears a field. */
 export type SectorPatch = {
   state?: SectorState;
+  fundingDeadline?: number | null;
   paymentRef?: string | null;
   checkoutUrl?: string | null;
   serverRef?: string | null;
@@ -93,6 +124,12 @@ export interface HostingStore {
   getInvite(code: string): SectorInvite | undefined;
   countActiveInvites(sectorId: string, now: number): number;
   revokeInvite(code: string, now: number): boolean;
+
+  insertContribution(contribution: ContributionRecord): void;
+  getContribution(contributionId: string): ContributionRecord | undefined;
+  /** Applies `patch` only if the contribution is still in one of `fromStates`; false otherwise. */
+  transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean;
+  listContributions(sectorId: string): ContributionRecord[];
 
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;

@@ -247,8 +247,14 @@ launch product. The Terms of Sale cover hosted sectors only and say so
 14. **Accessibility.** The European Accessibility Act covers e-commerce
     services from 28 June 2025, with an exemption for microenterprises.
     **Question:** confirm TIDN AB is exempt.
-15. **Split funding** (several people paying for one sector) is not covered. It
-    needs its own clauses before it is sold.
+15. **Split funding** (several people paying for one sector) is drafted as
+    section 6a of the Terms of Sale (2026-11-25), as built: each share is a
+    separate purchase, held on the card until the bar is full, released if it
+    is not full within 72 hours. **Questions:** is holding a card for up to 72
+    hours before the contract is performed acceptable with the information
+    given; does each contributor's withdrawal right work as drafted (their own
+    share, less the days used, the sector keeps running); and must the order
+    confirmation (item 5 above) go to every contributor at capture.
 
 ## Points the accountant should look at
 
