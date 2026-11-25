@@ -385,3 +385,5 @@ body.hud-v2-screen-afc #side-panel {
 .v2l-row small { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2l-unfed .v2l-name small { color: var(--v2-amber); }
 .v2l-num { justify-self: end; display: grid; justify-items: end; font-family: var(--v2-mono); font-size: 13px; }
+.v2l-body { padding: 2px 14px 12px 35px; background: #221c13; border-left: 3px solid var(--v2-gold); display: grid; gap: 8px; }
+.v2l-body p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }

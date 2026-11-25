@@ -4,6 +4,7 @@
 // through the existing handlers; the destination screens live in
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
+import { takeRequestedLoreEntry } from "../client-lore-catalogue/lore-catalogue-entries.js";
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
@@ -425,6 +426,14 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (dashboardTab) {
       screen.chronicleTab = dashboardTab;
       openScreen(deps, "chronicle");
+    }
+    // A "?" elsewhere in the game opens the Chronicle's Lore tab on its entry.
+    const loreEntry = takeRequestedLoreEntry();
+    if (loreEntry) {
+      screen.chronicleTab = "lore";
+      screen.chronicleOpenLore = loreEntry;
+      openScreen(deps, "chronicle");
+      requestAnimationFrame(() => document.querySelector(`[data-v2-lore="${CSS.escape(loreEntry)}"]`)?.scrollIntoView({ block: "center" }));
     }
     // A player profile (crest, a name, Ranks) opens as its own screen; dismissing it closes the screen.
     const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);

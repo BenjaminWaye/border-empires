@@ -39,12 +39,14 @@ export type HudV2ScreenState = {
   manifestClosedLanes: Set<string>;
   diplomacyTargetId: string | undefined;
   chronicleRival: string;
-  chronicleTab: "yours" | "ahead" | "world" | "updates";
+  chronicleTab: "yours" | "ahead" | "world" | "updates" | "lore";
   /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
   chronicleUpdatesBaseline: number | undefined;
   /** The release note opened on Updates (its updateKey); undefined opens the newest unread, null closes all. */
   chronicleOpenUpdate: string | null | undefined;
   chronicleSelectedId: string | undefined;
+  /** The Lore entry shown open (lore-catalogue-entries.ts id). */
+  chronicleOpenLore: string | undefined;
   /** Activity read watermark when the Chronicle opened, so its "while you were away" losses stay put once marked read. */
   chronicleAwaySince: number | undefined;
   townBuildSelection: string | undefined;
@@ -61,6 +63,7 @@ export const screen: HudV2ScreenState = {
   chronicleUpdatesBaseline: undefined,
   chronicleOpenUpdate: undefined,
   chronicleSelectedId: undefined,
+  chronicleOpenLore: undefined,
   chronicleAwaySince: undefined,
   townBuildSelection: undefined,
   townCategory: undefined

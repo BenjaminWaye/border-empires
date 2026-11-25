@@ -33,6 +33,7 @@ import { BEACON_TOWARD_ENTRY } from "./client-changelog-beacon-toward.js";
 import { BEACON_TOWARD_FRONTIER_ENTRY } from "./client-changelog-beacon-toward-frontier.js";
 import { TOWN_CLOSEUP_CRASH_ENTRY } from "./client-changelog-town-closeup-crash.js";
 import { NAME_BOX_CONFIRM_ENTRY } from "./client-changelog-name-box-confirm.js";
+import { LORE_CATALOGUE_ENTRY } from "./client-changelog-lore-catalogue.js";
 
 export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...ACCOUNT_COSMETICS_ENTRY, createdAt: 1795471602875, },
@@ -73,4 +74,5 @@ export const NOV_23_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_CLOSEUP_CRASH_ENTRY, createdAt: 1795615287618, },
   { ...BEACON_TOWARD_FRONTIER_ENTRY, createdAt: 1795618792735, },
   { ...NAME_BOX_CONFIRM_ENTRY, createdAt: 1795620359411, },
+  { ...LORE_CATALOGUE_ENTRY, createdAt: 1795632934073, }, // Date.now() captured once for this entry.
 ];

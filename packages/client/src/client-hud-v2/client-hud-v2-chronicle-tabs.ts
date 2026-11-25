@@ -1,8 +1,9 @@
 // Chronicle tabs for the new HUD. Chronicle replaces the legacy activity
 // dashboard: Yours (the personal timeline, with Show buttons),
 // Ahead (the forecast of what is still to come, client-hud-v2-chronicle-ahead.ts),
-// World (the daily world pulse) and Updates (release notes, in
-// client-hud-v2-chronicle-updates.ts). The dashboard's
+// World (the daily world pulse), Updates (release notes, in
+// client-hud-v2-chronicle-updates.ts) and Lore (the setting, in
+// client-hud-v2-chronicle-lore.ts). The dashboard's
 // own auto-open is routed here with the tab it would have shown.
 
 import type { WorldPulse } from "@border-empires/game-domain";
@@ -23,7 +24,7 @@ export type ChronicleTabsInput = { tab: ChronicleTab; unreadActivity: number; un
 export const chronicleTabsHtml = (input: ChronicleTabsInput): string => {
   const tab = (id: ChronicleTab, label: string, badge: number): string =>
     `<button type="button" role="tab" class="v2c-tab${input.tab === id ? " v2c-tab-on" : ""}" aria-selected="${input.tab === id}" data-v2-chronicle-tab="${id}">${label}${badge > 0 ? `<span class="v2c-tab-badge">${Math.min(99, badge)}</span>` : ""}</button>`;
-  return `<div class="v2c-tabs" role="tablist" aria-label="Chronicle">${tab("yours", "Yours", input.unreadActivity)}${tab("ahead", "Ahead", 0)}${tab("world", "World", 0)}${tab("updates", "Updates", input.unseenUpdates)}</div>`;
+  return `<div class="v2c-tabs" role="tablist" aria-label="Chronicle">${tab("yours", "Yours", input.unreadActivity)}${tab("ahead", "Ahead", 0)}${tab("world", "World", 0)}${tab("updates", "Updates", input.unseenUpdates)}${tab("lore", "Lore", 0)}</div>`;
 };
 
 export type WorldTabInput = { pulse: WorldPulse | undefined; loading: boolean; error: string | undefined };

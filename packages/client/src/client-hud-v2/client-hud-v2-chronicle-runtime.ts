@@ -9,6 +9,7 @@ import { storageGet, storageSet } from "../client-state/client-storage.js";
 import { focusCamera, screen, screenCentre, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleProgressForState } from "./client-hud-v2-chronicle-progress.js";
+import { loreTabHtml, toggledLoreEntry } from "./client-hud-v2-chronicle-lore.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
 import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 import { aheadTabHtml } from "./client-hud-v2-chronicle-ahead.js";
@@ -84,7 +85,9 @@ export const renderChronicle = (deps: HudV2Deps): void => {
   }
   const body = tab === "world"
     ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError })
-    : updatesTabHtml(screen.chronicleUpdatesBaseline ?? state.changelog.seenAt, screen.chronicleOpenUpdate);
+    : tab === "lore"
+      ? loreTabHtml(screen.chronicleOpenLore)
+      : updatesTabHtml(screen.chronicleUpdatesBaseline ?? state.changelog.seenAt, screen.chronicleOpenUpdate);
   writeHtml("v2c-drawer", `${chronicleHeadHtml(tabs)}${body}`);
   if (tab === "updates" && unseenClientChangelogEntries(state.changelog.seenAt).length > 0) {
     markClientChangelogSeen(state, latestClientChangelogTimestamp(), storageSet);
@@ -140,8 +143,14 @@ export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => 
     renderChronicle(deps);
     return true;
   }
+  const lore = target.closest<HTMLElement>("[data-v2-lore]")?.dataset.v2Lore;
+  if (lore) {
+    screen.chronicleOpenLore = toggledLoreEntry(screen.chronicleOpenLore, lore);
+    renderChronicle(deps);
+    return true;
+  }
   const tab = target.closest<HTMLElement>("[data-v2-chronicle-tab]")?.dataset.v2ChronicleTab;
-  if (tab !== "yours" && tab !== "ahead" && tab !== "world" && tab !== "updates") return false;
+  if (tab !== "yours" && tab !== "ahead" && tab !== "world" && tab !== "updates" && tab !== "lore") return false;
   aheadCache = undefined;
   screen.chronicleTab = tab;
   loadChronicleTab(deps, tab);

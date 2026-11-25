@@ -6,7 +6,7 @@ import { chronicleTabsHtml } from "./client-hud-v2-chronicle-tabs.js";
 describe("Chronicle Ahead tab", () => {
   it("sits between Yours and World", () => {
     const tabs = chronicleTabsHtml({ tab: "ahead", unreadActivity: 2, unseenUpdates: 0 });
-    expect([...tabs.matchAll(/data-v2-chronicle-tab="(\w+)"/g)].map((m) => m[1])).toEqual(["yours", "ahead", "world", "updates"]);
+    expect([...tabs.matchAll(/data-v2-chronicle-tab="(\w+)"/g)].map((m) => m[1])).toEqual(["yours", "ahead", "world", "updates", "lore"]);
     expect(tabs).toContain(`class="v2c-tab v2c-tab-on" aria-selected="true" data-v2-chronicle-tab="ahead">Ahead</button>`);
   });
 
