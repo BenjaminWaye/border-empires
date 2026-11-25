@@ -46,9 +46,17 @@ describe("Relay Beacon toward here", () => {
     expect(relayBeaconTowardAction(stateWith([home, sea], ["10,10"]), sea)).toBeUndefined();
   });
 
-  it("says why it is greyed when no garrisoned land can take a beacon", () => {
-    const frontierOnly = tile(10, 10, { ownerId: "me", ownershipState: "FRONTIER" });
-    expect(relayBeaconTowardAction(stateWith([frontierOnly, grain], ["10,10"]), grain)).toMatchObject({ disabled: true, disabledReason: NO_BEACON_SITE_REASON });
+  // Owner: a beacon goes on frontier land, which is then garrisoned; it needs no garrisoned tile to start from.
+  it("starts placement on frontier land in reach, which the beacon chain garrisons first", () => {
+    const frontier = tile(10, 10, { ownerId: "me", ownershipState: "FRONTIER" });
+    const state = stateWith([frontier, grain], ["10,10"]);
+    expect(relayBeaconTowardAction(state, grain)?.disabled).toBe(false);
+    expect(startRelayBeaconTowardPlacement(state, grain)).toEqual({ x: 10, y: 10 });
+  });
+
+  it("says why it is greyed when nothing in reach can take a beacon", () => {
+    const frontier = tile(10, 10, { ownerId: "me", ownershipState: "FRONTIER" });
+    expect(relayBeaconTowardAction(stateWith([frontier, grain], []), grain)).toMatchObject({ disabled: true, disabledReason: NO_BEACON_SITE_REASON });
   });
 
   it("shows as a button on the bar beside Expand To, not hidden in the minor row", () => {
