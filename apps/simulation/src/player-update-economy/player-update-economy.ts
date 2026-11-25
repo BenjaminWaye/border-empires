@@ -13,7 +13,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { EMPIRE_INTEGRITY_INCOME_LABEL, biotaBlend, biotaShareMet, converterModeOf, isInnerSupportRing, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townSupportCoinMultiplier, townTerrainModifiers, type TownSupportCounts } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_INCOME_LABEL, townFocusMultipliers, biotaBlend, biotaShareMet, converterModeOf, isInnerSupportRing, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townSupportCoinMultiplier, townTerrainModifiers, type TownSupportCounts } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -191,7 +191,9 @@ export const townGoldPerMinuteForPlayer = (
     resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome),
     resolvedTownCoastal(town.terrainProfile, tile.landBiome, town.coastal)
   ).goldMultiplier;
-  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT;
+  // Town focus (docs/town-focus-plan.md): Commerce raises, Growth and Levy lower the town's whole Coin.
+  const focusCoinMult = townFocusMultipliers(town).coin;
+  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT * focusCoinMult;
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   // manufactory-stacking task: MANUFACTORY's gold bonus stacks additively per active
@@ -211,7 +213,7 @@ export const townGoldPerMinuteForPlayer = (
         : false;
     });
   const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
-  return (
+  return focusCoinMult * ((
     TOWN_BASE_GOLD_PER_MIN *
     terrainGoldMultiplier *
     townSupportCoinMultiplier(support, townPopulationMultiplier("TOWN"), biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(town.populationTier), biotaShare)) *
@@ -220,7 +222,7 @@ export const townGoldPerMinuteForPlayer = (
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute;
+  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute);
 };
 
 export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";

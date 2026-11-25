@@ -246,13 +246,16 @@ export const handleScoutPlanTap = (
 
 export type ScoutPlanLaunchDeps = { sendGameMessage?: ((payload: unknown) => boolean) | undefined };
 
-/** Go: sends the plan's stops (as the route reaches them) and closes the plan. With a drone out, the server adds them to its route. */
+/**
+ * Go: sends the plan's stops (as the route reaches them) and closes the plan. With a drone out, the server adds them to its route.
+ * A refused send (session down during a server update) keeps the plan open so Go can be pressed again.
+ */
 export const launchScoutPlan = (state: ScoutPlanState, deps: ScoutPlanLaunchDeps, nowMs: number): boolean => {
   const preview = scoutPlanPreview(state, state.scoutDronePicking.stops, nowMs);
   if (!preview || preview.route.stops.length === 0 || !deps.sendGameMessage) return false;
   const stops = preview.route.stops.map((stop) => ({ x: stop.x, y: stop.y }));
   const first = stops[0]!;
-  deps.sendGameMessage({ type: "EXPLORE", x: first.x, y: first.y, waypoints: stops });
+  if (!deps.sendGameMessage({ type: "EXPLORE", x: first.x, y: first.y, waypoints: stops })) return false;
   state.scoutDronePicking.launches += 1;
   cancelScoutPlan(state);
   return true;

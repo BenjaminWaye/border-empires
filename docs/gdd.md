@@ -230,9 +230,10 @@ baseline.
 ## 11. Open items to verify before launch
 
 - What one server can hold, including the load when the map is fully revealed.
-  *Partly answered 2026-11-23*
+  *Partly answered 2026-11-23 and 2026-11-24*
   ([`load-results/full-reveal-2026-11-23.md`](load-results/full-reveal-2026-11-23.md),
-  [`load-results/sector-memory-2026-11-23.md`](load-results/sector-memory-2026-11-23.md)):
+  [`load-results/sector-memory-2026-11-23.md`](load-results/sector-memory-2026-11-23.md),
+  [`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)):
   - One revealed player did degrade the server for everyone. The cause was
     found and fixed: the whole map was being re-sent on every change.
   - After the fix, 100 Houses (60 AI and 40 connected humans) with up to four
@@ -240,12 +241,25 @@ baseline.
   - Memory: 100 Houses ran at about 0.9–1.1 GB with half the land owned,
     after about 150 MB of waste and one leak were removed. That is inside a
     small server's 4 GB.
-  - Still open: the same tests late in a contest (the longest run was 100
-    minutes), on the real Hetzner server, with humans who actively play. Until
-    then the hosting price is not settled.
-  - Decided 2026-11-23: raise the checkpoint memory watermark from 700 MB to
-    1,250 MB so checkpoints are saved about every 52 seconds again. The right
-    value for a late contest is still to be confirmed by the long test.
+  - Known 2026-11-24, with humans who send real commands and reconnect, one
+    revealed session, in the production base image on two cores: the first
+    nine game hours fit a 4 GB server with about 2.7 GB unused, at about 40 %
+    of one core. The server is not what gives out first. The simulation's
+    900 MB heap limit is: it held about 490 MB after nine game hours, peaked
+    at 685 MB, and was still rising slowly when the runs ended.
+  - Still open: whether that growth stops. Nine game hours is about 1 % of a
+    contest, it was not on the real Hetzner server, and all 40 humans were
+    online throughout, where real players take a 15–30 minute turn about
+    every four hours. Next (owner, 2026-11-24): a run of days on the owner's
+    own machine with humans playing in turns. Until then the hosting price
+    is not settled.
+  - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
+    process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
+    watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
+    100 Houses. 1,250 MB held early in a contest but not on a world with about
+    nine game hours of play (1.2–1.3 GB); in every run so far 1,500 MB would
+    have put off none. Still to confirm on a run of days
+    ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.

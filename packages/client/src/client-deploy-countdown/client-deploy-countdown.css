@@ -1,0 +1,25 @@
+/* Deploy countdown ("Server update · back in ~1:20"). Fixed-width digits stop
+   the line shifting every second; on a 375px phone the card title wraps to
+   two balanced lines instead of leaving "~1:20" alone on the second. */
+#auth-busy-title[data-countdown="true"] {
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+  overflow-wrap: normal;
+}
+
+#map-loading-title {
+  font-variant-numeric: tabular-nums;
+}
+
+/* In-game reconnect banner (client-map-loading-layer.ts): above every HUD
+   card inside #hud, and the body-level cards that would cover it step aside
+   until the session is back. */
+body.map-reconnect-banner #map-loading-overlay {
+  z-index: 80;
+}
+
+body.map-reconnect-banner #tutorial-guide-root,
+body.map-reconnect-banner .onb-root,
+body.map-reconnect-banner #discovery-tip-overlay {
+  display: none !important;
+}

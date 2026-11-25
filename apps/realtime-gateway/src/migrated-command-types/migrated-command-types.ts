@@ -34,6 +34,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "SET_CONVERTER_STRUCTURE_ENABLED",
   "SET_CONVERTER_STRUCTURE_MODE",
   "ASSIGN_REFINERY_FIELD",
+  "SET_TOWN_FOCUS",
   "SET_OBSERVATORY_ENABLED",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",

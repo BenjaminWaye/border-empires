@@ -1,5 +1,6 @@
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS, RECONNECT_OVERLAY_GRACE_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { deployCountdownLabel } from "../client-deploy-countdown/client-deploy-countdown.js";
 
 export type MapLoadingView = {
   title: string;
@@ -59,7 +60,7 @@ export const isMapLoadingOverlayActive = (
 const SOFT_HINT_THRESHOLD_MS = AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS;
 const ACTION_AFFORDANCE_THRESHOLD_MS = 25_000;
 
-export const buildMapLoadingView = (
+const buildBaseMapLoadingView = (
   state: Pick<
     ClientState,
     | "connection"
@@ -73,7 +74,8 @@ export const buildMapLoadingView = (
     | "authBusyTitle"
     | "authBusyDetail"
     | "serverDeploying"
-  >,
+  > &
+    Partial<Pick<ClientState, "deployStatus">>,
   wsUrl: string,
   now: number = Date.now()
 ): MapLoadingView => {
@@ -210,4 +212,14 @@ export const buildMapLoadingView = (
     showReportBug: false,
     tone: "normal"
   };
+};
+
+type MapLoadingViewState = Parameters<typeof buildBaseMapLoadingView>[0];
+
+export const buildMapLoadingView = (state: MapLoadingViewState, wsUrl: string, now: number = Date.now()): MapLoadingView => {
+  const view = buildBaseMapLoadingView(state, wsUrl, now);
+  // A running deploy (from /__deploy_status.json) replaces the offline copy
+  // with a countdown; any Retry/Reload the outage already offers stays.
+  const countdown = deployCountdownLabel(state, now);
+  return countdown ? { ...view, title: countdown, meta: "Reconnecting automatically…", tone: "normal" } : view;
 };

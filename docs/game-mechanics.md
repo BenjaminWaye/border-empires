@@ -115,6 +115,34 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 - **Nothing "builds" a town or settlement, and no player command creates one from scratch.** The only ways to *end up owning* a town are: (1) EXPAND then SETTLE onto a tile that already carries a `town` record (almost always one of the neutral towns world gen pre-placed — see §2), or (2) ATTACK an enemy-owned town tile, which likewise transfers the existing town record rather than creating a new one. The one town every player has without doing either is their single free starting SETTLEMENT-tile, and even that is assigned by the *system's* spawn/respawn code, not a player action (`apps/simulation/src/runtime-respawn-helpers.ts:168`). Once owned, a town can *grow* through population tiers over time (SETTLEMENT → TOWN → CITY → GREAT_CITY → METROPOLIS, `packages/shared/src/town-growth/town-growth.ts`) based on food/resources/upkeep — passive growth, not a build action. `packages/shared/src/structure-registry/structure-registry.ts` is the actual buildable-things registry (Relay Beacon, Fort, Dock, etc.) — towns/settlements are never in it.
 - Movement is implicit. Frontier actions originate from any adjacent owned tile, or from an owned dock onto the landing ground of a dock it links to, or from aether-bridged tiles. `packages/game-domain/src/index.ts:20, 171-257`, `packages/shared/src/types.ts:415-421`
 
+### Town focus
+
+Each owned town has a focus, chosen for free from its tile menu
+(`SET_TOWN_FOCUS`, `packages/shared/src/town-focus/town-focus.ts`):
+
+| Focus | Population growth | Manpower regen | Coin |
+|---|---|---|---|
+| Balanced (default) | ×1 | ×1 | ×1 |
+| Growth | ×1.2 | ×0.9 | ×0.9 |
+| Levy | ×0.9 | ×1.2 | ×0.9 |
+| Commerce | ×0.9 | ×0.9 | ×1.2 |
+
+- Levy scales only the town's own base regen, before the settlement-index
+  weight; the manpower cap, the AFC baseline and structure regen are untouched.
+  Commerce scales the town's whole Coin, Manufactory and converter shares
+  included. Growth multiplies the growth rate and lifts no pause.
+- A change is queued and starts at the owner's next manpower refill
+  (`nextManpowerRefillAtMs`). After each population growth tick the
+  simulation settles the owner's income and manpower at the old rates, then
+  makes the queued focus active (`apps/simulation/src/town-focus/`). Manpower
+  earned under the new focus is first paid at the following refill.
+- A town that changes hands by any route starts Balanced with nothing queued
+  (`withoutForeignTownFocus`, applied at the tile-write chokepoint).
+- The command takes up to 100 towns, skips towns the sender does not own and
+  writes nothing for a town whose queued focus would not change.
+- AI Houses do not set a focus yet; they stay Balanced.
+- The focus travels in the town record, so other players' clients receive it.
+
 ## 5. Structures
 
 - **One structure per tile** (mutex). Must be placed on a `SETTLED` tile owned by the builder.

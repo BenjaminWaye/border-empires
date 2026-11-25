@@ -6,6 +6,7 @@ import { attackSyncLog, recordClientDebugEvent } from "../client-debug/client-de
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { clearAuthOffline, DEPLOY_WAIT_DETAIL, DEPLOY_WAIT_TITLE, markAuthOffline } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
+import { createDefaultDeployStatusFetcher, createDeployStatusPoller, type DeployStatusPoller } from "../client-deploy-countdown/client-deploy-status-poller.js";
 
 // While the next Sector Contest's world is built the server can be briefly
 // unreachable; say so instead of a bare "Server unreachable".
@@ -25,6 +26,10 @@ interface SocketLifecycleDeps {
   applyLoginPhase: (title: string, detail: string) => void;
   authenticateSocket: () => Promise<void>;
   renderHud: () => void;
+  /** Re-renders the login overlay so its deploy countdown ticks. */
+  syncAuthOverlay?: () => void;
+  /** Test seam; defaults to polling /__deploy_status.json on the page origin. */
+  deployStatusPoller?: DeployStatusPoller;
 }
 
 interface SocketLifecycle {
@@ -45,6 +50,17 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     actionAcceptedAck: state.actionAcceptedAck,
     combatStartAck: state.combatStartAck,
     capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
+  });
+
+  // While offline, a running server deploy turns "Reconnecting…" into a
+  // countdown on the login card and the in-game reconnect banner.
+  const deployStatus = deps.deployStatusPoller ?? createDeployStatusPoller({
+    state,
+    fetchStatus: createDefaultDeployStatusFetcher(),
+    onChange: () => {
+      deps.renderHud();
+      deps.syncAuthOverlay?.();
+    }
   });
 
   const reconnect = createInPlaceReconnectScheduler({
@@ -87,6 +103,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
     }
     deps.clearAuthReconnectTimer();
     reconnect.schedule();
+    deployStatus.start();
     deps.renderHud();
   };
 
@@ -137,6 +154,7 @@ export const bindClientSocketLifecycle = (deps: SocketLifecycleDeps): SocketLife
 
   const recovered = (): void => {
     clearAuthOffline(state);
+    deployStatus.stop();
     reconnect.resetAttempt();
   };
 

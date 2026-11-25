@@ -1,4 +1,4 @@
-import { processAutoBuilds } from "./client-structure-build-trigger/client-process-auto-builds.js";
+import { processAutoBuilds } from "./client-structure-build-trigger/client-process-auto-builds.js"; import { blockOfflineGameCommand } from "./client-offline-command-guard/client-offline-command-guard.js";
 import { dispatchTileAetherAction } from "./client-afc-upgrades/client-afc-tower-action.js";
 import { createGarrisonManyFlow } from "./client-garrison-many/client-garrison-many.js";
 import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
@@ -253,7 +253,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
-    if (!requireAuthedSession(message)) {
+    if (blockOfflineGameCommand(state, showCaptureAlert) || !requireAuthedSession(message)) {
       return false;
     }
     if (
