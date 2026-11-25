@@ -32,7 +32,6 @@ export const marchOriginBannerModel = (state: ClientState, nowMs = Date.now()): 
   return { target, flags: options.flags, canRaiseFlag: Boolean(options.newFlag) };
 };
 
-
 export const marchOriginBannerHtml = (model: MarchOriginBannerModel): string => {
   const { target, flags, canRaiseFlag } = model;
   const parts = [`<strong>March to (${target.x}, ${target.y})</strong>`];
