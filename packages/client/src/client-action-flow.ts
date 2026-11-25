@@ -25,7 +25,7 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
-import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js";
+import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js"; import { openRelicSiteCardAt } from "./client-relic-overlay/relic-site-plates.js"; // a tap on a relic site opens its card, not a scout plan
 import { handleCrystalTargetingClick } from "./client-tile-action-logic/client-crystal-targeting.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
@@ -1398,7 +1398,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
+    if ((!state.scoutDronePicking.active && openRelicSiteCardAt(state, wx, wy)) || handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
     if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement(); // re-tapping a valid previewed tile confirms
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderPlacementOverlay(); renderHud(); return; }
     // Local reach approximation (client-reach-overlay.ts MOCK-DATA SEAM); only logged by the tile-sync debug below.

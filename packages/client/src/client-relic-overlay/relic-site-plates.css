@@ -1,0 +1,143 @@
+/* Relic site plates (relic-site-plates.ts): the town plate's flat ink panel and
+   1px brass edge, a diamond badge in the operating House's colour, and that
+   colour as the line along the bottom. Values mirror client-town-nameplates.css. */
+.relic-plate-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.relic-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  white-space: nowrap;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.relic-plate::before { content: ""; position: absolute; inset: -8px; }
+.relic-plate-badge {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-right: -6px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid #8a6f35;
+  background: #16130e;
+  color: var(--relic-owner, #b98cff);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55);
+}
+.relic-plate-badge svg { width: 15px; height: 15px; }
+.relic-plate-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 3px 10px 4px 13px;
+  background: rgba(15, 13, 10, 0.94);
+  border: 1px solid #8a6f35;
+  box-shadow: inset 0 -2px 0 var(--relic-owner, #b98cff), 0 4px 8px rgba(0, 0, 0, 0.55);
+  text-align: left;
+}
+.relic-plate-title {
+  font: 700 11.5px/1 var(--sp-font-display, "Cinzel", Georgia, serif);
+  letter-spacing: 0.06em;
+  color: #ece2cc;
+}
+.relic-plate-detail,
+.relic-plate-distance {
+  font: 400 10px/1.1 var(--sp-font-mono, "Space Mono", monospace);
+  color: #a8997c;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relic-plate-distance { color: #8f846d; }
+/* A small tail points down at the site. */
+.relic-plate:not(.is-edge)::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 7px;
+  height: 7px;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: rgba(15, 13, 10, 0.94);
+  border-right: 1px solid #8a6f35;
+  border-bottom: 1px solid #8a6f35;
+}
+.relic-plate.is-signal .relic-plate-body { border-color: #5a4828; }
+.relic-plate.is-signal .relic-plate-title { color: #d3e7be; }
+.relic-plate.is-edge .relic-plate-arrow {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  color: var(--relic-owner, #b98cff);
+  rotate: var(--relic-arrow-angle, 0rad);
+  filter: drop-shadow(0 1px 2px #000);
+}
+.relic-plate.is-edge .relic-plate-arrow svg { width: 12px; height: 12px; }
+.relic-plate.is-open .relic-plate-body,
+.relic-plate:focus-visible .relic-plate-body { border-color: #d9ad52; }
+.relic-plate:focus-visible { outline: none; }
+.relic-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 220px;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  background: #16130e;
+  border: 1px solid #8a6f35;
+  box-shadow: inset 0 -2px 0 var(--relic-owner, #b98cff), 0 8px 18px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+.relic-card[hidden] { display: none; }
+.relic-card-head { display: flex; align-items: center; gap: 10px; }
+.relic-card-head .relic-plate-badge { margin: 0; }
+.relic-card-title {
+  font: 700 13px/1.1 var(--sp-font-display, "Cinzel", Georgia, serif);
+  letter-spacing: 0.05em;
+  color: #ece2cc;
+}
+.relic-card-detail {
+  margin-top: 3px;
+  font: 400 10.5px/1.2 var(--sp-font-mono, "Space Mono", monospace);
+  color: var(--relic-owner, #b98cff);
+}
+.relic-card-where {
+  margin-top: 9px;
+  font: 400 10.5px/1 var(--sp-font-mono, "Space Mono", monospace);
+  color: #a8997c;
+}
+.relic-card-actions { display: flex; gap: 8px; margin-top: 11px; }
+.relic-card-actions button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid #8a6f35;
+  background: #1e1912;
+  color: #ece2cc;
+  font: 700 10.5px/1 var(--sp-font-display, "Cinzel", Georgia, serif);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.relic-card-actions button + button { border-color: #5a4828; color: #a8997c; }
+.relic-plate.is-edge-right .relic-plate-arrow { order: 3; margin: 0 0 0 2px; }

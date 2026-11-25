@@ -297,7 +297,9 @@ export const drawMiniMap = (options: {
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
       cctx.strokeStyle = hint.kind === "WAKE" ? "#c9a8ff" : depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
-      const k = markerScale; cctx.lineWidth = 1.5 * uiScale; cctx.strokeRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k);
+      // The diamond of the map's relic plates (relic-site-plates.ts), filled so it reads at minimap size.
+      const k = markerScale, r = 3.5 * k; cctx.lineWidth = 1.5 * uiScale; cctx.fillStyle = "#16130e";
+      cctx.beginPath(); cctx.moveTo(x, y - r); cctx.lineTo(x + r, y); cctx.lineTo(x, y + r); cctx.lineTo(x - r, y); cctx.closePath(); cctx.fill(); cctx.stroke();
       if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
       if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
     };

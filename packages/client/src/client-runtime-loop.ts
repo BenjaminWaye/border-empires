@@ -183,7 +183,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   const syncRoadNetwork = createCanvasRoadNetwork({ tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
   const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
-  });
+  }, { renderHud: deps.renderHud, requestViewRefresh: () => deps.requestViewRefresh(), wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
   const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });
   // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).

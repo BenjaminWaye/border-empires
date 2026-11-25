@@ -46,13 +46,17 @@ empty-cell symbol and the tile information/dialog says **Depleted**.
 
 **Aether wake.** While an installation is garrisoned (SETTLED) and not
 depleted, it gives off an aether wake every other House sees, through fog and
-unexplored ground: a tall column in the operating House's colour on both map
-renderers and a violet marker on the minimap (with an edge arrow when it is
-off the minimap's view). The wake carries the location and the operating
+unexplored ground: a named plate on the site on both map renderers
+("Concordance relic", the operating House, in that House's colour; a tab on
+the screen edge with the distance when the site is off screen) and a violet
+diamond on the minimap (with an edge arrow when it is off the minimap's view).
+A transponder in signal range shows a "Relic signal" plate instead. Tapping a
+plate, or the site's tile, opens the site's card (Show, Send scout) rather
+than a scout flight plan (`relic-site-plates.ts`). The wake carries the location and the operating
 House only, never the installation type or reserves (`kind: "WAKE"` relic map
 hint, `relicWakeOwner` in `runtime-relic-map-hints.ts`), though a wake that
 ends while the same House still holds the site shows the relic is spent. It
-replaces that House's anonymous transponder beam for the site. The operator
+replaces that House's anonymous transponder signal for the site. The operator
 sees no wake of its own. A relic held only as frontier, unowned or depleted
 gives none. Both renderers use the same owner colour (the map overlay colour,
 so the Diplomacy view recolours it). When a relic starts, stops or changes
@@ -68,9 +72,9 @@ the camera on the relic rather than the pressed edge
 (`client-minimap-relic-hit.ts`).
 
 A maintenance transponder identifies a relic's location once a House has a
-garrison within 12 tiles. The anonymous column can appear through unexplored
+garrison within 12 tiles. Its "Relic signal" plate can appear through unexplored
 ground and is marked on the minimap. The signal discloses no installation type,
-owner or current reserve. A remembered depleted site suppresses its beam and
+owner or current reserve. A remembered depleted site suppresses its plate and
 uses a crossed minimap marker. Known ruins remain marked after leaving proximity range. Both renderers retain
 a sealed ruin in remembered terrain, using the last observed banner and reserve.
 Hidden capture or reserve changes do not update that remembered state. Survey signatures use separate resource markers and
