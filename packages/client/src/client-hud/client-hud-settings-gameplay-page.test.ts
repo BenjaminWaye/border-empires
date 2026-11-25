@@ -1,7 +1,7 @@
 import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
-import { settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
+import { hostedSectorsCardHtml, settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
 
 const gameplayState = {
   authSessionReady: true,
@@ -16,6 +16,13 @@ describe("Settings > Gameplay", () => {
     expect(html).not.toContain("data-siege-tower-rotation-mode");
     expect(html).not.toContain("Siege Tower Aim");
     expect(html).not.toContain("<select");
+  });
+
+  it("shows no trace of hosted sectors until the build turns them on", () => {
+    expect(settingsGameplayPageHtml(gameplayState)).not.toContain("data-hosted-sectors-open");
+    expect(hostedSectorsCardHtml({ authSessionReady: true }, false)).toBe("");
+    expect(hostedSectorsCardHtml({ authSessionReady: false }, true)).toBe("");
+    expect(hostedSectorsCardHtml({ authSessionReady: true }, true)).toContain("data-hosted-sectors-open");
   });
 
   it("uses the custom toggle and slider for every checkbox and range", () => {

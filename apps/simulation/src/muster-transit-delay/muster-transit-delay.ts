@@ -9,6 +9,8 @@ export type MusterTransitDelayInput = {
   dockLanding: DockLandingIndex;
   /** The marching player: only their own docks can start a crossing, as for a dock attack. */
   playerId: string;
+  /** The marching player's allies: their land, like the player's own, is friendly ground to march through. */
+  allies?: ReadonlySet<string>;
   activeAetherBridgesForPlayer: (playerId: string) => readonly ActiveAetherBridgeView[];
   /** The funding muster flag. */
   flag: TransitPoint;
@@ -28,13 +30,15 @@ const pointFromKey = (key: string): TransitPoint => {
  * straight walk would cross water. Same route the client draws the company
  * along. See runtime-frontier-command.ts for why automated attacks carry it.
  *
- * Cost: a straight walk over land (almost every fire) is checked tile by tile
- * and never searches. Only a walk that would cross water or mountains runs
- * the search, and it stops as soon as it reaches the launch tile. The launch
- * tile was itself reached by ADVANCE's or MARCH's own search over land, the
- * player's docks and bridges, within at most MUSTER_MARCH_MAX_ROUTE_STEPS
- * steps, which this search's budget covers -- so it finds the route rather
- * than flooding its whole budget, barring a terrain change since.
+ * Cost: a straight walk over land and friendly or neutral ground (almost
+ * every fire) is checked tile by tile and never searches. Only a walk that
+ * would cross water, mountains or hostile land runs the search, and it stops
+ * as soon as it reaches the launch tile. Hostile land is only weighted
+ * (MUSTER_HOSTILE_STEP_COST), never barred, and the launch tile was itself
+ * reached by ADVANCE's or MARCH's own search over land, the player's docks
+ * and bridges -- so the search finds a route at most that many times the
+ * straight one's cost rather than flooding its whole budget, barring a
+ * terrain change since.
  */
 export const musterTransitMs = (input: MusterTransitDelayInput): number => {
   const { tiles, dockLanding, playerId } = input;
@@ -46,6 +50,11 @@ export const musterTransitMs = (input: MusterTransitDelayInput): number => {
     isPassable: (x, y) => {
       const tile = tiles.get(simulationTileKey(x, y));
       return !tile || tile.terrain === "LAND";
+    },
+    // Troops go round land held by anyone but the player and their allies when the way round is short.
+    isHostile: (x, y) => {
+      const ownerId = tiles.get(simulationTileKey(x, y))?.ownerId;
+      return !!ownerId && ownerId !== playerId && !input.allies?.has(ownerId);
     },
     crossingsFrom: (x, y) => {
       const key = simulationTileKey(x, y);

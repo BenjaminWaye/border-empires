@@ -38,7 +38,7 @@ export const refineryFixtureGrid = (rows: readonly string[] = REFINERY_FIXTURE_R
   rows.forEach((row, dy) => [...row].forEach((char, dx) => {
     const x = origin + dx, y = origin + dy;
     if (char === "T") {
-      tiles.set(`${x},${y}`, districtTownFixture(x, y, "CITY"));
+      tiles.set(`${x},${y}`, districtTownFixture(x, y, "TOWN"));
       return;
     }
     const tile: Tile = { x, y, terrain: char === "~" ? "SEA" : "LAND" };

@@ -36,7 +36,6 @@ import { createGatewayActivityCalibrationStore } from "../activity-calibration-s
 import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
-import type { StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "../player-profile-store-factory/player-profile-store-factory.js";
 import { createPlayerGrowthBaselineStore } from "../player-growth-baseline-store-factory/player-growth-baseline-store-factory.js";
 import { createPlayerFunnelStore } from "../player-funnel-store-factory/player-funnel-store-factory.js";
@@ -56,6 +55,8 @@ import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcas
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { handlePlayerRespawned } from "../player-respawned-email/player-respawned-email.js";
 import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";
+import { createProfileCache } from "./profile-cache.js";
+import { createAccountCosmeticsGatewayIntegration } from "../account-cosmetics/account-cosmetics-gateway-integration.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -574,9 +575,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     });
 
   const authIdentityCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_AUTH_IDENTITY_CACHE_TTL_MS ?? 300_000));
-  const profileCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000));
   const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();
-  const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();
   const cachedReconcileGatewayAuthBinding = async (
     identity: Parameters<typeof reconcileGatewayAuthBinding>[0]
   ): Promise<ResolvedGatewayAuthBinding> => {
@@ -590,23 +589,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     authBindingCache.set(identity.authUid, { value: fresh, expiresAt: now + authIdentityCacheTtlMs });
     return fresh;
   };
-  const cachedProfileGet = async (playerId: string): Promise<StoredPlayerProfile | undefined> => {
-    if (profileCacheTtlMs <= 0) return profileStore.get(playerId);
-    const now = Date.now();
-    const cached = profileCache.get(playerId);
-    if (cached && cached.expiresAt > now) return cached.value ? { ...cached.value } : undefined;
-    const fresh = await profileStore.get(playerId);
-    profileCache.set(playerId, { value: fresh ? { ...fresh } : undefined, expiresAt: now + profileCacheTtlMs });
-    return fresh;
-  };
-  const invalidateProfileCache = (playerId: string): void => {
-    profileCache.delete(playerId);
-  };
-  const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
+  const { get: cachedProfileGet, invalidate: invalidateProfileCache, sweep: sweepProfileCache } = createProfileCache(profileStore, Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000)));
+  const { resolveLogin, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
     onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(),
-    onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected")
+    onRejectReason: (reason) => app.log[reason.endsWith("_ticket") || reason === "missing_account" ? "warn" : "debug"]({ reason }, "gateway_auth_token_rejected")
   });
   const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
     const snapshot = await simulationClient.subscribePlayer(
@@ -888,9 +876,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
+  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message) });
+  const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId), getTitle: (playerId) => accountCosmetics.titleOf(playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
-    simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
+    simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
     onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
@@ -920,11 +909,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
+      accountCosmetics,
       authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache, ...(options.playerReportGithubIssues ? { playerReportGithubIssues: options.playerReportGithubIssues } : {}),
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },
-      admin: { apiToken: options.adminApiToken, email: options.adminEmail },
+      admin: { apiToken: options.adminApiToken, email: options.adminEmail, singleContest: options.hostedSector !== undefined },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
       onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
@@ -1570,7 +1560,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
     sweepStalePendingInputToState(pendingInputToStateByCommandId, Date.now() - 120_000);
     sweepExpiredCacheEntries(authBindingCache, Date.now());
-    sweepExpiredCacheEntries(profileCache, Date.now());
+    sweepProfileCache(Date.now());
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
     if (activityCalibrationStore && !activityCalibrationPersistInFlight && now - lastActivityCalibrationPersistedAt >= 15_000) {
@@ -1696,19 +1686,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token);
-            if (!resolvedPlayerIdentity) {
-              recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
+            const login = await resolveLogin(message.token, message.sectorTicket);
+            if ("error" in login) {
+              recordGatewayEvent("warn", login.error.code === "AUTH_FAIL" ? "gateway_auth_rejected_unmapped_token" : "gateway_auth_rejected_sector_ticket", {
                 channel
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "AUTH_FAIL",
-                message: "Authentication token is not recognized by the rewrite gateway."
-              });
-              authTrace.complete("rejected", "AUTH_FAIL");
+              sendJson(socket, login.error);
+              authTrace.complete("rejected", login.error.code);
               return;
             }
+            const resolvedPlayerIdentity = login.identity;
             loginPhase.notify(socket, "Verifying identity...", "Your Google session is being verified.");
             let playerIdentity = { ...resolvedPlayerIdentity };
             let authBindingSource: ResolvedGatewayAuthBinding["bindingSource"] | undefined;
@@ -2054,7 +2041,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections()
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,
@@ -2234,6 +2221,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ onSpawned: playerFunnel.onSpawned, playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
+          if (message.type === "SET_COSMETIC" || message.type === "REQUEST_COSMETICS") { await accountCosmetics.handleClientMessage(session.playerId, message, (payload) => sendJson(socket, payload)); return; }
           if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
           if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, guideSeasonId: message.guideSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 

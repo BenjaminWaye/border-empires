@@ -20,6 +20,8 @@ export type PublicHouseProfileRouteDeps = {
   /** "active" only for an account with a login binding and no deletion request. */
   accountState: (playerId: string) => Promise<"active" | "missing" | "deleting">;
   getDisplayName: (playerId: string) => Promise<string | undefined>;
+  /** The account's title, if it holds one (account-cosmetics titleOf). */
+  getTitle?: (playerId: string) => Promise<string | undefined>;
   getSeasonParticipationForPlayer: (playerId: string) => Promise<SeasonParticipationRow[]>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   now?: () => number;
@@ -53,13 +55,15 @@ export const registerPublicHouseProfileRoutes = (app: FastifyInstance, deps: Pub
   const cachedView = async (playerId: string): Promise<PublicHouseProfileView> => {
     const hit = viewCache.get(playerId);
     if (hit && now() - hit.at < VIEW_CACHE_TTL_MS) return hit.view;
-    const [participation, archives, storedName] = await Promise.all([
+    const [participation, archives, storedName, title] = await Promise.all([
       deps.getSeasonParticipationForPlayer(playerId),
       deps.listSeasonArchives(),
-      deps.getDisplayName(playerId)
+      deps.getDisplayName(playerId),
+      // A title is decoration: a failed lookup shows the page without it.
+      deps.getTitle?.(playerId).catch(() => undefined)
     ]);
     const name = storedName?.trim() || [...participation].sort((a, b) => b.endedAt - a.endedAt)[0]?.playerName || "Unnamed House";
-    const view = buildPublicHouseProfileView({ playerId, name, participation, archives });
+    const view = buildPublicHouseProfileView({ playerId, name, participation, archives, ...(title ? { title } : {}) });
     viewCache.delete(playerId);
     viewCache.set(playerId, { at: now(), view });
     if (viewCache.size > VIEW_CACHE_MAX_ENTRIES) {

@@ -36,6 +36,7 @@ export type RuntimeState = {
     afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     lifetimeGarrisons?: number;
+    achievements?: import("@border-empires/game-domain").PlayerAchievementState;
     redeploys?: number;
     autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;

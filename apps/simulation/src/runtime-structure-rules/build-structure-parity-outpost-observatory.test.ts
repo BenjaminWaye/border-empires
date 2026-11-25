@@ -120,7 +120,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200 },
       }]]),
       initialState: {
-        tiles: [afcModuleFixtureTile("player-1"), 
+        tiles: [afcModuleFixtureTile("player-1", { include: ["siegecraft"] }), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },

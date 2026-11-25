@@ -13,6 +13,8 @@ import { depositIconKey, resourceIconHtml } from "../client-resource-icons/clien
 import type { ClientState } from "../client-state/client-state.js";
 import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import { activeFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+import { screen as hudV2Screen } from "../client-hud-v2/client-hud-v2-context.js";
+import { openSheetCount } from "../client-hud-v2/client-hud-v2-sheet.js";
 import { renderScoutDroneDock, scoutClock, type ScoutDockDeps } from "./client-scout-drone-dock.js";
 import { canPlanScoutFlight, scoutChargesReady } from "./client-scout-drone-plan.js";
 import { exploreOfferWindowOpen } from "./client-scout-explore-offer-window.js";
@@ -258,6 +260,10 @@ const hookVisibility = (): void => {
   });
 };
 
+/** A HUD screen, side panel or sheet is open: the drone's pill and report card stay off it. */
+export const hudPanelOpen = (state: Pick<ClientState, "activePanel">): boolean =>
+  hudV2Screen.id !== null || state.activePanel !== null || openSheetCount() > 0;
+
 /** Draws the dock, the flight pill or the report card. Call on every HUD render. */
 export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): void => {
   current = { state, deps };
@@ -266,7 +272,10 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // Only over the map itself: a flight replayed on reconnect drew the pill over the loading screen. Nor over a
   // full-screen card (Town captured, Waystation activated, occupation survey): the pill sits above them and
   // covered the Town captured card's Garrison button (player report 2026-11-22).
-  const cardOver = activeFullscreenCard() !== undefined;
+  // Nor over an open screen (Manifest, Diplomacy, Ranks...), side panel or sheet: the pill and card live on <body>
+  // and #hud is its own stacking context, so any z-index put them over every panel. The Explore pill sat on the
+  // victory bars, the tech text and the diplomacy card (Playtest Run 5). They wait, like under a card.
+  const cardOver = activeFullscreenCard() !== undefined || hudPanelOpen(state);
   const mapUp = isMapUnobstructed(state) && !cardOver;
   hookVisibility();
   // A report already on screen when a card covers it gets back the time it spent hidden, so it is still there

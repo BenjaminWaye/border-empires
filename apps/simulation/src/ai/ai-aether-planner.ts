@@ -32,7 +32,9 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
   const ready = towers.filter(tile => !tile.observatory?.siphon && !isAetherTowerSuppressed(tile.observatory ?? undefined, input.issuedAt) && (tile.observatory?.cooldownUntil ?? 0) <= input.issuedAt && !view.dormantObservatoryKeys.includes(keyOf(tile)));
   const inRange = (tile: { x: number; y: number }): boolean => ready.some(tower => distance(tower, tile) <= view.castRange);
   const actions: AiAetherAction[] = [];
-  const can = (ability: Parameters<typeof playerHasAbilityTech>[1]): boolean => playerHasAbilityTech(techs, ability);
+  // A captured module casts for its captor, like the runtime's hasAbilityAccess.
+  const installed = new Set(input.installedModuleTechIds ?? []);
+  const can = (ability: Parameters<typeof playerHasAbilityTech>[1]): boolean => playerHasAbilityTech(techs, ability, installed);
   if (ready.length && !input.decisionCooldowns?.USE_AETHER) {
     const foodDeficit = (input.slotSupplyByResource?.FOOD ?? 0) < (input.slotDemandByResource?.FOOD ?? 0);
     for (const target of enemies) {

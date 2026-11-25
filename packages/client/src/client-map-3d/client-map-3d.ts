@@ -20,7 +20,7 @@ import {
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { addMusterFlagForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowContainsPoint, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
@@ -35,7 +35,7 @@ import { createFrontierClaimVisuals } from "../client-map-3d-expand-crew/client-
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { addFoggedOverlayTile, foggedOverlayTileAt } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
-import { addRememberedBuildingsForTile } from "./client-map-3d-remembered-buildings.js";
+import { addRememberedBuildingsForTile, rememberedForestKeepSlot } from "./client-map-3d-remembered-buildings.js";
 import { createFogOverlays } from "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
@@ -377,7 +377,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     visibilityAt: deps.tileVisibilityStateAt, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile,
     hillCutAt: (x, y) => latestHillCutAt(x, y), rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, qualityTier }, atmosphere.buildingEnvironmentTexture);
   const buildingInstanceOverlays = { structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, tradeNexusOverlay, ambaricTransformerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay, district };
-  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, afcOverlay: afcOverlayGroup, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays }; // fogged tiles: last-seen buildings, standing still
+  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, afcOverlay: afcOverlayGroup, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays, rawResources: rawResourceOverlays }; // fogged tiles: last-seen buildings, standing still
   const nameDecal = createNameDecalForMap({ scene, state: deps.state, isExploredAt: (x, y) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "unexplored", heightfield, isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, wrapX: deps.wrapX, wrapY: deps.wrapY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }); // map names inked on the ground
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
@@ -796,7 +796,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // Natural terrain is not live data, so it stays -- fogged like its ground.
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);
-          else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
+          else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint, rememberedForestKeepSlot(tile, wx, wy)); // clears room for a remembered Umbrite deposit, as in sight
           continue;
         }
         if (terrain === "LAND") {
@@ -861,12 +861,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // set, so it's harmless in production. The MINE entry passes a
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
-        if (tile?.muster && terrain === "LAND") {
-          const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
-          const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
-          const advance = tile.muster.mode === "ADVANCE";
-          musterOverlay.addMuster(x, z, surfaceY + farmlandOverlay.standLiftAt(wx, wy), fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
-        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
+        if (tile?.muster && terrain === "LAND") addMusterFlagForTile(musterOverlay, tile, { sceneX: x, sceneZ: z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), wx, wy, tileKey: deps.keyFor(wx, wy), siegeResolvesAt: incomingAttack?.resolvesAt ?? 0 }, deps);
+        /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
         if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
         if (terrain === "LAND") addDemoInstancesForTile({ structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, relayBeaconOverlay, fortOverlay }, { x, z, surfaceY, wx, wy }, window.camX, window.camY);

@@ -1,3 +1,4 @@
+import { RELAY_BEACON_TOWARD_ACTION_ID, startRelayBeaconTowardPlacement } from "./client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { structureRequiresTownOrSupportTile, type ChosenStructureTier } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { TileMenuView } from "./client-types.js";
@@ -19,8 +20,17 @@ export const handleGenericBuildAction = (input: {
   showTierSheet?: typeof showStructureTierSheet;
   pushFeed: VisibleActionWarningDeps["pushFeed"];
   hideMenu: () => void;
+  /** Draws beacon placement started here (Relay Beacon toward here) and the HUD. */
+  renderPlacementOverlay?: () => void;
 }): boolean => {
   const actionId = input.actionId as TileActionDef["id"];
+  // Relay Beacon toward here: placement on your land, toward this tile. The new HUD has already opened it and
+  // centred the camera (client-hud-v2.ts), so this only opens it when nothing did (client-relay-beacon-toward.ts).
+  if (actionId === RELAY_BEACON_TOWARD_ACTION_ID) {
+    input.hideMenu();
+    if (input.state && !input.state.buildingPlacement.active && startRelayBeaconTowardPlacement(input.state, input.selected)) input.renderPlacementOverlay?.();
+    return true;
+  }
   // Refinery rows open a field / town picker first (client-refineries/refinery-action-handler.ts).
   const view = input.viewForTile?.(input.selected);
   const row = view ? [...(view.buildings ?? []), ...(view.actions ?? [])].find((candidate) => candidate.id === actionId) : undefined;

@@ -1,4 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { installedAfcModuleTechIdsAmong } from "./afc-module-build-access/afc-module-build-access.js";
 import { biotaDemandTowns, networkSupplyStatus } from "./resource-networks/resource-network-status.js";
 import { afcAgreementCount, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { applyIntegrityIncomeLine } from "./coin-income-adjustments/coin-income-adjustments.js";
@@ -75,7 +76,7 @@ export const buildLivePlayerEconomySnapshot = (
   // §14.2: reuses the dormancy already computed above for fedTownKeys/
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
-  const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
+  const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds, installedAfcModuleTechIdsAmong(playerId, settledDomainTilesByPlayerId.get(playerId) ?? []));
   const bonusSupply = networkSupplyStatus(sites, biotaDemandTowns(playerId, settledDomainTilesByPlayerId.get(playerId) ?? [], domainTilesByKey, dormantEconomicStructureKeys));
   if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
   const goldSources = new Map<string, EconomyBucket>();

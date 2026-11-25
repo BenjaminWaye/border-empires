@@ -1,4 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import { hasAbilityAccess } from "./afc-module-build-access/afc-module-build-access.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   AETHER_BRIDGE_DURATION_MS,
@@ -41,6 +42,8 @@ type SurveySweepPing = {
 export type RuntimeAbilityCommandContext = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
+  /** The player's AFC tile keys, so a cast with a captured module scans only those (hasAbilityAccess). */
+  ownedAfcTileKeys?: (playerId: string) => Iterable<string>;
   activeAetherBridgesByPlayer: Map<string, ActiveAetherBridgeView[]>;
   activeAetherWallsByPlayer: Map<string, ActiveAetherWallView[]>;
   now: () => number;
@@ -283,7 +286,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     return;
   }
   const target = context.tiles.get(simulationTileKey(payload.x, payload.y));
-  if (!playerHasAbilityTech(actor.techIds, "aether_bridge")) {
+  if (!hasAbilityAccess(context, actor, "aether_bridge")) {
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "requires Aether Bridge");
     return;
   }
@@ -352,7 +355,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!playerHasAbilityTech(actor.techIds, "aether_wall")) {
+  if (!hasAbilityAccess(context, actor, "aether_wall")) {
     rejectCommand(context, command, "AETHER_WALL_INVALID", "requires Aetherward Coil Module");
     return;
   }

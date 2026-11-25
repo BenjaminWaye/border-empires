@@ -31,8 +31,15 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
   // A sign-out in another tab invalidates this tab's Firebase session too.
   // Leave it on the sign-in screen instead of opening unauthenticated sockets
   // forever. Unconfigured localhost authentication can still recover.
-  const canRecover = (): boolean => state.hasEverInitialized &&
-    (!state.authConfigured || state.authReady || state.authSessionReady);
+  // Before the first INIT only a signed-in player is recovered: a new player
+  // who signs in during a deploy must not be left with a dead socket and a
+  // "reload the game" message (signed-out pages reopen on sign-in instead).
+  const canRecover = (): boolean => state.hasEverInitialized
+    ? !state.authConfigured || state.authReady || state.authSessionReady
+    : state.authReady;
+  // The no-progress watchdog stays a reconnect-only tool: a first login can
+  // legitimately sit in the login queue without progress frames.
+  const canWatchStall = (): boolean => state.hasEverInitialized && canRecover();
 
   const clearRecoveryTimer = (): void => {
     if (recoveryTimer !== undefined) {
@@ -56,10 +63,10 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
 
   const watchForRecovery = (): void => {
     clear();
-    if (!canRecover() || state.connection === "initialized" || !deps.onStalled) return;
+    if (!canWatchStall() || state.connection === "initialized" || !deps.onStalled) return;
     recoveryTimer = window.setTimeout(() => {
       recoveryTimer = undefined;
-      if (canRecover() && state.connection !== "initialized") deps.onStalled?.();
+      if (canWatchStall() && state.connection !== "initialized") deps.onStalled?.();
     }, RECOVERY_PROGRESS_TIMEOUT_MS);
   };
 

@@ -17,6 +17,7 @@ import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
 import { installPostBootstrapHooks } from "../client-post-bootstrap-installs/client-post-bootstrap-installs.js";
 import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
+import { DEPLOY_WAIT_STATUS } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
 
 type BootstrapDeps = Record<string, any>;
 
@@ -155,13 +156,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   mountBootstrapSidePanels({ state, firebaseAuth, wsUrl });
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
-    if (ws.readyState !== ws.OPEN) {
-      setAuthStatus(`Game server unavailable at ${wsUrl}.`, "error");
-      syncAuthOverlay();
-      return false;
-    }
-    if (state.authSessionReady) return true;
-    setAuthStatus(message, "error");
+    if (ws.readyState === ws.OPEN && state.authSessionReady) return true;
+    // A dropped socket (usually a deploy restart) gets terse waiting copy, never the server URL.
+    if (ws.readyState === ws.OPEN) setAuthStatus(message, "error");
+    else setAuthStatus(DEPLOY_WAIT_STATUS);
     syncAuthOverlay();
     return false;
   };

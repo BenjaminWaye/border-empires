@@ -17,6 +17,9 @@ export type TownWireSummary = {
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;
+  /** Inner-ring (distance 1) share of supportCurrent/supportMax: the base coin's ring (town-support-coin.ts). */
+  supportInnerCurrent?: number;
+  supportInnerMax?: number;
   goldPerMinute: number;
   isFed: boolean;
   population: number;

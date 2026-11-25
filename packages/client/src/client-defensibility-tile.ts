@@ -21,6 +21,10 @@ export type ExposedSidesArgs = {
 export const isOwnedSettledLandTile = (tile: Tile | undefined, me: string): tile is Tile =>
   !!tile && tile.ownerId === me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged;
 
+/** Any land of mine, garrisoned or not: a side facing it is not open (matches the simulation's Integrity count). */
+export const isOwnedLandTile = (tile: Tile | undefined, me: string): tile is Tile =>
+  !!tile && tile.ownerId === me && tile.terrain === "LAND" && !tile.fogged;
+
 // Hoisted to module scope: the per-tile rebuild loop in
 // client-map-3d.ts and client-runtime-loop.ts can call this thousands of
 // times per frame, and a per-call `[{...}, {...}, {...}, {...}]` literal
@@ -38,7 +42,7 @@ export const exposedSidesForTile = (tile: Tile, args: ExposedSidesArgs): EdgeDir
     const nx = tile.x + dir.dx;
     const ny = tile.y + dir.dy;
     const neighbor = args.tiles.get(args.keyFor(args.wrapX(nx), args.wrapY(ny)));
-    if (isOwnedSettledLandTile(neighbor, args.me)) continue;
+    if (isOwnedLandTile(neighbor, args.me)) continue;
     const terrain = args.terrainAt(nx, ny);
     if (terrain === "SEA" || terrain === "COASTAL_SEA" || terrain === "MOUNTAIN") continue;
     out.push(dir.name);

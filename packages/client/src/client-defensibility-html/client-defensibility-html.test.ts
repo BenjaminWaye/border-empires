@@ -22,7 +22,7 @@ describe("renderDefensibilityPanelHtml", () => {
       me: "me",
       defensibilityPct: 100,
       settledT: 4,
-      settledE: 4,
+      settledE: 8,
       showWeakDefensibility: false,
       empireIntegrityEnabled: false,
       keyFor,
@@ -33,19 +33,20 @@ describe("renderDefensibilityPanelHtml", () => {
 
     expect(html).not.toContain("Very Exposed");
     expect(html).toContain("Where does the % come from?");
-    expect(html).toContain("Great shape! For 4 garrisoned tiles, you have no more open sides than the most compact empire your size");
+    expect(html).toContain("Great shape: no more open sides than the most compact empire your size.");
     expect(html).toContain('<span>A perfect blob your size would have</span><strong>8</strong>');
     expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>10</strong>');
-    expect(html).toContain('<span>You actually have</span><strong class="is-positive">4</strong>');
+    expect(html).toContain('<span>You actually have</span><strong class="is-positive">8</strong>');
   });
 
-  it("uses authoritative settled totals for the score explanation and changes copy below 100%", () => {
+  // Owner rule (Playtest Run 4 follow-up): all owned land counts toward the shape, plus its garrisoned share.
+  it("scores all owned land, shows the garrisoned share, and changes copy below 100%", () => {
     const tiles = new Map<string, Tile>();
     const settled: Tile[] = [
       { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
       { x: 11, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
-      { x: 10, y: 11, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
-      { x: 11, y: 11, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }
+      { x: 10, y: 11, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" },
+      { x: 11, y: 11, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }
     ];
     for (const tile of settled) tiles.set(keyFor(tile.x, tile.y), tile);
 
@@ -53,7 +54,7 @@ describe("renderDefensibilityPanelHtml", () => {
       tiles,
       me: "me",
       defensibilityPct: 86,
-      settledT: 20,
+      settledT: 2,
       settledE: 30,
       showWeakDefensibility: false,
       empireIntegrityEnabled: false,
@@ -63,13 +64,14 @@ describe("renderDefensibilityPanelHtml", () => {
       terrainAt: (x, y) => tiles.get(keyFor(x, y))?.terrain ?? "LAND"
     });
 
-    expect(html).toContain("too many sides facing open ground");
-    expect(html).not.toContain("How 100% is calculated");
-    expect(html).toContain('<span>A perfect blob your size would have</span><strong>18</strong>');
-    expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>22.5</strong>');
+    expect(html).toContain("Too many sides of your land face open ground.");
+    expect(html).not.toContain("Too little garrisoned</span><strong class=\"is-negative\"");
+    expect(html).toContain('<span>A perfect blob your size would have</span><strong>8</strong>');
     expect(html).toContain('<span>You actually have</span><strong class="is-negative">30</strong>');
-    expect(html).toContain('<span>Garrisoned tiles</span><strong>20</strong>');
-    expect(html).toContain("Only garrisoned tiles count.");
+    expect(html).toContain('<span>Your land</span><strong>4</strong>');
+    expect(html).toContain('<span>Garrisoned</span><strong>2 · 50%</strong>');
+    expect(html).toContain("All your land counts, garrisoned or not.");
+    expect(html).not.toContain("to avoid the penalty");
   });
 
   // Playtest 2026-11-12 (pt-optimiser): 100% "tight blob" with 1 garrisoned
@@ -82,17 +84,21 @@ describe("renderDefensibilityPanelHtml", () => {
       keyFor, wrapX: (x) => x, wrapY: (y) => y, terrainAt: () => "LAND"
     });
     expect(html).not.toContain("tight blob");
-    expect(html).toContain("For 1 garrisoned tile, you have no more open sides than the most compact empire your size");
+    expect(html).toContain("Great shape: no more open sides than the most compact empire your size.");
     expect(html).not.toContain("New empires keep");
   });
 
-  it("says when the new-empire grace floor is holding the score up", () => {
+  // Owner call 2026-11-24: the new-empire floor and its line are gone.
+  it("never mentions a new-empire floor, and names the penalty for too little garrisoned", () => {
     const tiles = new Map<string, Tile>();
+    for (let x = 0; x < 20; x += 1) tiles.set(keyFor(x, 0), { x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" });
     const html = renderDefensibilityPanelHtml({
-      tiles, me: "me", defensibilityPct: 90, settledT: 20, settledE: 80, showWeakDefensibility: false, empireIntegrityEnabled: false,
+      tiles, me: "me", defensibilityPct: 55, settledT: 0, settledE: 42, showWeakDefensibility: false, empireIntegrityEnabled: false,
       keyFor, wrapX: (x) => x, wrapY: (y) => y, terrainAt: () => "LAND"
     });
-    expect(html).toContain("New empires keep at least 90% until 50 garrisoned tiles.");
+    expect(html).not.toContain("New empires keep");
+    expect(html).toContain("Only 0% of your land is garrisoned: −30% until you garrison 10%.");
+    expect(html).toContain("Garrison at least 10% of your land to avoid the penalty.");
   });
 
   it("lists each weak tile with its reason and a go-to button while the highlight is on", () => {

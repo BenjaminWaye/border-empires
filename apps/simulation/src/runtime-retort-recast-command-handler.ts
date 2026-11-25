@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { hasAbilityAccess } from "./afc-module-build-access/afc-module-build-access.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { playerHasAbilityTech } from "@border-empires/game-domain";
 import { retortResourceClassForTarget, retortResourceClassForTile } from "@border-empires/shared";
 import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-command-handlers.js";
 import { parseRetortRecastPayload } from "./runtime-command-parsers.js";
@@ -17,7 +17,7 @@ export function handleRetortRecastCommand(context: RuntimeMapCommandContext, com
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!playerHasAbilityTech(actor.techIds, "retort_recast")) {
+  if (!hasAbilityAccess(context, actor, "retort_recast")) {
     rejectCommand(context, command, "RETORT_RECAST_INVALID", "requires Matterwright Retort Module");
     return;
   }

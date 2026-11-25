@@ -263,7 +263,8 @@ export const createSocialState = (options: {
         createdAt: now(),
         fromName: actor.name,
         toName: target.name,
-        ...termsField(offerOptions?.terms)
+        ...termsField(offerOptions?.terms),
+        ...(offerOptions?.note ? { note: offerOptions.note } : {})
       };
       allianceRequests.set(request.id, request);
       sink?.saveAllianceRequest(request);
@@ -349,6 +350,7 @@ export const createSocialState = (options: {
         fromName: actor.name,
         toName: target.name,
         ...termsField(offerOptions?.terms),
+        ...(offerOptions?.note ? { note: offerOptions.note } : {}),
         ...(runningTruce ? { extendsTruce: true as const } : {})
       };
       truceRequests.set(request.id, request);

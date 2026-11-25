@@ -231,6 +231,10 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
       initAssembler.reset();
       heldMessages = null;
       pendingInitPayload = null;
+      // Never replay the previous connection's AUTH on the new sockets: the
+      // reopened socket is authenticated afresh, and on a hosted sector the
+      // old payload carries a ticket that may have expired.
+      latestAuthPayload = undefined;
       try {
         controlSocket.close();
       } catch {

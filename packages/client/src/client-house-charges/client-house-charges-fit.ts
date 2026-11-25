@@ -52,7 +52,13 @@ const parseKey = (key: string): { x: number; y: number } | undefined => {
 };
 
 /** The discs the map draws for this charge, in world tiles. */
-export const houseChargeFitDiscs = (charge: HouseChargeView, isExplored: (x: number, y: number) => boolean): Disc[] => {
+export const houseChargeFitDiscs = (
+  charge: HouseChargeView,
+  isExplored: (x: number, y: number) => boolean,
+  found: readonly { x: number; y: number }[] = []
+): Disc[] => {
+  // A Writ of Correction whose rival AFC is found or captured: the map rings the AFC, not the circle (client-house-charges-correction-afcs.ts).
+  if (found.length > 0) return found.map(({ x, y }) => ({ x, y, radius: SEEN_TARGET_RADIUS }));
   if (charge.areaTileKeys) {
     const seen = charge.areaTileKeys.map(parseKey).filter((tile): tile is { x: number; y: number } => tile !== undefined && isExplored(tile.x, tile.y));
     return seen.length > 0 ? seen.map(({ x, y }) => ({ x, y, radius: 1 })) : [charge.searchCircle];
@@ -79,9 +85,10 @@ export const houseChargeFitView = (
   isExplored: (x: number, y: number) => boolean,
   canvas: { width: number; height: number },
   currentZoom: number,
-  renderer: FitRenderer = "2d"
+  renderer: FitRenderer = "2d",
+  found: readonly { x: number; y: number }[] = []
 ): HouseChargeFitView => {
-  const discs = houseChargeFitDiscs(charge, isExplored);
+  const discs = houseChargeFitDiscs(charge, isExplored, found);
   const anchor = discs[0] ?? charge.searchCircle;
   let minX = Infinity;
   let maxX = -Infinity;

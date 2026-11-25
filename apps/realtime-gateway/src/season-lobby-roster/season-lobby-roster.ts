@@ -14,13 +14,15 @@ export type SeasonLobbyEntry = {
   playerId: string;
   name: string;
   countryFlag?: string;
+  /** A title the account holds, e.g. "Count" (account-cosmetics titleOf). */
+  title?: string;
 };
 
 export type SeasonLobbyRoster = {
   // Adds/updates the entry for playerId. Returns true if the roster actually
   // changed (new arrival, or name/flag changed) so callers can skip a
   // redundant broadcast.
-  checkIn: (playerId: string, name: string, countryFlag?: string) => boolean;
+  checkIn: (playerId: string, name: string, countryFlag?: string, title?: string) => boolean;
   remove: (playerId: string) => void;
   has: (playerId: string) => boolean;
   reset: () => void;
@@ -32,10 +34,10 @@ export const createSeasonLobbyRoster = (): SeasonLobbyRoster => {
   const byPlayerId = new Map<string, SeasonLobbyEntry>();
 
   return {
-    checkIn(playerId, name, countryFlag) {
+    checkIn(playerId, name, countryFlag, title) {
       const existing = byPlayerId.get(playerId);
-      const entry: SeasonLobbyEntry = { playerId, name, ...(countryFlag ? { countryFlag } : {}) };
-      const changed = !existing || existing.name !== entry.name || existing.countryFlag !== entry.countryFlag;
+      const entry: SeasonLobbyEntry = { playerId, name, ...(countryFlag ? { countryFlag } : {}), ...(title ? { title } : {}) };
+      const changed = !existing || existing.name !== entry.name || existing.countryFlag !== entry.countryFlag || existing.title !== entry.title;
       byPlayerId.set(playerId, entry);
       return changed;
     },

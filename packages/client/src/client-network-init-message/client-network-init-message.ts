@@ -1,4 +1,5 @@
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
+import { applyInitPlayerStyles } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -40,6 +41,7 @@ import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/cli
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyLostTileMemory } from "../client-lost-tile-memory/client-lost-tile-memory.js";
+import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, markWaystationActivationsSeenFromEventLog, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
@@ -174,6 +176,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+  if (!state.profileSetupRequired) clearFoundingNameDraft(); // founded: the typed-name draft has served its purpose
   hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail, state.bridgeDebugSeasonId);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
@@ -334,14 +337,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
   seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up
-  for (const style of ((msg.playerStyles as any[]) ?? [])) {
-    if (style.name) state.playerNames.set(style.id, style.name);
-    if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
-    if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
-    if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
-    if (style.duke) state.dukePlayers.add(style.id);
-    else state.dukePlayers.delete(style.id);
-  }
+  applyInitPlayerStyles(state, msg);
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {
     state.homeTile = homeTile;

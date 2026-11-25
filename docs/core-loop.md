@@ -255,7 +255,7 @@ a development slot. It buys three things:
   already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
-  1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
+  1, or 2 at City and up; owner call 2026-11-23, it was Great City) (`isAutoSettlementEligibleTarget` in
   `territory-automation.ts`). The rest stays FRONTIER, with zero defense,
   unless you settle it by hand (20 MP, only while in reach).
 - **Ground outside reach stays thin.** FRONTIER claimed or captured outside
@@ -649,21 +649,33 @@ deliberately no decay for simply being offline.
    `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
    panel and only puts a top-bar chip and warning up once it is below 50%
    (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
-4. **Onboarding teaches the wrong growth verb.** The checklist (and the
-   removed intro guide) frame Expand To as how you grow ("Tap a neutral tile next to your border to
-   claim it… Settle it"). In the live game, beacons and town/dock anchors move
-   reach and auto-claim everything inside it, and Expand To mostly matters for
-   crossing to an out-of-reach town or dock. Players who follow the checklist will
-   Expand To tiles beyond reach that can never be settled. The checklist
-   should say that reach comes from beacons and that ground beyond reach
-   stays thin, undefended FRONTIER.
+4. **Onboarding taught the wrong growth verb.** *Mostly addressed
+   2026-11-24; open items below.* The old checklist framed Expand To as how
+   you grow. The tutorial guide ([plan](tutorial-guide-plan.md)) replaced it
+   for players enrolled in it (every player once a season is known). Its
+   "Your reach" step asks for a Relay Beacon and ticks from game state only
+   when one is built (saved progress past it also counts it done). The beacon
+   step explains reach ("You can only Garrison inside it. A beacon widens
+   it."), and food targets are only ever inside reach. The plain-words pass
+   (PR #2951) removed the false "uses one food slot" line, and the last card
+   no longer lists "expand". The old 5-minute decay for ground beyond reach
+   no longer exists (§2): such land stays FRONTIER, can't be settled, and is
+   lost only if cut off from supply. Still open: the town step still says
+   "Expand To" without saying that plain land beyond reach can't be
+   garrisoned; and the older four-row checklist, still shown to an account
+   with no guide progress when the gateway sends no season id
+   (`isEnrolledInTutorialGuide`), still says "Expand To".
+   [The opening contract](product/new-player-opening.md) keeps those rows.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a
    roll, unless you spend 20 MP a tile settling it. That isn't necessarily
    bad: it makes *which* plain tiles to settle a real choice between defense,
    road corridors between towns, and beacon sites. But neither the UI nor the
-   guide explains the trade-off.
+   guide explains the trade-off. A guide step asking the player to garrison
+   one plain border tile was drafted and dropped (2026-11-23): it lengthens a
+   16-step guide, and telling every new player to spend manpower there is an
+   owner decision.
 6. **The runaway leader** is held back only by the 24h hold and social
    pile-on. There is no systemic catch-up mechanic besides respawn.
 7. **Siphon: design intent and code may disagree.** Siphon has been
@@ -674,8 +686,9 @@ deliberately no decay for simply being offline.
    output") suggests a transfer was intended. Needs a decision: either the
    code is missing the transfer, or the description should change.
 8. **Doc drift found while writing this.** The code is authoritative:
-   - README says combat takes a "3-second lock". `COMBAT_LOCK_MS` is 30s, and
-     attacks on FRONTIER are instant.
+   - *Fixed 2026-11-23:* README said combat takes a "3-second lock".
+     `COMBAT_LOCK_MS` is 15s (this list used to say 30s), and attacks on
+     FRONTIER are instant.
    - README says research costs "gold + strategic resources + time". It is
      instant and gold-only (`chooseTechForPlayer`). `researchTimeSeconds` in
      `tech-tree.json` is not enforced by the simulation.
@@ -684,8 +697,11 @@ deliberately no decay for simply being offline.
      cap.
    - The expansion brief quotes `FRONTIER_CLAIM_COST = 1` and a 1.25s claim.
      The claim cost is now 0 gold and 10 MP, and the claim takes 7.5s.
-   - The in-game guide says "plant up to 5 muster flags". `MUSTER_MAX_TILES`
-     is 2, plus 1–2 from each of four domains.
+   - *Fixed:* the in-game guide no longer says "plant up to 5 muster flags"
+     (the 8-slide guide was removed; the client shows the server's limit).
+     `MUSTER_MAX_TILES` is 2, plus 1–2 from each of four domains.
+   - *Fixed 2026-11-24 (PR #2951):* the tutorial guide said a Relay Beacon
+     "uses one food slot". The first 5 need none (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT`).
 
 ## Auto-settle is opt-in per category
 

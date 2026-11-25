@@ -3,6 +3,7 @@
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { PUBLIC_HOUSE_NOT_FOUND_HTML, parsePublicHouseProfile, publicHouseHtml, publicHouseMessageHtml } from "./client-public-house-view.js";
 import "./client-public-house.css";
+import "../client-account-title/client-account-title.css";
 
 const wsUrl = (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ??
   (location.hostname === "staging.borderempires.com" ? "wss://api-staging.borderempires.com/ws" : "wss://api.borderempires.com/ws");

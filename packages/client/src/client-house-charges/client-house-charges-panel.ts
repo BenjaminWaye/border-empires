@@ -14,6 +14,7 @@ import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
 import { houseChargesWithLiveNames } from "./client-house-charges-live-names.js";
+import { correctionFramePoints, correctionGarrisonHint } from "./client-house-charges-correction-afcs.js";
 import {
   dismissHouseChargesProfileTip,
   forgetHouseChargesSave,
@@ -50,7 +51,7 @@ export type HouseChargesPanelDeps = {
 let rewardsOpen = false;
 
 type PanelState = Pick<ClientState, "activePanel" | "houseCharges" | "houseChargesDraftKeep"> &
-  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "me" | "activePlayerProfileId" | "playerNames">>;
+  Partial<Pick<ClientState, "houseChargeFocusId" | "tiles" | "tilesRevision" | "me" | "activePlayerProfileId" | "playerNames">>;
 type CameraState = Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom">;
 
 /**
@@ -70,13 +71,14 @@ export const takeHouseChargeMapShowRequest = (): HouseChargeFitView | undefined 
  * The docked cards then carry a "Back to cards" note (client-house-charges-bubble.ts).
  */
 export const showHouseChargeOnMap = (
-  state: CameraState & Pick<ClientState, "houseChargeFocusId"> & Partial<Pick<ClientState, "tiles">>,
+  state: CameraState & Pick<ClientState, "houseChargeFocusId"> & Partial<Pick<ClientState, "tiles" | "me" | "tilesRevision">>,
   charge: HouseChargeView,
   deps: Pick<HouseChargesPanelDeps, "wrapX" | "wrapY" | "requestViewRefresh" | "closePanel" | "viewport" | "renderer">
 ): void => {
   const tiles = state.tiles;
   const renderer = deps.renderer?.() ?? (isTrue3DRendererActive() ? "3d" : "2d");
-  const view = houseChargeFitView(charge, (x, y) => tiles?.has(`${x},${y}`) ?? false, deps.viewport(), state.zoom, renderer);
+  const found = tiles && state.me ? correctionFramePoints(charge, { tiles, me: state.me, ...(state.tilesRevision !== undefined ? { tilesRevision: state.tilesRevision } : {}) }) : [];
+  const view = houseChargeFitView(charge, (x, y) => tiles?.has(`${x},${y}`) ?? false, deps.viewport(), state.zoom, renderer, found);
   state.houseChargeFocusId = charge.id;
   state.camX = deps.wrapX(view.x);
   state.camY = deps.wrapY(view.y);
@@ -145,8 +147,13 @@ export const houseChargesPanelHtml = (state: PanelState, nowMs: number): string 
     : houseChargesProfileTipShown(payload.dealtAt, kept, changed) ? houseChargesProfileTipHtml() : "";
   const swapWindow = choosing ? `<p class="house-charges-saved">Keeping ${wanted} of ${payload.charges.length}. You can swap until ${until}.</p>` : "";
   const tiles = state.tiles;
+  const me = state.me;
+  const revision = state.tilesRevision;
   const scoutHintFor = (charge: HouseChargeView): string | undefined =>
-    !charge.held && tiles ? houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT) : undefined;
+    !charge.held && tiles
+      ? (me ? correctionGarrisonHint(charge, { tiles, me, ...(revision !== undefined ? { tilesRevision: revision } : {}) }) : undefined) ??
+        houseChargeUnscoutedHint(charge, (x, y) => tiles.has(`${x},${y}`), WORLD_WIDTH, WORLD_HEIGHT)
+      : undefined;
   // While choosing, the cards stay in dealt order so a card does not jump when it is kept or set aside.
   const ordered = choosing ? payload.charges : [...payload.charges].sort((a, b) => Number(b.kept) - Number(a.kept));
   const cards = ordered.map((charge) =>

@@ -1,4 +1,5 @@
 import type { GatewayCommandStore } from "../command-store/command-store.js";
+import type { PlayerCosmeticSelection } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { SeasonVictoryObjectiveView, SeasonWinnerView, WorldStyle } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
@@ -41,7 +42,9 @@ export const buildInitMessage = (
   seasonPending = false,
   seasonPendingScheduledStartAt?: number,
   seasonPendingRoster?: SeasonLobbyUpdatePayload,
-  dukeAuthUids?: ReadonlySet<string>
+  dukeAuthUids?: ReadonlySet<string>,
+  // Account cosmetics: every account with a non-default look (account-cosmetics-service.ts).
+  shownCosmetics?: Record<string, PlayerCosmeticSelection>
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -79,6 +82,7 @@ export const buildInitMessage = (
   truceBreaksThisSeason: unknown[];
   leaderboard: Record<string, unknown>;
   playerStyles: Array<{ id: string; name: string; tileColor: string; duke?: boolean }>;
+  playerCosmetics?: Record<string, PlayerCosmeticSelection>;
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
@@ -196,6 +200,7 @@ export const buildInitMessage = (
       truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],
       leaderboard: bootstrap.leaderboard,
       playerStyles: bootstrap.playerStyles,
+      ...(shownCosmetics && Object.keys(shownCosmetics).length > 0 ? { playerCosmetics: shownCosmetics } : {}),
       missions: bootstrap.missions,
       domainIds: bootstrap.domainIds,
       seasonVictory: bootstrap.seasonVictory,

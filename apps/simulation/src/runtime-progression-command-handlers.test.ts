@@ -168,7 +168,7 @@ describe("cache invalidation on tech/domain choice", () => {
 // new ring-2 tiles (chebyshev distance 2) and not the already-covered ring-1
 // tiles or the town tile itself.
 describe("handleUpgradeTownTierCommand support-ring auto-claim", () => {
-  it("auto-claims only the newly-eligible ring-2 tiles on CITY -> GREAT_CITY", () => {
+  it("auto-claims only the newly-eligible ring-2 tiles on TOWN -> CITY", () => {
     const player = buildPlayer("player-1", { points: 1000 });
     const players = new Map([["player-1", player]]);
     // supportRingCandidates (the shared support-ring scan) only returns
@@ -189,7 +189,7 @@ describe("handleUpgradeTownTierCommand support-ring auto-claim", () => {
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      town: { type: "MARKET", populationTier: "CITY", population: 1_000_000 }
+      town: { type: "MARKET", populationTier: "TOWN", population: 100_000 }
     } as DomainTileState);
     const autoClaimCalls: Array<{ tileKeys: readonly string[]; ownerId: string }> = [];
     const context = buildContext(players, tiles, () => {}, {

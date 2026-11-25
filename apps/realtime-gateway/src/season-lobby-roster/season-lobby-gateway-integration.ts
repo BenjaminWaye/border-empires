@@ -20,6 +20,8 @@ export type SeasonLobbyGatewayIntegrationDeps = {
   profileStore: ProfileStoreLike;
   invalidateProfileCache: (playerId: string) => void;
   fallbackName: (playerId: string) => string;
+  /** The account's title, if any, shown before its name in the roster. */
+  getTitle?: (playerId: string) => Promise<string | undefined>;
 };
 
 // Bundles everything gateway-app.ts needs to wire up the season lobby: the
@@ -32,7 +34,8 @@ export const createSeasonLobbyGatewayIntegration = (deps: SeasonLobbyGatewayInte
   const lookup: LobbyDisplayLookup = {
     getOverride: (playerId) => deps.profileOverrides.get(playerId),
     getStoredProfile: (playerId) => deps.profileStore.get(playerId),
-    fallbackName: deps.fallbackName
+    fallbackName: deps.fallbackName,
+    ...(deps.getTitle ? { getTitle: deps.getTitle } : {})
   };
 
   const broadcastLobbyUpdate = (): void => {
@@ -40,9 +43,9 @@ export const createSeasonLobbyGatewayIntegration = (deps: SeasonLobbyGatewayInte
     for (const socket of deps.allSockets()) deps.queueOrSendSessionPayload(socket, payload);
   };
 
-  const checkIntoLobby = async (playerId: string): Promise<{ name: string; countryFlag?: string }> => {
+  const checkIntoLobby = async (playerId: string): Promise<{ name: string; countryFlag?: string; title?: string }> => {
     const display = await resolveLobbyDisplay(playerId, lookup);
-    roster.checkIn(playerId, display.name, display.countryFlag);
+    roster.checkIn(playerId, display.name, display.countryFlag, display.title);
     return display;
   };
 

@@ -485,9 +485,10 @@ placement rule and charge.
    in transit. On connect, researched modules held on no owned AFC are called
    down to the home AFC the same way. Captured AFCs retain their installed modules and can
    produce extra captured copies, but research never duplicates one. A
-   building whose unlock tech has `manifestCategory: AFC_MODULE` requires the
-   researched tech and that module installed on any active, owned, settled
-   AFC. Keep this check in the shared availability path used by client actions
+   building whose unlock tech has `manifestCategory: AFC_MODULE` requires that
+   module installed on any active, owned, settled AFC; a captured copy counts
+   without research (2026-11-23), for its abilities as well as its buildings
+   (2026-11-25, `hasAbilityAccess`). Keep this check in the shared availability path used by client actions
    and simulation validation, with regressions for move, capture, and loss.
 
 ## 5. Great Projects

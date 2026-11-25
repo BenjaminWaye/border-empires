@@ -23,7 +23,7 @@ export const bindAccountSettingsControls = (
   root.querySelectorAll<HTMLButtonElement>("[data-settings-nav]").forEach((button) => {
     button.onclick = () => {
       const page = button.dataset.settingsNav;
-      if (page !== "account" && page !== "gameplay" && page !== "notifications" && page !== "diagnostics" && page !== "admin") return;
+      if (page !== "account" && page !== "gameplay" && page !== "notifications" && page !== "diagnostics" && page !== "admin" && page !== "credits") return;
       state.settingsSubPage = page;
       rerender();
     };

@@ -1,4 +1,5 @@
 import { resourceCounterTerms, resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
+import { OFFER_NOTE_ROW_HTML, handleOfferNoteTap, offerNoteField, syncOfferNoteRow } from "./client-diplomacy-offer-note.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
 import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
@@ -148,6 +149,7 @@ const render = (screen: OpenScreen): void => {
   const ownSupplyAgreements = active ? ownSupplyAgreementCount(active.agreements, active.ownId) : undefined;
   if (agreementsEl && active) agreementsEl.innerHTML = (ownSupplyAgreements ? supplyAgreementUsageHtml(ownSupplyAgreements) : "") + resourceOfferCardsHtml(active.offers ?? [], active.ownId, otherId, ownSupplyLimitReason(ownSupplyAgreements ?? 0)) + activeResourceDealsHtml(active.agreements, active.ownId, otherId);
   screen.shownHoldings = own;
+  syncOfferNoteRow(overlay, selection.kind, !(reply?.found && !reply.ai)); // messages go to human rulers only
   screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
   renderTradeHeader(overlay, reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
@@ -244,7 +246,8 @@ const sendOffer = (screen: OpenScreen): void => {
   const termsField = {
     ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
     ...(!diplomacyTermsAreEmpty(terms) ? { terms } : {}),
-    ...(screen.counters ? { counters: screen.counters } : {})
+    ...(screen.counters ? { counters: screen.counters } : {}),
+    ...offerNoteField(screen.overlay)
   };
   const sent = screen.selection.kind === "trade"
     ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms,...(screen.resourceCounters?{countersOfferId:screen.resourceCounters}:{})},"Finish sign-in before trading resources.")
@@ -320,7 +323,7 @@ export const openDiplomacyTradeScreen = (
         <h3>In this deal</h3>
         <div class="diplomacy-trade-deal-items" data-trade-deal aria-live="polite"></div>
         <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
-        <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>
+        <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>${OFFER_NOTE_ROW_HTML}
         <div class="diplomacy-trade-actions"><button type="button" data-trade-send></button><button type="button" data-trade-cancel>Cancel</button></div>
       </section>
       <section class="diplomacy-trade-side" data-trade-side="ask" aria-label="Theirs">
@@ -410,6 +413,7 @@ export const openDiplomacyTradeScreen = (
     render(screen);
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
+  overlay.addEventListener("click", (event) => handleOfferNoteTap(overlay, event.target));
   overlay.querySelector<HTMLButtonElement>("[data-trade-cancel]")?.addEventListener("click", closeDiplomacyTradeScreen);
   overlay.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject], [data-resource-offer-counter]") : null;
