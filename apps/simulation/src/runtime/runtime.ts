@@ -2714,7 +2714,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt),
-      siphonModeLifecycle: this.siphonModeLifecycle
+      siphonModeLifecycle: this.siphonModeLifecycle, ownedAfcTileKeys: (id) => this.summaryForPlayer(id).ownedAfcTileKeys
     });
   }
 
@@ -2724,7 +2724,7 @@ export class SimulationRuntime {
       emitEconomyUpdate: (command, id) => this.emitPlayerStateUpdate(command, id),
       settleEconomy: (at, ids) => { for (const id of ids) { const p = this.state.players.get(id); if (p) { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), p, at, PASSIVE_INCOME_INACTIVITY_CAP_MS, false); this.applyManpowerRegen(p, at); } } },
       players: this.state.players,
-      tiles: this.state.tiles,
+      tiles: this.state.tiles, ownedAfcTileKeys: (id) => this.summaryForPlayer(id).ownedAfcTileKeys,
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
       ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),

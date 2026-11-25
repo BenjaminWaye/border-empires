@@ -433,9 +433,11 @@ Modules can be moved between a House's own AFCs. Capturing an AFC captures
 its machinery but not the right to redeploy it, and never its founding: an AFC
 is known by the House that landed or built it for as long as it stands. Losing an AFC does not erase
 knowledge or buildings it enabled. Captured machinery still works for its captor: it fabricates the
-structures it enables even if the captor never acquired that Manifest. Its
-other capabilities, such as Aether abilities, still need the Manifest
-(added 2026-11-23).
+structures it enables even if the captor never acquired that Manifest
+(added 2026-11-23). A module Manifest commissions the machine itself, not a
+crew to run it, so captured machinery also casts its Aether abilities for
+its captor (changed 2026-11-25). Abilities that come from a crew, such as
+the Augury Office's, cannot be captured with an AFC.
 
 ### Campaign specialization
 

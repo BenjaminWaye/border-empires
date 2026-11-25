@@ -372,7 +372,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         territoryTileKeys: tileKeys.territoryTileKeys,
         reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
         focusFrontTileKeys: focusKeys,
-        ...((player.techIds.has("crystal-lattices") || (structureCounts.OBSERVATORY ?? 0) > 0) && input.tacticalViewForPlayer ? { tacticalView: input.tacticalViewForPlayer(playerId, focusKeys) } : {}),
+        ...((player.techIds.has("crystal-lattices") || (structureCounts.OBSERVATORY ?? 0) > 0 || activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles).includes("crystal-lattices")) && input.tacticalViewForPlayer ? { tacticalView: input.tacticalViewForPlayer(playerId, focusKeys) } : {}),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,

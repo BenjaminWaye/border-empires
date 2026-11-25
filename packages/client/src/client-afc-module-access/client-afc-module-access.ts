@@ -3,8 +3,10 @@
  * (apps/simulation/src/afc-module-build-access/afc-module-build-access.ts):
  * an AFC_MODULE tech counts for builds once a copy sits on an active AFC the
  * player owns on SETTLED ground -- researched or captured with the AFC.
- * Abilities and other tech effects still need research.
+ * The same holds for abilities: a captured module casts for its captor
+ * (hasAbilityAccess). Other tech effects still need research.
  */
+import { playerHasAbilityTech, type AbilityId } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -52,3 +54,10 @@ export const afcModuleInstalled = (state: ModuleAccessState, techId: string): bo
  */
 export const hasBuildTech = (state: ModuleAccessState & Pick<ClientState, "techIds">, techId: string): boolean =>
   state.techIds.includes(techId) || afcModuleInstalled(state, techId);
+
+/**
+ * Whether the player may cast the ability: its techs researched or, for an
+ * AFC module, installed on an active AFC they own (the server's hasAbilityAccess).
+ */
+export const hasAbilityAccess = (state: ModuleAccessState & Pick<ClientState, "techIds">, id: AbilityId): boolean =>
+  playerHasAbilityTech(state.techIds, id) || playerHasAbilityTech(state.techIds, id, installedAfcModuleIds(state));

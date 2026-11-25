@@ -152,7 +152,7 @@ export class RuntimeAutomationAdvisor {
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
       installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles),
-      tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0)
+      tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0 || activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles).includes("crystal-lattices"))
         ? deps.tacticalViewForPlayer(playerId, [...(spatialFocus?.primaryFront ?? [])])
         : undefined,
       ownedStructureCounts: deps.ownedStructureCountsForPlayer(playerId),
