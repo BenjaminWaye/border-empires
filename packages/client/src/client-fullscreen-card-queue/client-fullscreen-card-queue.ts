@@ -12,7 +12,7 @@
 //   every frame (the occupation survey popup). It takes the slot only when it
 //   is free and gives it back through the returned release.
 
-export type FullscreenCardKey = "town-capture" | "waystation-activation" | "occupation-survey";
+export type FullscreenCardKey = "town-capture" | "waystation-activation" | "occupation-survey" | "unlock-celebration";
 
 /** What the queue needs of a mounted card: whether it is still on the page (an HTMLElement fits). */
 export type MountedFullscreenCard = { readonly isConnected: boolean };
