@@ -107,4 +107,23 @@ describe("remembered buildings on fogged 2D tiles", () => {
     expect(alphaAtDraw).toBeCloseTo(REMEMBERED_STRUCTURE_ALPHA_2D);
     expect(drawResourceCornerMarker).toHaveBeenCalledWith(tile, 0, 0, 32);
   });
+
+  it("badges a remembered installation like one in sight", () => {
+    const { ctx } = recordingContext();
+    const image = { complete: true, naturalWidth: 64 } as HTMLImageElement;
+    const drawResourceCornerMarker = vi.fn();
+    const installations = { ...noInstallations, ctx, builtResourceOverlayForTile: () => image, drawResourceCornerMarker };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "FARM", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(drawResourceCornerMarker).toHaveBeenCalledWith(tile, 0, 0, 32);
+  });
+
+  it("falls back to the resource marker while the installation sprite loads", () => {
+    const { ctx, calls } = recordingContext();
+    const loading = { complete: false, naturalWidth: 0 } as HTMLImageElement;
+    const installations = { ...noInstallations, ctx, builtResourceOverlayForTile: () => loading, resourceColor: () => "#abcdef" };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "FARM", economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(calls).toContain("fillStyle=#abcdef");
+  });
 });

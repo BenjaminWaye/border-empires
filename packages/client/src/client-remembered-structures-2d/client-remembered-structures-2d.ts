@@ -46,13 +46,15 @@ export const drawRememberedStructures2D = (
   if (tile.terrain !== "LAND") return;
   ctx.save();
   ctx.globalAlpha *= REMEMBERED_STRUCTURE_ALPHA_2D;
-  const installation = deps.resourceInstallations.builtResourceOverlayForTile(tile);
+  const draw = deps.resourceInstallations;
+  const installation = draw.builtResourceOverlayForTile(tile);
   if (installation?.complete && installation.naturalWidth) {
-    const { resourceInstallations: draw } = deps;
     draw.drawCenteredOverlayWithAlpha(installation, px, py, size, draw.resourceOverlayScaleForTile(tile), draw.economicStructureOverlayAlpha(tile));
-  } else if (tile.resource && !installation) {
-    // The raw resource as last seen (player report 2026-11-25: resources didn't show through the fog).
-    drawResourceOverlay2D(deps.resourceInstallations, tile, px, py, size, STOPPED_CLOCK_MS);
+    if (tile.resource) draw.drawResourceCornerMarker(tile, px, py, size);
+  } else if (tile.resource) {
+    // The raw resource as last seen, or its marker while a sprite loads, as in sight
+    // (player report 2026-11-25: resources didn't show through the fog).
+    drawResourceOverlay2D(draw, tile, px, py, size, STOPPED_CLOCK_MS);
   }
   if (tileHasTownIdentity(tile)) deps.drawTownOverlay(tile, px, py, size);
   drawTileFortificationOverlays2D(ctx, tile, px, py, size, deps.fortificationDeps, deps.fortificationOverlayImageFor, Date.now(), true);

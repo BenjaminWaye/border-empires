@@ -6,11 +6,12 @@
 // sit under the fogged mist, which hazes every building material above the
 // sheet (client-map-3d-fogged-mist-haze.ts). The 2D counterpart is
 // drawRememberedStructures2D.
-import { isSeaTerrain } from "@border-empires/shared";
+import { isSeaTerrain, type ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { addRawResourceInstance, type RawResourceOverlays } from "../client-map-3d-raw-resource-dispatch/client-map-3d-raw-resource-dispatch.js";
 import { resolvedMapResource3D } from "../client-resource-networks/network-resource-3d.js";
 import { fishingWaterDirection } from "../client-food-tile-placement.js";
+import { forestTreeKeepSlot } from "../client-map-3d-forest-structure-gate.js";
 import type { TownOverlay } from "../client-map-3d-town-overlay.js";
 import type { DockOverlay } from "../client-map-3d-dock-overlay.js";
 import type { WatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
@@ -60,6 +61,14 @@ export type RememberedBuildingSite = {
   readonly tileKey: string;
 };
 
+/** The resource a remembered tile was last seen with, limited to what the 3D map draws (no synthetic photo-mode fill). */
+export const rememberedResource3D = (tile: Tile | undefined, wx: number, wy: number): ResourceType | undefined =>
+  resolvedMapResource3D(wx, wy, "LAND", tile, false, undefined, false);
+
+/** Tree slots left standing on a remembered forest tile: as in sight, an Umbrite deposit drawn there gets its clearing. */
+export const rememberedForestKeepSlot = (tile: Tile | undefined, wx: number, wy: number): ((slot: number) => boolean) | undefined =>
+  forestTreeKeepSlot(tile, rememberedResource3D(tile, wx, wy), wx, wy);
+
 export const addRememberedBuildingsForTile = (
   tile: Tile,
   site: RememberedBuildingSite,
@@ -95,7 +104,7 @@ export const addRememberedBuildingsForTile = (
   addBuildingInstancesForTile(tile, site, layers.buildings, context.state, context.rebuildStartAt, tile.resource, true);
   addFortificationInstancesForTile(tile, site, layers.fortifications, context, context.rebuildStartAt, true);
   // Player report 2026-11-25: resources didn't show through the fog. The tile keeps the resource it was last seen with.
-  const resource = resolvedMapResource3D(wx, wy, "LAND", tile, false, undefined, false);
+  const resource = rememberedResource3D(tile, wx, wy);
   if (resource) {
     const isWaterAt = (nx: number, ny: number): boolean => isSeaTerrain(context.terrainAt(context.wrapX(nx), context.wrapY(ny)));
     addRawResourceInstance(layers.rawResources, resource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY: site.flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection(isWaterAt, wx, wy));
