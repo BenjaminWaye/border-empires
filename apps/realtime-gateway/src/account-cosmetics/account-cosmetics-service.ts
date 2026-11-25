@@ -1,10 +1,12 @@
 import {
   COSMETIC_CATALOG,
   cosmeticBelongsToSlot,
+  accountTitleFor,
   cosmeticProduct,
   isCosmeticId,
   isCosmeticSlot,
   isEmptyCosmeticSelection,
+  type AccountTitle,
   type CosmeticId,
   type PlayerCosmeticSelection
 } from "@border-empires/shared";
@@ -51,6 +53,8 @@ export type AccountCosmeticsService = {
    * `newlyGranted` is true when any of them was new. */
   grantProduct: (playerId: string, productId: string, grantRef: string) => Promise<CosmeticGrantOutcome>;
   revoke: (playerId: string, cosmeticId: string) => Promise<CosmeticGrantOutcome>;
+  /** The title the account holds (accountTitleFor), for the roster and the public profile. */
+  titleOf: (playerId: string) => Promise<AccountTitle | undefined>;
   handleClientMessage: (
     playerId: string | undefined,
     message: { type: "REQUEST_COSMETICS" } | { type: "SET_COSMETIC"; slot: string; cosmeticId: string | null },
@@ -126,6 +130,10 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         anyNew ||= last.newlyGranted;
       }
       return last.ok ? { ...last, newlyGranted: anyNew } : last;
+    },
+
+    async titleOf(playerId) {
+      return accountTitleFor(await store.listOwned(playerId));
     },
 
     async revoke(playerId, cosmeticId) {

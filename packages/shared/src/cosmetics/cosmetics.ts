@@ -79,9 +79,9 @@ export const isEmptyCosmeticSelection = (selection: PlayerCosmeticSelection): bo
 
 // What the shop sells. A product grants one or more cosmetics in one
 // purchase; ownership is still stored per cosmetic, so the plumbing above
-// never needs to know about products. Owner decision, 2026-11-25: one
-// product, "Claim the title of High Noble", USD 4.99, granting the
-// High-noble standard and the Lancet guard together.
+// never needs to know about products. Owner decisions, 2026-11-25: one
+// product, "Claim the title of Count", USD 4.99, granting the High-noble
+// standard and the Lancet guard together, and making the account a Count.
 export type CosmeticProduct = {
   /** Stable id: sent by the payment provider's webhook. Never rename. */
   readonly id: string;
@@ -90,14 +90,25 @@ export type CosmeticProduct = {
   /** One-time price in US cents. Taxes and other currencies are the payment provider's. */
   readonly priceUsdCents: number;
   readonly grants: readonly CosmeticId[];
+  /** The title an account holds while it owns everything this product grants. */
+  readonly title?: AccountTitle;
 };
+
+/** Titles an account can hold. Shown before the House name on the contest
+ * roster and the public House profile; never in a match, never with power. */
+export const ACCOUNT_TITLES = ["Count"] as const;
+export type AccountTitle = (typeof ACCOUNT_TITLES)[number];
+
+export const isAccountTitle = (value: unknown): value is AccountTitle =>
+  typeof value === "string" && (ACCOUNT_TITLES as readonly string[]).includes(value);
 
 export const COSMETIC_PRODUCTS = [
   {
-    id: "high-noble",
-    name: "Claim the title of High Noble",
+    id: "title-count",
+    name: "Claim the title of Count",
     priceUsdCents: 499,
-    grants: ["flag-high-noble", "ancillaries-lancet-guard"]
+    grants: ["flag-high-noble", "ancillaries-lancet-guard"],
+    title: "Count"
   }
 ] as const satisfies readonly CosmeticProduct[];
 
@@ -106,3 +117,13 @@ export type CosmeticProductId = (typeof COSMETIC_PRODUCTS)[number]["id"];
 const PRODUCT_BY_ID: ReadonlyMap<string, CosmeticProduct> = new Map(COSMETIC_PRODUCTS.map((product) => [product.id, product]));
 
 export const cosmeticProduct = (id: string): CosmeticProduct | undefined => PRODUCT_BY_ID.get(id);
+
+/** The title an account holds: that of the first titled product whose every
+ * cosmetic it owns. A revoked cosmetic (a refund) takes the title away. */
+export const accountTitleFor = (owned: readonly string[]): AccountTitle | undefined => {
+  const have = new Set(owned);
+  const product = (COSMETIC_PRODUCTS as readonly CosmeticProduct[]).find(
+    (entry) => entry.title !== undefined && entry.grants.every((id) => have.has(id))
+  );
+  return product?.title;
+};

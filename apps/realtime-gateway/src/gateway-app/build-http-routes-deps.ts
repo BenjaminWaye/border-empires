@@ -210,6 +210,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             authenticateBearer: ctx.resolveHttpBearerIdentity,
             accountState: (playerId: string) => publicProfileAccountState(ctx.authBindingStore, playerId),
             getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
+            ...(ctx.accountCosmetics ? { getTitle: ctx.accountCosmetics.titleOf } : {}),
             getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
             listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
           }

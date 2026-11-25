@@ -165,4 +165,14 @@ describe("publicProfileAccountState", () => {
     expect(await publicProfileAccountState(bindings(true), "p")).toBe("deleting");
     expect(await publicProfileAccountState(bindings(false, false), "p")).toBe("missing");
   });
+
+  it("shows the title the account holds, and no title field without one", async () => {
+    const titled = build({ getTitle: async () => "Count" });
+    const titledId = await mint(titled.app);
+    expect((await titled.app.inject({ method: "GET", url: `/public/house/${titledId}` })).json()).toMatchObject({ name: "Varn", title: "Count" });
+
+    const plain = build();
+    const plainId = await mint(plain.app);
+    expect((await plain.app.inject({ method: "GET", url: `/public/house/${plainId}` })).json()).not.toHaveProperty("title");
+  });
 });

@@ -8,6 +8,7 @@ export const ACCOUNT_COSMETICS_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
     "An account that owns the High-noble standard or the Lancet guard can choose it under Settings, Account",
     "Other Houses see it on that House's muster flags, or on its soldiers in battle, on the march and in its expand crew",
     "With a Titanium Weapons Factory the Lancet guard wears titanium plate, so rivals can always read that strength",
-    "Neither is on sale yet, and nothing changes for an account that owns neither"
+    "An account that claims the title of Count shows it before its House name on the contest roster and its public profile",
+    "None of this is on sale yet, and nothing changes for an account that owns nothing"
   ]
 };

@@ -45,17 +45,29 @@ catalogue is `packages/shared/src/cosmetics/cosmetics.ts`.
 
 ### What the shop sells
 
-Owner decision, 2026-11-25:
+Owner decisions, 2026-11-25:
 
-| Product id | Shop name | Price | Grants |
-|---|---|---|---|
-| `high-noble` | Claim the title of High Noble | USD 4.99, one-time | `flag-high-noble` and `ancillaries-lancet-guard` |
+| Product id | Shop name | Price | Grants | Title |
+|---|---|---|---|---|
+| `title-count` | Claim the title of Count | USD 4.99, one-time | `flag-high-noble` and `ancillaries-lancet-guard` | Count |
 
 Products live in `COSMETIC_PRODUCTS` beside the catalogue. Ownership is still
 stored per cosmetic, so a product is only a list of grants; taxes and other
-currencies are the payment provider's. Nothing shows the title as text yet
-(no badge on the profile or roster): the House shows it through its standard
-and its guard.
+currencies are the payment provider's.
+
+**The title.** An account that owns everything a titled product grants holds
+its title (`accountTitleFor`); revoking one of the cosmetics (a refund) takes
+it away. "Count" is shown in gold small caps before the House name:
+
+- on the contest lobby roster (`SEASON_LOBBY_UPDATE` and `INIT` roster
+  entries carry `title`; `client-season-lobby-panel.ts`), and
+- on the public House profile (`GET /public/house/:id` carries `title`;
+  `client-public-house-view.ts`).
+
+It is not shown in a match (leaderboard, tile owner, chat). The roster entry
+is refreshed when the player next checks in or changes their flag, and the
+public profile within its one-minute cache. Unknown titles are dropped by the
+client (`isAccountTitle`).
 
 ### Where it is drawn
 

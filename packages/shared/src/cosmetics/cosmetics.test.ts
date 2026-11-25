@@ -8,7 +8,9 @@ import {
   isEmptyCosmeticSelection,
   sanitizeCosmeticSelection,
   COSMETIC_PRODUCTS,
+  accountTitleFor,
   cosmeticProduct,
+  isAccountTitle,
   isCosmeticId
 } from "./cosmetics.js";
 
@@ -59,12 +61,13 @@ describe("sanitizeCosmeticSelection", () => {
 });
 
 describe("COSMETIC_PRODUCTS", () => {
-  it("sells the title of High Noble for USD 4.99 with both High-noble cosmetics", () => {
-    expect(cosmeticProduct("high-noble")).toEqual({
-      id: "high-noble",
-      name: "Claim the title of High Noble",
+  it("sells the title of Count for USD 4.99 with both High-noble cosmetics", () => {
+    expect(cosmeticProduct("title-count")).toEqual({
+      id: "title-count",
+      name: "Claim the title of Count",
       priceUsdCents: 499,
-      grants: ["flag-high-noble", "ancillaries-lancet-guard"]
+      grants: ["flag-high-noble", "ancillaries-lancet-guard"],
+      title: "Count"
     });
     expect(cosmeticProduct("nope")).toBeUndefined();
   });
@@ -72,5 +75,19 @@ describe("COSMETIC_PRODUCTS", () => {
   it("only grants cosmetics that exist, under unique product ids", () => {
     expect(new Set(COSMETIC_PRODUCTS.map((product) => product.id)).size).toBe(COSMETIC_PRODUCTS.length);
     for (const product of COSMETIC_PRODUCTS) for (const id of product.grants) expect(isCosmeticId(id)).toBe(true);
+  });
+});
+
+describe("accountTitleFor", () => {
+  it("makes an account a Count only while it owns everything the product grants", () => {
+    expect(accountTitleFor(["flag-high-noble", "ancillaries-lancet-guard"])).toBe("Count");
+    expect(accountTitleFor(["flag-high-noble"])).toBeUndefined();
+    expect(accountTitleFor([])).toBeUndefined();
+  });
+
+  it("recognises only known titles", () => {
+    expect(isAccountTitle("Count")).toBe(true);
+    expect(isAccountTitle("Duke")).toBe(false);
+    expect(isAccountTitle(undefined)).toBe(false);
   });
 });

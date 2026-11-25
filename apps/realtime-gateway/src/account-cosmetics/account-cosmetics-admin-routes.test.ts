@@ -65,7 +65,7 @@ describe("account cosmetics admin routes", () => {
 
   it("grants a whole shop product with the admin token, and only with it", async () => {
     const { app, store } = build();
-    const payload = { playerId: "p1", productId: "high-noble", grantRef: "test" };
+    const payload = { playerId: "p1", productId: "title-count", grantRef: "test" };
     const refused = await app.inject({ method: "POST", url: "/admin/cosmetics/grant-product", headers: { authorization: "Bearer wrong" }, payload });
     expect(refused.statusCode).toBe(401);
     expect(await store.listOwned("p1")).toEqual([]);

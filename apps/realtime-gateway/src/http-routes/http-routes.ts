@@ -104,7 +104,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
-  accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "grantProduct" | "revoke" | "renderMetrics">;
+  accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "grantProduct" | "revoke" | "renderMetrics" | "titleOf">;
   adminApiToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
   // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
