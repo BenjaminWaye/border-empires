@@ -76,6 +76,7 @@ body {
   box-sizing: border-box;
   width: 18px;
   height: 18px;
+  min-height: 0; /* style.css gives #hud input 36px on phones; the label is the tap target */
   margin: 0;
   padding: 0;
   border: 1px solid var(--sp-brass-700);
