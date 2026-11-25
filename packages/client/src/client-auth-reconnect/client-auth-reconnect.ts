@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { recordClientDebugEvent } from "../client-debug/client-debug.js";
+import { applyDeployWait, DEPLOY_WAIT_DETAIL } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
 
 type AuthReconnectSchedulerDeps = {
   state: ClientState;
@@ -64,11 +65,13 @@ export const createAuthReconnectScheduler = (deps: AuthReconnectSchedulerDeps): 
       state.authRetryNextAt = 0;
       if (!firebaseAuth?.currentUser || state.authSessionReady) return;
       if (ws.readyState !== ws.OPEN) {
-        state.authBusyTitle = "Connection interrupted";
-        state.authBusyDetail = "The realtime connection closed before sign-in finished. Reload the game to open a new connection.";
+        // The transport dropped while waiting (usually a deploy restart).
+        // Wait and reopen in place; the socket's "open" handler resends AUTH.
+        applyDeployWait(state);
         state.authRetrying = false;
         resetAttempt();
-        setAuthStatus("Connection closed before sign-in finished. Reload the game to reconnect.", "error");
+        setAuthStatus(DEPLOY_WAIT_DETAIL);
+        if (ws.readyState === ws.CLOSED || ws.readyState === ws.CLOSING) ws.reconnect();
         syncAuthOverlay();
         renderHud();
         return;

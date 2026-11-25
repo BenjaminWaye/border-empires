@@ -34,6 +34,8 @@ import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
+import { createProfileSubmitter } from "./client-auth-profile-submit.js";
+import { applyDeployWait, DEPLOY_WAIT_DETAIL, retryDeployWaitNow, syncDeployWaitRetryButton } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
@@ -92,6 +94,15 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authColorPresetButtons: dom.authColorPresetButtons
     });
 
+  const setAuthBusy = (busy: boolean): void => {
+    state.authBusy = busy;
+    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
+  };
+  const profileSubmitter = createProfileSubmitter({
+    state, ws, firebaseAuth, requireAuthedSession, setAuthBusy, setAuthStatus,
+    syncAuthOverlay: () => syncAuthOverlay(),
+    readChoice: () => ({ displayName: dom.authProfileNameEl.value.trim(), color: dom.authProfileColorEl.value })
+  });
   const sectorWaitlist = createSectorWaitlistController({ state, wsUrl, sync: () => syncAuthOverlay(), getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
   installPublicProfileShare({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
   const syncAuthOverlay = (): void => {
@@ -132,6 +143,17 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     // itself still comes from notifySeasonStarted, which mails every bound
     // account when the next Sector opens; the list records the demand.
     dom.authBusySeasonFullNotifyBtn.onclick = () => void sectorWaitlist.join();
+    syncDeployWaitRetryButton({
+      state,
+      modalEl: dom.authBusyModalEl,
+      onRetry: () => {
+        retryDeployWaitNow(state, ws, authenticateSocket);
+        syncAuthOverlay();
+      },
+      resync: syncAuthOverlay
+    });
+    // A held "Enter the map" goes out once INIT restores the session.
+    profileSubmitter.flushPending();
   };
 
   const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);
@@ -160,10 +182,6 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId, sectorTicketProvider);
   bindInitTransferProgress(ws, state, syncAuthOverlay);
 
-  const setAuthBusy = (busy: boolean): void => {
-    state.authBusy = busy;
-    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
-  };
 
   const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
     if (!firebaseAuth) return;
@@ -303,32 +321,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthOverlay();
     };
 
-    dom.authProfileSaveBtn.onclick = async () => {
-      if (!requireAuthedSession("Connection lost. Reconnect before finishing setup.")) {
-        syncAuthOverlay();
-        return;
-      }
-      const displayName = dom.authProfileNameEl.value.trim();
-      if (displayName.length < 2) {
-        setAuthStatus("Display name must be at least 2 characters.", "error");
-        syncAuthOverlay();
-        return;
-      }
-      setAuthBusy(true);
-      setAuthStatus("Raising your banner...");
-      syncAuthOverlay();
-      try {
-        ws.send(JSON.stringify({ type: "SET_PROFILE", displayName, color: dom.authProfileColorEl.value }));
-        if (firebaseAuth?.currentUser && firebaseAuth.currentUser.displayName !== displayName) {
-          await updateProfile(firebaseAuth.currentUser, { displayName });
-        }
-      } catch (error) {
-        setAuthStatus(error instanceof Error ? error.message : "Could not save your empire profile.", "error");
-      } finally {
-        setAuthBusy(false);
-        syncAuthOverlay();
-      }
-    };
+    dom.authProfileSaveBtn.onclick = () => profileSubmitter.submitFromForm();
   };
 
   const bindFirebaseAuth = (): void => {
@@ -419,11 +412,14 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           } else {
             // Recovery pauses while signed out. A later sign-in must reopen
             // a closed transport instead of waiting for an absent retry.
-            if (ws.readyState === ws.CLOSED || ws.readyState === ws.CLOSING) ws.reconnect();
+            // A dead socket here is usually a deploy restart: wait, don't
+            // show the server URL.
+            const socketDown = ws.readyState === ws.CLOSED || ws.readyState === ws.CLOSING;
+            if (socketDown) ws.reconnect();
             setAuthBusy(true);
-            state.authBusyTitle = "Securing session";
-            state.authBusyDetail = `Signed in, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;
-            setAuthStatus(`Signed in. Waiting for the game server at ${wsUrl}...`);
+            if (socketDown) applyDeployWait(state);
+            else state.authBusyDetail = "Connecting…";
+            setAuthStatus(socketDown ? DEPLOY_WAIT_DETAIL : "Connecting…");
           }
         } catch (error) {
           state.authSessionReady = false;
