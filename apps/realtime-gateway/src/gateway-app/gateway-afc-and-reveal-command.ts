@@ -1,9 +1,12 @@
 import type { DurableCommandType } from "@border-empires/client-protocol";
+import { dispatchTownFocusCommand } from "./gateway-town-focus-command.js";
 
-type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string | undefined; coin?: number };
+type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string | undefined; coin?: number; tiles?: ReadonlyArray<{ x: number; y: number }>; focus?: string };
 type DispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata?: boolean) => Promise<void>;
 
 export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage, dispatch: DispatchDurableCommand): Promise<boolean> => {
+  // Town focus rides this passthrough so gateway-app.ts (over the line cap) needs no new branch.
+  if (await dispatchTownFocusCommand(message, dispatch)) return true;
   if (message.type === "WITHDRAW_AND_REDEPLOY") {
     await dispatch("WITHDRAW_AND_REDEPLOY", {});
     return true;

@@ -234,6 +234,9 @@ slot until removal completes.
 
 ## Gold and town support
 
+- A town's focus (`docs/game-mechanics.md`, "Town focus") multiplies its own
+  Coin, manpower regen and population growth by 0.9 to 1.2. Balanced is ×1.
+
 - Manufactories are repeatable town-industry buildings, replacing Mintworks.
   Each occupies 1 FOOD slot and retains the same income: +10 Coin on
   completion, +1 Coin/day, and an additive +10% town income per copy

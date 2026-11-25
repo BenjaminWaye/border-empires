@@ -3,6 +3,7 @@ import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
+import { TOWN_FOCUS_ENTRY } from "./client-changelog-town-focus.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_23_CHANGELOG,
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
   { ...DEPLOY_COUNTDOWN_ENTRY, createdAt: 1795627725789, },
+  { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

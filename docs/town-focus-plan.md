@@ -1,9 +1,16 @@
 # Town focus — plan
 
-Status: active proposal (draft for owner review, 2026-11-23). Nothing here is
-implemented. Numbers marked "starting value" are for a balance pass.
+Status: phase 1 implemented (2026-11-25), using the drafted answers to open
+questions 1, 2 and 6 (name Levy, +20% / −10%, next refill) pending the
+owner's decision. Numbers marked "starting value" are for a balance pass.
+Current rules: `docs/game-mechanics.md`, "Town focus".
+
+Phase 1 as shipped differs from the draft below in two ways: the controls
+are four rows on the town's tile menu (shared by the 2D and true-3D maps)
+rather than a dedicated panel with per-focus previews, and the focus is not
+hidden from rivals (open question 5).
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
-Last verified: 2026-11-23
+Last verified: 2026-11-25
 Replaces: none
 
 ## Problem

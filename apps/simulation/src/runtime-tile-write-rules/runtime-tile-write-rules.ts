@@ -1,7 +1,7 @@
 // Per-write tile bookkeeping applied by Runtime.replaceTileState, split out
 // of runtime.ts (over the 500-line cap) so each rule is unit-testable.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isCaptureHoldActive, liveRazedWreck, liveWarScarLevel } from "@border-empires/shared";
+import { isCaptureHoldActive, liveRazedWreck, liveWarScarLevel, withoutTownFocus } from "@border-empires/shared";
 
 /**
  * Drops a capture hold (shared capture-hold.ts) that no longer applies, so
@@ -73,4 +73,16 @@ export const updateTileSettledAt = (
     settledAtByKey.delete(tileKey);
   }
   return wasSettledForSameOwner;
+};
+
+/**
+ * A town's focus belongs to the House that set it (docs/town-focus-plan.md):
+ * when the town changes hands by any route (capture, diplomatic return,
+ * abandonment) it starts Balanced with nothing queued.
+ */
+export const withoutForeignTownFocus = (previous: DomainTileState | undefined, next: DomainTileState): DomainTileState => {
+  const town = next.town;
+  if (!town || previous?.ownerId === next.ownerId) return next;
+  if (town.focus === undefined && town.pendingFocus === undefined && town.pendingFocusAt === undefined) return next;
+  return { ...next, town: withoutTownFocus(town) };
 };
