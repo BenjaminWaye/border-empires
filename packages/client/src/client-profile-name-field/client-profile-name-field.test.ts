@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedProfileSetupFields } from "../client-auth-ui/client-auth-ui.js";
 import { hudMarkup } from "../client-dom-markup/client-dom-markup.js";
@@ -35,7 +37,7 @@ afterEach(() => {
 
 describe("founding name box", () => {
   it("the real founding box is wired to select-all and the session draft", () => {
-    const controls = readFileSync(new URL("../client-ui-controls/client-ui-controls.ts", import.meta.url), "utf8");
+    const controls = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../client-ui-controls/client-ui-controls.ts"), "utf8");
     expect(controls).toContain("bindProfileNameField(authProfileNameEl, { onUserInput: writeFoundingNameDraft });");
   });
 
