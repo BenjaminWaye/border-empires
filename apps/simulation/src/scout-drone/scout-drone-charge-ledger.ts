@@ -19,6 +19,8 @@ type ChargePlayer = Pick<DomainPlayer, "scoutChargeSpends">;
 export type ScoutChargeLedger = {
   readonly available: (playerId: string, nowMs: number) => number;
   readonly spend: (playerId: string, count: number, nowMs: number) => void;
+  /** Gives back the `count` most recently spent charges: stops a rival border kept the drone from reaching. */
+  readonly refund: (playerId: string, count: number, nowMs: number) => void;
   /** The wire form for a SCOUT_DRONE message: spends still refilling, server clock. */
   readonly wire: (playerId: string, nowMs: number) => ScoutDroneCharges;
 };
@@ -44,6 +46,13 @@ export const createScoutChargeLedger = (players: () => ReadonlyMap<string, Charg
       const next = live(player, nowMs);
       for (let i = 0; i < Math.min(count, SCOUT_DRONE_MAX_CHARGES); i += 1) next.push(nowMs);
       player.scoutChargeSpends = next.slice(-SCOUT_DRONE_MAX_CHARGES);
+    },
+    refund: (playerId, count, nowMs) => {
+      const player = players().get(playerId);
+      if (!player || count <= 0) return;
+      const kept = live(player, nowMs).slice(0, -count);
+      if (kept.length === 0) delete player.scoutChargeSpends;
+      else player.scoutChargeSpends = kept;
     },
     wire
   };
