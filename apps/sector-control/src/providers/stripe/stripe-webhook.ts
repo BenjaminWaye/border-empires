@@ -30,6 +30,13 @@ export const verifyStripeSignature = (rawBody: string, header: string | undefine
 
 const text = (value: unknown): string | undefined => (typeof value === "string" && value !== "" ? value : undefined);
 
+/**
+ * `charge.refunded` is sent for partial refunds too. The charge says whether
+ * all of it has now been refunded; only that closes a sector or a share.
+ */
+const isFullRefund = (charge: Record<string, unknown>): boolean =>
+  charge.refunded === true || (typeof charge.amount === "number" && typeof charge.amount_refunded === "number" && charge.amount_refunded >= charge.amount);
+
 export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret: string; now?: () => number }) => {
   const now = deps.now ?? (() => Date.now());
 
@@ -57,8 +64,10 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
       return status === "requires_capture" ? { eventId, kind: "held", contributionId } : "ignored";
     }
     if (type === "checkout.session.expired" || type === "checkout.session.async_payment_failed") return { eventId, kind: "expired", contributionId };
-    if (type === "charge.refunded") return { eventId, kind: "refunded", contributionId };
-    if (type === "charge.dispute.created") return { eventId, kind: "disputed", contributionId };
+    if (type === "charge.refunded") return { eventId, kind: "refunded", contributionId, fullRefund: isFullRefund(object) };
+    const disputeId = text(object.id);
+    if (type === "charge.dispute.created" && disputeId) return { eventId, kind: "disputed", contributionId, disputeId };
+    if (type === "charge.dispute.closed" && disputeId) return { eventId, kind: "dispute_closed", contributionId, disputeId };
     return "ignored";
   };
 
@@ -74,11 +83,14 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
     // Shares of a split-funded sector carry their contribution id on the session, or on the payment.
     const sessionContribution = text((object.metadata as Record<string, unknown> | undefined)?.contributionId);
     if (sessionContribution && String(event.type).startsWith("checkout.session.")) return contributionEvent(eventId, event.type, object, sessionContribution);
-    if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+    if (event.type === "charge.refunded" || event.type === "charge.dispute.created" || event.type === "charge.dispute.closed") {
       const intent = await paymentIntent(object.payment_intent);
       if (intent.contributionId) return contributionEvent(eventId, event.type, object, intent.contributionId);
       if (!intent.sectorId) return "ignored";
-      return { eventId, kind: event.type === "charge.refunded" ? "refunded" : "disputed", sectorId: intent.sectorId };
+      if (event.type === "charge.refunded") return { eventId, kind: "refunded", sectorId: intent.sectorId, fullRefund: isFullRefund(object) };
+      const disputeId = text(object.id);
+      if (!disputeId) return "ignored";
+      return { eventId, kind: event.type === "charge.dispute.created" ? "disputed" : "dispute_closed", sectorId: intent.sectorId, disputeId };
     }
 
     switch (event.type) {
@@ -108,5 +120,6 @@ export const STRIPE_WEBHOOK_EVENTS = [
   "checkout.session.async_payment_failed",
   "checkout.session.expired",
   "charge.refunded",
-  "charge.dispute.created"
+  "charge.dispute.created",
+  "charge.dispute.closed"
 ] as const;

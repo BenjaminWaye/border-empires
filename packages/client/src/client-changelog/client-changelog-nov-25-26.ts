@@ -7,6 +7,7 @@ import { TOWN_FOCUS_ENTRY, TOWN_FOCUS_LIST_ENTRY, TOWN_FOCUS_PANEL_ENTRY } from 
 import { UI_TYPE_CONSISTENCY_ENTRY } from "./client-changelog-ui-type-consistency.js";
 import { UNLOCK_CELEBRATION_ENTRY } from "./client-changelog-unlock-celebration.js";
 import { FRONTIER_GARRISON_ENTRY } from "./client-changelog-frontier-garrison.js";
+import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
@@ -19,5 +20,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
   { ...FRONTIER_GARRISON_ENTRY, createdAt: 1795692680347, },
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
+  { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },
   { ...HONEST_JOIN_ENTRY, createdAt: 1795724435038, },
 ];

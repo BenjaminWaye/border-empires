@@ -70,3 +70,31 @@ describe("createScoutFindings tiles seen", () => {
     expect(findings.observe(11, 10, viewer)).toEqual([]);
   });
 });
+
+describe("createScoutFindings tiles explored", () => {
+  // Playtest 2026-11-26: the report said "+160 Tiles" while Cartographer went from 901 to 929. tilesSeen
+  // counts known ground too; tilesExplored counts what Cartographer adds, so the card reports that.
+  it("counts only tiles the viewer had not explored and that the flight did explore", () => {
+    const explored = new Set<string>();
+    for (let y = 7; y <= 13; y += 1) for (let x = 7; x <= 10; x += 1) explored.add(`${x},${y}`); // known ground: 4 columns
+    const findings = createScoutFindings(() => new Map<string, DomainTileState>(), 100, 100, (_id, x, y) => explored.has(`${x},${y}`));
+    const viewer = { id: "me", allies: new Set<string>() } as unknown as DomainPlayer;
+    findings.observe(10, 10, viewer);
+    // The flight's reveal explores what it saw (the runtime's onFirstSeen), except a step a slow tick skipped.
+    for (let y = 7; y <= 13; y += 1) for (let x = 11; x <= 12; x += 1) explored.add(`${x},${y}`);
+    const side = 2 * SCOUT_DRONE_VISION_RADIUS + 1;
+    const report = findings.counts();
+    expect(report.tilesSeen).toBe(side * side);
+    expect(report.tilesExplored).toBe(2 * side);
+  });
+
+  it("reports zero over ground the viewer already knew, and nothing without the lookup", () => {
+    const viewer = { id: "me", allies: new Set<string>() } as unknown as DomainPlayer;
+    const known = createScoutFindings(() => new Map<string, DomainTileState>(), 100, 100, () => true);
+    known.observe(10, 10, viewer);
+    expect(known.counts().tilesExplored).toBe(0);
+    const legacy = createScoutFindings(() => new Map<string, DomainTileState>(), 100, 100);
+    legacy.observe(10, 10, viewer);
+    expect(legacy.counts().tilesExplored).toBeUndefined();
+  });
+});

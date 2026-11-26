@@ -133,7 +133,7 @@ describe("split funding: after the sector started", () => {
     await pledge(h, "host", sectorId, 1000);
     await h.reconciler.runOnce();
     const contributionId = share.replace("fake-hold-", "");
-    await h.service.handlePaymentEvent({ eventId: "evt-withdraw", kind: "refunded", contributionId });
+    await h.service.handlePaymentEvent({ eventId: "evt-withdraw", kind: "refunded", contributionId, fullRefund: true });
     expect(h.store.getContribution(contributionId)?.state).toBe("refunded");
     expect(h.store.getSector(sectorId)?.state).toBe("creating");
     expect(h.alerts.map((alert) => alert.kind)).toContain("contribution_refunded");
