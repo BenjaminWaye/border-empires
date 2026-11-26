@@ -1,7 +1,7 @@
 // Calls to the hosting service (apps/sector-control), which lists the hosted
 // sectors an account belongs to and hands out the ticket needed to enter one.
 // Always the main API origin, never a sector's own server.
-import type { HostedSectorMapSize, HostedSectorMapStyle } from "@border-empires/shared";
+import type { HostedSectorConsent, HostedSectorMapSize, HostedSectorMapStyle } from "@border-empires/shared";
 
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 
@@ -125,8 +125,8 @@ export const createHostingApi = (deps: HostingApiDeps) => {
     },
 
     /** Starts an order. The reply carries the address of the payment page. */
-    async createOrder(options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> {
-      const reply = await call("POST", "/hosting/orders", options);
+    async createOrder(options: HostedSectorSummary["options"], consent: HostedSectorConsent): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> {
+      const reply = await call("POST", "/hosting/orders", { ...options, consent });
       if ("ok" in reply) return reply;
       const sector = parseSector(okBody(reply)?.sector);
       return sector ? { ok: true, sector } : failure(reply.body, "The order could not be started. Nothing was charged.");
@@ -141,8 +141,8 @@ export const createHostingApi = (deps: HostingApiDeps) => {
     },
 
     /** Pledges a share. The reply carries the address of the payment page, where the card is only held. */
-    async contribute(sectorId: string, amountCents: number): Promise<HostingApiResult<{ checkoutUrl: string }>> {
-      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/contributions`, { amountCents });
+    async contribute(sectorId: string, amountCents: number, consent: HostedSectorConsent): Promise<HostingApiResult<{ checkoutUrl: string }>> {
+      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/contributions`, { amountCents, consent });
       if ("ok" in reply) return reply;
       const checkoutUrl = okBody(reply)?.checkoutUrl;
       return typeof checkoutUrl === "string" ? { ok: true, checkoutUrl } : failure(reply.body, "Your share could not be started. Nothing was charged.");

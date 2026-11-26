@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { createHostedSectorTicketVerifier } from "../../../realtime-gateway/src/hosted-sector/hosted-sector-ticket.js";
-import { account, createHostingHarness, DAY } from "../hosting-test-support.js";
+import { CONSENT, account, createHostingHarness, DAY } from "../hosting-test-support.js";
 
 const STANDARD = { mapStyle: "continents", mapSize: "standard" } as const;
 
 describe("ordering a hosted sector", () => {
   it("creates an unpaid order with a checkout, priced at USD 20, with the host as first member", async () => {
     const h = await createHostingHarness();
-    const result = await h.service.createOrder(account("host"), { mapStyle: "islands", mapSize: "small" });
+    const result = await h.service.createOrder(account("host"), { mapStyle: "islands", mapSize: "small" }, CONSENT);
     expect(result).toMatchObject({ ok: true, sector: { state: "awaiting_payment", role: "host", members: 1, humanPlaces: 12, options: { mapStyle: "islands", mapSize: "small" } } });
     if (!result.ok) return;
     expect(result.sector.checkoutUrl).toContain("checkout.invalid");
@@ -18,7 +18,7 @@ describe("ordering a hosted sector", () => {
   it("gives a second press of Buy the same order back instead of a second one", async () => {
     const h = await createHostingHarness();
     const first = await h.order();
-    const again = await h.service.createOrder(account("host"), STANDARD);
+    const again = await h.service.createOrder(account("host"), STANDARD, CONSENT);
     expect(again).toMatchObject({ ok: true, sector: { sectorId: first } });
     expect(h.store.countSectorsByState().awaiting_payment).toBe(1);
   });
@@ -26,18 +26,18 @@ describe("ordering a hosted sector", () => {
   it("refuses a second sector while one is being created or running, and allows one after it ends", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
-    expect(await h.service.createOrder(account("host"), STANDARD)).toMatchObject({ ok: false, code: "ALREADY_HOSTING" });
+    expect(await h.service.createOrder(account("host"), STANDARD, CONSENT)).toMatchObject({ ok: false, code: "ALREADY_HOSTING" });
     h.servers.ended.add(`${sectorId}.sectors.invalid`);
     await h.reconciler.runOnce();
-    expect(await h.service.createOrder(account("host"), STANDARD)).toMatchObject({ ok: true });
+    expect(await h.service.createOrder(account("host"), STANDARD, CONSENT)).toMatchObject({ ok: true });
   });
 
   it("refuses guests, unverified emails, and everyone while sales are switched off", async () => {
     const h = await createHostingHarness();
-    expect(await h.service.createOrder(account("g", { isGuest: true }), STANDARD)).toMatchObject({ ok: false, code: "ACCOUNT_REQUIRED" });
-    expect(await h.service.createOrder(account("u", { emailVerified: false }), STANDARD)).toMatchObject({ ok: false, code: "EMAIL_NOT_VERIFIED" });
+    expect(await h.service.createOrder(account("g", { isGuest: true }), STANDARD, CONSENT)).toMatchObject({ ok: false, code: "ACCOUNT_REQUIRED" });
+    expect(await h.service.createOrder(account("u", { emailVerified: false }), STANDARD, CONSENT)).toMatchObject({ ok: false, code: "EMAIL_NOT_VERIFIED" });
     const closed = await createHostingHarness({ salesEnabled: false });
-    expect(await closed.service.createOrder(account("host"), STANDARD)).toMatchObject({ ok: false, code: "SALES_CLOSED" });
+    expect(await closed.service.createOrder(account("host"), STANDARD, CONSENT)).toMatchObject({ ok: false, code: "SALES_CLOSED" });
     expect(closed.store.countSectorsByState().awaiting_payment).toBe(0);
   });
 
@@ -45,10 +45,10 @@ describe("ordering a hosted sector", () => {
     const h = await createHostingHarness();
     const createCheckout = h.payment.createCheckout.bind(h.payment);
     h.payment.createCheckout = async () => { throw new Error("provider down"); };
-    expect(await h.service.createOrder(account("host"), STANDARD)).toMatchObject({ ok: false, code: "PAYMENT_UNAVAILABLE" });
+    expect(await h.service.createOrder(account("host"), STANDARD, CONSENT)).toMatchObject({ ok: false, code: "PAYMENT_UNAVAILABLE" });
     expect(h.store.countSectorsByState().cancelled).toBe(1);
     h.payment.createCheckout = createCheckout;
-    expect(await h.service.createOrder(account("host"), STANDARD)).toMatchObject({ ok: true });
+    expect(await h.service.createOrder(account("host"), STANDARD, CONSENT)).toMatchObject({ ok: true });
   });
 });
 
@@ -145,7 +145,7 @@ describe("invitations and membership", () => {
 
   it("refuses revoked and expired links, guests, and a full sector", async () => {
     const h = await createHostingHarness();
-    const small = await h.service.createOrder(account("host"), { mapStyle: "continents", mapSize: "small" });
+    const small = await h.service.createOrder(account("host"), { mapStyle: "continents", mapSize: "small" }, CONSENT);
     if (!small.ok) throw new Error("order failed");
     const sectorId = small.sector.sectorId;
     const make = (): string => {

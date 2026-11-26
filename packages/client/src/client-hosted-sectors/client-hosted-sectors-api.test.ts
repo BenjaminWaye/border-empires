@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { CHECKOUT_CONSENT } from "./client-hosted-sector-order.js";
 import { createHostingApi } from "./client-hosted-sectors-api.js";
 
 const SECTOR = { sectorId: "s-abc", state: "open", role: "member", options: { mapStyle: "continents", mapSize: "standard" }, members: 2, humanPlaces: 40, delayed: false, createdAt: 1 };
@@ -45,15 +46,15 @@ describe("hosting API client", () => {
 
   it("starts an order with the chosen options and returns the payment page, and makes an invite link", async () => {
     const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => reply(200, { ok: true, sector: { ...SECTOR, state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" } }));
-    const ordered = await makeApi(fetchImpl as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" });
+    const ordered = await makeApi(fetchImpl as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" }, CHECKOUT_CONSENT);
     expect(ordered).toMatchObject({ ok: true, sector: { state: "awaiting_payment", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" } });
     expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.borderempires.com/hosting/orders");
-    expect(fetchImpl.mock.calls[0]?.[1]).toEqual({ method: "POST", headers: { authorization: "Bearer id-token", "content-type": "application/json" }, body: JSON.stringify({ mapStyle: "continents", mapSize: "standard" }) });
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual({ method: "POST", headers: { authorization: "Bearer id-token", "content-type": "application/json" }, body: JSON.stringify({ mapStyle: "continents", mapSize: "standard", consent: CHECKOUT_CONSENT }) });
 
     const invite = vi.fn(async () => reply(200, { ok: true, invite: { code: "abc123" } }));
     expect(await makeApi(invite as unknown as typeof fetch).createInvite("s-abc")).toEqual({ ok: true, code: "abc123" });
     const closed = vi.fn(async () => reply(503, { ok: false, code: "SALES_CLOSED", message: "Hosting is not on sale right now." }));
-    expect(await makeApi(closed as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" })).toEqual({ ok: false, code: "SALES_CLOSED", message: "Hosting is not on sale right now." });
+    expect(await makeApi(closed as unknown as typeof fetch).createOrder({ mapStyle: "continents", mapSize: "standard" }, CHECKOUT_CONSENT)).toEqual({ ok: false, code: "SALES_CLOSED", message: "Hosting is not on sale right now." });
   });
 
   it("reads a funding bar, opens one, and pledges a share", async () => {
@@ -68,8 +69,8 @@ describe("hosting API client", () => {
     const api = makeApi(fetchImpl as unknown as typeof fetch);
     expect(await api.listSectors()).toMatchObject({ ok: true, sectors: [{ state: "funding", funding }] });
     expect(await api.openFundingBar({ mapStyle: "continents", mapSize: "standard" })).toMatchObject({ ok: true, sector: { state: "funding" } });
-    expect(await api.contribute("s-abc", 700)).toEqual({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/y" });
+    expect(await api.contribute("s-abc", 700, CHECKOUT_CONSENT)).toEqual({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/y" });
     expect(calls.map((call) => call.url.replace(/^https?:\/\/[^/]+/, ""))).toEqual(["/hosting/sectors", "/hosting/funding-bars", "/hosting/sectors/s-abc/contributions"]);
-    expect(calls[2]?.body).toBe(JSON.stringify({ amountCents: 700 }));
+    expect(calls[2]?.body).toBe(JSON.stringify({ amountCents: 700, consent: CHECKOUT_CONSENT }));
   });
 });

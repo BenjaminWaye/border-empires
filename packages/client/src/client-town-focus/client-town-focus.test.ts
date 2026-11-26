@@ -1,46 +1,82 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { TOWN_FOCUS_MULTIPLIERS, manpowerPerBatch, nextManpowerRefillAtMs } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { createInitialState } from "../client-state/client-state.js";
-import { townFocusActions } from "./client-town-focus.js";
-import { dispatchTileAetherAction } from "../client-afc-upgrades/client-afc-tower-action.js";
-import { structureCommandActions } from "../client-structure-command-actions.js";
+import { optimisticTownFocus, townFocusCard, townFocusDuration } from "./client-town-focus.js";
 
-const townTile = (ownerId: string, focus: Pick<NonNullable<Tile["town"]>, "focus" | "pendingFocus" | "pendingFocusAt"> = {}): Tile => ({
-  x: 10, y: 10, terrain: "LAND", ownerId, ownershipState: "SETTLED", town: {
-    type: "MARKET", name: "Test Town", population: 20_000, maxPopulation: 100_000, populationTier: "TOWN", isFed: true,
-    baseGoldPerMinute: 0, goldPerMinute: 0, supportCurrent: 1, supportMax: 8, cap: 300,
+const NOW = 1_800_000_000_000;
+const townTile = (town: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
+  x: 4, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", yieldRate: { goldPerMinute: 0.064 },
+  town: {
+    type: "MARKET", name: "Vellmar", population: 60_000, maxPopulation: 1_000_000, populationTier: "TOWN", isFed: true,
+    baseGoldPerMinute: 0, goldPerMinute: 0.064, supportCurrent: 8, supportMax: 8, cap: 300, populationGrowthPerMinute: 10,
     connectedTownCount: 0, connectedTownBonus: 0, hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false,
-    ...focus
-  }
+    nextPopulationTierUpgrade: { targetTier: "CITY", requiredPopulation: 100_000, goldCost: 40, available: false },
+    ...town
+  } as NonNullable<Tile["town"]>
 });
-const stateFor = (me: string) => { const state = createInitialState(); state.me = me; return state; };
 
-describe("town focus actions (both map renderers share the DOM menu)", () => {
-  it("offers four focus rows on an owned town, with Balanced marked current", () => {
-    const actions = townFocusActions(stateFor("p"), townTile("p"), 1_000);
-    expect(actions.map((action) => action.id)).toEqual(["town_focus_balanced", "town_focus_growth", "town_focus_levy", "town_focus_commerce"]);
-    expect(actions[0]).toMatchObject({ disabled: true, disabledReason: "Current focus" });
-    expect(actions[2]).toMatchObject({ disabled: false, cost: "Free" });
-    expect(actions[2]?.detail).toContain("Manpower regen +20%");
+describe("townFocusCard", () => {
+  it("projects each focus from the town's own numbers", () => {
+    const card = townFocusCard(townTile(), "me", 0.5, NOW)!;
+    const byFocus = Object.fromEntries(card.options.map((o) => [o.focus, o]));
+    const mp = manpowerPerBatch(0.5);
+    expect(byFocus.BALANCED!.manpower.value).toBe(Math.round(mp).toLocaleString("en-US"));
+    expect(byFocus.LEVY!.manpower).toMatchObject({ value: Math.round(mp * 1.2).toLocaleString("en-US"), tone: "up" });
+    expect(byFocus.COMMERCE!.coin.tone).toBe("up");
+    expect(byFocus.GROWTH!.growth.tone).toBe("up");
+    expect(byFocus.BALANCED!.state).toBe("active");
+    expect(card.startsInMs).toBe(nextManpowerRefillAtMs("me", NOW) - NOW);
   });
 
-  it("shows nothing on a rival's town", () => {
-    expect(townFocusActions(stateFor("p"), townTile("rival"), 1_000)).toEqual([]);
+  it("divides the active focus out of the server's figures and compares every row with Balanced", () => {
+    const tile = townTile({ focus: "COMMERCE", goldPerMinute: 0.064 * 1.2 });
+    tile.yieldRate = { goldPerMinute: 0.064 * 1.2 };
+    const card = townFocusCard(tile, "me", 0.5, NOW)!;
+    const balanced = card.options.find((o) => o.focus === "BALANCED")!;
+    const commerce = card.options.find((o) => o.focus === "COMMERCE")!;
+    expect(balanced.coin).toMatchObject({ value: String(Math.round(0.064 * 1440)), delta: "", tone: "same" });
+    expect(commerce).toMatchObject({ state: "active", coin: { tone: "up" } });
+    // Buttons state the rule as rates, so a lower refill never reads as a one-off cost.
+    expect(commerce.tradeLine).toBe("Coin +20%");
+    expect(commerce.costLine).toBe("MP −10% · Growth −10%");
+    expect(card.options.find((o) => o.focus === "LEVY")).toMatchObject({ tradeLine: "MP +20%", costLine: "Coin −10% · Growth −10%" });
   });
 
-  it("marks a queued focus and lets the player keep the current one instead", () => {
-    const actions = townFocusActions(stateFor("p"), townTile("p", { focus: "LEVY", pendingFocus: "GROWTH", pendingFocusAt: 61_000 }), 1_000);
-    expect(actions[1]).toMatchObject({ id: "town_focus_growth", disabled: true });
-    expect(actions[1]?.disabledReason).toContain("Queued");
-    expect(actions[2]).toMatchObject({ id: "town_focus_levy", label: "Keep Levy focus", disabled: false });
+  it("marks a queued focus and shows paused growth plainly", () => {
+    const card = townFocusCard(townTile({ pendingFocus: "LEVY", pendingFocusAt: NOW + 60_000, populationGrowthPerMinute: 0, nearbyWarPausedUntil: NOW + 60_000 }), "me", 0.5, NOW)!;
+    expect(card.queued).toBe("LEVY");
+    expect(card.queuedInMs).toBe(60_000);
+    expect(card.options.find((o) => o.focus === "LEVY")!.state).toBe("queued");
+    expect(card.growthPaused).toBe(true);
+    expect(card.options.every((o) => o.growth.value === "Paused" && o.growth.delta === "")).toBe(true);
   });
 
-  it("is on the tile menu and sends SET_TOWN_FOCUS for the selected town", () => {
-    const state = stateFor("p");
-    const tile = townTile("p");
-    expect(structureCommandActions(state, tile).some((action) => action.id === "town_focus_commerce")).toBe(true);
-    const send = vi.fn(() => true);
-    dispatchTileAetherAction("town_focus_commerce", tile, { aetherLanceFxQueue: [] }, send);
-    expect(send).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 10, y: 10 }], focus: "COMMERCE" });
+  it("formats durations so options stay distinguishable", () => {
+    expect(townFocusDuration(30)).toBe("30m");
+    expect(townFocusDuration(41 * 60)).toBe("41h");
+    expect(townFocusDuration(108 * 60)).toBe("4.5d");
+  });
+
+  it("queues the choice for the next refill the way the server stores it", () => {
+    const town = townTile().town!;
+    expect(optimisticTownFocus(town, "LEVY", "me", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: nextManpowerRefillAtMs("me", NOW) });
+    expect(optimisticTownFocus(town, "BALANCED", "me", NOW)).toBe(town);
+  });
+});
+
+describe("town focus rule text", () => {
+  it("is derived from the multipliers, so a retune changes the text too", () => {
+    const card = townFocusCard(townTile(), "me", 0.5, NOW)!;
+    const levy = card.options.find((o) => o.focus === "LEVY")!;
+    const pct = (m: number) => `${m >= 1 ? "+" : "−"}${Math.round(Math.abs(m - 1) * 100)}%`;
+    expect(levy.tradeLine).toBe(`MP ${pct(TOWN_FOCUS_MULTIPLIERS.LEVY.manpowerRegen)}`);
+    expect(levy.costShort).toBe(`Others ${pct(TOWN_FOCUS_MULTIPLIERS.LEVY.coin)}`);
+  });
+
+  it("says Coin is unknown rather than 0 before the town's figure arrives", () => {
+    const tile = townTile();
+    delete (tile.town as { goldPerMinute?: number }).goldPerMinute;
+    const card = townFocusCard(tile, "me", 0.5, NOW)!;
+    expect(card.options.every((o) => o.coin.value === "…")).toBe(true);
   });
 });
