@@ -545,7 +545,8 @@ each with regression tests and sales off throughout:
 | # | PR | Items |
 |---|---|---|
 | 8a | **Consent and proof at checkout.** Two separate unticked boxes (shared wording in `packages/shared`), the consent stored with each order and share (time, Terms version, wording), the price facts before paying, the Stripe consent text. **Built 2026-11-25.** | 2, 3, 4 |
-| 8b | **Refunds, withdrawal and disputes.** Partial refunds with an amount and idempotency key; a refund closes a sector only for a withdrawal or a full refund; a withdrawal button with a confirmation step and the 1/30-per-day deduction; purchases paused for an account with an open dispute. | 1, 6, 7, 10 |
+| 8b | **Refunds and disputes.** A refund closes a sector (or drops a share) only when it returns the whole payment; a partial one keeps it running and alerts the owner. An open dispute pauses the paying account's purchases until Stripe reports it closed. **Built 2026-11-26.** | 7, 10 |
+| 8b-2 | **Withdrawal.** A withdrawal button with a confirmation step; the 1/30-per-day deduction; a partial refund issued by the service with an amount and idempotency key; the sector (or share) closed after its results are saved. | 1, 6 |
 | 8c | **Emails.** Order confirmation with the Terms and the consent, the idle-closure warning 2 days ahead, the withdrawal acknowledgement. Needs an email sender. | 5, 9, 6 |
 | 8d | **Results saved before deletion.** | 8 |
 
