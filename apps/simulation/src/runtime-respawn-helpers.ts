@@ -75,9 +75,11 @@ const legacySpawnSearchInput = (
   ctx: RuntimeRespawnContext,
   playerId: string,
   blockedTileKeys: ReadonlySet<string>,
-  rallyAnchor?: { x: number; y: number }
+  rallyAnchor?: { x: number; y: number },
+  viableOnly = false
 ): LegacySpawnPlacementInput => ({
   playerId,
+  ...(viableOnly ? { allowRivalReachRelaxation: false } : {}),
   tiles: ctx.tiles.values(),
   blockedTileKeys,
   coastalLandKeys: ctx.coastalLandKeys(),
@@ -95,11 +97,15 @@ const legacySpawnSearchInput = (
   ...(rallyAnchor ? { rallyAnchor } : {})
 });
 
+// `viableOnly`: accept only a viable landing site -- a qualified fair-spawn
+// roster site, or a legacy-search site whose AFC reach disk (plus one ring) is
+// clear of every rival's reach. Without it a full map still yields a landing
+// inside a rival's reach ("spawn map nearly full").
 const chooseStarterSpawn = (
-  ctx: RuntimeRespawnContext, playerId: string, blockedTileKeys: ReadonlySet<string>, rallyAnchor?: { x: number; y: number }
+  ctx: RuntimeRespawnContext, playerId: string, blockedTileKeys: ReadonlySet<string>, rallyAnchor?: { x: number; y: number }, viableOnly = false
 ): { x: number; y: number } | undefined => {
   const fair = ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor);
-  const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
+  const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor, viableOnly));
   if (spawn) {
     const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !blockedTileKeys.has(simulationTileKey(x, y)) && !ctx.reachOwnerAt(x, y));
     ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", ...(fair?.rosterSource ? { rosterSource: fair.rosterSource } : {}), x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
@@ -172,13 +178,36 @@ export type RallySpawnOutcome = {
   withinRadius: boolean;
 };
 
+export type SpawnTerritoryOptions = {
+  /**
+   * A first-time join (GDD §6): land only on a viable site (see
+   * chooseStarterSpawn). When none exists, nothing is created -- no runtime
+   * player record either -- so the caller can close joining.
+   */
+  requireViableSite?: boolean;
+};
+
+const landingBlockedTileKeys = (ctx: RuntimeRespawnContext): Set<string> =>
+  new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
+
 export const ensurePlayerHasSpawnTerritory = (
   ctx: RuntimeRespawnContext,
   playerId: string,
   rallyAnchor?: { x: number; y: number },
-  onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void
+  onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void,
+  options: SpawnTerritoryOptions = {}
 ): boolean => {
   let player = ctx.players.get(playerId);
+  // Chosen before the player record exists, so a refused first join leaves no trace.
+  let viableSite: { x: number; y: number } | undefined;
+  // An unloaded world (no tiles) falls through to the guard below instead of reading as "no site".
+  if (!player && options.requireViableSite && ctx.tiles.size > 0) {
+    viableSite = chooseStarterSpawn(ctx, playerId, landingBlockedTileKeys(ctx), rallyAnchor, true);
+    if (!viableSite) {
+      ctx.runtimeLogInfo({ type: "join_no_viable_landing_site", playerId, rallyAnchor: rallyAnchor ?? null }, "join refused: no viable landing site");
+      return false;
+    }
+  }
   if (!player) {
     player = createHumanRuntimePlayer(playerId);
     if (ctx.afcUpgradeRuleset) player.afcUpgradeRuleset = ctx.afcUpgradeRuleset;
@@ -215,9 +244,8 @@ export const ensurePlayerHasSpawnTerritory = (
     if (!hasPendingNotice) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", "ensure_player_has_spawn_territory");
     ctx.incrementAuthRecoveryRespawn();
   }
-  const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys, rallyAnchor);
+  const spawn = viableSite ?? chooseStarterSpawn(ctx, playerId, landingBlockedTileKeys(ctx), rallyAnchor);
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);

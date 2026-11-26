@@ -8,6 +8,8 @@ export type ProtoPreparePlayerAck = {
   guest_full?: boolean;
   pending?: boolean;
   scheduled_start_at?: number;
+  season_started_at?: number;
+  no_landing_site?: boolean;
 };
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 // isGuest undefined means "unknown": the simulation then leaves a player's
@@ -22,6 +24,10 @@ export type PrepareLikeResult = {
   guestFull?: boolean;
   pending?: boolean;
   scheduledStartAt?: number;
+  /** Active season's start (Unix ms), sent for a player who has not joined it yet. */
+  seasonStartedAt?: number;
+  /** JoinSeason turned a new player away: no viable landing site (GDD §6). */
+  noLandingSite?: boolean;
 };
 
 type PrepareLikeRpc = (
@@ -63,7 +69,9 @@ const callPrepareLikeRpc = (
         full: response.full === true,
         pending: response.pending === true,
         ...(response.guest_full === true ? { guestFull: true } : {}),
-        ...(typeof response.scheduled_start_at === "number" ? { scheduledStartAt: response.scheduled_start_at } : {})
+        ...(typeof response.scheduled_start_at === "number" ? { scheduledStartAt: response.scheduled_start_at } : {}),
+        ...(typeof response.season_started_at === "number" && response.season_started_at > 0 ? { seasonStartedAt: response.season_started_at } : {}),
+        ...(response.no_landing_site === true ? { noLandingSite: true } : {})
       });
     });
   });

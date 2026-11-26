@@ -96,4 +96,24 @@ describe("chooseLegacySpawnPlacement and rival reach", () => {
       expect(Math.max(Math.abs(spawn!.x - rallyAnchor.x), Math.abs(spawn!.y - rallyAnchor.y))).toBeLessThanOrEqual(RALLY_SPAWN_RADIUS);
     }
   });
+
+  it("finds nothing when relaxation is off and no ground is clear of rival reach (no viable landing site)", () => {
+    const strict = (reach: (x: number) => string | undefined, rallyAnchor?: { x: number; y: number }) =>
+      chooseLegacySpawnPlacement({
+        playerId: "player-x",
+        tiles: buildWorld(),
+        hasNearbySettled: crowded,
+        reachOwnerAt: (x) => reach(x),
+        allowRivalReachRelaxation: false,
+        onRivalReachRelaxed: () => {
+          throw new Error("strict search must never relax rival reach");
+        },
+        ...(rallyAnchor ? { rallyAnchor } : {})
+      });
+    expect(strict(() => "rival")).toBeUndefined();
+    expect(strict(() => "rival", { x: 5, y: 5 })).toBeUndefined();
+    const viable = strict(rivalReach);
+    expect(viable).toBeDefined();
+    expect(clearOfRival(viable!)).toBe(true);
+  });
 });

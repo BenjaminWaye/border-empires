@@ -476,7 +476,7 @@ import {
   type SeedLiveBarbariansResult
 } from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isHostileTileOwner } from "../runtime-player-factory.js";
 import {
-  ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
+  ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl, type SpawnTerritoryOptions,
   preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
   respawnIfEliminated as respawnIfEliminatedImpl,
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
@@ -1434,8 +1434,8 @@ export class SimulationRuntime {
   }
 
   hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } ensurePlayerHasAfc(playerId: string): boolean { return ensurePlayerHasAfcImpl(this.respawnContext(), playerId); } // join-capacity gate; ensurePlayerHasAfc: migration grant for pre-AFC empires
-  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }, onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void): boolean {
-    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor, onRallySpawnPlaced); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
+  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }, onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void, options?: SpawnTerritoryOptions): boolean {
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor, onRallySpawnPlaced, options); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     if (spawned) this.pendingSpawnBonuses.applyTo(playerId, this.state.players.get(playerId));
     return spawned;
   }

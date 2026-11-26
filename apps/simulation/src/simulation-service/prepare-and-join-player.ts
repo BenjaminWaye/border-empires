@@ -61,7 +61,8 @@ const spawnAndAnnounce = (
   playerId: string,
   rallyAnchor: { x: number; y: number } | undefined,
   logMessage: string,
-  recordSpawnMetric = false
+  recordSpawnMetric = false,
+  requireViableSite = false
 ): boolean => {
   const spawnStartedAt = Date.now();
   const spawned = deps.runtime.ensurePlayerHasSpawnTerritory(playerId, rallyAnchor, (outcome) => {
@@ -69,7 +70,9 @@ const spawnAndAnnounce = (
     if (outcome.withinRadius) return;
     deps.simulationMetrics.incrementSimRallySpawnFallback();
     deps.log.info({ playerId, rallyAnchor, spawn: outcome.spawn, distance: outcome.distance }, "rally spawn landed outside the rally radius");
-  });
+  }, requireViableSite ? { requireViableSite: true } : undefined);
+  // A refused first join created nothing, so there is nothing to announce.
+  if (requireViableSite && !deps.runtime.hasPlayer(playerId)) return false;
   if (recordSpawnMetric) deps.simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
   if (spawned) {
     deps.deleteCachedSnapshot(playerId);
@@ -105,7 +108,7 @@ export const preparePlayerHandler = (
   call: { request: PrepareOrJoinRequest },
   callback: (
     error: Error | null,
-    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number }
+    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number; season_started_at?: number }
   ) => void
 ): void => {
   const playerId = call.request.player_id;
@@ -144,7 +147,9 @@ export const preparePlayerHandler = (
     if (spawned || prepareDurationMs >= preparePlayerSlowLogMs) {
       deps.log.info({ playerId, prepareDurationMs, spawned }, "prepare player completed");
     }
-    callback(null, { ok: true, player_id: playerId, playerId, spawned, joined });
+    // A not-yet-joined player's join screen states the contest day and late-join bonus from this.
+    const seasonStartedAt = !joined && isSeasonActive(seasonState) ? { season_started_at: seasonState.startedAt } : {};
+    callback(null, { ok: true, player_id: playerId, playerId, spawned, joined, ...seasonStartedAt });
   } catch (error) {
     deps.simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", Date.now() - prepareStartedAt);
     deps.log.error({ playerId, error: error instanceof Error ? error.message : String(error) }, "prepare player failed");
@@ -169,7 +174,7 @@ export const joinSeasonHandler = (
   call: { request: PrepareOrJoinRequest },
   callback: (
     error: Error | null,
-    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean; guest_full?: boolean; pending?: boolean; scheduled_start_at?: number }
+    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean; guest_full?: boolean; pending?: boolean; scheduled_start_at?: number; no_landing_site?: boolean }
   ) => void
 ): void => {
   const playerId = call.request.player_id;
@@ -206,9 +211,23 @@ export const joinSeasonHandler = (
       callback(null, { ok: true, player_id: playerId, playerId, spawned: false, full: true });
       return;
     }
+    // GDD §6, no landing site, no join: a brand-new House lands only on a
+    // viable site and is recorded as joined only once it has landed. A
+    // returning House (runtime record) keeps the old path and always lands.
+    const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
+    const isNewPlayer = !deps.runtime.hasPlayer(playerId);
+    let spawned = false;
+    if (isNewPlayer) {
+      spawned = spawnAndAnnounce(deps, playerId, rallyAnchor, "spawned runtime territory for joined player", true, true);
+      if (!deps.runtime.hasPlayer(playerId)) {
+        deps.log.info({ playerId }, "join season rejected: no viable landing site");
+        callback(null, { ok: true, player_id: playerId, playerId, spawned: false, no_landing_site: true });
+        return;
+      }
+    }
     const joinedSeasonState = withPlayerJoinedSeason(deps.getSeasonState(), playerId);
     deps.setSeasonState(isGuest ? withSeasonGuest(joinedSeasonState, playerId) : joinedSeasonState);
-    const spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for joined player", true);
+    if (!isNewPlayer) spawned = spawnAndAnnounce(deps, playerId, rallyAnchor, "spawned runtime territory for joined player", true);
     if (isGuest) publishGuestCount(deps);
     callback(null, { ok: true, player_id: playerId, playerId, spawned });
   } catch (error) {

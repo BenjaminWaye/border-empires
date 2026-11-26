@@ -1,11 +1,11 @@
-import { guestSlotsFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { guestSlotsFullErrorPayload, noLandingSiteErrorPayload } from "../season-full-rejection/season-full-rejection.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 
 type PrepareLikeFn = (
   playerId: string,
   rallyAnchor?: { x: number; y: number; island?: string },
   options?: { isGuest?: boolean }
-) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number; noLandingSite?: boolean }>;
 
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
 // (already oversized) file from growing. JOIN_SEASON is the only path that
@@ -55,6 +55,10 @@ export type JoinSeasonMessageDeps = {
   resolveSpawnTile?: (playerId: string) => Promise<{ x: number; y: number } | undefined>;
   // Player-funnel hook (player-funnel-tracker.ts), fired when result.spawned.
   onSpawned?: (playerId: string) => void;
+  // GDD §6: a player turned away for lack of a landing site keeps a place in
+  // the next contest (reserve-next-contest-place.ts). Omitted on a hosted
+  // sector, which has no next contest.
+  reserveNextContestPlace?: (playerId: string) => Promise<boolean>;
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
@@ -71,7 +75,8 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     checkIntoLobby,
     broadcastLobbyUpdate,
     resolveSpawnTile,
-    onSpawned
+    onSpawned,
+    reserveNextContestPlace
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
@@ -98,6 +103,12 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     if (result.full) {
       recordGatewayEvent("info", "gateway_join_season_full", { playerId });
       sendJson(socket, seasonFullErrorPayload());
+      return;
+    }
+    if (result.noLandingSite) {
+      const reserved = reserveNextContestPlace ? await reserveNextContestPlace(playerId) : false;
+      recordGatewayEvent("info", "gateway_join_season_no_landing_site", { playerId, reserved });
+      sendJson(socket, noLandingSiteErrorPayload(reserved));
       return;
     }
     recordGatewayEvent("info", "gateway_join_season", { playerId, spawned: result.spawned });

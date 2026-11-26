@@ -261,6 +261,24 @@ baseline.
     have put off none. Still to confirm on a run of days
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
+  *Answered 2026-11-26* ([`game-mechanics.md`](game-mechanics.md), "No landing
+  site, no join"):
+  - Before: a new player was sent into a running contest with no warning, and
+    on a full map was landed inside a rival's reach, owning little more than
+    their landing site. Nobody was ever told the map was full.
+  - Now, as §6 says: the join card states the day, the extra manpower and that
+    difficulty is high, with the choice to wait. With no viable landing site,
+    joining is closed and the player is put on the next-Sector waitlist as
+    their reserved place.
+  - "Viable" uses the rule the code already had: a site whose opening reach is
+    clear of every rival's reach. *Owner to confirm.*
+  - Still open for the owner: the waitlist entry does not yet guarantee a slot
+    if the next contest fills to its player cap; a House already in the
+    contest (redeploy after elimination) still lands inside rival reach when it
+    must; a running contest no longer joins a new player automatically, which
+    adds one click to onboarding; and a full **hosted** sector has no next
+    contest, so joining just closes (proposal: tell the host, who can fund a
+    new sector).
 - Current Apple and Google rules on purchases made on the web and used in the
   apps.
 
