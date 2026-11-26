@@ -1,0 +1,61 @@
+/* The unlock celebration card (client-unlock-celebration.ts). Palette follows the Town Captured card
+   (client-town-capture.ts). Above the HUD (50), the guide card (23/48, its anchor 60), compact sheets (<=56)
+   and the capture/structure overlays (71/72); below the deploy countdown (80). */
+.unlock-celebration {
+  position: fixed; inset: 0; z-index: 75; display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(10, 6, 1, 0.72); backdrop-filter: blur(4px);
+  pointer-events: auto; cursor: pointer;
+  animation: ucFade 0.25s ease-out both;
+}
+.uc-card {
+  position: relative; display: grid; justify-items: center; gap: 6px; text-align: center;
+  width: min(340px, 100%); padding: 28px 22px 20px; border-radius: 20px;
+  border: 1px solid rgba(230, 178, 106, 0.42);
+  background: linear-gradient(180deg, rgba(24, 17, 10, 0.98), rgba(14, 10, 6, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5), 0 0 60px rgba(214, 150, 68, 0.22);
+  color: #fbf3e6; cursor: default;
+  animation: ucScaleIn 0.55s cubic-bezier(0.16, 1.3, 0.3, 1) both;
+}
+.uc-burst { position: absolute; left: 50%; top: 64px; width: 0; height: 0; pointer-events: none; }
+.uc-burst i {
+  position: absolute; left: -2px; top: -70px; width: 4px; height: 44px; border-radius: 4px;
+  background: linear-gradient(180deg, rgba(255, 224, 150, 0), rgba(255, 214, 120, 0.95));
+  transform-origin: 2px 70px; transform: rotate(calc(var(--uc-ray) * 30deg)) scaleY(0); opacity: 0;
+  animation: ucRay 1.1s ease-out 0.2s both;
+}
+.uc-icon {
+  position: relative; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 999px;
+  border: 2px solid #f3c66d; background: radial-gradient(circle at 50% 40%, #6b4318, #2a1806);
+  color: #ffd68f; font-size: 38px; line-height: 1;
+  animation: ucGlow 1.8s ease-in-out 0.4s 2 both;
+}
+.uc-icon svg { width: 46px; height: 46px; }
+.kind-charge .uc-icon { border-radius: 14px; }
+.uc-eyebrow { margin: 8px 0 0; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255, 214, 148, 0.92); }
+.uc-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; }
+.uc-line { margin: 0; font-size: 13.5px; line-height: 1.4; color: rgba(240, 224, 200, 0.82); }
+.uc-close {
+  margin-top: 12px; min-width: 140px; padding: 10px 20px; border-radius: 12px; border: 1px solid #f3c66d;
+  background: linear-gradient(180deg, #f0c060, #c98a2c); color: #2a1806; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.uc-close:hover { background: linear-gradient(180deg, #f6cd76, #d6983a); }
+@keyframes ucFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ucScaleIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes ucRay {
+  0% { opacity: 0; transform: rotate(calc(var(--uc-ray) * 30deg)) scaleY(0); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(calc(var(--uc-ray) * 30deg)) scaleY(1.4); }
+}
+@keyframes ucGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(243, 198, 109, 0.0); }
+  50% { box-shadow: 0 0 28px 8px rgba(243, 198, 109, 0.55); }
+}
+.unlock-celebration.is-still, .unlock-celebration.is-still .uc-card, .unlock-celebration.is-still .uc-icon { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .unlock-celebration, .uc-card, .uc-icon, .uc-burst i { animation: none; }
+  .uc-burst { display: none; }
+}
