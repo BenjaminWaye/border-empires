@@ -95,7 +95,7 @@ const empireLine = (card: TownFocusCard, extras: TownFocusCardExtras, target: To
   const coinNow = extras.empireCoinPerDay ?? 0;
   const after = empireAfter(card, extras, target);
   const moves = (now: number, next: number | undefined): string => `${figure(now)}${next !== undefined && Math.round(next) !== Math.round(now) ? ` → ${figure(next)}` : ""}`;
-  return `${preview ? `<span class="v2tf-preview">Preview</span> All towns` : "All towns vs Balanced"} ${moves(mpNow, after?.mp)} MP · ${moves(coinNow, after?.coin)} Coin/day`;
+  return `${preview ? `<span class="v2tf-preview">Preview</span> vs Balanced` : "All towns vs Balanced"} ${moves(mpNow, after?.mp)} MP · ${moves(coinNow, after?.coin)} Coin${preview ? "" : "/day"}`;
 };
 
 const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
