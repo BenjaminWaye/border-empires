@@ -17,6 +17,9 @@ export type ScoutFindings = {
   readonly counts: () => ScoutReportFindings;
 };
 
+/** Whether a player has explored a tile (explored-tiles-store.ts): the Cartographer achievement's count. */
+export type ScoutExploredLookup = (playerId: string, x: number, y: number) => boolean;
+
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
 
 const keep = (list: ScoutFindingTile[], x: number, y: number): void => {
@@ -33,10 +36,14 @@ const copyKeyed = (groups: Record<string, ScoutFindingTile[]>): Record<string, S
 export const createScoutFindings = (
   tiles: () => ReadonlyMap<string, DomainTileState>,
   width: number,
-  height: number
+  height: number,
+  isExplored?: ScoutExploredLookup
 ): ScoutFindings => {
   // Bounded by the flight: at most (2r+1)^2 tiles per outbound step.
   const seen = new Set<string>();
+  // Cells (y*width+x) the viewer had not explored when the drone first saw them; a subset of `seen`.
+  const unexploredAtSight: number[] = [];
+  let viewerId: string | undefined;
   const result: ScoutReportFindings = { towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [] };
   const sites: ScoutFindingSites = { towns: [], docks: [], waystations: [], watchtowers: [], planetaryDefense: [], resources: {}, empires: {} };
   const empires = new Set<string>();
@@ -48,6 +55,10 @@ export const createScoutFindings = (
   const consider = (rank: number, x: number, y: number): void => {
     if (!focus || rank <= focus.rank) focus = { x, y, rank };
   };
+  const newlyExploredCount = (lookup: ScoutExploredLookup): number => {
+    const id = viewerId;
+    return id === undefined ? 0 : unexploredAtSight.filter((cell) => lookup(id, cell % width, Math.floor(cell / width))).length;
+  };
   return {
     observe: (x, y, viewer) => {
       const found: ScoutFind[] = [];
@@ -58,6 +69,8 @@ export const createScoutFindings = (
           const key = `${tx},${ty}`;
           if (seen.has(key)) continue;
           seen.add(key);
+          viewerId = viewer.id;
+          if (isExplored && !isExplored(viewer.id, tx, ty)) unexploredAtSight.push(ty * width + tx);
           const tile = tiles().get(key);
           if (!tile) continue;
           const owner = tile.ownerId;
@@ -130,6 +143,10 @@ export const createScoutFindings = (
       // Every tile the drone saw, out and home: the report card's "+N Tiles" (review 2026-11-21: a client-side
       // count of newly discovered tiles mixed in other reveals and reset on reload).
       tilesSeen: seen.size,
+      // Of those, the tiles this flight explored for the first time: the same count the Cartographer
+      // achievement adds, so "+N Tiles" and its counter agree (playtest 2026-11-26: +160 vs 901 to 929).
+      // Rechecked at landing: a step a slow tick skipped is never revealed, so it explored nothing.
+      ...(isExplored ? { tilesExplored: newlyExploredCount(isExplored) } : {}),
       ...(focus ? { focusX: focus.x, focusY: focus.y } : {})
     })
   };
