@@ -96,14 +96,18 @@ describe("HUD v2 Towns screen", () => {
     expect(document.querySelector(".v2l-table")?.getAttribute("data-v2-scroll")).toBe("towns");
   });
 
-  it("switches one town's focus from its icon in the list", () => {
+  it("previews a focus on tap and switches only on ✓, which then locks the row", () => {
     const { deps, state } = setup();
     const send = vi.fn(() => true);
     deps.sendGameMessage = send;
     screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')!);
+    expect(send).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')?.classList.contains("v2lf-picked")).toBe(true);
+    screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus-confirm="5,5"]')!);
     expect(send).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 5, y: 5 }], focus: "LEVY" });
     expect(state.tiles.get("5,5")?.town?.pendingFocus).toBe("LEVY");
     expect(document.querySelector('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')?.classList.contains("v2lf-active")).toBe(true);
+    expect(document.querySelectorAll('[data-v2-towns-focus="5,5"][disabled]')).toHaveLength(4);
     expect(screen.id).toBe("towns");
   });
 
@@ -121,13 +125,16 @@ describe("HUD v2 Towns screen", () => {
   });
 
   // Review of PR #2996: the list was built from the cached town list, so a pick left the row's MP at the old focus.
-  it("updates a town's MP at once after a pick, without moving the rows", () => {
+  it("updates a town's MP at once on preview and confirm, without moving the rows", () => {
     const { deps } = setup();
     deps.sendGameMessage = vi.fn(() => true);
     const order = (): string[] => Array.from(document.querySelectorAll<HTMLElement>("[data-v2-towns-open]")).map((r) => r.dataset.v2TownsOpen!);
     const mp = (key: string): string => document.querySelector(`[data-v2-towns-open="${key}"]`)!.querySelectorAll(".v2l-num")[1]!.textContent!;
     const before = { order: order(), mp: mp("5,5") };
     screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')!);
+    // The preview already shows the row at Levy; confirming keeps it there.
+    expect(Number.parseInt(mp("5,5"))).toBeGreaterThan(Number.parseInt(before.mp));
+    screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus-confirm="5,5"]')!);
     expect(Number.parseInt(mp("5,5"))).toBeGreaterThan(Number.parseInt(before.mp));
     expect(order()).toEqual(before.order);
   });
@@ -158,6 +165,18 @@ describe("HUD v2 Towns screen", () => {
     openScreen(deps, "towns");
     expect(document.querySelector('[data-v2-towns-focus="5,5"]')).toBeNull();
     expect(document.querySelector('[data-v2-towns-focus="20,5"]')).not.toBeNull();
+  });
+
+  // Playtest 2026-11-26: after a focus switch the town's Coin/day stayed at the old focus, because the server's
+  // figure trails the change by up to a minute.
+  it("shows a town's Coin/day at its newly confirmed focus before the server catches up", () => {
+    const { deps, state } = setup();
+    state.tiles.set("5,5", town(5, "Alder", 1, { town: { ...town(5, "Alder", 1).town!, pendingFocus: "COMMERCE", pendingFocusAt: 0 } }));
+    forgetMyTowns();
+    closeScreen(deps, { toMap: true });
+    openScreen(deps, "towns");
+    const coin = document.querySelector('[data-v2-towns-open="5,5"]')!.querySelectorAll(".v2l-num")[0]!.textContent;
+    expect(coin).toBe((1 * 1.2 * 1440).toFixed(1));
   });
 });
 

@@ -83,6 +83,6 @@ export const updateTileSettledAt = (
 export const withoutForeignTownFocus = (previous: DomainTileState | undefined, next: DomainTileState): DomainTileState => {
   const town = next.town;
   if (!town || previous?.ownerId === next.ownerId) return next;
-  if (town.focus === undefined && town.pendingFocus === undefined && town.pendingFocusAt === undefined) return next;
+  if (town.focus === undefined && town.pendingFocus === undefined && town.pendingFocusAt === undefined && town.focusLockedUntil === undefined) return next;
   return { ...next, town: withoutTownFocus(town) };
 };
