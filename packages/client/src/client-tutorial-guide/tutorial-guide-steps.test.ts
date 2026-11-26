@@ -34,6 +34,9 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  attackLaunched: false,
+  attackTargetTiles: () => [],
+  truceStage: "none",
   scout: "none",
   exploreTarget: () => undefined,
   nothingToExplore: () => false,
@@ -123,13 +126,13 @@ describe("tutorial guide steps", () => {
     const checklist = { ...baseInput().checklist, step: "EXPAND_RELAY_BEACON" as const, relayBeaconSite: { x: 1, y: 1 } };
     const lead = { x: 60, y: 8 };
     const view = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 7, ownsRelayBeacon: true, townLead: lead }), pastFind);
-    expect(view).toEqual(expect.objectContaining({ title: "A town is this way: tap the mark, then Explore", highlightTiles: [lead] }));
+    expect(view).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore", highlightTiles: [lead] }));
     expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
     const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
     expect(flying.kind === "step" && flying.title).toBe("Your drone is flying: wait for its report");
     // Review of PR #2933: with too few charges for the whole way, a part-way flight would repeat forever: wait.
     const short = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, townLeadChargesShort: 2 }), pastFind);
-    expect(short).toEqual(expect.objectContaining({ title: "A town is this way: wait for 2 more drone charges", highlightTiles: [] }));
+    expect(short).toEqual(expect.objectContaining({ title: "Let's explore further: wait for 2 more drone charges", highlightTiles: [] }));
     // Once a town is known (here, beyond reach), the usual town steps take over.
     const known = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
     expect(known.kind === "step" && known.title).toMatch(/build a Relay Beacon/);
@@ -211,16 +214,43 @@ describe("tutorial guide steps", () => {
     const allButDiplomacy = new Set(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce" && s.id !== "turn-finish").map((s) => s.id));
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButDiplomacy)).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }) }));
     expect(evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true }), allButDiplomacy)).toEqual(
-      expect.objectContaining({ title: "A rival House is near: open Allies to offer a truce", anchor: "diplomacy" })
+      expect.objectContaining({ title: "A rival House is near: open Allies", anchor: "diplomacy" })
     );
     expect(evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, hudV2: true }), allButDiplomacy)).toEqual(
-      expect.objectContaining({ title: "A rival House is near: open Diplomacy to offer a truce" })
+      expect.objectContaining({ title: "A rival House is near: open Diplomacy" })
     );
     // Opening Allies before meeting anyone doesn't silently complete it.
     const early = evaluateGuide(baseInput({ checklist: footholdDone, diplomacyUsed: true }), allButDiplomacy);
     expect(early.kind === "step" && early.newlyCompleted).not.toContain("diplomacy-truce");
     const opened = evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, diplomacyUsed: true }), allButDiplomacy);
     expect(opened.kind === "step" && opened.newlyCompleted).toContain("diplomacy-truce");
+  });
+
+  // Owner, 2026-11-26: raising a muster flag was the whole Contest chapter, and nothing attacked.
+  it("asks for an attack on a marked enemy tile after the muster flag", () => {
+    const allButAttack = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "turn-finish").map((s) => s.id));
+    const targets = [{ x: 3, y: 3 }];
+    const view = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true, attackTargetTiles: () => targets }), allButAttack);
+    expect(view).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "contest-attack" }), title: "Tap a marked enemy tile, then Launch Attack", highlightTiles: targets, anchor: "attack" }));
+    const launched = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, attackLaunched: true }), allButAttack);
+    expect(launched.kind === "step" && launched.newlyCompleted).toContain("contest-attack");
+    // Opening the Chronicle early must not skip it.
+    const chronicleFirst = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "contest-muster" && s.id !== "turn-finish").map((s) => s.id));
+    const flagged = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true }), chronicleFirst);
+    expect(flagged.kind === "step" && flagged.step.id).toBe("contest-attack");
+  });
+
+  // Owner, 2026-11-26: the guide stopped at opening Diplomacy; it now walks the offer through to a truce.
+  it("walks a truce from the offer to a truce in force", () => {
+    const allButTruce = new Set(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce-made" && s.id !== "turn-finish").map((s) => s.id));
+    const at = (truceStage: GuideInput["truceStage"]) => evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, truceStage }), allButTruce);
+    expect(at("none")).toEqual(expect.objectContaining({ title: "Tap a rival House, pick Truce 12h, then send it", anchor: "truce" }));
+    expect(at("offered")).toEqual(expect.objectContaining({ title: "Truce offered: waiting for their answer", anchor: "truce" }));
+    expect(at("incoming")).toEqual(expect.objectContaining({ title: "A rival offers a truce: tap Accept", anchor: "truceAccept" }));
+    const made = at("active");
+    expect(made.kind === "step" && made.newlyCompleted).toContain("diplomacy-truce-made");
+    // Waits for a rival House like the open-Diplomacy step.
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButTruce)).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }) }));
   });
 
   it("names the Chronicle under the new desktop HUD", () => {
