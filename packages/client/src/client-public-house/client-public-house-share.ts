@@ -5,12 +5,68 @@
 // carries the player id.
 import { Capacitor } from "@capacitor/core";
 
+import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 
 export type PublicProfileShareDeps = {
   wsUrl: string;
   getIdToken: () => Promise<string | undefined>;
+  /** Who is signed in; the cached sharing state belongs to one account. */
+  accountKey?: () => string | undefined;
   fetchImpl?: typeof fetch;
+};
+
+/** Whether this account has a live public link; "unknown" until the gateway answers. */
+export type PublicProfileShareState = "unknown" | "on" | "off";
+
+let knownShareState: { account: string; state: "on" | "off" } | undefined;
+let shareStateRequest: Promise<void> | undefined;
+let shareStateFailedAt = 0;
+let installedDeps: PublicProfileShareDeps | undefined;
+const SHARE_STATE_RETRY_MS = 30_000;
+
+const accountOf = (deps: PublicProfileShareDeps): string => deps.accountKey?.() ?? "";
+const rememberShareState = (deps: PublicProfileShareDeps, state: "on" | "off"): void => {
+  knownShareState = { account: accountOf(deps), state };
+};
+
+/** GET /hq/public-profile/link: whether the caller already has a link. undefined when it can't tell. */
+export const requestPublicProfileShareState = async (deps: PublicProfileShareDeps): Promise<"on" | "off" | undefined> => {
+  const fetchImpl = deps.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
+  try {
+    const token = await deps.getIdToken();
+    if (!token) return undefined;
+    const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "GET", headers: { authorization: `Bearer ${token}` } });
+    const body = (await response.json().catch(() => undefined)) as { ok?: unknown; publicId?: unknown } | undefined;
+    if (body?.ok !== true) return undefined;
+    return typeof body.publicId === "string" ? "on" : "off";
+  } catch {
+    return undefined;
+  }
+};
+
+/** Read on every profile render: answers from cache and asks the gateway (once at a time) when the account's state is not known yet. */
+export const publicProfileShareState = (deps: PublicProfileShareDeps | undefined = installedDeps, nowMs = Date.now()): PublicProfileShareState => {
+  if (!deps) return "unknown";
+  const account = accountOf(deps);
+  if (knownShareState?.account === account) return knownShareState.state;
+  if (!shareStateRequest && nowMs - shareStateFailedAt >= SHARE_STATE_RETRY_MS) {
+    shareStateRequest = requestPublicProfileShareState(deps)
+      .then((state) => {
+        if (state) knownShareState = { account, state };
+        else shareStateFailedAt = Date.now();
+      })
+      .finally(() => { shareStateRequest = undefined; });
+  }
+  return "unknown";
+};
+
+/** Tests only. */
+export const resetPublicProfileShareState = (): void => {
+  knownShareState = undefined;
+  shareStateRequest = undefined;
+  shareStateFailedAt = 0;
+  installedDeps = undefined;
 };
 
 export type PublicProfileLinkResult = { ok: true; publicId: string } | { ok: false; error: "signed_out" | "account_required" | "unavailable" };
@@ -50,6 +106,7 @@ type ShareNavigator = { share?: (data: { title: string; url: string }) => Promis
 export const sharePublicProfile = async (deps: PublicProfileShareDeps, nav: ShareNavigator = navigator): Promise<string> => {
   const link = await requestPublicProfileLink(deps);
   if (!link.ok) return publicProfileShareFailureLabel(link.error);
+  rememberShareState(deps, "on");
   const url = publicHouseUrl(link.publicId);
   if (nav.share) {
     try {
@@ -80,7 +137,9 @@ export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Pr
     if (!token) return "Sign in to stop sharing";
     const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
     const body = (await response.json().catch(() => undefined)) as { ok?: unknown } | undefined;
-    return body?.ok === true ? "Sharing stopped" : "Couldn't stop sharing. Try again";
+    if (body?.ok !== true) return "Couldn't stop sharing. Try again";
+    rememberShareState(deps, "off");
+    return "Sharing stopped";
   } catch {
     return "Couldn't stop sharing. Try again";
   }
@@ -88,6 +147,7 @@ export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Pr
 
 /** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. */
 export const installPublicProfileShare = (deps: PublicProfileShareDeps): void => {
+  installedDeps = deps;
   if (typeof document === "undefined") return;
   let busy = false;
   const run = (selector: string, pending: string, failed: string, action: () => Promise<string>): void => {
@@ -102,6 +162,7 @@ export const installPublicProfileShare = (deps: PublicProfileShareDeps): void =>
   };
   document.addEventListener("click", (event) => {
     if (busy || !(event.target instanceof Element)) return;
+    if (event.target.closest("[data-v2-profile-save-to-share]")) { openGuestSavePanel("badge"); return; }
     if (event.target.closest("[data-v2-profile-share]")) run("[data-v2-profile-share]", "Making link…", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
     else if (event.target.closest("[data-v2-profile-unshare]")) run("[data-v2-profile-unshare]", "Stopping…", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
   });

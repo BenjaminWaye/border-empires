@@ -7,6 +7,7 @@ import { TOWN_FOCUS_ENTRY, TOWN_FOCUS_LIST_ENTRY, TOWN_FOCUS_PANEL_ENTRY } from 
 import { UI_TYPE_CONSISTENCY_ENTRY } from "./client-changelog-ui-type-consistency.js";
 import { UNLOCK_CELEBRATION_ENTRY } from "./client-changelog-unlock-celebration.js";
 import { FRONTIER_GARRISON_ENTRY } from "./client-changelog-frontier-garrison.js";
+import { PUBLIC_HOUSE_SHARE_STATE_ENTRY } from "./client-changelog-public-house-profile.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -18,4 +19,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
   { ...FRONTIER_GARRISON_ENTRY, createdAt: 1795692680347, },
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
+  { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795725378063, },
 ];
