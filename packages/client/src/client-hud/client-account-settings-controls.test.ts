@@ -1,0 +1,49 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("firebase/auth", () => ({ signOut: vi.fn(async () => undefined) }));
+vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => false } }));
+vi.mock("../client-account-deletion/client-account-deletion.js", () => ({ openAccountDeletion: vi.fn() }));
+vi.mock("../client-account-deletion/client-account-deletion.css", () => ({}));
+
+import { signOut } from "firebase/auth";
+import { bindAccountSettingsControls, GUEST_LOGOUT_WARNING } from "./client-account-settings-controls.js";
+
+const clickLogout = async (isAnonymous: boolean): Promise<void> => {
+  const root = document.createElement("div");
+  root.innerHTML = `<button type="button" data-auth-logout>Log Out</button>`;
+  bindAccountSettingsControls(root, { currentUser: { isAnonymous } } as never, {} as never, "ws://x", () => {});
+  await root.querySelector<HTMLButtonElement>("[data-auth-logout]")!.onclick!({} as never);
+};
+
+describe("Log Out button", () => {
+  let reload: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    vi.mocked(signOut).mockClear();
+    reload = vi.fn();
+    Object.defineProperty(window, "location", { configurable: true, value: { reload } });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("warns a guest that the empire will be lost and keeps them signed in if they cancel", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await clickLogout(true);
+    expect(confirm).toHaveBeenCalledWith(GUEST_LOGOUT_WARNING);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("signs a guest out once they accept the warning", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await clickLogout(true);
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn a signed-in account", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await clickLogout(false);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+});
