@@ -6,6 +6,25 @@ import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growt
 import { writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { forgetMyTowns, myTowns, openTownAt } from "./client-hud-v2-town-runtime.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
+import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll } from "./client-hud-v2-town-focus-pick.js";
+import type { TownsFocusState, TownsFocusView } from "./client-hud-v2-towns-focus.js";
+import { TownFocusSchema, activeTownFocus, type TownFocus } from "@border-empires/shared";
+import { isTownGrowthPaused } from "../client-town-growth/client-town-growth.js";
+import type { ClientState } from "../client-state/client-state.js";
+
+/** Key the "Set every town" confirmation by, since it belongs to the list rather than to one town. */
+const ALL_TOWNS_KEY = "towns-list";
+let armedAll: { focus: TownFocus; at: number } | undefined;
+
+/** Each listed town's focus, read from live tiles: the town list itself is cached for a moment. */
+const focusView = (state: Pick<ClientState, "tiles">, keys: readonly string[], nowMs = Date.now()): TownsFocusView => {
+  const byKey = new Map<string, TownsFocusState>();
+  for (const key of keys) {
+    const town = state.tiles.get(key)?.town;
+    if (town) byKey.set(key, { active: activeTownFocus(town), queued: town.pendingFocus, growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }) });
+  }
+  return { byKey, ...(armedAll && nowMs - armedAll.at < 4_000 ? { confirmAll: armedAll.focus } : {}) };
+};
 
 const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "population", "growth", "slots"]);
 
@@ -22,7 +41,7 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
   built = { towns, sort, body };
   const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state)), sort);
   writeHtml("v2s-head-right", townsBannerHtml(rows));
-  writeHtml("v2s-body", townsBodyHtml(rows, sort));
+  writeHtml("v2s-body", townsBodyHtml(rows, sort, focusView(deps.state, rows.map((row) => `${row.x},${row.y}`))));
   // A row reading "…" is waiting on a coin figure only a tile-detail reply carries; without this it stayed
   // at 0.0 until you opened that town (playtest 2026-11-16). The request throttles and dedupes itself.
   for (const row of rows) {
@@ -34,6 +53,27 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
 
 /** Clicks on the Towns screen; true when handled. `closeList` closes the screen to the map. */
 export const townsClick = (deps: HudV2Deps, target: Element, closeList: () => void): boolean => {
+  // Focus icons sit beside each row, not inside its open-the-town button.
+  const one = target.closest<HTMLElement>("[data-v2-towns-focus]");
+  const oneFocus = TownFocusSchema.safeParse(one?.dataset.focus);
+  if (one && oneFocus.success) {
+    pickTownFocus(deps, one.dataset.v2TownsFocus ?? "", oneFocus.data);
+    renderTownsScreen(deps, { force: true });
+    return true;
+  }
+  const all = target.closest<HTMLButtonElement>("[data-v2-towns-focus-all]");
+  const allFocus = TownFocusSchema.safeParse(all?.dataset.v2TownsFocusAll);
+  if (all && allFocus.success) {
+    if (!all.disabled) {
+      // First press arms it; a second press within a few seconds queues the focus on every town.
+      if (confirmTownFocusForAll(ALL_TOWNS_KEY, allFocus.data)) {
+        armedAll = undefined;
+        pickTownFocusForAll(deps, myTowns(deps), allFocus.data);
+      } else armedAll = { focus: allFocus.data, at: Date.now() };
+    }
+    renderTownsScreen(deps, { force: true });
+    return true;
+  }
   const sortButton = target.closest<HTMLElement>("[data-v2-towns-sort]");
   if (sortButton) {
     const key = sortButton.dataset.v2TownsSort;

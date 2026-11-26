@@ -95,4 +95,28 @@ describe("HUD v2 Towns screen", () => {
     expect(townListSort()).toEqual({ key: before.key, descending: !before.descending });
     expect(document.querySelector(".v2l-table")?.getAttribute("data-v2-scroll")).toBe("towns");
   });
+
+  it("queues one town's focus from its icon in the list", () => {
+    const { deps, state } = setup();
+    const send = vi.fn(() => true);
+    deps.sendGameMessage = send;
+    screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')!);
+    expect(send).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 5, y: 5 }], focus: "LEVY" });
+    expect(state.tiles.get("5,5")?.town?.pendingFocus).toBe("LEVY");
+    expect(document.querySelector('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')?.classList.contains("v2lf-queued")).toBe(true);
+    expect(screen.id).toBe("towns");
+  });
+
+  it("needs a second press before setting every town's focus", () => {
+    const { deps } = setup();
+    const send = vi.fn(() => true);
+    deps.sendGameMessage = send;
+    const allButton = (): HTMLElement => document.querySelector<HTMLElement>('[data-v2-towns-focus-all="COMMERCE"]')!;
+    screenClick(deps, allButton());
+    expect(send).not.toHaveBeenCalled();
+    expect(allButton().textContent).toContain("Again: 2");
+    screenClick(deps, allButton());
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_TOWN_FOCUS", focus: "COMMERCE", tiles: expect.arrayContaining([{ x: 5, y: 5 }, { x: 20, y: 5 }]) }));
+    expect(allButton().hasAttribute("disabled")).toBe(true);
+  });
 });

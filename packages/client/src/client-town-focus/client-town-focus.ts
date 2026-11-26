@@ -94,6 +94,9 @@ const ruleText = (focus: TownFocus): string => {
 
 export const townFocusName = (focus: TownFocus): string => NAMES[focus];
 
+/** "MP +20% · Coin −10% · Growth −10%", from the multipliers. */
+export const townFocusRule = (focus: TownFocus): string => ruleText(focus);
+
 /** The focus's flavour line ("Draft more into Ancillary service"). */
 export const townFocusTagline = (focus: TownFocus): string => TAGLINES[focus];
 

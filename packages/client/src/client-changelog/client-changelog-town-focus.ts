@@ -25,3 +25,15 @@ export const TOWN_FOCUS_PANEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The town's manpower line now reads per refill, and includes its focus"
   ]
 };
+
+export const TOWN_FOCUS_LIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.26",
+  title: "Set town focus from the Towns list",
+  why: "Changing focus meant opening each town one at a time.",
+  changes: [
+    "The Towns list has a Focus column: tap Balanced, Growth, Levy or Commerce beside any town",
+    "A dashed icon is queued for your next refill; a solid one is active now",
+    "Set every town sits above the table, shows your current mix, and needs a second tap",
+    "Growth dims on a town whose growth is paused by war or hunger, since that focus would only cost Coin and MP there"
+  ]
+};
