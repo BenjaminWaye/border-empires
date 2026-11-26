@@ -3,9 +3,9 @@ import { signOut, type Auth } from "firebase/auth";
 import type { ClientState } from "../client-state/client-state.js";
 import { openAccountDeletion } from "../client-account-deletion/client-account-deletion.js";
 import "../client-account-deletion/client-account-deletion.css";
+import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 
-export const GUEST_LOGOUT_WARNING =
-  "Log out of this guest empire? Guests can't log back in, so this empire will be lost. Save your empire first to keep it.";
+export const GUEST_LOGOUT_WARNING = "Log out? This guest empire can't be recovered.\n\nCancel to save it instead.";
 
 /** Account actions and navigation share one binder; game HUD rerenders do not own the deletion dialog. */
 export const bindAccountSettingsControls = (
@@ -15,7 +15,11 @@ export const bindAccountSettingsControls = (
     button.onclick = async () => {
       if (!auth) return;
       // A guest (anonymous) account has no way to sign back in, so logging out abandons the empire.
-      if (auth.currentUser?.isAnonymous && !window.confirm(GUEST_LOGOUT_WARNING)) return;
+      // Cancel opens the save panel, which also explains when saving isn't possible here.
+      if (auth.currentUser?.isAnonymous && !window.confirm(GUEST_LOGOUT_WARNING)) {
+        openGuestSavePanel("badge");
+        return;
+      }
       await signOut(auth);
       if (Capacitor.isNativePlatform()) {
         // Also forget the native Google/Apple session so the next sign-in offers the account picker.
