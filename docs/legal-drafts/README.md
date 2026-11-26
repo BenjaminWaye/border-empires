@@ -134,13 +134,14 @@ do not exist yet.
     **Sector addresses are public in certificate logs.** As built on
     2026-11-25, each sector server gets its own HTTPS certificate, and every
     certificate's hostname is published in public Certificate Transparency
-    logs. The privacy draft says a hosted sector "is not listed publicly" and
-    that its standings, with members' display names, can be read by anyone
-    with its address. Until the planned wildcard certificate replaces this,
-    either that sentence changes or the standings endpoint stops answering
-    people outside the sector.
+    logs. **Decided by the owner, 2026-11-26:** the privacy draft's wording
+    changes (done: a sector's address can become publicly discoverable and
+    its standings are not secret from anyone who has it); the standings
+    endpoint stays open, as Q9 decided.
 13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
+   **Decided by the owner, 2026-11-26:** at launch, block the United Kingdom
+   only. The owner applies the rule in Stripe before sales open.
 
 ## Change to the Terms of Service
 
@@ -179,6 +180,16 @@ launch product. The Terms of Sale cover hosted sectors only and say so
   down may be misleading.
 - Say what happens to bought cosmetics if an account is suspended or deleted.
 - They give no advantage in play (`docs/gdd.md` §8 hard rule).
+
+**Gap as of 2026-11-26:** the owner has approved selling the first cosmetic,
+"Claim the title of Count" (USD 4.99), through the same checkout (plan §15,
+8e). The Terms of Sale (`purchase-terms.html` section 2) still say hosted
+sectors are the only thing on sale, and no cosmetics section exists; the
+consent wording, withdrawal (digital content, Art. 16(m)), "kept
+permanently", suspension/deletion and refunds that remove the item all need
+text. The tax note covers hosted sectors only and should say cosmetics are
+an electronically supplied service taxed the same way. Code for 8e can be
+built in test mode; selling waits for that text.
 
 ## Points a lawyer should look at
 

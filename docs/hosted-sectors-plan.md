@@ -468,6 +468,27 @@ cosmetics and other contests with it; the recommendation is that a withdrawal
 ends access to that one hosted sector only, which the refund already does
 (Q2). Waiting for the owner's answer after reading this.
 
+**Owner answers, 2026-11-26** (relayed from the owner's session, on the
+recommendations in `legal-drafts/README.md`):
+
+- **Sector addresses in certificate logs** (legal list item 12): change the
+  privacy wording, do not close the standings endpoint. A hosted sector is
+  unlisted and members-only to play, but its address can become publicly
+  discoverable through certificate transparency logs, and its standings are
+  not secret from anyone who has the address. This is Q9 ("unlisted, not
+  secret") said plainly.
+- **Countries not sold to** (item 13): at launch, block payments whose
+  billing country is the United Kingdom, because TIDN AB is not registered
+  for UK VAT and the UK has no threshold for a non-UK seller. It is a Radar
+  rule the owner applies in Stripe (`hosted-sectors-tax.md`, "Stripe
+  settings"); the accountant can later say whether to register and lift it.
+  No other country is blocked unless the tax note lists it.
+- **Analytics consent** (item 11): built after 8d (§15).
+- **Cosmetics on sale with hosted sectors:** the product "Claim the title of
+  Count", USD 4.99 (`packages/shared/src/cosmetics/cosmetics.ts`), goes
+  through the same Stripe payment flow and the same sales switch, off by
+  default, with the same legal must-do items. Planned as 8e (§15).
+
 **Review of the drafts, 2026-11-25:** lists what the checkout, the hosting
 service and the emails must still do before sales open (among them a
 withdrawal button, two separate tick-boxes, proof of consent, a confirmation
@@ -548,10 +569,13 @@ each with regression tests and sales off throughout:
 | 8b | **Refunds, withdrawal and disputes.** Partial refunds with an amount and idempotency key; a refund closes a sector only for a withdrawal or a full refund; a withdrawal button with a confirmation step and the 1/30-per-day deduction; purchases paused for an account with an open dispute. | 1, 6, 7, 10 |
 | 8c | **Emails.** Order confirmation with the Terms and the consent, the idle-closure warning 2 days ahead, the withdrawal acknowledgement. Needs an email sender. | 5, 9, 6 |
 | 8d | **Results saved before deletion.** | 8 |
+| 8e | **Cosmetic product "Claim the title of Count", USD 4.99** (owner, 2026-11-26). A Checkout in the hosting service's Stripe flow behind the same sales switch; on payment the hosting service grants it through the gateway's `AccountCosmeticsService.grantProduct` (admin route, idempotent by payment reference); a refund or withdrawal revokes it. Both consents adapted for digital content (Art. 16(m)), the confirmation email (8c), test mode only. **Blocked on legal text:** the Terms of Sale cover hosted sectors only; the cosmetics section listed in `legal-drafts/README.md` ("Cosmetics") must be written and reviewed first, and the tax note must say cosmetics are taxed like sectors. | 2–7 for cosmetics |
+| 8f | **Analytics consent in the web client** (owner, 2026-11-26: after 8d). | 11 |
 
-Items 11 (analytics consent, main client), 12 (EU locations; certificate
-logs) and 13 (Stripe Radar country rule) are listed there; 12's certificate
-question and 13 are the owner's.
+Item 12's EU-location check is a hosting-service setting guard; its
+certificate question and item 13 were decided by the owner on 2026-11-26
+(§13): the privacy wording changes, and the United Kingdom is blocked by a
+Radar rule the owner applies.
 
 ## 16. Risks and what is not known yet
 
