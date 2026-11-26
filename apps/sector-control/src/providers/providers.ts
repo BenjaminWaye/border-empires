@@ -14,8 +14,12 @@ export interface PaymentProvider {
   createCheckout(input: { sectorId: string; accountUid: string; amountCents: number; currency: string; options: HostedSectorOptions; createdAt: number }): Promise<{ paymentRef: string; checkoutUrl: string }>;
   /** Asked when a webhook may have been missed. */
   getCheckoutStatus(paymentRef: string): Promise<CheckoutStatus>;
-  /** Full refund. Must be safe to repeat. */
-  refund(paymentRef: string): Promise<void>;
+  /**
+   * Refunds the payment: all of it, or `amountCents` of it (a withdrawal keeps
+   * a part for the days used). Must be safe to repeat with the same
+   * `idempotencyKey`, which a partial refund must give.
+   */
+  refund(paymentRef: string, partial?: { amountCents: number; idempotencyKey: string }): Promise<void>;
 
   /**
    * Split funding (plan section 12). A checkout that only places a hold on

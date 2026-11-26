@@ -22,7 +22,7 @@ export type HostingRoutesDeps = {
 const STATUS_BY_CODE: Record<HostingErrorCode, number> = {
   SALES_CLOSED: 503, ACCOUNT_REQUIRED: 403, EMAIL_NOT_VERIFIED: 403, ALREADY_HOSTING: 409, PAYMENT_UNAVAILABLE: 502,
   NOT_FOUND: 404, NOT_HOST: 403, NOT_MEMBER: 403, SECTOR_CLOSED: 409, SECTOR_NOT_READY: 409, SECTOR_FULL: 409,
-  INVITE_INVALID: 404, TOO_MANY_INVITES: 429, FUNDING_CLOSED: 409, BAD_AMOUNT: 400, CONSENT_REQUIRED: 400, TERMS_OUTDATED: 409, PURCHASES_PAUSED: 403
+  INVITE_INVALID: 404, TOO_MANY_INVITES: 429, FUNDING_CLOSED: 409, BAD_AMOUNT: 400, CONSENT_REQUIRED: 400, TERMS_OUTDATED: 409, PURCHASES_PAUSED: 403, WITHDRAWAL_NOT_AVAILABLE: 409
 };
 
 const ID_PATTERN = /^[a-z0-9-]{1,64}$/;
@@ -106,6 +106,25 @@ export const registerHostingRoutes = (app: FastifyInstance, deps: HostingRoutesD
     const sectorId = account ? idParam(request, reply, "sectorId") : undefined;
     if (!account || !sectorId) return reply;
     return send(reply, await service.issueTicket(account, sectorId));
+  });
+
+  // Withdrawal from the contract (Terms of Sale section 7): GET quotes it (the
+  // confirmation step), POST with { confirm: true } does it.
+  app.get("/hosting/sectors/:sectorId/withdrawal", async (request, reply) => {
+    const account = await authenticate(request, reply);
+    const sectorId = account ? idParam(request, reply, "sectorId") : undefined;
+    if (!account || !sectorId) return reply;
+    return send(reply, service.quoteWithdrawal(account, sectorId));
+  });
+
+  app.post("/hosting/sectors/:sectorId/withdrawal", async (request, reply) => {
+    const account = await authenticate(request, reply);
+    const sectorId = account ? idParam(request, reply, "sectorId") : undefined;
+    if (!account || !sectorId) return reply;
+    if ((request.body as { confirm?: unknown } | undefined)?.confirm !== true) {
+      return reply.code(400).send({ ok: false, code: "CONFIRMATION_REQUIRED", message: "Confirm that you want to withdraw." });
+    }
+    return send(reply, await service.withdraw(account, sectorId));
   });
 
   app.post("/hosting/invites/:code/accept", async (request, reply) => {

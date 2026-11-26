@@ -76,12 +76,14 @@ export const createStripePaymentProvider = (api: StripeApi, config: StripePaymen
       return "open";
     },
 
-    async refund(paymentRef) {
+    async refund(paymentRef, partial) {
       const session = await api.get(`/checkout/sessions/${encodeURIComponent(paymentRef)}`);
       const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : undefined;
       if (!paymentIntent) throw new Error(`Checkout Session ${paymentRef} has no payment to refund`);
       try {
-        await api.post("/refunds", { payment_intent: paymentIntent, "metadata[sectorId]": String(session.client_reference_id ?? "") }, `refund-${paymentRef}`);
+        const params: Record<string, string> = { payment_intent: paymentIntent, "metadata[sectorId]": String(session.client_reference_id ?? "") };
+        if (partial) params.amount = String(partial.amountCents);
+        await api.post("/refunds", params, partial ? `refund-${partial.idempotencyKey}-${partial.amountCents}` : `refund-${paymentRef}`);
       } catch (error) {
         // Refunded already (by hand in the dashboard, or by an earlier attempt): the goal is met.
         if (error instanceof StripeApiError && error.code === "charge_already_refunded") return;

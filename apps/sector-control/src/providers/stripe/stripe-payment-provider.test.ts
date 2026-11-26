@@ -76,6 +76,10 @@ describe("Stripe payment provider", () => {
     expect(stripe.calls[1]?.params.amount).toBeUndefined();
     alreadyRefunded = true;
     await expect(provider.refund("cs_1")).resolves.toBeUndefined();
+    // A withdrawal refunds part of the payment, with its own key, so a retry cannot refund twice.
+    alreadyRefunded = false;
+    await provider.refund("cs_1", { amountCents: 1933, idempotencyKey: "withdrawal-s-abc" });
+    expect(stripe.calls.at(-1)).toMatchObject({ method: "POST", path: "/refunds", params: { payment_intent: "pi_1", amount: "1933" }, headers: { "idempotency-key": "refund-withdrawal-s-abc-1933" } });
   });
 
   it("throws on any other refund failure, so the reconciler tries again", async () => {

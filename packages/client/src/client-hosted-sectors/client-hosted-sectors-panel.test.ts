@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { HostedSectorSummary, HostedSectorTicket, HostingApiResult } from "./client-hosted-sectors-api.js";
+import type { HostedSectorSummary, HostedSectorTicket, HostedWithdrawalQuote, HostingApiResult } from "./client-hosted-sectors-api.js";
 import { setActiveHostedSectorSession } from "./client-hosted-sector-session.js";
 import { checkoutReturnNotice, createHostedSectorsPanel, hostedSectorRowHtml, mountHostedSectorsPanel, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
 import { CHECKOUT_CONSENT } from "./client-hosted-sector-order.js";
@@ -26,7 +26,9 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
     createOrder: vi.fn(async (_options: HostedSectorSummary["options"], _consent: unknown): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
     createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" })),
     openFundingBar: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "funding", role: "host" }) })),
-    contribute: vi.fn(async (_sectorId: string, _amountCents: number, _consent: unknown): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" }))
+    contribute: vi.fn(async (_sectorId: string, _amountCents: number, _consent: unknown): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" })),
+    quoteWithdrawal: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ quote: HostedWithdrawalQuote }>> => ({ ok: true, quote: { paidCents: 2000, daysOpen: 3, deductionCents: 200, refundCents: 1800, deadline: 0 } })),
+    withdraw: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number }>> => ({ ok: true, refundCents: 1800, requestedAt: Date.UTC(2026, 10, 26, 12) }))
   };
   const navigate = vi.fn();
   const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, shareOrigin: "https://play.borderempires.com", refreshMs: 0, ...overrides };
@@ -242,6 +244,30 @@ describe("my sectors panel", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("withdraws from a purchase in two steps: the amounts first, then a confirmed withdrawal", async () => {
+    const h = makeDeps();
+    h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ role: "host", canWithdraw: true }), sector({ sectorId: "s-other" })] });
+    const panel = createHostedSectorsPanel(h.deps);
+    await panel.openList();
+    // Only where this account paid and may still withdraw.
+    const buttons = document.querySelectorAll<HTMLButtonElement>("[data-hosted-sector-withdraw]");
+    expect(Array.from(buttons, (button) => button.textContent)).toEqual(["Withdraw from contract"]);
+    buttons[0]?.click();
+    await vi.waitFor(() => expect(document.querySelector("[data-hosted-sector-withdrawal]")?.textContent).toMatch(/You paid USD 20.*keep USD 2 for the 3 days.*get back USD 18/s));
+    expect(h.api.withdraw).not.toHaveBeenCalled();
+    // Backing out changes nothing.
+    document.querySelector<HTMLElement>("[data-hosted-sector-withdraw-cancel]")?.click();
+    await vi.waitFor(() => expect(document.querySelector("[data-hosted-sector-withdrawal]")).toBeNull());
+    expect(h.api.withdraw).not.toHaveBeenCalled();
+
+    document.querySelector<HTMLButtonElement>("[data-hosted-sector-withdraw]")?.click();
+    await vi.waitFor(() => expect(document.querySelector("[data-hosted-sector-withdraw-confirm]")).not.toBeNull());
+    document.querySelector<HTMLElement>("[data-hosted-sector-withdraw-confirm]")?.click();
+    await vi.waitFor(() => expect(h.api.withdraw).toHaveBeenCalledWith("s-abc"));
+    await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/We received your withdrawal on .*2026.*USD 18 is on its way back/));
+    panel.close();
   });
 
   it("keeps the list current while a sector is being prepared, and stops when closed", async () => {

@@ -31,7 +31,11 @@ export type HostedSectorSummary = {
   checkoutUrl?: string;
   /** Only while the sector is being split-funded. */
   funding?: HostedSectorFunding;
+  /** True while this account can withdraw from what it paid for here. */
+  canWithdraw?: boolean;
 };
+
+export type HostedWithdrawalQuote = { paidCents: number; daysOpen: number; deductionCents: number; refundCents: number; deadline: number };
 
 export type HostedSectorTicket = { ticket: string; expiresAt: number; wsUrl: string };
 
@@ -80,7 +84,8 @@ const parseSector = (value: unknown): HostedSectorSummary | undefined => {
     humanPlaces: record.humanPlaces,
     delayed: record.delayed === true,
     ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {}),
-    ...(parseFunding(record.funding) ? { funding: parseFunding(record.funding) as HostedSectorFunding } : {})
+    ...(parseFunding(record.funding) ? { funding: parseFunding(record.funding) as HostedSectorFunding } : {}),
+    ...(record.canWithdraw === true ? { canWithdraw: true } : {})
   };
 };
 
@@ -146,6 +151,27 @@ export const createHostingApi = (deps: HostingApiDeps) => {
       if ("ok" in reply) return reply;
       const checkoutUrl = okBody(reply)?.checkoutUrl;
       return typeof checkoutUrl === "string" ? { ok: true, checkoutUrl } : failure(reply.body, "Your share could not be started. Nothing was charged.");
+    },
+
+    /** The withdrawal's confirmation step: the amounts, and nothing done. */
+    async quoteWithdrawal(sectorId: string): Promise<HostingApiResult<{ quote: HostedWithdrawalQuote }>> {
+      const reply = await call("GET", `/hosting/sectors/${encodeURIComponent(sectorId)}/withdrawal`);
+      if ("ok" in reply) return reply;
+      const quote = okBody(reply)?.quote as Record<string, unknown> | undefined;
+      const fields = ["paidCents", "daysOpen", "deductionCents", "refundCents", "deadline"] as const;
+      return quote && fields.every((field) => typeof quote[field] === "number")
+        ? { ok: true, quote: quote as unknown as HostedWithdrawalQuote }
+        : failure(reply.body, "Withdrawal is not available right now.");
+    },
+
+    /** The confirmed withdrawal. */
+    async withdraw(sectorId: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number }>> {
+      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/withdrawal`, { confirm: true });
+      if ("ok" in reply) return reply;
+      const withdrawal = okBody(reply)?.withdrawal as { refundCents?: unknown; requestedAt?: unknown } | undefined;
+      return withdrawal && typeof withdrawal.refundCents === "number" && typeof withdrawal.requestedAt === "number"
+        ? { ok: true, refundCents: withdrawal.refundCents, requestedAt: withdrawal.requestedAt }
+        : failure(reply.body, "Your withdrawal could not be sent. Nothing was changed; please try again.");
     },
 
     async createInvite(sectorId: string): Promise<HostingApiResult<{ code: string }>> {

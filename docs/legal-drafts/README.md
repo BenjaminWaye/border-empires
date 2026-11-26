@@ -56,7 +56,8 @@ consent sentence above Stripe's Pay button. Sales stay off until all are
 done. The order in which they are built is in `../hosted-sectors-plan.md` §15
 ("Before PR 8"). Items 2, 3 and 4 were built on 2026-11-25 (PR 8a), and items
 7 (the refund-event part) and 10 on 2026-11-26 (PR 8b); the others do not
-exist yet.
+exist yet. Items 1 and 6 were built on 2026-11-26 (8b-2), without the emailed
+acknowledgement (8c) and saving results (8d).
 
 1. **A withdrawal button.** Since 19 June 2026 a trader selling through a
    website must offer an online withdrawal function: a clearly labelled
@@ -66,7 +67,10 @@ exist yet.
    Sweden prop. 2025/26:84, in force 19 June 2026). The draft places it on the
    sector in **My sectors**. Konsumentverket has said, as reported in the press
    in June 2026, that a missing function can extend the withdrawal period; the
-   lawyer should confirm the legal basis.
+   lawyer should confirm the legal basis. **Built 2026-11-26 (8b-2):** the
+   "Withdraw from contract" button and its confirmation step, with an
+   acknowledgement on screen; the emailed acknowledgement (the durable medium)
+   comes with the emails (8c).
 2. **Two separate tick-boxes on the order form**, not one. The form in
    `packages/client/src/client-hosted-sectors/client-hosted-sector-order.ts`
    today has one box that combines accepting the terms with the request to
@@ -99,7 +103,9 @@ exist yet.
    price for each started 24-hour period from `opened_at` to the earlier of
    the notice arriving and the sector being closed; issue a partial refund
    within 14 days; close the sector after saving results; send an
-   acknowledgement.
+   acknowledgement. **Built 2026-11-26 (8b-2)**, except saving results first
+   (8d) and the emailed acknowledgement (8c). The deduction runs to the
+   withdrawal request; a sector already closed cannot be withdrawn from.
 7. **Partial refunds.** The payment provider can only make a full refund
    (`PaymentProvider.refund` in `apps/sector-control/src/providers/providers.ts`),
    and any refund event moves the sector to `refunded`, after which the server

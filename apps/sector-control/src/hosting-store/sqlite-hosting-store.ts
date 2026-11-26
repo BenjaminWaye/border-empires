@@ -15,7 +15,8 @@ import {
   type SectorMember,
   type SectorPatch,
   type SectorRecord,
-  type SectorState
+  type SectorState,
+  type WithdrawalRecord
 } from "./hosting-store.js";
 
 type ConsentColumns = { consent_at: number | null; consent_terms_version: string | null; consent_text: string | null };
@@ -180,6 +181,16 @@ export class SqliteHostingStore implements HostingStore {
         event_id TEXT PRIMARY KEY,
         received_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS hosted_withdrawals (
+        withdrawal_key TEXT PRIMARY KEY,
+        sector_id TEXT NOT NULL,
+        contribution_id TEXT,
+        account_uid TEXT NOT NULL,
+        paid_cents INTEGER NOT NULL,
+        deduction_cents INTEGER NOT NULL,
+        refund_cents INTEGER NOT NULL,
+        requested_at INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS hosted_payment_disputes (
         dispute_id TEXT PRIMARY KEY,
         account_uid TEXT NOT NULL,
@@ -334,6 +345,24 @@ export class SqliteHostingStore implements HostingStore {
   listContributions(sectorId: string): ContributionRecord[] {
     const rows = this.db.prepare(`SELECT ${CONTRIBUTION_COLUMNS} FROM hosted_contributions WHERE sector_id = ? ORDER BY created_at`).all(sectorId) as ContributionRow[];
     return rows.map(toContribution);
+  }
+
+  insertWithdrawal(withdrawal: WithdrawalRecord): boolean {
+    const result = this.db
+      .prepare(`INSERT OR IGNORE INTO hosted_withdrawals (withdrawal_key, sector_id, contribution_id, account_uid, paid_cents, deduction_cents, refund_cents, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(withdrawal.withdrawalKey, withdrawal.sectorId, withdrawal.contributionId ?? null, withdrawal.accountUid, withdrawal.paidCents, withdrawal.deductionCents, withdrawal.refundCents, withdrawal.requestedAt);
+    return Number(result.changes) > 0;
+  }
+
+  getWithdrawal(withdrawalKey: string): WithdrawalRecord | undefined {
+    const row = this.db.prepare(`SELECT * FROM hosted_withdrawals WHERE withdrawal_key = ?`).get(withdrawalKey) as
+      | { withdrawal_key: string; sector_id: string; contribution_id: string | null; account_uid: string; paid_cents: number; deduction_cents: number; refund_cents: number; requested_at: number }
+      | undefined;
+    if (!row) return undefined;
+    return {
+      withdrawalKey: row.withdrawal_key, sectorId: row.sector_id, ...(row.contribution_id !== null ? { contributionId: row.contribution_id } : {}),
+      accountUid: row.account_uid, paidCents: row.paid_cents, deductionCents: row.deduction_cents, refundCents: row.refund_cents, requestedAt: row.requested_at
+    };
   }
 
   openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean {

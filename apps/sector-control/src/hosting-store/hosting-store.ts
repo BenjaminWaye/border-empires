@@ -83,6 +83,18 @@ export type ContributionRecord = {
 /** `amountCents` changes only when a share is partly captured: it is then what was charged. */
 export type ContributionPatch = { state?: ContributionState; amountCents?: number; paymentRef?: string | null; checkoutUrl?: string | null };
 
+/** `withdrawalKey` is the sector id for a purchase in full, or the contribution id for one share. */
+export type WithdrawalRecord = {
+  withdrawalKey: string;
+  sectorId: string;
+  contributionId?: string;
+  accountUid: string;
+  paidCents: number;
+  deductionCents: number;
+  refundCents: number;
+  requestedAt: number;
+};
+
 export type SectorMember = { sectorId: string; accountUid: string; role: "host" | "member"; joinedAt: number };
 
 export type SectorInvite = {
@@ -149,6 +161,14 @@ export interface HostingStore {
   openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean;
   closeDispute(disputeId: string, closedAt: number): boolean;
   hasOpenDispute(accountUid: string): boolean;
+
+  /**
+   * A consumer's withdrawal from the contract (Terms of Sale section 7): one
+   * per sector, or per share of a split-funded one (`withdrawalKey`). False
+   * when that purchase was already withdrawn from.
+   */
+  insertWithdrawal(withdrawal: WithdrawalRecord): boolean;
+  getWithdrawal(withdrawalKey: string): WithdrawalRecord | undefined;
 
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;
