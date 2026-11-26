@@ -119,9 +119,10 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
     // Open ground clear of every seeded empire's reach: the only viable
     // landing site (GDD §6). A first-time join refuses a site inside a
     // rival's reach, which covers every tile above. The sea tile makes the
-    // patch coastal, which every spawn candidate must be.
-    ...openLandPatch(20, 20, 5),
-    [simulationTileKey(19, 22), { x: 19, y: 22, terrain: "SEA" }]
+    // patch coastal, which every spawn candidate must be. Kept far from the
+    // small hand-built worlds runtime tests overlay on these seed tiles.
+    ...openLandPatch(300, 150, 5),
+    [simulationTileKey(299, 152), { x: 299, y: 152, terrain: "SEA" }]
   ]);
 
   return {
