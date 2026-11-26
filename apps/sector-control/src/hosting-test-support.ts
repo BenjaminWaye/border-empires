@@ -5,6 +5,8 @@ import type { DatabaseSync as Database } from "node:sqlite";
 
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
+import { HOSTED_SECTOR_CONSENT_WORDING, HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
+
 import { DEFAULT_HOSTING_CONFIG, type HostingConfig } from "./hosting-service/hosting-config.js";
 import { createHostingReconciler } from "./hosting-service/hosting-reconciler.js";
 import { createHostingService, type HostingAccount } from "./hosting-service/hosting-service.js";
@@ -16,6 +18,9 @@ import { createSectorTicketSigner } from "./sector-ticket/sector-ticket-signer.j
 
 // vitest (vite) cannot resolve a static import of the built-in node:sqlite; load it at run time.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as { DatabaseSync: new (path: string) => Database };
+
+/** Both boxes ticked on the order form, for the current Terms of Sale. */
+export const CONSENT = { termsVersion: HOSTED_SECTOR_TERMS_VERSION, wording: HOSTED_SECTOR_CONSENT_WORDING, acceptedTerms: true, requestedEarlyStart: true } as const;
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -47,7 +52,7 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
 
   /** Orders a standard sector and returns its id. */
   const order = async (uid = "host"): Promise<string> => {
-    const result = await service.createOrder(account(uid), { mapStyle: "continents", mapSize: "standard" });
+    const result = await service.createOrder(account(uid), { mapStyle: "continents", mapSize: "standard" }, CONSENT);
     if (!result.ok) throw new Error(`order failed: ${result.code}`);
     return result.sector.sectorId;
   };

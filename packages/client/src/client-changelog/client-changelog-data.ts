@@ -4,7 +4,7 @@ import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
-import { TOWN_FOCUS_ENTRY } from "./client-changelog-town-focus.js";
+import { TOWN_FOCUS_ENTRY, TOWN_FOCUS_PANEL_ENTRY } from "./client-changelog-town-focus.js";
 import { UI_TYPE_CONSISTENCY_ENTRY } from "./client-changelog-ui-type-consistency.js";
 import { UNLOCK_CELEBRATION_ENTRY } from "./client-changelog-unlock-celebration.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
@@ -492,6 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
   { ...UI_TYPE_CONSISTENCY_ENTRY, createdAt: 1795637381397, },
   { ...UNLOCK_CELEBRATION_ENTRY, createdAt: 1795644022855, },
+  { ...TOWN_FOCUS_PANEL_ENTRY, createdAt: 1795678750561, },
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
 ];
 

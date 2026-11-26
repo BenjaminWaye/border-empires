@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { HostingPaymentEvent } from "../hosting-service/hosting-service.js";
-import { account, createHostingHarness } from "../hosting-test-support.js";
+import { account, CONSENT, createHostingHarness } from "../hosting-test-support.js";
 import { registerHostingRoutes } from "./hosting-routes.js";
 
 describe("hosting HTTP routes", () => {
@@ -44,7 +44,11 @@ describe("hosting HTTP routes", () => {
   it("takes an order through payment, invitation and entry", async () => {
     const { h, call, webhook } = await start();
     expect((await call("POST", "/hosting/orders", "host", { mapStyle: "volcano", mapSize: "standard" })).statusCode).toBe(400);
-    const ordered = await call("POST", "/hosting/orders", "host", { mapStyle: "continents", mapSize: "standard" });
+    // Without both consents nothing is ordered.
+    const unconsented = await call("POST", "/hosting/orders", "host", { mapStyle: "continents", mapSize: "standard" });
+    expect(unconsented.statusCode).toBe(400);
+    expect(unconsented.json()).toMatchObject({ ok: false, code: "CONSENT_REQUIRED" });
+    const ordered = await call("POST", "/hosting/orders", "host", { mapStyle: "continents", mapSize: "standard", consent: CONSENT });
     expect(ordered.statusCode).toBe(200);
     const sectorId = (ordered.json() as { sector: { sectorId: string } }).sector.sectorId;
 
@@ -92,8 +96,8 @@ describe("hosting HTTP routes", () => {
     const invite = (await call("POST", `/hosting/sectors/${sectorId}/invites`, "host")).json() as { invite: { code: string } };
     await call("POST", `/hosting/invites/${invite.invite.code}/accept`, "friend");
     expect((await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: "5" })).statusCode).toBe(400);
-    expect((await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 100 })).statusCode).toBe(400);
-    const pledged = (await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 1000 })).json() as { ok: boolean; checkoutUrl: string };
+    expect((await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 100, consent: CONSENT })).statusCode).toBe(400);
+    const pledged = (await call("POST", `/hosting/sectors/${sectorId}/contributions`, "friend", { amountCents: 1000, consent: CONSENT })).json() as { ok: boolean; checkoutUrl: string };
     expect(pledged.ok).toBe(true);
     const contributionId = pledged.checkoutUrl.replace("https://checkout.invalid/fake-hold-", "");
     expect((await webhook({ eventId: "evt-1", kind: "held", contributionId })).statusCode).toBe(200);

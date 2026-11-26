@@ -5,7 +5,8 @@ import type { BuildingCategory } from "../client-tile-menu-building-category/cli
 import type { TileActionDef } from "../client-types.js";
 import { focusCamera, screen, type HudV2Deps } from "./client-hud-v2-context.js";
 import { townPlotPickClick } from "./client-hud-v2-town-plot-pick.js";
-import { renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
+import { renderTownScreen, runTileActionOn, runTownFocusPick, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
+import { TownFocusSchema } from "@border-empires/shared";
 
 type CloseScreen = (deps: HudV2Deps, options?: { toMap?: boolean }) => void;
 
@@ -42,6 +43,12 @@ export const townClick = (deps: HudV2Deps, target: Element, closeScreen: CloseSc
   if (tech) {
     openTechDetailFromTileMenu(deps.state, tech);
     deps.renderHud();
+    return true;
+  }
+  const focusEl = target.closest<HTMLElement>("[data-v2-town-focus]");
+  const focus = TownFocusSchema.safeParse(focusEl?.dataset.v2TownFocus);
+  if (focus.success) {
+    runTownFocusPick(deps, focus.data, focusEl?.dataset.v2TownFocusAll === "1");
     return true;
   }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");
