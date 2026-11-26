@@ -53,7 +53,7 @@ describe("parkOrReuseMusterFlagForAttack with a planned flag spot", () => {
 
   it("reuses a flag that appeared nearby since the launch instead of raising the planned one", () => {
     const { state, deps, park } = setup();
-    state.tiles.get("11,0")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as Tile["muster"];
+    state.tiles.get("11,0")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
     setMusterFlagPlan(state, { x: 17, y: 0 }, { x: 13, y: 0 });
     park();
     expect(deps.sendSetMuster).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ describe("parkOrReuseMusterFlagForAttack with a planned flag spot", () => {
     setMusterFlagPlan(state, { x: 17, y: 0 }, { x: 13, y: 0 });
     park();
     const required = requiredMusterWithCommit(state, state.tiles.get("17,0"));
-    state.tiles.get("13,0")!.muster = { ownerId: "me", amount: required, mode: "HOLD", updatedAt: Date.now() } as Tile["muster"];
+    state.tiles.get("13,0")!.muster = { ownerId: "me", amount: required, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
     processPendingMusterAttacks(state, {
       keyFor: deps.keyFor,
       isAdjacent: (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by)) === 1,

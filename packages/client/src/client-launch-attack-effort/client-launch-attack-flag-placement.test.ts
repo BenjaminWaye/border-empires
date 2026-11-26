@@ -90,7 +90,7 @@ describe("Launch Attack flag placement step", () => {
 
   it("skips the step when a flag is already near: no flag is created, so a frontier attack fires at once", () => {
     const { state, queueSpecificTargets, launch } = setup();
-    state.tiles.get("12,10")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as Tile["muster"];
+    state.tiles.get("12,10")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
     launch();
     expect(isEffortConfirmSheetOpen()).toBe(false);
     expect(queueSpecificTargets).toHaveBeenCalledWith(["17,10"]);
@@ -99,7 +99,7 @@ describe("Launch Attack flag placement step", () => {
 
   it("shows effort only for a garrisoned target when a flag is near", () => {
     const { state, launch } = setup({ ownershipState: "SETTLED" });
-    state.tiles.get("12,10")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as Tile["muster"];
+    state.tiles.get("12,10")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
     launch();
     expect(isEffortConfirmSheetOpen()).toBe(true);
     expect(document.querySelector("[data-flag-spot]")).toBeNull();

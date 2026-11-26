@@ -19,7 +19,7 @@ const world = () => {
 const ORIGIN = { x: 16, y: 10 };
 const TARGET = { x: 17, y: 10 };
 const flagAt = (state: ReturnType<typeof world>, x: number, y: number, ownerId = "me"): void => {
-  state.tiles.get(`${x},${y}`)!.muster = { ownerId, amount: 0, mode: "HOLD", updatedAt: Date.now() } as Tile["muster"];
+  state.tiles.get(`${x},${y}`)!.muster = { ownerId, amount: 0, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
 };
 
 describe("attackNeedsNewMusterFlag", () => {
