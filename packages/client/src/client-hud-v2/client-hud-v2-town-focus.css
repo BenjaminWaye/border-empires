@@ -76,12 +76,14 @@
 /* Phones: right under the growth bar so it is on screen without scrolling the town panel. */
 body.hud-v2-compact .v2t-name-row { order: -3; }
 body.hud-v2-compact .v2t-growth { order: -2; }
-body.hud-v2-compact .v2tf { order: -1; margin: 2px 12px 6px; }
+body.hud-v2-compact .v2tf { order: -1; margin: 2px 12px 18px; }
 body.hud-v2-compact .v2tf-top { padding: 5px 8px 6px; }
 /* Phones: the header carries the countdown and any queued change; the buttons carry gain and cost, and the
    strip shrinks to one line (name, then each figure with its change) so the card clears the Build panel. */
 body.hud-v2-compact .v2tf-status, body.hud-v2-compact .v2tf-empire-row, body.hud-v2-compact .v2tf-rule, body.hud-v2-compact .v2tf-v small { display: none; }
-body.hud-v2-compact .v2tf-phone-hint { display: block; padding: 0 8px 6px; font-size: 11px; color: var(--v2-soft); }
+body.hud-v2-compact .v2tf-phone-hint { display: block; padding: 0 8px 7px; font-size: 11px; color: var(--v2-soft); }
+body.hud-v2-compact .v2tf-details { margin-bottom: 5px; }
+body.hud-v2-compact .v2tf-detail { padding: 4px 6px 3px; }
 body.hud-v2-compact .v2tf-k-long { display: none; }
 body.hud-v2-compact .v2tf-k-short, body.hud-v2-compact .v2tf-phone-only { display: inline; }
 body.hud-v2-compact .v2tf-k { font-size: 8.5px; letter-spacing: 0.04em; }

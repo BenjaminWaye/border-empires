@@ -68,29 +68,27 @@ const detail = (option: TownFocusOption, card: TownFocusCard): string =>
       ${cell("Coin", "/day", option.coin)}${cell("MP", "/refill", option.manpower)}${cell(`<span class="v2tf-k-long">${esc(card.growthLabel.replace(/^To /, ""))} in</span><span class="v2tf-k-short">${esc(card.growthLabel.replace(/^To /, ""))}</span>`, "", option.growth)}
     </div>`;
 
-/** "+24 MP/refill" in green or "−9 Coin/day" in red; empty when it rounds to nothing. */
-const signed = (value: number | undefined, unit: string): string => {
-  if (value === undefined || Math.round(value) === 0) return "";
-  const up = Math.round(value) > 0;
-  return `<b class="v2tf-${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(Math.round(value))} ${unit}</b>`;
+/** One signed figure, "+24" or "−9", coloured by sign; "±0" when it rounds to nothing. */
+const figure = (value: number): string => {
+  const rounded = Math.round(value);
+  return rounded === 0 ? `<b class="v2tf-same">±0</b>` : `<b class="v2tf-${rounded > 0 ? "up" : "down"}">${rounded > 0 ? "+" : "−"}${Math.abs(rounded)}</b>`;
 };
 
 /**
- * "All towns vs Balanced: +24 MP/refill · −9 Coin/day", in every state. With a change queued on this town it adds
- * the total from the next refill ("→ at refill +48 MP/refill · −18 Coin/day"). Empty when nothing changes.
+ * One line for the whole empire against all Balanced: "All towns +24 MP/refill · −9 Coin/day". With a change
+ * queued on this town it shows where each total goes at the refill: "All towns +24 → +48 MP/refill · −9 → −18 Coin/day".
  */
 const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
   const mpNow = extras.empireManpowerPerRefill ?? 0;
   const coinNow = extras.empireCoinPerDay ?? 0;
-  const now = [signed(mpNow, "MP/refill"), signed(coinNow, "Coin/day")].filter(Boolean);
   const queued = card.queued ? card.options.find((o) => o.focus === card.queued) : undefined;
   const active = card.options.find((o) => o.focus === card.active);
   const diff = (s: TownFocusStat | undefined): number => (s?.delta ? Number(s.delta.replace("−", "-")) : 0);
-  const after = queued && active
-    ? [signed(mpNow + diff(queued.manpower) - diff(active.manpower), "MP/refill"), signed(coinNow + diff(queued.coin) - diff(active.coin), "Coin/day")].filter(Boolean)
-    : [];
-  if (now.length === 0 && after.length === 0) return "";
-  return `<span class="v2tf-empire" title="Every town's active focus added up, against every town on Balanced. A queued change counts from the refill it starts at.">All towns vs Balanced: ${now.length > 0 ? now.join(" · ") : "±0"}${after.length > 0 ? ` <span class="v2tf-vs">→ at refill</span> ${after.join(" · ")}` : ""}</span>`;
+  const mpAfter = queued && active ? mpNow + diff(queued.manpower) - diff(active.manpower) : undefined;
+  const coinAfter = queued && active ? coinNow + diff(queued.coin) - diff(active.coin) : undefined;
+  const moves = (now: number, after: number | undefined): string => `${figure(now)}${after !== undefined && Math.round(after) !== Math.round(now) ? ` → ${figure(after)}` : ""}`;
+  if (Math.round(mpNow) === 0 && Math.round(coinNow) === 0 && mpAfter === undefined) return "";
+  return `<span class="v2tf-empire" title="Every town's focus added up, against every town on Balanced. With a change queued here, the arrow shows the total from the next refill.">All towns ${moves(mpNow, mpAfter)} MP/refill · ${moves(coinNow, coinAfter)} Coin/day</span>`;
 };
 
 const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
@@ -112,10 +110,10 @@ const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
   return `<div class="v2tf-status"><span>${text}</span>${all}</div>${empire ? `<div class="v2tf-empire-row">${empire}</div>` : ""}`;
 };
 
-/** Phones have no room for the empire line, so its MP total rides in the header (" · +48 MP"). */
+/** Phones have no room for the empire line, so its MP total rides in the header (" · All +48 MP"). */
 const phoneEmpire = (extras: TownFocusCardExtras): string => {
-  const mp = signed(extras.empireManpowerPerRefill, "MP");
-  return mp ? `<span class="v2tf-phone-only"> · ${mp}</span>` : "";
+  const mp = extras.empireManpowerPerRefill;
+  return mp !== undefined && Math.round(mp) !== 0 ? `<span class="v2tf-phone-only"> · All ${figure(mp)} MP</span>` : "";
 };
 
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {

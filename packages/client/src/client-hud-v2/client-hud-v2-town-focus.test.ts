@@ -35,6 +35,6 @@ describe("Town focus card (town screen)", () => {
     expect(townFocusCardHtml(card(), { counts })).toContain("All towns → Balanced");
     expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Again to confirm: 1 town → Balanced");
     expect(townFocusCardHtml(card(), { counts: { BALANCED: 3, GROWTH: 0, LEVY: 0, COMMERCE: 0 } })).not.toContain("data-v2-town-focus-all");
-    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns vs Balanced: <b class=\"v2tf-up\">+24 MP/refill</b>");
+    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns <b class=\"v2tf-up\">+24</b> MP/refill");
   });
 });
