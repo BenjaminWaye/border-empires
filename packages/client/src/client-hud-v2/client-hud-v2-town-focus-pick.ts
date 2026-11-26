@@ -12,6 +12,19 @@ import type { TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
 /** How long a picked row flashes; renders inside this window replay it, later ones do not. */
 const FLASH_MS = 900;
 let lastPick: { townKey: string; focus: TownFocus; at: number } | undefined;
+/** How long "All towns" waits for its confirming second press. */
+const CONFIRM_ALL_MS = 4_000;
+let confirmAll: { townKey: string; focus: TownFocus; at: number } | undefined;
+
+/**
+ * First press of "All towns" arms it (the button asks to be pressed again); a second press within
+ * CONFIRM_ALL_MS on the same town and focus confirms. Returns true when this press confirms.
+ */
+export const confirmTownFocusForAll = (townKey: string, focus: TownFocus, nowMs = Date.now()): boolean => {
+  const armed = confirmAll !== undefined && confirmAll.townKey === townKey && confirmAll.focus === focus && nowMs - confirmAll.at < CONFIRM_ALL_MS;
+  confirmAll = armed ? undefined : { townKey, focus, at: nowMs };
+  return armed;
+};
 
 /** The card's empire line and pick flash for the open town. */
 export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, towns: readonly Tile[], townKey: string, nowMs = Date.now()): TownFocusCardExtras => {
@@ -20,7 +33,8 @@ export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, t
     counts: townFocusCounts(towns),
     empireCoinPerDay: townFocusEmpireCoinPerDay(towns),
     ...(line ? { empireManpowerPerRefill: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) } : {}),
-    ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {})
+    ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {}),
+    ...(confirmAll && confirmAll.townKey === townKey && nowMs - confirmAll.at < CONFIRM_ALL_MS ? { confirmAll: true } : {})
   };
 };
 

@@ -22,7 +22,7 @@ import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-g
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
-import { pickTownFocus, pickTownFocusForAll, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
 import type { TownFocus } from "@border-empires/shared";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
@@ -138,6 +138,11 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
 /** A Town focus tile press: queues the focus on the open town and redraws at once. */
 export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
   if (!current) return;
+  // "All towns" asks for a second press before it changes every town; the first press only redraws the button.
+  if (allTowns && !confirmTownFocusForAll(current.townKey, focus)) {
+    renderTownScreen(deps);
+    return;
+  }
   if (allTowns ? pickTownFocusForAll(deps, myTowns(deps), focus) > 0 : pickTownFocus(deps, current.townKey, focus)) renderTownScreen(deps);
 };
 

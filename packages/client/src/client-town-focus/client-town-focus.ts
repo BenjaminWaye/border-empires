@@ -1,5 +1,4 @@
 import { TOWN_FOCUSES, TOWN_FOCUS_MULTIPLIERS, manpowerPerBatch, nextManpowerRefillAtMs, queueTownFocus, MANPOWER_REFILL_WINDOW_MS, type TownFocus } from "@border-empires/shared";
-import { POPULATION_GROWTH_BASE_RATE, SETTLEMENT_GROWTH_RATE_MULT } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { isTownGrowthPaused, townNextGrowthEtaLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
@@ -46,8 +45,6 @@ export type TownFocusCard = {
   growthLabel: string;
   /** True while the town cannot grow (unfed, war, capture shock): only Coin and manpower change. */
   growthPaused: boolean;
-  /** While paused, the growth times are estimates for once growth resumes. */
-  growthEstimated: boolean;
 };
 
 const NAMES: Readonly<Record<TownFocus, string>> = { BALANCED: "Balanced", GROWTH: "Growth", LEVY: "Levy", COMMERCE: "Commerce" };
@@ -111,21 +108,18 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
   const manpowerBase = manpowerPerBatch(baseRegenPerMinute);
   const paused = isTownGrowthPaused(town, { explainUnfed: true, nowMs });
   const milestone = townNextPopulationMilestone(town);
-  // While paused the server reports no rate; estimate the base rate the growth tick would apply once it resumes
-  // (population × base rate × room left), without building or empire bonuses, and label the times as estimates.
-  const estimated = paused || (town.populationGrowthPerMinute ?? 0) <= 0;
-  const estimatedRate = town.population * POPULATION_GROWTH_BASE_RATE * (town.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) * Math.max(0, 1 - town.population / Math.max(1, town.maxPopulation)) * activeMult.growth;
-  const growthNow = estimated ? estimatedRate : town.populationGrowthPerMinute ?? 0;
+  // A paused town reports no growth rate, and a guess would disagree with the server's real one: say Paused.
+  const growthNow = paused ? 0 : town.populationGrowthPerMinute ?? 0;
   const remaining = milestone ? Math.max(0, milestone.targetPopulation - town.population) : 0;
   const growthStat = (focus: TownFocus): TownFocusStat => {
-    if (!milestone || growthNow <= 0) return { value: milestone ? "—" : "Max", delta: "", tone: "same" };
+    if (!milestone || growthNow <= 0) return { value: paused ? "Paused" : milestone ? "—" : "Max", delta: "", tone: "same" };
     const baseRate = growthNow / activeMult.growth;
     const minutes = remaining / (baseRate * TOWN_FOCUS_MULTIPLIERS[focus].growth);
     const balancedMinutes = remaining / baseRate;
     // Sooner is better: a negative time change reads as a gain.
     const hours = (minutes - balancedMinutes) / 60;
     const delta = Math.abs(hours) < 1 ? "" : `${hours < 0 ? "−" : "+"}${townFocusDuration(Math.abs(hours) * 60)}`;
-    return { value: `${estimated ? "≈" : ""}${townFocusDuration(minutes)}`, delta, tone: delta === "" ? "same" : hours < 0 ? "up" : "down" };
+    return { value: townFocusDuration(minutes), delta, tone: delta === "" ? "same" : hours < 0 ? "up" : "down" };
   };
   const queued = town.pendingFocus;
   const options = TOWN_FOCUSES.map((focus): TownFocusOption => {
@@ -153,8 +147,7 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
     startsInMs: Math.max(0, nextManpowerRefillAtMs(playerId, nowMs) - nowMs),
     queuedInMs: queued ? Math.max(0, (town.pendingFocusAt ?? nowMs) - nowMs) : 0,
     growthLabel: milestone ? `To ${milestone.label}` : "Growth",
-    growthPaused: paused,
-    growthEstimated: estimated
+    growthPaused: paused
   };
 };
 

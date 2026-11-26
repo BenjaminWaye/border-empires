@@ -46,9 +46,7 @@ describe("townFocusCard", () => {
     expect(card.queuedInMs).toBe(60_000);
     expect(card.options.find((o) => o.focus === "LEVY")!.state).toBe("queued");
     expect(card.growthPaused).toBe(true);
-    // Paused growth shows an estimate for once it resumes, marked with ≈.
-    expect(card.growthEstimated).toBe(true);
-    expect(card.options.every((o) => o.growth.value.startsWith("≈"))).toBe(true);
+    expect(card.options.every((o) => o.growth.value === "Paused" && o.growth.delta === "")).toBe(true);
   });
 
   it("formats durations so options stay distinguishable", () => {
