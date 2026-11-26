@@ -8,8 +8,10 @@ import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { displayTownPopulationTierLabel, isOwnTownUngarrisoned, townPopulationTarget } from "../client-town-growth/client-town-growth.js";
 import type { Tile } from "../client-types.js";
 import { openBuildSlotsForTown } from "./client-town-list-slots.js";
+import { townManpowerPerRefill } from "./client-town-list-manpower.js";
+import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 
-export type TownListSortKey = "gold" | "population" | "growth" | "slots";
+export type TownListSortKey = "gold" | "manpower" | "population" | "growth" | "slots";
 export type TownListSort = { key: TownListSortKey; descending: boolean };
 
 export type TownListRow = {
@@ -27,6 +29,8 @@ export type TownListRow = {
   /** The next tier's population, matching the town screen's growth bar (not the hard cap). */
   maxPopulation: number;
   growthPerMinute: number;
+  /** Manpower the town adds per refill under its chosen focus; 0 while it is not garrisoned. */
+  manpowerPerRefill: number;
   isFed: boolean;
   /** False while you hold the town's tile without garrisoning it (or planning to): no coin, no growth. */
   garrisoned: boolean;
@@ -81,15 +85,18 @@ export const toggleTownListSort = (key: TownListSortKey): void => {
 /**
  * `towns` is any iterable holding the towns to list; `tiles` is the full map, read for each town's support ring.
  * `garrisoning` (garrisonPlannedTileKeys): towns whose garrison is on its way don't read "Not garrisoned".
+ * `biotaTowns` (ManpowerBreakdown.biotaTowns): a large town short of luxury biota gives less manpower.
  */
 export const deriveTownListRows = (
-  towns: Iterable<Tile>, me: string, tiles: ReadonlyMap<string, Tile>, garrisoning?: { has(key: string): boolean }
+  towns: Iterable<Tile>, me: string, tiles: ReadonlyMap<string, Tile>, garrisoning?: { has(key: string): boolean },
+  biotaTowns?: readonly BiotaTownStatus[]
 ): TownListRow[] => {
   const rows: TownListRow[] = [];
   for (const tile of towns) {
     const town = tile.town;
     if (!town || tile.ownerId !== me || tile.fogged) continue;
     const plotsNote = townPlotIncomeNote(town);
+    const garrisoned = !isOwnTownUngarrisoned(tile, me, garrisoning);
     rows.push({
       x: tile.x,
       y: tile.y,
@@ -100,10 +107,11 @@ export const deriveTownListRows = (
       population: finiteOrZero(town.population),
       maxPopulation: finiteOrZero(townPopulationTarget(town)),
       growthPerMinute: finiteOrZero(town.populationGrowthPerMinute),
+      manpowerPerRefill: garrisoned ? townManpowerPerRefill(tile, biotaTowns) : 0,
       // Only flag a town unfed when the server says so, not when the field is missing.
       isFed: town.isFed !== false,
       // Same check as the map's nameplate and alert, so a missing ownershipState never reads as ungarrisoned.
-      garrisoned: !isOwnTownUngarrisoned(tile, me, garrisoning),
+      garrisoned,
       ...(plotsNote ? { plotsNote } : {}),
       openSlots: openBuildSlotsForTown(tiles, tile, me)
     });
@@ -114,6 +122,8 @@ export const deriveTownListRows = (
 const sortValue = (row: TownListRow, key: TownListSortKey): number =>
   key === "gold"
     ? row.goldPerMinute
+    : key === "manpower"
+      ? row.manpowerPerRefill
     : key === "population"
       ? row.population
       : key === "growth"

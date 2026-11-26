@@ -135,7 +135,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   watchTownBarHeight(document.getElementById("v2t-bar"));
 };
 
-/** A Town focus tile press: queues the focus on the open town and redraws at once. */
+/** A Town focus press: switches the open town's focus and redraws at once. */
 export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
   if (!current) return;
   // "All towns" asks for a second press before it changes every town; the first press only redraws the button.
