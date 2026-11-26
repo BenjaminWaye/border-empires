@@ -1,3 +1,4 @@
+import { houseChargeGarrisonTip } from "./client-house-charges-labels.js";
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
@@ -151,6 +152,23 @@ describe("House Charges panel", () => {
     expect(road.querySelector("[data-house-charge-pick]")?.textContent).toBe("✦ Kept");
     expect(road.querySelector("[data-house-charge-jump]")?.textContent).toBe("Show on map");
     expect(cards[2]!.querySelector("[data-house-charge-pick]")?.textContent).toBe("Tap to keep");
+  });
+
+  // Playtest Run 5: a kept desert charge asks for tiles garrisoned; point at reach and Garrison Many, only there.
+  it("adds a reach and Garrison Many tip to a kept region garrison charge only", () => {
+    document.body.innerHTML = houseChargesPanelHtml(panelState([charge({}), { ...desert, kept: true }]), 5_000);
+    const cards = document.querySelectorAll(".hcd-card");
+    const [road, region] = [cards[0], cards[1]];
+    expect(region!.querySelector(".is-tip")?.textContent).toBe("Garrison Many works inside your reach; Relay Beacons extend it.");
+    expect(road!.querySelector(".is-tip")).toBeNull();
+  });
+
+  // PR #2993 review: every region-garrison kind gets the tip, and a finished (held) charge does not.
+  it("tips TUNDRA and SURVEY charges too, but not once the charge is held", () => {
+    expect(houseChargeGarrisonTip({ ...desert, kept: true, kind: "TUNDRA" })).toBeDefined();
+    expect(houseChargeGarrisonTip({ ...desert, kept: true, kind: "SURVEY" })).toBeDefined();
+    expect(houseChargeGarrisonTip({ ...desert, kept: true, held: true })).toBeUndefined();
+    expect(houseChargeGarrisonTip({ ...desert, kept: false })).toBeUndefined();
   });
 
   it("gives a rough bearing to a Charter town that has not been scouted yet", () => {

@@ -7,7 +7,7 @@
 // details list.
 import { houseChargeDomain, houseChargePips, type HouseChargeView } from "@border-empires/shared";
 import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
-import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeGarrisonTip, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
 import { houseChargeHeldStatus } from "./client-house-charges-status.js";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-deck.css";
@@ -46,6 +46,7 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
   const domain = houseChargeDomain(charge);
   const kept = choosing ? ticked : charge.kept;
   const progress = houseChargeProgress(charge);
+  const garrisonTip = houseChargeGarrisonTip(charge);
   const keep = choosing
     ? `<button type="button" class="hcd-keep${ticked ? " is-kept" : ""}" data-house-charge-pick="${esc(charge.id)}" aria-pressed="${ticked}" aria-label="${esc(charge.title)}: ${ticked ? "kept. Tap to set it aside" : "set aside. Tap to keep it"}">${ticked ? "✦ Kept" : "Tap to keep"}</button>`
     : "";
@@ -59,6 +60,7 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
         <p class="hc-flavour">“${esc(houseChargeLetter(charge))}”</p>
         ${progress ? `<p class="hcd-progress">${esc(progress)}</p>` : ""}
         ${scoutHint ? `<p class="hcd-progress is-scout">${esc(scoutHint)}</p>` : ""}
+        ${garrisonTip && !choosing ? `<p class="hcd-progress is-tip">${esc(garrisonTip)}</p>` : ""}
         ${statusHtml(charge, options)}
       </div>
       <div class="hcd-foot">${keep}<button class="hcd-map${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${esc(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></div>
