@@ -207,7 +207,7 @@ describe("hosting reconciler: teardown", () => {
   it("deletes a server that was finished after its order was refunded", async () => {
     const h = await createHostingHarness();
     const sectorId = await paid(h);
-    h.servers.duringCreate = async () => { await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId }); };
+    h.servers.duringCreate = async () => { await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId, fullRefund: true }); };
     await h.reconciler.runOnce();
     expect(h.store.getSector(sectorId)?.state).toBe("refunded");
     expect(h.servers.servers.size).toBe(0);
@@ -243,7 +243,7 @@ describe("hosting reconciler: teardown", () => {
   it("deletes the server of a running sector the owner refunded", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
-    await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId });
+    await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId, fullRefund: true });
     await h.reconciler.runOnce();
     expect(h.servers.servers.size).toBe(0);
     expect(h.store.getSector(sectorId)?.state).toBe("refunded");
