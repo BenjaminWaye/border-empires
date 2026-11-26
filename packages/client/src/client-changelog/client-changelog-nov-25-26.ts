@@ -10,6 +10,7 @@ import { FRONTIER_GARRISON_ENTRY } from "./client-changelog-frontier-garrison.js
 import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js";
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { CHARGE_CARD_TEXT_ENTRY } from "./client-changelog-charge-card-text.js";
+import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -24,5 +25,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
+  { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
   { ...CHARGE_CARD_TEXT_ENTRY, createdAt: 1795728906406, },
 ];

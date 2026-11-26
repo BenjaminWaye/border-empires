@@ -71,8 +71,10 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
       return `${charge.size} of ${charge.areaTiles ?? "?"} land tiles garrisoned`;
     case "DESERT":
     case "TUNDRA": {
-      const needed = charge.areaTiles ? Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE) : undefined;
-      return `${charge.size} of ${needed ?? "?"} tiles garrisoned`;
+      // Show the region's whole size and the 75% target apart: "61 of 81" read as 75% of the region when 81 was the target (playtest 2026-11-26).
+      if (!charge.areaTiles) return `${charge.size} tiles garrisoned`;
+      const needed = Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE);
+      return `${charge.size} of ${charge.areaTiles} tiles garrisoned · ${needed} needed`;
     }
     case "RELIC":
       return charge.held ? "Garrisoned" : charge.targets.length > 0 ? "Beacon found" : "Beacon not found yet";
