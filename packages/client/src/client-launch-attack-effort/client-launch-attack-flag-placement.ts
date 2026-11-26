@@ -12,12 +12,9 @@ import {
   type MusterFlagSpot
 } from "../client-muster-flag-plan/client-muster-flag-spot.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
-import type { EffortSheetFlagSpots } from "../client-effort-confirm-sheet/client-effort-flag-spot-section.js";
+import type { EffortSheetFlagSpots, FlagSpotTone } from "../client-effort-confirm-sheet/client-effort-flag-spot-section.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-
-export const NEW_FLAG_NOTICE =
-  "No muster flag is near, so a new one will be raised. Enemies can capture a flag and destroy the manpower on it, so keep it back from the border.";
 
 export type LaunchFlagPlacement = {
   sheet: EffortSheetFlagSpots;
@@ -25,21 +22,27 @@ export type LaunchFlagPlacement = {
   apply: () => void;
 };
 
+/** Extra time before the attack fires, compact: "+12s", "+2m", "+0s". */
 const marchText = (ms: number): string => {
-  if (ms <= 0) return "no march";
-  const seconds = Math.max(1, Math.round(ms / 1000));
-  return seconds < 90 ? `~${seconds}s march` : `~${Math.round(seconds / 60)} min march`;
+  const seconds = ms <= 0 ? 0 : Math.max(1, Math.round(ms / 1000));
+  return seconds < 90 ? `+${seconds}s` : `+${Math.round(seconds / 60)}m`;
 };
 
 const enemyText = (distance: number | undefined): string =>
   distance === undefined ? `${FLAG_SAFE_DISTANCE_TILES}+ tiles from the enemy` : distance <= 1 ? "next to the enemy" : `${distance} tiles from the enemy`;
 
-const labelFor = (spot: MusterFlagSpot): string =>
-  spot.kind === "border" ? "On the border" : spot.kind === "closer" ? "Closer" : spot.enemyDistance === undefined ? "Safe (recommended)" : "Safest nearby";
+const toneFor = (spot: MusterFlagSpot): FlagSpotTone =>
+  spot.kind === "border" ? "border" : spot.kind === "closer" || spot.enemyDistance !== undefined ? "close" : "safe";
 
-export const flagSpotChoiceText = (spot: MusterFlagSpot): { label: string; detail: string } => ({
+const labelFor = (spot: MusterFlagSpot): string =>
+  spot.kind === "border" ? "Border" : spot.kind === "closer" ? "Close" : spot.enemyDistance === undefined ? "Safe" : "Safest";
+
+/** One segment of the flag switch: a short name and march time on the button, the rest in its tooltip. */
+export const flagSpotChoiceText = (spot: MusterFlagSpot): EffortSheetFlagSpots["choices"][number] => ({
   label: labelFor(spot),
-  detail: `(${spot.x}, ${spot.y}) · ${enemyText(spot.enemyDistance)} · ${marchText(spot.transitMs)}`
+  detail: marchText(spot.transitMs),
+  tone: toneFor(spot),
+  hint: `(${spot.x}, ${spot.y}) · ${enemyText(spot.enemyDistance)} · ${spot.transitMs > 0 ? `${marchText(spot.transitMs).slice(1)} march to the front` : "no march"}`
 });
 
 /**
@@ -65,7 +68,7 @@ export const launchFlagPlacement = (
   const spots = musterFlagSpotChoices(state, primary.origin, nowMs);
   let selected = 0;
   return {
-    sheet: { notice: NEW_FLAG_NOTICE, choices: spots.map(flagSpotChoiceText), selected, onSelect: (index) => (selected = index) },
+    sheet: { choices: spots.map(flagSpotChoiceText), selected, onSelect: (index) => (selected = index) },
     apply: () => {
       const spot = spots[selected];
       for (const { target, origin } of needing) {

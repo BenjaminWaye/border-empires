@@ -111,10 +111,12 @@ describe("region attack effort sheet odds", () => {
     (state as { attackPreview?: unknown }).attackPreview = { fromKey: "0,0", toKey: "1,0", valid: true, winChance: 0.22, receivedAt: Date.now() };
     launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);
     const info = (): string => document.querySelector("[data-effort-info]")?.textContent ?? "";
-    expect(info()).toContain("Win chance 22% at (1, 0)");
-    expect(document.querySelector(".effort-confirm-subtitle")?.textContent).toContain("Extra commits 50% more manpower per target.");
+    expect(info()).toContain("Win 22%");
+    // No explanatory paragraph: each preset shows its own cost instead.
+    expect(document.querySelector(".effort-confirm-subtitle")).toBeNull();
+    expect(document.querySelector('[data-effort-preset="extra"] small')?.textContent).toMatch(/^\d+ MP$/);
     click('[data-effort-preset="double"]');
-    expect(info()).toContain("Win chance 36% at (1, 0)");
+    expect(info()).toContain("Win 36%");
   });
 });
 

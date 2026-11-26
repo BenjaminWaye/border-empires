@@ -90,24 +90,26 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
     ${options.subtitle ? `<p class="effort-confirm-subtitle">${escapeHtml(options.subtitle)}</p>` : ""}
     ${options.flagSpots ? renderFlagSpotSection(options.flagSpots) : ""}
     ${
-      options.mode === "slider"
-        ? `<div class="effort-confirm-dial">
-      <div class="effort-confirm-readout"><span class="effort-confirm-readout-value" data-effort-value>${commitManpower}</span><span class="effort-confirm-readout-unit">manpower</span></div>
-      <input type="range" class="effort-confirm-range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" />
-      <div class="effort-confirm-scale"><span>${floor}</span><span>${cap}</span></div>
-    </div>`
-        : ""
-    }
-    ${
       options.mode === "none"
         ? ""
-        : `<div class="effort-confirm-presets">
+        : `<div class="effort-section">
+      <div class="effort-section-head">
+        <span class="effort-section-label">Effort</span>
+        ${options.mode === "slider" ? `<span class="effort-confirm-readout"><b data-effort-value>${commitManpower}</b> MP</span>` : ""}
+      </div>
+      <div class="effort-seg effort-confirm-presets" role="radiogroup" aria-label="Effort">
       ${presets
         .map(
           ({ key, amount }) =>
-            `<button type="button" class="effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span>${PRESET_LABELS[key]}</span><small>${amount}</small></button>`
+            `<button type="button" class="effort-seg-item effort-confirm-preset" role="radio" data-effort-preset="${key}" data-effort-amount="${amount}"><span class="effort-seg-name">${PRESET_LABELS[key]}</span><small>${amount} MP</small></button>`
         )
         .join("")}
+      </div>
+      ${
+        options.mode === "slider"
+          ? `<input type="range" class="effort-confirm-range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" />`
+          : ""
+      }
     </div>`
     }
     <p class="effort-confirm-info" data-effort-info></p>
@@ -132,7 +134,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
     if (valueEl) valueEl.textContent = String(commitManpower);
     for (const btn of presetButtons) {
       const selected = btn.dataset.effortPreset === preset;
-      btn.setAttribute("aria-pressed", String(selected));
+      btn.setAttribute("aria-checked", String(selected));
       btn.classList.toggle("is-active", selected);
     }
     if (infoEl && options.describe) infoEl.textContent = options.describe(commitManpower, preset);

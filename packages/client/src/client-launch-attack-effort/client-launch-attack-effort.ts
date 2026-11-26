@@ -66,15 +66,17 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
+
     floor,
     cap: Math.max(floor, state.manpowerCap),
-    mode: "slider",
+    // Presets only: Normal / Extra / Double read at a glance; the cost and
+    // win chance on the line below say what each buys.
+    mode: "presets",
     ...(options.placement ? { flagSpots: options.placement.sheet } : {}),
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
       const winChance = percent(commitPreviewWinChanceForTarget(state, tile, commitManpower, deps));
-      return `${winChance ? `Win chance ${winChance}` : "Win chance shown once the target borders you"} · costs ${commitManpower} manpower`;
+      return `${winChance ? `Win ${winChance} · ` : ""}${commitManpower} MP`;
     },
     onConfirm: (commitManpower) => {
       options.placement?.apply();
@@ -83,6 +85,8 @@ export const promptAttackEffortForTarget = (
   });
   return handle !== undefined;
 };
+
+const launchTitle = (scope: AttackLaunchScope, count: number): string => (scope === "region" ? `Attack region · ${count} tiles` : `Attack ${count} tiles`);
 
 const enemyTargetKeys = (state: EffortState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
   targetKeys.filter((k) => {
@@ -132,20 +136,19 @@ const promptBulkEffort = (
     if (!focusTile || !focus) return "";
     const commit = musterCommitPresetAmount(preset, attackEffortFloorForTarget(focusTile, state));
     const chance = percent(commitPreviewWinChanceForTarget(state, focusTile, commit, focus.deps));
-    return chance ? `Win chance ${chance} at (${focusTile.x}, ${focusTile.y}) · ` : "";
+    return chance ? `Win ${chance} · ` : "";
   };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
     ...(placement ? { flagSpots: placement.sheet } : {}),
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
+    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}${totalFor(preset ?? "normal")} MP total`,
     onConfirm: (_commit, preset) => {
       placement?.apply();
       onConfirm(preset ?? "normal");
@@ -196,7 +199,7 @@ const launchWithEffort = (
       state,
       tile,
       {
-        title: `Launch attack on (${tile.x}, ${tile.y})`,
+        title: `Attack (${tile.x}, ${tile.y})`,
         confirmLabel: "Attack",
         placement,
         onConfirm: (commitManpower) => {
@@ -209,7 +212,7 @@ const launchWithEffort = (
     if (!shown) launch();
     return;
   }
-  const title = request.scope === "region" ? `Attack connected region (${enemyKeys.length})` : `Launch ${enemyKeys.length} attacks`;
+  const title = launchTitle(request.scope, enemyKeys.length);
   const shown = promptBulkEffort(state, eligible, title, (preset) => {
     const multiplier = MUSTER_COMMIT_PRESET_MULTIPLIERS[preset];
     for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile, state) * multiplier));
@@ -231,8 +234,7 @@ const promptFlagPlacementOnly = (
 ): boolean => {
   const only = targets.length === 1 ? targets[0] : undefined;
   const handle = showEffortConfirmSheet({
-    title: only ? `Launch attack on (${only.x}, ${only.y})` : request.scope === "region" ? `Attack connected region (${targets.length})` : `Launch ${targets.length} attacks`,
-    subtitle: "Choose where to raise the muster flag that funds this attack.",
+    title: only ? `Attack (${only.x}, ${only.y})` : launchTitle(request.scope, targets.length),
     floor: 1,
     cap: Math.max(1, state.manpowerCap),
     mode: "none",

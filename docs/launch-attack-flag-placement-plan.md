@@ -39,26 +39,28 @@ the target's firing tile:
 
 ## 3. The step (phase 1, implemented)
 
-One sheet, reusing the effort sheet (`client-effort-confirm-sheet.ts`):
+One sheet, reusing the effort sheet (`client-effort-confirm-sheet.ts`) in
+the HUD v2 look (flat ink panel, brass edge, Cinzel labels, gold primary).
+Owner direction (2026-11-26): match the rest of the UI, cut almost all text,
+make it intuitive.
 
-- **Title:** "Launch attack on (x, y)" (or the bulk/region title).
-- **Flag notice:** "No muster flag is near this target, so a new one will be
-  raised. Enemies can capture a flag and destroy the manpower on it — keep it
-  back from the border."
-- **Flag spot choices** (chips, one selected):
+- **Title:** "Attack (x, y)" ("Attack N tiles" / "Attack region · N tiles").
+- **Flag** switch, header warning "Can be captured" (tooltip explains):
   - **Safe** (default when available): the owned land tile nearest the
     firing tile that is at least 3 tiles from any hostile tile
-    (`FLAG_SAFE_DISTANCE_TILES`), the one straight behind it on a tie.
-  - **Closer**: nearest tile 2 tiles from hostile ground, when it differs.
-  - **On the border**: the firing tile (today's behaviour).
-  Each chip shows the coordinates, how far the flag is from enemy ground and
-  the company's march time to the front (`clientMusterTransitRoute`), so the
-  safety/speed trade is visible. When no tile reaches the safe distance, the
-  safest one found is offered as the default instead.
-- **Effort:** the same slider (one garrisoned target) or Normal / Extra /
-  Double presets (several). Targets that gain nothing from extra manpower
-  (barbarians, plain frontier) show the flag choice only.
-- **Go** records the effort (as today) and the chosen spot, then queues.
+    (`FLAG_SAFE_DISTANCE_TILES`), the one straight behind it on a tie;
+    "Safest" when no tile is that far.
+  - **Close**: nearest tile 2 tiles from hostile ground, when it differs.
+  - **Border**: the firing tile (the old automatic spot).
+  Each segment shows a risk dot (green / amber / red) and its extra march
+  time ("+12s", via `clientMusterTransitRoute`); coordinates and distance
+  from the enemy are in its tooltip and accessible label.
+- **Effort** switch: Normal / Extra / Double with each one's manpower. No
+  slider on Launch Attack. Targets that gain nothing from extra manpower
+  (barbarians, plain frontier) show the Flag switch only.
+- **One line:** "Win 52% · 60 MP" (bulk: total MP).
+- **Cancel / Attack**: Attack records the effort and the chosen spot, then
+  queues.
 
 Candidate spots: owned LAND tiles within the remote-funding radius of the
 firing tile (so the server can fund the attack from the new flag), not

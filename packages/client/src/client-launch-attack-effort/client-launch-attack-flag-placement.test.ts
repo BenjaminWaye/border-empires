@@ -56,8 +56,11 @@ describe("Launch Attack flag placement step", () => {
     const { state, queueSpecificTargets, launch } = setup();
     launch();
     expect(isEffortConfirmSheetOpen()).toBe(true);
-    expect(document.querySelector(".effort-flag-spots-notice")?.textContent).toContain("Enemies can capture a flag");
-    expect(spotLabels()).toEqual(["Safe (recommended)", "Closer", "On the border"]);
+    expect(document.querySelector(".effort-flag-warn")?.textContent).toBe("Can be captured");
+    expect(spotLabels()).toEqual(["Safe", "Close", "Border"]);
+    // Details live in the tooltip, not on the button.
+    expect(document.querySelector('[data-flag-spot="0"]')?.getAttribute("title")).toContain("(14, 10) · 3+ tiles from the enemy");
+    expect(document.querySelector('[data-flag-spot="0"]')?.getAttribute("data-tone")).toBe("safe");
     // Extra manpower buys nothing on a frontier tile, so no effort controls.
     expect(document.querySelector("[data-effort-preset]")).toBeNull();
     expect(queueSpecificTargets).not.toHaveBeenCalled();
@@ -76,11 +79,12 @@ describe("Launch Attack flag placement step", () => {
     expect(takeMusterFlagPlan(state, 17, 10)).toEqual({ x: 16, y: 10 });
   });
 
-  it("shows the flag spots and the effort slider together for a garrisoned target", () => {
+  it("shows the flag spots and the effort presets together for a garrisoned target", () => {
     const { state, launch } = setup({ ownershipState: "SETTLED" });
     launch();
     expect(spotLabels()).toHaveLength(3);
-    expect(document.querySelector("[data-effort-slider]")).not.toBeNull();
+    expect(document.querySelectorAll("[data-effort-preset]")).toHaveLength(3);
+    expect(document.querySelector("[data-effort-slider]")).toBeNull();
     click('[data-effort-preset="double"]');
     click('[data-flag-spot="1"]');
     click("[data-effort-go]");
