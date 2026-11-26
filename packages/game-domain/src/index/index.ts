@@ -247,6 +247,7 @@ export type DomainTileState = {
             | "focus"
             | "pendingFocus"
             | "pendingFocusAt"
+            | "focusLockedUntil"
           >
         >)
     | undefined;

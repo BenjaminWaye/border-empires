@@ -65,8 +65,8 @@ intent in §1.1 of that document still applies.
 3. **Check in a couple of times a day, not all day.**
    (2026-11-26, owner decision: Town focus changes within a minute rather than
    at the next refill, so a visit can be spent tweaking towns while manpower
-   refills. Re-tuning often can follow fronts more closely; how much that pays
-   is for the balance pass. See `town-focus-plan.md`.)
+   refills. A confirmed change then locks that town until the next refill, so
+   re-tuning is at most once per town per refill. See `town-focus-plan.md`.)
 4. **Tall is viable against wide.**
 5. **Several ways to win.** Five victory paths, each needing a 24-hour hold.
 6. **A contest you don't win still pays off.** (Added 2026-11-22.) Ninety-nine
@@ -190,6 +190,13 @@ product, including paid Houses.
   filing stay with the owner. The apps show what
   the account owns. In-app purchases are added if a store requires them or
   they clearly sell better.
+- **App stores (decided 2026-11-26).** Android ships consumption-only: it shows
+  owned cosmetics and hosted sectors, with no prices, buy buttons or links to
+  the web shop. Apple requires items bought on the web to be buyable in the
+  iOS app too, so the iOS app gets in-app purchase for hosted sectors and
+  cosmetics before it is submitted. That work comes after the web and Android
+  launch and does not hold it up. No links out to the web shop from either app
+  at launch. Details and sources: [`app-store-purchase-rules.md`](app-store-purchase-rules.md).
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
   too weak to buy twice.
 

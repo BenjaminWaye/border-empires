@@ -5,8 +5,15 @@ import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
 import { townFocusName, townFocusRule } from "../client-town-focus/client-town-focus.js";
 import { townFocusIcon } from "./client-hud-v2-town-focus.js";
 
-/** One town's focus as the list shows it: the one chosen for it (shownTownFocus). */
-export type TownsFocusState = { active: TownFocus; growthPaused: boolean };
+/** One town's focus as the list shows it: the one chosen for it (shownTownFocus), any preview, and its lock. */
+export type TownsFocusState = {
+  active: TownFocus;
+  growthPaused: boolean;
+  /** Picked to preview on this row; the ✓ button confirms it. */
+  selected?: TownFocus;
+  /** Ms before this town's focus can change again; 0 when it is free. */
+  lockedInMs: number;
+};
 
 export type TownsFocusView = {
   /** Keyed "x,y". Towns missing from the map get no focus cell. */
@@ -15,30 +22,60 @@ export type TownsFocusView = {
   confirmAll?: TownFocus;
 };
 
-
-/** The four icon buttons for one town. */
-export const townsFocusCellHtml = (key: string, s: TownsFocusState | undefined): string => {
-  if (!s) return `<span class="v2lf-cell"></span>`;
-  const buttons = TOWN_FOCUSES.map((focus) => {
-    const state = focus === s.active ? "active" : "idle";
-    const paused = focus === "GROWTH" && s.growthPaused;
-    const title = `${townFocusName(focus)}${state === "active" ? " (active)" : ""}: ${townFocusRule(focus)}${paused ? ". Growth is paused here, so this focus would only cost Coin and MP." : ""}`;
-    return `<button type="button" class="v2lf-btn v2lf-${state} v2tf-f-${focus.toLowerCase()}${paused ? " v2lf-paused" : ""}" data-v2-towns-focus="${key}" data-focus="${focus}" aria-pressed="${state !== "idle"}" title="${esc(title)}" aria-label="${esc(title)}">${townFocusIcon(focus)}</button>`;
-  }).join("");
-  return `<span class="v2lf-cell" role="group" aria-label="Focus">${buttons}</span>`;
+/** "1h 12m" or "37m", for the lock. */
+const lockText = (ms: number): string => {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m` : `${minutes}m`;
 };
 
-/** The bar above the table: set one focus on every town, with a second press to confirm. */
+const LOCK_ICON = '<svg class="v2tf-ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="9" height="7" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>';
+const CHECK_ICON = '<svg class="v2tf-ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></svg>';
+
+/** The fifth slot: ✓ to confirm a preview, a padlock while locked, else an empty space so nothing shifts. */
+const endSlot = (key: string, s: TownsFocusState): string => {
+  if (s.lockedInMs > 0) {
+    const title = `Locked until your next refill, in ${lockText(s.lockedInMs)}: a town's focus can change once per refill`;
+    return `<span class="v2lf-end v2lf-lock" title="${esc(title)}" aria-label="${esc(title)}">${LOCK_ICON}</span>`;
+  }
+  if (!s.selected) return `<span class="v2lf-end"></span>`;
+  const title = `Confirm ${townFocusName(s.selected)}: switches within a minute and stays until your next refill`;
+  return `<button type="button" class="v2lf-end v2lf-confirm v2tf-f-${s.selected.toLowerCase()}" data-v2-towns-focus-confirm="${key}" title="${esc(title)}" aria-label="${esc(title)}">${CHECK_ICON}</button>`;
+};
+
+/** The four icon buttons for one town, then its confirm or lock slot. */
+export const townsFocusCellHtml = (key: string, s: TownsFocusState | undefined): string => {
+  if (!s) return `<span class="v2lf-cell"></span>`;
+  const locked = s.lockedInMs > 0;
+  const buttons = TOWN_FOCUSES.map((focus) => {
+    const state = focus === s.active ? "active" : focus === s.selected ? "picked" : "idle";
+    const paused = focus === "GROWTH" && s.growthPaused;
+    const how = state === "active" ? " (active)" : state === "picked" ? " (preview: ✓ to confirm)" : locked ? "" : " (tap to preview)";
+    const title = `${townFocusName(focus)}${how}: ${townFocusRule(focus)}${paused ? ". Growth is paused here, so this focus would only cost Coin and MP." : ""}${locked && state !== "active" ? `. Locked until your next refill, in ${lockText(s.lockedInMs)}.` : ""}`;
+    return `<button type="button" class="v2lf-btn v2lf-${state} v2tf-f-${focus.toLowerCase()}${paused ? " v2lf-paused" : ""}" data-v2-towns-focus="${key}" data-focus="${focus}" aria-pressed="${state !== "idle"}"${locked ? " disabled" : ""} title="${esc(title)}" aria-label="${esc(title)}">${townFocusIcon(focus)}</button>`;
+  }).join("");
+  return `<span class="v2lf-cell" role="group" aria-label="Focus">${buttons}${endSlot(key, s)}</span>`;
+};
+
+/** The bar above the table: set one focus on every unlocked town, with a second press to confirm. */
 export const townsFocusBarHtml = (view: TownsFocusView, townCount: number): string => {
   if (townCount < 2) return "";
   const counts: Record<TownFocus, number> = { BALANCED: 0, GROWTH: 0, LEVY: 0, COMMERCE: 0 };
-  for (const s of view.byKey.values()) counts[s.active] += 1;
+  const free: Record<TownFocus, number> = { BALANCED: 0, GROWTH: 0, LEVY: 0, COMMERCE: 0 };
+  let freeTotal = 0;
+  for (const s of view.byKey.values()) {
+    counts[s.active] += 1;
+    if (s.lockedInMs > 0) continue;
+    free[s.active] += 1;
+    freeTotal += 1;
+  }
+  const locked = view.byKey.size - freeTotal;
   const mix = TOWN_FOCUSES.filter((f) => counts[f] > 0).map((f) => `${counts[f]} ${townFocusName(f)}`).join(" · ");
   const buttons = TOWN_FOCUSES.map((focus) => {
     const arming = view.confirmAll === focus;
     // One command carries at most TOWN_FOCUS_MAX_TILES_PER_COMMAND towns; never promise more than it sends.
-    const changing = Math.min(Math.max(0, view.byKey.size - counts[focus]), TOWN_FOCUS_MAX_TILES_PER_COMMAND);
-    return `<button type="button" class="v2lf-all${arming ? " v2lf-all-confirm" : ""} v2tf-f-${focus.toLowerCase()}" data-v2-towns-focus-all="${focus}"${changing === 0 ? " disabled" : ""} title="${esc(`Switch every town to ${townFocusName(focus)} now. ${townFocusRule(focus)}`)}">${townFocusIcon(focus)}<span>${arming ? `Again: ${changing} → ${esc(townFocusName(focus))}` : esc(townFocusName(focus))}</span></button>`;
+    const changing = Math.min(Math.max(0, freeTotal - free[focus]), TOWN_FOCUS_MAX_TILES_PER_COMMAND);
+    return `<button type="button" class="v2lf-all${arming ? " v2lf-all-confirm" : ""} v2tf-f-${focus.toLowerCase()}" data-v2-towns-focus-all="${focus}"${changing === 0 ? " disabled" : ""} title="${esc(`Switch every unlocked town to ${townFocusName(focus)}; each then stays until your next refill. ${townFocusRule(focus)}`)}">${townFocusIcon(focus)}<span>${arming ? `Again: ${changing} → ${esc(townFocusName(focus))}` : esc(townFocusName(focus))}</span></button>`;
   }).join("");
-  return `<div class="v2lf-bar"><span class="v2lf-bar-label">Set every town<small>${esc(mix)} · free, switches now</small></span><span class="v2lf-bar-btns">${buttons}</span></div>`;
+  const note = locked > 0 ? ` · ${locked} locked until your next refill` : "";
+  return `<div class="v2lf-bar"><span class="v2lf-bar-label">Set every town<small>${esc(mix)}${esc(note)} · a change locks until your next refill</small></span><span class="v2lf-bar-btns">${buttons}</span></div>`;
 };
