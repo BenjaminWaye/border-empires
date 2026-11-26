@@ -54,8 +54,9 @@ The Terms of Sale promise these things. Checked against `develop` on
 automatic tax with tax-inclusive prices, requires a billing address and shows a
 consent sentence above Stripe's Pay button. Sales stay off until all are
 done. The order in which they are built is in `../hosted-sectors-plan.md` §15
-("Before PR 8"). Items 2, 3 and 4 were built on 2026-11-25 (PR 8a); the others
-do not exist yet.
+("Before PR 8"). Items 2, 3 and 4 were built on 2026-11-25 (PR 8a), and items
+7 (the refund-event part) and 10 on 2026-11-26 (PR 8b); the others do not
+exist yet.
 
 1. **A withdrawal button.** Since 19 June 2026 a trader selling through a
    website must offer an online withdrawal function: a clearly labelled
@@ -106,7 +107,12 @@ do not exist yet.
    partial refund. So a goodwill partial refund for an outage (Terms of Sale
    section 8) would today delete every member's contest. Partial refunds need
    their own amount, an idempotency key, and must close the sector only for a
-   withdrawal or a full refund.
+   withdrawal or a full refund. **Built 2026-11-26 (8b):** a refund event now
+   closes a sector, or drops a share, only when the whole payment has been
+   refunded; a partial one keeps it running and alerts the owner. Issuing a
+   partial refund with an amount from the service comes with the withdrawal
+   (8b-2); until then the owner issues goodwill refunds in the Stripe
+   dashboard.
 8. **Saving results before deletion.** Terms of Sale sections 5 and 6 say
    results are saved before a sector is deleted. Today the reconciler deletes
    the server of a refunded or idle sector with no export
@@ -114,8 +120,10 @@ do not exist yet.
 9. **The idle-closure warning email.** Section 5 promises an email to members
    2 days before an idle closure. Today an idle closure only alerts the owner.
 10. **Pausing purchases after a dispute.** Section 9 (and plan Q2) say a
-    disputing account cannot buy again until it is settled. Today a dispute
-    only alerts the owner.
+    disputing account cannot buy again until it is settled. **Built
+    2026-11-26 (8b):** an open dispute pauses that account's orders, funding
+    bars and shares until Stripe reports it closed. The sector itself is left
+    as it is; whether a chargeback closes it is still the owner's call.
 11. **Analytics consent** (separate from the Stripe work, needed before the privacy page
    is published). The web client starts Google Analytics for Firebase at load
    (`packages/client/src/client-app-runtime-env/client-app-runtime-env.ts`)
@@ -134,13 +142,14 @@ do not exist yet.
     **Sector addresses are public in certificate logs.** As built on
     2026-11-25, each sector server gets its own HTTPS certificate, and every
     certificate's hostname is published in public Certificate Transparency
-    logs. The privacy draft says a hosted sector "is not listed publicly" and
-    that its standings, with members' display names, can be read by anyone
-    with its address. Until the planned wildcard certificate replaces this,
-    either that sentence changes or the standings endpoint stops answering
-    people outside the sector.
+    logs. **Decided by the owner, 2026-11-26:** the privacy draft's wording
+    changes (done: a sector's address can become publicly discoverable and
+    its standings are not secret from anyone who has it); the standings
+    endpoint stays open, as Q9 decided.
 13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
+   **Decided by the owner, 2026-11-26:** at launch, block the United Kingdom
+   only. The owner applies the rule in Stripe before sales open.
 
 ## Change to the Terms of Service
 
@@ -179,6 +188,16 @@ launch product. The Terms of Sale cover hosted sectors only and say so
   down may be misleading.
 - Say what happens to bought cosmetics if an account is suspended or deleted.
 - They give no advantage in play (`docs/gdd.md` §8 hard rule).
+
+**Gap as of 2026-11-26:** the owner has approved selling the first cosmetic,
+"Claim the title of Count" (USD 4.99), through the same checkout (plan §15,
+8e). The Terms of Sale (`purchase-terms.html` section 2) still say hosted
+sectors are the only thing on sale, and no cosmetics section exists; the
+consent wording, withdrawal (digital content, Art. 16(m)), "kept
+permanently", suspension/deletion and refunds that remove the item all need
+text. The tax note covers hosted sectors only and should say cosmetics are
+an electronically supplied service taxed the same way. Code for 8e can be
+built in test mode; selling waits for that text.
 
 ## Points a lawyer should look at
 

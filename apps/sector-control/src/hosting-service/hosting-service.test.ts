@@ -99,18 +99,18 @@ describe("payment events", () => {
   it("ignores a repeated event entirely, alerts included", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
-    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId });
-    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId });
+    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId, disputeId: "dp_1" });
+    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId, disputeId: "dp_1" });
     expect(h.alerts.filter((alert) => alert.kind === "payment_dispute")).toHaveLength(1);
   });
 
   it("closes a sector the owner refunded and alerts on a dispute without closing anything", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
-    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId });
+    await h.service.handlePaymentEvent({ eventId: "evt-d", kind: "disputed", sectorId, disputeId: "dp_1" });
     expect(h.store.getSector(sectorId)?.state).toBe("open");
     expect(h.alerts.at(-1)?.kind).toBe("payment_dispute");
-    await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId });
+    await h.service.handlePaymentEvent({ eventId: "evt-r", kind: "refunded", sectorId, fullRefund: true });
     expect(h.store.getSector(sectorId)?.state).toBe("refunded");
   });
 });
