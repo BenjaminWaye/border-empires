@@ -6,6 +6,7 @@ import {
   CONTRIBUTION_STATES,
   LIVE_SECTOR_STATES,
   SECTOR_STATES,
+  type ConsentRecord,
   type ContributionPatch,
   type ContributionRecord,
   type ContributionState,
@@ -17,24 +18,47 @@ import {
   type SectorState
 } from "./hosting-store.js";
 
+type ConsentColumns = { consent_at: number | null; consent_terms_version: string | null; consent_text: string | null };
+
+/** Columns added after the first release of a table, added in place to an existing database. */
+const ADDED_COLUMNS: ReadonlyArray<readonly [table: string, column: string, type: string]> = [
+  ["hosted_sectors", "funding_deadline", "INTEGER"],
+  ["hosted_sectors", "consent_at", "INTEGER"],
+  ["hosted_sectors", "consent_terms_version", "TEXT"],
+  ["hosted_sectors", "consent_text", "TEXT"],
+  ["hosted_contributions", "consent_at", "INTEGER"],
+  ["hosted_contributions", "consent_terms_version", "TEXT"],
+  ["hosted_contributions", "consent_text", "TEXT"]
+];
+
+const toConsent = (row: ConsentColumns): { consent?: ConsentRecord } =>
+  row.consent_at !== null && row.consent_terms_version !== null && row.consent_text !== null
+    ? { consent: { at: row.consent_at, termsVersion: row.consent_terms_version, text: row.consent_text } }
+    : {};
+
+const consentValues = (consent: ConsentRecord | undefined): [number | null, string | null, string | null] =>
+  consent ? [consent.at, consent.termsVersion, consent.text] : [null, null, null];
+
 type SectorRow = {
   sector_id: string; host_uid: string; map_style: string; map_size: string; state: string;
   amount_cents: number; currency: string; payment_ref: string | null; checkout_url: string | null;
   server_ref: string | null; hostname: string | null; created_at: number; updated_at: number;
   funding_deadline: number | null; paid_at: number | null; opened_at: number | null; ended_at: number | null;
   create_attempts: number; next_attempt_at: number | null; last_error: string | null;
-};
+} & ConsentColumns;
 type ContributionRow = {
   contribution_id: string; sector_id: string; account_uid: string; amount_cents: number; state: string;
   payment_ref: string | null; checkout_url: string | null; created_at: number; updated_at: number;
-};
+} & ConsentColumns;
 type MemberRow = { sector_id: string; account_uid: string; role: string; joined_at: number };
 type InviteRow = { code: string; sector_id: string; created_by: string; created_at: number; expires_at: number; revoked_at: number | null };
 
 const SECTOR_COLUMNS =
   "sector_id, host_uid, map_style, map_size, state, amount_cents, currency, payment_ref, checkout_url, server_ref, hostname, " +
-  "created_at, updated_at, funding_deadline, paid_at, opened_at, ended_at, create_attempts, next_attempt_at, last_error";
-const CONTRIBUTION_COLUMNS = "contribution_id, sector_id, account_uid, amount_cents, state, payment_ref, checkout_url, created_at, updated_at";
+  "created_at, updated_at, funding_deadline, paid_at, opened_at, ended_at, create_attempts, next_attempt_at, last_error, " +
+  "consent_at, consent_terms_version, consent_text";
+const CONTRIBUTION_COLUMNS =
+  "contribution_id, sector_id, account_uid, amount_cents, state, payment_ref, checkout_url, created_at, updated_at, consent_at, consent_terms_version, consent_text";
 
 const PATCH_COLUMNS: Record<keyof SectorPatch, string> = {
   fundingDeadline: "funding_deadline", state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url", serverRef: "server_ref", hostname: "hostname",
@@ -66,7 +90,8 @@ const toSector = (row: SectorRow): SectorRecord => {
     ...(row.ended_at !== null ? { endedAt: row.ended_at } : {}),
     createAttempts: row.create_attempts,
     ...(row.next_attempt_at !== null ? { nextAttemptAt: row.next_attempt_at } : {}),
-    ...(row.last_error !== null ? { lastError: row.last_error } : {})
+    ...(row.last_error !== null ? { lastError: row.last_error } : {}),
+    ...toConsent(row)
   };
 };
 
@@ -77,7 +102,8 @@ const toContribution = (row: ContributionRow): ContributionRecord => {
     state: row.state as ContributionState,
     ...(row.payment_ref !== null ? { paymentRef: row.payment_ref } : {}),
     ...(row.checkout_url !== null ? { checkoutUrl: row.checkout_url } : {}),
-    createdAt: row.created_at, updatedAt: row.updated_at
+    createdAt: row.created_at, updatedAt: row.updated_at,
+    ...toConsent(row)
   };
 };
 
@@ -155,20 +181,22 @@ export class SqliteHostingStore implements HostingStore {
         received_at INTEGER NOT NULL
       );
     `);
-    // Columns added after the first release of this table. CREATE TABLE IF NOT
-    // EXISTS leaves an existing table as it was, so each is added here once.
-    const columns = new Set((this.db.prepare("PRAGMA table_info(hosted_sectors)").all() as Array<{ name: string }>).map((column) => column.name));
-    if (!columns.has("funding_deadline")) this.db.exec("ALTER TABLE hosted_sectors ADD COLUMN funding_deadline INTEGER");
+    // CREATE TABLE IF NOT EXISTS leaves an existing table as it was, so columns
+    // added since are added here, once.
+    for (const [table, column, type] of ADDED_COLUMNS) {
+      const columns = (this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((info) => info.name);
+      if (!columns.includes(column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
   }
 
   insertSector(sector: SectorRecord): void {
     this.db
-      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         sector.sectorId, sector.hostUid, sector.options.mapStyle, sector.options.mapSize, sector.state, sector.amountCents, sector.currency,
         sector.paymentRef ?? null, sector.checkoutUrl ?? null, sector.serverRef ?? null, sector.hostname ?? null,
         sector.createdAt, sector.updatedAt, sector.fundingDeadline ?? null, sector.paidAt ?? null, sector.openedAt ?? null, sector.endedAt ?? null,
-        sector.createAttempts, sector.nextAttemptAt ?? null, sector.lastError ?? null
+        sector.createAttempts, sector.nextAttemptAt ?? null, sector.lastError ?? null, ...consentValues(sector.consent)
       );
   }
 
@@ -268,10 +296,11 @@ export class SqliteHostingStore implements HostingStore {
 
   insertContribution(contribution: ContributionRecord): void {
     this.db
-      .prepare(`INSERT INTO hosted_contributions (${CONTRIBUTION_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .prepare(`INSERT INTO hosted_contributions (${CONTRIBUTION_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         contribution.contributionId, contribution.sectorId, contribution.accountUid, contribution.amountCents, contribution.state,
-        contribution.paymentRef ?? null, contribution.checkoutUrl ?? null, contribution.createdAt, contribution.updatedAt
+        contribution.paymentRef ?? null, contribution.checkoutUrl ?? null, contribution.createdAt, contribution.updatedAt,
+        ...consentValues(contribution.consent)
       );
   }
 

@@ -34,4 +34,27 @@ describe("SqliteHostingStore schema", () => {
     });
     expect(store.getSector("s-new")).toMatchObject({ state: "funding", fundingDeadline: 99 });
   });
+
+  it("adds the consent columns to an old database, and keeps a consent with an order and a share", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec(`
+      CREATE TABLE hosted_contributions (
+        contribution_id TEXT PRIMARY KEY, sector_id TEXT NOT NULL, account_uid TEXT NOT NULL, amount_cents INTEGER NOT NULL,
+        state TEXT NOT NULL, payment_ref TEXT, checkout_url TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      );
+      INSERT INTO hosted_contributions VALUES ('c-old', 's-x', 'friend', 500, 'held', 'ref', NULL, 1, 1);
+    `);
+    const store = new SqliteHostingStore(db);
+    store.applySchema();
+    expect(store.getContribution("c-old")).toMatchObject({ state: "held" });
+    expect(store.getContribution("c-old")?.consent).toBeUndefined();
+    const consent = { at: 5, termsVersion: "v1", text: "I accept.\nStart now." };
+    store.insertSector({
+      sectorId: "s-paid", hostUid: "host", options: { mapStyle: "continents", mapSize: "standard" }, state: "awaiting_payment",
+      amountCents: 2000, currency: "usd", createdAt: 5, updatedAt: 5, createAttempts: 0, consent
+    });
+    store.insertContribution({ contributionId: "c-new", sectorId: "s-x", accountUid: "friend", amountCents: 500, state: "awaiting_payment", createdAt: 5, updatedAt: 5, consent });
+    expect(store.getSector("s-paid")?.consent).toEqual(consent);
+    expect(store.getContribution("c-new")?.consent).toEqual(consent);
+  });
 });

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostedSectorSummary, HostedSectorTicket, HostingApiResult } from "./client-hosted-sectors-api.js";
 import { setActiveHostedSectorSession } from "./client-hosted-sector-session.js";
 import { checkoutReturnNotice, createHostedSectorsPanel, hostedSectorRowHtml, mountHostedSectorsPanel, type HostedSectorsPanelDeps } from "./client-hosted-sectors-panel.js";
+import { CHECKOUT_CONSENT } from "./client-hosted-sector-order.js";
 
 vi.mock("./client-hosted-sectors.css", () => ({}));
 
@@ -22,10 +23,10 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
     listSectors: vi.fn(async (): Promise<HostingApiResult<{ sectors: HostedSectorSummary[] }>> => ({ ok: true, sectors: [sector()] })),
     issueTicket: vi.fn(async (_sectorId: string): Promise<HostingApiResult<HostedSectorTicket>> => ({ ok: true, ticket: "t-1", expiresAt: 99, wsUrl: "wss://s-abc.borderempires-sectors.com/ws" })),
     acceptInvite: vi.fn(async (_code: string): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector() })),
-    createOrder: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
+    createOrder: vi.fn(async (_options: HostedSectorSummary["options"], _consent: unknown): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "awaiting_payment", role: "host", checkoutUrl: "https://checkout.stripe.com/c/pay/abc" }) })),
     createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" })),
     openFundingBar: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "funding", role: "host" }) })),
-    contribute: vi.fn(async (_sectorId: string, _amountCents: number): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" }))
+    contribute: vi.fn(async (_sectorId: string, _amountCents: number, _consent: unknown): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" }))
   };
   const navigate = vi.fn();
   const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, shareOrigin: "https://play.borderempires.com", refreshMs: 0, ...overrides };
@@ -38,6 +39,11 @@ afterEach(() => {
   document.body.innerHTML = "";
   setActiveHostedSectorSession(undefined);
 });
+
+/** Ticks both consent boxes inside `root` (the order form, or a funding bar). */
+const tickBoth = (root: ParentNode | null | undefined): void => {
+  root?.querySelectorAll<HTMLInputElement>('input[name="consentTerms"], input[name="consentEarlyStart"]').forEach((box) => { box.checked = true; });
+};
 
 describe("hosted sector row", () => {
   it("offers Enter for an open or ended sector, and nothing for one that is not ready", () => {
@@ -154,13 +160,25 @@ describe("my sectors panel", () => {
     form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flush();
     expect(h.api.createOrder).not.toHaveBeenCalled();
-    expect(form?.querySelector("[data-hosted-sector-form-error]")?.textContent).toContain("accept the Terms of Sale");
+    expect(form?.querySelector("[data-hosted-sector-form-error]")?.textContent).toContain("tick both boxes");
+    // The price, that it is paid once, and how long the sector runs are shown before paying.
+    expect(form?.querySelector("[data-hosted-sector-price-facts]")?.textContent).toMatch(/Total USD 20.*One single payment, tax included.*closes after 7 days/);
 
-    const consent = form?.querySelector<HTMLInputElement>('input[name="consent"]');
-    if (consent) consent.checked = true;
+    // Two separate statements, both unticked: accepting the terms alone is not enough.
+    const terms = form?.querySelector<HTMLInputElement>('input[name="consentTerms"]');
+    const earlyStart = form?.querySelector<HTMLInputElement>('input[name="consentEarlyStart"]');
+    expect(terms?.checked).toBe(false);
+    expect(earlyStart?.checked).toBe(false);
+    expect(earlyStart?.closest("label")?.textContent).toMatch(/lose the right to withdraw once its Sector Contest has ended/);
+    if (terms) terms.checked = true;
     form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flush();
-    expect(h.api.createOrder).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" });
+    expect(h.api.createOrder).not.toHaveBeenCalled();
+
+    tickBoth(form);
+    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flush();
+    expect(h.api.createOrder).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" }, CHECKOUT_CONSENT);
     expect(h.navigate).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/abc");
   });
 
@@ -171,8 +189,7 @@ describe("my sectors panel", () => {
     await createHostedSectorsPanel(h.deps).openList();
     document.querySelector<HTMLButtonElement>("[data-hosted-sector-host]")?.click();
     const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
-    const consent = form?.querySelector<HTMLInputElement>('input[name="consent"]');
-    if (consent) consent.checked = true;
+    tickBoth(form);
     form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flush();
     expect(h.navigate).not.toHaveBeenCalled();
@@ -201,6 +218,30 @@ describe("my sectors panel", () => {
     await createHostedSectorsPanel(h.deps).openList();
     expect(document.querySelector("[data-hosted-sector-invite]")).toBeNull();
     expect(document.querySelector("[data-hosted-sector-pay]")).toBeNull();
+  });
+
+  it("keeps a funding bar current while its consent boxes are ticked, and keeps them ticked", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = makeDeps({ refreshMs: 5_000 });
+      const funding = (pledgedCents: number) => ({ targetCents: 2000, pledgedCents, pendingCents: 0, deadline: Date.now() + 3_600_000, minimumCents: 500, yourCents: 0 });
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding: funding(500) })] });
+      const panel = createHostedSectorsPanel(h.deps);
+      await panel.openList();
+      // Each share states the price facts before paying.
+      expect(document.querySelector("[data-hosted-sector-share-facts]")?.textContent).toMatch(/single payment.*tax included.*closes after 7 days/);
+      tickBoth(document.querySelector(".hosted-sector-funding"));
+      // A friend chips in meanwhile: the host's "Pay the rest" must follow, not stay at the old amount.
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding: funding(1500) })] });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(document.querySelector("[data-hosted-sector-pay-rest]")?.textContent).toMatch(/Pay the rest · USD 5/);
+      const boxes = document.querySelectorAll<HTMLInputElement>('.hosted-sector-funding input[type="checkbox"]');
+      expect(boxes).toHaveLength(2);
+      expect(Array.from(boxes, (box) => box.checked)).toEqual([true, true]);
+      panel.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the list current while a sector is being prepared, and stops when closed", async () => {
@@ -299,7 +340,7 @@ describe("my sectors panel", () => {
     const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
     if (!form) throw new Error("no form");
     form.querySelector<HTMLInputElement>('input[name="payMode"][value="split"]')!.checked = true;
-    form.querySelector<HTMLInputElement>('input[name="consent"]')!.checked = true;
+    // Opening a bar buys nothing, so no consent is asked for yet: each share asks when it is paid.
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(h.api.openFundingBar).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" }));
     expect(h.api.createOrder).not.toHaveBeenCalled();
@@ -320,8 +361,14 @@ describe("my sectors panel", () => {
     if (!input) throw new Error("no amount");
     expect(input.max).toBe("8");
     input.value = "7.50";
+    // A share is a purchase too: nothing starts until both boxes are ticked.
     document.querySelector<HTMLElement>("[data-hosted-sector-chip-in]")?.click();
-    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 750));
+    await flush();
+    expect(h.api.contribute).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Tick both boxes");
+    tickBoth(document.querySelector(".hosted-sector-funding"));
+    document.querySelector<HTMLElement>("[data-hosted-sector-chip-in]")?.click();
+    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 750, CHECKOUT_CONSENT));
     expect(h.navigate).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/share1");
     panel.close();
   });
@@ -334,8 +381,9 @@ describe("my sectors panel", () => {
     await panel.openList();
     const payRest = document.querySelector<HTMLElement>("[data-hosted-sector-pay-rest]");
     expect(payRest?.textContent).toMatch(/Pay the rest · USD 3/);
+    tickBoth(document.querySelector(".hosted-sector-funding"));
     payRest?.click();
-    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 300));
+    await vi.waitFor(() => expect(h.api.contribute).toHaveBeenCalledWith("s-abc", 300, CHECKOUT_CONSENT));
     panel.close();
   });
 

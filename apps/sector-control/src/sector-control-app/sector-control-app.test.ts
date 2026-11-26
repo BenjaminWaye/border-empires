@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { account, createHostingHarness } from "../hosting-test-support.js";
+import { account, CONSENT, createHostingHarness } from "../hosting-test-support.js";
 import { createSectorControlApp, randomId } from "./sector-control-app.js";
 
 describe("hosting service app", () => {
@@ -21,7 +21,7 @@ describe("hosting service app", () => {
 
   it("serves an order from purchase to an open sector, and reports its state", async () => {
     const { h, control } = await start();
-    const ordered = await control.app.inject({ method: "POST", url: "/hosting/orders", headers: { authorization: "Bearer token-host" }, payload: { mapStyle: "continents", mapSize: "small" } });
+    const ordered = await control.app.inject({ method: "POST", url: "/hosting/orders", headers: { authorization: "Bearer token-host" }, payload: { mapStyle: "continents", mapSize: "small", consent: CONSENT } });
     const sectorId = (ordered.json() as { sector: { sectorId: string } }).sector.sectorId;
     expect(sectorId).toMatch(/^s-[a-z0-9]{10}$/);
 
