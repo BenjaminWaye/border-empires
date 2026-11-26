@@ -19,6 +19,7 @@ remain authoritative for runtime behavior.
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Hetzner/Vercel | [`agents/deploys.md`](agents/deploys.md) |
 | Android/iOS wrappers, signing and store readiness | [`agents/mobile-apps.md`](agents/mobile-apps.md) |
+| Apple/Google rules on web purchases used in the apps | [`app-store-purchase-rules.md`](app-store-purchase-rules.md) |
 | Account deletion, data erasure and backup restoration | [`agents/account-deletion.md`](agents/account-deletion.md) |
 | Account cosmetics: rules, catalogue, ownership, granting, wire cost | [`cosmetics.md`](cosmetics.md) |
 | Fly → Hetzner migration plan (historical) | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
