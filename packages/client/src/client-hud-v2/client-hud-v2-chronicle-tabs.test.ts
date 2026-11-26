@@ -81,6 +81,19 @@ describe("merged Chronicle", () => {
     expect(worldTabHtml({ pulse: undefined, loading: true, error: undefined })).toContain("Loading");
   });
 
+  // Playtest 2026-11-26: the profile said #23 while World said #24. The pulse is fetched once (and cached by
+  // the gateway); the profile reads the live leaderboard. World now reads the same live leaderboard.
+  it("ranks you and the leading powers from the live leaderboard the profile reads", () => {
+    const pulse = { generatedAt: "", seasonId: "s", rank: 24, leadingPowers: [{ playerId: "old", name: "Stale", score: 1, rank: 1 }], stories: [] };
+    const overall = [{ id: "lead", name: "Vasker", score: 900, rank: 1 }, { id: "me", name: "Me", score: 40, rank: 23 }];
+    const html = worldTabHtml({ pulse, loading: false, error: undefined, standings: { overall, me: "me" } });
+    expect(html).toContain("You #23");
+    expect(html).not.toContain("#24");
+    expect(html).toContain("Vasker");
+    expect(html).not.toContain("Stale");
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: { overall, me: "nobody" } })).toContain("Unranked");
+  });
+
   // Playtest 2026-11-18: the button's badge stayed at 117 after reading Yours (unseen release notes only cleared on Updates).
   it("clears the button badge when the Chronicle is read on Yours, and keeps the Updates tab's own count", () => {
     const state = createInitialState();

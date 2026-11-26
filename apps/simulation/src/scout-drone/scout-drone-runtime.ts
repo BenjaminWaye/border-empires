@@ -25,7 +25,7 @@ import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from ".
 import { holdScoutReport, markScoutReportSeen, unseenScoutReport } from "./scout-drone-held-report.js";
 import { createScoutChargeLedger } from "./scout-drone-charge-ledger.js";
 import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
-import { createScoutFindings, scoutFindingsReport, type ScoutFindings } from "./scout-drone-findings.js";
+import { createScoutFindings, scoutFindingsReport, type ScoutExploredLookup, type ScoutFindings } from "./scout-drone-findings.js";
 import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge, type ScoutSighting } from "./scout-drone-borders.js";
 import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
 
@@ -77,6 +77,10 @@ export type ScoutDroneRuntimeDeps = {
   readonly recordPersonalImpact: (event: PersonalImpactEvent) => void;
   /** Whether the player has a live socket: SCOUT_FINDS is transient UI, sent only to someone watching. */
   readonly isPlayerSubscribed?: (playerId: string) => boolean;
+  /** Explored-tile memory: the report counts the tiles the flight explored first, as Cartographer does. */
+  readonly isExplored?: ScoutExploredLookup;
+  /** PLAYER_UPDATE at landing, so the Cartographer counter shows the flight's tiles with its report. */
+  readonly emitPlayerStateUpdate?: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
 };
 
 export type ScoutDroneGauge = ScoutDroneBorderGauge & {
@@ -249,6 +253,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     const landed = { ...report, targetX, targetY, ...(blockedByPlayerId ? { blockedByPlayerId } : {}), id: active.commandId, landedAt: nowMs };
     holdScoutReport(deps.players().get(active.playerId), landed);
     send(active.playerId, `scout-drone-landed:${active.commandId}`, { type: SCOUT_DRONE_MESSAGE_TYPE, flight: null, report: landed });
+    if (deps.isPlayerSubscribed?.(active.playerId) !== false) deps.emitPlayerStateUpdate?.({ commandId: `scout-drone-landed:${active.commandId}`, playerId: active.playerId });
   };
 
   const recordReport = (active: ActiveFlight, nowMs: number, report: ScoutReportFindings): void => {
@@ -368,7 +373,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.
       charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
-      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
+      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight, deps.isExplored), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
       flights.set(actor.id, active);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
