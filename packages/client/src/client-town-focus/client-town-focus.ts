@@ -15,6 +15,8 @@ export type TownFocusStat = {
   /** Change against Balanced, e.g. "+10"; "" when unchanged or not shown. */
   delta: string;
   tone: "up" | "down" | "same";
+  /** How the figure was worked out, for a tooltip: "92 × 0.9 = 82.8 → 83". */
+  detail?: string;
 };
 
 export type TownFocusOption = {
@@ -79,9 +81,14 @@ export const townFocusDuration = (minutes: number): string => {
   return `${(hours / 24).toFixed(1)}d`;
 };
 
-const stat = (value: string, option: number, balanced: number): TownFocusStat => {
+const stat = (value: string, option: number, balanced: number, mult = 1): TownFocusStat => {
   const diff = round(option) - round(balanced);
-  return { value, delta: diff === 0 ? "" : `${diff > 0 ? "+" : "−"}${Math.abs(diff).toLocaleString("en-US")}`, tone: diff > 0 ? "up" : diff < 0 ? "down" : "same" };
+  return {
+    value,
+    delta: diff === 0 ? "" : `${diff > 0 ? "+" : "−"}${Math.abs(diff).toLocaleString("en-US")}`,
+    tone: diff > 0 ? "up" : diff < 0 ? "down" : "same",
+    ...(mult !== 1 ? { detail: `${balanced.toFixed(1)} × ${mult} = ${option.toFixed(1)} → ${round(option)}` } : {})
+  };
 };
 
 /** The phone tile's two lines: what the option gives, then everything it costs, all against Balanced. */
@@ -135,8 +142,8 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
       tagline: TAGLINES[focus],
       rule: RULES[focus],
       state: focus === queued ? "queued" : focus === active ? "active" : "idle",
-      coin: stat(round(coin).toLocaleString("en-US"), coin, coinBase),
-      manpower: stat(round(manpower).toLocaleString("en-US"), manpower, manpowerBase),
+      coin: stat(round(coin).toLocaleString("en-US"), coin, coinBase, mult.coin),
+      manpower: stat(round(manpower).toLocaleString("en-US"), manpower, manpowerBase, mult.manpowerRegen),
       growth: growthStat(focus),
       tradeLine: "",
       costLine: ""

@@ -20,6 +20,8 @@ export type TownFocusCardExtras = {
   confirmAll?: boolean;
   /** The focus the refill has just made active on this town, for a short glow. */
   arrived?: TownFocus;
+  /** How each town is set, for the empire line's tooltip: "Vellmar Reach: Levy · Kest: Growth · 2 more Balanced". */
+  breakdown?: string;
 };
 
 /** Countdown to a refill, to the minute: "37m", "1h 37m". Longer spans use the card's coarser format. */
@@ -58,7 +60,7 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
 };
 
 const cell = (label: string, unit: string, s: TownFocusStat): string =>
-  `<span class="v2tf-cell"><span class="v2tf-k">${label}</span><span class="v2tf-v">${esc(s.value)}<small>${unit}</small></span><span class="v2tf-d v2tf-${s.tone}">${esc(s.delta)}</span></span>`;
+  `<span class="v2tf-cell"${s.detail ? ` title="${esc(s.detail)}"` : ""}><span class="v2tf-k">${label}</span><span class="v2tf-v">${esc(s.value)}<small>${unit}</small></span><span class="v2tf-d v2tf-${s.tone}">${esc(s.delta)}</span></span>`;
 
 /** One detail strip per option; CSS shows the hovered one, else the queued, else the active. */
 const detail = (option: TownFocusOption, card: TownFocusCard): string =>
@@ -73,21 +75,37 @@ const figure = (value: number): string => {
   return rounded === 0 ? `<b class="v2tf-same">±0</b>` : `<b class="v2tf-${rounded > 0 ? "up" : "down"}">${rounded > 0 ? "+" : "−"}${Math.abs(rounded)}</b>`;
 };
 
+/** The empire's MP and Coin from the next refill if `target` were this town's focus then. */
+const empireAfter = (card: TownFocusCard, extras: TownFocusCardExtras, target: TownFocusOption | undefined): { mp: number; coin: number } | undefined => {
+  const active = card.options.find((o) => o.focus === card.active);
+  if (!target || !active || target.focus === card.active) return undefined;
+  const diff = (s: TownFocusStat): number => (s.delta ? Number(s.delta.replace("−", "-")) : 0);
+  return {
+    mp: (extras.empireManpowerPerRefill ?? 0) + diff(target.manpower) - diff(active.manpower),
+    coin: (extras.empireCoinPerDay ?? 0) + diff(target.coin) - diff(active.coin)
+  };
+};
+
 /**
- * One line for the whole empire against all Balanced: "All towns +24 MP/refill · −9 Coin/day". With a change
- * queued on this town it shows where each total goes at the refill: "All towns +24 → +48 MP/refill · −9 → −18 Coin/day".
+ * One line for the whole empire against all Balanced: "All towns vs Balanced +24 MP · −9 Coin/day". With a change
+ * queued here, or while pointing at another focus, it shows where each total goes at the refill ("+24 → +48").
  */
-const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
+const empireLine = (card: TownFocusCard, extras: TownFocusCardExtras, target: TownFocusOption | undefined, preview: boolean): string => {
   const mpNow = extras.empireManpowerPerRefill ?? 0;
   const coinNow = extras.empireCoinPerDay ?? 0;
+  const after = empireAfter(card, extras, target);
+  const moves = (now: number, next: number | undefined): string => `${figure(now)}${next !== undefined && Math.round(next) !== Math.round(now) ? ` → ${figure(next)}` : ""}`;
+  return `${preview ? `<span class="v2tf-preview">Preview</span> All towns` : "All towns vs Balanced"} ${moves(mpNow, after?.mp)} MP · ${moves(coinNow, after?.coin)} Coin/day`;
+};
+
+const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
+  if (Math.round(extras.empireManpowerPerRefill ?? 0) === 0 && Math.round(extras.empireCoinPerDay ?? 0) === 0 && !card.queued) return "";
+  const title = `Every town's focus added up, against every town on Balanced. With a change queued here, or while pointing at a focus, the arrow shows the total from the next refill.${extras.breakdown ? ` ${extras.breakdown}` : ""}`;
   const queued = card.queued ? card.options.find((o) => o.focus === card.queued) : undefined;
-  const active = card.options.find((o) => o.focus === card.active);
-  const diff = (s: TownFocusStat | undefined): number => (s?.delta ? Number(s.delta.replace("−", "-")) : 0);
-  const mpAfter = queued && active ? mpNow + diff(queued.manpower) - diff(active.manpower) : undefined;
-  const coinAfter = queued && active ? coinNow + diff(queued.coin) - diff(active.coin) : undefined;
-  const moves = (now: number, after: number | undefined): string => `${figure(now)}${after !== undefined && Math.round(after) !== Math.round(now) ? ` → ${figure(after)}` : ""}`;
-  if (Math.round(mpNow) === 0 && Math.round(coinNow) === 0 && mpAfter === undefined) return "";
-  return `<span class="v2tf-empire" title="Every town's focus added up, against every town on Balanced. With a change queued here, the arrow shows the total from the next refill.">All towns vs Balanced ${moves(mpNow, mpAfter)} MP · ${moves(coinNow, coinAfter)} Coin/day</span>`;
+  const variants = card.options
+    .filter((o) => o.state === "idle")
+    .map((o) => `<span class="v2tf-empire-var v2tf-empire-${key(o.focus)}">${empireLine(card, extras, o, true)}</span>`).join("");
+  return `<span class="v2tf-empire" title="${esc(title)}"><span class="v2tf-empire-default">${empireLine(card, extras, queued, false)}</span>${variants}</span>`;
 };
 
 const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
@@ -109,19 +127,21 @@ const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
   return `<div class="v2tf-status"><span>${text}</span>${all}</div>${empire ? `<div class="v2tf-empire-row">${empire}</div>` : ""}`;
 };
 
-/** Phones have no room for the empire line, so its MP total rides in the header (" · All +48 MP"). */
-const phoneEmpire = (extras: TownFocusCardExtras): string => {
-  const mp = extras.empireManpowerPerRefill;
-  return mp !== undefined && Math.round(mp) !== 0 ? `<span class="v2tf-phone-only"> · All ${figure(mp)} MP</span>` : "";
+/** Phones have no room for the empire line, so its MP total rides in the header (" · All +24 → +48 MP"). */
+const phoneEmpire = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
+  const mp = extras.empireManpowerPerRefill ?? 0;
+  const after = empireAfter(card, extras, card.queued ? card.options.find((o) => o.focus === card.queued) : undefined);
+  if (Math.round(mp) === 0 && after === undefined) return "";
+  return `<span class="v2tf-phone-only"> · All ${figure(mp)}${after && Math.round(after.mp) !== Math.round(mp) ? ` → ${figure(after.mp)}` : ""} MP</span>`;
 };
 
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {
   if (!card) return "";
   return `<div class="v2tf" role="group" aria-label="Town focus">
-      <div class="v2tf-top"><span class="v2tf-h">Town focus</span><span class="v2tf-clock">${card.queued ? `<span class="v2tf-next">${esc(townFocusName(card.queued))} next</span> · ` : "Next refill "}<b>${esc(until(card.queued ? card.queuedInMs : card.startsInMs))}</b>${phoneEmpire(extras)}</span></div>
+      <div class="v2tf-top"><span class="v2tf-h" title="Keys 1–4 pick a focus; ← and → step to the next town">Town focus</span><span class="v2tf-clock">${card.queued ? `<span class="v2tf-next">${esc(townFocusName(card.queued))} next</span> · ` : "Next refill "}<b>${esc(until(card.queued ? card.queuedInMs : card.startsInMs))}</b>${phoneEmpire(card, extras)}</span></div>
       <div class="v2tf-opts">${card.options.map((option) => optionButton(option, card, extras.flash, extras.arrived)).join("")}</div>
       <div class="v2tf-details">${card.options.map((option) => detail(option, card)).join("")}</div>
-      ${card.queued ? `<div class="v2tf-phone-hint">${card.queued === "LEVY" ? `Extra MP from ${esc(until(townFocusFirstPayoutInMs(card.queuedInMs)))} · ` : ""}tap ${esc(townFocusName(card.active))} to cancel</div>` : ""}
+      <div class="v2tf-phone-hint">${card.queued ? `${card.queued === "LEVY" ? `Extra MP from ${esc(until(townFocusFirstPayoutInMs(card.queuedInMs)))} · ` : ""}tap ${esc(townFocusName(card.active))} to cancel` : "Free to switch any time before the refill"}</div>
       ${statusLine(card, extras)}
     </div>`;
 };

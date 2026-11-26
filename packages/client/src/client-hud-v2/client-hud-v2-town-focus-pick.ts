@@ -9,6 +9,13 @@ import type { Tile } from "../client-types.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 import type { TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
 
+/** "Vellmar Reach: Levy · Kest: Growth · 3 Balanced", for the empire line's tooltip. */
+const townFocusBreakdown = (towns: readonly Tile[]): string => {
+  const set = towns.filter((tile) => tile.town?.focus && tile.town.focus !== "BALANCED").map((tile) => `${tile.town?.name ?? `${tile.x},${tile.y}`}: ${townFocusName(tile.town!.focus!)}`);
+  const balanced = towns.filter((tile) => tile.town && (tile.town.focus ?? "BALANCED") === "BALANCED").length;
+  return [...set, ...(balanced > 0 ? [`${balanced} Balanced`] : [])].join(" · ");
+};
+
 /** How long a picked row flashes; renders inside this window replay it, later ones do not. */
 const FLASH_MS = 900;
 let lastPick: { townKey: string; focus: TownFocus; at: number } | undefined;
@@ -40,6 +47,7 @@ export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, t
   if (seenActive.size > towns.length + 8) for (const key of seenActive.keys()) if (!towns.some((tile) => `${tile.x},${tile.y}` === key)) seenActive.delete(key);
   return {
     counts: townFocusCounts(towns),
+    breakdown: townFocusBreakdown(towns),
     empireCoinPerDay: townFocusEmpireCoinPerDay(towns),
     ...(line ? { empireManpowerPerRefill: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) } : {}),
     ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {}),

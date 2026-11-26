@@ -55,6 +55,7 @@ import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
 import "./client-hud-v2-town-plot-pick.css";
 import "./client-hud-v2-town-focus.css";
+import { installTownKeys } from "./client-hud-v2-town-keys.js";
 import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
@@ -372,6 +373,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   // Before onEscape, so Esc folds an open lens list first.
   installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
+  installTownKeys(deps);
   setDockListener({
     onMenuView: (view, tileKey, tapPress) => {
       battleOnMenuView(view, tileKey);
