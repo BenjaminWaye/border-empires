@@ -25,7 +25,8 @@ export const withLiveTownControl = (
     if (typeof leaderTowns === "number") {
       next = { ...next, progressLabel: townsLabel(leaderTowns, townTarget), progress: objective.conditionMet ? 1 : clamp01(leaderTowns / townTarget) };
     }
-    const ownTowns = objective.leaderPlayerId === playerId ? undefined : liveTownCountOf(playerId);
+    // Only where the scan already gave the player a label: it skips the leader and non-competitive players.
+    const ownTowns = objective.selfProgressLabel === undefined ? undefined : liveTownCountOf(playerId);
     if (typeof ownTowns === "number") {
       next = { ...next, selfProgressLabel: townsLabel(ownTowns, townTarget), selfProgress: clamp01(ownTowns / townTarget) };
     }
