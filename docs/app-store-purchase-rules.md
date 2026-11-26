@@ -1,5 +1,7 @@
 # App store purchase rules for Border Empires (as of 2026-11-25)
 
+Status: exploratory research
+
 Research note. Not legal advice. All sources accessed 2026-11-25.
 Method: Apple pages on developer.apple.com were fetched and quoted directly. Google pages
 (support.google.com, play.google.com, android-developers.googleblog.com) and news sites could not
