@@ -7,9 +7,10 @@ import { memory, NOW, price } from "./ai-diplomacy-pricing-test-helpers.js";
 // Owner, 2026-11-26: the guide walks a new player to their first truce, and the
 // AI should be extra ready to accept it, not counter with a price they can't read yet.
 describe("the guide's truce welcome", () => {
-  it("is on only while the guide runs and its truce step isn't saved", () => {
-    expect(onGuideTruceStep({ guideStatus: "active", guideSteps: ["diplomacy-truce"] })).toBe(true);
-    expect(onGuideTruceStep({ guideStatus: "active", guideSteps: [GUIDE_TRUCE_STEP_ID] })).toBe(false);
+  it("is on only while the guide runs, has reached Diplomacy, and its truce step isn't saved", () => {
+    expect(onGuideTruceStep({ guideStatus: "active", guideSteps: ["look-pan", "diplomacy-truce"] })).toBe(true);
+    expect(onGuideTruceStep({ guideStatus: "active", guideSteps: ["look-pan"] })).toBe(false);
+    expect(onGuideTruceStep({ guideStatus: "active", guideSteps: ["diplomacy-truce", GUIDE_TRUCE_STEP_ID] })).toBe(false);
     expect(onGuideTruceStep({ guideStatus: "done", guideSteps: [] })).toBe(false);
     expect(onGuideTruceStep({ guideStatus: "dismissed" })).toBe(false);
     expect(onGuideTruceStep(undefined)).toBe(false);

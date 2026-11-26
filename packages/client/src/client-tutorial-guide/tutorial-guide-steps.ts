@@ -336,7 +336,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "diplomacy-truce-made",
     chapter: "diplomacy",
     title: truceTitle,
-    why: (i) => (i.truceStage === "offered" ? "They answer in a moment." : "This first truce costs you nothing."),
+    why: (i) => (i.truceStage === "offered" ? "They answer in a moment." : "AI Houses take this first truce for free."),
     isDone: (i) => i.truceStage === "active",
     isAvailable: (i) => i.rivalHouseMet,
     waitingNote: "Explore to find a rival House: this starts when you meet one.",

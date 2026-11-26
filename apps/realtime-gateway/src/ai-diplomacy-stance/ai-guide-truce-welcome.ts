@@ -12,12 +12,16 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 
 /** The client guide's "make a truce" step id; the welcome lasts until it is in the player's saved steps. */
 export const GUIDE_TRUCE_STEP_ID = "diplomacy-truce-made";
+/** The step before it (open Diplomacy after meeting a rival): the welcome starts once it is saved. */
+export const GUIDE_OPEN_DIPLOMACY_STEP_ID = "diplomacy-truce";
 
 export type GuideProgressView = { guideStatus?: string; guideSteps?: readonly string[] };
 
-/** The player's guide is running and its truce step isn't done yet. */
-export const onGuideTruceStep = (profile: GuideProgressView | undefined): boolean =>
-  profile?.guideStatus === "active" && !(profile.guideSteps ?? []).includes(GUIDE_TRUCE_STEP_ID);
+/** The player's guide is running, has reached Diplomacy, and its truce step isn't done yet. */
+export const onGuideTruceStep = (profile: GuideProgressView | undefined): boolean => {
+  const steps = profile?.guideSteps ?? [];
+  return profile?.guideStatus === "active" && steps.includes(GUIDE_OPEN_DIPLOMACY_STEP_ID) && !steps.includes(GUIDE_TRUCE_STEP_ID);
+};
 
 export const guideTruceWelcomeApplies = (input: {
   requesterOnGuideTruceStep?: boolean;
