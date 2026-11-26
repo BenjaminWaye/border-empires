@@ -138,6 +138,23 @@ describe("handleScoutDroneMessage", () => {
     expect(state.scoutDroneReport?.explored).toBe(311);
   });
 
+  // Playtest 2026-11-26: "+160 Tiles" while Cartographer went 901 to 929; the card counted known ground.
+  it("shows the tiles the flight explored first, not every tile it saw", () => {
+    const state = { ...stateWith(), discoveredTiles: new Set(["1,1"]) };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], tilesSeen: 160, tilesExplored: 28 };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneReport?.explored).toBe(28);
+  });
+
+  it("shows no tile count for a flight over known ground", () => {
+    const state = { ...stateWith(), discoveredTiles: new Set(["1,1"]) };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: wireFlight }, state, vi.fn(), vi.fn(), shiftBack);
+    const report = { targetX: 12, targetY: 4, towns: 0, docks: 0, waystations: 0, watchtowers: 0, resourceTiles: 0, planetaryDefenseTiles: 0, empiresSighted: [], tilesSeen: 160, tilesExplored: 0 };
+    handleScoutDroneMessage({ type: "SCOUT_DRONE", flight: null, report }, state, vi.fn(), vi.fn(), shiftBack);
+    expect(state.scoutDroneReport?.explored).toBeUndefined();
+  });
+
   // Review 2026-11-21: the launch tick's SCOUT_FINDS arrive before the launch SCOUT_DRONE, and a mid-flight
   // SCOUT_DRONE parsed with a moved clock offset looked like a new flight; both wiped the flight's finds.
   it("keeps a flight's finds across its launch message and later messages with a different clock offset", () => {

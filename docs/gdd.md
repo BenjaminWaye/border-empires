@@ -266,7 +266,26 @@ baseline.
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
-  apps.
+  apps. *Researched 2026-11-25*
+  ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google
+  figures from secondary sources, to be checked in Play Console):
+  - Google Play allows a "consumption-only" app that shows what was bought on
+    the web, as long as the app sells nothing, shows no prices and does not
+    link to the shop.
+  - Apple's guideline 3.1.3(b) lets a game unlock items bought on the web only
+    if the same items are also sold as in-app purchases. Read literally, the
+    iOS app needs in-app purchase for cosmetics and hosted sectors, which is
+    the case §8 names ("if a store requires them"). How strictly Apple applies
+    this to small games is not documented.
+  - Links to the web shop: allowed on iOS in the US with no Apple fee for now
+    (a court-set fee is pending), and in the EU, Japan and Brazil for 15 %
+    (10 % for small businesses). Forbidden elsewhere, including the UK and
+    Korea. Google charges its service fee on linked sales in the US, EEA and
+    UK. Emails about the web shop are allowed everywhere.
+  - Recommendation: Android ships as consumption-only with no prices or links;
+    iOS needs an owner decision (add in-app purchase, or ship without it and
+    risk rejection); no link-outs at launch. Owner decisions listed in the
+    research note.
 
 ## 12. Keeping this document true
 

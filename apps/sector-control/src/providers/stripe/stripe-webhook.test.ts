@@ -63,9 +63,12 @@ describe("Stripe webhook events", () => {
 
   it("finds the sector of a refund or a dispute through the payment's metadata", async () => {
     const { parse, stripe } = makeParser();
-    expect(await parse(event("charge.refunded", { payment_intent: "pi_1", amount_refunded: 1200 }))).toMatchObject({ kind: "refunded", sectorId: "s-abc" });
-    expect(await parse(event("charge.dispute.created", { payment_intent: "pi_1" }))).toMatchObject({ kind: "disputed", sectorId: "s-abc" });
-    expect(stripe.calls.map((call) => call.path)).toEqual(["/payment_intents/pi_1", "/payment_intents/pi_1"]);
+    expect(await parse(event("charge.refunded", { payment_intent: "pi_1", amount: 2000, amount_refunded: 2000, refunded: true }))).toMatchObject({ kind: "refunded", sectorId: "s-abc", fullRefund: true });
+    // Stripe sends the same event for a partial refund: it must not read as the whole price given back.
+    expect(await parse(event("charge.refunded", { payment_intent: "pi_1", amount: 2000, amount_refunded: 500, refunded: false }))).toMatchObject({ kind: "refunded", sectorId: "s-abc", fullRefund: false });
+    expect(await parse(event("charge.dispute.created", { id: "dp_1", payment_intent: "pi_1" }))).toMatchObject({ kind: "disputed", sectorId: "s-abc", disputeId: "dp_1" });
+    expect(await parse(event("charge.dispute.closed", { id: "dp_1", payment_intent: "pi_1", status: "won" }))).toMatchObject({ kind: "dispute_closed", sectorId: "s-abc", disputeId: "dp_1" });
+    expect(stripe.calls.map((call) => call.path)).toEqual(["/payment_intents/pi_1", "/payment_intents/pi_1", "/payment_intents/pi_1", "/payment_intents/pi_1"]);
     // A payment that is not a hosted sector (another product, later) is not ours to act on.
     expect(await parse(event("charge.refunded", { payment_intent: "pi_other" }))).toBe("ignored");
   });

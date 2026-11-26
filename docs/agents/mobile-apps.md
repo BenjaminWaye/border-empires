@@ -296,7 +296,8 @@ These are existing product gaps, not tasks that signing the wrapper completes:
    been uploaded and the first Android bundle is on the Play internal testing
    track, but neither store has received a review submission or a
    closed/open/production release. If digital purchases are added, implement the applicable
-   store billing flow before exposing purchase links in native builds.
+   store billing flow before exposing purchase links in native builds. Current Apple and
+   Google rules on web purchases shown in the apps: [`../app-store-purchase-rules.md`](../app-store-purchase-rules.md).
 
 Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
 
