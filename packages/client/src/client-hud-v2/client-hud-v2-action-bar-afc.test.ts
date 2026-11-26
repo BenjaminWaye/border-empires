@@ -91,3 +91,16 @@ describe("action bar on your own AFC", () => {
     });
   });
 });
+
+describe("action bar on plain frontier", () => {
+  // PR #2993 review: an enabled but unrecommended Garrison (plain tile) hid the greyed beacon and its reason.
+  it("keeps a blocked Relay Beacon on the bar when only a minor Garrison is enabled", () => {
+    const view: TileMenuView = {
+      title: "Sand (567, 135)", subtitle: "Your frontier", tabs: ["actions"], overviewLines: [], crystal: [],
+      actions: [act("settle_land", { label: "Garrison" }), act("settle_many", { label: "Garrison Many…" })],
+      buildings: [act("build_relay_beacon", { label: "Relay Beacon", detail: "garrisons this tile first", disabled: true, disabledReason: "Need a free resource slot" })]
+    };
+    expect(selectBarButtons(view)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "build_relay_beacon" } });
+  });
+});
+

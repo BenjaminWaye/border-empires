@@ -85,8 +85,8 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
   }
 };
 
-/** One terse how-to line on a kept charge whose goal is garrisoning many tiles, else undefined. */
+/** One terse how-to line on a kept, unfinished charge whose goal is garrisoning many tiles, else undefined. */
 export const houseChargeGarrisonTip = (charge: HouseChargeView): string | undefined =>
-  charge.kept && (charge.kind === "DESERT" || charge.kind === "TUNDRA" || charge.kind === "SURVEY")
+  charge.kept && !charge.held && (charge.kind === "DESERT" || charge.kind === "TUNDRA" || charge.kind === "SURVEY")
     ? "Garrison Many works inside your reach; Relay Beacons extend it."
     : undefined;
