@@ -103,9 +103,7 @@ const isExpandingBeacon = (a: TileActionDef): boolean => a.id === "build_relay_b
  * the bar: in the minor row the reason was only a tooltip, which a phone never shows (2026-11-14 playtest).
  */
 const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
-  // Only a Garrison that could lead the bar (recommended) or an Expand To hides the blocked main action: a plain
-  // tile's minor-row Garrison must not bury the greyed beacon and its reason (PR #2993 review).
-  if (view.actions.some((a) => a.id === "settle_land" && !a.disabled && (!isGarrison(a) || a.recommended))) return undefined;
+  if (view.actions.some((a) => a.id === "settle_land" && !a.disabled)) return undefined;
   return view.actions.find((a) => isGarrison(a) && a.recommended)
     ?? view.actions.find((a) => a.id === "explore_scout")
     ?? view.actions.find((a) => (a.id === "settle_land" && !isGarrison(a)) || a.id === "expand_here")
