@@ -28,11 +28,12 @@ export const TOWN_FOCUS_PANEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
 
 export const TOWN_FOCUS_LIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.26",
-  title: "Set town focus from the Towns list",
-  why: "Changing focus meant opening each town one at a time.",
+  title: "Town focus switches at once, and the Towns list can set it",
+  why: "Waiting up to four hours for a focus to start made tweaking feel dead, and changing focus meant opening each town.",
   changes: [
-    "The Towns list has a Focus column: tap Balanced, Growth, Levy or Commerce beside any town",
-    "A dashed icon is queued for your next refill; a solid one is active now",
+    "A new focus takes effect within a minute instead of at your next refill, so the town's figures update as you tweak",
+    "Switching back and forth gains nothing: each focus pays only for the time it is in force, and manpower still arrives at each refill",
+    "The Towns list has a Focus column with Balanced, Growth, Levy and Commerce beside every town, and a MP per refill column",
     "Set every town sits above the table, shows your current mix, and needs a second tap",
     "Growth dims on a town whose growth is paused by war or hunger, since that focus would only cost Coin and MP there"
   ]

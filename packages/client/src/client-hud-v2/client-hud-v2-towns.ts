@@ -8,6 +8,7 @@ import { townsFocusBarHtml, townsFocusCellHtml, type TownsFocusView } from "./cl
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
   { key: "gold", label: "Coin/day", title: "Coin per day" },
+  { key: "manpower", label: "MP", title: "Manpower this town adds each refill (every 4h), with its focus" },
   // Short labels: at 375px the five columns are ~58px each, and "Population" / "Growth/min" ran into
   // each other (playtest day 1). The full meaning is in each header's title.
   { key: "population", label: "Pop", title: "Population / target" },
@@ -39,6 +40,7 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort, 
     const rowHtml = `<button type="button" class="v2l-row${warning ? " v2l-unfed" : ""}" data-v2-towns-open="${row.x},${row.y}">
       <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${note ? ` · ${esc(note)}` : ""}</small></span>
       <span class="v2l-num">${formatTownCoinPerDay(row)}</span>
+      <span class="v2l-num">${row.garrisoned ? `${count(row.manpowerPerRefill)}<small>/refill</small>` : "—"}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
       <span class="v2l-num">${growth(row.growthPerMinute)}<small>/min</small></span>
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
@@ -48,6 +50,6 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort, 
   }).join("");
   const headHtml = `<div class="v2l-head"><span>Town</span>${head}</div>`;
   return focus
-    ? `<section class="v2l-table v2l-with-focus" data-v2-scroll="towns">${townsFocusBarHtml(focus, rows.length)}<div class="v2l-item v2l-item-head">${headHtml}<span class="v2lf-head" title="Each town's focus: tap an icon to queue it for your next refill">Focus</span></div>${body}</section>`
+    ? `<section class="v2l-table v2l-with-focus" data-v2-scroll="towns">${townsFocusBarHtml(focus, rows.length)}<div class="v2l-item v2l-item-head">${headHtml}<span class="v2lf-head" title="Each town's focus: tap an icon to switch it now, free">Focus</span></div>${body}</section>`
     : `<section class="v2l-table" data-v2-scroll="towns">${headHtml}${body}</section>`;
 };

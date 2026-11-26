@@ -2,10 +2,10 @@
 // town panel without scrolling: one row of four focus buttons (icon, name and
 // what each gives), then one detail strip with this town's Coin per day, MP per
 // refill and time to its next tier under the focus being looked at, against
-// Balanced. The strip shows the queued or active focus, and switches to any
+// Balanced. The strip shows the active focus, and switches to any
 // button the pointer is over (CSS :has), so comparing costs no clicks.
 import { TOWN_FOCUS_MAX_TILES_PER_COMMAND, type TownFocus } from "@border-empires/shared";
-import { townFocusDuration, townFocusFirstPayoutInMs, townFocusName, type TownFocusCard, type TownFocusOption, type TownFocusStat } from "../client-town-focus/client-town-focus.js";
+import { townFocusDuration, townFocusName, type TownFocusCard, type TownFocusOption, type TownFocusStat } from "../client-town-focus/client-town-focus.js";
 
 export type TownFocusCardExtras = {
   /** How many of the player's towns run each focus. */
@@ -18,8 +18,6 @@ export type TownFocusCardExtras = {
   flash?: TownFocus;
   /** "Apply to all" was pressed once and waits for a second press to confirm. */
   confirmAll?: boolean;
-  /** The focus the refill has just made active on this town, for a short glow. */
-  arrived?: TownFocus;
   /** How each town is set, for the empire line's tooltip: "Vellmar Reach: Levy · Kest: Growth · 2 more Balanced". */
   breakdown?: string;
 };
@@ -50,12 +48,10 @@ export const townFocusIcon = icon;
 
 const key = (focus: TownFocus): string => focus.toLowerCase();
 
-const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownFocus | undefined, arrived: TownFocus | undefined): string => {
-  const title = option.state === "active" && card.queued
-    ? `Keep ${option.name}: cancels the queued ${townFocusName(card.queued)} focus`
-    : `${option.tagline}. ${option.rule}.${option.state === "idle" ? ` Starts at your next refill, in ${until(card.startsInMs)}.` : ""}`;
-  const state = option.state === "active" ? "Active" : option.state === "queued" ? "Next" : "";
-  return `<button type="button" class="v2tf-opt v2tf-${option.state} v2tf-f-${key(option.focus)}${flash === option.focus ? " v2tf-flash" : ""}${arrived === option.focus && option.state === "active" ? " v2tf-just-active" : ""}" data-v2-town-focus="${option.focus}" aria-pressed="${option.state !== "idle"}" title="${esc(title)}">
+const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownFocus | undefined): string => {
+  const title = `${option.tagline}. ${option.rule}.${option.state === "idle" ? " Switches now, free." : ""}`;
+  const state = option.state === "active" ? "Active" : "";
+  return `<button type="button" class="v2tf-opt v2tf-${option.state} v2tf-f-${key(option.focus)}${flash === option.focus ? " v2tf-flash" : ""}" data-v2-town-focus="${option.focus}" aria-pressed="${option.state !== "idle"}" title="${esc(title)}">
       ${state ? `<span class="v2tf-state">${state}</span>` : ""}<span class="v2tf-title">${icon(option.focus)}<span class="v2tf-name">${esc(option.name)}</span></span>
       <span class="v2tf-gain${card.growthPaused && option.focus === "GROWTH" ? " v2tf-gain-paused" : ""}">${esc(option.tradeLine)}</span>
       <span class="v2tf-cost">${option.costLine.split(" · ").filter(Boolean).map((part) => `<span>${esc(part)}</span>`).join("")}</span>
@@ -67,9 +63,9 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
 const cell = (label: string, unit: string, s: TownFocusStat): string =>
   `<span class="v2tf-cell"${s.detail ? ` title="${esc(s.detail)}"` : ""}><span class="v2tf-k">${label}</span><span class="v2tf-v">${esc(s.value)}<small>${unit}</small></span><span class="v2tf-d v2tf-${s.tone}">${s.delta ? `${esc(s.delta)}<small>${unit}</small>` : ""}</span></span>`;
 
-/** One detail strip per option; CSS shows the hovered one, else the queued, else the active. */
+/** One detail strip per option; CSS shows the hovered one, else the active. */
 const detail = (option: TownFocusOption, card: TownFocusCard): string =>
-  `<div class="v2tf-detail v2tf-detail-${key(option.focus)}${option.focus === (card.queued ?? card.active) ? " v2tf-detail-default" : ""}">
+  `<div class="v2tf-detail v2tf-detail-${key(option.focus)}${option.focus === card.active ? " v2tf-detail-default" : ""}">
       <span class="v2tf-detail-h">${option.state === "idle" ? `<span class="v2tf-preview">Preview</span>` : ""}<span class="v2tf-detail-name v2tf-f-${key(option.focus)}" title="${esc(option.tagline)}">${esc(option.name)}</span><span class="v2tf-rule">${esc(option.rule)}</span></span>
       ${cell("Coin", "/day", option.coin)}${cell("MP", "/refill", option.manpower)}${cell(`<span class="v2tf-k-long">${esc(card.growthLabel.replace(/^To /, ""))} in</span><span class="v2tf-k-short">${esc(card.growthLabel.replace(/^To /, ""))}</span>`, "", option.growth)}
     </div>`;
@@ -80,7 +76,7 @@ const figure = (value: number): string => {
   return rounded === 0 ? `<b class="v2tf-same">±0</b>` : `<b class="v2tf-${rounded > 0 ? "up" : "down"}">${rounded > 0 ? "+" : "−"}${Math.abs(rounded)}</b>`;
 };
 
-/** The empire's MP and Coin from the next refill if `target` were this town's focus then. */
+/** The empire's MP and Coin if this town switched to `target`. */
 const empireAfter = (card: TownFocusCard, extras: TownFocusCardExtras, target: TownFocusOption | undefined): { mp: number; coin: number } | undefined => {
   const active = card.options.find((o) => o.focus === card.active);
   if (!target || !active || target.focus === card.active) return undefined;
@@ -91,8 +87,8 @@ const empireAfter = (card: TownFocusCard, extras: TownFocusCardExtras, target: T
 };
 
 /**
- * One line for the whole empire against all Balanced: "All towns vs Balanced +24 MP · −9 Coin/day". With a change
- * queued here, or while pointing at another focus, it shows where each total goes at the refill ("+24 → +48").
+ * One line for the whole empire against all Balanced: "All towns vs Balanced +24 MP · −9 Coin/day". While pointing
+ * at another focus, it shows where each total would go ("+24 → +48").
  */
 const empireLine = (card: TownFocusCard, extras: TownFocusCardExtras, target: TownFocusOption | undefined, preview: boolean): string => {
   const mpNow = extras.empireManpowerPerRefill ?? 0;
@@ -103,31 +99,24 @@ const empireLine = (card: TownFocusCard, extras: TownFocusCardExtras, target: To
 };
 
 const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
-  if (Math.round(extras.empireManpowerPerRefill ?? 0) === 0 && Math.round(extras.empireCoinPerDay ?? 0) === 0 && !card.queued) return "";
-  const title = `Every town's focus added up, against every town on Balanced. With a change queued here, or while pointing at a focus, the arrow shows the total from the next refill.${extras.breakdown ? ` ${extras.breakdown}` : ""}`;
-  const queued = card.queued ? card.options.find((o) => o.focus === card.queued) : undefined;
+  const title = `Every town's focus added up, against every town on Balanced. While pointing at a focus, the arrow shows the total if this town switched.${extras.breakdown ? ` ${extras.breakdown}` : ""}`;
   const variants = card.options
     .filter((o) => o.state === "idle")
     .map((o) => `<span class="v2tf-empire-var v2tf-empire-${key(o.focus)}">${empireLine(card, extras, o, true)}</span>`).join("");
-  return `<span class="v2tf-empire" title="${esc(title)}"><span class="v2tf-empire-default">${empireLine(card, extras, queued, false)}</span>${variants}</span>`;
+  return `<span class="v2tf-empire" title="${esc(title)}"><span class="v2tf-empire-default">${empireLine(card, extras, undefined, false)}</span>${variants}</span>`;
 };
 
 const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
-  const strong = (text: string): string => `<b>${esc(text)}</b>`;
-  const text = card.queued
-    ? `${strong(townFocusName(card.queued))} starts in ${strong(until(card.queuedInMs))}` +
-      (card.queued === "LEVY" ? `, first extra MP in ${esc(until(townFocusFirstPayoutInMs(card.queuedInMs)))}` : "") +
-      `. Pick ${esc(townFocusName(card.active))} to cancel.`
-    : card.unfed ? `This town is unfed: it earns no Coin and does not grow until it is fed.`
+  const text = card.unfed ? `This town is unfed: it earns no Coin and does not grow until it is fed.`
     : card.growthPaused ? `Growth is paused here; Coin and MP still change.`
-    : `Free to change<br>Starts at next refill`;
+    : `Free to change any time<br>Switches within a minute`;
   const counts = extras.counts;
   const total = counts ? counts.BALANCED + counts.GROWTH + counts.LEVY + counts.COMMERCE : 0;
-  const focus = card.queued ?? card.active;
+  const focus = card.active;
   // One command carries at most TOWN_FOCUS_MAX_TILES_PER_COMMAND towns; never promise more than it sends.
   const changing = Math.min(counts ? total - counts[focus] : 0, TOWN_FOCUS_MAX_TILES_PER_COMMAND);
   const all = total >= 2 && changing > 0
-    ? `<button type="button" class="v2tf-all${extras.confirmAll ? " v2tf-all-confirm" : ""}" data-v2-town-focus="${focus}" data-v2-town-focus-all="1" title="Queue ${esc(townFocusName(focus))} on all ${total} of your towns for the next refill. Each town can still be changed back before then.">${extras.confirmAll ? `Again to confirm: ${changing} ${changing === 1 ? "town" : "towns"} → ${esc(townFocusName(focus))}` : `All towns → ${esc(townFocusName(focus))}`}</button>`
+    ? `<button type="button" class="v2tf-all${extras.confirmAll ? " v2tf-all-confirm" : ""}" data-v2-town-focus="${focus}" data-v2-town-focus-all="1" title="Switch all ${total} of your towns to ${esc(townFocusName(focus))} now. Each town can be changed back any time.">${extras.confirmAll ? `Again to confirm: ${changing} ${changing === 1 ? "town" : "towns"} → ${esc(townFocusName(focus))}` : `All towns → ${esc(townFocusName(focus))}`}</button>`
     : "";
   const empire = empireText(card, extras);
   return `<div class="v2tf-status"><span>${text}</span>${all}</div>${empire ? `<div class="v2tf-empire-row">${empire}</div>` : ""}`;
@@ -135,19 +124,18 @@ const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
 
 /** Phones have no room for the empire line, so its MP total rides in the idle header (" · All towns +24 MP/refill"). */
 const phoneEmpire = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
-  // While a change is queued the header is the countdown alone; the empire figure would not fit beside it.
   const mp = extras.empireManpowerPerRefill ?? 0;
-  if (card.queued || Math.round(mp) === 0) return "";
+  if (Math.round(mp) === 0) return "";
   return `<span class="v2tf-phone-only"> · All towns ${figure(mp)} MP/refill</span>`;
 };
 
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {
   if (!card) return "";
   return `<div class="v2tf" role="group" aria-label="Town focus">
-      <div class="v2tf-top"><span class="v2tf-h" title="Keys 1–4 pick a focus; ← and → step to the next town">Town focus</span><span class="v2tf-clock">${card.queued ? `<span class="v2tf-next">${esc(townFocusName(card.queued))} next</span> · ` : "Next refill "}<b>${esc(until(card.queued ? card.queuedInMs : card.startsInMs))}</b>${phoneEmpire(card, extras)}</span></div>
-      <div class="v2tf-opts">${card.options.map((option) => optionButton(option, card, extras.flash, extras.arrived)).join("")}</div>
+      <div class="v2tf-top"><span class="v2tf-h" title="Keys 1–4 pick a focus; ← and → step to the next town">Town focus</span><span class="v2tf-clock" title="Manpower each focus earns banks from the moment it starts and is paid at each refill.">Next refill <b>${esc(until(card.nextRefillInMs))}</b>${phoneEmpire(card, extras)}</span></div>
+      <div class="v2tf-opts">${card.options.map((option) => optionButton(option, card, extras.flash)).join("")}</div>
       <div class="v2tf-details">${card.options.map((option) => detail(option, card)).join("")}</div>
-      <div class="v2tf-phone-hint">${card.queued ? `${card.queued === "LEVY" ? `Extra MP from ${esc(until(townFocusFirstPayoutInMs(card.queuedInMs)))} · ` : ""}tap ${esc(townFocusName(card.active))} to cancel` : "Free to switch any time before the refill"}</div>
+      <div class="v2tf-phone-hint">Free to switch any time · takes effect within a minute</div>
       ${statusLine(card, extras)}
     </div>`;
 };

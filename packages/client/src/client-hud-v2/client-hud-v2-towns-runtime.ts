@@ -8,7 +8,8 @@ import { forgetMyTowns, myTowns, openTownAt } from "./client-hud-v2-town-runtime
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
 import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll } from "./client-hud-v2-town-focus-pick.js";
 import type { TownsFocusState, TownsFocusView } from "./client-hud-v2-towns-focus.js";
-import { TownFocusSchema, activeTownFocus, type TownFocus } from "@border-empires/shared";
+import { TownFocusSchema, type TownFocus } from "@border-empires/shared";
+import { shownTownFocus } from "../client-town-focus/client-town-focus.js";
 import { isTownGrowthPaused } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -21,12 +22,12 @@ const focusView = (state: Pick<ClientState, "tiles">, keys: readonly string[], n
   const byKey = new Map<string, TownsFocusState>();
   for (const key of keys) {
     const town = state.tiles.get(key)?.town;
-    if (town) byKey.set(key, { active: activeTownFocus(town), queued: town.pendingFocus, growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }) });
+    if (town) byKey.set(key, { active: shownTownFocus(town), growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }) });
   }
   return { byKey, ...(armedAll && nowMs - armedAll.at < 4_000 ? { confirmAll: armedAll.focus } : {}) };
 };
 
-const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "population", "growth", "slots"]);
+const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "manpower", "population", "growth", "slots"]);
 
 /** What the table was last built from: rebuilt only when the town list, sort or screen changes, not every HUD tick. */
 let built: { towns: unknown; sort: TownListSort; body: HTMLElement | null } | undefined;
@@ -39,7 +40,7 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean } 
   // Hold the rows still while the pointer is on them, so a press can't land on a row that just moved.
   if (!options.force && built?.body === body && document.querySelector(".v2l-table:hover")) return;
   built = { towns, sort, body };
-  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state)), sort);
+  const rows = sortTownListRows(deriveTownListRows(towns, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state), deps.state.manpowerBreakdown.biotaTowns), sort);
   writeHtml("v2s-head-right", townsBannerHtml(rows));
   writeHtml("v2s-body", townsBodyHtml(rows, sort, focusView(deps.state, rows.map((row) => `${row.x},${row.y}`))));
   // A row reading "…" is waiting on a coin figure only a tile-detail reply carries; without this it stayed
@@ -65,7 +66,7 @@ export const townsClick = (deps: HudV2Deps, target: Element, closeList: () => vo
   const allFocus = TownFocusSchema.safeParse(all?.dataset.v2TownsFocusAll);
   if (all && allFocus.success) {
     if (!all.disabled) {
-      // First press arms it; a second press within a few seconds queues the focus on every town.
+      // First press arms it; a second press within a few seconds switches every town.
       if (confirmTownFocusForAll(ALL_TOWNS_KEY, allFocus.data)) {
         armedAll = undefined;
         pickTownFocusForAll(deps, myTowns(deps), allFocus.data);

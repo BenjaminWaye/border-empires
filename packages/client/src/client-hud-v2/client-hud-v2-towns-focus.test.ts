@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { townsFocusBarHtml, townsFocusCellHtml, type TownsFocusState } from "./client-hud-v2-towns-focus.js";
 
-const s = (extra: Partial<TownsFocusState> = {}): TownsFocusState => ({ active: "BALANCED", queued: undefined, growthPaused: false, ...extra });
+const s = (extra: Partial<TownsFocusState> = {}): TownsFocusState => ({ active: "BALANCED", growthPaused: false, ...extra });
 
 describe("Towns list focus column", () => {
-  it("marks the active and queued focus and leaves the rest idle", () => {
-    const html = townsFocusCellHtml("4,2", s({ queued: "LEVY" }));
-    expect(html).toMatch(/v2lf-active[^"]*" data-v2-towns-focus="4,2" data-focus="BALANCED"/);
-    expect(html).toMatch(/v2lf-queued[^"]*" data-v2-towns-focus="4,2" data-focus="LEVY"/);
-    expect(html).toMatch(/v2lf-idle[^"]*" data-v2-towns-focus="4,2" data-focus="COMMERCE"/);
-    expect(html).toContain("queued for the next refill");
+  it("marks the chosen focus and leaves the rest idle", () => {
+    const html = townsFocusCellHtml("4,2", s({ active: "LEVY" }));
+    expect(html).toMatch(/v2lf-active[^"]*" data-v2-towns-focus="4,2" data-focus="LEVY"/);
+    expect(html).toMatch(/v2lf-idle[^"]*" data-v2-towns-focus="4,2" data-focus="BALANCED"/);
+    expect(html).toContain("Levy (active)");
   });
 
   it("dims Growth and says why on a town whose growth is paused", () => {
@@ -23,10 +22,10 @@ describe("Towns list focus column", () => {
     expect(townsFocusCellHtml("4,2", undefined)).toBe('<span class="v2lf-cell"></span>');
   });
 
-  it("counts each town under its queued focus and disables a no-op set-all", () => {
-    const byKey = new Map([["1,0", s({ queued: "LEVY" })], ["2,0", s({ active: "LEVY" })]]);
+  it("counts each town under its focus and disables a no-op set-all", () => {
+    const byKey = new Map([["1,0", s({ active: "LEVY" })], ["2,0", s({ active: "LEVY" })]]);
     const html = townsFocusBarHtml({ byKey }, 2);
-    expect(html).toContain("2 Levy · free, starts at your next refill");
+    expect(html).toContain("2 Levy · free, switches now");
     expect(html).toMatch(/data-v2-towns-focus-all="LEVY" disabled/);
     expect(html).not.toMatch(/data-v2-towns-focus-all="GROWTH" disabled/);
   });
