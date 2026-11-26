@@ -58,6 +58,9 @@ describe("Launch Attack flag placement step", () => {
     expect(isEffortConfirmSheetOpen()).toBe(true);
     expect(document.querySelector(".effort-flag-warn")?.textContent).toBe("Can be captured");
     expect(spotLabels()).toEqual(["Safe", "Close", "Border"]);
+    // Each spot shows its distance from the enemy; march time is in the tooltip.
+    expect(Array.from(document.querySelectorAll("[data-flag-spot] small")).map((el) => el.textContent)).toEqual(["3+ tiles", "2 tiles", "1 tile"]);
+    expect(document.querySelector(".effort-section-label")?.textContent).toBe("Flag distance");
     // Details live in the tooltip, not on the button.
     expect(document.querySelector('[data-flag-spot="0"]')?.getAttribute("title")).toContain("(14, 10) · 3+ tiles from the enemy");
     expect(document.querySelector('[data-flag-spot="0"]')?.getAttribute("data-tone")).toBe("safe");

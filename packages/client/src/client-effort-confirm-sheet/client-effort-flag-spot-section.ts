@@ -1,8 +1,8 @@
 // The "where does the new muster flag go" switch of the effort confirm sheet
 // (docs/launch-attack-flag-placement-plan.md §3). Shown only when the attack
 // would raise a brand new flag: one segment per spot, each with a risk dot
-// and its extra march time; the details (coordinates, distance from the
-// enemy) sit in the segment's tooltip and accessible label.
+// and its distance from the enemy; the details (coordinates, march time)
+// sit in the segment's tooltip and accessible label.
 
 export type FlagSpotTone = "safe" | "close" | "border";
 
@@ -19,7 +19,7 @@ const escapeHtml = (value: string): string =>
 export const renderFlagSpotSection = (spots: EffortSheetFlagSpots): string => `
     <div class="effort-section">
       <div class="effort-section-head">
-        <span class="effort-section-label">Flag</span>
+        <span class="effort-section-label">Flag distance</span>
         <span class="effort-flag-warn" title="An enemy who takes the flag's tile takes its manpower">Can be captured</span>
       </div>
       <div class="effort-seg" role="radiogroup" aria-label="Where to raise the muster flag">

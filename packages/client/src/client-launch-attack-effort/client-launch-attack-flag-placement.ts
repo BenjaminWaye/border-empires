@@ -22,11 +22,16 @@ export type LaunchFlagPlacement = {
   apply: () => void;
 };
 
-/** Extra time before the attack fires, compact: "+12s", "+2m", "+0s". */
+/** March time to the front, for the tooltip: "12s", "2 min", "no march". */
 const marchText = (ms: number): string => {
-  const seconds = ms <= 0 ? 0 : Math.max(1, Math.round(ms / 1000));
-  return seconds < 90 ? `+${seconds}s` : `+${Math.round(seconds / 60)}m`;
+  if (ms <= 0) return "no march";
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return `${seconds < 90 ? `${seconds}s` : `${Math.round(seconds / 60)} min`} march to the front`;
 };
+
+/** Tiles from the nearest hostile tile, compact: "3+ tiles", "2 tiles", "1 tile". */
+const distanceText = (distance: number | undefined): string =>
+  distance === undefined ? `${FLAG_SAFE_DISTANCE_TILES}+ tiles` : distance === 1 ? "1 tile" : `${distance} tiles`;
 
 const enemyText = (distance: number | undefined): string =>
   distance === undefined ? `${FLAG_SAFE_DISTANCE_TILES}+ tiles from the enemy` : distance <= 1 ? "next to the enemy" : `${distance} tiles from the enemy`;
@@ -37,12 +42,12 @@ const toneFor = (spot: MusterFlagSpot): FlagSpotTone =>
 const labelFor = (spot: MusterFlagSpot): string =>
   spot.kind === "border" ? "Border" : spot.kind === "closer" ? "Close" : spot.enemyDistance === undefined ? "Safe" : "Safest";
 
-/** One segment of the flag switch: a short name and march time on the button, the rest in its tooltip. */
+/** One segment of the flag switch: a short name and distance from the enemy on the button, the rest in its tooltip. */
 export const flagSpotChoiceText = (spot: MusterFlagSpot): EffortSheetFlagSpots["choices"][number] => ({
   label: labelFor(spot),
-  detail: marchText(spot.transitMs),
+  detail: distanceText(spot.enemyDistance),
   tone: toneFor(spot),
-  hint: `(${spot.x}, ${spot.y}) · ${enemyText(spot.enemyDistance)} · ${spot.transitMs > 0 ? `${marchText(spot.transitMs).slice(1)} march to the front` : "no march"}`
+  hint: `(${spot.x}, ${spot.y}) · ${enemyText(spot.enemyDistance)} · ${marchText(spot.transitMs)}`
 });
 
 /**

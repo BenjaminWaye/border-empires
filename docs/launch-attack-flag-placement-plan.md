@@ -45,19 +45,20 @@ Owner direction (2026-11-26): match the rest of the UI, cut almost all text,
 make it intuitive.
 
 - **Title:** "Attack (x, y)" ("Attack N tiles" / "Attack region · N tiles").
-- **Flag** switch, header warning "Can be captured" (tooltip explains):
+- **Flag distance** switch, header warning "Can be captured" (tooltip explains):
   - **Safe** (default when available): the owned land tile nearest the
     firing tile that is at least 3 tiles from any hostile tile
     (`FLAG_SAFE_DISTANCE_TILES`), the one straight behind it on a tie;
     "Safest" when no tile is that far.
   - **Close**: nearest tile 2 tiles from hostile ground, when it differs.
   - **Border**: the firing tile (the old automatic spot).
-  Each segment shows a risk dot (green / amber / red) and its extra march
-  time ("+12s", via `clientMusterTransitRoute`); coordinates and distance
-  from the enemy are in its tooltip and accessible label.
+  Each segment shows a risk dot (green / amber / red) and its distance from
+  hostile ground ("3+ tiles", "2 tiles", "1 tile"); coordinates and the march
+  time to the front (`clientMusterTransitRoute`) are in its tooltip and
+  accessible label (owner choice, 2026-11-26: distance over time).
 - **Effort** switch: Normal / Extra / Double with each one's manpower. No
   slider on Launch Attack. Targets that gain nothing from extra manpower
-  (barbarians, plain frontier) show the Flag switch only.
+  (barbarians, plain frontier) show the Flag distance switch only.
 - **One line:** "Win 52% · 60 MP" (bulk: total MP).
 - **Cancel / Attack**: Attack records the effort and the chosen spot, then
   queues.
