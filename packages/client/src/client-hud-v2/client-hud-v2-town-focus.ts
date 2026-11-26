@@ -51,8 +51,7 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
     : `${option.tagline}. ${option.rule}.${option.state === "idle" ? ` Starts at your next refill, in ${until(card.startsInMs)}.` : ""}`;
   const state = option.state === "active" ? "Active" : option.state === "queued" ? "Next" : "";
   return `<button type="button" class="v2tf-opt v2tf-${option.state} v2tf-f-${key(option.focus)}${flash === option.focus ? " v2tf-flash" : ""}${arrived === option.focus && option.state === "active" ? " v2tf-just-active" : ""}" data-v2-town-focus="${option.focus}" aria-pressed="${option.state !== "idle"}" title="${esc(title)}">
-      ${state ? `<span class="v2tf-state">${state}</span>` : ""}${icon(option.focus)}
-      <span class="v2tf-name">${esc(option.name)}</span>
+      ${state ? `<span class="v2tf-state">${state}</span>` : ""}<span class="v2tf-title">${icon(option.focus)}<span class="v2tf-name">${esc(option.name)}</span></span>
       <span class="v2tf-gain${card.growthPaused && option.focus === "GROWTH" ? " v2tf-gain-paused" : ""}">${esc(option.tradeLine)}</span>
       <span class="v2tf-cost">${esc(option.costLine.split(" · ")[0] ?? "")}</span>
     </button>`;
