@@ -6,6 +6,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { isDockLandingTargetFrom } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import { musterAvailableAt } from "../client-muster-transit/client-muster-transit.js";
+import { takeMusterFlagPlan } from "../client-muster-flag-plan/client-muster-flag-plan.js";
 
 // Sea crossings between a player's dock and a dock-linked target have no
 // meaningful grid distance (the two docks can be anywhere on the map), so a
@@ -23,7 +24,7 @@ const DOCK_CROSSING_MUSTER_TRANSIT_TILES = 1;
 // already relies on exactly this: it fires from whichever connected owned
 // tile borders the enemy, funded remotely by the flag). Keep in sync with
 // that file if its radius ever changes — there's no shared constant for it.
-const MUSTER_REMOTE_FUNDING_RADIUS_TILES = 10;
+export const MUSTER_REMOTE_FUNDING_RADIUS_TILES = 10;
 
 const isAdjacentWrapped = (ax: number, ay: number, bx: number, by: number): boolean => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
@@ -199,6 +200,17 @@ export const isPendingAttackFundedFromOrigin = (
 // already at their muster-flag cap, a SET_MUSTER here would just be
 // silently rejected server-side (MUSTER_LIMIT) -- catch that now instead of
 // waiting 5s to discover it via dropStuckPendingMusterAttack.
+// The planned spot for an attack on `to`, when it is still the player's own
+// land within funding range of the firing tile. Read once (and removed), so a
+// later attack on the same tile can't inherit it.
+const plannedFlagTile = (state: ClientState, to: Tile, from: Tile): Tile | undefined => {
+  const spot = takeMusterFlagPlan(state, to.x, to.y);
+  if (!spot) return undefined;
+  const tile = state.tiles.get(`${spot.x},${spot.y}`);
+  if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") return undefined;
+  return chebyshevDistanceClient(tile.x, tile.y, from.x, from.y) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES ? tile : undefined;
+};
+
 export const parkOrReuseMusterFlagForAttack = (
   state: ClientState,
   target: { from: Tile; to: Tile; closest: { tile: Tile; dist: number } | undefined },
@@ -213,9 +225,14 @@ export const parkOrReuseMusterFlagForAttack = (
   const { from, to, closest } = target;
   if (state.pendingMusterAttacks.some((entry) => entry.targetX === to.x && entry.targetY === to.y)) return;
   const nearbyOwned = findClosestOwnedMusterTile(state, from.x, from.y, to.x, to.y);
+  // A spot the player picked in the Launch Attack sheet
+  // (docs/launch-attack-flag-placement-plan.md) replaces the firing tile as
+  // where a new flag goes -- but a flag that is already near still wins.
+  const planned = plannedFlagTile(state, to, from);
+  const placeAt = (nearbyOwned ? undefined : planned) ?? from;
   const ourMusterCount = [...state.tiles.values()].filter((tile) => tile.muster?.ownerId === state.me).length;
-  const originKey = deps.keyFor(from.x, from.y);
-  const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : originKey;
+  const placeKey = deps.keyFor(placeAt.x, placeAt.y);
+  const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : placeKey;
   const now = Date.now();
   const pendingPlacements = new Map<string, number>();
   for (const entry of state.pendingMusterAttacks) {
@@ -223,8 +240,8 @@ export const parkOrReuseMusterFlagForAttack = (
     if (requestedAt == null || now - requestedAt > MUSTER_FLAG_REQUEST_TIMEOUT_MS) continue;
     if (state.tiles.get(entry.musterTileKey)?.muster?.ownerId !== state.me) pendingPlacements.set(entry.musterTileKey, requestedAt);
   }
-  const pendingAtOrigin = pendingPlacements.get(originKey);
-  const needsNewFlag = !nearbyOwned && state.tiles.get(originKey)?.muster?.ownerId !== state.me && pendingAtOrigin === undefined;
+  const pendingAtPlace = pendingPlacements.get(placeKey);
+  const needsNewFlag = !nearbyOwned && state.tiles.get(placeKey)?.muster?.ownerId !== state.me && pendingAtPlace === undefined;
   const slotsInUse = ourMusterCount + pendingPlacements.size;
   if (needsNewFlag && slotsInUse >= state.musterFlagLimit) {
     // A flag still being placed takes a slot but isn't on the Tracker yet; name it, or "2/2" reads wrong
@@ -237,16 +254,18 @@ export const parkOrReuseMusterFlagForAttack = (
     deps.renderHud();
     return;
   }
-  if (needsNewFlag) deps.sendSetMuster(from.x, from.y, "HOLD");
-  const requestedAt = needsNewFlag ? now : nearbyOwned ? undefined : pendingAtOrigin;
+  if (needsNewFlag) deps.sendSetMuster(placeAt.x, placeAt.y, "HOLD");
+  const requestedAt = needsNewFlag ? now : nearbyOwned ? undefined : pendingAtPlace;
   state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: now, ...(requestedAt === undefined ? {} : { musterRequestedAt: requestedAt }) });
   // Watched flags tick every second while the pending attack is displayed.
-  const watchTile = nearbyOwned ? nearbyOwned.tile : from;
+  const watchTile = nearbyOwned ? nearbyOwned.tile : placeAt;
   deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: watchTile.x, y: watchTile.y });
   const feedMsg = nearbyOwned
     ? `Reusing flag ${nearbyOwned.dist} tile${nearbyOwned.dist === 1 ? "" : "s"} from target · attack queued`
-    : pendingAtOrigin !== undefined || !needsNewFlag
-      ? `Waiting for the flag at (${from.x}, ${from.y}) · attack queued`
+    : pendingAtPlace !== undefined || !needsNewFlag
+      ? `Waiting for the flag at (${placeAt.x}, ${placeAt.y}) · attack queued`
+      : planned && (planned.x !== from.x || planned.y !== from.y)
+        ? `Raising a flag at (${planned.x}, ${planned.y}), back from the border · attack queued`
       : closest && ourMusterCount > 0
         ? `Closest flag is ${closest.dist} tiles away · staging a flag closer to the front`
         : `Staging a flag near (${to.x}, ${to.y}) · attack queued`;

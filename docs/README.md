@@ -33,6 +33,7 @@ remain authoritative for runtime behavior.
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Game design north star (audience, priorities, scope, business model) | [`gdd.md`](gdd.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
+| Launch Attack flag placement step (phase 1 implemented; map picking and March Attack planned) | [`launch-attack-flag-placement-plan.md`](launch-attack-flag-placement-plan.md) |
 | AFC loss, replacement deliveries and withdrawal | [`afc-recovery-plan.md`](afc-recovery-plan.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |

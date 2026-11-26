@@ -1,3 +1,4 @@
+import { renderFlagSpotSection, wireFlagSpotSection, type EffortSheetFlagSpots } from "./client-effort-flag-spot-section.js";
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 
 // The effort-level (Normal / Extra / Double, per docs/replenishment-update-
@@ -21,8 +22,12 @@ export type EffortConfirmSheetOptions = {
    * "slider": an absolute-manpower slider plus preset buttons, for one target.
    * "presets": preset buttons only, for several targets with different
    * floors -- the caller applies the chosen preset's multiplier per target.
+   * "none": no effort controls, for targets where extra manpower buys
+   * nothing; used when the sheet is only asking where to raise a flag.
    */
-  mode: "slider" | "presets";
+  mode: "slider" | "presets" | "none";
+  /** Where to raise a new muster flag, when the attack would raise one. */
+  flagSpots?: EffortSheetFlagSpots;
   confirmLabel?: string;
   /** Live info line under the controls (e.g. win chance); re-run on every change and on a short timer. */
   describe?: (commitManpower: number, preset: MusterCommitPreset | undefined) => string;
@@ -83,6 +88,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   card.innerHTML = `
     <h3 class="effort-confirm-title">${escapeHtml(options.title)}</h3>
     ${options.subtitle ? `<p class="effort-confirm-subtitle">${escapeHtml(options.subtitle)}</p>` : ""}
+    ${options.flagSpots ? renderFlagSpotSection(options.flagSpots) : ""}
     ${
       options.mode === "slider"
         ? `<div class="effort-confirm-dial">
@@ -92,14 +98,18 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
     </div>`
         : ""
     }
-    <div class="effort-confirm-presets">
+    ${
+      options.mode === "none"
+        ? ""
+        : `<div class="effort-confirm-presets">
       ${presets
         .map(
           ({ key, amount }) =>
             `<button type="button" class="effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span>${PRESET_LABELS[key]}</span><small>${amount}</small></button>`
         )
         .join("")}
-    </div>
+    </div>`
+    }
     <p class="effort-confirm-info" data-effort-info></p>
     <div class="effort-confirm-actions">
       <button type="button" class="effort-confirm-cancel" data-effort-cancel>Cancel</button>
@@ -174,6 +184,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
       changed();
     };
   }
+  if (options.flagSpots) wireFlagSpotSection(card, options.flagSpots, refresh);
   card.querySelector<HTMLButtonElement>("[data-effort-cancel]")?.addEventListener("click", cancel);
   const goBtn = card.querySelector<HTMLButtonElement>("[data-effort-go]");
   goBtn?.addEventListener("click", confirm);

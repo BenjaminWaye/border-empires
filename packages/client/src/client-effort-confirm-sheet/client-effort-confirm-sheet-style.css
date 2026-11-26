@@ -261,3 +261,46 @@
     width: 100%;
   }
 }
+
+/* New-flag placement (docs/launch-attack-flag-placement-plan.md). */
+.effort-flag-spots {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.effort-flag-spots-notice {
+  margin: 0;
+  color: var(--sp-ember-400, #ff8a65);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.effort-flag-spot {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px 5px;
+  text-align: left;
+  border-radius: 4px;
+  border: 1px solid var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.55);
+  color: var(--sp-parchment-muted);
+  font-family: var(--sp-font-body);
+  cursor: pointer;
+}
+.effort-flag-spot small {
+  font-family: var(--sp-font-mono);
+  font-size: 10px;
+  opacity: 0.8;
+}
+.effort-flag-spot:hover {
+  border-color: var(--sp-brass-500);
+  color: var(--sp-parchment-100);
+}
+.effort-flag-spot.is-active {
+  border-color: var(--sp-brass-300);
+  background: rgba(217, 173, 82, 0.2);
+  color: var(--sp-brass-100);
+}
+.effort-flag-spot:focus-visible {
+  outline: 2px solid var(--sp-brass-300);
+  outline-offset: 2px;
+}
