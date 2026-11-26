@@ -46,8 +46,23 @@ describe("player profile screen", () => {
 
   it("offers Share profile on your own profile only", () => {
     expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
-    expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
-    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
+    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare], [data-v2-profile-save-to-share]")).toBeNull();
+  });
+
+  it("shows Stop sharing only while a public link exists", () => {
+    const self = { ...base, relation: { kind: "self" } as const };
+    for (const share of [undefined, "unknown", "off"] as const) {
+      const host = render(share ? { ...self, share } : self);
+      expect(host.querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
+      expect(host.querySelector("[data-v2-profile-unshare]")).toBeNull();
+    }
+    expect(render({ ...self, share: "on" }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
+  });
+
+  it("sends a guest to save their empire instead of offering share or stop", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: "guest" });
+    expect(host.querySelector("[data-v2-profile-save-to-share]")?.textContent).toBe("Save your empire to share");
+    expect(host.querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
   });
 
   it("offers Show on map only for an empire you have seen", () => {
