@@ -141,6 +141,15 @@ export interface HostingStore {
   transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean;
   listContributions(sectorId: string): ContributionRecord[];
 
+  /**
+   * Payment disputes (chargebacks), by the account that paid. While one is
+   * open the account cannot buy again (Terms of Sale section 9, plan Q2).
+   * Recording the same dispute twice changes nothing.
+   */
+  openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean;
+  closeDispute(disputeId: string, closedAt: number): boolean;
+  hasOpenDispute(accountUid: string): boolean;
+
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;
   hasPaymentEvent(eventId: string): boolean;
