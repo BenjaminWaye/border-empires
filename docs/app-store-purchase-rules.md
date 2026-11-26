@@ -236,6 +236,11 @@ at each update. iOS with IAP is low risk but contradicts "the web is the main sh
 
 ## Decisions the owner must make
 
+**Owner answer, 2026-11-26:** decision 1 is taken as recommended: add IAP on iOS for hosted
+sectors and cosmetics, built after the web and Android launch, with the iOS app submitted once
+IAP is in. Android ships consumption-only and neither app links out at launch (recommendations
+1, 3 and 4 above). Decisions 2 and 4–7 are still open. Recorded in `gdd.md` §8.
+
 1. Add IAP on iOS for cosmetics and hosted sectors (3.1.3(b) parity), or ship iOS without IAP and
    accept review risk? This triggers the GDD §8 clause "if a store requires them".
 2. If IAP: same price as web, or higher to cover Apple's cut? (Apple allows different prices.)

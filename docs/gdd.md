@@ -190,6 +190,13 @@ product, including paid Houses.
   filing stay with the owner. The apps show what
   the account owns. In-app purchases are added if a store requires them or
   they clearly sell better.
+- **App stores (decided 2026-11-26).** Android ships consumption-only: it shows
+  owned cosmetics and hosted sectors, with no prices, buy buttons or links to
+  the web shop. Apple requires items bought on the web to be buyable in the
+  iOS app too, so the iOS app gets in-app purchase for hosted sectors and
+  cosmetics before it is submitted. That work comes after the web and Android
+  launch and does not hold it up. No links out to the web shop from either app
+  at launch. Details and sources: [`app-store-purchase-rules.md`](app-store-purchase-rules.md).
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
   too weak to buy twice.
 
