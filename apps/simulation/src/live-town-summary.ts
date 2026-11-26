@@ -479,6 +479,7 @@ export const buildTownSummary = (
     ...(typeof townPartial.forcedAncillarificationCooldownUntil === "number" ? { forcedAncillarificationCooldownUntil: townPartial.forcedAncillarificationCooldownUntil } : {}),
     ...(townPartial.focus ? { focus: townPartial.focus } : {}),
     ...(townPartial.pendingFocus && typeof townPartial.pendingFocusAt === "number" ? { pendingFocus: townPartial.pendingFocus, pendingFocusAt: townPartial.pendingFocusAt } : {}),
+    ...(typeof townPartial.focusLockedUntil === "number" ? { focusLockedUntil: townPartial.focusLockedUntil } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
     ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
     ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})

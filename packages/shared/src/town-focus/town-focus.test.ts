@@ -5,6 +5,7 @@ import {
   activeTownFocus,
   promoteTownFocus,
   queueTownFocus,
+  townFocusLocked,
   townFocusMultipliers,
   withoutTownFocus
 } from "./town-focus.js";
@@ -41,6 +42,18 @@ describe("town focus rules", () => {
   it("leaves a town alone when the same focus is picked again before it applies", () => {
     const picked = { pendingFocus: "GROWTH" as const, pendingFocusAt: 1_000 };
     expect(queueTownFocus(picked, "GROWTH", 2_000)).toBe(picked);
+  });
+
+  // Playtest 2026-11-26: after a switch the town's growth per minute kept the old focus's rate until the next tick.
+  it("rescales the stored growth rate to the new focus when it applies", () => {
+    expect(promoteTownFocus({ focus: "LEVY", pendingFocus: "GROWTH", pendingFocusAt: 1, populationGrowthPerMinute: 9 })).toEqual({ focus: "GROWTH", populationGrowthPerMinute: 12 });
+    expect(promoteTownFocus({ pendingFocus: "BALANCED", pendingFocusAt: 1, focus: "COMMERCE", populationGrowthPerMinute: 4.5 })).toEqual({ populationGrowthPerMinute: 5 });
+  });
+
+  it("is locked only before its lock time", () => {
+    expect(townFocusLocked({ focusLockedUntil: 1_000 }, 999)).toBe(true);
+    expect(townFocusLocked({ focusLockedUntil: 1_000 }, 1_000)).toBe(false);
+    expect(townFocusLocked({}, 0)).toBe(false);
   });
 
   it("promotes the queued focus and stores Balanced as absent", () => {
