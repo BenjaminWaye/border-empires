@@ -49,6 +49,8 @@ export type OfferDockEntry = {
   blockedReason?: string;
   /** The preset line the sender attached, as text (diplomacy-offer-notes.ts). */
   message?: string;
+  /** A new truce: it ends when the countdown does, accepted or not. */
+  truceRunsOut?: boolean;
 };
 
 /** Time left on the server's clock, once the client has a server timestamp to align with. */
@@ -132,11 +134,14 @@ export const offerDockEntries = (
     kind: "truce",
     id: request.id,
     fromName: senderName(request),
-    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : `offers a ${request.durationHours}h truce, counting since sent`,
+    // A new truce runs from the offer, so its countdown is the truce itself; "a 12h truce" read as 12h from
+    // accepting when 2h were left (playtest 2026-11-26).
+    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : "offers a truce",
     terms: describeDiplomacyTermsForRecipient(request.terms, senderName(request)),
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
-    costsYou: costsRecipient(request)
+    costsYou: costsRecipient(request),
+    ...(request.extendsTruce ? {} : { truceRunsOut: true })
   }, acceptBlockedReason(request, state)), request.fromPlayerId), request));
   const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "alliance",
@@ -185,7 +190,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined, canCou
   const confirming = entry.id === confirmingId;
   const countdown = entry.remainingMs === undefined
     ? ""
-    : `<span class="offer-dock-timer" data-offer-timer="${esc(entry.id)}" title="Time left to answer">${formatOfferCountdown(entry.remainingMs)}</span>`;
+    : `<span class="offer-dock-timer" data-offer-timer="${esc(entry.id)}" title="${entry.truceRunsOut ? "Truce time left" : "Time left to answer"}">${formatOfferCountdown(entry.remainingMs)}</span>`;
   return `<div class="offer-dock-row" data-offer-kind="${entry.kind}">
     <span class="offer-dock-icon" aria-hidden="true">${ICON[entry.kind]}</span>
     <div class="offer-dock-text">

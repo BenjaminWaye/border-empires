@@ -8,6 +8,7 @@ import { describeDiplomacyTermsForProposer, describeDiplomacyTermsForRecipient }
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
 import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 
 export type DiplomacyListInput = {
@@ -69,12 +70,15 @@ export const diplomacyEmpires = (input: DiplomacyListInput): Array<{ id: string;
 const crest = (name: string, color: string | undefined, size = ""): string =>
   `<span class="v2d-crest${size}" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
+// A new truce runs from its offer (offeredTruceEndsAt), so it shows the time it has left, not the hours
+// offered: "Truce 12h" ended 2h after it was accepted (playtest 2026-11-26). Extensions add their hours.
 const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest): string =>
-  kind === "alliance" ? "Alliance" : `${(r as TruceRequest).extendsTruce ? "Extend truce" : "Truce"} ${(r as TruceRequest).durationHours}h`;
+  kind === "alliance" ? "Alliance" : (r as TruceRequest).extendsTruce ? `Extend truce ${(r as TruceRequest).durationHours}h` : "Truce";
 
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
-  const what = offerWhat(kind, r);
+  const endsAt = kind === "truce" ? offeredTruceEndsAt(r as TruceRequest) : undefined;
+  const what = `${offerWhat(kind, r)}${endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, input.nowMs)} left`}`;
   const terms = r.terms ? describeDiplomacyTermsForRecipient(r.terms, name) : "";
   return `<div class="v2d-req">${crest(name, input.colorOf(r.fromPlayerId))}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>

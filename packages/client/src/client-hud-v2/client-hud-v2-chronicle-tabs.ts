@@ -26,17 +26,37 @@ export const chronicleTabsHtml = (input: ChronicleTabsInput): string => {
   return `<div class="v2c-tabs" role="tablist" aria-label="Chronicle">${tab("yours", "Yours", input.unreadActivity)}${tab("ahead", "Ahead", 0)}${tab("world", "World", 0)}${tab("updates", "Updates", input.unseenUpdates)}</div>`;
 };
 
-export type WorldTabInput = { pulse: WorldPulse | undefined; loading: boolean; error: string | undefined };
+/** The live Ranks leaderboard (GLOBAL_STATUS_UPDATE), the same list the profile reads its rank from. */
+export type WorldTabStandings = { overall: ReadonlyArray<{ id: string; name: string; score: number; rank: number }>; me: string };
+
+export type WorldTabInput = { pulse: WorldPulse | undefined; loading: boolean; error: string | undefined; standings?: WorldTabStandings };
+
+/**
+ * Your rank and the leading powers, from the live leaderboard when there is one. The pulse is fetched
+ * once and cached by the gateway, so its rank lagged the profile's (#24 against #23, playtest 2026-11-26).
+ */
+const liveStanding = (pulse: WorldPulse, standings: WorldTabStandings | undefined): { rank: number | undefined; leadingPowers: WorldPulse["leadingPowers"] } => {
+  if (!standings || standings.overall.length === 0) return { rank: pulse.rank, leadingPowers: pulse.leadingPowers };
+  return {
+    rank: standings.overall.find((e) => e.id === standings.me)?.rank,
+    leadingPowers: standings.overall.slice(0, WORLD_LEADING_POWERS).map((e) => ({ playerId: e.id, name: e.name, score: e.score, rank: e.rank }))
+  };
+};
+
+/** As many leading powers as the pulse lists (world-pulse.ts WORLD_PULSE_LEADING_POWER_CAP). */
+const WORLD_LEADING_POWERS = 5;
 
 export const worldTabHtml = (input: WorldTabInput): string => {
-  const pulse = input.pulse;
-  if (!pulse) return `<div class="v2s-empty">${esc(input.error ?? (input.loading ? "Loading…" : "No world news yet"))}</div>`;
+  const fetched = input.pulse;
+  if (!fetched) return `<div class="v2s-empty">${esc(input.error ?? (input.loading ? "Loading…" : "No world news yet"))}</div>`;
+  const pulse = fetched;
+  const { rank: myRank, leadingPowers } = liveStanding(fetched, input.standings);
   const change = typeof pulse.rankChange === "number" && pulse.rankChange !== 0
     ? `<span class="v2c-rank-change ${pulse.rankChange > 0 ? "v2c-up" : "v2c-down"}">${pulse.rankChange > 0 ? "▲" : "▼"}${Math.abs(pulse.rankChange)}</span>`
     : "";
-  const rank = `<div class="v2c-world-rank"><span class="v2c-world-label">${esc(pulse.seasonLabel ?? "This Sector Contest")}</span><span class="v2c-world-you">${typeof pulse.rank === "number" ? `You #${pulse.rank}` : "Unranked"}${change}</span></div>`;
-  const powers = pulse.leadingPowers.length > 0
-    ? `<div class="v2c-powers">${pulse.leadingPowers.map((p) => `<span class="v2c-power"><b>#${p.rank}</b> ${esc(p.name)} <span class="v2c-power-score">${Math.round(p.score)}</span></span>`).join("")}</div>`
+  const rank = `<div class="v2c-world-rank"><span class="v2c-world-label">${esc(pulse.seasonLabel ?? "This Sector Contest")}</span><span class="v2c-world-you">${typeof myRank === "number" ? `You #${myRank}` : "Unranked"}${change}</span></div>`;
+  const powers = leadingPowers.length > 0
+    ? `<div class="v2c-powers">${leadingPowers.map((p) => `<span class="v2c-power"><b>#${p.rank}</b> ${esc(p.name)} <span class="v2c-power-score">${Math.round(p.score)}</span></span>`).join("")}</div>`
     : "";
   const stories = pulse.stories.length > 0
     ? pulse.stories.map((s) => `<article class="v2c-story"><h3>${esc(s.headline)}</h3><p>${esc(s.text)}</p></article>`).join("")
