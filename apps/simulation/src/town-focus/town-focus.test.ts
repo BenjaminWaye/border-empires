@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { nextManpowerRefillAtMs } from "@border-empires/shared";
 import { handleSetTownFocusCommand, type TownFocusCommandContext } from "./town-focus-command.js";
 import { promoteDueTownFocus } from "./town-focus-promotion.js";
 import { applyTileToPlayerSummary, createEmptyPlayerRuntimeSummary } from "../player-runtime-summary.js";
@@ -37,10 +36,10 @@ const command = (payload: unknown, playerId = "p1"): CommandEnvelope =>
   ({ commandId: "c1", sessionId: "s", playerId, clientSeq: 1, issuedAt: NOW, type: "SET_TOWN_FOCUS", payloadJson: JSON.stringify(payload) }) as CommandEnvelope;
 
 describe("SET_TOWN_FOCUS", () => {
-  it("queues the focus for the owner's next refill without changing the active focus", () => {
+  it("stores the focus as due now, for the promotion after the next growth tick", () => {
     const { map, events, context } = commandFixture([townTile(1, "p1")]);
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
-    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: nextManpowerRefillAtMs("p1", NOW) });
+    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW });
     expect(map.get("1,0")?.town?.focus).toBeUndefined();
     expect(events.map((event) => event.eventType)).toEqual(["TILE_DELTA_BATCH", "COMMAND_RESOLVED"]);
   });
@@ -94,11 +93,26 @@ describe("promoteDueTownFocus", () => {
     return { map, order, deps };
   };
 
-  it("does nothing before the refill", () => {
-    const { map, order, deps } = promotionFixture([townTile(1, "p1", { pendingFocus: "LEVY", pendingFocusAt: NOW + 1 })]);
+  it("does nothing when no town has a pending focus", () => {
+    const { order, deps } = promotionFixture([townTile(1, "p1", { focus: "LEVY" })]);
     expect(promoteDueTownFocus(deps, NOW)).toBe(0);
     expect(order).toEqual([]);
-    expect(map.get("1,0")?.town?.focus).toBeUndefined();
+  });
+
+  // Changes now apply within a minute: one queued for a later refill under the old rule must not wait hours.
+  it("promotes a change queued for a later refill at once", () => {
+    const { map, deps } = promotionFixture([townTile(1, "p1", { pendingFocus: "COMMERCE", pendingFocusAt: NOW + 3 * 60 * 60_000 })]);
+    expect(promoteDueTownFocus(deps, NOW)).toBe(1);
+    expect(map.get("1,0")?.town).toMatchObject({ focus: "COMMERCE" });
+  });
+
+  it("applies only the last of several picks made between growth ticks", () => {
+    const { map, context } = commandFixture([townTile(1, "p1")]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "GROWTH" }));
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "COMMERCE" }));
+    const { deps } = promotionFixture([map.get("1,0")!]);
+    promoteDueTownFocus(deps, NOW);
+    expect(deps.tiles.get("1,0")?.town).toMatchObject({ focus: "COMMERCE" });
   });
 
   it("settles the owner at the old rates before making the focus active", () => {

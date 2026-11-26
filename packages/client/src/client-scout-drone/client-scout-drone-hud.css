@@ -33,7 +33,8 @@
   background: linear-gradient(180deg, rgba(14, 40, 54, 0.95), rgba(8, 22, 31, 0.97));
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 14px rgba(79, 216, 255, 0.35);
   color: #dff8ff;
-  font: 700 15px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font: 700 15px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
@@ -48,7 +49,7 @@
 #scout-drone-pill .sdp-pill.is-ready .sdp-drone { color: #ffd479; }
 
 /* "Explore" shows only on the offer; in flight the pill carries just the time. */
-#scout-drone-pill .sdp-word { display: none; font: 700 15px/1 "Cinzel", Georgia, serif; letter-spacing: 0.04em; }
+#scout-drone-pill .sdp-word { display: none; font: 700 15px/1 var(--sp-font-display); letter-spacing: 0.04em; }
 #scout-drone-pill .sdp-pill.is-ready .sdp-word { display: inline; }
 #scout-drone-pill .sdp-pill.is-ready .sdp-time { opacity: 0.75; font-size: 13px; }
 
@@ -96,7 +97,8 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  font: 700 18px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font: 700 18px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
   color: #ffe7a6;
   animation: srs-chip-in 0.4s ease-out both;
   animation-delay: calc(0.25s + var(--i, 0) * 0.12s);
@@ -127,7 +129,7 @@
 #scout-report-card button.srs-chip:hover { background: rgba(255, 231, 166, 0.1); }
 
 #scout-report-card .srs-chip-label {
-  font: 600 11px/1 Georgia, serif;
+  font: 600 11px/1 var(--sp-font-body);
   color: rgba(246, 228, 180, 0.8);
   white-space: nowrap;
 }
@@ -143,7 +145,7 @@
 
 #scout-report-card .srs-empty,
 #scout-report-card .srs-turned {
-  font: 600 14px/1.2 Georgia, serif;
+  font: 600 14px/1.2 var(--sp-font-body);
   color: rgba(246, 228, 180, 0.75);
 }
 
