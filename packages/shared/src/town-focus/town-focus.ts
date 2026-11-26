@@ -2,9 +2,10 @@ import { z } from "zod";
 
 // Town focus (docs/town-focus-plan.md): a free per-town choice that shifts a
 // town's own output between population growth, manpower regen and Coin.
-// A change is queued and takes effect at the owner's next manpower refill;
-// the simulation promotes it (town-focus-ticker.ts). A town with no focus set
-// is Balanced, which equals the pre-focus numbers exactly.
+// A confirmed change applies after the next population growth tick, and the
+// town is then locked until the owner's next manpower refill
+// (apps/simulation/src/town-focus/). A town with no focus set is Balanced,
+// which equals the pre-focus numbers exactly.
 
 export const TOWN_FOCUSES = ["BALANCED", "GROWTH", "LEVY", "COMMERCE"] as const;
 export type TownFocus = (typeof TOWN_FOCUSES)[number];
@@ -37,6 +38,8 @@ export type TownFocusFields = {
   /** Picked focus, made active after the next population growth tick (pendingFocusAt is when it was picked). */
   pendingFocus?: TownFocus;
   pendingFocusAt?: number;
+  /** The focus cannot change again before this time: the owner's next manpower refill after the last change. */
+  focusLockedUntil?: number;
 };
 
 export const activeTownFocus = (town: TownFocusFields | undefined): TownFocus => town?.focus ?? "BALANCED";
@@ -44,10 +47,13 @@ export const activeTownFocus = (town: TownFocusFields | undefined): TownFocus =>
 export const townFocusMultipliers = (town: TownFocusFields | undefined): TownFocusMultipliers =>
   TOWN_FOCUS_MULTIPLIERS[activeTownFocus(town)];
 
+/** True while a recent change keeps the town's focus fixed. */
+export const townFocusLocked = (town: TownFocusFields | undefined, nowMs: number): boolean =>
+  typeof town?.focusLockedUntil === "number" && town.focusLockedUntil > nowMs;
 
 /** Removes every focus field: used on capture, town return and promotion bookkeeping. */
-export const withoutTownFocus = <T extends TownFocusFields>(town: T): Omit<T, "focus" | "pendingFocus" | "pendingFocusAt"> => {
-  const { focus: _focus, pendingFocus: _pending, pendingFocusAt: _at, ...rest } = town;
+export const withoutTownFocus = <T extends TownFocusFields>(town: T): Omit<T, "focus" | "pendingFocus" | "pendingFocusAt" | "focusLockedUntil"> => {
+  const { focus: _focus, pendingFocus: _pending, pendingFocusAt: _at, focusLockedUntil: _locked, ...rest } = town;
   return rest;
 };
 
@@ -69,10 +75,18 @@ export const queueTownFocus = <T extends TownFocusFields>(town: T, requested: To
   return { ...town, pendingFocus: requested, pendingFocusAt: effectiveAt };
 };
 
-/** The town with its queued focus made active. Balanced is stored as absent. */
-export const promoteTownFocus = <T extends TownFocusFields>(town: T): T => {
+/**
+ * The town with its queued focus made active. Balanced is stored as absent. The stored growth rate is the one the
+ * last growth tick applied under the old focus; it is rescaled so every screen shows the new focus's rate at once
+ * instead of a minute later.
+ */
+export const promoteTownFocus = <T extends TownFocusFields & { populationGrowthPerMinute?: number }>(town: T): T => {
   if (town.pendingFocus === undefined) return town;
   const next = town.pendingFocus;
   const { focus: _focus, pendingFocus: _pending, pendingFocusAt: _at, ...rest } = town;
-  return (next === "BALANCED" ? rest : { ...rest, focus: next }) as T;
+  const rate = town.populationGrowthPerMinute;
+  const rescaled = typeof rate === "number" && Number.isFinite(rate)
+    ? { populationGrowthPerMinute: Number(((rate / townFocusMultipliers(town).growth) * TOWN_FOCUS_MULTIPLIERS[next].growth).toFixed(4)) }
+    : {};
+  return (next === "BALANCED" ? { ...rest, ...rescaled } : { ...rest, ...rescaled, focus: next }) as T;
 };

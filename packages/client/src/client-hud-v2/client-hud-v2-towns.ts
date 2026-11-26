@@ -37,7 +37,8 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort, 
   const body = rows.map((row) => {
     const warning = townRowWarning(row);
     const note = warning ?? row.plotsNote;
-    const rowHtml = `<button type="button" class="v2l-row${warning ? " v2l-unfed" : ""}" data-v2-towns-open="${row.x},${row.y}">
+    const previewing = focus?.byKey.get(`${row.x},${row.y}`)?.selected !== undefined;
+    const rowHtml = `<button type="button" class="v2l-row${warning ? " v2l-unfed" : ""}${previewing ? " v2l-previewing" : ""}" data-v2-towns-open="${row.x},${row.y}">
       <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${note ? ` · ${esc(note)}` : ""}</small></span>
       <span class="v2l-num">${formatTownCoinPerDay(row)}</span>
       <span class="v2l-num">${row.garrisoned ? `${count(row.manpowerPerRefill)}<small>/refill</small>` : "—"}</span>

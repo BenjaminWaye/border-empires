@@ -131,14 +131,18 @@ Each owned town has a focus, chosen for free from the town screen or the Towns l
   weight; the manpower cap, the AFC baseline and structure regen are untouched.
   Commerce scales the town's whole Coin, Manufactory and converter shares
   included. Growth multiplies the growth rate and lifts no pause.
-- A change applies within a minute. The command stores it as pending; after
-  the next population growth tick (every 60s) the simulation settles the
-  owner's income and manpower at the old rates, then makes it active
-  (`apps/simulation/src/town-focus/`). Each growth tick, Coin second and
-  manpower second is paid at the focus really in force, so switching back
-  and forth gains nothing; only the last pick before a tick counts. Manpower
-  earned under a focus banks from when it applies and is paid at the next
-  refill as usual.
+- Picking a focus only previews it; Confirm sends the change. A confirmed
+  change applies within a minute and locks the town's focus until the
+  owner's next manpower refill (`focusLockedUntil`); the server refuses a
+  change to a locked town (`TOWN_FOCUS_LOCKED`) and skips locked and
+  ungarrisoned towns in a multi-town command. The command stores the change
+  as pending; after the next population growth tick (every 60s) the
+  simulation settles the owner's income and manpower at the old rates, makes
+  it active and rescales the stored growth rate to the new focus
+  (`apps/simulation/src/town-focus/`). A town skipped by that tick (unfed,
+  capture shock, full) has its growth clock restarted, so the new focus is
+  never paid for time before it applied. Manpower earned under a focus banks
+  from when it applies and is paid at the next refill as usual.
 - A town that changes hands by any route starts Balanced with nothing queued
   (`withoutForeignTownFocus`, applied at the tile-write chokepoint).
 - The command takes up to 100 towns, skips towns the sender does not own and
