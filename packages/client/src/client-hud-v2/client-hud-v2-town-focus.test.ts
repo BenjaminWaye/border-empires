@@ -35,6 +35,17 @@ describe("Town focus card (town screen)", () => {
     expect(townFocusCardHtml(card(), { counts })).toContain("All towns → Balanced");
     expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Again to confirm: 1 town → Balanced");
     expect(townFocusCardHtml(card(), { counts: { BALANCED: 3, GROWTH: 0, LEVY: 0, COMMERCE: 0 } })).not.toContain("data-v2-town-focus-all");
-    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns vs Balanced <b class=\"v2tf-up\">+24</b> MP");
+    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns vs Balanced <b class=\"v2tf-up\">+24</b> MP/refill");
+  });
+});
+
+describe("Town focus figures carry their units", () => {
+  it("shows a change with the same unit as its figure, so −12 reads as a smaller refill, not a cost", () => {
+    const c = card();
+    c.options[3] = { ...c.options[3]!, state: "active", manpower: { value: "108", delta: "−12", tone: "down" }, coin: { value: "111", delta: "+19", tone: "up" } };
+    c.options[0] = { ...c.options[0]!, state: "idle" };
+    const html = townFocusCardHtml({ ...c, active: "COMMERCE" });
+    expect(html).toContain("−12<small>/refill</small>");
+    expect(html).toContain("+19<small>/day</small>");
   });
 });

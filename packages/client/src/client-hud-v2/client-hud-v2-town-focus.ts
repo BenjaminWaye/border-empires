@@ -55,12 +55,14 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
   return `<button type="button" class="v2tf-opt v2tf-${option.state} v2tf-f-${key(option.focus)}${flash === option.focus ? " v2tf-flash" : ""}${arrived === option.focus && option.state === "active" ? " v2tf-just-active" : ""}" data-v2-town-focus="${option.focus}" aria-pressed="${option.state !== "idle"}" title="${esc(title)}">
       ${state ? `<span class="v2tf-state">${state}</span>` : ""}<span class="v2tf-title">${icon(option.focus)}<span class="v2tf-name">${esc(option.name)}</span></span>
       <span class="v2tf-gain${card.growthPaused && option.focus === "GROWTH" ? " v2tf-gain-paused" : ""}">${esc(option.tradeLine)}</span>
-      <span class="v2tf-cost">${esc(option.costLine.split(" · ")[0] ?? "")}</span>
+      <span class="v2tf-cost">${option.costLine.split(" · ").filter(Boolean).map((part) => `<span>${esc(part)}</span>`).join("")}</span>
+      ${option.costLine ? `<span class="v2tf-cost-short">Others −10%</span>` : ""}
     </button>`;
 };
 
+/** A figure with its unit, and its change against Balanced with the same unit ("−12/refill"), so a change never reads as a one-off cost. */
 const cell = (label: string, unit: string, s: TownFocusStat): string =>
-  `<span class="v2tf-cell"${s.detail ? ` title="${esc(s.detail)}"` : ""}><span class="v2tf-k">${label}</span><span class="v2tf-v">${esc(s.value)}<small>${unit}</small></span><span class="v2tf-d v2tf-${s.tone}">${esc(s.delta)}</span></span>`;
+  `<span class="v2tf-cell"${s.detail ? ` title="${esc(s.detail)}"` : ""}><span class="v2tf-k">${label}</span><span class="v2tf-v">${esc(s.value)}<small>${unit}</small></span><span class="v2tf-d v2tf-${s.tone}">${s.delta ? `${esc(s.delta)}<small>${unit}</small>` : ""}</span></span>`;
 
 /** One detail strip per option; CSS shows the hovered one, else the queued, else the active. */
 const detail = (option: TownFocusOption, card: TownFocusCard): string =>
@@ -95,7 +97,7 @@ const empireLine = (card: TownFocusCard, extras: TownFocusCardExtras, target: To
   const coinNow = extras.empireCoinPerDay ?? 0;
   const after = empireAfter(card, extras, target);
   const moves = (now: number, next: number | undefined): string => `${figure(now)}${next !== undefined && Math.round(next) !== Math.round(now) ? ` → ${figure(next)}` : ""}`;
-  return `${preview ? `<span class="v2tf-preview">Preview</span> vs Balanced` : "All towns vs Balanced"} ${moves(mpNow, after?.mp)} MP · ${moves(coinNow, after?.coin)} Coin${preview ? "" : "/day"}`;
+  return `${preview ? `<span class="v2tf-preview">Preview</span> vs Balanced` : "All towns vs Balanced"} ${moves(mpNow, after?.mp)} MP/refill · ${moves(coinNow, after?.coin)} Coin/day`;
 };
 
 const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
@@ -127,12 +129,12 @@ const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
   return `<div class="v2tf-status"><span>${text}</span>${all}</div>${empire ? `<div class="v2tf-empire-row">${empire}</div>` : ""}`;
 };
 
-/** Phones have no room for the empire line, so its MP total rides in the header (" · All +24 → +48 MP"). */
+/** Phones have no room for the empire line, so its MP total rides in the idle header (" · All towns +24 MP/refill"). */
 const phoneEmpire = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
+  // While a change is queued the header is the countdown alone; the empire figure would not fit beside it.
   const mp = extras.empireManpowerPerRefill ?? 0;
-  const after = empireAfter(card, extras, card.queued ? card.options.find((o) => o.focus === card.queued) : undefined);
-  if (Math.round(mp) === 0 && after === undefined) return "";
-  return `<span class="v2tf-phone-only"> · All ${figure(mp)}${after && Math.round(after.mp) !== Math.round(mp) ? ` → ${figure(after.mp)}` : ""} MP</span>`;
+  if (card.queued || Math.round(mp) === 0) return "";
+  return `<span class="v2tf-phone-only"> · All towns ${figure(mp)} MP/refill</span>`;
 };
 
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {

@@ -91,17 +91,16 @@ const stat = (value: string, option: number, balanced: number, mult = 1): TownFo
   };
 };
 
-/** The phone tile's two lines: what the option gives, then everything it costs, all against Balanced. */
-const tradeLines = (option: TownFocusOption, tierLabel: string | undefined): { tradeLine: string; costLine: string } => {
-  const signed = (s: TownFocusStat, label: string): string => (s.delta ? `${s.delta} ${label}` : "");
-  const coin = signed(option.coin, "Coin");
-  const mp = signed(option.manpower, "MP");
-  const growth = option.growth.delta ? `${tierLabel ?? "Tier"} ${option.growth.delta}` : "";
-  const join = (parts: string[]): string => parts.filter(Boolean).join(" · ");
-  if (option.focus === "LEVY") return { tradeLine: mp, costLine: join([coin, growth]) };
-  if (option.focus === "COMMERCE") return { tradeLine: coin, costLine: join([mp, growth]) };
-  if (option.focus === "GROWTH") return { tradeLine: growth || "Growth +20%", costLine: join([mp, coin]) };
-  return { tradeLine: "Steady", costLine: "No cost" };
+/**
+ * A button's two lines: the rate it raises, then the rates it lowers, as percentages of this town's own output.
+ * Percentages, not amounts: "−10% MP" reads as a smaller refill, where "−12 MP" read like a one-off cost, and every
+ * focus is visibly the same deal (+20% of one output, −10% of the others). The amounts are in the strip.
+ */
+const tradeLines = (option: TownFocusOption): { tradeLine: string; costLine: string } => {
+  if (option.focus === "LEVY") return { tradeLine: "MP +20%", costLine: "Coin −10% · Growth −10%" };
+  if (option.focus === "COMMERCE") return { tradeLine: "Coin +20%", costLine: "MP −10% · Growth −10%" };
+  if (option.focus === "GROWTH") return { tradeLine: "Growth +20%", costLine: "MP −10% · Coin −10%" };
+  return { tradeLine: "No change", costLine: "" };
 };
 
 /**
@@ -149,7 +148,7 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
       costLine: ""
     };
   });
-  for (const option of options) Object.assign(option, tradeLines(option, milestone?.label));
+  for (const option of options) Object.assign(option, tradeLines(option));
   return {
     options,
     active,

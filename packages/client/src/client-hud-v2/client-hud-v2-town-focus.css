@@ -4,7 +4,7 @@
 .v2tf-top { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px 6px; }
 .v2tf-h { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); text-transform: uppercase; }
 .v2tf-empire { color: var(--v2-soft); }
-.v2tf-empire b { font-family: var(--v2-mono); font-size: 11px; font-weight: 700; }
+.v2tf-empire b { font-family: var(--v2-mono); font-size: 10.5px; font-weight: 700; }
 .v2tf-gain-paused { opacity: 0.5; }
 .v2tf-empire-var { display: none; white-space: nowrap; }
 .v2tf:has(.v2tf-f-balanced.v2tf-opt:hover) .v2tf-empire-balanced,
@@ -46,7 +46,10 @@
 .v2tf-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: var(--v2-body); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .v2tf-active .v2tf-name { color: var(--v2-gold-hi); }
 .v2tf-gain, .v2tf-cost { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: var(--v2-mono); font-size: 10px; line-height: 1.25; color: var(--v2tf-accent); white-space: nowrap; }
-.v2tf-cost { font-size: 10.5px; color: #c98a7a; }
+.v2tf-cost { display: grid; font-size: 9.5px; color: #c98a7a; }
+.v2tf-cost-short { display: none; font-family: var(--v2-mono); font-size: 10px; color: #c98a7a; }
+.v2tf-cost:empty { display: none; }
+.v2tf-d small { font-size: 8.5px; opacity: 0.8; }
 .v2tf-f-balanced .v2tf-cost { color: var(--v2-muted); }
 @keyframes v2tf-flash { 0% { box-shadow: 0 0 0 3px rgba(95, 208, 197, 0.7); } 100% { box-shadow: 0 0 0 0 rgba(95, 208, 197, 0); } }
 .v2tf .v2tf-flash { animation: v2tf-flash 900ms ease-out; }
@@ -76,7 +79,7 @@
 .v2tf-same { color: var(--v2-muted); }
 
 .v2tf-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px 8px; font-size: 11.5px; line-height: 1.3; color: var(--v2-soft); }
-.v2tf-empire-row { padding: 0 10px 8px; margin-top: -3px; font-size: 11px; }
+.v2tf-empire-row { padding: 0 8px 8px; margin-top: -3px; font-size: 10.5px; letter-spacing: -0.01em; white-space: nowrap; }
 .v2tf .v2tf-all { flex: none; min-height: 28px; padding: 3px 8px; font: inherit; font-size: 11px; color: var(--v2-gold-hi); background: transparent; border: 1px solid var(--v2-edge); cursor: pointer; white-space: nowrap; }
 .v2tf .v2tf-all:hover { background: rgba(217, 178, 92, 0.1); border-color: var(--v2-edge-strong); }
 .v2tf .v2tf-all-confirm { background: rgba(217, 178, 92, 0.18); border-color: var(--v2-gold); }
@@ -94,13 +97,20 @@ body.hud-v2-compact .v2tf-phone-hint { display: block; padding: 0 8px 7px; font-
 body.hud-v2-compact .v2tf-details { margin-bottom: 5px; }
 body.hud-v2-compact .v2tf-detail { padding: 4px 6px 3px; }
 body.hud-v2-compact .v2tf-k-long { display: none; }
-body.hud-v2-compact .v2tf-k-short, body.hud-v2-compact .v2tf-phone-only { display: inline; }
+body.hud-v2-compact .v2tf-k-short { display: inline; }
+body.hud-v2-compact .v2tf-d small { font-size: 8px; }
+/* The strip describes the button tagged NEXT, else ACTIVE, so on phones its name gives way to the figures. */
+body.hud-v2-compact .v2tf-detail-h { display: none; }
+body.hud-v2-compact .v2tf-detail { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.3fr) minmax(0, 0.85fr); gap: 0 4px; }
+body.hud-v2-compact .v2tf-cell { gap: 2px; }
+body.hud-v2-compact .v2tf-cost { display: none; }
+body.hud-v2-compact .v2tf-cost-short { display: block; }
 body.hud-v2-compact .v2tf-k { font-size: 8.5px; letter-spacing: 0.04em; }
 body.hud-v2-compact .v2tf-cell + .v2tf-cell { border-left: 1px solid var(--v2-line); padding-left: 5px; }
-body.hud-v2-compact .v2tf-detail { grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: baseline; }
+body.hud-v2-compact .v2tf-detail { align-items: baseline; }
 body.hud-v2-compact .v2tf-detail-h { grid-column: auto; margin: 0; }
 body.hud-v2-compact .v2tf-cell { display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; }
-body.hud-v2-compact .v2tf-v { font-size: 12.5px; }
+body.hud-v2-compact .v2tf-v { font-size: 12px; }
 body.hud-v2-compact .v2tf-opts { padding: 0 6px; gap: 3px; }
 body.hud-v2-compact .v2tf .v2tf-opt { padding: 5px 1px 3px; gap: 0; min-height: var(--v2c-touch, 44px); }
 /* Phones: the icon sits inline before the name, so each tile is a line shorter and the hint clears the Build panel. */

@@ -36,8 +36,10 @@ describe("townFocusCard", () => {
     const commerce = card.options.find((o) => o.focus === "COMMERCE")!;
     expect(balanced.coin).toMatchObject({ value: String(Math.round(0.064 * 1440)), delta: "", tone: "same" });
     expect(commerce).toMatchObject({ state: "active", coin: { tone: "up" } });
-    expect(commerce.tradeLine).toMatch(/^\+\d+ Coin$/);
-    expect(commerce.costLine).toMatch(/^−\d+ MP · City \+\d+h$/);
+    // Buttons state the rule as rates, so a lower refill never reads as a one-off cost.
+    expect(commerce.tradeLine).toBe("Coin +20%");
+    expect(commerce.costLine).toBe("MP −10% · Growth −10%");
+    expect(card.options.find((o) => o.focus === "LEVY")).toMatchObject({ tradeLine: "MP +20%", costLine: "Coin −10% · Growth −10%" });
   });
 
   it("marks a queued focus and shows paused growth plainly", () => {
