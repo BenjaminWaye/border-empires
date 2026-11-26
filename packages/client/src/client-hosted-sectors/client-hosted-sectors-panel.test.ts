@@ -220,6 +220,30 @@ describe("my sectors panel", () => {
     expect(document.querySelector("[data-hosted-sector-pay]")).toBeNull();
   });
 
+  it("keeps a funding bar current while its consent boxes are ticked, and keeps them ticked", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = makeDeps({ refreshMs: 5_000 });
+      const funding = (pledgedCents: number) => ({ targetCents: 2000, pledgedCents, pendingCents: 0, deadline: Date.now() + 3_600_000, minimumCents: 500, yourCents: 0 });
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding: funding(500) })] });
+      const panel = createHostedSectorsPanel(h.deps);
+      await panel.openList();
+      // Each share states the price facts before paying.
+      expect(document.querySelector("[data-hosted-sector-share-facts]")?.textContent).toMatch(/single payment.*tax included.*closes after 7 days/);
+      tickBoth(document.querySelector(".hosted-sector-funding"));
+      // A friend chips in meanwhile: the host's "Pay the rest" must follow, not stay at the old amount.
+      h.api.listSectors.mockResolvedValue({ ok: true, sectors: [sector({ state: "funding", role: "host", funding: funding(1500) })] });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(document.querySelector("[data-hosted-sector-pay-rest]")?.textContent).toMatch(/Pay the rest · USD 5/);
+      const boxes = document.querySelectorAll<HTMLInputElement>('.hosted-sector-funding input[type="checkbox"]');
+      expect(boxes).toHaveLength(2);
+      expect(Array.from(boxes, (box) => box.checked)).toEqual([true, true]);
+      panel.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the list current while a sector is being prepared, and stops when closed", async () => {
     vi.useFakeTimers();
     try {
@@ -316,7 +340,7 @@ describe("my sectors panel", () => {
     const form = document.querySelector<HTMLFormElement>("[data-hosted-sector-form]");
     if (!form) throw new Error("no form");
     form.querySelector<HTMLInputElement>('input[name="payMode"][value="split"]')!.checked = true;
-    tickBoth(form);
+    // Opening a bar buys nothing, so no consent is asked for yet: each share asks when it is paid.
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(h.api.openFundingBar).toHaveBeenCalledWith({ mapStyle: "continents", mapSize: "standard" }));
     expect(h.api.createOrder).not.toHaveBeenCalled();

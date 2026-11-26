@@ -4,6 +4,7 @@
 import {
   HOSTED_SECTOR_CONSENT_EARLY_START,
   HOSTED_SECTOR_CONSENT_TERMS,
+  HOSTED_SECTOR_CONSENT_WORDING,
   HOSTED_SECTOR_MAP_SIZES,
   HOSTED_SECTOR_PRICE_FACTS,
   HOSTED_SECTOR_PRICE_USD_CENTS,
@@ -16,7 +17,9 @@ import {
 } from "@border-empires/shared";
 
 /** Sent with an order or a share only when both boxes were ticked; the hosting service keeps it as proof. */
-export const CHECKOUT_CONSENT: HostedSectorConsent = { termsVersion: HOSTED_SECTOR_TERMS_VERSION, acceptedTerms: true, requestedEarlyStart: true };
+export const CHECKOUT_CONSENT: HostedSectorConsent = {
+  termsVersion: HOSTED_SECTOR_TERMS_VERSION, wording: HOSTED_SECTOR_CONSENT_WORDING, acceptedTerms: true, requestedEarlyStart: true
+};
 
 const TERMS_LINK = `<a href="/purchase-terms.html" target="_blank" rel="noopener">Terms of Sale</a>`;
 
@@ -86,6 +89,7 @@ export const hostSectorFormHtml = (): string => {
         ${option("payMode", "single", `I pay it all · ${hostedSectorPriceLabel()}`, "The sector starts as soon as you have paid.", true, true)}
         ${option("payMode", "split", "Split it with friends", "Open a funding bar and share the invite link. Each person chips in at least USD 5; cards are only held until the bar is full, then everyone is charged and the sector starts. If it is not full within 72 hours, nobody pays.", true, false)}
       </fieldset>
+      <p class="hosted-sector-note">If you pay it all, tick both boxes. If you split it, everyone ticks them when they chip in.</p>
       ${consentBoxesHtml()}
       <p class="hosted-sector-note" data-hosted-sector-price-facts>Total ${hostedSectorPriceLabel()} if you pay it all. ${HOSTED_SECTOR_PRICE_FACTS}</p>
       <p class="hosted-sector-error" data-hosted-sector-form-error role="alert" hidden></p>
@@ -97,13 +101,18 @@ export const hostSectorFormHtml = (): string => {
     </form>`;
 };
 
-/** Reads the form. Undefined when a choice is missing or either consent box is unticked. */
+/**
+ * Reads the form. Undefined when a choice is missing, or when paying it all
+ * with either consent box unticked. Opening a funding bar buys nothing: each
+ * share asks for both consents when it is paid.
+ */
 export const readHostSectorForm = (form: HTMLFormElement): { mapStyle: HostedSectorMapStyle; mapSize: HostedSectorMapSize; split: boolean } | undefined => {
   const data = new FormData(form);
   const mapStyle = data.get("mapStyle");
   const mapSize = data.get("mapSize");
-  if (data.get("consentTerms") === null || data.get("consentEarlyStart") === null) return undefined;
+  const split = data.get("payMode") === "split";
+  if (!split && (data.get("consentTerms") === null || data.get("consentEarlyStart") === null)) return undefined;
   if (typeof mapStyle !== "string" || !(sellableMapStyles as readonly string[]).includes(mapStyle)) return undefined;
   if ((mapSize !== "standard" && mapSize !== "small") || !mapSizeIsSellable(mapSize)) return undefined;
-  return { mapStyle: mapStyle as HostedSectorMapStyle, mapSize, split: data.get("payMode") === "split" };
+  return { mapStyle: mapStyle as HostedSectorMapStyle, mapSize, split };
 };

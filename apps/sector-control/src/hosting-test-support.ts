@@ -5,7 +5,7 @@ import type { DatabaseSync as Database } from "node:sqlite";
 
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
-import { HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
+import { HOSTED_SECTOR_CONSENT_WORDING, HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
 
 import { DEFAULT_HOSTING_CONFIG, type HostingConfig } from "./hosting-service/hosting-config.js";
 import { createHostingReconciler } from "./hosting-service/hosting-reconciler.js";
@@ -20,7 +20,7 @@ import { createSectorTicketSigner } from "./sector-ticket/sector-ticket-signer.j
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as { DatabaseSync: new (path: string) => Database };
 
 /** Both boxes ticked on the order form, for the current Terms of Sale. */
-export const CONSENT = { termsVersion: HOSTED_SECTOR_TERMS_VERSION, acceptedTerms: true, requestedEarlyStart: true } as const;
+export const CONSENT = { termsVersion: HOSTED_SECTOR_TERMS_VERSION, wording: HOSTED_SECTOR_CONSENT_WORDING, acceptedTerms: true, requestedEarlyStart: true } as const;
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;

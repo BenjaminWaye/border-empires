@@ -90,7 +90,7 @@ describe("hosting HTTP routes", () => {
 
   it("opens a funding bar, takes a friend's share through the webhook, and refuses bad amounts", async () => {
     const { h, call, webhook } = await start();
-    const opened = (await call("POST", "/hosting/funding-bars", "host", { mapStyle: "continents", mapSize: "standard", consent: CONSENT })).json() as { ok: boolean; sector: { sectorId: string; state: string; funding: { targetCents: number } } };
+    const opened = (await call("POST", "/hosting/funding-bars", "host", { mapStyle: "continents", mapSize: "standard" })).json() as { ok: boolean; sector: { sectorId: string; state: string; funding: { targetCents: number } } };
     expect(opened).toMatchObject({ ok: true, sector: { state: "funding", funding: { targetCents: 2000 } } });
     const sectorId = opened.sector.sectorId;
     const invite = (await call("POST", `/hosting/sectors/${sectorId}/invites`, "host")).json() as { invite: { code: string } };

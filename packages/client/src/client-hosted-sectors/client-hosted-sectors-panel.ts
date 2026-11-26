@@ -122,9 +122,23 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   /** The automatic refresh leaves the list alone while the player is using it. */
   const listIsBusy = (): boolean =>
     Boolean(panel?.querySelector("[data-hosted-sector-invite-output]:not([hidden]), [data-hosted-sectors-error]:not([hidden])")) ||
-    // Someone typing an amount to chip in, or who has ticked a consent box (a redraw would untick it).
-    (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]")) ||
-    Boolean(panel?.querySelector("[data-hosted-sector-consent-terms]:checked, [data-hosted-sector-consent-early-start]:checked"));
+    // Someone typing an amount to chip in.
+    (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]"));
+
+  const CONSENT_BOXES = ["data-hosted-sector-consent-terms", "data-hosted-sector-consent-early-start"] as const;
+
+  /** Which consent boxes are ticked, so a redraw (the automatic refresh) keeps them ticked. */
+  const tickedConsentBoxes = (): string[] =>
+    CONSENT_BOXES.flatMap((attribute) =>
+      Array.from(panel?.querySelectorAll<HTMLInputElement>(`[${attribute}]:checked`) ?? [], (box) => `${attribute}=${box.getAttribute(attribute) ?? ""}`));
+
+  const retickConsentBoxes = (ticked: readonly string[]): void => {
+    for (const entry of ticked) {
+      const [attribute, sectorId] = entry.split("=") as [string, string];
+      const box = panel?.querySelector<HTMLInputElement>(`[${attribute}="${CSS.escape(sectorId)}"]`);
+      if (box) box.checked = true;
+    }
+  };
 
   const showList = async (notice = "", options: { quiet?: boolean } = {}): Promise<void> => {
     if (!deps.isSignedIn()) {
@@ -154,6 +168,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     stopRefresh();
     // A bar being funded changes as friends chip in, so it refreshes too.
     if (listed.sectors.some((sector) => sector.state === "creating" || sector.state === "funding")) scheduleRefresh();
+    const ticked = tickedConsentBoxes();
     setBody(`
       ${notice ? `<p class="hosted-sector-notice">${escapeHtml(notice)}</p>` : ""}
       <ul class="hosted-sector-list">${publicSectorRowHtml()}${rows}</ul>
@@ -161,6 +176,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       <div data-hosted-sector-invite-output hidden><input data-hosted-sector-invite-url readonly aria-label="Invite link" /></div>
       ${hostsLiveSector ? "" : `<button type="button" class="panel-btn" data-hosted-sector-host>Host a sector</button>`}
       <p class="hosted-sector-error" data-hosted-sectors-error role="alert" hidden></p>`);
+    retickConsentBoxes(ticked);
   };
 
   const showError = (message: string): void => {

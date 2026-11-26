@@ -35,6 +35,8 @@ describe("Stripe shares of a split-funded sector", () => {
       success_url: "https://play.borderempires.com/?hosted=pledged&sector=s-abc"
     });
     expect(call?.params["custom_text[submit][message]"]).toMatch(/only held/);
+    // A share is a purchase of its own: the same early-start terms are stated before paying.
+    expect(call?.params["custom_text[submit][message]"]).toMatch(/lose the right to withdraw once its Sector Contest has ended/);
   });
 
   it("reports what happened to a share's money: held, captured, released, or a checkout open or expired", async () => {

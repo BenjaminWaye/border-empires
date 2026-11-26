@@ -2,6 +2,8 @@
 // for together, the Chip in form, and the host's "Pay the rest". Each share
 // only holds the card; nobody is charged until the bar is full, and if it does
 // not fill in time every hold is released.
+import { HOSTED_SECTOR_SHARE_PRICE_FACTS } from "@border-empires/shared";
+
 import { consentBoxesHtml } from "./client-hosted-sector-order.js";
 import type { HostedSectorFunding, HostedSectorSummary } from "./client-hosted-sectors-api.js";
 
@@ -40,7 +42,9 @@ export const fundingRowHtml = (sector: HostedSectorSummary, now: number): string
        ${sector.role === "host" ? `<button type="button" class="panel-btn" data-hosted-sector-pay-rest="${id}" data-hosted-sector-rest="${left}">Pay the rest · ${usd(left)}</button>` : ""}`
     : "";
   // Each share is a purchase of its own, so it needs both consents too.
-  const consent = chipIn ? `<div class="hosted-sector-funding-consent">${consentBoxesHtml(id)}</div>` : "";
+  const consent = chipIn
+    ? `<div class="hosted-sector-funding-consent">${consentBoxesHtml(id)}<p class="hosted-sector-note" data-hosted-sector-share-facts>${HOSTED_SECTOR_SHARE_PRICE_FACTS}</p></div>`
+    : "";
   return `
     <div class="hosted-sector-funding">
       <div class="hosted-sector-funding-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${funding.targetCents}" aria-valuenow="${funding.pledgedCents}"><span style="width:${percent}%"></span></div>
