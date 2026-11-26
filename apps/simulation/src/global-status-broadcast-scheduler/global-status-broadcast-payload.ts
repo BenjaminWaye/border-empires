@@ -8,6 +8,7 @@ import { applyPlayerMessageToSnapshot, type CurrentSeasonSummary } from "@border
 import { toProtoEvent, type ProtoSimulationEvent } from "../simulation-service/proto-serialization.js";
 import { buildLeaderboardFromPlayers, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
 import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast, seasonVictoryWithCurrentHolds } from "../season-victory-objectives/season-victory-objectives.js";
+import { withLiveTownControl } from "../season-victory-objectives/season-victory-live-towns.js";
 import { leaderboardSignature } from "../season-summary/season-summary.js";
 import type { PlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import type { PlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
@@ -71,6 +72,9 @@ export const createGlobalStatusBroadcastPayload = (
     const acceptLatencyP95Ms = deps.simulationMetrics.currentAcceptLatencyP95Ms();
     const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall, id => leaderboardPlayers.find(player => player.id === id)?.domainIds); // once per tick — sorts the leaderboard; do not move into the loop below
     const selfProgress = deps.getSelfProgress();
+    // Live town counts for Town Control (the objective's own counts are from the ~5-min world scan).
+    const liveTownCounts = new Map(leaderboardPlayers.map((player) => [player.id, player.townCount] as const));
+    const liveTownCountOf = (id: string): number | undefined => liveTownCounts.get(id);
     const cachedObjectives = seasonVictoryWithCurrentHolds(currentSummary?.seasonVictory ?? [], Date.now(), Boolean(currentSummary?.seasonWinner));
     for (const subscribedPlayerId of deps.subscriptionRegistry.subscribedPlayerIds()) {
       const selfOverall = globalLeaderboard.overall.find((e) => e.id === subscribedPlayerId);
@@ -84,7 +88,7 @@ export const createGlobalStatusBroadcastPayload = (
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = seasonVictoryForBroadcast(cachedObjectives, selfProgress.labels.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute, selfProgress.values.get(subscribedPlayerId));
+      const seasonVictory = withLiveTownControl(seasonVictoryForBroadcast(cachedObjectives, selfProgress.labels.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute, selfProgress.values.get(subscribedPlayerId)), subscribedPlayerId, liveTownCountOf, selfProgress.townTarget);
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,

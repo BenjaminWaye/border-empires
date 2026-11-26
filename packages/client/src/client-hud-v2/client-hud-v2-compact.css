@@ -271,4 +271,4 @@ body.hud-v2-compact #placement-overlay {
   width: calc(100vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 24px);
 }
 body.hud-v2-compact #placement-label { white-space: normal; text-align: center; flex: 1 1 100%; }
-body.hud-v2-compact #placement-overlay .placement-btn { flex: 1 1 0; min-height: var(--v2c-touch); }
+body.hud-v2-compact #placement-overlay .v2s-btn { flex: 1 1 0; min-height: var(--v2c-touch); }

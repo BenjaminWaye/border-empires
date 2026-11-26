@@ -1,9 +1,12 @@
-// SET_TOWN_FOCUS (docs/town-focus-plan.md): queue one focus for a list of the
-// sender's towns. Free, so it is bounded: the schema caps the list, duplicate
+// SET_TOWN_FOCUS (docs/town-focus-plan.md): switch a list of the sender's towns
+// to one focus. The choice is stored as pending and made active by the
+// promotion step after the next population growth tick (at most a minute), so
+// every growth tick, Coin second and manpower second is paid at the focus that
+// was really in force: switching back and forth gains nothing. Free, so it is bounded: the schema caps the list, duplicate
 // tiles are ignored, tiles the sender does not own are skipped while the rest
 // apply, and a town whose queued focus would not change is not written.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { SetTownFocusMessageSchema, nextManpowerRefillAtMs, queueTownFocus } from "@border-empires/shared";
+import { SetTownFocusMessageSchema, queueTownFocus } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { rejectCommand } from "../runtime-structure-command-handlers-reject.js";
 import type { RuntimeStructureCommandContext } from "../runtime-structure-command-handlers.js";
@@ -30,8 +33,8 @@ export const handleSetTownFocusCommand = (context: TownFocusCommandContext, comm
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  // The change starts at the owner's next refill; manpower it earns is first paid at the refill after that.
-  const effectiveAt = nextManpowerRefillAtMs(command.playerId, context.now());
+  // Due now: the promotion step after the next growth tick settles the old rates and applies it.
+  const effectiveAt = context.now();
   const seen = new Set<string>();
   const written: DomainTileState[] = [];
   let ownedTowns = 0;

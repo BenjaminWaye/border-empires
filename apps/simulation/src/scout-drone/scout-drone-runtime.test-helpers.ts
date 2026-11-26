@@ -18,8 +18,12 @@ export type Harness = ReturnType<typeof harness>;
 export const harness = (
   tileList: DomainTileState[],
   players: DomainPlayer[] = [player("me"), player("rival"), player("friend")],
-  visible: (playerId: string, x: number, y: number) => boolean = () => true
+  visible: (playerId: string, x: number, y: number) => boolean = () => true,
+  // Explored-tile memory as the runtime keeps it (a reveal explores what it covers), and the landing PLAYER_UPDATE.
+  options: { trackExplored?: boolean } = {}
 ) => {
+  const explored = new Set<string>();
+  const playerUpdates: string[] = [];
   let now = 1_000;
   const tiles = new Map(tileList.map((tile) => [`${tile.x},${tile.y}`, tile]));
   const playerMap = new Map(players.map((p) => [p.id, p]));
@@ -35,6 +39,7 @@ export const harness = (
     for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1) {
       const key = `${viewer}@${x + dx},${y + dy}`;
       revealed.set(key, (revealed.get(key) ?? 0) + by);
+      if (by > 0) explored.add(`${viewer}@${(x + dx + W) % W},${(y + dy + H) % H}`);
     }
   };
   const runtime = createScoutDroneRuntime({
@@ -61,7 +66,10 @@ export const harness = (
     visionTransitionCallbacks: () => ({}),
     emitEvent: (event) => events.push(event),
     emitPlayerMessage: (command, payload) => messages.push({ playerId: command.playerId, payload }),
-    recordPersonalImpact: (event) => impacts.push(event)
+    recordPersonalImpact: (event) => impacts.push(event),
+    ...(options.trackExplored
+      ? { isExplored: (playerId: string, x: number, y: number) => explored.has(`${playerId}@${x},${y}`), emitPlayerStateUpdate: (command: { playerId: string }) => { playerUpdates.push(command.playerId); } }
+      : {})
   });
   const explore = (x: number, y: number, playerId = "me", commandId = `cmd-${events.length}`): void =>
     runtime.handleExplore({ commandId, playerId, sessionId: "s", type: "EXPLORE", payloadJson: JSON.stringify({ x, y }) } as unknown as CommandEnvelope);
@@ -77,7 +85,7 @@ export const harness = (
     now = ms;
   };
   const liveReveals = (): number => [...live.values()].reduce((sum, n) => sum + n, 0);
-  return { runtime, tiles, playerMap, reach, events, messages, impacts, reveals, explore, exploreRoute, recall, advanceTo, setNow, liveReveals, now: () => now };
+  return { runtime, tiles, playerMap, reach, events, messages, impacts, reveals, explored, playerUpdates, explore, exploreRoute, recall, advanceTo, setNow, liveReveals, now: () => now };
 };
 
 // Own land x 0..4 on row 10 (AFC at 2,10), a town at (10,10), Planetary Defense at (12,10).

@@ -66,12 +66,12 @@ const askHtml = (option: AutoSettleOption): string =>
   `<div class="tile-auto-settle-ask" role="group" aria-label="Automatic garrison" data-tile-auto-settle-ask="${option.category}" data-tile-key="${option.tileKey}">` +
   `<span class="tile-auto-settle-ask-question">${option.label}?</span>` +
   `<span class="tile-auto-settle-ask-buttons">` +
-  `<button type="button" class="tile-auto-settle-ask-btn is-yes" data-tile-auto-settle-answer="yes">Yes</button>` +
-  `<button type="button" class="tile-auto-settle-ask-btn" data-tile-auto-settle-answer="no">No</button>` +
+  `<button type="button" class="v2s-btn v2s-btn-primary tile-auto-settle-ask-btn is-yes" data-tile-auto-settle-answer="yes">Yes</button>` +
+  `<button type="button" class="v2s-btn tile-auto-settle-ask-btn" data-tile-auto-settle-answer="no">No</button>` +
   `</span></div>`;
 
 const checkboxHtml = (option: AutoSettleOption, checked: boolean, highlighted: boolean): string =>
-  `<label class="tile-auto-settle-option${highlighted ? " is-highlighted" : ""}"><input type="checkbox" data-tile-auto-settle="${option.category}" ${checked ? "checked" : ""} /> ${option.label}${highlighted ? `<span class="tile-auto-settle-hint">Change anytime</span>` : ""}</label>`;
+  `<label class="tile-auto-settle-option${highlighted ? " is-highlighted" : ""}"><input type="checkbox" class="sp-check" data-tile-auto-settle="${option.category}" ${checked ? "checked" : ""} /> ${option.label}${highlighted ? `<span class="tile-auto-settle-hint">Change anytime</span>` : ""}</label>`;
 
 /** Off and never answered: a Yes/No question. Otherwise the checkbox, highlighted for a short while after a "No". */
 export const autoSettleOptionHtml = (option: AutoSettleOption): string => {

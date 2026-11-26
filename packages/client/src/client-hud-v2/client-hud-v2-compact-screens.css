@@ -59,6 +59,8 @@ body.hud-v2-compact .v2p-grid { grid-template-columns: minmax(0, 1fr); }
 /* Towns: name plus four short-labelled numbers fit at 360px. */
 body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
 body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* Six number columns overlap at 375px: phones drop Slots (the town screen still shows it) to make room for MP. */
+body.hud-v2-compact .v2l-head > :nth-child(6), body.hud-v2-compact .v2l-row > :nth-child(6) { display: none; }
 body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
 body.hud-v2-compact .v2l-sort { white-space: normal; text-align: right; line-height: 1.2; }
 

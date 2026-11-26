@@ -84,7 +84,7 @@ export const renderChronicle = (deps: HudV2Deps): void => {
     return;
   }
   const body = tab === "world"
-    ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError })
+    ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError, standings: { overall: state.leaderboard.overall, me: state.me } })
     : tab === "lore"
       ? loreTabHtml(screen.chronicleOpenLore)
       : updatesTabHtml(screen.chronicleUpdatesBaseline ?? state.changelog.seenAt, screen.chronicleOpenUpdate);

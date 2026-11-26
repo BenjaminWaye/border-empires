@@ -54,7 +54,7 @@ const showDiscoveryTipCard = (def: DiscoveryTipDef, onDismiss: (mute: boolean) =
     <button id="discovery-tip-close" type="button" aria-label="Dismiss">&times;</button>
     <div id="discovery-tip-title">${escapeHtml(def.title)}</div>
     <p id="discovery-tip-body">${escapeHtml(def.body)}</p>
-    <label id="discovery-tip-mute-row"><input type="checkbox" id="discovery-tip-mute" /> Don't show tips</label>
+    <label id="discovery-tip-mute-row"><input type="checkbox" class="sp-check" id="discovery-tip-mute" /> Don't show tips</label>
     <div id="discovery-tip-actions"><button id="discovery-tip-ack" type="button">Got it</button></div>`;
   document.body.appendChild(overlay);
   openTipId = def.id;

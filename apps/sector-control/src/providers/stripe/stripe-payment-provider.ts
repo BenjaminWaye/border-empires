@@ -33,7 +33,7 @@ const CHECKOUT_LIFETIME_SECONDS = 35 * 60;
  * in the game; Checkout repeats it next to the payment.
  */
 export const CHECKOUT_CONSENT_TEXT =
-  "Your sector starts as soon as you pay. You ask us to start it during the 14-day withdrawal period; if you withdraw, we keep a part of the price for the days it ran. See the Terms of Sale.";
+  "One single payment, tax included. Your sector starts as soon as you pay: you asked us to start it during the 14-day withdrawal period. If you withdraw, we keep a part of the price for the days it was open, and you lose the right to withdraw once its Sector Contest has ended. See the Terms of Sale.";
 
 const productName = (options: HostedSectorOptions): string =>
   `Hosted sector: ${options.mapStyle === "islands" ? "Islands" : "Continents"}, ${options.mapSize === "small" ? "small" : "standard"} map`;

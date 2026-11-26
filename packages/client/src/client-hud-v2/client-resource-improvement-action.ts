@@ -29,7 +29,7 @@ export const autoImproveOptionForTile = (autoSettle: ClientAutoSettleState | und
 };
 
 export const autoImproveOptionHtml = (option: AutoImproveOption): string =>
-  `<label class="v2t-build-all"><input type="checkbox" data-auto-improve="${option.resource}" ${option.checked ? "checked" : ""} /> ${option.label}</label>`;
+  `<label class="v2t-build-all"><input type="checkbox" class="sp-check" data-auto-improve="${option.resource}" ${option.checked ? "checked" : ""} /> ${option.label}</label>`;
 
 /** The structure a resource's auto-improve builds, for labels ("Titanium: Mine"). */
 export const autoImproveStructureLabel = (resource: AutoImproveResource): string =>

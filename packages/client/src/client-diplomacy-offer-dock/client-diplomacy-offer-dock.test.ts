@@ -78,11 +78,14 @@ describe("diplomacy offer dock", () => {
       () => undefined
     );
     expect(entries.map((entry) => [entry.kind, entry.headline, entry.terms, entry.remainingMs, entry.pending])).toEqual([
-      ["truce", "offers a 12h truce, counting since sent", "you pay 60 coin", 300_000, false],
+      ["truce", "offers a truce", "you pay 60 coin", 300_000, false],
       ["alliance", "proposes an alliance", "", undefined, true]
     ]);
     const html = offerDockHtml(entries);
-    expect(html).toContain("<strong>Tove</strong> offers a 12h truce, counting since sent");
+    // Playtest 2026-11-26: "a 12h truce" ended 2h after accepting; the countdown is the truce's time left.
+    expect(html).toContain("<strong>Tove</strong> offers a truce");
+    expect(html).not.toContain("12h");
+    expect(html).toContain('title="Truce time left"');
     expect(html).toContain(">5:00<");
     expect(html).toMatch(/data-offer-id="a1" disabled/);
   });

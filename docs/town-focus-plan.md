@@ -5,6 +5,17 @@ questions 1, 2 and 6 (name Levy, +20% / −10%, next refill) pending the
 owner's decision. Numbers marked "starting value" are for a balance pass.
 Current rules: `docs/game-mechanics.md`, "Town focus".
 
+**Owner decision, 2026-11-26: changes apply at once, not at the next
+refill.** The owner chose immediacy so the town screen and Towns list update
+as the player tweaks. The server stores a pick as pending and makes it active
+after the next population growth tick (at most a minute), settling Coin and
+manpower at the old rates first, so every growth tick, Coin second and
+manpower second is paid at the focus really in force and switching gains
+nothing. This supersedes "When a change takes effect" below and open
+question 6. A player who re-tunes often can now follow war pauses and
+fronts more closely; the balance pass should check whether that gain is
+acceptable.
+
 Phase 1 as shipped differs from the draft below in two ways: the controls
 are four rows on the town's tile menu (shared by the 2D and true-3D maps)
 rather than a dedicated panel with per-focus previews, and the focus is not
