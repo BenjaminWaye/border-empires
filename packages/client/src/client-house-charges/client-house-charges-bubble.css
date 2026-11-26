@@ -75,10 +75,12 @@ body.hud-v2-compact .hcb-root {
 .hcb-speech-cta { display: block; margin-top: 3px; color: var(--sp-parchment-100, #f2e8d3); text-decoration: underline; text-underline-offset: 2px; }
 .hcb-speech-close {
   appearance: none;
-  min-width: 24px;
-  min-height: 24px;
+  /* A full finger: a smaller x let a closing tap land on whatever was beside it (playtest 2026-11-26). */
+  min-width: 36px;
+  min-height: 36px;
   /* Kept apart from the words so a tap on them is not adjusted onto the x. */
-  margin-left: 6px;
+  /* Grows into the note's padding, so the larger hit area does not grow the note. */
+  margin: -6px -4px -6px 6px;
   border: 0;
   background: transparent;
   color: var(--sp-parchment-100, #f2e8d3);
@@ -137,4 +139,17 @@ body.hud-v2-compact .hcb-root {
   background: var(--sp-leather-900, #241812);
   color: var(--sp-brass-100, #f4dfa6);
   font-weight: 700;
+}
+/* Once per account, the first time the cards dock after being seen: a terse pointer to where charges live.
+   Never takes a tap (it must not cover guide targets); the cards under it pulse. */
+.hcb-pointer {
+  position: relative;
+  padding: 5px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hcb-root.is-docked .hcb-orb.is-pointing { animation: hcb-glow 1.2s ease-in-out 5; }
+@media (prefers-reduced-motion: reduce) {
+  .hcb-root.is-docked .hcb-orb.is-pointing { animation: none; outline: 2px solid var(--sp-brass-300, #d9ad52); outline-offset: 3px; }
 }
