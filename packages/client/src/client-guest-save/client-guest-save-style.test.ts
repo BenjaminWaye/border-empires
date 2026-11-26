@@ -15,4 +15,11 @@ describe("guest save badge styling", () => {
     expect(body).not.toMatch(/transform\s*:/);
     expect(body).toMatch(/margin-inline:\s*auto/);
   });
+
+  // The drone dock, flight pill and report card share the badge's bottom-centre slot; the pill's
+  // countdown covered "Guest · Save your empire" in flight (2026-11-26). The badge steps aside.
+  it.each(["#scout-drone-dock", "#scout-drone-pill", "#scout-report-card"])("hides while %s is shown", (id) => {
+    const body = ruleBody(`body:has(${id}[style*="flex"]) .guest-save-badge`);
+    expect(body).toMatch(/display:\s*none/);
+  });
 });

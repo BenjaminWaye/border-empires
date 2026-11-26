@@ -49,6 +49,12 @@
   }
 }
 
+/* The scout drone's dock, flight pill and report card take this same bottom-centre slot (and the
+   pill's spot beside it on a phone). While one is up the badge steps aside; it is back when it goes. */
+body:has(#scout-drone-dock[style*="flex"]) .guest-save-badge { display: none; }
+body:has(#scout-drone-pill[style*="flex"]) .guest-save-badge { display: none; }
+body:has(#scout-report-card[style*="flex"]) .guest-save-badge { display: none; }
+
 .guest-save-badge:hover {
   filter: brightness(1.07);
 }

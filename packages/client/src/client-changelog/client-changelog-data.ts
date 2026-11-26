@@ -1,6 +1,7 @@
 import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
+import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
 import { TOWN_FOCUS_ENTRY } from "./client-changelog-town-focus.js";
@@ -491,6 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
   { ...UI_TYPE_CONSISTENCY_ENTRY, createdAt: 1795637381397, },
   { ...UNLOCK_CELEBRATION_ENTRY, createdAt: 1795644022855, },
+  { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);
