@@ -8,7 +8,7 @@ const option = (focus: TownFocusCard["options"][number]["focus"], state: "active
 });
 const card = (): TownFocusCard => ({
   options: [option("BALANCED", "active"), option("GROWTH", "idle"), option("LEVY", "idle"), option("COMMERCE", "idle")],
-  active: "BALANCED", nextRefillInMs: 97 * 60_000, growthLabel: "To City", growthPaused: false, unfed: false
+  active: "BALANCED", nextRefillInMs: 97 * 60_000, lockedInMs: 0, growthLabel: "To City", growthPaused: false, unfed: false
 });
 
 describe("Town focus card (town screen)", () => {
@@ -21,11 +21,20 @@ describe("Town focus card (town screen)", () => {
     expect(html).toContain("Next refill <b>1h 37m</b>");
   });
 
-  it("says a switch is free and immediate, with no queued state", () => {
-    const html = townFocusCardHtml(card());
-    expect(html).toContain("Switches within a minute");
-    expect(html).not.toContain("next refill</");
-    expect(html).not.toContain("cancel");
+  // Playtest 2026-11-26: pick a focus to see the difference, then confirm; the change locks until the next refill.
+  it("previews a picked focus and offers Confirm, without changing the active one", () => {
+    const html = townFocusCardHtml(card(), { selected: "LEVY" });
+    expect(html).toContain('<span class="v2tf-state">Preview</span>');
+    expect(html).toContain('v2tf-detail-levy v2tf-detail-default');
+    expect(html).toContain('data-v2-town-focus-confirm="LEVY"');
+    expect(html).toContain(">Confirm Levy<");
+    expect(townFocusCardHtml(card())).not.toContain("data-v2-town-focus-confirm");
+  });
+
+  it("shows the lock instead of Confirm while the town is locked", () => {
+    const html = townFocusCardHtml({ ...card(), lockedInMs: 72 * 60_000 }, { selected: "LEVY" });
+    expect(html).toContain("Locked until next refill · <b>1h 12m</b>");
+    expect(html).not.toContain("data-v2-town-focus-confirm");
   });
 
   it("offers All towns only when some town would change, and asks again before applying", () => {

@@ -1,4 +1,5 @@
-// Town screen keys (docs/town-focus-plan.md): 1–4 pick Balanced, Growth, Levy or Commerce for the open town,
+// Town screen keys (docs/town-focus-plan.md): 1–4 preview Balanced, Growth, Levy or Commerce on the open town
+// (Confirm stays a deliberate press: a stray Enter must not lock a town until the next refill),
 // and ← / → step to the previous or next town, so tuning many towns needs no mouse travel.
 import { TOWN_FOCUSES } from "@border-empires/shared";
 import { screen, type HudV2Deps } from "./client-hud-v2-context.js";
