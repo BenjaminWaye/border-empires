@@ -53,7 +53,7 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
   return `<button type="button" class="v2tf-opt v2tf-${option.state} v2tf-f-${key(option.focus)}${flash === option.focus ? " v2tf-flash" : ""}${arrived === option.focus && option.state === "active" ? " v2tf-just-active" : ""}" data-v2-town-focus="${option.focus}" aria-pressed="${option.state !== "idle"}" title="${esc(title)}">
       ${state ? `<span class="v2tf-state">${state}</span>` : ""}${icon(option.focus)}
       <span class="v2tf-name">${esc(option.name)}</span>
-      <span class="v2tf-gain">${esc(option.tradeLine)}</span>
+      <span class="v2tf-gain${card.growthPaused && option.focus === "GROWTH" ? " v2tf-gain-paused" : ""}">${esc(option.tradeLine)}</span>
       <span class="v2tf-cost">${esc(option.costLine.split(" · ")[0] ?? "")}</span>
     </button>`;
 };
@@ -88,7 +88,7 @@ const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
   const coinAfter = queued && active ? coinNow + diff(queued.coin) - diff(active.coin) : undefined;
   const moves = (now: number, after: number | undefined): string => `${figure(now)}${after !== undefined && Math.round(after) !== Math.round(now) ? ` → ${figure(after)}` : ""}`;
   if (Math.round(mpNow) === 0 && Math.round(coinNow) === 0 && mpAfter === undefined) return "";
-  return `<span class="v2tf-empire" title="Every town's focus added up, against every town on Balanced. With a change queued here, the arrow shows the total from the next refill.">All towns ${moves(mpNow, mpAfter)} MP/refill · ${moves(coinNow, coinAfter)} Coin/day</span>`;
+  return `<span class="v2tf-empire" title="Every town's focus added up, against every town on Balanced. With a change queued here, the arrow shows the total from the next refill.">All towns vs Balanced ${moves(mpNow, mpAfter)} MP · ${moves(coinNow, coinAfter)} Coin/day</span>`;
 };
 
 const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string => {

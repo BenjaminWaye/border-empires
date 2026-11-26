@@ -4,7 +4,8 @@
 .v2tf-top { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px 6px; }
 .v2tf-h { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); text-transform: uppercase; }
 .v2tf-empire { color: var(--v2-soft); }
-.v2tf-empire b { font-family: var(--v2-mono); font-size: 10.5px; font-weight: 400; }
+.v2tf-empire b { font-family: var(--v2-mono); font-size: 11px; font-weight: 700; }
+.v2tf-gain-paused { opacity: 0.5; }
 .v2tf-k-short { display: none; }
 .v2tf-vs { color: var(--v2-muted); }
 .v2tf-phone-hint, .v2tf-phone-only { display: none; }
@@ -94,7 +95,9 @@ body.hud-v2-compact .v2tf-cell { display: flex; align-items: baseline; justify-c
 body.hud-v2-compact .v2tf-v { font-size: 12.5px; }
 body.hud-v2-compact .v2tf-opts { padding: 0 6px; gap: 3px; }
 body.hud-v2-compact .v2tf .v2tf-opt { padding: 5px 1px 3px; gap: 0; min-height: var(--v2c-touch, 44px); }
-body.hud-v2-compact .v2tf-ico { width: 16px; height: 16px; }
+/* Phones: the icon moves to the tile's corner, so each tile is a line shorter and the hint clears the Build panel. */
+body.hud-v2-compact .v2tf-ico { position: absolute; top: 5px; left: 5px; width: 12px; height: 12px; }
+body.hud-v2-compact .v2tf-name { padding: 0 13px; font-size: 12.5px; }
 body.hud-v2-compact .v2tf-details { margin: 5px 6px 6px; }
 body.hud-v2-compact .v2tf-detail { padding: 5px 6px 4px; }
 body.hud-v2-compact .v2tf-rule { display: none; }
