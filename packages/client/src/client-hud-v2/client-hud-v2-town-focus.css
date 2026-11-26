@@ -3,7 +3,10 @@
 .v2tf { margin: 8px 18px 2px; border: 1px solid var(--v2-line); background: var(--v2-well); }
 .v2tf-top { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px 6px; }
 .v2tf-h { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); text-transform: uppercase; }
-.v2tf-empire { color: var(--v2-green-hi); white-space: nowrap; }
+.v2tf-empire { color: var(--v2-soft); }
+.v2tf-empire b { font-family: var(--v2-mono); font-size: 11.5px; font-weight: 700; }
+.v2tf-vs { color: var(--v2-muted); }
+.v2tf-phone-hint { display: none; }
 .v2tf-clock { margin-left: auto; font-family: var(--v2-mono); font-size: 10.5px; color: var(--v2-soft); white-space: nowrap; }
 .v2tf-clock b, .v2tf-status b { color: var(--v2-gold-hi); font-weight: 700; }
 .v2tf-next { color: #5fd0c5; font-weight: 700; }
@@ -19,10 +22,10 @@
   font: inherit; color: var(--v2-text); background: var(--v2-chip); border: 1px solid var(--v2-line); cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
 }
-.v2tf .v2tf-opt:hover { border-color: var(--v2tf-accent); background: #241e15; }
+.v2tf .v2tf-opt:hover { border-color: var(--v2tf-accent); background: #241e15; transform: translateY(-1px); transition-duration: 150ms; }
 .v2tf .v2tf-opt:active { transform: translateY(1px); }
 .v2tf .v2tf-opt:focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 1px; }
-.v2tf .v2tf-active { border-color: #efe6d2; background: #2a2418; box-shadow: inset 0 0 0 1px rgba(239, 230, 210, 0.45); }
+.v2tf .v2tf-active { border-color: #efe6d2; background: #2a2418; box-shadow: inset 0 0 0 1px rgba(239, 230, 210, 0.45), inset 0 0 14px color-mix(in srgb, var(--v2tf-accent) 15%, transparent); }
 .v2tf .v2tf-queued { border: 1px dashed var(--v2tf-accent); background: #1c1a14; }
 .v2tf-state { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); padding: 0 5px; font-family: var(--v2-mono); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
 .v2tf-active .v2tf-state { background: var(--v2-gold); color: #15110a; }
@@ -31,7 +34,7 @@
 .v2tf-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: var(--v2-body); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .v2tf-active .v2tf-name { color: var(--v2-gold-hi); }
 .v2tf-gain, .v2tf-cost { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-family: var(--v2-mono); font-size: 10px; line-height: 1.25; color: var(--v2tf-accent); white-space: nowrap; }
-.v2tf-cost { color: var(--v2-red-hi); opacity: 0.85; }
+.v2tf-cost { font-size: 10.5px; color: #c98a7a; }
 .v2tf-f-balanced .v2tf-cost { color: var(--v2-muted); }
 @keyframes v2tf-flash { 0% { box-shadow: 0 0 0 3px rgba(95, 208, 197, 0.7); } 100% { box-shadow: 0 0 0 0 rgba(95, 208, 197, 0); } }
 .v2tf .v2tf-flash { animation: v2tf-flash 900ms ease-out; }
@@ -50,7 +53,6 @@
 .v2tf-detail-name { font-family: var(--v2-display); font-size: 12px; font-weight: 700; color: var(--v2tf-accent); }
 .v2tf-preview { display: none; padding: 0 4px; font-family: var(--v2-mono); font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--v2-muted); border: 1px solid var(--v2-line); }
 .v2tf:has(.v2tf-opt:hover) .v2tf-preview { display: inline; }
-.v2tf-flavour { grid-column: 1 / -1; margin: -2px 0 3px; font-size: 11.5px; font-style: italic; color: var(--v2-muted); }
 .v2tf-rule { overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; color: #b8a98a; white-space: nowrap; }
 .v2tf-cell { display: grid; min-width: 0; }
 .v2tf-k { font-family: var(--v2-mono); font-size: 9px; letter-spacing: 0.08em; color: var(--v2-muted); text-transform: uppercase; }
@@ -74,7 +76,10 @@ body.hud-v2-compact .v2tf { order: -1; margin: 2px 12px 6px; }
 body.hud-v2-compact .v2tf-top { padding: 5px 8px 6px; }
 /* Phones: the header carries the countdown and any queued change; the buttons carry gain and cost, and the
    strip shrinks to one line (name, then each figure with its change) so the card clears the Build panel. */
-body.hud-v2-compact .v2tf-status, body.hud-v2-compact .v2tf-empire-row, body.hud-v2-compact .v2tf-rule, body.hud-v2-compact .v2tf-flavour, body.hud-v2-compact .v2tf-k { display: none; }
+body.hud-v2-compact .v2tf-status, body.hud-v2-compact .v2tf-empire-row, body.hud-v2-compact .v2tf-rule, body.hud-v2-compact .v2tf-v small { display: none; }
+body.hud-v2-compact .v2tf-phone-hint { display: inline; }
+body.hud-v2-compact .v2tf-k { font-size: 8.5px; letter-spacing: 0.04em; }
+body.hud-v2-compact .v2tf-cell + .v2tf-cell { border-left: 1px solid var(--v2-line); padding-left: 5px; }
 body.hud-v2-compact .v2tf-detail { grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: baseline; }
 body.hud-v2-compact .v2tf-detail-h { grid-column: auto; margin: 0; }
 body.hud-v2-compact .v2tf-cell { display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; }

@@ -57,7 +57,7 @@ const TAGLINES: Readonly<Record<TownFocus, string>> = {
 };
 
 const RULES: Readonly<Record<TownFocus, string>> = {
-  BALANCED: "No bonus, no cost",
+  BALANCED: "Baseline: no bonus, no cost",
   GROWTH: "Growth +20% · MP −10% · Coin −10%",
   LEVY: "MP +20% · Coin −10% · Growth −10%",
   COMMERCE: "Coin +20% · MP −10% · Growth −10%"
@@ -90,7 +90,7 @@ const tradeLines = (option: TownFocusOption, tierLabel: string | undefined): { t
   const join = (parts: string[]): string => parts.filter(Boolean).join(" · ");
   if (option.focus === "LEVY") return { tradeLine: mp, costLine: join([coin, growth]) };
   if (option.focus === "COMMERCE") return { tradeLine: coin, costLine: join([mp, growth]) };
-  if (option.focus === "GROWTH") return { tradeLine: growth || "Growth ↑", costLine: join([mp, coin]) };
+  if (option.focus === "GROWTH") return { tradeLine: growth || "+20%", costLine: join([mp, coin]) };
   return { tradeLine: "Base", costLine: "No cost" };
 };
 
