@@ -75,8 +75,10 @@ export type ScoutReportFindings = {
   empiresSighted: string[];
   /** Where each counted find is, so the report can jump to it. Absent on reports from before it existed. */
   sites?: ScoutFindingSites;
-  /** Every tile within the drone's vision along its whole path, out and home (the report card's "+N Tiles"). */
+  /** Every tile within the drone's vision along its whole path, out and home, explored before or not. */
   tilesSeen?: number;
+  /** Tiles this flight explored for the first time (the report card's "+N Tiles", and what Cartographer counts). */
+  tilesExplored?: number;
   /** The most notable find (first town, else dock, waystation, watchtower, resource, empire, Planetary Defense); absent when nothing was found. */
   focusX?: number;
   focusY?: number;

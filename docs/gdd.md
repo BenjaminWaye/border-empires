@@ -63,6 +63,10 @@ intent in §1.1 of that document still applies.
 1. **No babysitting.** Anything that moves runs on its own once ordered.
 2. **Manpower is the real currency.**
 3. **Check in a couple of times a day, not all day.**
+   (2026-11-26, owner decision: Town focus changes within a minute rather than
+   at the next refill, so a visit can be spent tweaking towns while manpower
+   refills. A confirmed change then locks that town until the next refill, so
+   re-tuning is at most once per town per refill. See `town-focus-plan.md`.)
 4. **Tall is viable against wide.**
 5. **Several ways to win.** Five victory paths, each needing a 24-hour hold.
 6. **A contest you don't win still pays off.** (Added 2026-11-22.) Ninety-nine
@@ -186,6 +190,13 @@ product, including paid Houses.
   filing stay with the owner. The apps show what
   the account owns. In-app purchases are added if a store requires them or
   they clearly sell better.
+- **App stores (decided 2026-11-26).** Android ships consumption-only: it shows
+  owned cosmetics and hosted sectors, with no prices, buy buttons or links to
+  the web shop. Apple requires items bought on the web to be buyable in the
+  iOS app too, so the iOS app gets in-app purchase for hosted sectors and
+  cosmetics before it is submitted. That work comes after the web and Android
+  launch and does not hold it up. No links out to the web shop from either app
+  at launch. Details and sources: [`app-store-purchase-rules.md`](app-store-purchase-rules.md).
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
   too weak to buy twice.
 
@@ -262,7 +273,26 @@ baseline.
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
 - Current Apple and Google rules on purchases made on the web and used in the
-  apps.
+  apps. *Researched 2026-11-25*
+  ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google
+  figures from secondary sources, to be checked in Play Console):
+  - Google Play allows a "consumption-only" app that shows what was bought on
+    the web, as long as the app sells nothing, shows no prices and does not
+    link to the shop.
+  - Apple's guideline 3.1.3(b) lets a game unlock items bought on the web only
+    if the same items are also sold as in-app purchases. Read literally, the
+    iOS app needs in-app purchase for cosmetics and hosted sectors, which is
+    the case §8 names ("if a store requires them"). How strictly Apple applies
+    this to small games is not documented.
+  - Links to the web shop: allowed on iOS in the US with no Apple fee for now
+    (a court-set fee is pending), and in the EU, Japan and Brazil for 15 %
+    (10 % for small businesses). Forbidden elsewhere, including the UK and
+    Korea. Google charges its service fee on linked sales in the US, EEA and
+    UK. Emails about the web shop are allowed everywhere.
+  - Recommendation: Android ships as consumption-only with no prices or links;
+    iOS needs an owner decision (add in-app purchase, or ship without it and
+    risk rejection); no link-outs at launch. Owner decisions listed in the
+    research note.
 
 ## 12. Keeping this document true
 

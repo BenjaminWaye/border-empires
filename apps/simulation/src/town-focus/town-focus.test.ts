@@ -37,10 +37,10 @@ const command = (payload: unknown, playerId = "p1"): CommandEnvelope =>
   ({ commandId: "c1", sessionId: "s", playerId, clientSeq: 1, issuedAt: NOW, type: "SET_TOWN_FOCUS", payloadJson: JSON.stringify(payload) }) as CommandEnvelope;
 
 describe("SET_TOWN_FOCUS", () => {
-  it("queues the focus for the owner's next refill without changing the active focus", () => {
+  it("stores the focus as due now, for the promotion after the next growth tick", () => {
     const { map, events, context } = commandFixture([townTile(1, "p1")]);
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
-    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: nextManpowerRefillAtMs("p1", NOW) });
+    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW, focusLockedUntil: nextManpowerRefillAtMs("p1", NOW) });
     expect(map.get("1,0")?.town?.focus).toBeUndefined();
     expect(events.map((event) => event.eventType)).toEqual(["TILE_DELTA_BATCH", "COMMAND_RESOLVED"]);
   });
@@ -64,6 +64,33 @@ describe("SET_TOWN_FOCUS", () => {
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
     expect(replaceTileState).not.toHaveBeenCalled();
     expect(events.map((event) => event.eventType)).toEqual(["COMMAND_RESOLVED"]);
+  });
+
+  it("refuses a change while the town is locked, and says why", () => {
+    const { events, replaceTileState, context } = commandFixture([townTile(1, "p1", { focus: "LEVY", focusLockedUntil: NOW + 1 })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "COMMERCE" }));
+    expect(replaceTileState).not.toHaveBeenCalled();
+    expect(events).toMatchObject([{ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_LOCKED" }]);
+  });
+
+  it("treats a repeat of what a locked town already has as a quiet no-op", () => {
+    const { events, replaceTileState, context } = commandFixture([townTile(1, "p1", { pendingFocus: "LEVY", pendingFocusAt: NOW, focusLockedUntil: NOW + 1 })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
+    expect(replaceTileState).not.toHaveBeenCalled();
+    expect(events.map((event) => event.eventType)).toEqual(["COMMAND_RESOLVED"]);
+  });
+
+  it("changes the unlocked towns of a list and skips the locked ones", () => {
+    const { map, context } = commandFixture([townTile(1, "p1", { focusLockedUntil: NOW + 1 }), townTile(2, "p1", { focusLockedUntil: NOW })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }, { x: 2, y: 0 }], focus: "GROWTH" }));
+    expect(map.get("1,0")?.town?.pendingFocus).toBeUndefined();
+    expect(map.get("2,0")?.town?.pendingFocus).toBe("GROWTH");
+  });
+
+  it("skips an ungarrisoned town, which the promotion step would never reach", () => {
+    const { events, context } = commandFixture([{ ...townTile(1, "p1"), ownershipState: "FRONTIER" }]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "GROWTH" }));
+    expect(events).toMatchObject([{ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_INVALID" }]);
   });
 
   it("rejects a malformed payload", () => {
@@ -94,11 +121,27 @@ describe("promoteDueTownFocus", () => {
     return { map, order, deps };
   };
 
-  it("does nothing before the refill", () => {
-    const { map, order, deps } = promotionFixture([townTile(1, "p1", { pendingFocus: "LEVY", pendingFocusAt: NOW + 1 })]);
+  it("does nothing when no town has a pending focus", () => {
+    const { order, deps } = promotionFixture([townTile(1, "p1", { focus: "LEVY" })]);
     expect(promoteDueTownFocus(deps, NOW)).toBe(0);
     expect(order).toEqual([]);
-    expect(map.get("1,0")?.town?.focus).toBeUndefined();
+  });
+
+  // Changes now apply within a minute: one queued for a later refill under the old rule must not wait hours.
+  it("promotes a change queued for a later refill at once", () => {
+    const { map, deps } = promotionFixture([townTile(1, "p1", { pendingFocus: "COMMERCE", pendingFocusAt: NOW + 3 * 60 * 60_000 })]);
+    expect(promoteDueTownFocus(deps, NOW)).toBe(1);
+    expect(map.get("1,0")?.town).toMatchObject({ focus: "COMMERCE" });
+  });
+
+  it("locks a confirmed change: a second pick before the refill is refused and the first applies", () => {
+    const { map, events, context } = commandFixture([townTile(1, "p1")]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "GROWTH" }));
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "COMMERCE" }));
+    expect(events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_LOCKED" });
+    const { deps } = promotionFixture([map.get("1,0")!]);
+    promoteDueTownFocus(deps, NOW);
+    expect(deps.tiles.get("1,0")?.town).toMatchObject({ focus: "GROWTH", focusLockedUntil: nextManpowerRefillAtMs("p1", NOW) });
   });
 
   it("settles the owner at the old rates before making the focus active", () => {

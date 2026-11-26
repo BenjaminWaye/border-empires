@@ -117,7 +117,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 ### Town focus
 
-Each owned town has a focus, chosen for free from its tile menu
+Each owned town has a focus, chosen for free from the town screen or the Towns list
 (`SET_TOWN_FOCUS`, `packages/shared/src/town-focus/town-focus.ts`):
 
 | Focus | Population growth | Manpower regen | Coin |
@@ -131,15 +131,22 @@ Each owned town has a focus, chosen for free from its tile menu
   weight; the manpower cap, the AFC baseline and structure regen are untouched.
   Commerce scales the town's whole Coin, Manufactory and converter shares
   included. Growth multiplies the growth rate and lifts no pause.
-- A change is queued and starts at the owner's next manpower refill
-  (`nextManpowerRefillAtMs`). After each population growth tick the
-  simulation settles the owner's income and manpower at the old rates, then
-  makes the queued focus active (`apps/simulation/src/town-focus/`). Manpower
-  earned under the new focus is first paid at the following refill.
+- Picking a focus only previews it; Confirm sends the change. A confirmed
+  change applies within a minute and locks the town's focus until the
+  owner's next manpower refill (`focusLockedUntil`); the server refuses a
+  change to a locked town (`TOWN_FOCUS_LOCKED`) and skips locked and
+  ungarrisoned towns in a multi-town command. The command stores the change
+  as pending; after the next population growth tick (every 60s) the
+  simulation settles the owner's income and manpower at the old rates, makes
+  it active and rescales the stored growth rate to the new focus
+  (`apps/simulation/src/town-focus/`). A town skipped by that tick (unfed,
+  capture shock, full) has its growth clock restarted, so the new focus is
+  never paid for time before it applied. Manpower earned under a focus banks
+  from when it applies and is paid at the next refill as usual.
 - A town that changes hands by any route starts Balanced with nothing queued
   (`withoutForeignTownFocus`, applied at the tile-write chokepoint).
 - The command takes up to 100 towns, skips towns the sender does not own and
-  writes nothing for a town whose queued focus would not change.
+  writes nothing for a town whose focus would not change.
 - AI Houses do not set a focus yet; they stay Balanced.
 - The focus travels in the town record, so other players' clients receive it.
 

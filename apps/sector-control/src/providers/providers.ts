@@ -65,6 +65,8 @@ export type HostingAlertKind =
   | "contribution_capture_failed"
   | "sector_teardown_failed"
   | "payment_dispute"
+  | "payment_dispute_closed"
+  | "partial_refund"
   | "payment_for_unknown_sector";
 
 /** Tells the owner. Must never throw. */

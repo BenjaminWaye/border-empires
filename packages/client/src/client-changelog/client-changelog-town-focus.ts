@@ -25,3 +25,28 @@ export const TOWN_FOCUS_PANEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "The town's manpower line now reads per refill, and includes its focus"
   ]
 };
+
+export const TOWN_FOCUS_CONFIRM_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.26",
+  title: "Town focus: preview, then confirm",
+  why: "Switching focus did not move the town's Coin per day, growth per minute or time to its next tier, and a tap changed the town before you had compared anything.",
+  changes: [
+    "Tap a focus to preview this town under it; Confirm makes the change",
+    "A confirmed focus stays until your next manpower refill; the card and the Towns list show the lock and when it lifts",
+    "Coin per day, growth per minute and the next-tier time now update as soon as you confirm, on the town screen and in the Towns list",
+    "In the Towns list, tap an icon to preview that row, then ✓ to confirm; Set every town skips locked towns"
+  ]
+};
+
+export const TOWN_FOCUS_LIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.26",
+  title: "Town focus switches at once, and the Towns list can set it",
+  why: "Waiting up to four hours for a focus to start made tweaking feel dead, and changing focus meant opening each town.",
+  changes: [
+    "A new focus takes effect within a minute instead of at your next refill, so the town's figures update as you tweak",
+    "Switching back and forth gains nothing: each focus pays only for the time it is in force, and manpower still arrives at each refill",
+    "The Towns list has a Focus column with Balanced, Growth, Levy and Commerce beside every town, and a MP per refill column",
+    "Set every town sits above the table, shows your current mix, and needs a second tap",
+    "Growth dims on a town whose growth is paused by war or hunger, since that focus would only cost Coin and MP there"
+  ]
+};
