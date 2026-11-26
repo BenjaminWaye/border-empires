@@ -16,7 +16,7 @@ import {
   type StorageLike
 } from "./client-hosted-sector-session.js";
 import { fundingRowHtml, readChipInCents } from "./client-hosted-sector-funding.js";
-import { hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
+import { CHECKOUT_CONSENT, hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorsPanelDeps = {
@@ -125,6 +125,21 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     // Someone typing an amount to chip in.
     (document.activeElement instanceof HTMLInputElement && document.activeElement.matches("[data-hosted-sector-amount]"));
 
+  const CONSENT_BOXES = ["data-hosted-sector-consent-terms", "data-hosted-sector-consent-early-start"] as const;
+
+  /** Which consent boxes are ticked, so a redraw (the automatic refresh) keeps them ticked. */
+  const tickedConsentBoxes = (): string[] =>
+    CONSENT_BOXES.flatMap((attribute) =>
+      Array.from(panel?.querySelectorAll<HTMLInputElement>(`[${attribute}]:checked`) ?? [], (box) => `${attribute}=${box.getAttribute(attribute) ?? ""}`));
+
+  const retickConsentBoxes = (ticked: readonly string[]): void => {
+    for (const entry of ticked) {
+      const [attribute, sectorId] = entry.split("=") as [string, string];
+      const box = panel?.querySelector<HTMLInputElement>(`[${attribute}="${CSS.escape(sectorId)}"]`);
+      if (box) box.checked = true;
+    }
+  };
+
   const showList = async (notice = "", options: { quiet?: boolean } = {}): Promise<void> => {
     if (!deps.isSignedIn()) {
       setBody(`<p>Sign in to see your sectors.</p>`);
@@ -153,6 +168,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     stopRefresh();
     // A bar being funded changes as friends chip in, so it refreshes too.
     if (listed.sectors.some((sector) => sector.state === "creating" || sector.state === "funding")) scheduleRefresh();
+    const ticked = tickedConsentBoxes();
     setBody(`
       ${notice ? `<p class="hosted-sector-notice">${escapeHtml(notice)}</p>` : ""}
       <ul class="hosted-sector-list">${publicSectorRowHtml()}${rows}</ul>
@@ -160,6 +176,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       <div data-hosted-sector-invite-output hidden><input data-hosted-sector-invite-url readonly aria-label="Invite link" /></div>
       ${hostsLiveSector ? "" : `<button type="button" class="panel-btn" data-hosted-sector-host>Host a sector</button>`}
       <p class="hosted-sector-error" data-hosted-sectors-error role="alert" hidden></p>`);
+    retickConsentBoxes(ticked);
   };
 
   const showError = (message: string): void => {
@@ -196,7 +213,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     const fail = (message: string): void => { if (error) { error.textContent = message; error.hidden = false; } };
     const options = readHostSectorForm(form);
     if (!options) {
-      fail("Choose a map and accept the Terms of Sale to continue.");
+      fail("Choose a map and tick both boxes to continue.");
       return;
     }
     if (options.split) {
@@ -208,7 +225,7 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       await showList("Your funding bar is open for 72 hours. Press Invite to get the link for your friends; everyone chips in here.");
       return;
     }
-    const ordered = await deps.api.createOrder({ mapStyle: options.mapStyle, mapSize: options.mapSize });
+    const ordered = await deps.api.createOrder({ mapStyle: options.mapStyle, mapSize: options.mapSize }, CHECKOUT_CONSENT);
     if (!ordered.ok) {
       fail(ordered.message);
       return;
@@ -226,7 +243,12 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       showError("Type an amount in US dollars.");
       return;
     }
-    const pledged = await deps.api.contribute(sectorId, amountCents);
+    const ticked = (attribute: string): boolean => panel?.querySelector<HTMLInputElement>(`[${attribute}="${CSS.escape(sectorId)}"]`)?.checked === true;
+    if (!ticked("data-hosted-sector-consent-terms") || !ticked("data-hosted-sector-consent-early-start")) {
+      showError("Tick both boxes above the buttons to chip in.");
+      return;
+    }
+    const pledged = await deps.api.contribute(sectorId, amountCents, CHECKOUT_CONSENT);
     if (!pledged.ok) {
       showError(pledged.message);
       return;

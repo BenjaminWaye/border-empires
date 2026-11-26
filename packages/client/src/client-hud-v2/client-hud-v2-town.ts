@@ -21,6 +21,9 @@ import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-
 import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
+import { townFocusCardHtml, type TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
+import { townFocusCard, townGrowthEtaPrecise } from "../client-town-focus/client-town-focus.js";
+import { TOWN_FOCUS_MULTIPLIERS } from "@border-empires/shared";
 import { townBiota } from "./client-hud-v2-town-biota.js";
 import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
@@ -64,6 +67,10 @@ export type TownScreenInput = {
   biota?: BiotaTownStatus | undefined;
   /** What to do about a biota shortfall (client-hud-v2-town-biota-steps.ts). */
   biotaSteps?: readonly BiotaStep[];
+  /** The local player, for the Town focus card's refill countdown; the card is left out when absent. */
+  me?: string;
+  /** Empire counts, empire manpower and the pick flash for the Town focus card. */
+  focusExtras?: TownFocusCardExtras;
 };
 
 const esc = (text: string): string =>
@@ -83,6 +90,8 @@ export const townBuildCategories = buildCategories;
 
 const actionFor = (view: TileMenuView, id: TileActionDef["id"]): TileActionDef | undefined =>
   view.actions.find((a) => a.id === id) ?? view.buildings.find((a) => a.id === id);
+
+const ungarrisonedTown = (input: TownScreenInput): boolean => input.garrison !== undefined;
 
 const leftPanelHtml = (input: TownScreenInput): string => {
   const town = input.town.town;
@@ -118,6 +127,9 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   // A large town short of biota gives part of its tier's manpower: show what it gives, and why.
   const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
   const manpower = biotaAdjustedTownManpower(town.populationTier, terrainProfile, coastal, input.biota);
+  // The town's active focus scales its own regen (docs/town-focus-plan.md); the card projects each choice.
+  const focusRegen = manpower.regenPerMinute * TOWN_FOCUS_MULTIPLIERS[town.focus ?? "BALANCED"].manpowerRegen;
+  const focusCard = input.me && !ungarrisonedTown(input) ? townFocusCardHtml(townFocusCard(input.town, input.me, manpower.regenPerMinute), input.focusExtras) : "";
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
   const foodBase = townFoodSlotDemandForTier(town.populationTier);
@@ -130,7 +142,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
         ? { k: "COIN", v: "Not garrisoned", n: "Garrison to start coin", tone: " v2t-warn" }
         : { k: "COIN", v: "Garrisoning…", n: "Starts once garrisoned", tone: "" }
       : { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) || zeroWhy ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: ungarrisoned ? "Starts once garrisoned" : `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: input.garrison === "none" || biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: ungarrisoned ? "Starts once garrisoned" : `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(focusRegen))} per refill`, tone: input.garrison === "none" || biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
@@ -143,8 +155,9 @@ const leftPanelHtml = (input: TownScreenInput): string => {
       <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${esc(character)}</span></span>
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
-    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
+    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.paused ? growth.eta : townGrowthEtaPrecise(town))}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
+    ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
     ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;

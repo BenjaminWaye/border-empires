@@ -11,6 +11,7 @@ import { HOSTED_SECTOR_PRICE_USD_CENTS, type HostedSectorOptions } from "@border
 import type { ContributionRecord, HostingStore, SectorRecord } from "../hosting-store/hosting-store.js";
 import type { HostingAlert, PaymentProvider } from "../providers/providers.js";
 import type { HostingConfig } from "./hosting-config.js";
+import { consentRecord } from "./hosting-consent.js";
 
 export type ContributionEvent = { eventId: string; kind: "held" | "expired" | "refunded" | "disputed"; contributionId: string };
 
@@ -30,7 +31,7 @@ export type FundingView = {
 
 type Fail = { ok: false; code: FundingErrorCode; message: string };
 export type FundingErrorCode = "SALES_CLOSED" | "ACCOUNT_REQUIRED" | "EMAIL_NOT_VERIFIED" | "ALREADY_HOSTING" | "PAYMENT_UNAVAILABLE"
-  | "NOT_FOUND" | "FUNDING_CLOSED" | "BAD_AMOUNT";
+  | "NOT_FOUND" | "FUNDING_CLOSED" | "BAD_AMOUNT" | "CONSENT_REQUIRED" | "TERMS_OUTDATED";
 
 const fail = (code: FundingErrorCode, message: string): Fail => ({ ok: false, code, message });
 
@@ -99,8 +100,11 @@ export const createFundingService = (deps: {
      * and releases the rest. A new pledge replaces the member's own
      * unfinished one.
      */
-    async contribute(account: { uid: string; isGuest: boolean; emailVerified: boolean }, sectorId: string, amountCents: number): Promise<{ ok: true; checkoutUrl: string } | Fail> {
+    async contribute(account: { uid: string; isGuest: boolean; emailVerified: boolean }, sectorId: string, amountCents: number, consent: unknown): Promise<{ ok: true; checkoutUrl: string } | Fail> {
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to chip in.");
+      // Each share is a purchase of its own, with its own consent.
+      const agreed = consentRecord(consent, deps.now());
+      if (!agreed.ok) return fail(agreed.code, agreed.message);
       if (!account.emailVerified) return fail("EMAIL_NOT_VERIFIED", "Verify your email address to chip in.");
       const sector = store.getSector(sectorId);
       if (!sector || !store.getMember(sectorId, account.uid)) return fail("NOT_FOUND", "No such sector.");
@@ -125,7 +129,7 @@ export const createFundingService = (deps: {
         store.transitionContribution(unfinished.contributionId, ["awaiting_payment"], { state: "cancelled" }, now);
       }
       const contributionId = `c-${deps.newId(12)}`;
-      store.insertContribution({ contributionId, sectorId, accountUid: account.uid, amountCents, state: "awaiting_payment", createdAt: now, updatedAt: now });
+      store.insertContribution({ contributionId, sectorId, accountUid: account.uid, amountCents, state: "awaiting_payment", createdAt: now, updatedAt: now, consent: agreed.record });
       try {
         const checkout = await deps.payment.createContributionCheckout({ contributionId, sectorId, accountUid: account.uid, amountCents, currency: sector.currency, options: sector.options, createdAt: now });
         store.transitionContribution(contributionId, ["awaiting_payment"], { paymentRef: checkout.paymentRef, checkoutUrl: checkout.checkoutUrl }, deps.now());
