@@ -12,9 +12,17 @@ import type { Tile } from "../client-types.js";
 export const shownTownFocus = (town: Pick<NonNullable<Tile["town"]>, "focus" | "pendingFocus"> | undefined): TownFocus =>
   town?.pendingFocus ?? town?.focus ?? "BALANCED";
 
-/** Ms left on a town's focus lock; 0 when its focus can change now. */
-export const townFocusLockedInMs = (town: Pick<NonNullable<Tile["town"]>, "focusLockedUntil"> | undefined, nowMs = Date.now()): number =>
-  townFocusLocked(town, nowMs) ? Math.max(0, (town?.focusLockedUntil ?? nowMs) - nowMs) : 0;
+/**
+ * The client keeps a town locked this much past the server's lock time: the two clocks differ, and a confirm the
+ * server still refuses would leave the screen showing a change that never happened.
+ */
+const LOCK_CLOCK_MARGIN_MS = 30_000;
+
+/** Ms left on a town's focus lock, as the client honours it; 0 when its focus can change now. */
+export const townFocusLockedInMs = (town: Pick<NonNullable<Tile["town"]>, "focusLockedUntil"> | undefined, nowMs = Date.now()): number => {
+  const until = town?.focusLockedUntil;
+  return typeof until === "number" && townFocusLocked(town, nowMs - LOCK_CLOCK_MARGIN_MS) ? Math.max(0, until + LOCK_CLOCK_MARGIN_MS - nowMs) : 0;
+};
 
 const scaled = (value: number | undefined, ratio: number): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value * ratio : value;
@@ -39,8 +47,10 @@ export const townTileAtFocus = <T extends Pick<Tile, "town" | "yieldRate">>(tile
     ...(typeof town.goldPerMinute === "number" ? { goldPerMinute: scaled(town.goldPerMinute, coinRatio)! } : {}),
     ...(typeof town.populationGrowthPerMinute === "number" ? { populationGrowthPerMinute: scaled(town.populationGrowthPerMinute, growthRatio)! } : {})
   };
+  // A dock town's yield adds dock income, which focus does not touch: move only the town's own share.
+  const townGold = typeof town.goldPerMinute === "number" && Number.isFinite(town.goldPerMinute) ? town.goldPerMinute : 0;
   const yieldRate = tile.yieldRate && typeof tile.yieldRate.goldPerMinute === "number"
-    ? { ...tile.yieldRate, goldPerMinute: tile.yieldRate.goldPerMinute * coinRatio }
+    ? { ...tile.yieldRate, goldPerMinute: tile.yieldRate.goldPerMinute + townGold * (coinRatio - 1) }
     : tile.yieldRate;
   return { ...tile, town: projected, ...(yieldRate ? { yieldRate } : {}) };
 };

@@ -73,6 +73,13 @@ describe("SET_TOWN_FOCUS", () => {
     expect(events).toMatchObject([{ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_LOCKED" }]);
   });
 
+  it("treats a repeat of what a locked town already has as a quiet no-op", () => {
+    const { events, replaceTileState, context } = commandFixture([townTile(1, "p1", { pendingFocus: "LEVY", pendingFocusAt: NOW, focusLockedUntil: NOW + 1 })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
+    expect(replaceTileState).not.toHaveBeenCalled();
+    expect(events.map((event) => event.eventType)).toEqual(["COMMAND_RESOLVED"]);
+  });
+
   it("changes the unlocked towns of a list and skips the locked ones", () => {
     const { map, context } = commandFixture([townTile(1, "p1", { focusLockedUntil: NOW + 1 }), townTile(2, "p1", { focusLockedUntil: NOW })]);
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }, { x: 2, y: 0 }], focus: "GROWTH" }));

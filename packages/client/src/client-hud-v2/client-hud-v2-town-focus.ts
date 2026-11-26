@@ -150,7 +150,7 @@ const phoneEmpire = (card: TownFocusCard, extras: TownFocusCardExtras): string =
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {
   if (!card) return "";
   return `<div class="v2tf" role="group" aria-label="Town focus">
-      <div class="v2tf-top"><span class="v2tf-h" title="Keys 1–4 preview a focus, Enter confirms; ← and → step to the next town">Town focus</span><span class="v2tf-clock" title="Manpower each focus earns banks from the moment it starts and is paid at each refill.">Next refill <b>${esc(until(card.nextRefillInMs))}</b>${phoneEmpire(card, extras)}</span></div>
+      <div class="v2tf-top"><span class="v2tf-h" title="Keys 1–4 preview a focus; ← and → step to the next town">Town focus</span><span class="v2tf-clock" title="Manpower each focus earns banks from the moment it starts and is paid at each refill.">Next refill <b>${esc(until(card.nextRefillInMs))}</b>${phoneEmpire(card, extras)}</span></div>
       <div class="v2tf-opts">${card.options.map((option) => optionButton(option, card, extras)).join("")}</div>
       <div class="v2tf-details">${card.options.map((option) => detail(option, card, extras)).join("")}</div>
       <div class="v2tf-phone-hint">${card.lockedInMs > 0 || previewed(card, extras) ? confirmHtml(card, extras) : "Tap to preview · Confirm locks until next refill"}</div>

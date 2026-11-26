@@ -15,8 +15,8 @@ const key = (k: string, extra: Partial<KeyboardEvent> = {}) => ({ key: k, target
 describe("town screen keys", () => {
   afterEach(() => { runTownFocusPick.mockClear(); runTownFocusConfirm.mockClear(); stepTown.mockClear(); screen.id = "town"; towns.list = [{}, {}]; });
 
-  // Without a DOM the guard can't see a Confirm button, so Enter is left alone; the DOM case is the button itself.
-  it("leaves Enter alone when no Confirm is on screen", () => {
+  // Review of PR #3003: Enter confirming from anywhere could lock a town until the next refill by accident.
+  it("never confirms a focus on Enter", () => {
     expect(onTownKey(deps, key("Enter"))).toBe(false);
     expect(runTownFocusConfirm).not.toHaveBeenCalled();
   });

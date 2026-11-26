@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
-import { townTileAtFocus } from "./client-town-focus-projection.js";
+import { townFocusLockedInMs, townTileAtFocus } from "./client-town-focus-projection.js";
 
 const tile = (town: Partial<NonNullable<Tile["town"]>>): Pick<Tile, "town" | "yieldRate"> => ({
   town: { goldPerMinute: 0.1, populationGrowthPerMinute: 10, ...town } as NonNullable<Tile["town"]>
@@ -24,8 +24,15 @@ describe("townTileAtFocus", () => {
     expect(townTileAtFocus(settled, "BALANCED").town!.focus).toBeUndefined();
   });
 
-  it("scales a dock town's yield the same way", () => {
-    const dock = { ...tile({ pendingFocus: "COMMERCE", pendingFocusAt: 1 }), yieldRate: { goldPerMinute: 0.5 } };
-    expect(townTileAtFocus(dock).yieldRate!.goldPerMinute).toBeCloseTo(0.6, 9);
+  // Review of PR #3003: a dock town's yield adds dock income, which focus does not scale.
+  it("moves only the town's share of a dock town's yield", () => {
+    const dock = { ...tile({ pendingFocus: "COMMERCE", pendingFocusAt: 1, goldPerMinute: 0.1 }), yieldRate: { goldPerMinute: 0.5 } };
+    expect(townTileAtFocus(dock).yieldRate!.goldPerMinute).toBeCloseTo(0.52, 9);
+  });
+
+  it("keeps a town locked a little past the server's time, so a confirm the server would refuse is never sent", () => {
+    expect(townFocusLockedInMs({ focusLockedUntil: 1_000_000 }, 1_010_000)).toBe(20_000);
+    expect(townFocusLockedInMs({ focusLockedUntil: 1_000_000 }, 1_030_000)).toBe(0);
+    expect(townFocusLockedInMs({}, 0)).toBe(0);
   });
 });

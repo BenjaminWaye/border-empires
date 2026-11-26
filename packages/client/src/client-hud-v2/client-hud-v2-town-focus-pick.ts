@@ -89,7 +89,8 @@ export const pickTownFocusForAll = (deps: HudV2Deps, towns: readonly Tile[], foc
   // undo a capture or any other update that arrived since.
   const changed = towns
     .map((listed) => deps.state.tiles.get(`${listed.x},${listed.y}`))
-    .filter((tile): tile is Tile => Boolean(tile?.town) && tile?.ownerId === me)
+    // Only a garrisoned town takes a focus: the server skips the rest, so marking them here would show a fake change.
+    .filter((tile): tile is Tile => Boolean(tile?.town) && tile?.ownerId === me && tile?.ownershipState === "SETTLED")
     .map((tile) => ({ tile, next: optimisticTownFocus(tile.town!, focus, me, nowMs) }))
     .filter(({ tile, next }) => next !== tile.town)
     .slice(0, TOWN_FOCUS_MAX_TILES_PER_COMMAND);

@@ -13,6 +13,7 @@ import { TownFocusSchema, type TownFocus } from "@border-empires/shared";
 import { shownTownFocus } from "../client-town-focus/client-town-focus.js";
 import { isTownGrowthPaused } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
 
 /** How long "Set every town" waits for its confirming second press. */
 const CONFIRM_ALL_MS = 4_000;
@@ -51,11 +52,16 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean; k
   const previousOrder = options.keepOrder && built?.body === body ? built.order : undefined;
   // The town list is cached for a moment: read each town from live tiles, at its shown focus (or the one previewed
   // on its row), so Coin, MP and growth move the moment a focus is picked or confirmed.
-  const live = towns.map((tile) => {
-    const key = `${tile.x},${tile.y}`;
-    return townTileAtFocus(deps.state.tiles.get(key) ?? tile, selectedTownFocus(key));
+  const shown = towns.map((tile) => townTileAtFocus(deps.state.tiles.get(`${tile.x},${tile.y}`) ?? tile));
+  const live = shown.map((tile) => {
+    const previewing = selectedTownFocus(`${tile.x},${tile.y}`);
+    return previewing ? townTileAtFocus(tile, previewing) : tile;
   });
-  const sorted = sortTownListRows(deriveTownListRows(live, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state), deps.state.manpowerBreakdown.biotaTowns), sort);
+  const derive = (tiles: Tile[]): TownListRow[] =>
+    deriveTownListRows(tiles, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state), deps.state.manpowerBreakdown.biotaTowns);
+  // Sort on the towns as they stand, and show the preview in place: a previewed row must not jump away from its ✓.
+  const rowByKey = new Map(derive(live).map((row) => [`${row.x},${row.y}`, row]));
+  const sorted = sortTownListRows(derive(shown), sort).map((row) => rowByKey.get(`${row.x},${row.y}`) ?? row);
   const rank = new Map(previousOrder?.map((key, index) => [key, index]));
   const rows = previousOrder ? [...sorted].sort((a, b) => (rank.get(`${a.x},${a.y}`) ?? Infinity) - (rank.get(`${b.x},${b.y}`) ?? Infinity)) : sorted;
   built = { towns, sort, body, order: rows.map((row) => `${row.x},${row.y}`) };

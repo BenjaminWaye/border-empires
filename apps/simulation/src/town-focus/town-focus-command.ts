@@ -49,12 +49,13 @@ export const handleSetTownFocusCommand = (context: TownFocusCommandContext, comm
     // Only a garrisoned town takes a focus: the promotion step walks settled towns.
     if (!tile?.town || tile.ownerId !== command.playerId || tile.ownershipState !== "SETTLED") continue;
     ownedTowns += 1;
+    const queued = queueTownFocus(tile.town, parsed.data.focus, effectiveAt);
+    // Asking for what the town already has (a repeat after a reconnect, a second tab) is a quiet no-op, locked or not.
+    if (queued === tile.town) continue;
     if (townFocusLocked(tile.town, effectiveAt)) {
       lockedTowns += 1;
       continue;
     }
-    const queued = queueTownFocus(tile.town, parsed.data.focus, effectiveAt);
-    if (queued === tile.town) continue;
     const next: DomainTileState = { ...tile, town: { ...queued, focusLockedUntil: lockedUntil } };
     context.replaceTileState(tileKey, next, command.commandId);
     written.push(next);

@@ -166,5 +166,17 @@ describe("HUD v2 Towns screen", () => {
     expect(document.querySelector('[data-v2-towns-focus="5,5"]')).toBeNull();
     expect(document.querySelector('[data-v2-towns-focus="20,5"]')).not.toBeNull();
   });
+
+  // Playtest 2026-11-26: after a focus switch the town's Coin/day stayed at the old focus, because the server's
+  // figure trails the change by up to a minute.
+  it("shows a town's Coin/day at its newly confirmed focus before the server catches up", () => {
+    const { deps, state } = setup();
+    state.tiles.set("5,5", town(5, "Alder", 1, { town: { ...town(5, "Alder", 1).town!, pendingFocus: "COMMERCE", pendingFocusAt: 0 } }));
+    forgetMyTowns();
+    closeScreen(deps, { toMap: true });
+    openScreen(deps, "towns");
+    const coin = document.querySelector('[data-v2-towns-open="5,5"]')!.querySelectorAll(".v2l-num")[0]!.textContent;
+    expect(coin).toBe((1 * 1.2 * 1440).toFixed(1));
+  });
 });
 

@@ -1,9 +1,9 @@
-// Town screen keys (docs/town-focus-plan.md): 1–4 preview Balanced, Growth, Levy or Commerce on the open town,
-// Enter confirms the previewed focus,
+// Town screen keys (docs/town-focus-plan.md): 1–4 preview Balanced, Growth, Levy or Commerce on the open town
+// (Confirm stays a deliberate press: a stray Enter must not lock a town until the next refill),
 // and ← / → step to the previous or next town, so tuning many towns needs no mouse travel.
 import { TOWN_FOCUSES } from "@border-empires/shared";
 import { screen, type HudV2Deps } from "./client-hud-v2-context.js";
-import { myTowns, runTownFocusConfirm, runTownFocusPick, stepTown } from "./client-hud-v2-town-runtime.js";
+import { myTowns, runTownFocusPick, stepTown } from "./client-hud-v2-town-runtime.js";
 
 const typing = (target: EventTarget | null): boolean =>
   typeof HTMLElement !== "undefined" && target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
@@ -22,11 +22,6 @@ export const onTownKey = (deps: HudV2Deps, event: Pick<KeyboardEvent, "key" | "t
   if (focus) {
     if (!focusCardShown()) return false;
     runTownFocusPick(deps, focus);
-    return true;
-  }
-  // Only while a Confirm button is on screen, so Enter keeps its usual meaning everywhere else.
-  if (event.key === "Enter" && typeof document !== "undefined" && document.querySelector("#v2t-left [data-v2-town-focus-confirm]")) {
-    runTownFocusConfirm(deps);
     return true;
   }
   if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && myTowns(deps).length > 1) {

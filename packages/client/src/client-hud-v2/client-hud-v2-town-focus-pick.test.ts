@@ -42,6 +42,14 @@ describe("town focus picks", () => {
     expect(selectedTownFocus("1,0")).toBeUndefined();
   });
 
+  it("All towns skips ungarrisoned towns, which the server would not change", () => {
+    const listed = [townAt(1), { ...townAt(2), ownershipState: "FRONTIER" as const }];
+    const { state, sendGameMessage, deps } = setup(listed);
+    expect(pickTownFocusForAll(deps, listed, "GROWTH", NOW)).toBe(1);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 1, y: 0 }], focus: "GROWTH" });
+    expect(state.tiles.get("2,0")?.town?.pendingFocus).toBeUndefined();
+  });
+
   it("All towns skips locked towns", () => {
     const listed = [townAt(1), townAt(2, { focusLockedUntil: NOW + 1 })];
     const { sendGameMessage, deps } = setup(listed);
