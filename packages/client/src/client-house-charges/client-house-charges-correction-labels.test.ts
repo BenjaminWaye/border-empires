@@ -43,3 +43,18 @@ describe("Three Metropolises text", () => {
     expect(houseChargeLetter({ ...seats, kind: "SURVEY" })).toContain("Aldmoor");
   });
 });
+
+describe("Desert/Tundra progress", () => {
+  // Playtest 2026-11-26: "62 of 81 tiles garrisoned" read as 76.5% of the region, so "Not held"
+  // looked wrong. 81 was the 75% target of a 108-tile region; the label must show both.
+  const waste: HouseChargeView = { ...base, id: "DESERT:r1", kind: "DESERT", title: "Thramvault Waste", targets: [{ key: "region:r1", name: "Thramvault Waste", x: 4, y: 4 }], areaTiles: 108, size: 62 };
+
+  it("shows the region's size and the tiles needed, not the target as a total", () => {
+    expect(houseChargeProgress(waste)).toBe("62 of 108 tiles garrisoned · 81 needed");
+  });
+
+  it("drops the totals when the region size is unknown", () => {
+    const { areaTiles: _areaTiles, ...unsized } = waste;
+    expect(houseChargeProgress(unsized)).toBe("62 tiles garrisoned");
+  });
+});
