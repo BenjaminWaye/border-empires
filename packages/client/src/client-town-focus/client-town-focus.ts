@@ -90,8 +90,8 @@ const tradeLines = (option: TownFocusOption, tierLabel: string | undefined): { t
   const join = (parts: string[]): string => parts.filter(Boolean).join(" · ");
   if (option.focus === "LEVY") return { tradeLine: mp, costLine: join([coin, growth]) };
   if (option.focus === "COMMERCE") return { tradeLine: coin, costLine: join([mp, growth]) };
-  if (option.focus === "GROWTH") return { tradeLine: growth || "Growth +20%", costLine: join([mp, coin]) };
-  return { tradeLine: "No bonus", costLine: "No cost" };
+  if (option.focus === "GROWTH") return { tradeLine: growth || "Growth ↑", costLine: join([mp, coin]) };
+  return { tradeLine: "Base", costLine: "No cost" };
 };
 
 /**

@@ -27,14 +27,14 @@ describe("Town focus card (town screen)", () => {
     expect(html).toContain(">Next<");
     expect(html).toContain("Levy next");
     expect(html).toContain("v2tf-detail-levy v2tf-detail-default");
-    expect(html).toContain("Tap Balanced to cancel.");
+    expect(html).toContain("Pick Balanced to cancel.");
   });
 
   it("offers All towns only when some town would change, and asks again before applying", () => {
     const counts = { BALANCED: 2, GROWTH: 0, LEVY: 1, COMMERCE: 0 };
     expect(townFocusCardHtml(card(), { counts })).toContain("All towns → Balanced");
-    expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Tap again: 1 town → Balanced");
+    expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Again to confirm: 1 town → Balanced");
     expect(townFocusCardHtml(card(), { counts: { BALANCED: 3, GROWTH: 0, LEVY: 0, COMMERCE: 0 } })).not.toContain("data-v2-town-focus-all");
-    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("Empire +24 MP/refill");
+    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns +24 MP/refill vs Balanced");
   });
 });
