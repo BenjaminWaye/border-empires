@@ -83,7 +83,7 @@ export const renderChronicle = (deps: HudV2Deps): void => {
     return;
   }
   const body = tab === "world"
-    ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError })
+    ? worldTabHtml({ pulse: dash.worldPulse, loading: dash.worldPulseLoading, error: dash.worldPulseError, standings: { overall: state.leaderboard.overall, me: state.me } })
     : updatesTabHtml(screen.chronicleUpdatesBaseline ?? state.changelog.seenAt, screen.chronicleOpenUpdate);
   writeHtml("v2c-drawer", `${chronicleHeadHtml(tabs)}${body}`);
   if (tab === "updates" && unseenClientChangelogEntries(state.changelog.seenAt).length > 0) {

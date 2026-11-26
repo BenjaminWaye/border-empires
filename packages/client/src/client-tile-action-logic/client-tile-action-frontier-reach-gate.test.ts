@@ -72,9 +72,7 @@ const stateWithTownAndFrontierTile = (frontierX: number, frontierY: number): {
     ownershipState: "SETTLED",
     town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
   } as Tile);
-  // Settle Land/Settle Connected are hidden until the player has an established
-  // economy (a settled town + a settled grain tile) -- give this fixture a
-  // settled FARM tile too, so these reach-gate assertions can still see the row.
+  // A settled FARM tile too, so the fixture matches a typical established empire.
   state.tiles.set(keyFor(0, 1), {
     x: 0,
     y: 1,

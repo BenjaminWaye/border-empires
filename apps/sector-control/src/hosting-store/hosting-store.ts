@@ -23,6 +23,12 @@ export type SectorState = (typeof SECTOR_STATES)[number];
  */
 export const LIVE_SECTOR_STATES: readonly SectorState[] = ["awaiting_payment", "funding", "creating", "open"];
 
+/**
+ * What a buyer agreed to before paying, kept as proof (docs/legal-drafts/README.md,
+ * item 3): when, which version of the Terms of Sale, and the exact wording ticked.
+ */
+export type ConsentRecord = { at: number; termsVersion: string; text: string };
+
 export type SectorRecord = {
   sectorId: string;
   hostUid: string;
@@ -47,6 +53,8 @@ export type SectorRecord = {
   createAttempts: number;
   nextAttemptAt?: number;
   lastError?: string;
+  /** The host's consent when ordering in full. A split-funded sector keeps one per share instead. */
+  consent?: ConsentRecord;
 };
 
 /**
@@ -68,6 +76,8 @@ export type ContributionRecord = {
   checkoutUrl?: string;
   createdAt: number;
   updatedAt: number;
+  /** The contributor's consent for this share. */
+  consent?: ConsentRecord;
 };
 
 /** `amountCents` changes only when a share is partly captured: it is then what was charged. */
@@ -130,6 +140,15 @@ export interface HostingStore {
   /** Applies `patch` only if the contribution is still in one of `fromStates`; false otherwise. */
   transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean;
   listContributions(sectorId: string): ContributionRecord[];
+
+  /**
+   * Payment disputes (chargebacks), by the account that paid. While one is
+   * open the account cannot buy again (Terms of Sale section 9, plan Q2).
+   * Recording the same dispute twice changes nothing.
+   */
+  openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean;
+  closeDispute(disputeId: string, closedAt: number): boolean;
+  hasOpenDispute(accountUid: string): boolean;
 
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;

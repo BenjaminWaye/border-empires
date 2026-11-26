@@ -125,3 +125,20 @@ describe("Diplomacy deal header", () => {
     expect(dealSkeletonHtml("Empire")).not.toContain("data-hud-v2-profile");
   });
 });
+
+// Playtest 2026-11-26: an offer read "Truce 12h" and the truce ended about 2h after it was accepted. A new
+// truce runs from its offer (gateway offeredTruceEndsAt), so the row shows the time it has left.
+describe("phone Diplomacy list: incoming truce offers", () => {
+  const hour = 3_600_000;
+  it("shows a new truce's time left, not the hours offered", () => {
+    const truce: TruceRequest = { id: "t1", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0, expiresAt: 12 * hour, durationHours: 12 };
+    const html = diplomacyListHtml(input({ incomingTruce: [truce], nowMs: 10 * hour }));
+    expect(html).toContain("Truce · 2h left");
+    expect(html).not.toContain("12h");
+  });
+
+  it("keeps an extension's hours, which add to the running truce", () => {
+    const truce: TruceRequest = { id: "t2", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0, expiresAt: 168 * hour, durationHours: 24, extendsTruce: true };
+    expect(diplomacyListHtml(input({ incomingTruce: [truce], nowMs: 10 * hour }))).toContain("Extend truce 24h");
+  });
+});

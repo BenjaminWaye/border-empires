@@ -19,6 +19,7 @@ remain authoritative for runtime behavior.
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Hetzner/Vercel | [`agents/deploys.md`](agents/deploys.md) |
 | Android/iOS wrappers, signing and store readiness | [`agents/mobile-apps.md`](agents/mobile-apps.md) |
+| Apple/Google rules on web purchases used in the apps | [`app-store-purchase-rules.md`](app-store-purchase-rules.md) |
 | Account deletion, data erasure and backup restoration | [`agents/account-deletion.md`](agents/account-deletion.md) |
 | Account cosmetics: rules, catalogue, ownership, granting, wire cost | [`cosmetics.md`](cosmetics.md) |
 | Fly → Hetzner migration plan (historical) | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
@@ -51,7 +52,7 @@ remain authoritative for runtime behavior.
 | Hosted sectors: tax setup for TIDN AB (proposal, needs the accountant) | [`hosted-sectors-tax.md`](hosted-sectors-tax.md) |
 | Hosted sectors: draft Terms of Sale and privacy policy for TIDN AB (drafts, not published) | [`legal-drafts/README.md`](legal-drafts/README.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
-| Town focus: free per-town shift between growth, manpower and Coin, applied at the next refill (proposal) | [`town-focus-plan.md`](town-focus-plan.md) |
+| Town focus: free per-town shift between growth, manpower and Coin, applied within a minute | [`town-focus-plan.md`](town-focus-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |

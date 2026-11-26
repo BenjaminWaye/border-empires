@@ -35,6 +35,8 @@ describe("Stripe shares of a split-funded sector", () => {
       success_url: "https://play.borderempires.com/?hosted=pledged&sector=s-abc"
     });
     expect(call?.params["custom_text[submit][message]"]).toMatch(/only held/);
+    // A share is a purchase of its own: the same early-start terms are stated before paying.
+    expect(call?.params["custom_text[submit][message]"]).toMatch(/lose the right to withdraw once its Sector Contest has ended/);
   });
 
   it("reports what happened to a share's money: held, captured, released, or a checkout open or expired", async () => {
@@ -115,8 +117,9 @@ describe("Stripe webhook: shares", () => {
       "/payment_intents/pi_share": { status: "succeeded", metadata: { sectorId: "s-abc", contributionId: "c-1" } },
       "/payment_intents/pi_whole": { status: "succeeded", metadata: { sectorId: "s-xyz" } }
     });
-    expect(await parse("charge.refunded", { payment_intent: "pi_share" })).toMatchObject({ kind: "refunded", contributionId: "c-1" });
-    expect(await parse("charge.dispute.created", { payment_intent: "pi_share" })).toMatchObject({ kind: "disputed", contributionId: "c-1" });
+    expect(await parse("charge.refunded", { payment_intent: "pi_share", refunded: true })).toMatchObject({ kind: "refunded", contributionId: "c-1", fullRefund: true });
+    expect(await parse("charge.refunded", { payment_intent: "pi_share", amount: 700, amount_refunded: 200, refunded: false })).toMatchObject({ kind: "refunded", contributionId: "c-1", fullRefund: false });
+    expect(await parse("charge.dispute.created", { id: "dp_2", payment_intent: "pi_share" })).toMatchObject({ kind: "disputed", contributionId: "c-1", disputeId: "dp_2" });
     expect(await parse("charge.refunded", { payment_intent: "pi_whole" })).toMatchObject({ kind: "refunded", sectorId: "s-xyz" });
   });
 });

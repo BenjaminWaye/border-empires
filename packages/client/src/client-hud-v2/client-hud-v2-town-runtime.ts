@@ -22,6 +22,9 @@ import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-g
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
+import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
+import type { TownFocus } from "@border-empires/shared";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -107,7 +110,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   const townKey = current.townKey;
   const biota = deps.state.manpowerBreakdown.biotaTowns?.find((entry) => entry.tileKey === townKey);
   const regions = townScreenRegions({
-    town,
+    // At its shown focus: Coin/day, growth per minute and the next-tier time move as soon as a focus is confirmed.
+    town: townTileAtFocus(town),
     focus,
     townView,
     focusView: current.focusView,
@@ -123,6 +127,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
     biota,
+    ...(deps.state.me ? { me: deps.state.me, focusExtras: townFocusExtras(deps.state, towns, townKey) } : {}),
     ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
@@ -130,6 +135,32 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
   watchTownBarHeight(document.getElementById("v2t-bar"));
+};
+
+/** A Town focus press: previews `focus` on the open town (Confirm switches), or with `allTowns` sets every town. */
+export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
+  if (!current) return;
+  // "All towns" asks for a second press before it changes every town; the first press only redraws the button.
+  if (allTowns && !confirmTownFocusForAll(current.townKey, focus)) {
+    renderTownScreen(deps);
+    return;
+  }
+  // A confirmed "All towns" always redraws, so its button leaves the "again to confirm" state even if nothing changed.
+  if (allTowns) {
+    pickTownFocusForAll(deps, myTowns(deps), focus);
+    renderTownScreen(deps);
+  } else {
+    selectTownFocus(deps, current.townKey, focus);
+    renderTownScreen(deps);
+  }
+};
+
+/** Confirm on the open town: switches to the previewed focus, which then locks until the next refill. */
+export const runTownFocusConfirm = (deps: HudV2Deps): void => {
+  if (!current) return;
+  const focus = selectedTownFocus(current.townKey);
+  if (focus) pickTownFocus(deps, current.townKey, focus);
+  renderTownScreen(deps);
 };
 
 /**

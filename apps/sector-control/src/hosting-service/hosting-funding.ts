@@ -11,8 +11,13 @@ import { HOSTED_SECTOR_PRICE_USD_CENTS, type HostedSectorOptions } from "@border
 import type { ContributionRecord, HostingStore, SectorRecord } from "../hosting-store/hosting-store.js";
 import type { HostingAlert, PaymentProvider } from "../providers/providers.js";
 import type { HostingConfig } from "./hosting-config.js";
+import { consentRecord } from "./hosting-consent.js";
+import { PURCHASES_PAUSED_MESSAGE } from "./hosting-disputes.js";
 
-export type ContributionEvent = { eventId: string; kind: "held" | "expired" | "refunded" | "disputed"; contributionId: string };
+export type ContributionEvent =
+  | { eventId: string; kind: "held" | "expired"; contributionId: string }
+  | { eventId: string; kind: "refunded"; contributionId: string; fullRefund: boolean }
+  | { eventId: string; kind: "disputed" | "dispute_closed"; contributionId: string; disputeId: string };
 
 export type FundingView = {
   targetCents: number;
@@ -30,7 +35,7 @@ export type FundingView = {
 
 type Fail = { ok: false; code: FundingErrorCode; message: string };
 export type FundingErrorCode = "SALES_CLOSED" | "ACCOUNT_REQUIRED" | "EMAIL_NOT_VERIFIED" | "ALREADY_HOSTING" | "PAYMENT_UNAVAILABLE"
-  | "NOT_FOUND" | "FUNDING_CLOSED" | "BAD_AMOUNT";
+  | "NOT_FOUND" | "FUNDING_CLOSED" | "BAD_AMOUNT" | "CONSENT_REQUIRED" | "TERMS_OUTDATED" | "PURCHASES_PAUSED";
 
 const fail = (code: FundingErrorCode, message: string): Fail => ({ ok: false, code, message });
 
@@ -76,6 +81,7 @@ export const createFundingService = (deps: {
       if (!config.salesEnabled) return fail("SALES_CLOSED", "Hosting is not on sale right now.");
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to host a sector.");
       if (!account.emailVerified) return fail("EMAIL_NOT_VERIFIED", "Verify your email address to host a sector.");
+      if (store.hasOpenDispute(account.uid)) return fail("PURCHASES_PAUSED", PURCHASES_PAUSED_MESSAGE);
       // One open bar or live sector per account (plan section 12, rule 5).
       if (store.liveSectorForHost(account.uid)) return fail("ALREADY_HOSTING", "You already have a hosted sector running or being funded.");
       const now = deps.now();
@@ -99,8 +105,12 @@ export const createFundingService = (deps: {
      * and releases the rest. A new pledge replaces the member's own
      * unfinished one.
      */
-    async contribute(account: { uid: string; isGuest: boolean; emailVerified: boolean }, sectorId: string, amountCents: number): Promise<{ ok: true; checkoutUrl: string } | Fail> {
+    async contribute(account: { uid: string; isGuest: boolean; emailVerified: boolean }, sectorId: string, amountCents: number, consent: unknown): Promise<{ ok: true; checkoutUrl: string } | Fail> {
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to chip in.");
+      if (store.hasOpenDispute(account.uid)) return fail("PURCHASES_PAUSED", PURCHASES_PAUSED_MESSAGE);
+      // Each share is a purchase of its own, with its own consent.
+      const agreed = consentRecord(consent, deps.now());
+      if (!agreed.ok) return fail(agreed.code, agreed.message);
       if (!account.emailVerified) return fail("EMAIL_NOT_VERIFIED", "Verify your email address to chip in.");
       const sector = store.getSector(sectorId);
       if (!sector || !store.getMember(sectorId, account.uid)) return fail("NOT_FOUND", "No such sector.");
@@ -125,7 +135,7 @@ export const createFundingService = (deps: {
         store.transitionContribution(unfinished.contributionId, ["awaiting_payment"], { state: "cancelled" }, now);
       }
       const contributionId = `c-${deps.newId(12)}`;
-      store.insertContribution({ contributionId, sectorId, accountUid: account.uid, amountCents, state: "awaiting_payment", createdAt: now, updatedAt: now });
+      store.insertContribution({ contributionId, sectorId, accountUid: account.uid, amountCents, state: "awaiting_payment", createdAt: now, updatedAt: now, consent: agreed.record });
       try {
         const checkout = await deps.payment.createContributionCheckout({ contributionId, sectorId, accountUid: account.uid, amountCents, currency: sector.currency, options: sector.options, createdAt: now });
         store.transitionContribution(contributionId, ["awaiting_payment"], { paymentRef: checkout.paymentRef, checkoutUrl: checkout.checkoutUrl }, deps.now());
@@ -156,6 +166,11 @@ export const createFundingService = (deps: {
         return { applied: store.transitionContribution(contribution.contributionId, ["awaiting_payment", "cancelled", "held"], { state: "released" }, now) };
       }
       if (event.kind === "expired") return { applied: store.transitionContribution(contribution.contributionId, ["awaiting_payment"], { state: "cancelled" }, now) };
+      if (event.kind === "refunded" && !event.fullRefund) {
+        // A part of one share given back: the share still counts, and the sector keeps running.
+        deps.alert("partial_refund", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
+        return { applied: false };
+      }
       if (event.kind === "refunded") {
         // One person's withdrawal or refund. The sector keeps running for everyone else; the owner is told.
         const applied = store.transitionContribution(contribution.contributionId, ["captured"], { state: "refunded" }, now);
@@ -165,7 +180,15 @@ export const createFundingService = (deps: {
         if (applied && !serviceRefund) deps.alert("contribution_refunded", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
         return { applied };
       }
-      deps.alert("payment_dispute", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
+      if (event.kind === "dispute_closed") {
+        deps.alert("payment_dispute_closed", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
+        return { applied: store.closeDispute(event.disputeId, now) };
+      }
+      if (event.kind === "disputed") {
+        // The contributor cannot buy again until the dispute is closed; the sector keeps running for the others.
+        deps.alert("payment_dispute", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
+        return { applied: store.openDispute({ disputeId: event.disputeId, accountUid: contribution.accountUid, sectorId: contribution.sectorId, openedAt: now }) };
+      }
       return { applied: false };
     }
   };

@@ -58,4 +58,23 @@ describe("GLOBAL_STATUS_UPDATE payload", () => {
     // The refreshed leaderboard is also written back to the summary new logins read.
     expect(currentSummary().leaderboard.overall.map((entry) => entry.id)).toEqual(["p1"]);
   });
+
+  // Playtest 2026-11-26: Ranks still read "3/200 towns" after a 4th town was taken; the label came from the
+  // ~5-minute world scan. Each broadcast now counts towns from the runtime.
+  it("labels Town Control with the player's live town count", async () => {
+    const { deps, written, currentSummary } = setup([
+      { id: "p1", name: "Waypoint", points: 10, settledTileCount: 30, techIds: [], townCount: 4 } as LeaderboardPlayer,
+      { id: "lead", name: "Leader", points: 10, settledTileCount: 90, techIds: [], townCount: 12 } as LeaderboardPlayer
+    ]);
+    const townControl = { id: "TOWN_CONTROL", name: "Town Control", description: "", leaderPlayerId: "lead", leaderName: "Leader", progressLabel: "11/200 towns", thresholdLabel: "Need 200 towns", holdDurationSeconds: 0, statusLabel: "", conditionMet: false, progress: 11 / 200 };
+    Object.assign(currentSummary(), { seasonVictory: [townControl] });
+    const scanned = new Map([["p1", new Map([["TOWN_CONTROL", "3/200 towns"]])]]);
+    (deps as { getSelfProgress: () => unknown }).getSelfProgress = () => ({ labels: scanned, values: new Map(), townTarget: 200 });
+    await createGlobalStatusBroadcastPayload(deps).perform("cmd-towns");
+    const payload = JSON.parse(written[0]!.payload_json ?? "{}") as { seasonVictory?: Array<{ id: string; selfProgressLabel?: string; selfProgress?: number; progressLabel?: string }> };
+    const objective = payload.seasonVictory?.find((o) => o.id === "TOWN_CONTROL");
+    expect(objective?.selfProgressLabel).toBe("4/200 towns");
+    expect(objective?.selfProgress).toBe(4 / 200);
+    expect(objective?.progressLabel).toBe("12/200 towns");
+  });
 });

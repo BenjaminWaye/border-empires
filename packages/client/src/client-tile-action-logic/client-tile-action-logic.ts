@@ -1331,8 +1331,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         )
       });
     }
-    // Settle Land / Settle Connected are pushed last (bottom of the actions list) and hidden
-    // until the player has an established economy -- see client-tile-action-settle-visibility.ts.
+    // Garrison / Garrison Many are pushed last (bottom of the actions list) -- see client-tile-action-settle-visibility.ts.
     out.push(...settleActionsForFrontierTile(state, tile, deps, queuedSettlement));
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());

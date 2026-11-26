@@ -7,6 +7,8 @@ import type { HostingStore, SectorInvite, SectorRecord, SectorState } from "../h
 import type { HostingAlert, PaymentProvider } from "../providers/providers.js";
 import type { SectorTicketSigner } from "../sector-ticket/sector-ticket-signer.js";
 import type { HostingConfig } from "./hosting-config.js";
+import { consentRecord } from "./hosting-consent.js";
+import { PURCHASES_PAUSED_MESSAGE } from "./hosting-disputes.js";
 import { createFundingService, type ContributionEvent, type FundingErrorCode, type FundingView } from "./hosting-funding.js";
 
 /** The signed-in caller, as verified from their Firebase ID token. */
@@ -37,8 +39,15 @@ export type SectorView = {
   funding?: FundingView;
 };
 
-/** `paymentRef` is the provider's reference for the payment, when the event carries one. */
-export type PaymentEvent = { eventId: string; kind: "paid" | "expired" | "refunded" | "disputed"; sectorId: string; paymentRef?: string };
+/**
+ * `paymentRef` is the provider's reference for the payment, when the event
+ * carries one. A refund says whether it returned the whole payment; a dispute
+ * (chargeback) carries the provider's dispute id, so its closing can be matched.
+ */
+export type PaymentEvent =
+  | { eventId: string; kind: "paid" | "expired"; sectorId: string; paymentRef?: string }
+  | { eventId: string; kind: "refunded"; sectorId: string; fullRefund: boolean }
+  | { eventId: string; kind: "disputed" | "dispute_closed"; sectorId: string; disputeId: string };
 /** Everything the payment webhook can report: about a whole sector, or about one share of a split-funded one. */
 export type HostingPaymentEvent = PaymentEvent | ContributionEvent;
 
@@ -89,7 +98,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
   };
 
   const refundClosedOrder = async (sector: SectorRecord, event: PaymentEvent): Promise<void> => {
-    const paymentRef = event.paymentRef ?? sector.paymentRef;
+    const paymentRef = ("paymentRef" in event ? event.paymentRef : undefined) ?? sector.paymentRef;
     try {
       if (!paymentRef) throw new Error("no payment reference to refund");
       await deps.payment.refund(paymentRef);
@@ -102,10 +111,14 @@ export const createHostingService = (deps: HostingServiceDeps) => {
   };
 
   return {
-    async createOrder(account: HostingAccount, options: HostedSectorOptions): Promise<HostingResult<{ sector: SectorView }>> {
+    /** `consent` is what the order form sent; nothing is sold without both boxes ticked. */
+    async createOrder(account: HostingAccount, options: HostedSectorOptions, consent: unknown): Promise<HostingResult<{ sector: SectorView }>> {
       if (!config.salesEnabled) return fail("SALES_CLOSED", "Hosting is not on sale right now.");
       if (account.isGuest) return fail("ACCOUNT_REQUIRED", "Sign in with an account to host a sector.");
       if (!account.emailVerified) return fail("EMAIL_NOT_VERIFIED", "Verify your email address to host a sector.");
+      if (store.hasOpenDispute(account.uid)) return fail("PURCHASES_PAUSED", PURCHASES_PAUSED_MESSAGE);
+      const agreed = consentRecord(consent, deps.now());
+      if (!agreed.ok) return fail(agreed.code, agreed.message);
       const existing = store.liveSectorForHost(account.uid);
       // A second press of Buy gets the same order and the same checkout back.
       if (existing?.state === "awaiting_payment" && existing.checkoutUrl) return { ok: true, sector: view(existing, "host", account.uid) };
@@ -115,7 +128,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       const sectorId = `s-${deps.newId(10)}`;
       store.insertSector({
         sectorId, hostUid: account.uid, options, state: "awaiting_payment",
-        amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd", createdAt: now, updatedAt: now, createAttempts: 0
+        amountCents: HOSTED_SECTOR_PRICE_USD_CENTS, currency: "usd", createdAt: now, updatedAt: now, createAttempts: 0, consent: agreed.record
       });
       // The host is a member from the start, so the invite link can go out while they pay.
       store.addMember({ sectorId, accountUid: account.uid, role: "host", joinedAt: now });
@@ -169,11 +182,20 @@ export const createHostingService = (deps: HostingServiceDeps) => {
         if (!applied && sector.state === "cancelled") await refundClosedOrder(sector, event);
       } else if (event.kind === "expired") {
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "cancelled" }, now);
+      } else if (event.kind === "refunded" && !event.fullRefund) {
+        // A part of the price given back (goodwill for an outage, Terms of Sale
+        // section 8): the sector keeps running for every member.
+        deps.alert("partial_refund", { sectorId: sector.sectorId, state: sector.state });
       } else if (event.kind === "refunded") {
-        // The reconciler deletes the server of a refunded sector, if one exists.
+        // The whole price given back. The reconciler deletes the server of a refunded sector, if one exists.
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment", "creating", "open", "ended"], { state: "refunded" }, now);
-      } else {
+      } else if (event.kind === "disputed") {
+        // The account that paid cannot buy again until the dispute is closed. What happens to the sector is the owner's call.
+        applied = store.openDispute({ disputeId: event.disputeId, accountUid: sector.hostUid, sectorId: sector.sectorId, openedAt: now });
         deps.alert("payment_dispute", { sectorId: sector.sectorId, state: sector.state });
+      } else if (event.kind === "dispute_closed") {
+        applied = store.closeDispute(event.disputeId, now);
+        deps.alert("payment_dispute_closed", { sectorId: sector.sectorId });
       }
       store.recordPaymentEvent(event.eventId, now);
       return { applied };
