@@ -59,11 +59,17 @@
 .v2tf-details { margin: 6px 8px 0; border: 1px solid var(--v2-line); background: var(--v2-ink-solid); }
 .v2tf-detail { display: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 6px; padding: 6px 8px 5px; }
 .v2tf-detail-default { display: grid; }
-.v2tf:has(.v2tf-opt:hover) .v2tf-detail-default { display: none; }
+/* Keyboard focus previews like the pointer does. */
+.v2tf:has(.v2tf-opt:hover) .v2tf-detail-default,
+.v2tf:has(.v2tf-opt:focus-visible) .v2tf-detail-default { display: none; }
 .v2tf:has(.v2tf-f-balanced.v2tf-opt:hover) .v2tf-detail-balanced,
 .v2tf:has(.v2tf-f-growth.v2tf-opt:hover) .v2tf-detail-growth,
 .v2tf:has(.v2tf-f-levy.v2tf-opt:hover) .v2tf-detail-levy,
-.v2tf:has(.v2tf-f-commerce.v2tf-opt:hover) .v2tf-detail-commerce { display: grid; }
+.v2tf:has(.v2tf-f-commerce.v2tf-opt:hover) .v2tf-detail-commerce,
+.v2tf:has(.v2tf-f-balanced.v2tf-opt:focus-visible) .v2tf-detail-balanced,
+.v2tf:has(.v2tf-f-growth.v2tf-opt:focus-visible) .v2tf-detail-growth,
+.v2tf:has(.v2tf-f-levy.v2tf-opt:focus-visible) .v2tf-detail-levy,
+.v2tf:has(.v2tf-f-commerce.v2tf-opt:focus-visible) .v2tf-detail-commerce { display: grid; }
 .v2tf-detail-h { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; min-width: 0; margin-bottom: 3px; }
 .v2tf-detail-name { font-family: var(--v2-display); font-size: 12px; font-weight: 700; color: var(--v2tf-accent); }
 .v2tf-preview { display: none; padding: 0 4px; font-family: var(--v2-mono); font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--v2-muted); border: 1px solid var(--v2-line); }

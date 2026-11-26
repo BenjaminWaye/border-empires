@@ -173,6 +173,13 @@ describe("town screen", () => {
     expect(left).toContain(`Base town · +${regen} per refill`);
   });
 
+  it("includes the town's active focus in its manpower per refill (regression: showed the Balanced figure)", () => {
+    const levy: Tile = { ...town, town: { ...town.town!, terrainProfile: "GRASS", coastal: false, focus: "LEVY" } };
+    const { left } = townScreenRegions({ town: levy, focus: levy, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).toContain("Base town · +120 per refill");
+    expect(left).toContain('MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+300</span>');
+  });
+
   it("keeps building bonuses separate from the town's base manpower contribution", () => {
     const tile: Tile = { ...town, town: { ...town.town!, terrainProfile: "GRASS", coastal: false, manpowerCap: 3150,
       townModifierTotals: [{ heading: "1 Ancillary Depot", modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }] }] } };

@@ -14,6 +14,8 @@ export type TownFocusStat = {
   value: string;
   /** Change against Balanced, e.g. "+10"; "" when unchanged or not shown. */
   delta: string;
+  /** The same change as a number (rounded figures), for sums; 0 when unchanged or unknown. */
+  change: number;
   tone: "up" | "down" | "same";
   /** How the figure was worked out, for a tooltip: "92 × 0.9 = 82.8 → 83". */
   detail?: string;
@@ -26,9 +28,11 @@ export type TownFocusOption = {
   tagline: string;
   /** One-line rule, e.g. "Manpower +20% · Coin −10% · Growth −10%". */
   rule: string;
-  /** Phone tile lines: the gain, then the costs, e.g. "+24 MP" and "−9 Coin · City +5h". */
+  /** Button lines: the rate it raises, then the rates it lowers ("MP +20%", "Coin −10% · Growth −10%"). */
   tradeLine: string;
   costLine: string;
+  /** The costs in one short phrase for phones ("Others −10%"), or the cost line when the cuts differ. */
+  costShort: string;
   state: "active" | "queued" | "idle";
   coin: TownFocusStat;
   manpower: TownFocusStat;
@@ -47,6 +51,8 @@ export type TownFocusCard = {
   growthLabel: string;
   /** True while the town cannot grow (unfed, war, capture shock): only Coin and manpower change. */
   growthPaused: boolean;
+  /** True when the town is unfed: it earns no Coin and does not grow, whatever its focus. */
+  unfed: boolean;
 };
 
 const NAMES: Readonly<Record<TownFocus, string>> = { BALANCED: "Balanced", GROWTH: "Growth", LEVY: "Levy", COMMERCE: "Commerce" };
@@ -58,11 +64,32 @@ const TAGLINES: Readonly<Record<TownFocus, string>> = {
   COMMERCE: "Hire labour offworld for credit"
 };
 
-const RULES: Readonly<Record<TownFocus, string>> = {
-  BALANCED: "Baseline: no bonus, no cost",
-  GROWTH: "Growth +20% · MP −10% · Coin −10%",
-  LEVY: "MP +20% · Coin −10% · Growth −10%",
-  COMMERCE: "Coin +20% · MP −10% · Growth −10%"
+/** The three outputs a focus scales, in the order a rule names them after its gain. */
+const OUTPUTS = [
+  { key: "manpowerRegen", label: "MP" },
+  { key: "coin", label: "Coin" },
+  { key: "growth", label: "Growth" }
+] as const;
+
+const percent = (mult: number): string => `${mult >= 1 ? "+" : "−"}${Math.round(Math.abs(mult - 1) * 100)}%`;
+
+/**
+ * A focus's rule from TOWN_FOCUS_MULTIPLIERS, so the text follows any retuning: the raised output first, then the
+ * lowered ones ("MP +20%" and "Coin −10% · Growth −10%"). Balanced, which changes nothing, has no rule parts.
+ */
+const ruleParts = (focus: TownFocus): { gain: string; costs: string[]; costShort: string } => {
+  const mult = TOWN_FOCUS_MULTIPLIERS[focus];
+  const changed = OUTPUTS.filter((o) => mult[o.key] !== 1);
+  const gains = changed.filter((o) => mult[o.key] > 1).map((o) => `${o.label} ${percent(mult[o.key])}`);
+  const cuts = changed.filter((o) => mult[o.key] < 1);
+  const costs = cuts.map((o) => `${o.label} ${percent(mult[o.key])}`);
+  const sameCut = cuts.length > 1 && cuts.every((o) => mult[o.key] === mult[cuts[0]!.key]);
+  return { gain: gains.join(" · "), costs, costShort: sameCut ? `Others ${percent(mult[cuts[0]!.key])}` : costs.join(" · ") };
+};
+
+const ruleText = (focus: TownFocus): string => {
+  const { gain, costs } = ruleParts(focus);
+  return gain ? [gain, ...costs].join(" · ") : "Baseline: no bonus, no cost";
 };
 
 export const townFocusName = (focus: TownFocus): string => NAMES[focus];
@@ -85,6 +112,7 @@ const stat = (value: string, option: number, balanced: number, mult = 1): TownFo
   const diff = round(option) - round(balanced);
   return {
     value,
+    change: diff,
     delta: diff === 0 ? "" : `${diff > 0 ? "+" : "−"}${Math.abs(diff).toLocaleString("en-US")}`,
     tone: diff > 0 ? "up" : diff < 0 ? "down" : "same",
     ...(mult !== 1 ? { detail: `${balanced.toFixed(1)} × ${mult} = ${option.toFixed(1)} → ${round(option)}` } : {})
@@ -92,15 +120,13 @@ const stat = (value: string, option: number, balanced: number, mult = 1): TownFo
 };
 
 /**
- * A button's two lines: the rate it raises, then the rates it lowers, as percentages of this town's own output.
+ * A button's lines: the rate it raises, then the rates it lowers, as percentages of this town's own output.
  * Percentages, not amounts: "−10% MP" reads as a smaller refill, where "−12 MP" read like a one-off cost, and every
- * focus is visibly the same deal (+20% of one output, −10% of the others). The amounts are in the strip.
+ * focus is visibly the same kind of deal. The amounts are in the strip.
  */
-const tradeLines = (option: TownFocusOption): { tradeLine: string; costLine: string } => {
-  if (option.focus === "LEVY") return { tradeLine: "MP +20%", costLine: "Coin −10% · Growth −10%" };
-  if (option.focus === "COMMERCE") return { tradeLine: "Coin +20%", costLine: "MP −10% · Growth −10%" };
-  if (option.focus === "GROWTH") return { tradeLine: "Growth +20%", costLine: "MP −10% · Coin −10%" };
-  return { tradeLine: "No change", costLine: "" };
+const tradeLines = (option: TownFocusOption): { tradeLine: string; costLine: string; costShort: string } => {
+  const { gain, costs, costShort } = ruleParts(option.focus);
+  return gain ? { tradeLine: gain, costLine: costs.join(" · "), costShort } : { tradeLine: "No change", costLine: "", costShort: "" };
 };
 
 /**
@@ -113,6 +139,7 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
   if (!town) return undefined;
   const active: TownFocus = town.focus ?? "BALANCED";
   const activeMult = TOWN_FOCUS_MULTIPLIERS[active];
+  const coinKnown = typeof town.goldPerMinute === "number" && Number.isFinite(town.goldPerMinute);
   const coinBase = (tileCoinPerMinute(townTile) * 1440) / activeMult.coin;
   const manpowerBase = manpowerPerBatch(baseRegenPerMinute);
   const paused = isTownGrowthPaused(town, { explainUnfed: true, nowMs });
@@ -121,14 +148,14 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
   const growthNow = paused ? 0 : town.populationGrowthPerMinute ?? 0;
   const remaining = milestone ? Math.max(0, milestone.targetPopulation - town.population) : 0;
   const growthStat = (focus: TownFocus): TownFocusStat => {
-    if (!milestone || growthNow <= 0) return { value: paused ? "Paused" : milestone ? "—" : "Max", delta: "", tone: "same" };
+    if (!milestone || growthNow <= 0) return { value: paused ? "Paused" : milestone ? "—" : "Max", delta: "", change: 0, tone: "same" };
     const baseRate = growthNow / activeMult.growth;
     const minutes = remaining / (baseRate * TOWN_FOCUS_MULTIPLIERS[focus].growth);
     const balancedMinutes = remaining / baseRate;
     // Sooner is better: a negative time change reads as a gain.
     const hours = (minutes - balancedMinutes) / 60;
     const delta = Math.abs(hours) < 1 ? "" : `${hours < 0 ? "−" : "+"}${townFocusDuration(Math.abs(hours) * 60)}`;
-    return { value: townFocusDuration(minutes), delta, tone: delta === "" ? "same" : hours < 0 ? "up" : "down" };
+    return { value: `~${townFocusDuration(minutes)}`, delta, change: Math.round(hours), tone: delta === "" ? "same" : hours < 0 ? "up" : "down" };
   };
   const queued = town.pendingFocus;
   const options = TOWN_FOCUSES.map((focus): TownFocusOption => {
@@ -139,13 +166,15 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
       focus,
       name: NAMES[focus],
       tagline: TAGLINES[focus],
-      rule: RULES[focus],
+      rule: ruleText(focus),
       state: focus === queued ? "queued" : focus === active ? "active" : "idle",
-      coin: stat(round(coin).toLocaleString("en-US"), coin, coinBase, mult.coin),
+      // Before the town's Coin figure arrives there is nothing to project: say so rather than show 0/day.
+      coin: coinKnown ? stat(round(coin).toLocaleString("en-US"), coin, coinBase, mult.coin) : { value: "…", delta: "", change: 0, tone: "same" },
       manpower: stat(round(manpower).toLocaleString("en-US"), manpower, manpowerBase, mult.manpowerRegen),
       growth: growthStat(focus),
       tradeLine: "",
-      costLine: ""
+      costLine: "",
+      costShort: ""
     };
   });
   for (const option of options) Object.assign(option, tradeLines(option));
@@ -156,7 +185,8 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
     startsInMs: Math.max(0, nextManpowerRefillAtMs(playerId, nowMs) - nowMs),
     queuedInMs: queued ? Math.max(0, (town.pendingFocusAt ?? nowMs) - nowMs) : 0,
     growthLabel: milestone ? `To ${milestone.label}` : "Growth",
-    growthPaused: paused
+    growthPaused: paused,
+    unfed: town.isFed === false
   };
 };
 
@@ -169,7 +199,8 @@ export const townGrowthEtaPrecise = (town: NonNullable<Tile["town"]>, nowMs = Da
   const rate = town.populationGrowthPerMinute ?? 0;
   if (!milestone || rate <= 0 || isTownGrowthPaused(town, { explainUnfed: true, nowMs })) return townNextGrowthEtaLabel(town, { explainUnfed: true, nowMs });
   const remaining = Math.max(0, milestone.targetPopulation - town.population);
-  return remaining <= 0 ? `${milestone.label} ready` : `${milestone.label} in ${townFocusDuration(remaining / rate)}`;
+  // "~": a linear estimate; the server's growth slows as the town fills (logistic).
+  return remaining <= 0 ? `${milestone.label} ready` : `${milestone.label} in ~${townFocusDuration(remaining / rate)}`;
 };
 
 /** Coin per day all the player's town focuses add or remove, against every town on Balanced. */
@@ -186,8 +217,10 @@ export const townFocusEmpireCoinPerDay = (towns: Iterable<Pick<Tile, "town" | "d
 
 /** How the player's towns are spread across the focuses, for the card's empire line. */
 export const townFocusCounts = (towns: Iterable<Pick<Tile, "town">>): Record<TownFocus, number> => {
+  // Each town counts under the focus it will have after the next refill: queued, else active. "All towns → X"
+  // compares against these, so a town already queued for X is not counted as one that would change.
   const counts: Record<TownFocus, number> = { BALANCED: 0, GROWTH: 0, LEVY: 0, COMMERCE: 0 };
-  for (const tile of towns) if (tile.town) counts[tile.town.focus ?? "BALANCED"] += 1;
+  for (const tile of towns) if (tile.town) counts[tile.town.pendingFocus ?? tile.town.focus ?? "BALANCED"] += 1;
   return counts;
 };
 

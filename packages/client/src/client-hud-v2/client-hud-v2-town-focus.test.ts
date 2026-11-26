@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { TownFocusCard } from "../client-town-focus/client-town-focus.js";
 import { townFocusCardHtml } from "./client-hud-v2-town-focus.js";
 
-const stat = { value: "1", delta: "", tone: "same" as const };
+const stat = { value: "1", delta: "", change: 0, tone: "same" as const };
 const option = (focus: TownFocusCard["options"][number]["focus"], state: "active" | "queued" | "idle") => ({
-  focus, name: focus === "LEVY" ? "Levy" : focus === "BALANCED" ? "Balanced" : focus, tagline: "t", rule: "r", tradeLine: "x", costLine: "y", state, coin: stat, manpower: stat, growth: stat
+  focus, name: focus === "LEVY" ? "Levy" : focus === "BALANCED" ? "Balanced" : focus, tagline: "t", rule: "r", tradeLine: "x", costLine: "y", costShort: "z", state, coin: stat, manpower: stat, growth: stat
 });
 const card = (queued?: "LEVY"): TownFocusCard => ({
   options: [option("BALANCED", "active"), option("GROWTH", "idle"), option("LEVY", queued ? "queued" : "idle"), option("COMMERCE", "idle")],
-  active: "BALANCED", queued, startsInMs: 97 * 60_000, queuedInMs: queued ? 97 * 60_000 : 0, growthLabel: "To City", growthPaused: false
+  active: "BALANCED", queued, startsInMs: 97 * 60_000, queuedInMs: queued ? 97 * 60_000 : 0, growthLabel: "To City", growthPaused: false, unfed: false
 });
 
 describe("Town focus card (town screen)", () => {
@@ -42,10 +42,20 @@ describe("Town focus card (town screen)", () => {
 describe("Town focus figures carry their units", () => {
   it("shows a change with the same unit as its figure, so −12 reads as a smaller refill, not a cost", () => {
     const c = card();
-    c.options[3] = { ...c.options[3]!, state: "active", manpower: { value: "108", delta: "−12", tone: "down" }, coin: { value: "111", delta: "+19", tone: "up" } };
+    c.options[3] = { ...c.options[3]!, state: "active", manpower: { value: "108", delta: "−12", change: -12, tone: "down" }, coin: { value: "111", delta: "+19", change: 19, tone: "up" } };
     c.options[0] = { ...c.options[0]!, state: "idle" };
     const html = townFocusCardHtml({ ...c, active: "COMMERCE" });
     expect(html).toContain("−12<small>/refill</small>");
     expect(html).toContain("+19<small>/day</small>");
+  });
+});
+
+describe("Town focus empire sums", () => {
+  it("adds changes of 1,000 and more as numbers, never as parsed text (no −NaN)", () => {
+    const c = card("LEVY");
+    c.options[2] = { ...c.options[2]!, coin: { value: "5,000", delta: "−1,152", change: -1152, tone: "down" } };
+    const html = townFocusCardHtml(c, { empireManpowerPerRefill: 0, empireCoinPerDay: 0 });
+    expect(html).not.toContain("NaN");
+    expect(html).toContain("−1152");
   });
 });

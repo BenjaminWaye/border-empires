@@ -21,8 +21,10 @@ const FLASH_MS = 900;
 let lastPick: { townKey: string; focus: TownFocus; at: number } | undefined;
 /** How long a focus that the refill just made active glows. */
 const ARRIVE_MS = 1_400;
-/** The last active focus seen per town, to notice the refill promoting a queued one; bounded by the player's towns. */
-const seenActive = new Map<string, { focus: TownFocus; changedAt: number }>();
+/** How close to the queued change's own time a promotion must be seen to glow (not hours later on reopening). */
+const ARRIVE_WINDOW_MS = 2 * 60_000;
+/** Per town, the active and queued focus last seen, to notice the refill promoting a queued one; bounded by the player's towns. */
+const seenFocus = new Map<string, { active: TownFocus; pending: TownFocus | undefined; pendingAt: number | undefined; arrivedAt: number }>();
 /** How long "All towns" waits for its confirming second press. */
 const CONFIRM_ALL_MS = 4_000;
 let confirmAll: { townKey: string; focus: TownFocus; at: number } | undefined;
@@ -40,11 +42,14 @@ export const confirmTownFocusForAll = (townKey: string, focus: TownFocus, nowMs 
 /** The card's empire line and pick flash for the open town. */
 export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, towns: readonly Tile[], townKey: string, nowMs = Date.now()): TownFocusCardExtras => {
   const line = state.manpowerBreakdown.regen.find((entry) => entry.label === "Town focus");
-  const active = activeTownFocus(towns.find((tile) => `${tile.x},${tile.y}` === townKey)?.town);
-  const seen = seenActive.get(townKey);
-  if (!seen || seen.focus !== active) seenActive.set(townKey, { focus: active, changedAt: seen ? nowMs : 0 });
-  const arrived = seenActive.get(townKey);
-  if (seenActive.size > towns.length + 8) for (const key of seenActive.keys()) if (!towns.some((tile) => `${tile.x},${tile.y}` === key)) seenActive.delete(key);
+  const town = towns.find((tile) => `${tile.x},${tile.y}` === townKey)?.town;
+  const active = activeTownFocus(town);
+  const seen = seenFocus.get(townKey);
+  // Glow only when the refill promoted the focus that was queued, and only around the time it was due.
+  const promoted = seen !== undefined && seen.active !== active && seen.pending === active && seen.pendingAt !== undefined && Math.abs(nowMs - seen.pendingAt) < ARRIVE_WINDOW_MS;
+  seenFocus.set(townKey, { active, pending: town?.pendingFocus, pendingAt: town?.pendingFocusAt, arrivedAt: promoted ? nowMs : seen?.arrivedAt ?? 0 });
+  const arrivedAt = seenFocus.get(townKey)?.arrivedAt ?? 0;
+  if (seenFocus.size > towns.length + 8) for (const key of seenFocus.keys()) if (!towns.some((tile) => `${tile.x},${tile.y}` === key)) seenFocus.delete(key);
   return {
     counts: townFocusCounts(towns),
     breakdown: townFocusBreakdown(towns),
@@ -52,7 +57,7 @@ export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, t
     ...(line ? { empireManpowerPerRefill: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) } : {}),
     ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {}),
     ...(confirmAll && confirmAll.townKey === townKey && nowMs - confirmAll.at < CONFIRM_ALL_MS ? { confirmAll: true } : {}),
-    ...(arrived && arrived.changedAt > 0 && nowMs - arrived.changedAt < ARRIVE_MS && !(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < ARRIVE_MS) ? { arrived: arrived.focus } : {})
+    ...(arrivedAt > 0 && nowMs - arrivedAt < ARRIVE_MS ? { arrived: active } : {})
   };
 };
 
@@ -80,8 +85,11 @@ export const pickTownFocus = (deps: HudV2Deps, townKey: string, focus: TownFocus
 export const pickTownFocusForAll = (deps: HudV2Deps, towns: readonly Tile[], focus: TownFocus, nowMs = Date.now()): number => {
   const me = deps.state.me;
   if (!me) return 0;
+  // Re-read each town from live state: the town list is cached for a moment, and writing back a stale copy would
+  // undo a capture or any other update that arrived since.
   const changed = towns
-    .filter((tile) => tile.town && tile.ownerId === me)
+    .map((listed) => deps.state.tiles.get(`${listed.x},${listed.y}`))
+    .filter((tile): tile is Tile => Boolean(tile?.town) && tile?.ownerId === me)
     .map((tile) => ({ tile, next: optimisticTownFocus(tile.town!, focus, me, nowMs) }))
     .filter(({ tile, next }) => next !== tile.town)
     .slice(0, TOWN_FOCUS_MAX_TILES_PER_COMMAND);

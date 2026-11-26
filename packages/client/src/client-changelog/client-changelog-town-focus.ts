@@ -20,6 +20,8 @@ export const TOWN_FOCUS_PANEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
     "Open a town: the Town focus card shows Balanced, Growth, Levy and Commerce with what each gives",
     "Point at a focus to see this town's Coin per day, manpower per refill and time to the next tier, against Balanced",
     "The card shows when your next refill is and which focus is queued for it",
-    "All towns applies a focus to every town after a second tap"
+    "All towns applies a focus to every town after a second tap",
+    "On a keyboard, 1–4 pick a focus and ← → step between your towns",
+    "The town's manpower line now reads per refill, and includes its focus"
   ]
 };

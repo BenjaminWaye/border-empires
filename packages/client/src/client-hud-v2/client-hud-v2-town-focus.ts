@@ -4,7 +4,7 @@
 // refill and time to its next tier under the focus being looked at, against
 // Balanced. The strip shows the queued or active focus, and switches to any
 // button the pointer is over (CSS :has), so comparing costs no clicks.
-import type { TownFocus } from "@border-empires/shared";
+import { TOWN_FOCUS_MAX_TILES_PER_COMMAND, type TownFocus } from "@border-empires/shared";
 import { townFocusDuration, townFocusFirstPayoutInMs, townFocusName, type TownFocusCard, type TownFocusOption, type TownFocusStat } from "../client-town-focus/client-town-focus.js";
 
 export type TownFocusCardExtras = {
@@ -56,7 +56,7 @@ const optionButton = (option: TownFocusOption, card: TownFocusCard, flash: TownF
       ${state ? `<span class="v2tf-state">${state}</span>` : ""}<span class="v2tf-title">${icon(option.focus)}<span class="v2tf-name">${esc(option.name)}</span></span>
       <span class="v2tf-gain${card.growthPaused && option.focus === "GROWTH" ? " v2tf-gain-paused" : ""}">${esc(option.tradeLine)}</span>
       <span class="v2tf-cost">${option.costLine.split(" · ").filter(Boolean).map((part) => `<span>${esc(part)}</span>`).join("")}</span>
-      ${option.costLine ? `<span class="v2tf-cost-short">Others −10%</span>` : ""}
+      ${option.costShort ? `<span class="v2tf-cost-short">${esc(option.costShort)}</span>` : ""}
     </button>`;
 };
 
@@ -81,10 +81,9 @@ const figure = (value: number): string => {
 const empireAfter = (card: TownFocusCard, extras: TownFocusCardExtras, target: TownFocusOption | undefined): { mp: number; coin: number } | undefined => {
   const active = card.options.find((o) => o.focus === card.active);
   if (!target || !active || target.focus === card.active) return undefined;
-  const diff = (s: TownFocusStat): number => (s.delta ? Number(s.delta.replace("−", "-")) : 0);
   return {
-    mp: (extras.empireManpowerPerRefill ?? 0) + diff(target.manpower) - diff(active.manpower),
-    coin: (extras.empireCoinPerDay ?? 0) + diff(target.coin) - diff(active.coin)
+    mp: (extras.empireManpowerPerRefill ?? 0) + target.manpower.change - active.manpower.change,
+    coin: (extras.empireCoinPerDay ?? 0) + target.coin.change - active.coin.change
   };
 };
 
@@ -116,12 +115,14 @@ const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
     ? `${strong(townFocusName(card.queued))} starts in ${strong(until(card.queuedInMs))}` +
       (card.queued === "LEVY" ? `, first extra MP in ${esc(until(townFocusFirstPayoutInMs(card.queuedInMs)))}` : "") +
       `. Pick ${esc(townFocusName(card.active))} to cancel.`
+    : card.unfed ? `This town is unfed: it earns no Coin and does not grow until it is fed.`
     : card.growthPaused ? `Growth is paused here; Coin and MP still change.`
     : `Free to change<br>Starts at next refill`;
   const counts = extras.counts;
   const total = counts ? counts.BALANCED + counts.GROWTH + counts.LEVY + counts.COMMERCE : 0;
   const focus = card.queued ?? card.active;
-  const changing = counts ? total - counts[focus] : 0;
+  // One command carries at most TOWN_FOCUS_MAX_TILES_PER_COMMAND towns; never promise more than it sends.
+  const changing = Math.min(counts ? total - counts[focus] : 0, TOWN_FOCUS_MAX_TILES_PER_COMMAND);
   const all = total >= 2 && changing > 0
     ? `<button type="button" class="v2tf-all${extras.confirmAll ? " v2tf-all-confirm" : ""}" data-v2-town-focus="${focus}" data-v2-town-focus-all="1" title="Queue ${esc(townFocusName(focus))} on all ${total} of your towns for the next refill. Each town can still be changed back before then.">${extras.confirmAll ? `Again to confirm: ${changing} ${changing === 1 ? "town" : "towns"} → ${esc(townFocusName(focus))}` : `All towns → ${esc(townFocusName(focus))}`}</button>`
     : "";

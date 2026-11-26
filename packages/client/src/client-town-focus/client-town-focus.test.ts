@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MANPOWER_REFILL_WINDOW_MS, manpowerPerBatch, nextManpowerRefillAtMs } from "@border-empires/shared";
+import { TOWN_FOCUS_MULTIPLIERS, manpowerPerBatch, nextManpowerRefillAtMs } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { optimisticTownFocus, townFocusCard, townFocusDuration } from "./client-town-focus.js";
 
@@ -61,6 +61,22 @@ describe("townFocusCard", () => {
     const town = townTile().town!;
     expect(optimisticTownFocus(town, "LEVY", "me", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: nextManpowerRefillAtMs("me", NOW) });
     expect(optimisticTownFocus(town, "BALANCED", "me", NOW)).toBe(town);
-    expect(MANPOWER_REFILL_WINDOW_MS).toBeGreaterThan(0);
+  });
+});
+
+describe("town focus rule text", () => {
+  it("is derived from the multipliers, so a retune changes the text too", () => {
+    const card = townFocusCard(townTile(), "me", 0.5, NOW)!;
+    const levy = card.options.find((o) => o.focus === "LEVY")!;
+    const pct = (m: number) => `${m >= 1 ? "+" : "−"}${Math.round(Math.abs(m - 1) * 100)}%`;
+    expect(levy.tradeLine).toBe(`MP ${pct(TOWN_FOCUS_MULTIPLIERS.LEVY.manpowerRegen)}`);
+    expect(levy.costShort).toBe(`Others ${pct(TOWN_FOCUS_MULTIPLIERS.LEVY.coin)}`);
+  });
+
+  it("says Coin is unknown rather than 0 before the town's figure arrives", () => {
+    const tile = townTile();
+    delete (tile.town as { goldPerMinute?: number }).goldPerMinute;
+    const card = townFocusCard(tile, "me", 0.5, NOW)!;
+    expect(card.options.every((o) => o.coin.value === "…")).toBe(true);
   });
 });

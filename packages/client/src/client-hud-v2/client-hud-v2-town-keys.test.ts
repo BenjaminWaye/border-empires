@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const runTownFocusPick = vi.fn();
 const stepTown = vi.fn();
-vi.mock("./client-hud-v2-town-runtime.js", () => ({ runTownFocusPick, stepTown }));
+const towns = { list: [{}, {}] as unknown[] };
+vi.mock("./client-hud-v2-town-runtime.js", () => ({ runTownFocusPick, stepTown, myTowns: () => towns.list }));
 const screen = { id: "town" as string };
 vi.mock("./client-hud-v2-context.js", () => ({ screen }));
 
@@ -11,7 +12,13 @@ const deps = {} as Parameters<typeof onTownKey>[0];
 const key = (k: string, extra: Partial<KeyboardEvent> = {}) => ({ key: k, target: null, altKey: false, ctrlKey: false, metaKey: false, ...extra });
 
 describe("town screen keys", () => {
-  afterEach(() => { runTownFocusPick.mockClear(); stepTown.mockClear(); screen.id = "town"; });
+  afterEach(() => { runTownFocusPick.mockClear(); stepTown.mockClear(); screen.id = "town"; towns.list = [{}, {}]; });
+
+  it("leaves arrows to the map when there is no other town to step to", () => {
+    towns.list = [{}];
+    expect(onTownKey(deps, key("ArrowRight"))).toBe(false);
+    expect(stepTown).not.toHaveBeenCalled();
+  });
 
   it("1–4 pick Balanced, Growth, Levy, Commerce", () => {
     expect(onTownKey(deps, key("3"))).toBe(true);

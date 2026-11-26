@@ -143,7 +143,11 @@ export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = f
     renderTownScreen(deps);
     return;
   }
-  if (allTowns ? pickTownFocusForAll(deps, myTowns(deps), focus) > 0 : pickTownFocus(deps, current.townKey, focus)) renderTownScreen(deps);
+  // A confirmed "All towns" always redraws, so its button leaves the "again to confirm" state even if nothing changed.
+  if (allTowns) {
+    pickTownFocusForAll(deps, myTowns(deps), focus);
+    renderTownScreen(deps);
+  } else if (pickTownFocus(deps, current.townKey, focus)) renderTownScreen(deps);
 };
 
 /**
