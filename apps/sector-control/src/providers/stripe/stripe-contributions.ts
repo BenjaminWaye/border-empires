@@ -10,7 +10,7 @@ type ContributionMethods = Pick<PaymentProvider, "createContributionCheckout" | 
 
 /** Shown above the button on a share's Checkout page. */
 export const CONTRIBUTION_CONSENT_TEXT =
-  "Your card is only held now. You are charged when the funding bar is full, and the sector then starts at once; if others fill the bar first, you are charged only the part still needed, or nothing. If the bar does not fill within 72 hours, the hold is released and you pay nothing. See the Terms of Sale.";
+  "Your card is only held now. You are charged when the funding bar is full, and the sector then starts at once; if others fill the bar first, you are charged only the part still needed, or nothing. If the bar does not fill within 72 hours, the hold is released and you pay nothing. You asked for the sector to start as soon as the bar is full, during the 14-day withdrawal period: if you withdraw, we keep a part of your share for the days it was open, and you lose the right to withdraw once its Sector Contest has ended. See the Terms of Sale.";
 
 /** Counted from the share's creation, so a repeated request sends identical parameters (as for single-host checkout). */
 const CONTRIBUTION_CHECKOUT_LIFETIME_SECONDS = 35 * 60;

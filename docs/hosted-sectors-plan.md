@@ -538,6 +538,21 @@ players until the last one. Sales are behind a setting that is off by default.
 
 PR 7 is dropped first if time is short. PRs 1–3 can be built in parallel.
 
+**Before PR 8: what the legal review requires** (`docs/legal-drafts/README.md`,
+"What the code and settings must do before sales open"), planned 2026-11-25,
+each with regression tests and sales off throughout:
+
+| # | PR | Items |
+|---|---|---|
+| 8a | **Consent and proof at checkout.** Two separate unticked boxes (shared wording in `packages/shared`), the consent stored with each order and share (time, Terms version, wording), the price facts before paying, the Stripe consent text. **Built 2026-11-25.** | 2, 3, 4 |
+| 8b | **Refunds, withdrawal and disputes.** Partial refunds with an amount and idempotency key; a refund closes a sector only for a withdrawal or a full refund; a withdrawal button with a confirmation step and the 1/30-per-day deduction; purchases paused for an account with an open dispute. | 1, 6, 7, 10 |
+| 8c | **Emails.** Order confirmation with the Terms and the consent, the idle-closure warning 2 days ahead, the withdrawal acknowledgement. Needs an email sender. | 5, 9, 6 |
+| 8d | **Results saved before deletion.** | 8 |
+
+Items 11 (analytics consent, main client), 12 (EU locations; certificate
+logs) and 13 (Stripe Radar country rule) are listed there; 12's certificate
+question and 13 are the owner's.
+
 ## 16. Risks and what is not known yet
 
 - **Late-contest memory on real Hetzner hardware is unmeasured** (`gdd.md`
