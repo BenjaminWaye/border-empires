@@ -322,13 +322,17 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     if (step && (active.revealAt?.x !== step.x || active.revealAt.y !== step.y)) moveReveal(active, { x: step.x, y: step.y });
   };
 
+  /** SCOUT_NO_CHARGES, then the player's drone and charges again: a client that let Explore through had a stale count (player report 2026-11-26). */
+  const refuseNoCharges = (command: CommandEnvelope): void => {
+    noChargeRefusals += 1;
+    reject(command, "SCOUT_NO_CHARGES", "no scout drone charges left");
+    sendTo(command.playerId);
+  };
+
   /** EXPLORE while the drone is out: the new stops join its route (shared extendScoutDroneFlight). */
   const extendFlight = (command: CommandEnvelope, active: ActiveFlight, stops: Array<{ x: number; y: number }>): void => {
     const now = deps.now();
-    if (stops.length > charges.available(active.playerId, now)) {
-      noChargeRefusals += 1;
-      return reject(command, "SCOUT_NO_CHARGES", "no scout drone charges left");
-    }
+    if (stops.length > charges.available(active.playerId, now)) return refuseNoCharges(command);
     if ((active.flight.waypoints?.length ?? 1) + stops.length > SCOUT_DRONE_MAX_ROUTE_STOPS) {
       routeFullRefusals += 1;
       return reject(command, "SCOUT_ROUTE_FULL", "your scout drone's route is full");
@@ -365,10 +369,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const launch = nearestAfc(actor.id, first);
       if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from an active AFC");
       const now = deps.now();
-      if (stops.length > charges.available(actor.id, now)) {
-        noChargeRefusals += 1;
-        return reject(command, "SCOUT_NO_CHARGES", "no scout drone charges left");
-      }
+      if (stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
       const flight = planScoutDroneWaypointFlight(launch, stops, now, world);
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.

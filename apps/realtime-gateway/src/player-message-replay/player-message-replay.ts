@@ -74,8 +74,13 @@ export const isReplayedPlayerMessage = (payload: Record<string, unknown>): paylo
 
 /** What is kept for replay: SCOUT_DRONE keeps its report only when the client can tell it already showed it (an id). */
 const hasReportId = (report: unknown): boolean => Boolean(report && typeof report === "object" && typeof (report as { id?: unknown }).id === "string");
-const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage =>
-  payload.type === "SCOUT_DRONE" && !hasReportId(payload.report) ? { type: payload.type, flight: payload.flight } : payload;
+// Everything but an id-less report is kept: `charges` above all, or a reconnected tab showed every charge
+// ready (the client's default with none) while the server had none left (player report 2026-11-26).
+const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage => {
+  if (payload.type !== "SCOUT_DRONE" || hasReportId(payload.report)) return payload;
+  const { report: _report, ...kept } = payload;
+  return kept as ReplayedPlayerMessage;
+};
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));
