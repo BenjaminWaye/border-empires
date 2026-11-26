@@ -65,6 +65,9 @@ const RULES: Readonly<Record<TownFocus, string>> = {
 
 export const townFocusName = (focus: TownFocus): string => NAMES[focus];
 
+/** The focus's flavour line ("Draft more into Ancillary service"). */
+export const townFocusTagline = (focus: TownFocus): string => TAGLINES[focus];
+
 const round = (value: number): number => Math.round(value);
 
 /** Hours up to three days ("41h"), then days to one decimal ("4.5d"): fine enough that every option reads differently. */
@@ -90,7 +93,7 @@ const tradeLines = (option: TownFocusOption, tierLabel: string | undefined): { t
   const join = (parts: string[]): string => parts.filter(Boolean).join(" · ");
   if (option.focus === "LEVY") return { tradeLine: mp, costLine: join([coin, growth]) };
   if (option.focus === "COMMERCE") return { tradeLine: coin, costLine: join([mp, growth]) };
-  if (option.focus === "GROWTH") return { tradeLine: growth || "+20%", costLine: join([mp, coin]) };
+  if (option.focus === "GROWTH") return { tradeLine: growth || "Growth +20%", costLine: join([mp, coin]) };
   return { tradeLine: "Base", costLine: "No cost" };
 };
 

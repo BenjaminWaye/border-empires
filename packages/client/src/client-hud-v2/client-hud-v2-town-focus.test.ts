@@ -18,7 +18,7 @@ describe("Town focus card (town screen)", () => {
     expect(html.match(/class="v2tf-detail /g)).toHaveLength(4);
     expect(html).toContain('v2tf-detail v2tf-detail-balanced v2tf-detail-default');
     expect(html).toContain('<span class="v2tf-state">Active</span>');
-    expect(html).toContain("Refill <b>1h 37m</b>");
+    expect(html).toContain("Next refill <b>1h 37m</b>");
   });
 
   it("keeps Active on the current focus while another is queued, shows the queue in the header and defaults the strip to it", () => {
@@ -35,6 +35,6 @@ describe("Town focus card (town screen)", () => {
     expect(townFocusCardHtml(card(), { counts })).toContain("All towns → Balanced");
     expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Again to confirm: 1 town → Balanced");
     expect(townFocusCardHtml(card(), { counts: { BALANCED: 3, GROWTH: 0, LEVY: 0, COMMERCE: 0 } })).not.toContain("data-v2-town-focus-all");
-    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns now <b class=\"v2tf-up\">+24 MP/refill</b>");
+    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns vs Balanced: <b class=\"v2tf-up\">+24 MP/refill</b>");
   });
 });

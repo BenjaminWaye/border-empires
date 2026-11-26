@@ -3,7 +3,7 @@
 // server's tile update replaces it moments later.
 import { MANPOWER_REFILL_WINDOW_MS, TOWN_FOCUS_MAX_TILES_PER_COMMAND, activeTownFocus, type TownFocus } from "@border-empires/shared";
 import { pushFeed } from "../client-alerts/client-alerts.js";
-import { optimisticTownFocus, townFocusCounts, townFocusEmpireCoinPerDay, townFocusName } from "../client-town-focus/client-town-focus.js";
+import { optimisticTownFocus, townFocusCounts, townFocusEmpireCoinPerDay, townFocusName, townFocusTagline } from "../client-town-focus/client-town-focus.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
@@ -12,6 +12,10 @@ import type { TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
 /** How long a picked row flashes; renders inside this window replay it, later ones do not. */
 const FLASH_MS = 900;
 let lastPick: { townKey: string; focus: TownFocus; at: number } | undefined;
+/** How long a focus that the refill just made active glows. */
+const ARRIVE_MS = 1_400;
+/** The last active focus seen per town, to notice the refill promoting a queued one; bounded by the player's towns. */
+const seenActive = new Map<string, { focus: TownFocus; changedAt: number }>();
 /** How long "All towns" waits for its confirming second press. */
 const CONFIRM_ALL_MS = 4_000;
 let confirmAll: { townKey: string; focus: TownFocus; at: number } | undefined;
@@ -29,12 +33,18 @@ export const confirmTownFocusForAll = (townKey: string, focus: TownFocus, nowMs 
 /** The card's empire line and pick flash for the open town. */
 export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, towns: readonly Tile[], townKey: string, nowMs = Date.now()): TownFocusCardExtras => {
   const line = state.manpowerBreakdown.regen.find((entry) => entry.label === "Town focus");
+  const active = activeTownFocus(towns.find((tile) => `${tile.x},${tile.y}` === townKey)?.town);
+  const seen = seenActive.get(townKey);
+  if (!seen || seen.focus !== active) seenActive.set(townKey, { focus: active, changedAt: seen ? nowMs : 0 });
+  const arrived = seenActive.get(townKey);
+  if (seenActive.size > towns.length + 8) for (const key of seenActive.keys()) if (!towns.some((tile) => `${tile.x},${tile.y}` === key)) seenActive.delete(key);
   return {
     counts: townFocusCounts(towns),
     empireCoinPerDay: townFocusEmpireCoinPerDay(towns),
     ...(line ? { empireManpowerPerRefill: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) } : {}),
     ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {}),
-    ...(confirmAll && confirmAll.townKey === townKey && nowMs - confirmAll.at < CONFIRM_ALL_MS ? { confirmAll: true } : {})
+    ...(confirmAll && confirmAll.townKey === townKey && nowMs - confirmAll.at < CONFIRM_ALL_MS ? { confirmAll: true } : {}),
+    ...(arrived && arrived.changedAt > 0 && nowMs - arrived.changedAt < ARRIVE_MS && !(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < ARRIVE_MS) ? { arrived: arrived.focus } : {})
   };
 };
 
@@ -50,7 +60,7 @@ export const pickTownFocus = (deps: HudV2Deps, townKey: string, focus: TownFocus
   lastPick = { townKey, focus, at: nowMs };
   const town = tile.town.name ?? "This town";
   const cancelled = next.pendingFocus === undefined && focus === activeTownFocus(tile.town);
-  pushFeed(deps.state, cancelled ? `${town} keeps its ${townFocusName(focus)} focus` : `${town} switches to ${townFocusName(focus)} at your next refill`, "info", "info");
+  pushFeed(deps.state, cancelled ? `${town} keeps its ${townFocusName(focus)} focus` : `${town} switches to ${townFocusName(focus)} at your next refill: ${townFocusTagline(focus).toLowerCase()}`, "info", "info");
   return true;
 };
 
