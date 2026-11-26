@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import { nextManpowerRefillAtMs } from "@border-empires/shared";
 import { handleSetTownFocusCommand, type TownFocusCommandContext } from "./town-focus-command.js";
 import { promoteDueTownFocus } from "./town-focus-promotion.js";
 import { applyTileToPlayerSummary, createEmptyPlayerRuntimeSummary } from "../player-runtime-summary.js";
@@ -39,7 +40,7 @@ describe("SET_TOWN_FOCUS", () => {
   it("stores the focus as due now, for the promotion after the next growth tick", () => {
     const { map, events, context } = commandFixture([townTile(1, "p1")]);
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
-    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW });
+    expect(map.get("1,0")?.town).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW, focusLockedUntil: nextManpowerRefillAtMs("p1", NOW) });
     expect(map.get("1,0")?.town?.focus).toBeUndefined();
     expect(events.map((event) => event.eventType)).toEqual(["TILE_DELTA_BATCH", "COMMAND_RESOLVED"]);
   });
@@ -63,6 +64,26 @@ describe("SET_TOWN_FOCUS", () => {
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "LEVY" }));
     expect(replaceTileState).not.toHaveBeenCalled();
     expect(events.map((event) => event.eventType)).toEqual(["COMMAND_RESOLVED"]);
+  });
+
+  it("refuses a change while the town is locked, and says why", () => {
+    const { events, replaceTileState, context } = commandFixture([townTile(1, "p1", { focus: "LEVY", focusLockedUntil: NOW + 1 })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "COMMERCE" }));
+    expect(replaceTileState).not.toHaveBeenCalled();
+    expect(events).toMatchObject([{ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_LOCKED" }]);
+  });
+
+  it("changes the unlocked towns of a list and skips the locked ones", () => {
+    const { map, context } = commandFixture([townTile(1, "p1", { focusLockedUntil: NOW + 1 }), townTile(2, "p1", { focusLockedUntil: NOW })]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }, { x: 2, y: 0 }], focus: "GROWTH" }));
+    expect(map.get("1,0")?.town?.pendingFocus).toBeUndefined();
+    expect(map.get("2,0")?.town?.pendingFocus).toBe("GROWTH");
+  });
+
+  it("skips an ungarrisoned town, which the promotion step would never reach", () => {
+    const { events, context } = commandFixture([{ ...townTile(1, "p1"), ownershipState: "FRONTIER" }]);
+    handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "GROWTH" }));
+    expect(events).toMatchObject([{ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_INVALID" }]);
   });
 
   it("rejects a malformed payload", () => {
@@ -106,13 +127,14 @@ describe("promoteDueTownFocus", () => {
     expect(map.get("1,0")?.town).toMatchObject({ focus: "COMMERCE" });
   });
 
-  it("applies only the last of several picks made between growth ticks", () => {
-    const { map, context } = commandFixture([townTile(1, "p1")]);
+  it("locks a confirmed change: a second pick before the refill is refused and the first applies", () => {
+    const { map, events, context } = commandFixture([townTile(1, "p1")]);
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "GROWTH" }));
     handleSetTownFocusCommand(context, command({ tiles: [{ x: 1, y: 0 }], focus: "COMMERCE" }));
+    expect(events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "TOWN_FOCUS_LOCKED" });
     const { deps } = promotionFixture([map.get("1,0")!]);
     promoteDueTownFocus(deps, NOW);
-    expect(deps.tiles.get("1,0")?.town).toMatchObject({ focus: "COMMERCE" });
+    expect(deps.tiles.get("1,0")?.town).toMatchObject({ focus: "GROWTH", focusLockedUntil: nextManpowerRefillAtMs("p1", NOW) });
   });
 
   it("settles the owner at the old rates before making the focus active", () => {

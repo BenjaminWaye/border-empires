@@ -26,6 +26,18 @@ export const TOWN_FOCUS_PANEL_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   ]
 };
 
+export const TOWN_FOCUS_CONFIRM_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.26",
+  title: "Town focus: preview, then confirm",
+  why: "Switching focus did not move the town's Coin per day, growth per minute or time to its next tier, and a tap changed the town before you had compared anything.",
+  changes: [
+    "Tap a focus to preview this town under it; Confirm (or Enter) makes the change",
+    "A confirmed focus stays until your next manpower refill; the card and the Towns list show the lock and when it lifts",
+    "Coin per day, growth per minute and the next-tier time now update as soon as you confirm, on the town screen and in the Towns list",
+    "In the Towns list, tap an icon to preview that row, then ✓ to confirm; Set every town skips locked towns"
+  ]
+};
+
 export const TOWN_FOCUS_LIST_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.26",
   title: "Town focus switches at once, and the Towns list can set it",

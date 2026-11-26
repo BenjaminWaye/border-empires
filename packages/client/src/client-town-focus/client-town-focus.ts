@@ -1,5 +1,7 @@
 import { TOWN_FOCUSES, TOWN_FOCUS_MULTIPLIERS, manpowerPerBatch, nextManpowerRefillAtMs, queueTownFocus, type TownFocus } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { shownTownFocus, townFocusLockedInMs } from "./client-town-focus-projection.js";
+export { shownTownFocus } from "./client-town-focus-projection.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { isTownGrowthPaused, townNextGrowthEtaLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 
@@ -45,6 +47,8 @@ export type TownFocusCard = {
   active: TownFocus;
   /** Ms until the owner's next manpower refill, when manpower banked since the last one is paid. */
   nextRefillInMs: number;
+  /** Ms left before this town's focus can change again (a confirmed change locks it until the next refill); 0 = free. */
+  lockedInMs: number;
   /** Heading for the growth column, e.g. "To City"; "Growth" when there is no next tier. */
   growthLabel: string;
   /** True while the town cannot grow (unfed, war, capture shock): only Coin and manpower change. */
@@ -184,6 +188,7 @@ export const townFocusCard = (townTile: Tile, playerId: string, baseRegenPerMinu
     options,
     active,
     nextRefillInMs: Math.max(0, nextManpowerRefillAtMs(playerId, nowMs) - nowMs),
+    lockedInMs: townFocusLockedInMs(town, nowMs),
     growthLabel: milestone ? `To ${milestone.label}` : "Growth",
     growthPaused: paused,
     unfed: town.isFed === false
@@ -216,20 +221,20 @@ export const townFocusEmpireCoinPerDay = (towns: Iterable<Pick<Tile, "town" | "d
 };
 
 /** How the player's towns are spread across the focuses, for the card's empire line. */
-export const townFocusCounts = (towns: Iterable<Pick<Tile, "town">>): Record<TownFocus, number> => {
-  // Each town counts under the focus chosen for it, so a town just switched to X is not one "All towns → X" would change.
+export const townFocusCounts = (towns: Iterable<Pick<Tile, "town">>, nowMs = Date.now()): Record<TownFocus, number> => {
+  // Each town counts under the focus chosen for it, so a town just switched to X is not one "All towns → X" would
+  // change; a locked town cannot change at all, so it is left out.
   const counts: Record<TownFocus, number> = { BALANCED: 0, GROWTH: 0, LEVY: 0, COMMERCE: 0 };
-  for (const tile of towns) if (tile.town) counts[shownTownFocus(tile.town)] += 1;
+  for (const tile of towns) if (tile.town && townFocusLockedInMs(tile.town, nowMs) === 0) counts[shownTownFocus(tile.town)] += 1;
   return counts;
 };
 
 /**
- * The focus to show for a town. A pick is stored as pending and the server applies it after its next population
- * growth tick (at most a minute; docs/town-focus-plan.md), so a pending focus is shown as the town's focus.
+ * The town record after the player confirms `focus` now: what the server will store, shown before its reply. A
+ * change locks the town until the owner's next refill; a locked town or a pick that changes nothing returns `town`.
  */
-export const shownTownFocus = (town: Pick<NonNullable<Tile["town"]>, "focus" | "pendingFocus"> | undefined): TownFocus =>
-  town?.pendingFocus ?? town?.focus ?? "BALANCED";
-
-/** The town record after the player picks `focus` now: what the server will store, shown before its reply. */
-export const optimisticTownFocus = <T extends NonNullable<Tile["town"]>>(town: T, focus: TownFocus, nowMs = Date.now()): T =>
-  queueTownFocus(town, focus, nowMs);
+export const optimisticTownFocus = <T extends NonNullable<Tile["town"]>>(town: T, focus: TownFocus, playerId: string, nowMs = Date.now()): T => {
+  if (townFocusLockedInMs(town, nowMs) > 0) return town;
+  const queued = queueTownFocus(town, focus, nowMs);
+  return queued === town ? town : { ...queued, focusLockedUntil: nextManpowerRefillAtMs(playerId, nowMs) };
+};

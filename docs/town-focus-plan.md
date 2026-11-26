@@ -16,6 +16,12 @@ question 6. A player who re-tunes often can now follow war pauses and
 fronts more closely; the balance pass should check whether that gain is
 acceptable.
 
+**Owner decision, 2026-11-26 (later the same day): preview, confirm, lock.**
+Picking a focus previews this town's figures under it; Confirm makes the
+change, which applies within a minute and then locks the town's focus until
+the owner's next refill. This keeps the instant, interactive feel while
+limiting re-tuning to once per town per refill.
+
 Phase 1 as shipped differs from the draft below in two ways: the controls
 are four rows on the town's tile menu (shared by the 2D and true-3D maps)
 rather than a dedicated panel with per-focus previews, and the focus is not

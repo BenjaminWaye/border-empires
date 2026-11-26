@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 
 const NOW = 1_800_000_000_000;
@@ -23,6 +23,30 @@ describe("town focus picks", () => {
     expect(pickTownFocus(deps, "1,0", "LEVY", NOW)).toBe(true);
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 1, y: 0 }], focus: "LEVY" });
     expect(state.tiles.get("1,0")?.town?.pendingFocus).toBe("LEVY");
+  });
+
+  it("refuses a locked town without sending anything", () => {
+    const { sendGameMessage, deps } = setup([townAt(1, { focusLockedUntil: NOW + 60_000 })]);
+    expect(pickTownFocus(deps, "1,0", "LEVY", NOW)).toBe(false);
+    expect(sendGameMessage).not.toHaveBeenCalled();
+  });
+
+  it("previews a pick without sending, shows it on the card and clears it once confirmed", () => {
+    const { state, sendGameMessage, deps } = setup([townAt(1)]);
+    selectTownFocus(deps, "1,0", "COMMERCE");
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(townFocusExtras(state, [state.tiles.get("1,0")!], "1,0", NOW).selected).toBe("COMMERCE");
+    pickTownFocus(deps, "1,0", "COMMERCE", NOW);
+    expect(selectedTownFocus("1,0")).toBeUndefined();
+    selectTownFocus(deps, "1,0", "COMMERCE");
+    expect(selectedTownFocus("1,0")).toBeUndefined();
+  });
+
+  it("All towns skips locked towns", () => {
+    const listed = [townAt(1), townAt(2, { focusLockedUntil: NOW + 1 })];
+    const { sendGameMessage, deps } = setup(listed);
+    expect(pickTownFocusForAll(deps, listed, "GROWTH", NOW)).toBe(1);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 1, y: 0 }], focus: "GROWTH" });
   });
 
   it("All towns re-reads live tiles, so a stale list cannot undo a capture", () => {

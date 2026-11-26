@@ -6,7 +6,8 @@ import { garrisonPlannedTileKeys } from "../client-town-growth/client-town-growt
 import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { forgetMyTowns, myTowns, openTownAt } from "./client-hud-v2-town-runtime.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
-import { pickTownFocus, pickTownFocusForAll } from "./client-hud-v2-town-focus-pick.js";
+import { pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus } from "./client-hud-v2-town-focus-pick.js";
+import { townFocusLockedInMs, townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
 import type { TownsFocusState, TownsFocusView } from "./client-hud-v2-towns-focus.js";
 import { TownFocusSchema, type TownFocus } from "@border-empires/shared";
 import { shownTownFocus } from "../client-town-focus/client-town-focus.js";
@@ -27,7 +28,9 @@ const focusView = (state: Pick<ClientState, "tiles">, rows: readonly TownListRow
   for (const row of rows) {
     const key = `${row.x},${row.y}`;
     const town = state.tiles.get(key)?.town;
-    if (town && row.garrisoned) byKey.set(key, { active: shownTownFocus(town), growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }) });
+    if (!town || !row.garrisoned) continue;
+    const selected = selectedTownFocus(key);
+    byKey.set(key, { active: shownTownFocus(town), growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }), lockedInMs: townFocusLockedInMs(town, nowMs), ...(selected ? { selected } : {}) });
   }
   return { byKey, ...(armedAll ? { confirmAll: armedAll.focus } : {}) };
 };
@@ -46,8 +49,12 @@ export const renderTownsScreen = (deps: HudV2Deps, options: { force?: boolean; k
   // Hold the rows still while the pointer is on them, so a press can't land on a row that just moved.
   if (!options.force && built?.body === body && document.querySelector(".v2l-table:hover")) return;
   const previousOrder = options.keepOrder && built?.body === body ? built.order : undefined;
-  // The town list is cached for a moment; read each town from live tiles so a focus pick shows in its figures at once.
-  const live = towns.map((tile) => deps.state.tiles.get(`${tile.x},${tile.y}`) ?? tile);
+  // The town list is cached for a moment: read each town from live tiles, at its shown focus (or the one previewed
+  // on its row), so Coin, MP and growth move the moment a focus is picked or confirmed.
+  const live = towns.map((tile) => {
+    const key = `${tile.x},${tile.y}`;
+    return townTileAtFocus(deps.state.tiles.get(key) ?? tile, selectedTownFocus(key));
+  });
   const sorted = sortTownListRows(deriveTownListRows(live, deps.state.me, deps.state.tiles, garrisonPlannedTileKeys(deps.state), deps.state.manpowerBreakdown.biotaTowns), sort);
   const rank = new Map(previousOrder?.map((key, index) => [key, index]));
   const rows = previousOrder ? [...sorted].sort((a, b) => (rank.get(`${a.x},${a.y}`) ?? Infinity) - (rank.get(`${b.x},${b.y}`) ?? Infinity)) : sorted;
@@ -69,7 +76,16 @@ export const townsClick = (deps: HudV2Deps, target: Element, closeList: () => vo
   const one = target.closest<HTMLElement>("[data-v2-towns-focus]");
   const oneFocus = TownFocusSchema.safeParse(one?.dataset.focus);
   if (one && oneFocus.success) {
-    pickTownFocus(deps, one.dataset.v2TownsFocus ?? "", oneFocus.data);
+    // A tap previews the focus on that row; its ✓ confirms.
+    if (!(one as HTMLButtonElement).disabled) selectTownFocus(deps, one.dataset.v2TownsFocus ?? "", oneFocus.data);
+    renderTownsScreen(deps, { force: true, keepOrder: true });
+    return true;
+  }
+  const confirm = target.closest<HTMLElement>("[data-v2-towns-focus-confirm]");
+  if (confirm) {
+    const key = confirm.dataset.v2TownsFocusConfirm ?? "";
+    const focus = selectedTownFocus(key);
+    if (focus) pickTownFocus(deps, key, focus);
     renderTownsScreen(deps, { force: true, keepOrder: true });
     return true;
   }
