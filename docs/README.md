@@ -52,7 +52,7 @@ remain authoritative for runtime behavior.
 | Hosted sectors: tax setup for TIDN AB (proposal, needs the accountant) | [`hosted-sectors-tax.md`](hosted-sectors-tax.md) |
 | Hosted sectors: draft Terms of Sale and privacy policy for TIDN AB (drafts, not published) | [`legal-drafts/README.md`](legal-drafts/README.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
-| Town focus: free per-town shift between growth, manpower and Coin, applied at the next refill (proposal) | [`town-focus-plan.md`](town-focus-plan.md) |
+| Town focus: free per-town shift between growth, manpower and Coin, applied within a minute | [`town-focus-plan.md`](town-focus-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |

@@ -84,3 +84,9 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
       return `${charge.size} of ${HOUSE_CHARGE_METROPOLIS_COUNT} Metropolises held`;
   }
 };
+
+/** One terse how-to line on a kept, unfinished charge whose goal is garrisoning many tiles, else undefined. */
+export const houseChargeGarrisonTip = (charge: HouseChargeView): string | undefined =>
+  charge.kept && !charge.held && (charge.kind === "DESERT" || charge.kind === "TUNDRA" || charge.kind === "SURVEY")
+    ? "Garrison Many works inside your reach; Relay Beacons extend it."
+    : undefined;

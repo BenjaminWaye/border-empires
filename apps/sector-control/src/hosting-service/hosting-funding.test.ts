@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { account, createHostingHarness, HOUR, MINUTE } from "../hosting-test-support.js";
+import { CONSENT, account, createHostingHarness, HOUR, MINUTE } from "../hosting-test-support.js";
 import { funding, openBar, OPTIONS, pledge } from "./funding-test-support.js";
 
 describe("split funding: filling the bar", () => {
@@ -25,17 +25,17 @@ describe("split funding: filling the bar", () => {
   it("enforces the minimum share, the amount left and membership; a new pledge replaces the member's unfinished one", async () => {
     const h = await createHostingHarness();
     const sectorId = openBar(h, ["friend"]);
-    expect(await h.service.contribute(account("friend"), sectorId, 400)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
-    expect(await h.service.contribute(account("friend"), sectorId, 2100)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
-    expect(await h.service.contribute(account("friend"), sectorId, 12.5)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
-    expect(await h.service.contribute(account("stranger"), sectorId, 500)).toMatchObject({ ok: false, code: "NOT_FOUND" });
-    expect(await h.service.contribute(account("friend", { isGuest: true }), sectorId, 500)).toMatchObject({ ok: false, code: "ACCOUNT_REQUIRED" });
-    const first = await h.service.contribute(account("friend"), sectorId, 1500);
+    expect(await h.service.contribute(account("friend"), sectorId, 400, CONSENT)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
+    expect(await h.service.contribute(account("friend"), sectorId, 2100, CONSENT)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
+    expect(await h.service.contribute(account("friend"), sectorId, 12.5, CONSENT)).toMatchObject({ ok: false, code: "BAD_AMOUNT" });
+    expect(await h.service.contribute(account("stranger"), sectorId, 500, CONSENT)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await h.service.contribute(account("friend", { isGuest: true }), sectorId, 500, CONSENT)).toMatchObject({ ok: false, code: "ACCOUNT_REQUIRED" });
+    const first = await h.service.contribute(account("friend"), sectorId, 1500, CONSENT);
     if (!first.ok) throw new Error(first.code);
     // A checkout in progress does not lock the bar: someone who starts paying and leaves blocks nobody.
-    expect(await h.service.contribute(account("host"), sectorId, 2000)).toMatchObject({ ok: true });
+    expect(await h.service.contribute(account("host"), sectorId, 2000, CONSENT)).toMatchObject({ ok: true });
     // Pledging again closes the member's earlier page first, so they cannot pay twice.
-    expect(await h.service.contribute(account("friend"), sectorId, 500)).toMatchObject({ ok: true });
+    expect(await h.service.contribute(account("friend"), sectorId, 500, CONSENT)).toMatchObject({ ok: true });
     const firstRef = first.checkoutUrl.replace("https://checkout.invalid/", "");
     expect(h.payment.released).toContain(firstRef);
     expect(h.store.getContribution(firstRef.replace("fake-hold-", ""))?.state).toBe("cancelled");
@@ -45,7 +45,7 @@ describe("split funding: filling the bar", () => {
     const h = await createHostingHarness();
     openBar(h);
     expect(h.service.openFundingBar(account("host"), OPTIONS)).toMatchObject({ ok: false, code: "ALREADY_HOSTING" });
-    expect(await h.service.createOrder(account("host"), OPTIONS)).toMatchObject({ ok: false, code: "ALREADY_HOSTING" });
+    expect(await h.service.createOrder(account("host"), OPTIONS, CONSENT)).toMatchObject({ ok: false, code: "ALREADY_HOSTING" });
   });
 
   it("never charges more than the price: a share held after the bar filled is released", async () => {
@@ -53,7 +53,7 @@ describe("split funding: filling the bar", () => {
     const sectorId = openBar(h, ["a", "b"]);
     await pledge(h, "a", sectorId, 1500);
     // b's checkout stays open while the host fills the bar.
-    const late = await h.service.contribute(account("b"), sectorId, 500);
+    const late = await h.service.contribute(account("b"), sectorId, 500, CONSENT);
     if (!late.ok) throw new Error(late.code);
     h.clock.now += 31 * MINUTE;
     await pledge(h, "host", sectorId, 500);
@@ -78,13 +78,13 @@ describe("split funding: when the bar does not fill", () => {
     expect(h.payment.released).toEqual([share]);
     expect(h.payment.captured).toEqual([]);
     expect(h.store.getSector(sectorId)?.state).toBe("cancelled");
-    expect(await h.service.contribute(account("friend"), sectorId, 500)).toMatchObject({ ok: false, code: "FUNDING_CLOSED" });
+    expect(await h.service.contribute(account("friend"), sectorId, 500, CONSENT)).toMatchObject({ ok: false, code: "FUNDING_CLOSED" });
   });
 
   it("releases at once a share whose payment completes after its bar closed", async () => {
     const h = await createHostingHarness();
     const sectorId = openBar(h, ["friend"]);
-    const late = await h.service.contribute(account("friend"), sectorId, 1000);
+    const late = await h.service.contribute(account("friend"), sectorId, 1000, CONSENT);
     if (!late.ok) throw new Error(late.code);
     h.clock.now += 72 * HOUR;
     await h.reconciler.runOnce();

@@ -196,8 +196,8 @@ const overlayHtml = (info: TownCaptureInfo, garrison: TownCaptureGarrisonStatus 
         ${surveyHtml}
       </div>
       <div id="town-capture-footer">
-        ${garrison?.status === "ungarrisoned" ? `<button id="town-capture-garrison" class="town-capture-garrison-btn" type="button">Garrison now</button>` : ""}
-        <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
+        ${garrison?.status === "ungarrisoned" ? `<button id="town-capture-garrison" class="v2s-btn v2s-btn-primary town-capture-garrison-btn" type="button">Garrison now</button>` : ""}
+        <button id="town-capture-jump" class="v2s-btn town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
 };
@@ -278,7 +278,7 @@ const styles = `
   -webkit-overflow-scrolling: touch;
 }
 #town-capture-footer {
-  display: flex; padding: 10px 22px 18px;
+  display: flex; gap: 10px; padding: 10px 22px 18px;
   border-top: 1px solid rgba(230, 178, 106, 0.16);
 }
 #town-capture-owner {
@@ -321,13 +321,8 @@ const styles = `
 #town-capture-garrison-warning strong {
   color: #f0b04f; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
 }
-.town-capture-garrison-btn {
-  margin-right: 10px; padding: 10px 20px; border-radius: 12px; border: 1px solid #f3c66d;
-  background: linear-gradient(180deg, #f0c060, #c98a2c); color: #2a1806;
-  font-size: 13.5px; font-weight: 800; cursor: pointer;
-  animation: townCaptureGarrisonPulse 1.8s ease-in-out infinite;
-}
-.town-capture-garrison-btn:hover { background: linear-gradient(180deg, #f6cd76, #d6983a); }
+/* Garrison now / Jump to Town are the shared .v2s-btn-primary / .v2s-btn; the pulse is the only extra. */
+.town-capture-garrison-btn { animation: townCaptureGarrisonPulse 1.8s ease-in-out infinite; }
 @keyframes townCaptureGarrisonPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(240, 176, 79, 0.45); }
   50% { box-shadow: 0 0 0 6px rgba(240, 176, 79, 0); }
@@ -337,15 +332,9 @@ const styles = `
   display: grid; gap: 7px; padding: 12px 13px; border: 1px solid rgba(123,205,255,0.28);
   border-radius: 10px; background: linear-gradient(145deg, rgba(19,42,57,0.55), rgba(28,17,43,0.5));
 }
-.town-capture-survey-kicker { color: #9be3ff; font: 800 10px/1.2 'Space Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
+.town-capture-survey-kicker { color: #9be3ff; font: 700 10px/1.2 var(--sp-font-display); letter-spacing: .1em; text-transform: uppercase; }
 #town-capture-survey p { margin: 0; color: rgba(232,247,255,0.72); font-size: 12px; line-height: 1.4; }
 .town-capture-survey-report { padding-top: 5px; color: #e8f7ff; font-size: 12px; line-height: 1.35; }
-.town-capture-jump-btn {
-  padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
-  background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));
-  color: #ffe6b8; font-size: 13.5px; font-weight: 800; cursor: pointer;
-}
-.town-capture-jump-btn:hover { background: linear-gradient(180deg, rgba(255,214,148,0.32), rgba(214,150,68,0.22)); }
 @media (max-width: 520px) {
   #town-capture-hero { height: 140px; }
   #town-capture-body { padding: 14px 16px 12px; }

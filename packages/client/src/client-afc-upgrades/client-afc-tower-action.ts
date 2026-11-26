@@ -2,7 +2,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
 import { showSalvageTributeSheet } from "../client-salvage-tribute/client-salvage-tribute-sheet.js";
-import { dispatchTownFocusAction } from "../client-town-focus/client-town-focus.js";
 
 interface AfcTowerActionOptions { installed: boolean; hostile: boolean; inRange: boolean; cooldownMs: number; hijackInstalled?: boolean; hijackReadyInMs?: number; now?: number }
 
@@ -29,7 +28,6 @@ export function afcTowerSuppressionAction(tile: Tile, options: AfcTowerActionOpt
 export function dispatchTileAetherAction(actionId: string, selected: Pick<Tile, "x" | "y">, state: Pick<ClientState, "aetherLanceFxQueue">, send: (payload: unknown) => boolean): void {
   if (actionId === "activate_waystation") send({ type: "ACTIVATE_WAYSTATION", x: selected.x, y: selected.y });
   if (actionId === "forced_ancillarification") send({ type: "FORCED_ANCILLARIFICATION", x: selected.x, y: selected.y });
-  dispatchTownFocusAction(actionId, selected, send);
   // Opens the confirm popup; the command is sent from its gold "Ship 1 load" button.
   if (actionId === "ship_salvage_to_court") showSalvageTributeSheet(selected, send);
   if (actionId === "suppress_aether_tower") send({ type: "SUPPRESS_AETHER_TOWER", x: selected.x, y: selected.y });

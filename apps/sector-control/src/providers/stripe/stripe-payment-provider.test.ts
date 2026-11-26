@@ -35,6 +35,9 @@ describe("Stripe payment provider", () => {
       expires_at: String(NOW / 1000 + 35 * 60)
     });
     expect(call?.params["custom_text[submit][message]"]).toMatch(/withdraw/);
+    // Directly above Pay: a single payment with tax, and the right to withdraw ends with the contest.
+    expect(call?.params["custom_text[submit][message]"]).toMatch(/single payment, tax included/);
+    expect(call?.params["custom_text[submit][message]"]).toMatch(/lose the right to withdraw once its Sector Contest has ended/);
   });
 
   it("sends identical parameters when asked again for the same order, as Stripe's idempotency requires", async () => {

@@ -63,6 +63,10 @@ intent in §1.1 of that document still applies.
 1. **No babysitting.** Anything that moves runs on its own once ordered.
 2. **Manpower is the real currency.**
 3. **Check in a couple of times a day, not all day.**
+   (2026-11-26, owner decision: Town focus changes within a minute rather than
+   at the next refill, so a visit can be spent tweaking towns while manpower
+   refills. Re-tuning often can follow fronts more closely; how much that pays
+   is for the balance pass. See `town-focus-plan.md`.)
 4. **Tall is viable against wide.**
 5. **Several ways to win.** Five victory paths, each needing a 24-hour hold.
 6. **A contest you don't win still pays off.** (Added 2026-11-22.) Ninety-nine

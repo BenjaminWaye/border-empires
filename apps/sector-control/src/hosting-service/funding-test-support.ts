@@ -1,5 +1,5 @@
 // Helpers for the split-funding tests.
-import { account, type createHostingHarness } from "../hosting-test-support.js";
+import { CONSENT, account, type createHostingHarness } from "../hosting-test-support.js";
 
 export type Harness = Awaited<ReturnType<typeof createHostingHarness>>;
 export const OPTIONS = { mapStyle: "continents", mapSize: "standard" } as const;
@@ -17,7 +17,7 @@ export const openBar = (h: Harness, friends: string[] = []): string => {
 
 /** Pledges a share and reports its hold, as Stripe's webhook would. Returns the contribution's payment ref. */
 export const pledge = async (h: Harness, uid: string, sectorId: string, amountCents: number): Promise<string> => {
-  const result = await h.service.contribute(account(uid), sectorId, amountCents);
+  const result = await h.service.contribute(account(uid), sectorId, amountCents, CONSENT);
   if (!result.ok) throw new Error(result.code);
   const paymentRef = result.checkoutUrl.replace("https://checkout.invalid/", "");
   const contributionId = paymentRef.replace("fake-hold-", "");

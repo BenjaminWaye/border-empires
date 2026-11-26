@@ -30,8 +30,8 @@ export const hudMarkup = `
 
   <div id="placement-overlay" style="display:none">
     <span id="placement-label"></span>
-    <button id="placement-cancel" class="placement-btn placement-cancel-btn" type="button">Cancel</button>
-    <button id="placement-confirm" class="placement-btn placement-confirm-btn" type="button">Confirm</button>
+    <button id="placement-cancel" class="v2s-btn" type="button">Cancel</button>
+    <button id="placement-confirm" class="v2s-btn v2s-btn-primary" type="button">Confirm</button>
   </div>
 
   <div id="victory-alert-overlay" style="display:none">

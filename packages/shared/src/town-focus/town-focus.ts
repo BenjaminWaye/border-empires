@@ -34,7 +34,7 @@ export const TOWN_FOCUS_MAX_TILES_PER_COMMAND = 100;
 export type TownFocusFields = {
   /** Active focus; absent = BALANCED. */
   focus?: TownFocus;
-  /** Queued focus, promoted at pendingFocusAt (the owner's next refill when it was chosen). */
+  /** Picked focus, made active after the next population growth tick (pendingFocusAt is when it was picked). */
   pendingFocus?: TownFocus;
   pendingFocusAt?: number;
 };
@@ -44,9 +44,6 @@ export const activeTownFocus = (town: TownFocusFields | undefined): TownFocus =>
 export const townFocusMultipliers = (town: TownFocusFields | undefined): TownFocusMultipliers =>
   TOWN_FOCUS_MULTIPLIERS[activeTownFocus(town)];
 
-/** True when a queued focus has reached its effective time. */
-export const townFocusChangeDue = (town: TownFocusFields | undefined, nowMs: number): boolean =>
-  town?.pendingFocus !== undefined && typeof town.pendingFocusAt === "number" && town.pendingFocusAt <= nowMs;
 
 /** Removes every focus field: used on capture, town return and promotion bookkeeping. */
 export const withoutTownFocus = <T extends TownFocusFields>(town: T): Omit<T, "focus" | "pendingFocus" | "pendingFocusAt"> => {
@@ -55,8 +52,8 @@ export const withoutTownFocus = <T extends TownFocusFields>(town: T): Omit<T, "f
 };
 
 /**
- * The town after the player asks for `requested` at `nowMs`, with `effectiveAt`
- * the owner's next refill. Asking for the active focus cancels any queued
+ * The town after the player asks for `requested`, with `effectiveAt` when it
+ * was asked for. Asking for the active focus cancels any queued
  * change. Returns the same object when nothing would change, so callers can
  * skip the write and the tile delta.
  */
@@ -67,7 +64,8 @@ export const queueTownFocus = <T extends TownFocusFields>(town: T, requested: To
     const { pendingFocus: _pending, pendingFocusAt: _at, ...rest } = town;
     return rest as T;
   }
-  if (town.pendingFocus === requested && town.pendingFocusAt === effectiveAt) return town;
+  // Already picked and waiting for the next growth tick: nothing to write.
+  if (town.pendingFocus === requested) return town;
   return { ...town, pendingFocus: requested, pendingFocusAt: effectiveAt };
 };
 

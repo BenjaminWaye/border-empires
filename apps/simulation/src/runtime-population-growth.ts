@@ -164,6 +164,12 @@ export function tickPopulationGrowth(input: {
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
       let town = tile.town;
       pDiag.totalTowns += 1;
+      // A town focus picked since the last tick is applied right after this tick (town-focus-promotion.ts). A town
+      // skipped below keeps its old growth clock and is paid the whole stall on its first growing tick, so restart
+      // the clock now: otherwise a focus switched just before a stall ends would be paid for time before it applied.
+      const restartClockForFocus = (): void => {
+        if (town.pendingFocus !== undefined) input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+      };
       // §5.4 self-heal: a town's own persisted isFed only ever gets
       // refreshed as a side effect of some OTHER mutation touching this
       // exact tile (build/upgrade/capture/etc, via
@@ -195,14 +201,19 @@ export function tickPopulationGrowth(input: {
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;
         townsSkippedCaptureShock += 1;
+        restartClockForFocus();
         continue;
       }
       if (!fedTownKeys.has(tileKey)) {
         pDiag.unfed += 1;
         townsSkippedUnfed += 1;
+        restartClockForFocus();
         continue;
       }
-      if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+      if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") {
+        restartClockForFocus();
+        continue;
+      }
 
       let isNearActiveWar = false;
       for (let i = 0; !growsThroughWar && i < attackCoords.length; i += 2) {
@@ -238,6 +249,7 @@ export function tickPopulationGrowth(input: {
       if (logisticFactor <= 0) {
         pDiag.logisticCap += 1;
         townsSkippedLogisticCap += 1;
+        restartClockForFocus();
         continue;
       }
 

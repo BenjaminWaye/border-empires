@@ -3,12 +3,12 @@
 // forgotten when the payment provider answers badly.
 import { describe, expect, it } from "vitest";
 
-import { account, createHostingHarness, HOUR, MINUTE } from "../hosting-test-support.js";
+import { CONSENT, account, createHostingHarness, HOUR, MINUTE } from "../hosting-test-support.js";
 import { openBar, pledge, type Harness } from "./funding-test-support.js";
 
 /** Starts a share's checkout without paying it. Returns its payment ref. */
 const startCheckout = async (h: Harness, uid: string, sectorId: string, amountCents: number): Promise<string> => {
-  const result = await h.service.contribute(account(uid), sectorId, amountCents);
+  const result = await h.service.contribute(account(uid), sectorId, amountCents, CONSENT);
   if (!result.ok) throw new Error(result.code);
   return result.checkoutUrl.replace("https://checkout.invalid/", "");
 };
