@@ -41,17 +41,10 @@ describe("town focus picks", () => {
     expect(confirmTownFocusForAll("1,0", "LEVY", NOW + 9_000)).toBe(false);
   });
 
-  it("counts a town under its queued focus, so All towns knows who would change", () => {
+  it("counts a town under the focus just picked for it, so All towns knows who would change", () => {
     const { state } = setup([]);
     const extras = townFocusExtras(state, [townAt(1, { pendingFocus: "LEVY", pendingFocusAt: NOW }), townAt(2)], "1,0", NOW);
     expect(extras.counts).toMatchObject({ LEVY: 1, BALANCED: 1 });
   });
 
-  it("glows a promoted focus only around the time it was due, not when reopened hours later", () => {
-    const { state } = setup([]);
-    townFocusExtras(state, [townAt(5, { pendingFocus: "LEVY", pendingFocusAt: NOW })], "5,0", NOW - 60_000);
-    expect(townFocusExtras(state, [townAt(5, { focus: "LEVY" })], "5,0", NOW + 10_000).arrived).toBe("LEVY");
-    townFocusExtras(state, [townAt(6, { pendingFocus: "GROWTH", pendingFocusAt: NOW })], "6,0", NOW - 60_000);
-    expect(townFocusExtras(state, [townAt(6, { focus: "GROWTH" })], "6,0", NOW + 3 * 3_600_000).arrived).toBeUndefined();
-  });
 });

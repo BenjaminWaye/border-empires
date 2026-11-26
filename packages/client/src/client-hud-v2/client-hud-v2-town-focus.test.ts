@@ -3,12 +3,12 @@ import type { TownFocusCard } from "../client-town-focus/client-town-focus.js";
 import { townFocusCardHtml } from "./client-hud-v2-town-focus.js";
 
 const stat = { value: "1", delta: "", change: 0, tone: "same" as const };
-const option = (focus: TownFocusCard["options"][number]["focus"], state: "active" | "queued" | "idle") => ({
+const option = (focus: TownFocusCard["options"][number]["focus"], state: "active" | "idle") => ({
   focus, name: focus === "LEVY" ? "Levy" : focus === "BALANCED" ? "Balanced" : focus, tagline: "t", rule: "r", tradeLine: "x", costLine: "y", costShort: "z", state, coin: stat, manpower: stat, growth: stat
 });
-const card = (queued?: "LEVY"): TownFocusCard => ({
-  options: [option("BALANCED", "active"), option("GROWTH", "idle"), option("LEVY", queued ? "queued" : "idle"), option("COMMERCE", "idle")],
-  active: "BALANCED", queued, startsInMs: 97 * 60_000, queuedInMs: queued ? 97 * 60_000 : 0, growthLabel: "To City", growthPaused: false, unfed: false
+const card = (): TownFocusCard => ({
+  options: [option("BALANCED", "active"), option("GROWTH", "idle"), option("LEVY", "idle"), option("COMMERCE", "idle")],
+  active: "BALANCED", nextRefillInMs: 97 * 60_000, growthLabel: "To City", growthPaused: false, unfed: false
 });
 
 describe("Town focus card (town screen)", () => {
@@ -21,13 +21,11 @@ describe("Town focus card (town screen)", () => {
     expect(html).toContain("Next refill <b>1h 37m</b>");
   });
 
-  it("keeps Active on the current focus while another is queued, shows the queue in the header and defaults the strip to it", () => {
-    const html = townFocusCardHtml(card("LEVY"));
-    expect(html).toContain(">Active<");
-    expect(html).toContain(">Next<");
-    expect(html).toContain("Levy next");
-    expect(html).toContain("v2tf-detail-levy v2tf-detail-default");
-    expect(html).toContain("Pick Balanced to cancel.");
+  it("says a switch is free and immediate, with no queued state", () => {
+    const html = townFocusCardHtml(card());
+    expect(html).toContain("Switches within a minute");
+    expect(html).not.toContain("next refill</");
+    expect(html).not.toContain("cancel");
   });
 
   it("offers All towns only when some town would change, and asks again before applying", () => {
@@ -52,7 +50,7 @@ describe("Town focus figures carry their units", () => {
 
 describe("Town focus empire sums", () => {
   it("adds changes of 1,000 and more as numbers, never as parsed text (no −NaN)", () => {
-    const c = card("LEVY");
+    const c = card();
     c.options[2] = { ...c.options[2]!, coin: { value: "5,000", delta: "−1,152", change: -1152, tone: "down" } };
     const html = townFocusCardHtml(c, { empireManpowerPerRefill: 0, empireCoinPerDay: 0 });
     expect(html).not.toContain("NaN");

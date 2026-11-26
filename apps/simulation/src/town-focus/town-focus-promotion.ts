@@ -1,5 +1,6 @@
-// Makes queued town focus changes active once their refill has come
-// (docs/town-focus-plan.md). Runs after each population growth tick.
+// Makes picked town focus changes active (docs/town-focus-plan.md). Runs after
+// each population growth tick, so a growth tick never pays a focus for time
+// before it was applied.
 //
 // Manpower and Coin are settled at the rate in force since the last settle, so
 // a rate that flipped by clock alone would be paid retroactively. Each owner
@@ -8,7 +9,7 @@
 // and economy caches the new rates are read from.
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { promoteTownFocus, townFocusChangeDue } from "@border-empires/shared";
+import { promoteTownFocus } from "@border-empires/shared";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -24,14 +25,17 @@ export type TownFocusPromotionDeps = {
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
 };
 
-/** Promotes every due town focus; returns how many towns changed. */
+/**
+ * Promotes every pending town focus; returns how many towns changed. A pending focus queued for a later refill
+ * under the old rule is promoted too, since the client shows a pending focus as the town's focus.
+ */
 export const promoteDueTownFocus = (deps: TownFocusPromotionDeps, nowMs: number): number => {
   let promoted = 0;
   for (const playerId of deps.players.keys()) {
     const due: Array<[string, DomainTileState]> = [];
     for (const tileKey of deps.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
       const tile = deps.tiles.get(tileKey);
-      if (tile?.town && tile.ownerId === playerId && townFocusChangeDue(tile.town, nowMs)) due.push([tileKey, tile]);
+      if (tile?.town && tile.ownerId === playerId && tile.town.pendingFocus !== undefined) due.push([tileKey, tile]);
     }
     if (due.length === 0) continue;
     deps.settleEconomy(nowMs, [playerId]);

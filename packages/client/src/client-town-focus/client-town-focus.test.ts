@@ -25,7 +25,7 @@ describe("townFocusCard", () => {
     expect(byFocus.COMMERCE!.coin.tone).toBe("up");
     expect(byFocus.GROWTH!.growth.tone).toBe("up");
     expect(byFocus.BALANCED!.state).toBe("active");
-    expect(card.startsInMs).toBe(nextManpowerRefillAtMs("me", NOW) - NOW);
+    expect(card.nextRefillInMs).toBe(nextManpowerRefillAtMs("me", NOW) - NOW);
   });
 
   it("divides the active focus out of the server's figures and compares every row with Balanced", () => {
@@ -42,11 +42,11 @@ describe("townFocusCard", () => {
     expect(card.options.find((o) => o.focus === "LEVY")).toMatchObject({ tradeLine: "MP +20%", costLine: "Coin −10% · Growth −10%" });
   });
 
-  it("marks a queued focus and shows paused growth plainly", () => {
-    const card = townFocusCard(townTile({ pendingFocus: "LEVY", pendingFocusAt: NOW + 60_000, populationGrowthPerMinute: 0, nearbyWarPausedUntil: NOW + 60_000 }), "me", 0.5, NOW)!;
-    expect(card.queued).toBe("LEVY");
-    expect(card.queuedInMs).toBe(60_000);
-    expect(card.options.find((o) => o.focus === "LEVY")!.state).toBe("queued");
+  it("shows a picked focus as active before the server applies it, and paused growth plainly", () => {
+    const card = townFocusCard(townTile({ pendingFocus: "LEVY", pendingFocusAt: NOW, populationGrowthPerMinute: 0, nearbyWarPausedUntil: NOW + 60_000 }), "me", 0.5, NOW)!;
+    expect(card.active).toBe("LEVY");
+    expect(card.options.find((o) => o.focus === "LEVY")!.state).toBe("active");
+    expect(card.options.find((o) => o.focus === "BALANCED")!.state).toBe("idle");
     expect(card.growthPaused).toBe(true);
     expect(card.options.every((o) => o.growth.value === "Paused" && o.growth.delta === "")).toBe(true);
   });
@@ -57,10 +57,18 @@ describe("townFocusCard", () => {
     expect(townFocusDuration(108 * 60)).toBe("4.5d");
   });
 
-  it("queues the choice for the next refill the way the server stores it", () => {
+  it("stores the choice as due now, the way the server stores it", () => {
     const town = townTile().town!;
-    expect(optimisticTownFocus(town, "LEVY", "me", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: nextManpowerRefillAtMs("me", NOW) });
-    expect(optimisticTownFocus(town, "BALANCED", "me", NOW)).toBe(town);
+    expect(optimisticTownFocus(town, "LEVY", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW });
+    expect(optimisticTownFocus(town, "BALANCED", NOW)).toBe(town);
+  });
+
+  // The server's Coin figure trails a pick until its next growth tick: the base must come out at the applied focus.
+  it("keeps Balanced's Coin right while a pick waits for the server", () => {
+    const tile = townTile({ focus: "COMMERCE", pendingFocus: "LEVY", pendingFocusAt: NOW, goldPerMinute: 0.064 * 1.2 });
+    tile.yieldRate = { goldPerMinute: 0.064 * 1.2 };
+    const card = townFocusCard(tile, "me", 0.5, NOW)!;
+    expect(card.options.find((o) => o.focus === "BALANCED")!.coin.value).toBe(String(Math.round(0.064 * 1440)));
   });
 });
 

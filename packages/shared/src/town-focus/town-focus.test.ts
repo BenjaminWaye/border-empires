@@ -5,7 +5,6 @@ import {
   activeTownFocus,
   promoteTownFocus,
   queueTownFocus,
-  townFocusChangeDue,
   townFocusMultipliers,
   withoutTownFocus
 } from "./town-focus.js";
@@ -39,11 +38,9 @@ describe("town focus rules", () => {
     expect(queueTownFocus({ focus: "LEVY", pendingFocus: "GROWTH", pendingFocusAt: 1_000 }, "LEVY", 2_000)).toEqual({ focus: "LEVY" });
   });
 
-  it("is due only from its effective time", () => {
-    const queued = { pendingFocus: "GROWTH" as const, pendingFocusAt: 1_000 };
-    expect(townFocusChangeDue(queued, 999)).toBe(false);
-    expect(townFocusChangeDue(queued, 1_000)).toBe(true);
-    expect(townFocusChangeDue({ focus: "GROWTH" }, 5_000)).toBe(false);
+  it("leaves a town alone when the same focus is picked again before it applies", () => {
+    const picked = { pendingFocus: "GROWTH" as const, pendingFocusAt: 1_000 };
+    expect(queueTownFocus(picked, "GROWTH", 2_000)).toBe(picked);
   });
 
   it("promotes the queued focus and stores Balanced as absent", () => {

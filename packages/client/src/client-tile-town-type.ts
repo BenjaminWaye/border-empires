@@ -7,7 +7,7 @@ export type ClientTownWireSummary = {
   type: "MARKET" | "FARMING";
   terrainProfile?: "TUNDRA" | "DESERT" | "GRASS" | "COASTAL_DESERT";
   coastal?: boolean;
-  // Town focus (docs/town-focus-plan.md): active focus (absent = Balanced) and a change queued for the owner's next refill.
+  // Town focus (docs/town-focus-plan.md): active focus (absent = Balanced) and a pick the server applies after its next growth tick.
   focus?: "BALANCED" | "GROWTH" | "LEVY" | "COMMERCE";
   pendingFocus?: "BALANCED" | "GROWTH" | "LEVY" | "COMMERCE";
   pendingFocusAt?: number;

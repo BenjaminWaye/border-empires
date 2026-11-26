@@ -22,7 +22,7 @@ import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { townFocusCardHtml, type TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
-import { townFocusCard, townGrowthEtaPrecise } from "../client-town-focus/client-town-focus.js";
+import { shownTownFocus, townFocusCard, townGrowthEtaPrecise } from "../client-town-focus/client-town-focus.js";
 import { TOWN_FOCUS_MULTIPLIERS } from "@border-empires/shared";
 import { townBiota } from "./client-hud-v2-town-biota.js";
 import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
@@ -128,7 +128,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
   const manpower = biotaAdjustedTownManpower(town.populationTier, terrainProfile, coastal, input.biota);
   // The town's active focus scales its own regen (docs/town-focus-plan.md); the card projects each choice.
-  const focusRegen = manpower.regenPerMinute * TOWN_FOCUS_MULTIPLIERS[town.focus ?? "BALANCED"].manpowerRegen;
+  const focusRegen = manpower.regenPerMinute * TOWN_FOCUS_MULTIPLIERS[shownTownFocus(town)].manpowerRegen;
   const focusCard = input.me && !ungarrisonedTown(input) ? townFocusCardHtml(townFocusCard(input.town, input.me, manpower.regenPerMinute), input.focusExtras) : "";
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
