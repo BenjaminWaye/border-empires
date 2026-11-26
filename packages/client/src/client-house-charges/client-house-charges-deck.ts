@@ -8,6 +8,7 @@
 import { houseChargeDomain, houseChargePips, type HouseChargeView } from "@border-empires/shared";
 import { houseChargeCardArtSvg, houseChargeCardBackHtml } from "./client-house-charge-cards.js";
 import { HOUSE_CHARGE_KIND_LABEL, HOUSE_CHARGE_RARITY_LABEL, houseChargeLetter, houseChargeObjective, houseChargeProgress } from "./client-house-charges-labels.js";
+import { houseChargeHeldStatus } from "./client-house-charges-status.js";
 import "./client-house-charge-cards.css";
 import "./client-house-charges-deck.css";
 import "./client-house-charges-deck-motion.css";
@@ -31,9 +32,10 @@ const statusHtml = (charge: HouseChargeView, options: HouseChargeDeckCardOptions
   // While choosing, the status follows the draft so a swap reads at a glance before it is saved.
   if (choosing && ticked !== charge.kept) return `<p class="hcd-status is-pending">${ticked ? "Will be kept" : "Will be dropped"}</p>`;
   if (!charge.kept && !choosing) return '<p class="hcd-status is-dropped">Not kept</p>';
-  if (charge.held) return `<p class="hcd-status is-held">Held${charge.completeSince ? ` since ${esc(formatWhen(charge.completeSince))}` : ""}</p>`;
+  const status = houseChargeHeldStatus(charge, formatWhen);
+  if (status.kind === "held") return `<p class="hcd-status is-held">${esc(status.text)}</p>`;
   if (!charge.kept) return "";
-  return charge.lostAt !== undefined ? `<p class="hcd-status is-lost">Lost ${esc(formatWhen(charge.lostAt))}</p>` : '<p class="hcd-status">Not held</p>';
+  return `<p class="hcd-status${status.kind === "lost" ? " is-lost" : ""}">${esc(status.text)}</p>`;
 };
 
 /** One charge as a full-width card. Keep uses `data-house-charge-pick`, Show on map `data-house-charge-jump`. */

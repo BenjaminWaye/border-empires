@@ -10,6 +10,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { houseChargeFitView, type HouseChargeFitView } from "./client-house-charges-fit.js";
 import { houseChargeUnscoutedHint } from "./client-house-charges-map.js";
 import { HOUSE_CHARGES_DRAW_MS, houseChargeDeckCardHtml, houseChargesDeckHtml } from "./client-house-charges-deck.js";
+import { formatHouseChargeWhen } from "./client-house-charges-status.js";
 import { foldHouseChargeCards } from "./client-house-charges-fold.js";
 import { houseChargesDealing, toggleHouseChargePick } from "./client-house-charges-pick.js";
 import { houseChargeGuideCentre } from "./client-house-charges-search-guide.js";
@@ -93,8 +94,7 @@ export const showHouseChargeOnMap = (
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const formatWhen = (epochMs: number): string =>
-  new Date(epochMs).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+const formatWhen = formatHouseChargeWhen;
 
 /**
  * Where "Show on map" goes: a target the player has explored, otherwise the

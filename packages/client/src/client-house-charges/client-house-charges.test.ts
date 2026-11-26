@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import type { HouseChargeView } from "@border-empires/shared";
+import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
+import { houseChargeDeckCardHtml } from "./client-house-charges-deck.js";
+import { formatHouseChargeWhen } from "./client-house-charges-status.js";
 import { profileHtml, type ProfileInput } from "../client-hud-v2/client-hud-v2-profile.js";
 import { houseChargeLetter } from "./client-house-charges-letters.js";
 import { houseChargeFocusPoint, houseChargesPanelHtml } from "./client-house-charges-panel.js";
@@ -223,6 +225,26 @@ describe("House Charges in the profile", () => {
     expect(html).not.toContain("which 0");
     expect(html).toContain("You can still change which 2 you keep.");
     expect(html).toContain("None kept yet");
+  });
+
+  // Playtest 2026-11-25: the road charge's card read "Held since 21:29" while the profile row read "Not held"
+  // (and, once held, only "Held"). The row now uses the card's own status, from the same pushed charge.
+  it("shows a kept charge's held state exactly as its Charges card does, after the push that completes it", () => {
+    const state = createInitialHouseChargesState();
+    applyHouseChargesMessage(state, message([charge({})], 0));
+    expect(profile({ houseCharges: state.houseCharges ?? null })).toContain("<dd>Not held</dd>");
+    applyHouseChargesMessage(state, message([charge({ held: true, completeSince: 9_000, size: 15 })], 0));
+    const held = state.houseCharges!.charges[0]!;
+    const cardStatus = /<p class="hcd-status is-held">([^<]+)<\/p>/.exec(houseChargeDeckCardHtml(held, { choosing: false, ticked: true, focused: false, scoutHint: undefined, formatWhen: formatHouseChargeWhen }))?.[1];
+    expect(cardStatus).toBe(`Held since ${formatHouseChargeWhen(9_000)}`);
+    const html = profile({ houseCharges: state.houseCharges ?? null });
+    expect(html).toContain(`<dd>${cardStatus}</dd>`);
+    expect(html).not.toContain("Not held");
+  });
+
+  it("says when a kept charge was lost, as its card does", () => {
+    const html = profile({ houseCharges: message([charge({ lostAt: 9_500 })], 0) as HouseChargesPayload });
+    expect(html).toContain(`<dd>Lost ${formatHouseChargeWhen(9_500)}</dd>`);
   });
 
   it("explains the wait on your own profile before charges are dealt", () => {

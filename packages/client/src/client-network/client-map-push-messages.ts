@@ -5,6 +5,7 @@ import { announceHouseChargeLosses } from "../client-house-charges/client-house-
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
+import { celebrateNewlyHeldCharges } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
 import { applyLongestRoadMessage } from "../client-achievements/client-achievements-state.js";
 
 // The simulation's change-driven map pushes, each a full replacement of one
@@ -28,9 +29,13 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   }
   // This House's charges (client-house-charges/); the Charges panel reads it on the next HUD render.
   if (msg.type === "HOUSE_CHARGES") {
+    const prevCharges = state.houseCharges;
     if (applyHouseChargesMessage(state, msg)) {
+      const live = houseChargesWithLiveNames(state.houseCharges, state.playerNames);
       // The open keep choice is shown by the sealed-charges bubble (client-house-charges-bubble.ts), not an alert.
-      announceHouseChargeLosses(state, houseChargesWithLiveNames(state.houseCharges, state.playerNames));
+      announceHouseChargeLosses(state, live);
+      // A kept charge that just became held gets its celebration card (client-unlock-celebration/).
+      celebrateNewlyHeldCharges(prevCharges, live);
       renderHud();
     }
     return true;
