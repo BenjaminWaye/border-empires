@@ -22,6 +22,8 @@ import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-g
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
+import { pickTownFocus, pickTownFocusForAll, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import type { TownFocus } from "@border-empires/shared";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -123,6 +125,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
     biota,
+    ...(deps.state.me ? { me: deps.state.me, focusExtras: townFocusExtras(deps.state, towns, townKey) } : {}),
     ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
@@ -130,6 +133,12 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
   watchTownBarHeight(document.getElementById("v2t-bar"));
+};
+
+/** A Town focus tile press: queues the focus on the open town and redraws at once. */
+export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
+  if (!current) return;
+  if (allTowns ? pickTownFocusForAll(deps, myTowns(deps), focus) > 0 : pickTownFocus(deps, current.townKey, focus)) renderTownScreen(deps);
 };
 
 /**
