@@ -57,10 +57,12 @@ describe("townFocusCard", () => {
     expect(townFocusDuration(108 * 60)).toBe("4.5d");
   });
 
-  it("stores the choice as due now, the way the server stores it", () => {
+  it("stores a confirmed choice as due now and locked until the next refill, the way the server stores it", () => {
     const town = townTile().town!;
-    expect(optimisticTownFocus(town, "LEVY", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW });
-    expect(optimisticTownFocus(town, "BALANCED", NOW)).toBe(town);
+    expect(optimisticTownFocus(town, "LEVY", "me", NOW)).toMatchObject({ pendingFocus: "LEVY", pendingFocusAt: NOW, focusLockedUntil: nextManpowerRefillAtMs("me", NOW) });
+    expect(optimisticTownFocus(town, "BALANCED", "me", NOW)).toBe(town);
+    const locked = { ...town, focusLockedUntil: NOW + 1 };
+    expect(optimisticTownFocus(locked, "LEVY", "me", NOW)).toBe(locked);
   });
 
   // The server's Coin figure trails a pick until its next growth tick: the base must come out at the applied focus.

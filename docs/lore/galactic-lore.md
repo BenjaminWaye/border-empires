@@ -201,17 +201,16 @@ and it turns a **Blind Eye**: protection ends, the Duke's weakest world starts
 to slip, and grievances against that Duke cost nothing to lodge. Lending
 ships to the Court's own patrols buys its favor back for a while.
 
-## 10. Relay Beacons and anchored ground
+## 10. Relay Beacons and reach
 
-A **Relay Beacon** is the cheapest form of the Court's anchor technology: an
-unarmed tower that declares this ground anchored to a House.
+A House AI in orbit coordinates the House's ancillaries and fabrication. A
+**Relay Beacon** is an unarmed relay mast: it receives the AI's command stream
+through modulated gravitational waves at light speed and relays it to the
+ancillaries around it. The ground its signal covers is its **reach**. A
+beacon is a relay, not an AI in a tower.
 
-A House AI in orbit coordinates the House's ancillaries and fabrication. Beacons
-receive its command stream through modulated gravitational waves at light
-speed and project a local control field. The field's coverage is **reach**.
-A beacon is a receiver and anchor, not an AI in a tower.
-
-- **It marks.** Ground inside its reach is the House's to settle and build on.
+- **It marks.** Ground inside its reach is the House's to settle and build on:
+  ancillaries there can take the House's orders.
 - **It watches.** Its receiver stands above the forest canopy, so woodland hides
   nothing; only a mountain blocks its view.
 
@@ -219,11 +218,11 @@ It does no refining and carries no weapon. It cannot be taken intact: its
 sensing frames are tuned to its House, so capture topples it, and the wreck
 lies for a day.
 
-Siege guns are not anchors. A Siege Battery and the towers raised from it
+Siege guns relay nothing. A Siege Battery and the towers raised from it
 strike ground but never claim it.
 
-Two flags cannot own the same ground. Where a rival's anchor covers land a
-House's own anchors no longer reach, the rival's claim wins.
+Two flags cannot own the same ground. Where a rival's reach covers land the
+House's own towns, docks and beacons no longer reach, the rival's claim wins.
 
 A House can push a supplied frontier beyond its reach, but only along an
 unbroken supply route; cut the route and the advance can be stripped away.

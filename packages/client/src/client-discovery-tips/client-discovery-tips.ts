@@ -99,7 +99,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
-    body: "Frontier outside your reach is lost if its supply route is cut. Towns, Docks and captured buildings can still be garrisoned here. Garrison an anchor or build a Relay Beacon to extend your reach."
+    body: "Frontier outside your reach is lost if its supply route is cut. Towns, Docks and captured buildings can still be garrisoned here. Garrison a Town or Dock, or build a Relay Beacon, to extend your reach."
   },
   FIRST_DOCK: {
     id: "FIRST_DOCK",
