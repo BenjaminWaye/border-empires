@@ -180,6 +180,14 @@ export class SqliteHostingStore implements HostingStore {
         event_id TEXT PRIMARY KEY,
         received_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS hosted_payment_disputes (
+        dispute_id TEXT PRIMARY KEY,
+        account_uid TEXT NOT NULL,
+        sector_id TEXT NOT NULL,
+        opened_at INTEGER NOT NULL,
+        closed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS hosted_payment_disputes_open_idx ON hosted_payment_disputes (account_uid) WHERE closed_at IS NULL;
     `);
     // CREATE TABLE IF NOT EXISTS leaves an existing table as it was, so columns
     // added since are added here, once.
@@ -326,6 +334,21 @@ export class SqliteHostingStore implements HostingStore {
   listContributions(sectorId: string): ContributionRecord[] {
     const rows = this.db.prepare(`SELECT ${CONTRIBUTION_COLUMNS} FROM hosted_contributions WHERE sector_id = ? ORDER BY created_at`).all(sectorId) as ContributionRow[];
     return rows.map(toContribution);
+  }
+
+  openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean {
+    const result = this.db
+      .prepare(`INSERT OR IGNORE INTO hosted_payment_disputes (dispute_id, account_uid, sector_id, opened_at) VALUES (?, ?, ?, ?)`)
+      .run(dispute.disputeId, dispute.accountUid, dispute.sectorId, dispute.openedAt);
+    return Number(result.changes) > 0;
+  }
+
+  closeDispute(disputeId: string, closedAt: number): boolean {
+    return Number(this.db.prepare(`UPDATE hosted_payment_disputes SET closed_at = ? WHERE dispute_id = ? AND closed_at IS NULL`).run(closedAt, disputeId).changes) > 0;
+  }
+
+  hasOpenDispute(accountUid: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM hosted_payment_disputes WHERE account_uid = ? AND closed_at IS NULL`).get(accountUid) !== undefined;
   }
 
   recordPaymentEvent(eventId: string, now: number): boolean {

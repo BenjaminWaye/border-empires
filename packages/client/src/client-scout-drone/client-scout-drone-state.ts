@@ -126,6 +126,8 @@ const parseScoutReport = (value: unknown): ScoutReport | undefined => {
     planetaryDefenseTiles: count(raw.planetaryDefenseTiles),
     empiresSighted: Array.isArray(raw.empiresSighted) ? raw.empiresSighted.filter((id): id is string => typeof id === "string") : [],
     ...(isFiniteNumber(raw.tilesSeen) && raw.tilesSeen > 0 ? { tilesSeen: Math.floor(raw.tilesSeen) } : {}),
+    // Zero is kept: a flight over known ground explored nothing, and must not fall back to tilesSeen.
+    ...(isFiniteNumber(raw.tilesExplored) && raw.tilesExplored >= 0 ? { tilesExplored: Math.floor(raw.tilesExplored) } : {}),
     ...withSites(parseScoutFindingSites(raw.sites)),
     ...(isFiniteNumber(raw.focusX) && isFiniteNumber(raw.focusY) ? { focusX: raw.focusX, focusY: raw.focusY } : {}),
     ...(typeof raw.blockedByPlayerId === "string" ? { blockedByPlayerId: raw.blockedByPlayerId } : {})
@@ -235,9 +237,10 @@ export const handleScoutDroneMessage = (
       // The feed keeps the line for history.
       pushEntry({ title: "Scout report", text: scoutReportFeedText(report, nameOf, blockedBy), type: "info", severity: "success", at: landedAt, focusX: report.focusX ?? report.targetX, focusY: report.focusY ?? report.targetY, actionLabel: "Show" });
       const baseline = state.scoutDroneExploredAtLaunch;
-      // The server's count of tiles the drone saw; older servers send none, so fall back to the tiles
-      // discovered since launch (rougher: other reveals mix in, and a reload resets the baseline).
-      const explored = report.tilesSeen ?? (baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined);
+      // The server's count of tiles the flight explored first, the same count Cartographer adds (playtest
+      // 2026-11-26: "+160 Tiles" counted known ground too). Older servers send only the tiles the drone saw,
+      // or nothing, so fall back to those, then to the tiles discovered since launch.
+      const explored = report.tilesExplored ?? report.tilesSeen ?? (baseline !== undefined && state.discoveredTiles ? Math.max(0, state.discoveredTiles.size - baseline) : undefined);
       state.scoutDroneReport = { ...report, ...(blockedBy ? { blockedBy } : {}), ...(explored ? { explored } : {}), at: nowMs, ...(reportId ? { id: reportId } : {}), viewed: false };
       state.scoutFindFocus = undefined;
       state.scoutDroneExploredAtLaunch = undefined;
