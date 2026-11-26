@@ -15,6 +15,7 @@ import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-dipl
 import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { aiWarOutlook, type AiWarOutlook } from "./ai-war-outlook.js";
+import { guideTruceWelcomeApplies, welcomeGuideTruce } from "./ai-guide-truce-welcome.js";
 
 export type AiDiplomacyEvaluation = {
   stance: AiDiplomacyStance;
@@ -51,6 +52,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   requesterAlliesAtWarWithAi: readonly string[];
   /** Whether the AI is at war with a player: counts its fronts before it turns on a weak neighbour (ai-war-fronts.ts). */
   aiAtWarWith?: (playerId: string) => boolean;
+  /** The requester's tutorial guide is on its truce step: the AI welcomes them with a free truce (ai-guide-truce-welcome.ts). */
+  requesterOnGuideTruceStep?: boolean;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
@@ -170,7 +173,7 @@ export const evaluateAiDiplomacy = (input: {
     now: input.now
   });
   const gift = giftView(input.memory.goodwillCoin, goodwillHourCoin);
-  const priced = aiDiplomacyPricing({
+  const pricedAsUsual = aiDiplomacyPricing({
     aiName: input.aiName,
     stanceKind: stance.kind,
     opinion,
@@ -193,6 +196,7 @@ export const evaluateAiDiplomacy = (input: {
     ...(stanceInput.aiCanOpenFront !== undefined ? { aiCanOpenFront: stanceInput.aiCanOpenFront } : {}),
     now: input.now
   });
+  const priced = guideTruceWelcomeApplies(input) ? welcomeGuideTruce(pricedAsUsual) : pricedAsUsual;
   return {
     stance,
     opinion,
