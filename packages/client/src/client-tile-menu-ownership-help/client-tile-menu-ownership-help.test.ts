@@ -23,4 +23,10 @@ describe("ownershipHelpSubtitleHtml", () => {
     expect(html).toContain("<summary>Your frontier</summary>");
     expect(html).toContain(" · Forest");
   });
+
+  // The frontier help promises Garrison; the tile sheet greys it out beyond reach, so the help says so.
+  it("tells you Garrison needs your reach and how to extend it", () => {
+    const html = ownershipHelpSubtitleHtml("frontier", "Your frontier");
+    expect(html).toContain("Garrison works inside your reach; a Relay Beacon extends it.");
+  });
 });
