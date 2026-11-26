@@ -156,7 +156,8 @@ describe("House Charges panel", () => {
   // Playtest Run 5: a kept desert charge asks for tiles garrisoned; point at reach and Garrison Many, only there.
   it("adds a reach and Garrison Many tip to a kept region garrison charge only", () => {
     document.body.innerHTML = houseChargesPanelHtml(panelState([charge({}), { ...desert, kept: true }]), 5_000);
-    const [road, region] = [...document.querySelectorAll(".hcd-card")];
+    const cards = document.querySelectorAll(".hcd-card");
+    const [road, region] = [cards[0], cards[1]];
     expect(region!.querySelector(".is-tip")?.textContent).toBe("Garrison Many works inside your reach; Relay Beacons extend it.");
     expect(road!.querySelector(".is-tip")).toBeNull();
   });
