@@ -30,3 +30,11 @@ export type TruceRequest = {
   note?: OfferNoteId;
   settlementPhase?: "paying" | "refunding";
 };
+
+/**
+ * When a new truce offered by `request` would end if accepted: its clock runs from the offer
+ * (gateway offeredTruceEndsAt), so a 12h offer answered 10h later gives 2h. Undefined for extensions,
+ * which add their hours to the running truce.
+ */
+export const offeredTruceEndsAt = (request: Pick<TruceRequest, "createdAt" | "durationHours" | "extendsTruce">): number | undefined =>
+  request.extendsTruce ? undefined : request.createdAt + request.durationHours * 3_600_000;
