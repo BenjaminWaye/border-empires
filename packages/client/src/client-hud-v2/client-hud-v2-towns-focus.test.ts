@@ -35,4 +35,10 @@ describe("Towns list focus column", () => {
     expect(townsFocusBarHtml({ byKey, confirmAll: "LEVY" }, 3)).toContain("Again: 2 → Levy");
     expect(townsFocusBarHtml({ byKey: new Map([["1,0", s()]]) }, 1)).toBe("");
   });
+
+  it("never promises more towns than one command sends", () => {
+    const byKey = new Map(Array.from({ length: 150 }, (_, i) => [`${i},0`, s()] as [string, TownsFocusState]));
+    expect(townsFocusBarHtml({ byKey, confirmAll: "LEVY" }, 150)).toContain("Again: 100 → Levy");
+  });
 });
+

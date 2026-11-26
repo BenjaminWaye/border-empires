@@ -1,6 +1,6 @@
 // Town focus on the Towns list (docs/town-focus-plan.md): a Focus column with four icon buttons per town, and a
 // "Set every town" bar above the table. Kept beside client-hud-v2-towns.ts so the table file stays small.
-import { TOWN_FOCUSES, type TownFocus } from "@border-empires/shared";
+import { TOWN_FOCUSES, TOWN_FOCUS_MAX_TILES_PER_COMMAND, type TownFocus } from "@border-empires/shared";
 import { escapeHtml as esc } from "../client-duke-panel/client-duke-escape.js";
 import { townFocusName, townFocusRule } from "../client-town-focus/client-town-focus.js";
 import { townFocusIcon } from "./client-hud-v2-town-focus.js";
@@ -36,7 +36,8 @@ export const townsFocusBarHtml = (view: TownsFocusView, townCount: number): stri
   const mix = TOWN_FOCUSES.filter((f) => counts[f] > 0).map((f) => `${counts[f]} ${townFocusName(f)}`).join(" · ");
   const buttons = TOWN_FOCUSES.map((focus) => {
     const arming = view.confirmAll === focus;
-    const changing = Math.max(0, townCount - counts[focus]);
+    // One command carries at most TOWN_FOCUS_MAX_TILES_PER_COMMAND towns; never promise more than it sends.
+    const changing = Math.min(Math.max(0, view.byKey.size - counts[focus]), TOWN_FOCUS_MAX_TILES_PER_COMMAND);
     return `<button type="button" class="v2lf-all${arming ? " v2lf-all-confirm" : ""} v2tf-f-${focus.toLowerCase()}" data-v2-towns-focus-all="${focus}"${changing === 0 ? " disabled" : ""} title="${esc(`Switch every town to ${townFocusName(focus)} now. ${townFocusRule(focus)}`)}">${townFocusIcon(focus)}<span>${arming ? `Again: ${changing} → ${esc(townFocusName(focus))}` : esc(townFocusName(focus))}</span></button>`;
   }).join("");
   return `<div class="v2lf-bar"><span class="v2lf-bar-label">Set every town<small>${esc(mix)} · free, switches now</small></span><span class="v2lf-bar-btns">${buttons}</span></div>`;

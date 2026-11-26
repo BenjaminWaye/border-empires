@@ -119,4 +119,45 @@ describe("HUD v2 Towns screen", () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_TOWN_FOCUS", focus: "COMMERCE", tiles: expect.arrayContaining([{ x: 5, y: 5 }, { x: 20, y: 5 }]) }));
     expect(allButton().hasAttribute("disabled")).toBe(true);
   });
+
+  // Review of PR #2996: the list was built from the cached town list, so a pick left the row's MP at the old focus.
+  it("updates a town's MP at once after a pick, without moving the rows", () => {
+    const { deps } = setup();
+    deps.sendGameMessage = vi.fn(() => true);
+    const order = (): string[] => Array.from(document.querySelectorAll<HTMLElement>("[data-v2-towns-open]")).map((r) => r.dataset.v2TownsOpen!);
+    const mp = (key: string): string => document.querySelector(`[data-v2-towns-open="${key}"]`)!.querySelectorAll(".v2l-num")[1]!.textContent!;
+    const before = { order: order(), mp: mp("5,5") };
+    screenClick(deps, document.querySelector<HTMLElement>('[data-v2-towns-focus="5,5"][data-focus="LEVY"]')!);
+    expect(Number.parseInt(mp("5,5"))).toBeGreaterThan(Number.parseInt(before.mp));
+    expect(order()).toEqual(before.order);
+  });
+
+  it("clears the set-every-town confirm when its window ends, so a late press only arms again", () => {
+    vi.useFakeTimers();
+    try {
+      const { deps } = setup();
+      const send = vi.fn(() => true);
+      deps.sendGameMessage = send;
+      const allButton = (): HTMLElement => document.querySelector<HTMLElement>('[data-v2-towns-focus-all="LEVY"]')!;
+      screenClick(deps, allButton());
+      expect(allButton().textContent).toContain("Again");
+      vi.advanceTimersByTime(5_000);
+      expect(allButton().textContent).not.toContain("Again");
+      screenClick(deps, allButton());
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives an ungarrisoned town no focus icons", () => {
+    const { deps, state } = setup();
+    state.tiles.set("5,5", { ...town(5, "Alder", 1), ownershipState: "FRONTIER" });
+    forgetMyTowns();
+    closeScreen(deps, { toMap: true });
+    openScreen(deps, "towns");
+    expect(document.querySelector('[data-v2-towns-focus="5,5"]')).toBeNull();
+    expect(document.querySelector('[data-v2-towns-focus="20,5"]')).not.toBeNull();
+  });
 });
+

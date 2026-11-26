@@ -8,7 +8,7 @@ import { townsFocusBarHtml, townsFocusCellHtml, type TownsFocusView } from "./cl
 
 const COLUMNS: Array<{ key: TownListSortKey; label: string; title: string }> = [
   { key: "gold", label: "Coin/day", title: "Coin per day" },
-  { key: "manpower", label: "MP", title: "Manpower this town adds each refill (every 4h), with its focus" },
+  { key: "manpower", label: "MP", title: "This town's own manpower per refill (every 4h) with its focus, before your empire's town-count weighting: beyond your first 5 towns each adds less" },
   // Short labels: at 375px the five columns are ~58px each, and "Population" / "Growth/min" ran into
   // each other (playtest day 1). The full meaning is in each header's title.
   { key: "population", label: "Pop", title: "Population / target" },
