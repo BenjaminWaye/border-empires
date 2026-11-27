@@ -6,13 +6,11 @@ import type { ClientState } from "../client-state/client-state.js";
 // (MIN_EMPIRE_COLOR_DELTA_E, owner rule 2026-11-27). The gateway refuses
 // such picks with the same reason; this only says so before the player saves.
 
-/** Barbarian land colour (client-map-facade.ts); no empire may sit near it. */
-const BARBARIAN_COLOR = "#2f3842";
 const HEX6 = /^#[0-9a-f]{6}$/;
 
-/** Every other empire's colour the client knows, plus barbarian grey. */
+/** Every other empire's colour the client knows (barbarians are not an empire). */
 export const rivalEmpireColors = (state: Pick<ClientState, "me" | "playerColors" | "playerNames">): EmpireColorEntry[] => {
-  const rivals: EmpireColorEntry[] = [{ playerId: "barbarian", name: "the barbarians", color: BARBARIAN_COLOR }];
+  const rivals: EmpireColorEntry[] = [];
   for (const [playerId, rawColor] of state.playerColors) {
     if (playerId === state.me || playerId.startsWith("barbarian")) continue;
     const color = rawColor.trim().toLowerCase();

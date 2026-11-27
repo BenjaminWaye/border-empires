@@ -10,9 +10,6 @@ import { TakenColorSet } from "./taken-color-set.js";
  */
 export const ACTIVE_EMPIRE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-/** Barbarian land is drawn in the reserved grey, so no empire may sit near it either. */
-const BARBARIAN_ENTRY_NAME = "the barbarians";
-
 type StoredColorProfile = { playerId: string; name?: string; tileColor?: string; updatedAt?: number };
 
 export type TakenColorSetDeps = {
@@ -22,13 +19,13 @@ export type TakenColorSetDeps = {
 };
 
 // Every colour another player already holds, plus the reserved ones, and the
-// active empires a new pick must keep its distance from. Extracted from
+// active empires a new pick must keep its distance from. Barbarian grey stays
+// an exact-only block: the rule is between empires. Extracted from
 // gateway-app.ts (already over its line cap) so it can be shared and tested
 // on its own.
 export const buildTakenColorSet = async (excludePlayerId: string, deps: TakenColorSetDeps): Promise<TakenColorSet> => {
   const exact = new Set<string>(RESERVED_COLORS);
   const active = new Map<string, EmpireColorEntry>();
-  for (const color of RESERVED_COLORS) active.set(`reserved:${color}`, { playerId: "barbarian", name: BARBARIAN_ENTRY_NAME, color });
   const activeSince = (deps.now ?? Date.now)() - ACTIVE_EMPIRE_WINDOW_MS;
   const storedNames = new Map<string, string>();
   // 1. stored profiles

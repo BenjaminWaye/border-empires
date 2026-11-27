@@ -16,8 +16,8 @@ const state = {
 };
 
 describe("client colour clash marking", () => {
-  test("rivals are every other empire plus barbarian grey, never the player", () => {
-    expect(rivalEmpireColors(state).map((rival) => rival.playerId).sort()).toEqual(["barbarian", "rosa"]);
+  test("rivals are every other empire, never the player or the barbarians", () => {
+    expect(rivalEmpireColors(state).map((rival) => rival.playerId)).toEqual(["rosa"]);
   });
 
   test("a pale pink next to Rosa's pale pink gets a terse reason", () => {

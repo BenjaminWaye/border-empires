@@ -78,7 +78,7 @@ their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
 - **Active empires** (`buildTakenColorSet`): every empire in the gateway's
   live profile overrides (seeded AIs, anyone who logged in since boot,
   leaderboard players) plus stored profiles written in the last 14 days
-  (`ACTIVE_EMPIRE_WINDOW_MS`), plus barbarian grey. Older profiles still
+  (`ACTIVE_EMPIRE_WINDOW_MS`). Older profiles and barbarian grey still
   block their exact colour only.
 - **Human picks**: `SET_PROFILE` ("Found your first standard" and "Update
   your empire") and `SET_TILE_COLOR` refuse a colour too close to an active

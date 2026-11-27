@@ -23,10 +23,10 @@ describe("buildTakenColorSet", () => {
     profileOverrides: { entries: () => new Map([["ai-1", { tileColor: "#3f51b5" }]]).entries() }
   };
 
-  test("active empires: recent profiles, live overrides and barbarian grey, never the player themself", async () => {
+  test("active empires: recent profiles and live overrides, never the player themself", async () => {
     const taken = await buildTakenColorSet("me", deps);
     const active = taken.activeEmpires.map((empire) => `${empire.playerId}:${empire.name}:${empire.color}`).sort();
-    expect(active).toEqual(["ai-1:Alden:#3f51b5", "barbarian:the barbarians:#2f3842", "rosa:Rosa:#fabebe"]);
+    expect(active).toEqual(["ai-1:Alden:#3f51b5", "rosa:Rosa:#fabebe"]);
   });
 
   test("an inactive profile still blocks its exact colour", async () => {
@@ -59,8 +59,8 @@ describe("colorPickRejection", () => {
   });
 
   test("names ending in s take a bare apostrophe", () => {
-    const rejection = colorPickRejection("#2f3843", takenWith([{ playerId: "barbarian", name: "the barbarians", color: "#2f3842" }]));
-    expect(rejection?.message).toBe("Too close to the barbarians' colour.");
+    const rejection = colorPickRejection("#f7b6d2", takenWith([{ playerId: "silas", name: "Silas", color: "#fabebe" }]));
+    expect(rejection?.message).toBe("Too close to Silas' colour.");
   });
 });
 
