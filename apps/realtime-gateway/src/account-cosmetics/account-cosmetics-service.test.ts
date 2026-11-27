@@ -35,7 +35,7 @@ describe("account cosmetics service", () => {
   it("refuses a cosmetic the account does not own, and tells nobody", async () => {
     const { send, broadcasts, service } = build();
     const replies = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" });
-    expect(replies).toEqual([{ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic." }]);
+    expect(replies).toEqual([{ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic.", slot: "musterFlag" }]);
     expect(broadcasts).toEqual([]);
     expect(service.shownSelections()).toEqual({});
   });
@@ -142,7 +142,7 @@ describe("account cosmetics service", () => {
     await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" });
     expect(broadcasts).toHaveLength(1);
     const tooSoon = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null });
-    expect(tooSoon).toEqual([{ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again." }]);
+    expect(tooSoon).toEqual([{ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again.", slot: "musterFlag" }]);
     expect(broadcasts).toHaveLength(1);
 
     clock += 1_000;

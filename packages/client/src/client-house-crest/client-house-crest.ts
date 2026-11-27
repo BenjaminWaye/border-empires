@@ -2,6 +2,7 @@ import { COSMETIC_CATALOG, CREST_COSMETIC_IDS, isCrestCosmeticId, ownedWithFreeC
 
 import type { ClientState } from "../client-state/client-state.js";
 import { crestSvg } from "./client-house-crest-art.js";
+import { esc } from "./client-crest-escape.js";
 import "./client-house-crest.css";
 
 // House emblems: a square in the House colour bearing the House's crest, or
@@ -12,9 +13,6 @@ export const crestFor = (state: Pick<ClientState, "playerCosmetics">, playerId: 
   const crest = playerId ? state.playerCosmetics.get(playerId)?.crest : undefined;
   return isCrestCosmeticId(crest) ? crest : undefined;
 };
-
-const esc = (text: string): string =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** What goes inside an emblem: the crest when set, otherwise `letters` (escaped). */
 export const emblemFaceHtml = (letters: string, crest: CrestCosmeticId | undefined): string =>

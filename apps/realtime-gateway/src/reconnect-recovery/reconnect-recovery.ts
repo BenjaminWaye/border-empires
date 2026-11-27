@@ -3,6 +3,7 @@ import type { PlayerCosmeticSelection } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { SeasonVictoryObjectiveView, SeasonWinnerView, WorldStyle } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
+import { playerCosmeticsForInit, type ShownCosmeticLookup } from "../init-cosmetics/init-cosmetics.js";
 import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
@@ -43,8 +44,9 @@ export const buildInitMessage = (
   seasonPendingScheduledStartAt?: number,
   seasonPendingRoster?: SeasonLobbyUpdatePayload,
   dukeAuthUids?: ReadonlySet<string>,
-  // Account cosmetics: every account with a non-default look (account-cosmetics-service.ts).
-  shownCosmetics?: Record<string, PlayerCosmeticSelection>,
+  // Account cosmetics: an account's shown look (account-cosmetics-service.ts),
+  // sent only for players in this world or its lobby (init-cosmetics.ts).
+  shownCosmeticFor?: ShownCosmeticLookup,
   // Honest join screen (GDD §6): when the running contest started, for the
   // day and late-join manpower bonus; singleContest = hosted, no next contest.
   joinScreen?: { seasonStartedAt?: number; singleContest?: boolean }
@@ -177,6 +179,11 @@ export const buildInitMessage = (
         if (objectiveOverride?.name) objective.leaderName = objectiveOverride.name;
       }
       const socialSnapshot = socialState?.snapshotForPlayer(playerIdentity.playerId);
+      const shownCosmetics = playerCosmeticsForInit(shownCosmeticFor, [
+        playerIdentity.playerId,
+        ...bootstrap.playerStyles.map((style) => style.id),
+        ...(seasonPendingRoster?.roster.map((entry) => entry.playerId) ?? [])
+      ]);
       return {
       type: "INIT",
       serverBuildSha: process.env.BUILD_SHA ?? "",
@@ -205,7 +212,7 @@ export const buildInitMessage = (
       truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],
       leaderboard: bootstrap.leaderboard,
       playerStyles: bootstrap.playerStyles,
-      ...(shownCosmetics && Object.keys(shownCosmetics).length > 0 ? { playerCosmetics: shownCosmetics } : {}),
+      ...(shownCosmetics ? { playerCosmetics: shownCosmetics } : {}),
       missions: bootstrap.missions,
       domainIds: bootstrap.domainIds,
       seasonVictory: bootstrap.seasonVictory,

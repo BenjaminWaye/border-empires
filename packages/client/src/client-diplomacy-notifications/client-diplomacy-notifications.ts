@@ -145,7 +145,7 @@ export const applyTruceUpdateMessage = (
   // (Compared by the newest break, not the count: the server caps that list.)
   const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
-  // An agreed truce shows in the Diplomacy list and the Activity feed; only a refusal interrupts.
+  // An agreed truce shows in the Diplomacy list; only a refusal interrupts.
   else if (answeredOutgoing && declined) deps.showCaptureAlert("Truce declined", announcement, "warn");
 };
 
