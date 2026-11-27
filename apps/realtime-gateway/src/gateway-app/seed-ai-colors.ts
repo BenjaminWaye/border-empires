@@ -11,7 +11,7 @@ const AI_CANDIDATE_SET = new Set<string>([...AI_COLOR_CANDIDATES, ...AI_EXTRA_CO
 //
 // Owner rule (2026-11-27): an empire's colour must not change mid-game. The
 // gateway seeds on every boot, so an AI keeps the colour it already has
-// (`storedColorFor`) whenever that colour is still a valid AI colour and far
+// (`storedColors`) whenever that colour is still a valid AI colour and far
 // enough from the humans and the AIs kept before it. Only an AI with no
 // stored colour, or one whose colour now clashes, is given a new one.
 // Re-deriving every AI on boot repainted AIs on deploys: one changed input
@@ -21,13 +21,13 @@ export async function seedAiColors(
   save: (id: string, color: string) => Promise<void>,
   nameFor: (id: string) => string | undefined = aiDisplayNameForId,
   taken: ReadonlySet<string> = new Set(),
-  storedColorFor: (id: string) => Promise<string | undefined> = async () => undefined
+  storedColors: ReadonlyMap<string, string> = new Map()
 ): Promise<void> {
   const kept = new Map<string, string>();
   const occupied: string[] = [...taken];
   const needColor: string[] = [];
   for (const id of [...aiIds].sort()) {
-    const stored = normalizeHex((await storedColorFor(id)) ?? "");
+    const stored = normalizeHex(storedColors.get(id) ?? "");
     const keep =
       stored !== null &&
       AI_CANDIDATE_SET.has(stored) &&
@@ -47,6 +47,16 @@ export async function seedAiColors(
     if (color) await save(id, color);
   }
 }
+
+/** The AIs' stored colours, in one batched read (boot must not add a profile read per AI). */
+export const storedAiColors = async (
+  aiIds: ReadonlySet<string>,
+  profileStore: { getMany: (playerIds: Iterable<string>) => Promise<Array<{ playerId: string; tileColor?: string }>> }
+): Promise<Map<string, string>> => {
+  const colors = new Map<string, string>();
+  for (const profile of await profileStore.getMany(aiIds)) if (profile.tileColor) colors.set(profile.playerId, profile.tileColor);
+  return colors;
+};
 
 /** Colours of the active human empires, which the AI seeding must keep away from. */
 export const humanColorsForAiSeeding = async (aiIds: ReadonlySet<string>, deps: TakenColorSetDeps): Promise<Set<string>> => {

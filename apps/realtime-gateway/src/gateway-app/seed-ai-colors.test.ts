@@ -15,7 +15,7 @@ const boot = async (
   humans: ReadonlySet<string> = new Set()
 ): Promise<Map<string, string>> => {
   const saved = new Map<string, string>();
-  await seedAiColors(new Set(ids), async (id, color) => void saved.set(id, color), aiDisplayNameForId, humans, async (id) => stored.get(id));
+  await seedAiColors(new Set(ids), async (id, color) => void saved.set(id, color), aiDisplayNameForId, humans, stored);
   return saved;
 };
 
