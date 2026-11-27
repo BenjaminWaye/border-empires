@@ -7,14 +7,17 @@ import type { Tile, TileCombatBreakdown } from "../client-types.js";
 // the "Besieged" row exactly when the sim would apply the siege term. Without a
 // preview the client applies the same shared rule to the tiles it knows.
 
-/** Same shared rule as the sim, over the client's known tiles (paint and pre-preview estimates). */
-export const townBesiegedFromKnownTiles = (tile: Tile | undefined, state: Pick<ClientState, "tiles"> | undefined): boolean =>
-  Boolean(tile?.townType && state) && isTownBesieged(tile!, (x, y) => state!.tiles.get(`${x},${y}`));
+/**
+ * Same shared rule as the sim, over the client's known tiles (paint and pre-preview estimates). The client
+ * can't see the town owner's alliances, so only the viewer's own land counts as rival here.
+ */
+export const townBesiegedFromKnownTiles = (tile: Tile | undefined, state: Pick<ClientState, "tiles" | "me"> | undefined): boolean =>
+  Boolean(tile?.townType && state?.me) && isTownBesieged(tile!, (x, y) => state!.tiles.get(`${x},${y}`), (id) => id === state!.me);
 
 /** Besieged per the server preview's breakdown when there is one, else per the known tiles. */
 export const targetShowsBesieged = (
   tile: Tile | undefined,
-  state: Pick<ClientState, "tiles"> | undefined,
+  state: Pick<ClientState, "tiles" | "me"> | undefined,
   breakdown: Pick<TileCombatBreakdown, "defender"> | undefined
 ): boolean => (breakdown ? combatSideIsBesieged(breakdown.defender) : townBesiegedFromKnownTiles(tile, state));
 

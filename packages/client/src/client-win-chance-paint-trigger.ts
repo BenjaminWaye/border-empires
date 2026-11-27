@@ -23,7 +23,7 @@ import type { Tile } from "./client-types.js";
 const WIN_CHANCE_PAINT_DURATION_MS = 6000;
 const MAX_WIN_CHANCE_LABELS = 20;
 
-const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles">): FrontierCombatPreviewTile => ({
+const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles" | "me">): FrontierCombatPreviewTile => ({
   terrain: tile?.terrain,
   ownershipState: tile?.ownershipState ?? undefined,
   dockId: tile?.dockId,
@@ -74,7 +74,7 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
  * base the commit/shield scaling applies to.
  */
 export const estimateTileWinChance = (
-  state: Pick<ClientState, "tiles">,
+  state: Pick<ClientState, "tiles" | "me">,
   tile: Tile,
   commit: { committedManpower: number; baseMusterCost: number },
   serverBaseWinChance?: number

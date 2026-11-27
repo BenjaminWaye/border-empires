@@ -54,12 +54,15 @@ export const targetFortPerimeterVariantFor = (
 };
 
 // Siege (town-siege.ts): the defender's town has no garrisoned plot of its
-// own around it and a rival holds one. Read from the live tile map at roll
-// time, the same rule the gateway preview and client paint apply.
+// own around it and a non-allied House holds one. Read from the live tile map
+// and the defender's alliances at roll time, the same rule the gateway preview
+// and client paint apply.
 export const targetTownBesiegedFor = (
-  ctx: { tiles: ReadonlyMap<string, DomainTileState> },
+  ctx: { tiles: ReadonlyMap<string, DomainTileState>; players: ReadonlyMap<string, { allies?: ReadonlySet<string> | undefined }> },
   previousTarget: DomainTileState | undefined,
   defenderOwnerId: string | undefined
-): boolean =>
-  Boolean(previousTarget?.town && defenderOwnerId && previousTarget.ownerId === defenderOwnerId) &&
-  isTownBesieged(previousTarget!, (x, y) => ctx.tiles.get(`${x},${y}`));
+): boolean => {
+  if (!previousTarget?.town || !defenderOwnerId || previousTarget.ownerId !== defenderOwnerId) return false;
+  const allies = ctx.players.get(defenderOwnerId)?.allies;
+  return isTownBesieged(previousTarget, (x, y) => ctx.tiles.get(`${x},${y}`), (id) => !allies?.has(id));
+};

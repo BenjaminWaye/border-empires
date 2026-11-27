@@ -3,10 +3,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 // Siege (owner rule 2026-11-27): a town cut off from its own garrisons
 // defends worse. A town's coin comes from its inner support ring
 // (town-support-coin.ts): with none of those 8 plots garrisoned by its owner
-// it earns nothing. When that happens because another House has moved onto
-// the ring, the town is besieged and its defense is multiplied by
-// TOWN_BESIEGED_DEFENSE_MULT. A ring the owner simply hasn't garrisoned yet,
-// with no rival on it, is not a siege.
+// it earns nothing. When that happens because a House that is not the owner's
+// ally has moved onto the ring, the town is besieged and its defense is
+// multiplied by TOWN_BESIEGED_DEFENSE_MULT. A ring the owner simply hasn't
+// garrisoned yet, with no rival on it, is not a siege; allied plots neither
+// besiege nor supply the town (owner rule 2026-11-27).
 //
 // One shared definition for the sim's combat roll, the gateway's attack
 // preview and the client's win-chance paint, so displayed and real odds match.
@@ -29,11 +30,18 @@ const wrap = (value: number, size: number): number => ((value % size) + size) % 
 
 /**
  * True when a garrisoned town's land neighbours (Chebyshev 1, map-wrapped)
- * include no tile its owner has garrisoned and at least one tile another House
- * holds. Unknown neighbours count as neither. The caller checks that the tile
- * actually carries a town.
+ * include no tile its owner has garrisoned and at least one tile held by a
+ * rival: a House `isRival` accepts, i.e. not the owner and not the owner's
+ * ally. Allied and unknown neighbours count as neither. The caller checks that
+ * the tile actually carries a town, and passes what it knows of the owner's
+ * allies (the sim knows them all; a viewer without that knowledge passes only
+ * Houses it knows are hostile to the owner, such as itself).
  */
-export const isTownBesieged = (town: TownSiegeTown, getTile: (x: number, y: number) => TownSiegeTileFacts | undefined): boolean => {
+export const isTownBesieged = (
+  town: TownSiegeTown,
+  getTile: (x: number, y: number) => TownSiegeTileFacts | undefined,
+  isRival: (playerId: string) => boolean
+): boolean => {
   const ownerId = town.ownerId;
   if (!ownerId || town.ownershipState !== "SETTLED") return false;
   let rivalOnRing = false;
@@ -46,7 +54,7 @@ export const isTownBesieged = (town: TownSiegeTown, getTile: (x: number, y: numb
         if (tile.ownershipState === "SETTLED") return false;
         continue;
       }
-      if (tile.ownerId) rivalOnRing = true;
+      if (tile.ownerId && isRival(tile.ownerId)) rivalOnRing = true;
     }
   }
   return rivalOnRing;

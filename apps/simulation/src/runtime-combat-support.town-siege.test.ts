@@ -102,6 +102,31 @@ describe("buildLockedCombatResolution -- besieged towns", () => {
     expect(besieged!.defMult).toBeCloseTo(1.3 * 1.2 * TOWN_BESIEGED_DEFENSE_MULT, 6);
   });
 
+  it("ignores the defender's allies on the ring: they neither besiege nor supply the town", () => {
+    const allyId = "player-ally";
+    const withAlly = (ringOwner: (dx: number, dy: number) => string): Ctx => {
+      const tiles = ringTiles(false);
+      for (const tile of tiles.values()) {
+        if (tile.x === TOWN.x && tile.y === TOWN.y) continue;
+        const owner = ringOwner(tile.x - TOWN.x, tile.y - TOWN.y);
+        tiles.set(`${tile.x},${tile.y}`, { ...tile, ownerId: owner, ownershipState: owner === allyId ? "SETTLED" : "FRONTIER" });
+      }
+      const ctx = makeContext(tiles);
+      (ctx.players.get(DEFENDER_ID)!.allies as Set<string>).add(allyId);
+      return ctx;
+    };
+    // Origin (-1, 0) stays the attacker's; everything else is the ally's garrison.
+    attackTown(withAlly((dx, dy) => (dx === -1 && dy === 0 ? ATTACKER_ID : allyId)));
+    expect(rolled.at(-1)!.besieged).toBe(true);
+    // A ring held only by allies is no siege (attack launched from a dock-less origin is irrelevant to the rule).
+    const allyOnly = withAlly(() => allyId);
+    expect(buildPlayerCombatSummary(
+      { ...allyOnly, factoryCountsFor: () => ({ titanium: 0, umbrite: 0 }), isFortDormant: () => false } as Parameters<typeof buildPlayerCombatSummary>[0],
+      DEFENDER_ID,
+      TOWN
+    )?.afcCombatFacts?.targetTownBesieged).toBe(false);
+  });
+
   it("reports the siege to the gateway preview through the defender's combat summary", () => {
     for (const [keepsPlot, expected] of [[true, false], [false, true]] as const) {
       const ctx = makeContext(ringTiles(keepsPlot));

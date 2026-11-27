@@ -199,8 +199,9 @@ export const attackPreviewResult = async (
             return Boolean(fortTile) && !isCaptureHoldActive(fortTile!, Date.now());
           })
         : undefined,
-      // Siege: the sim answers from its full tile map; the requester's view is the fallback.
-      townBesieged: Boolean(target.townType) && (defenderFacts?.targetTownBesieged ?? isTownBesieged(target, (x, y) => tileMap.get(previewTileKey(x, y))))
+      // Siege: the sim answers from its full tile map and alliances. The fallback only
+      // counts the requester's own land as rival: the gateway can't see the defender's allies.
+      townBesieged: Boolean(target.townType) && (defenderFacts?.targetTownBesieged ?? isTownBesieged(target, (x, y) => tileMap.get(previewTileKey(x, y)), (id) => id === playerId))
     },
     {
       attackerOutpostMult,
