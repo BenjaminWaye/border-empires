@@ -311,11 +311,13 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     // After the flag, the attack it pays for: raising a flag alone left players waiting for something to happen.
     id: "contest-attack",
     chapter: "contest",
-    title: (i) => (i.attackTargetTiles().length > 0 ? "Tap a marked enemy tile, then Launch Attack" : "Tap an enemy tile next to your land, then Launch Attack"),
+    title: () => "Tap a marked enemy tile, then Launch Attack",
     why: "Your flag's manpower pays for the attack. Win and the tile is yours.",
     isDone: (i) => i.attackLaunched,
-    isAvailable: (i) => i.musterUnlocked,
-    waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
+    // Waits until an enemy tile touches your land: an enemy seen only across neutral
+    // land has nothing to attack yet, and an always-available step would block Finish.
+    isAvailable: (i) => i.musterUnlocked && i.attackTargetTiles().length > 0,
+    waitingNote: "Expand until an enemy tile borders your land: this starts then.",
     highlight: (i) => i.attackTargetTiles(),
     anchor: "attack"
   },

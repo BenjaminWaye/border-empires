@@ -54,6 +54,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   aiAtWarWith?: (playerId: string) => boolean;
   /** The requester's tutorial guide is on its truce step: the AI welcomes them with a free truce (ai-guide-truce-welcome.ts). */
   requesterOnGuideTruceStep?: boolean;
+  /** Set with requesterOnGuideTruceStep: the requester already made a truce with some AI this season. */
+  requesterEverTrucedAnAi?: boolean;
 };
 
 /** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */

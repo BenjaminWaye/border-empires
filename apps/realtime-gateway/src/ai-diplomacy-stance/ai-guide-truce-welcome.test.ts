@@ -1,7 +1,8 @@
 import { emptyDiplomacyTerms, evaluateAiOffer } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
-import { GUIDE_TRUCE_STEP_ID, guideTruceWelcomeApplies, onGuideTruceStep, welcomeGuideTruce } from "./ai-guide-truce-welcome.js";
+import { createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { everTrucedAnAi, GUIDE_TRUCE_STEP_ID, guideTruceWelcomeApplies, onGuideTruceStep, welcomeGuideTruce } from "./ai-guide-truce-welcome.js";
 import { memory, NOW, price } from "./ai-diplomacy-pricing-test-helpers.js";
 
 // Owner, 2026-11-26: the guide walks a new player to their first truce, and the
@@ -16,11 +17,27 @@ describe("the guide's truce welcome", () => {
     expect(onGuideTruceStep(undefined)).toBe(false);
   });
 
-  it("never applies to a truce-breaker or a pair that already made a truce", () => {
-    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: false, memory: memory() })).toBe(true);
-    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: true, memory: memory() })).toBe(false);
-    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: false, memory: memory({ truceDeals: 1 }) })).toBe(false);
-    expect(guideTruceWelcomeApplies({ requesterBrokeTruceWithAi: false, memory: memory() })).toBe(false);
+  it("never applies to a truce-breaker or a player who already made a truce with an AI", () => {
+    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: false })).toBe(true);
+    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: true })).toBe(false);
+    expect(guideTruceWelcomeApplies({ requesterOnGuideTruceStep: true, requesterBrokeTruceWithAi: false, requesterEverTrucedAnAi: true })).toBe(false);
+    expect(guideTruceWelcomeApplies({ requesterBrokeTruceWithAi: false })).toBe(false);
+  });
+
+  // Review of #3012: the old check was the pair's fading truceDeals (< 1), which
+  // drops below 1 a moment after the deal, so the same player got free truce after
+  // free truce. The flag is per player across every AI and doesn't fade.
+  it("stays spent after the truce deal fades, and across every AI", () => {
+    let now = 1_000_000;
+    const memory = createAiDiplomacyMemory({ now: () => now, isAi: (id) => id.startsWith("ai-") });
+    const ais = ["ai-1", "ai-2"];
+    expect(everTrucedAnAi(ais, "p1", memory.view)).toBe(false);
+    memory.recordTruceDeal("ai-1", "p1");
+    now += 3 * 24 * 60 * 60_000;
+    expect(memory.view("ai-1", "p1").truceDeals).toBeLessThan(1);
+    expect(everTrucedAnAi(ais, "p1", memory.view)).toBe(true);
+    expect(everTrucedAnAi(["ai-2"], "p1", memory.view)).toBe(false);
+    expect(everTrucedAnAi(ais, "p2", memory.view)).toBe(false);
   });
 
   it("turns a priced truce into an empty offer the AI accepts", () => {

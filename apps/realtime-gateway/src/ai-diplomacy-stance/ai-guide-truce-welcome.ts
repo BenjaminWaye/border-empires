@@ -3,10 +3,12 @@
 // While the player is on that step, an AI welcomes them: it waives its truce
 // price and sets aside its usual refusals (fury, wanting land back, a fresh
 // attack), so the lesson ends in a truce rather than a counter-offer the
-// player can't read yet (owner, 2026-11-26). Two limits keep it a one-off
+// player can't read yet (owner, 2026-11-26). Limits keep it a one-off
 // welcome and not a loophole: never for someone who broke a truce with this
-// AI, and never once the pair has made a truce deal. An AI that wants to pay
-// for peace (a negative price) still pays.
+// AI, and never once the player has made a truce deal with any AI this season.
+// That last check is the gateway's own memory (reset each season), not the
+// client-written guide progress, so restarting the guide doesn't re-arm it.
+// An AI that wants to pay for peace (a negative price) still pays.
 import type { AiDiplomacyPricingResult } from "./ai-diplomacy-pricing.js";
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 
@@ -26,8 +28,15 @@ export const onGuideTruceStep = (profile: GuideProgressView | undefined): boolea
 export const guideTruceWelcomeApplies = (input: {
   requesterOnGuideTruceStep?: boolean;
   requesterBrokeTruceWithAi: boolean;
-  memory: Pick<DiplomacyMemoryView, "truceDeals">;
-}): boolean => input.requesterOnGuideTruceStep === true && !input.requesterBrokeTruceWithAi && input.memory.truceDeals < 1;
+  /** The requester has made a truce deal with some AI this season (any AI, not just this one). */
+  requesterEverTrucedAnAi?: boolean;
+}): boolean => input.requesterOnGuideTruceStep === true && !input.requesterBrokeTruceWithAi && input.requesterEverTrucedAnAi !== true;
+
+/** Whether any AI remembers a truce deal with this player; memory resets each season and never fades this flag. */
+export const everTrucedAnAi = (aiPlayerIds: Iterable<string>, playerId: string, view: (aiPlayerId: string, playerId: string) => Pick<DiplomacyMemoryView, "everMadeTruce">): boolean => {
+  for (const aiPlayerId of aiPlayerIds) if (view(aiPlayerId, playerId).everMadeTruce === true) return true;
+  return false;
+};
 
 const free = (price: number | null): number => (price !== null && price < 0 ? price : 0);
 

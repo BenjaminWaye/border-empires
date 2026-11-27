@@ -37,7 +37,7 @@ import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-d
 import type { SocialState } from "../social-state/social-state.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
 import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
-import { onGuideTruceStep, type GuideProgressView } from "../ai-diplomacy-stance/ai-guide-truce-welcome.js";
+import { everTrucedAnAi, onGuideTruceStep, type GuideProgressView } from "../ai-diplomacy-stance/ai-guide-truce-welcome.js";
 import type { SendGameplayEmailAlert } from "../gameplay-email-alert/gameplay-email-alert.js";
 
 /** Every 10 minutes the memory's size and eviction/prune totals are logged (state-and-persistence-discipline.md). */
@@ -205,7 +205,9 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       }),
       ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
       ...(dominance ? { dominance } : {}),
-      ...(onGuideTruceStep(guide) ? { requesterOnGuideTruceStep: true } : {})
+      ...(onGuideTruceStep(guide)
+        ? { requesterOnGuideTruceStep: true, requesterEverTrucedAnAi: everTrucedAnAi(deps.seededAiPlayerIds, requesterId, memory.view) }
+        : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({

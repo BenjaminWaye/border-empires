@@ -236,8 +236,16 @@ describe("tutorial guide steps", () => {
     expect(launched.kind === "step" && launched.newlyCompleted).toContain("contest-attack");
     // Opening the Chronicle early must not skip it.
     const chronicleFirst = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "contest-muster" && s.id !== "turn-finish").map((s) => s.id));
-    const flagged = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true }), chronicleFirst);
+    const flagged = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true, attackTargetTiles: () => targets }), chronicleFirst);
     expect(flagged.kind === "step" && flagged.step.id).toBe("contest-attack");
+  });
+
+  // Review of #3012: with an enemy seen only across neutral land there is nothing to
+  // attack, and an always-available attack step kept the guide from offering Finish.
+  it("waits on the attack step, and still offers Finish, while no enemy tile borders your land", () => {
+    const allButAttack = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "turn-finish").map((s) => s.id));
+    const view = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true }), allButAttack);
+    expect(view.kind === "step" && view.step.id).toBe("turn-finish");
   });
 
   // Owner, 2026-11-26: the guide stopped at opening Diplomacy; it now walks the offer through to a truce.
