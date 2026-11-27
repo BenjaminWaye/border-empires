@@ -1,8 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import {
+  FREE_COSMETIC_IDS,
   cosmeticDefinition,
   isCosmeticId,
+  isFreeCosmetic,
   sanitizeCosmeticSelection,
   type CosmeticId,
   type CosmeticSlot,
@@ -10,7 +12,18 @@ import {
 } from "@border-empires/shared";
 
 import { withGatewaySqliteRetry } from "../sqlite-busy-retry.js";
-import type { AccountCosmeticsStore, CosmeticGrantResult } from "./account-cosmetics-store.js";
+import type { AccountCosmeticsStore, CosmeticGrantResult, ShownLookKind } from "./account-cosmetics-store.js";
+
+// SQL literal list of the free ids. They come from the shared catalogue, never
+// from a client, and are plain `[a-z-]` ids; quoted defensively all the same.
+const FREE_ID_LIST = FREE_COSMETIC_IDS.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ") || "''";
+
+// Accounts whose look includes a paid cosmetic, or only free ones (crests).
+const ACCOUNTS_OF_KIND: Record<ShownLookKind, string> = {
+  paid: `SELECT DISTINCT player_id FROM account_cosmetics_selected WHERE cosmetic_id NOT IN (${FREE_ID_LIST})`,
+  freeOnly: `SELECT DISTINCT s.player_id FROM account_cosmetics_selected s WHERE NOT EXISTS
+    (SELECT 1 FROM account_cosmetics_selected p WHERE p.player_id = s.player_id AND p.cosmetic_id NOT IN (${FREE_ID_LIST}))`
+};
 
 // Both tables are private per-account rows. They are listed as PERSONAL_TABLES
 // in scripts/account-deletion/erase-account-data.mjs, so account deletion
@@ -52,6 +65,8 @@ export class SqliteAccountCosmeticsStore implements AccountCosmeticsStore {
   }
 
   async revoke(playerId: string, cosmeticId: CosmeticId): Promise<{ revoked: boolean }> {
+    // A free cosmetic is owned by everyone and never stored; its selection stays.
+    if (isFreeCosmetic(cosmeticId)) return { revoked: false };
     return withGatewaySqliteRetry(() => {
       this.db.exec("BEGIN IMMEDIATE;");
       try {
@@ -83,15 +98,13 @@ export class SqliteAccountCosmeticsStore implements AccountCosmeticsStore {
     return this.getSelection(playerId);
   }
 
-  async listSelections(limit: number): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }> {
+  async listSelections(limit: number, kind: ShownLookKind): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }> {
     // Count accounts, not rows: an account has one row per slot.
-    const playerIds = await withGatewaySqliteRetry(() => this.db
-      .prepare("SELECT DISTINCT player_id FROM account_cosmetics_selected ORDER BY player_id LIMIT ?")
-      .all(limit + 1) as Array<{ player_id: string }>);
+    const accounts = `${ACCOUNTS_OF_KIND[kind]} ORDER BY player_id LIMIT ?`;
+    const playerIds = await withGatewaySqliteRetry(() => this.db.prepare(accounts).all(limit + 1) as Array<{ player_id: string }>);
     const truncated = playerIds.length > limit;
     const rows = await withGatewaySqliteRetry(() => this.db
-      .prepare(`SELECT player_id, slot, cosmetic_id FROM account_cosmetics_selected WHERE player_id IN
-        (SELECT DISTINCT player_id FROM account_cosmetics_selected ORDER BY player_id LIMIT ?)`)
+      .prepare(`SELECT player_id, slot, cosmetic_id FROM account_cosmetics_selected WHERE player_id IN (${accounts})`)
       .all(limit) as Array<{ player_id: string; slot: string; cosmetic_id: string }>);
     const raw = new Map<string, Record<string, string>>();
     for (const row of rows) {
