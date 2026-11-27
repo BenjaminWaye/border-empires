@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { attackCommitForTarget } from "../client-attack-commit/client-attack-commit.js";
-import { takeMusterFlagPlan } from "../client-muster-flag-plan/client-muster-flag-plan.js";
+import { MUSTER_FLAG_PLAN_TTL_MS, setMusterFlagPlan, takeMusterFlagPlan } from "../client-muster-flag-plan/client-muster-flag-plan.js";
 import { hideEffortConfirmSheet, isEffortConfirmSheetOpen } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort.js";
 import type { Tile } from "../client-types.js";
@@ -77,7 +77,7 @@ describe("Launch Attack flag placement step", () => {
     const { state, launch } = setup();
     launch();
     click('[data-flag-spot="2"]');
-    expect(document.querySelector('[data-flag-spot="2"]')?.getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector('[data-flag-spot="2"]')?.getAttribute("aria-pressed")).toBe("true");
     click("[data-effort-go]");
     expect(takeMusterFlagPlan(state, 17, 10)).toEqual({ x: 16, y: 10 });
   });
@@ -126,6 +126,38 @@ describe("Launch Attack flag placement step", () => {
     launch();
     click("[data-effort-cancel]");
     expect(queueSpecificTargets).not.toHaveBeenCalled();
+    expect(state.musterFlagPlanByTargetKey.size).toBe(0);
+  });
+
+  // Review findings (PR #3002) below.
+  it("records the spot even when the sheet was left open longer than the plan's lifetime", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_000_000);
+      const { state, launch } = setup();
+      launch();
+      vi.setSystemTime(1_000_000 + MUSTER_FLAG_PLAN_TTL_MS + 60_000);
+      click("[data-effort-go]");
+      expect(takeMusterFlagPlan(state, 17, 10)).toEqual({ x: 14, y: 10 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows no flag step when the border tile is the only spot, so a frontier attack still fires at once", () => {
+    const { state, queueSpecificTargets, launch } = setup();
+    // Keep only the border column: nothing behind the firing tile to choose.
+    for (let y = 5; y <= 15; y += 1) for (let x = 10; x <= 15; x += 1) state.tiles.delete(keyFor(x, y));
+    launch();
+    expect(isEffortConfirmSheetOpen()).toBe(false);
+    expect(queueSpecificTargets).toHaveBeenCalledWith(["17,10"]);
+  });
+
+  it("drops a spot left from an earlier launch when the new launch needs no flag", () => {
+    const { state, launch } = setup();
+    setMusterFlagPlan(state, { x: 17, y: 10 }, { x: 13, y: 10 });
+    state.tiles.get("12,10")!.muster = { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } as NonNullable<Tile["muster"]>;
+    launch();
     expect(state.musterFlagPlanByTargetKey.size).toBe(0);
   });
 });

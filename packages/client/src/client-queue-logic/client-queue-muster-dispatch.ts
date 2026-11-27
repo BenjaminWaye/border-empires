@@ -8,6 +8,7 @@ import {
 } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { formatSiegeRemaining, ownTileSiegeAt, type OwnTileSiege } from "../client-muster-siege/client-muster-siege.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
+import { clearMusterFlagPlan } from "../client-muster-flag-plan/client-muster-flag-plan.js";
 import { clientMusterTransitRoute } from "../client-muster-transit-route/client-muster-transit-route.js";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { BARBARIAN_OWNER_ID, canHuntWith, huntOrderMessage } from "../client-muster-hunt/client-muster-hunt.js";
@@ -145,6 +146,9 @@ export const dispatchMusterFundedAttack = (
       const siege = ownTileSiegeAt(state, funded.tile.x, funded.tile.y, nowMs) ?? ownTileSiegeAt(state, from.x, from.y, nowMs);
       if (siege) return holdAttackForSiege(state, input, siege, deps);
       announcedSiegeByTarget.delete(targetKey);
+      // An existing flag funds this attack, so a spot planned for a new flag
+      // must not outlive it and be picked up by a later attack on this tile.
+      clearMusterFlagPlan(state, to.x, to.y);
       if (huntInsteadOfAttack(state, input, funded.tile, deps)) return;
       // Real travel time: the company doesn't march until it reaches
       // the target, so the ATTACK itself isn't even sent (let alone
@@ -184,6 +188,9 @@ export const dispatchMusterFundedAttack = (
   const siege = ownTileSiegeAt(state, closest.tile.x, closest.tile.y, nowMs);
   if (siege) return holdAttackForSiege(state, input, siege, deps);
   announcedSiegeByTarget.delete(targetKey);
+  // An existing flag funds this attack, so a spot planned for a new flag
+  // must not outlive it and be picked up by a later attack on this tile.
+  clearMusterFlagPlan(state, to.x, to.y);
   if (huntInsteadOfAttack(state, input, closest.tile, deps)) return;
   // Flag found within range already has enough manpower staged
   // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)

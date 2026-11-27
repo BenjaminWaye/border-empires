@@ -66,7 +66,6 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-
     floor,
     cap: Math.max(floor, state.manpowerCap),
     // Presets only: Normal / Extra / Double read at a glance; the cost and

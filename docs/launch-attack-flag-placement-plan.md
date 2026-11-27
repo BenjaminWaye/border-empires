@@ -12,7 +12,7 @@ Every manual attack is muster-funded. When no flag of the player's is near
 the target, Launch Attack quietly raises a new HOLD flag on the **firing tile
 itself** — the border tile next to the target
 (`parkOrReuseMusterFlagForAttack`). That is the most exposed tile the player
-owns: an enemy can take it with one attack and destroy the manpower staged
+owns: an enemy can take it with one attack and gain the manpower staged
 on it. The player is never told a flag is being raised, where, or that it
 can be lost, and the effort choice (Normal / Extra / Double) is a separate
 sheet that only appears for garrisoned targets.
@@ -46,10 +46,11 @@ make it intuitive.
 
 - **Title:** "Attack (x, y)" ("Attack N tiles" / "Attack region · N tiles").
 - **Flag distance** switch, header warning "Can be captured" (tooltip explains):
-  - **Safe** (default when available): the owned land tile nearest the
-    firing tile that is at least 3 tiles from any hostile tile
-    (`FLAG_SAFE_DISTANCE_TILES`), the one straight behind it on a tie;
-    "Safest" when no tile is that far.
+  - **Safe** (default when available): a tile at least 3 tiles from any
+    hostile tile (`FLAG_SAFE_DISTANCE_TILES`). Of the six nearest the firing
+    tile (directly behind it, away from the target, on a tie), the one with
+    the quickest real march to the front wins, so a tile reached only through
+    a dock loses to one on the same shore. "Safest" when no tile is that far.
   - **Close**: nearest tile 2 tiles from hostile ground, when it differs.
   - **Border**: the firing tile (the old automatic spot).
   Each segment shows a risk dot (green / amber / red) and its distance from
@@ -79,6 +80,11 @@ the player, an ally or a live truce partner (barbarians count) —
   tile, the parked attack waits on that spot, and further attacks planned on
   the same spot reuse its pending placement instead of raising more flags.
   A nearby flag that appeared in the meantime still wins (rule §2).
+  The plan is cleared when an existing flag funds the attack, when the queue
+  is cancelled, on season rollover, and before each new launch on the same
+  tiles, so an attack the player didn't plan never picks it up.
+- When the firing tile is the only possible spot, there is no choice to
+  make, so the step is not shown.
 - Promotion, cap-fitting, stall timeout and the MUSTER_LIMIT fallback are
   unchanged: they already work for a flag within funding range of the firing
   tile (`isPendingAttackFundedFromOrigin` → `findFundedMusterWithinRange` →

@@ -51,10 +51,13 @@ export const flagSpotChoiceText = (spot: MusterFlagSpot): EffortSheetFlagSpots["
 });
 
 /**
- * The placement step for launching on `targets`, or undefined when none of
- * them would raise a new flag (a flag is near, or the player is at the flag
- * cap). Spots are ranked against the firing tile of `focus` when it is one of
- * the targets needing a flag, else the first such target.
+ * The placement step for launching on `targets`, or undefined when there is
+ * nothing to choose: none of them would raise a new flag (a flag is near, or
+ * the player is at the flag cap), or the firing tile is the only spot. Spots
+ * are ranked against the firing tile of `focus` when it is one of the targets
+ * needing a flag, else the first such target. Any spot left over from an
+ * earlier launch on these targets is cleared first, so an attack this launch
+ * doesn't plan can't pick one up.
  */
 export const launchFlagPlacement = (
   state: ClientState,
@@ -65,22 +68,29 @@ export const launchFlagPlacement = (
 ): LaunchFlagPlacement | undefined => {
   const needing: Array<{ target: Tile; origin: Tile }> = [];
   for (const target of targets) {
+    clearMusterFlagPlan(state, target.x, target.y);
     const origin = pickOriginForTarget(target.x, target.y);
     if (origin && attackNeedsNewMusterFlag(state, origin, target, nowMs)) needing.push({ target, origin });
   }
   if (needing.length === 0) return undefined;
   const primary = needing.find((n) => focus && n.target.x === focus.x && n.target.y === focus.y) ?? needing[0]!;
-  const spots = musterFlagSpotChoices(state, primary.origin, nowMs);
+  const spots = musterFlagSpotChoices(state, primary.origin, nowMs, primary.target);
+  // Only the border tile: no choice to make, so no step (the attack raises
+  // its flag there, as before).
+  if (spots.length <= 1) return undefined;
   let selected = 0;
   return {
     sheet: { choices: spots.map(flagSpotChoiceText), selected, onSelect: (index) => (selected = index) },
     apply: () => {
       const spot = spots[selected];
+      // Stamped when the player presses Attack, not when the sheet opened, so
+      // a sheet left open a while doesn't record an already-expired plan.
+      const now = Date.now();
       for (const { target, origin } of needing) {
         // A target whose firing tile is out of the new flag's funding range
         // keeps the old behaviour (a flag on its own firing tile).
         if (spot && chebyshevDistanceClient(spot.x, spot.y, origin.x, origin.y) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES) {
-          setMusterFlagPlan(state, target, spot, nowMs);
+          setMusterFlagPlan(state, target, spot, now);
         } else {
           clearMusterFlagPlan(state, target.x, target.y);
         }

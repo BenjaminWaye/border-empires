@@ -20,13 +20,13 @@ export const renderFlagSpotSection = (spots: EffortSheetFlagSpots): string => `
     <div class="effort-section">
       <div class="effort-section-head">
         <span class="effort-section-label">Flag distance</span>
-        <span class="effort-flag-warn" title="An enemy who takes the flag's tile takes its manpower">Can be captured</span>
+        <span class="effort-flag-warn" title="An enemy who takes the flag's tile takes the manpower staged on it">Can be captured</span>
       </div>
-      <div class="effort-seg" role="radiogroup" aria-label="Where to raise the muster flag">
+      <div class="effort-seg" role="group" aria-label="Where to raise the muster flag">
         ${spots.choices
           .map(
             (choice, index) =>
-              `<button type="button" class="effort-seg-item effort-flag-spot" role="radio" data-flag-spot="${index}" data-tone="${choice.tone}" title="${escapeHtml(choice.hint)}" aria-label="${escapeHtml(`${choice.label}: ${choice.hint}`)}"><span class="effort-seg-name"><i class="effort-flag-dot" aria-hidden="true"></i>${escapeHtml(choice.label)}</span><small>${escapeHtml(choice.detail)}</small></button>`
+              `<button type="button" class="effort-seg-item effort-flag-spot" data-flag-spot="${index}" data-tone="${choice.tone}" title="${escapeHtml(choice.hint)}" aria-label="${escapeHtml(`${choice.label}: ${choice.hint}`)}"><span class="effort-seg-name"><i class="effort-flag-dot" aria-hidden="true"></i>${escapeHtml(choice.label)}</span><small>${escapeHtml(choice.detail)}</small></button>`
           )
           .join("")}
       </div>
@@ -39,7 +39,7 @@ export const wireFlagSpotSection = (root: HTMLElement, spots: EffortSheetFlagSpo
   const paint = (): void => {
     for (const btn of buttons) {
       const isSelected = Number(btn.dataset.flagSpot) === selected;
-      btn.setAttribute("aria-checked", String(isSelected));
+      btn.setAttribute("aria-pressed", String(isSelected));
       btn.classList.toggle("is-active", isSelected);
     }
   };

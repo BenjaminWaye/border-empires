@@ -6,6 +6,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { isDockLandingTargetFrom } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import { musterAvailableAt } from "../client-muster-transit/client-muster-transit.js";
+import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 import { takeMusterFlagPlan } from "../client-muster-flag-plan/client-muster-flag-plan.js";
 
 // Sea crossings between a player's dock and a dock-linked target have no
@@ -176,6 +177,20 @@ export const isPendingAttackFundedFromOrigin = (
     isDockCrossingBetween(state, entry.fromX, entry.fromY, entry.targetX, entry.targetY)) &&
   hasFundedMusterWithinRange(state, entry.fromX, entry.fromY, required);
 
+// The planned spot for an attack on `to`, when it is still the player's own
+// unbesieged land within funding range of the firing tile. Read once (and removed), so a
+// later attack on the same tile can't inherit it.
+const plannedFlagTile = (state: ClientState, to: Tile, from: Tile): Tile | undefined => {
+  const spot = takeMusterFlagPlan(state, to.x, to.y);
+  if (!spot) return undefined;
+  const tile = state.tiles.get(`${spot.x},${spot.y}`);
+  if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") return undefined;
+  // A besieged flag can't fund an attack (resolveMusterSource), so a spot
+  // under attack now would only stall it; fall back to the firing tile.
+  if (ownTileSiegeAt(state, tile.x, tile.y, Date.now())) return undefined;
+  return chebyshevDistanceClient(tile.x, tile.y, from.x, from.y) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES ? tile : undefined;
+};
+
 // SET_MUSTER (sent by processActionQueue when auto-creating a flag for a
 // parked attack) is fire-and-forget — no ack, no optimistic local state. If
 // the server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player")
@@ -200,17 +215,6 @@ export const isPendingAttackFundedFromOrigin = (
 // already at their muster-flag cap, a SET_MUSTER here would just be
 // silently rejected server-side (MUSTER_LIMIT) -- catch that now instead of
 // waiting 5s to discover it via dropStuckPendingMusterAttack.
-// The planned spot for an attack on `to`, when it is still the player's own
-// land within funding range of the firing tile. Read once (and removed), so a
-// later attack on the same tile can't inherit it.
-const plannedFlagTile = (state: ClientState, to: Tile, from: Tile): Tile | undefined => {
-  const spot = takeMusterFlagPlan(state, to.x, to.y);
-  if (!spot) return undefined;
-  const tile = state.tiles.get(`${spot.x},${spot.y}`);
-  if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") return undefined;
-  return chebyshevDistanceClient(tile.x, tile.y, from.x, from.y) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES ? tile : undefined;
-};
-
 export const parkOrReuseMusterFlagForAttack = (
   state: ClientState,
   target: { from: Tile; to: Tile; closest: { tile: Tile; dist: number } | undefined },

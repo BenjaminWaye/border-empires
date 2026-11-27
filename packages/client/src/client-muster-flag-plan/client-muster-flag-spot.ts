@@ -73,27 +73,59 @@ const enemyDistanceAt = (state: ClientState, x: number, y: number, nowMs: number
   return undefined;
 };
 
-// fromOrigin is the Chebyshev distance to the firing tile; offAxis (squared
-// Euclidean) breaks ties toward the tile straight behind it.
-type Candidate = Point & { enemyDistance: number | undefined; fromOrigin: number; offAxis: number };
+// fromOrigin is the Chebyshev distance to the firing tile. Ties go to the
+// tile most directly behind it, away from the target: furthest along that
+// direction (`behind`), then nearest the line (`offLine`).
+type Candidate = Point & { enemyDistance: number | undefined; fromOrigin: number; behind: number; offLine: number; transitMs?: number };
 
 /** Larger is safer: no hostile tile within the search radius beats any known distance. */
 const safety = (c: Candidate): number => c.enemyDistance ?? FLAG_SAFE_DISTANCE_TILES;
 
 const nearestFirst = (a: Candidate, b: Candidate): number =>
-  a.fromOrigin - b.fromOrigin || safety(b) - safety(a) || a.offAxis - b.offAxis || a.x - b.x || a.y - b.y;
+  a.fromOrigin - b.fromOrigin || safety(b) - safety(a) || b.behind - a.behind || a.offLine - b.offLine || a.x - b.x || a.y - b.y;
+
+/** Signed shortest offset from `from` to `to` on a wrapped axis. */
+const wrappedDelta = (from: number, to: number, size: number): number => {
+  const d = (((to - from) % size) + size) % size;
+  return d > size / 2 ? d - size : d;
+};
+
+/** Spots of one class considered for march time; the nearest few by distance. */
+const TRANSIT_CANDIDATES = 6;
+
+const transitOf = (state: ClientState, c: Candidate, origin: Point): number => {
+  c.transitMs ??= clientMusterTransitRoute(state, c, origin).transitMs;
+  return c.transitMs;
+};
+
+/**
+ * The best spot among `pool`: of the nearest few, the one whose company
+ * reaches the firing tile soonest (so a tile across a strait, which marches
+ * through a dock, loses to one on the same shore), ties by nearestFirst.
+ */
+const quickestNear = (state: ClientState, pool: Candidate[], origin: Point): Candidate | undefined =>
+  pool
+    .sort(nearestFirst)
+    .slice(0, TRANSIT_CANDIDATES)
+    .sort((a, b) => transitOf(state, a, origin) - transitOf(state, b, origin) || nearestFirst(a, b))[0];
 
 /**
  * Where the Launch Attack sheet offers to raise the new flag for an attack
- * fired from `origin`, default first: the nearest safe tile (at least
- * FLAG_SAFE_DISTANCE_TILES from hostile ground; the safest tile in range when
- * none is that far), a closer tile when one sits between, and the firing tile
- * itself. Every spot is the player's own unbesieged land without a flag,
- * within the server's remote-funding radius of the firing tile, so the new
- * flag can fund the attack from where it stands.
+ * fired from `origin` on `target`, default first: a safe tile (at least
+ * FLAG_SAFE_DISTANCE_TILES from hostile ground; the safest tiles in range
+ * when none is that far), a closer tile when one sits between, and the firing
+ * tile itself. Within each class, the nearest few tiles (directly behind the
+ * firing tile on a tie) are compared by real march time, so a tile reached
+ * only through a dock loses to one on the same shore. Every spot is the
+ * player's own unbesieged land without a flag, within the server's
+ * remote-funding radius of the firing tile, so the new flag can fund the
+ * attack from where it stands.
  */
-export const musterFlagSpotChoices = (state: ClientState, origin: Point, nowMs = Date.now()): MusterFlagSpot[] => {
+export const musterFlagSpotChoices = (state: ClientState, origin: Point, nowMs = Date.now(), target?: Point): MusterFlagSpot[] => {
   const candidates: Candidate[] = [];
+  // Direction from the target to the firing tile: "behind" the front.
+  const awayX = target ? Math.sign(wrappedDelta(target.x, origin.x, WORLD_WIDTH)) : 0;
+  const awayY = target ? Math.sign(wrappedDelta(target.y, origin.y, WORLD_HEIGHT)) : 0;
   const radius = MUSTER_REMOTE_FUNDING_RADIUS_TILES;
   for (let dy = -radius; dy <= radius; dy += 1) {
     for (let dx = -radius; dx <= radius; dx += 1) {
@@ -106,18 +138,29 @@ export const musterFlagSpotChoices = (state: ClientState, origin: Point, nowMs =
         y: tile.y,
         enemyDistance: enemyDistanceAt(state, tile.x, tile.y, nowMs),
         fromOrigin: Math.max(Math.abs(dx), Math.abs(dy)),
-        offAxis: dx * dx + dy * dy
+        behind: dx * awayX + dy * awayY,
+        offLine: awayX === 0 && awayY === 0 ? dx * dx + dy * dy : Math.abs(dx * awayY - dy * awayX)
       });
     }
   }
   const picks: Array<{ c: Candidate; kind: MusterFlagSpotKind }> = [];
-  const safe = candidates.filter((c) => c.enemyDistance === undefined).sort(nearestFirst)[0];
-  const safest = safe ?? [...candidates].sort((a, b) => safety(b) - safety(a) || nearestFirst(a, b))[0];
-  const originCandidate: Candidate = { x: origin.x, y: origin.y, enemyDistance: enemyDistanceAt(state, origin.x, origin.y, nowMs), fromOrigin: 0, offAxis: 0 };
-  if (safest && safety(safest) > safety(originCandidate)) picks.push({ c: safest, kind: "safe" });
-  const closer = candidates
-    .filter((c) => safety(c) > safety(originCandidate) && (!picks[0] || safety(c) < safety(picks[0].c)))
-    .sort(nearestFirst)[0];
+  const originCandidate: Candidate = {
+    x: origin.x,
+    y: origin.y,
+    enemyDistance: enemyDistanceAt(state, origin.x, origin.y, nowMs),
+    fromOrigin: 0,
+    behind: 0,
+    offLine: 0,
+    transitMs: 0
+  };
+  const topSafety = Math.max(...candidates.map(safety));
+  const safest = topSafety > safety(originCandidate) ? quickestNear(state, candidates.filter((c) => safety(c) === topSafety), origin) : undefined;
+  if (safest) picks.push({ c: safest, kind: "safe" });
+  const closer = quickestNear(
+    state,
+    candidates.filter((c) => safety(c) > safety(originCandidate) && (!safest || safety(c) < safety(safest))),
+    origin
+  );
   if (closer) picks.push({ c: closer, kind: "closer" });
   picks.push({ c: originCandidate, kind: "border" });
   return picks.map(({ c, kind }) => ({
@@ -125,6 +168,6 @@ export const musterFlagSpotChoices = (state: ClientState, origin: Point, nowMs =
     y: c.y,
     kind,
     enemyDistance: c.enemyDistance,
-    transitMs: c.fromOrigin === 0 ? 0 : clientMusterTransitRoute(state, c, origin).transitMs
+    transitMs: transitOf(state, c, origin)
   }));
 };

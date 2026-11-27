@@ -97,11 +97,11 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
         <span class="effort-section-label">Effort</span>
         ${options.mode === "slider" ? `<span class="effort-confirm-readout"><b data-effort-value>${commitManpower}</b> MP</span>` : ""}
       </div>
-      <div class="effort-seg effort-confirm-presets" role="radiogroup" aria-label="Effort">
+      <div class="effort-seg effort-confirm-presets" role="group" aria-label="Effort">
       ${presets
         .map(
           ({ key, amount }) =>
-            `<button type="button" class="effort-seg-item effort-confirm-preset" role="radio" data-effort-preset="${key}" data-effort-amount="${amount}"><span class="effort-seg-name">${PRESET_LABELS[key]}</span><small>${amount} MP</small></button>`
+            `<button type="button" class="effort-seg-item effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span class="effort-seg-name">${PRESET_LABELS[key]}</span><small>${amount} MP</small></button>`
         )
         .join("")}
       </div>
@@ -134,7 +134,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
     if (valueEl) valueEl.textContent = String(commitManpower);
     for (const btn of presetButtons) {
       const selected = btn.dataset.effortPreset === preset;
-      btn.setAttribute("aria-checked", String(selected));
+      btn.setAttribute("aria-pressed", String(selected));
       btn.classList.toggle("is-active", selected);
     }
     if (infoEl && options.describe) infoEl.textContent = options.describe(commitManpower, preset);

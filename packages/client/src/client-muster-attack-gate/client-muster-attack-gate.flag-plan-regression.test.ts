@@ -94,4 +94,14 @@ describe("parkOrReuseMusterFlagForAttack with a planned flag spot", () => {
     expect(state.actionQueue).toEqual([{ x: 17, y: 0 }]);
     expect(state.pendingMusterAttacks).toHaveLength(0);
   });
+
+  // Review finding (PR #3002): a besieged flag can't fund an attack, so a
+  // planned spot that came under attack meanwhile must not be used.
+  it("falls back to the firing tile when the planned spot is under siege", () => {
+    const { state, deps, park } = setup();
+    state.incomingAttacksByTile.set("13,0", { attackerName: "enemy", resolvesAt: Date.now() + 60_000 } as never);
+    setMusterFlagPlan(state, { x: 17, y: 0 }, { x: 13, y: 0 });
+    park();
+    expect(deps.sendSetMuster).toHaveBeenCalledWith(16, 0, "HOLD");
+  });
 });
