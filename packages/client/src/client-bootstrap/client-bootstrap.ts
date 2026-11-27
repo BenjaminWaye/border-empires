@@ -9,7 +9,7 @@ import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-v
 import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
-import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
+import { bindBootstrapUiControls } from "./client-bootstrap-ui-controls.js";
 import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
 import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
 import { createBootstrapThreeRendererHost } from "./client-bootstrap-three-renderer.js";
@@ -121,17 +121,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     techPickEl,
     canvas,
     tileActionMenuEl,
-    authColorPresetButtons,
     authProfileColorEl,
-    authEmailEl,
-    authEmailLinkBtn,
     authProfileNameEl,
-    authProfileSaveBtn,
-    techChooseBtn,
-    captureCancelBtn,
-    captureCloseBtn,
-    captureTimeEl,
-    panelCloseBtn,
     miniMapEl,
     ctx,
     initTerrainTextures
@@ -338,27 +329,13 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   resize();
   authFlow.bindAuthUi();
 
-  bindClientUiControls({
-    state, requestViewRefresh,
-    techChooseBtn,
-    techPickEl,
-    captureCancelBtn,
-    captureDismissBtn: dom.captureDismissBtn,
-    captureCloseBtn,
-    captureReportBugBtn: dom.captureReportBugBtn,
-    captureTimeEl,
-    placementCancelBtn: dom.placementCancelBtn,
-    placementConfirmBtn: dom.placementConfirmBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
-    panelCloseBtn,
-    authColorPresetButtons,
-    authProfileColorEl,
-    authEmailEl,
-    authEmailLinkBtn,
-    authProfileNameEl,
-    authProfileSaveBtn,
+  bindBootstrapUiControls(dom, deps as Parameters<typeof bindBootstrapUiControls>[1], {
+    state,
+    requestViewRefresh,
     actionFlow,
     renderHud,
-    acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
+    acknowledgeVictoryHoldAlert,
+    renderVictoryHoldAlert,
     renderCaptureProgress,
     setActivePanel,
     syncAuthPanelState
