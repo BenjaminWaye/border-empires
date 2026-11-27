@@ -1,0 +1,13 @@
+/* The way back to the closed join card (client-join-season-reopen.ts). */
+.join-season-reopen {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 40;
+}
+
+/* Phones: stay above the bottom tab bar (client-hud-v2-compact-bottom-reserve.test.ts). */
+body.hud-v2-compact .join-season-reopen {
+  bottom: calc(var(--v2c-bottom) + 12px);
+}

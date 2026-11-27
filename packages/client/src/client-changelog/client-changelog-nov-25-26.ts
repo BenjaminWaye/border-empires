@@ -17,6 +17,7 @@ import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-pla
 import { TOWN_PLOT_GARRISON_ENTRY } from "./client-changelog-town-plot-garrison.js";
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
+import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -30,6 +31,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
   { ...GUEST_LOGOUT_WARNING_ENTRY, createdAt: 1795707977072, },
   { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },
+  { ...HONEST_JOIN_ENTRY, createdAt: 1795724435038, },
   { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
