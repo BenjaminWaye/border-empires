@@ -51,8 +51,7 @@ import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/cl
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
-import { DEFAULT_FRONTIER_HATCH } from "../client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
+import { createOwnershipOverlay, DEFAULT_FRONTIER_HATCH, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
 import type { OwnershipTilePlacementDeps } from "../client-map-3d-ownership-tile/client-map-3d-ownership-tile.js";
 import { paintTerritoryTile3D } from "../client-map-3d-territory-paint/client-map-3d-territory-paint.js";
 import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";

@@ -10,6 +10,7 @@ import { createOwnershipShoreTint, shoreTintKey, type ShoreTileTint } from "./cl
 import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
 export { DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "./client-settled-edge-glow/client-settled-edge-glow.js";
+export { DEFAULT_FRONTIER_HATCH } from "./client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
 
 // Per-pixel bucket styles; both default off (flat tint).
 export type OwnershipOverlayStyles = {
