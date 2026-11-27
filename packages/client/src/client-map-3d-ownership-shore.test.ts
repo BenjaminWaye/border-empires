@@ -46,6 +46,29 @@ describe("ownership carried onto the beach fringe", () => {
     expect((settled.geometry.getAttribute("position") as BufferAttribute).getY(0)).toBeGreaterThan(-0.04);
   });
 
+  it("gives the frontier fringe hatch UVs from its scene position, so the stripes run onto the sand", () => {
+    // Regression (PR #3051 review): without edgeUv every fringe pixel sat at uv (0,0), mid-stripe,
+    // so a striped frontier's beach drew as a solid 0.55 band.
+    const scene = new Scene();
+    const overlay = createOwnershipOverlay(scene, 4);
+    addTile(overlay, 0, -1, new Color(1, 0, 0), false);
+    addTile(overlay, 1, -1, new Color(0, 0, 1), true);
+    overlay.commit();
+    overlay.extendOntoShore(fringe);
+    const meshes = shoreMeshes(scene);
+    const settled = meshes.find((m) => m.material === overlay.settledMesh.material)!;
+    const frontier = meshes.find((m) => m.material === overlay.frontierMesh.material)!;
+    const uv = frontier.geometry.getAttribute("edgeUv") as BufferAttribute;
+    const position = frontier.geometry.getAttribute("position") as BufferAttribute;
+    expect(uv).toBeDefined();
+    for (let i = 0; i < position.count; i++) {
+      expect(uv.getX(i)).toBeCloseTo(position.getX(i));
+      expect(uv.getY(i)).toBeCloseTo(position.getZ(i));
+    }
+    // The settled glow reads a missing edgeUv as interior, so the settled fringe keeps none.
+    expect(settled.geometry.getAttribute("edgeUv")).toBeUndefined();
+  });
+
   it("leaves fringe beside unowned land bare, and clears with the overlay", () => {
     const scene = new Scene();
     const overlay = createOwnershipOverlay(scene, 4);

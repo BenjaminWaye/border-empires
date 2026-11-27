@@ -134,8 +134,10 @@ export const nextNonBootstrapMessage = async (
     // Ambient connect-time state pushes, not responses to the command under
     // test: the live subscribe delivers the authoritative reach border and the
     // visible Aether Tower shields and the island name list to every socket as
-    // it joins (live-subscribe-reach-push.ts).
-    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES" || message.type === "LONGEST_ROAD") {
+    // it joins (live-subscribe-reach-push.ts). HOUSE_CHARGES is replayed on
+    // connect the same way (player-message-replay.ts); left unskipped, the
+    // Manufactory test read it in place of COMMAND_QUEUED under load.
+    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES" || message.type === "LONGEST_ROAD" || message.type === "HOUSE_CHARGES") {
       continue;
     }
     // The subscribe also states the scout drone: `flight: null` while docked, so a client never

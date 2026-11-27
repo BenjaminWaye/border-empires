@@ -4,7 +4,7 @@ import { createRevealMapRequestHandler } from "../reveal-map-request/reveal-map-
 import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
-import { humanColorsForAiSeeding, seedAiColors } from "./seed-ai-colors.js";
+import { humanColorsForAiSeeding, seedAiColors, storedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -705,7 +705,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   await seedAiColors(seededAiPlayerIds, async (id, color) => {
     await profileStore.setTileColor(id, color);
     profileOverrides.upsert(id, { tileColor: color });
-  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }));
+  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }), await storedAiColors(seededAiPlayerIds, profileStore));
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
