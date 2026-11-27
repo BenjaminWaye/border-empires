@@ -4,7 +4,8 @@
 //     claims the new outer plots on the upgrade (handleUpgradeTownTierCommand -> autoClaimFrontier), but only
 //     garrisons them when the player's "towns" auto-garrison switch is on. Growing now garrisons the new plots
 //     either way, the same as a town's own Garrison garrisons its ring (client-town-ring-garrison.ts).
-import { SETTLE_COST, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, isAutoSettleAllowedForTile, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { canAffordCost } from "../client-constants.js";
 import { queuedDevelopmentActionExists } from "../client-development-queue/client-development-queue.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -20,9 +21,6 @@ const keyOf = (tile: Pick<Tile, "x" | "y">): string => `${tile.x},${tile.y}`;
 const GROW_ACTION_IDS = new Set(["grow_settlement_to_town", "grow_town_to_city", "grow_city_to_great_city", "grow_great_city_to_monumental_city"]);
 const NEXT_TIER: Record<string, string> = { SETTLEMENT: "TOWN", TOWN: "CITY", CITY: "GREAT_CITY", GREAT_CITY: "METROPOLIS" };
 
-/** A Settlement has no plots yet; every other tier's ring is supportRingRadiusForTier. */
-const plotRadius = (tier: string | undefined): number => (!tier || tier === "SETTLEMENT" ? 0 : supportRingRadiusForTier(tier));
-
 type PlotState = Pick<ClientState, "tiles" | "me" | "settleProgressByTile" | "developmentQueue">;
 
 const isSettling = (state: PlotState, key: string): boolean =>
@@ -34,7 +32,7 @@ const isOwnGarrisonedTown = (state: Pick<ClientState, "me">, town: Tile): boolea
 /** This town's claimed, ungarrisoned plots that a SETTLE can take now: your in-reach FRONTIER land, not already settling. */
 export const townPlotsToGarrison = (state: PlotState, town: Tile, reach: { has: (key: string) => boolean }): Tile[] => {
   if (!isOwnGarrisonedTown(state, town)) return [];
-  return supportRingCandidates(state.tiles, town.x, town.y, plotRadius(town.town?.populationTier))
+  return supportRingCandidates(state.tiles, town.x, town.y, supportRingRadiusForTier(town.town?.populationTier))
     .map(({ tile }) => tile)
     .filter((tile) => {
       const key = keyOf(tile);
@@ -44,15 +42,19 @@ export const townPlotsToGarrison = (state: PlotState, town: Tile, reach: { has: 
 
 /** "Garrison N plots" for a garrisoned town with any plot left to garrison, else undefined. */
 export const garrisonTownPlotsAction = (state: ClientState, town: Tile): TileActionDef | undefined => {
+  if (!isOwnGarrisonedTown(state, town)) return undefined;
   const count = townPlotsToGarrison(state, town, resolveMyReachCached(state)).length;
   if (count === 0) return undefined;
   const coin = count * SETTLE_COST;
   const cost = `${coin > 0 ? `${coin} coin, ` : ""}${count * state.settleManpowerCost} manpower`;
+  // Each plot is queued (forceQueue), so short manpower only makes it wait; a full queue or no coin drops it.
+  const room = Math.max(0, DEV_QUEUE_TOTAL_CAP - state.developmentQueue.length);
+  const blocked = count > room ? `Queue has room for ${room} more` : !canAffordCost(state.gold, SETTLE_COST) ? `Need ${SETTLE_COST} coin` : "";
   return {
     id: "garrison_town_plots",
     label: `Garrison ${count} plot${count === 1 ? "" : "s"}`,
     detail: "Garrison every claimed plot around this town.",
-    ...tileActionAvailability(state.manpower >= state.settleManpowerCost, `Need ${state.settleManpowerCost} manpower`, cost)
+    ...tileActionAvailability(!blocked, blocked, cost)
   };
 };
 
@@ -63,8 +65,8 @@ export const garrisonTownPlotsAction = (state: ClientState, town: Tile): TileAct
 export const plotsGainedByGrowth = (state: PlotState, town: Tile): Tile[] => {
   const tier = town.town?.populationTier;
   const nextTier = tier ? NEXT_TIER[tier] : undefined;
-  const from = plotRadius(tier);
-  const to = plotRadius(nextTier);
+  const from = supportRingRadiusForTier(tier);
+  const to = supportRingRadiusForTier(nextTier);
   if (!isOwnGarrisonedTown(state, town) || to <= from) return [];
   return supportRingCandidates(state.tiles, town.x, town.y, to)
     .filter(({ dx, dy }) => Math.max(Math.abs(dx), Math.abs(dy)) > from)
@@ -83,21 +85,27 @@ type TownPlotActionDeps = {
   now: number;
 };
 
-/** Remember to garrison the plots growth adds; processTownRingGarrisons sends each SETTLE once the plot is your FRONTIER. */
+/**
+ * Remember to garrison the plots growth adds. processTownRingGarrisons waits until the town shows the new tier
+ * (a rejected upgrade garrisons nothing), then sends each SETTLE once the plot is your FRONTIER.
+ */
 const registerGrowthPlots = (state: ClientState, town: Tile, now: number): void => {
-  // With the "towns" switch on the server garrisons them itself; a second SETTLE would only be rejected.
-  if (state.autoSettle.status === "loaded" && state.autoSettle.prefs.towns) return;
-  const ringKeys = plotsGainedByGrowth(state, town).map(keyOf);
+  const nextTier = town.town?.populationTier ? NEXT_TIER[town.town.populationTier] : undefined;
+  if (!nextTier) return;
+  // Plots the server auto-garrisons (their own switch -- "towns", or the plot's resource -- is on) are left to it.
+  const prefs = state.autoSettle.status === "loaded" ? state.autoSettle.prefs : undefined;
+  const ringKeys = plotsGainedByGrowth(state, town).filter((tile) => !prefs || !isAutoSettleAllowedForTile(prefs, tile)).map(keyOf);
   if (ringKeys.length === 0) return;
   const townKey = keyOf(town);
+  // Keep any ring tiles a pending Garrison of this town is still waiting on; they now wait for the upgrade too.
+  const pending = state.townRingGarrisons.get(townKey)?.ringKeys ?? [];
   state.townRingGarrisons.delete(townKey);
   while (state.townRingGarrisons.size >= TOWN_RING_GARRISON_MAX_ENTRIES) {
     const oldest = state.townRingGarrisons.keys().next().value;
     if (oldest === undefined) break;
     state.townRingGarrisons.delete(oldest);
   }
-  // The town is already garrisoned, so the after-settle window starts now and covers the upgrade's round trip.
-  state.townRingGarrisons.set(townKey, { ringKeys, startedAt: now, townSettledAt: now });
+  state.townRingGarrisons.set(townKey, { ringKeys: [...new Set([...pending, ...ringKeys])], startedAt: now, awaitTier: nextTier });
 };
 
 /**

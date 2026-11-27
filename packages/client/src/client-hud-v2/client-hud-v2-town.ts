@@ -224,9 +224,11 @@ const barHtml = (input: TownScreenInput): string => {
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
   // A garrisoned town with claimed plots left ungarrisoned: one gold button garrisons them all.
+  // The selected tile's own improvement keeps the gold slot; the plots button then sits beside it as a plain one.
+  const improvement = garrison ? undefined : availableResourceImprovement(input.focusView);
   const plots = garrison ? undefined : actionFor(input.townView, "garrison_town_plots");
-  const plotsBtn = plots ? btn(plots, esc(plots.label)).replace('class="v2t-act"', 'class="v2t-act v2t-act-primary"') : "";
-  const improvement = garrison || plots ? undefined : availableResourceImprovement(input.focusView);
+  const plotsHtml = plots ? btn(plots, esc(plots.label)) : "";
+  const plotsBtn = improvement ? plotsHtml : plotsHtml.replace('class="v2t-act"', 'class="v2t-act v2t-act-primary"');
   const improvementBtn = improvement
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="${esc(improvement.id)}"${targetAttrs(improvement, keyOf(input.focus))} title="${esc(improvement.detail ?? improvement.label)}">${esc(improvement.label)}${improvement.cost ? `<small>${esc(improvement.cost)}</small>` : ""}</button>`
     : "";
@@ -249,7 +251,7 @@ const barHtml = (input: TownScreenInput): string => {
   const raiseBtn = raise
     ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
-  return `${garrisonBtn}${plotsBtn}${improvementBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  return `${garrisonBtn}${improvementBtn}${plotsBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map<span class="v2-key-hint"> · Esc</span></button>${garrisonOption}`;
 };

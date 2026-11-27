@@ -5,10 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const reach = new Set<string>();
 vi.mock("../client-reach-authoritative/client-reach-authoritative.js", () => ({ resolveMyReachCached: () => reach }));
 
+import { DEV_QUEUE_TOTAL_CAP, NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { garrisonTownPlotsAction, handleTownPlotAction, plotsGainedByGrowth } from "./client-town-plot-garrison.js";
-import { processTownRingGarrisons } from "./client-town-ring-garrison.js";
+import { TOWN_RING_AFTER_SETTLE_WINDOW_MS, processTownRingGarrisons } from "./client-town-ring-garrison.js";
 
 const key = (x: number, y: number): string => `${x},${y}`;
 const land = (x: number, y: number, extra: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ...extra }) as Tile;
@@ -18,6 +20,7 @@ const setup = (tier = "TOWN") => {
   const state = createInitialState();
   state.me = "me";
   state.manpower = 1_000;
+  state.gold = 1_000;
   state.settleManpowerCost = 5;
   const town = land(10, 10, { ownerId: "me", ownershipState: "SETTLED", town: { name: "Ash", type: "FARMING", populationTier: tier } as NonNullable<Tile["town"]> });
   for (let dy = -2; dy <= 2; dy += 1) for (let dx = -2; dx <= 2; dx += 1) {
@@ -53,11 +56,40 @@ describe("garrisoning a town's plots", () => {
     expect(requestSettlement).toHaveBeenCalledWith(8, 8);
   });
 
-  it("leaves growth plots to the server when the towns auto-garrison switch is on", () => {
+  it("garrisons nothing when the server rejects the upgrade, even plots that are already your frontier", () => {
     const { state, town } = setup();
-    state.autoSettle = { status: "loaded", prefs: { towns: true } } as never;
-    handleTownPlotAction("grow_town_to_city", town, { state, sendGameMessage: vi.fn(), requestSettlement: vi.fn((_x: number, _y: number) => true), now: 1_000 });
+    state.tiles.set(key(12, 10), land(12, 10, { ownerId: "me", ownershipState: "FRONTIER" }));
+    const requestSettlement = vi.fn((_x: number, _y: number) => true);
+    handleTownPlotAction("grow_town_to_city", town, { state, sendGameMessage: vi.fn(), requestSettlement, now: 1_000 });
+    // Rejected (no coin / FOOD slot): the town stays a Town.
+    processTownRingGarrisons(state, { now: 2_000, reach, isSettling: () => false, requestSettlement });
+    expect(requestSettlement).not.toHaveBeenCalled();
+    processTownRingGarrisons(state, { now: 2_000 + TOWN_RING_AFTER_SETTLE_WINDOW_MS, reach, isSettling: () => false, requestSettlement });
     expect(state.townRingGarrisons.size).toBe(0);
+    expect(requestSettlement).not.toHaveBeenCalled();
+  });
+
+  it("leaves to the server only the plots whose own auto-garrison switch is on", () => {
+    const { state, town } = setup();
+    state.tiles.set(key(12, 10), land(12, 10, { resource: "FARM" }));
+    state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS, answered: true, towns: true, FARM: false });
+    handleTownPlotAction("grow_town_to_city", town, { state, sendGameMessage: vi.fn(), requestSettlement: vi.fn((_x: number, _y: number) => true), now: 1_000 });
+    expect(state.townRingGarrisons.get(key(10, 10))?.ringKeys).toEqual([key(12, 10)]);
+  });
+
+  it("keeps ring tiles a pending town Garrison is still waiting on", () => {
+    const { state, town } = setup();
+    state.townRingGarrisons.set(key(10, 10), { ringKeys: [key(9, 9)], startedAt: 0, townSettledAt: 500 });
+    handleTownPlotAction("grow_town_to_city", town, { state, sendGameMessage: vi.fn(), requestSettlement: vi.fn((_x: number, _y: number) => true), now: 1_000 });
+    expect(state.townRingGarrisons.get(key(10, 10))?.ringKeys).toContain(key(9, 9));
+  });
+
+  it("Garrison N plots waits for manpower instead of refusing, but not past a full queue", () => {
+    const { state, town } = setup("CITY");
+    state.manpower = 0;
+    expect(garrisonTownPlotsAction(state, town)?.disabled).toBeFalsy();
+    state.developmentQueue = Array.from({ length: DEV_QUEUE_TOTAL_CAP }, (_, i) => ({ kind: "BUILD", tileKey: `q${i}` }) as never);
+    expect(garrisonTownPlotsAction(state, town)).toMatchObject({ disabled: true, disabledReason: "Queue has room for 0 more" });
   });
 
   it("offers Garrison N plots on a garrisoned town and garrisons each claimed in-reach plot", () => {
