@@ -29,6 +29,7 @@ import { PUBLIC_HOUSE_SHARE_STATE_ENTRY } from "./client-changelog-public-house-
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garrison.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
+import { WAIT_CONTEST_NO_STALL_ENTRY } from "./client-changelog-wait-contest-no-stall.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 import { HOUSE_CREST_FIXES_ENTRY } from "./client-changelog-house-crest-fixes.js";
@@ -92,4 +93,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DRONE_EXPLORE_R3_ENTRY, createdAt: 1795816268758 },
   { ...GUIDE_PROFILE_R3_ENTRY, createdAt: 1795816165167 },
   { ...DIPLOMACY_R3_ENTRY, createdAt: 1795816471552 },
+  { ...WAIT_CONTEST_NO_STALL_ENTRY, createdAt: 1795819627566 },
 ];
