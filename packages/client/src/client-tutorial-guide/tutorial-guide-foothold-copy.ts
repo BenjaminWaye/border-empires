@@ -108,14 +108,15 @@ const townActionTitle = (input: GuideInput, action: GuideTargetAction): string =
 /** The town is more legs away than charges are ready: flying part-way again would loop, so wait. */
 const leadNeedsCharges = (input: GuideInput): number => (followsTownLead(input) && input.scout === "ready" ? (input.townLeadChargesShort ?? 0) : 0);
 
+// The lead steers the drone without saying what it will find (owner, 2026-11-26): the player discovers the town.
 const townLeadWait = (short: number) => ({
-  title: `A town is this way: wait for ${short} more drone charge${short === 1 ? "" : "s"}`,
+  title: `Let's explore further: wait for ${short} more drone charge${short === 1 ? "" : "s"}`,
   why: "It's too far for the charges you have. Used charges come back after 4 hours."
 });
 
 const TOWN_LEAD_EXPLORE = {
-  title: "A town is this way: tap the mark, then Explore",
-  why: "Your drone flies there. Then Expand To the town."
+  title: "Let's try exploring some more: tap the mark, then Explore",
+  why: "Your drone flies over here and shows what it finds."
 };
 
 export const townWhy = (input: GuideInput): string => {
