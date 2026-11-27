@@ -13,6 +13,7 @@ import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
 import { EFFORT_ODDS_REFRESH_ENTRY, HUNT_REMOVED_ENTRY } from "./client-changelog-combat-playtest-fixes.js";
+import { GUIDE_ATTACK_TRUCE_ENTRY } from "./client-changelog-guide-attack-truce.js";
 import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-playtest-fixes.js";
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
@@ -23,16 +24,17 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
   { ...UI_TYPE_CONSISTENCY_ENTRY, createdAt: 1795637381397, },
   { ...UNLOCK_CELEBRATION_ENTRY, createdAt: 1795644022855, },
-  { ...TOWN_FOCUS_PANEL_ENTRY, createdAt: 1795678750561, },
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
+  { ...TOWN_FOCUS_PANEL_ENTRY, createdAt: 1795678750561, },
   { ...FRONTIER_GARRISON_ENTRY, createdAt: 1795692680347, },
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
   { ...GUEST_LOGOUT_WARNING_ENTRY, createdAt: 1795707977072, },
   { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },
-  { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
+  { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
+  { ...GUIDE_ATTACK_TRUCE_ENTRY, createdAt: 1795764700050, },
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
   { ...HUNT_REMOVED_ENTRY, createdAt: 1795765029963, },
   { ...EFFORT_ODDS_REFRESH_ENTRY, createdAt: 1795765029964, },

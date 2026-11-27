@@ -25,11 +25,12 @@ import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js"
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
+import type { GuideTruceStage } from "./tutorial-guide-contest-input.js";
 import { exploreHighlight, foodCopy, foodTitle, needsTownForBuild, targetHighlights, TOWN_STEP, townAction, townBeforeBeacon, townTitle, townWhy } from "./tutorial-guide-foothold-copy.js";
 
 export { guideBeaconSite, needsTownForBuild } from "./tutorial-guide-foothold-copy.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "muster" | "activity" | "diplomacy";
+export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "muster" | "attack" | "activity" | "diplomacy" | "truce" | "truceAccept";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
@@ -88,6 +89,12 @@ export type GuideInput = {
   musterUnlocked: boolean;
   ownsMusterFlag: boolean;
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
+  /** An attack the player ordered is under way (parked on a flag, in flight or resolving). */
+  attackLaunched: boolean;
+  /** Planetary Defense or rival tiles touching the player's land, allies and truce partners left out. A function: computed only when a step asks. */
+  attackTargetTiles: () => ReadonlyArray<{ x: number; y: number }>;
+  /** How far the first truce has got (tutorial-guide-contest-input.ts). */
+  truceStage: GuideTruceStage;
   /** The player's manpower and cap: the last step tells a player at or over the cap to spend, not to wait. */
   manpower?: { current: number; cap: number };
   /** The scout drone: ready to launch, in the air, or no AFC to launch from (tutorial-guide-explore-target.ts). */
@@ -119,7 +126,7 @@ export type GuideStepDef = {
   /** While this step waits, Finish isn't offered: the wait ends by itself (e.g. saving up Coin), unlike meeting a rival. */
   waitBlocksFinish?: boolean;
   highlight?: (input: GuideInput) => ReadonlyArray<{ x: number; y: number }>;
-  anchor?: GuideAnchorId;
+  anchor?: GuideAnchorId | ((input: GuideInput) => GuideAnchorId);
   /** Resource icons the card shows as "Look for", so the player knows what the target looks like on the map. */
   lookFor?: ReadonlyArray<GuideLookForIcon>;
   /** Completed by pressing the card's Finish button instead of by game state. */
@@ -145,6 +152,12 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   turn: "Your turn"
 };
 
+
+const truceTitle = (i: GuideInput): string => {
+  if (i.truceStage === "incoming") return "A rival offers a truce: tap Accept";
+  if (i.truceStage === "offered") return "Truce offered: waiting for their answer";
+  return "Tap a rival House, pick Truce 12h, then send it";
+};
 
 const buildFirstTitle = (i: GuideInput): string => {
   if (needsTownForBuild(i)) return `A Manufactory needs a town. ${townTitle(i)}`;
@@ -295,15 +308,41 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     anchor: "muster"
   },
   {
+    // After the flag, the attack it pays for: raising a flag alone left players waiting for something to happen.
+    id: "contest-attack",
+    chapter: "contest",
+    title: () => "Tap a marked enemy tile, then Launch Attack",
+    why: "Your flag's manpower pays for the attack. Win and the tile is yours.",
+    isDone: (i) => i.attackLaunched,
+    // Waits until an enemy tile touches your land: an enemy seen only across neutral
+    // land has nothing to attack yet, and an always-available step would block Finish.
+    isAvailable: (i) => i.musterUnlocked && i.attackTargetTiles().length > 0,
+    waitingNote: "Expand until an enemy tile borders your land: this starts then.",
+    highlight: (i) => i.attackTargetTiles(),
+    anchor: "attack"
+  },
+  {
     id: "diplomacy-truce",
     chapter: "diplomacy",
-    title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"} to offer a truce`,
-    why: "A truce stops a neighbour attacking you while you grow. AI Houses tell you their price.",
+    title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"}`,
+    why: "A truce stops a neighbour attacking you while you grow.",
     // Opening the panel before meeting anyone doesn't count: there was no one to offer a truce to.
     isDone: (i) => i.rivalHouseMet && i.diplomacyUsed,
     isAvailable: (i) => i.rivalHouseMet,
     waitingNote: "Explore to find a rival House: this starts when you meet one.",
     anchor: "diplomacy"
+  },
+  {
+    // Walks the offer through to a truce in force. While the player is on this step an AI
+    // accepts a truce for free (gateway ai-guide-truce-welcome.ts keys on this id).
+    id: "diplomacy-truce-made",
+    chapter: "diplomacy",
+    title: truceTitle,
+    why: (i) => (i.truceStage === "offered" ? "They answer in a moment." : "AI Houses take this first truce for free."),
+    isDone: (i) => i.truceStage === "active",
+    isAvailable: (i) => i.rivalHouseMet,
+    waitingNote: "Explore to find a rival House: this starts when you meet one.",
+    anchor: (i) => (i.truceStage === "incoming" ? "truceAccept" : "truce")
   },
   {
     id: "turn-activity",
@@ -392,7 +431,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     waiting,
     laterChapterTitles,
     highlightTiles: waiting ? [] : (step.highlight?.(input) ?? []),
-    ...(step.anchor && !waiting ? { anchor: step.anchor } : {}),
+    ...(step.anchor && !waiting ? { anchor: typeof step.anchor === "function" ? step.anchor(input) : step.anchor } : {}),
     ...(step.lookFor && !waiting ? { lookFor: step.lookFor } : {})
   };
 };

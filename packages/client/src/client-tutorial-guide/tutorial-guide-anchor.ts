@@ -19,8 +19,13 @@ export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
   afc: '[data-hud-v2-open="afc"]',
   // The confirm sheet first: while it is open the tile's Stage Muster button is still on screen behind it.
   muster: '[data-sheet="stage-muster"] [data-pact-go], [data-hud-v2-action="muster_hold"], [data-action="muster_hold"]',
+  // The tile's attack button once an enemy tile is picked.
+  attack: '[data-hud-v2-action="launch_attack"], [data-action="launch_attack"]',
   activity: '[data-hud-v2-open="chronicle"]',
-  diplomacy: '.hud-v2-bubble[data-hud-v2-open="diplomacy"]'
+  diplomacy: '.hud-v2-bubble[data-hud-v2-open="diplomacy"]',
+  // On the deal screen: the 12h truce until it is picked, then Send; otherwise the Diplomacy button.
+  truce: '[data-trade-kind="truce:12"]:not([aria-pressed="true"]), [data-trade-send], .hud-v2-bubble[data-hud-v2-open="diplomacy"]',
+  truceAccept: '[data-v2-dip-accept="truce"], .hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };
 
 /** A fixed outline must stay inside the viewport and every clipping panel. */
