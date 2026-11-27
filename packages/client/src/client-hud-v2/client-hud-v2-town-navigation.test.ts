@@ -4,7 +4,7 @@ import { queueDevelopmentAction } from "../client-development-queue/client-devel
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
-import { closeTownScreen, renderTownScreen, stepTown, townOnMenuView, townOnMenuHidden } from "./client-hud-v2-town-runtime.js";
+import { closeTownScreen, renderTownScreen, runTownFocusPick, stepTown, townOnMenuView, townOnMenuHidden } from "./client-hud-v2-town-runtime.js";
 
 import { screenClick } from "./client-hud-v2-screens.js";
 
@@ -65,6 +65,33 @@ describe("town arrow detail refresh", () => {
     // The short-lived town list still holds the old record; navigation must use the latest tile.
     expect(requestTileDetailIfNeeded).toHaveBeenLastCalledWith(updated, { force: true });
   });
+  // Review of #3028: the collapsed Town focus card must open for a preview (keys 1–4 included), yet stay closable.
+  it("opens the collapsed focus card for a preview, and lets the player close it again", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("5,5", town(5, "Alder"));
+    const deps: HudV2Deps = {
+      state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x) => x, wrapY: (y) => y,
+      setActivePanel: vi.fn(), sendGameMessage: () => true, ownerColor: () => "#888",
+      actionFlow: {
+        chooseTech: vi.fn(), cancelOngoingCapture: vi.fn(), handleTileAction: vi.fn(), hideTileActionMenu: vi.fn(),
+        requestTileDetailIfNeeded: vi.fn(), tileMenuViewForTile: () => view, openSingleTileActionMenu: vi.fn()
+      }
+    };
+    townOnMenuView(deps, view, "5,5");
+    const card = () => document.querySelector<HTMLDetailsElement>("#v2t-left details.v2tf");
+    expect(card()?.hasAttribute("open")).toBe(false);
+    runTownFocusPick(deps, "LEVY");
+    expect(card()?.hasAttribute("open")).toBe(true);
+    card()!.removeAttribute("open");
+    runTownFocusPick(deps, "COMMERCE");
+    expect(card()?.hasAttribute("open")).toBe(true);
+    card()!.removeAttribute("open");
+    renderTownScreen(deps);
+    expect(card()?.hasAttribute("open")).toBe(false);
+  });
+
   it("keeps the building selected after a support build and honors the next explicit tile pick", () => {
     document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
     const state = createInitialState();

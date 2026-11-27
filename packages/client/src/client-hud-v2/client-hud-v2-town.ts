@@ -162,7 +162,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
     ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
-    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
+    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 

@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
@@ -51,4 +52,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...BATTLE_WARNINGS_ENTRY, createdAt: 1795769680653, },
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
+  { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
 ];
