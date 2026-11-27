@@ -48,7 +48,7 @@ export const waitButtonHtml = (singleContest: boolean): string =>
   `<button id="join-season-wait" class="panel-btn" type="button">${singleContest ? "Not now" : "Wait for the next contest"}</button>`;
 
 /** The card shown once joining is closed for lack of a landing site. */
-export const joinClosedHtml = (message: string): string => `
+export const joinClosedHtml = (message: string, sectorListHtml = ""): string => `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
       <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close">×</button>
@@ -56,6 +56,7 @@ export const joinClosedHtml = (message: string): string => `
         <div class="respawn-kicker">Sector Contest</div>
         <h2 id="join-season-title" class="respawn-title">No landing site left</h2>
         <p class="respawn-summary">${message}</p>
+        ${sectorListHtml}
       </div>
     </div>
   `;
@@ -74,11 +75,13 @@ const NO_LANDING_SITE_FALLBACK = "There is no free landing site left on this map
 
 /** NO_LANDING_SITE reply to JOIN_SEASON: keep the card up, switched to the closed message. Returns true when handled. */
 export const applyNoLandingSiteError = (
-  state: Pick<ClientState, "joinSeasonPending" | "joinSeasonClosedMessage" | "joinSeasonOverlayOpen">,
+  state: Pick<ClientState, "joinSeasonPending" | "joinSeasonClosedMessage" | "joinSeasonOverlayOpen" | "sectorListLoadedFor">,
   code: string,
   message: string
 ): boolean => {
   if (code !== "NO_LANDING_SITE") return false;
+  // Reload the sector list: this sector now shows as full.
+  state.sectorListLoadedFor = "";
   state.joinSeasonPending = false;
   state.joinSeasonOverlayOpen = true;
   state.joinSeasonClosedMessage = message || NO_LANDING_SITE_FALLBACK;

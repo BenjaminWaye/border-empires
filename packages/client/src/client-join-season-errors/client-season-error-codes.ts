@@ -8,7 +8,7 @@ import { applyNoLandingSiteError } from "../client-join-season-late-join/client-
 // force-starting the next Sector Contest. Neither swallows the ERROR, so the
 // generic handler still adds the gateway's message to the event feed.
 export const applySeasonErrorCodes = (
-  state: Pick<ClientState, "joinSeasonPending" | "joinSeasonOverlayOpen" | "joinSeasonClosedMessage" | "seasonEndStarting" | "seasonStartError" | "seasonWinner">,
+  state: Pick<ClientState, "joinSeasonPending" | "joinSeasonOverlayOpen" | "joinSeasonClosedMessage" | "sectorListLoadedFor" | "seasonEndStarting" | "seasonStartError" | "seasonWinner">,
   code: string,
   message: string,
   renderHud: () => void

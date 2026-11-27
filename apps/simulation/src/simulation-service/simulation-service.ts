@@ -68,7 +68,7 @@ import { handleGetPlayerTradeHoldings, type ProtoPlayerTradeHoldingsRequest, typ
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
-import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
+import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js"; import { landingSiteAvailable } from "../landing-site-probe/landing-site-probe.js";
 import { createRuntimeTileDeltaFanout } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
@@ -2077,7 +2077,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       callback(null, { ok: true });
     },
-    GetCurrentSeasonSummary(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void) { handleGetCurrentSeasonSummary(readCurrentSummary, call, callback); },
+    GetCurrentSeasonSummary(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void) { handleGetCurrentSeasonSummary(readCurrentSummary, call, callback, () => landingSiteAvailable(runtime)); },
     ListSeasonArchives(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonArchivesResponse) => void) { handleListSeasonArchives(readSeasonArchives, call, callback); },
     GetSeasonParticipationForPlayer(call: { request: ProtoSeasonParticipationRequest }, callback: (error: Error | null, response: ProtoSeasonParticipationResponse) => void) { handleGetSeasonParticipationForPlayer(seasonSummaryStore, call, callback); },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },

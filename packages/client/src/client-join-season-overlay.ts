@@ -2,6 +2,8 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 import { joinClosedHtml, lateJoinFacts, lateJoinWarningHtml, waitButtonHtml } from "./client-join-season-late-join/client-join-season-late-join.js";
+import { sectorListHtml } from "./client-sector-list/client-sector-list.js";
+import { canFundSectors, refreshSectorListIfNeeded } from "./client-sector-list/client-sector-list-loader.js";
 import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
 
 type JoinSeasonOverlayDeps = {
@@ -21,10 +23,14 @@ type JoinSeasonOverlayDeps = {
     | "seasonStartedAt"
     | "singleContest"
     | "joinSeasonClosedMessage"
+    | "sectorListRows"
+    | "sectorListLoadedFor"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
+  /** The main gateway's WebSocket URL; with it the card lists the running Sector Contests (client-sector-list/). */
+  wsUrl?: string;
   pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
 };
 
@@ -151,7 +157,7 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         // the running-contest card an update must not rebuild the spinner.
         state.seasonPending ? [state.seasonLobbyWaitingCount, state.seasonLobbyMaxPlayers, state.seasonLobbyRoster] : null,
         // The honest card's day/bonus lines and the closed card (client-join-season-late-join.ts).
-        state.seasonPending ? null : [state.seasonStartedAt, state.singleContest, state.joinSeasonClosedMessage]
+        state.seasonPending ? null : [state.seasonStartedAt, state.singleContest, state.joinSeasonClosedMessage, state.sectorListRows]
       ]);
 
 // Closes the card and leaves the HUD reachable (the close and wait buttons).
@@ -263,8 +269,12 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // warning (contest day, landing manpower, high difficulty), to land now
   // or wait for the next contest. This replaced sending every player
   // straight in. A NO_LANDING_SITE reply turns the card into the closed one.
+  // The running Sector Contests, full ones greyed out, and funding a new one when none has room.
+  if (deps.wsUrl) refreshSectorListIfNeeded({ state, wsUrl: deps.wsUrl, renderHud });
+  const sectorRows = state.sectorListRows ?? [];
+  const listHtml = sectorListHtml(sectorRows, canFundSectors());
   if (state.joinSeasonClosedMessage) {
-    overlayEl.innerHTML = joinClosedHtml(state.joinSeasonClosedMessage);
+    overlayEl.innerHTML = joinClosedHtml(state.joinSeasonClosedMessage, listHtml);
     bindDismiss(overlayEl, "#join-season-close", state, renderHud);
     return;
   }
@@ -274,7 +284,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     joining,
     waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
     warningHtml: lateJoinWarningHtml(lateJoinFacts(Date.now(), state.seasonStartedAt), state.singleContest),
-    waitButtonHtml: waitButtonHtml(state.singleContest)
+    waitButtonHtml: waitButtonHtml(state.singleContest),
+    sectorListHtml: listHtml,
+    landDisabled: sectorRows.some((row) => row.here && row.full)
   });
   bindDismiss(overlayEl, "#join-season-wait", state, renderHud);
 

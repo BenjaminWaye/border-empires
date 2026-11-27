@@ -4,11 +4,13 @@
 // now or wait for the next contest (waitButtonHtml). While the join is in
 // flight the card only shows the spinner and wait hint. The close button
 // keeps the HUD reachable.
-export type JoinNowHtmlInput = { joining: boolean; waitHintHtml: string; warningHtml?: string; waitButtonHtml?: string };
+// sectorListHtml: the running Sector Contests (client-sector-list/); landDisabled
+// when this one is full, so Land now cannot be pressed.
+export type JoinNowHtmlInput = { joining: boolean; waitHintHtml: string; warningHtml?: string; waitButtonHtml?: string; sectorListHtml?: string; landDisabled?: boolean };
 
-export const joinNowHtml = ({ joining, waitHintHtml, warningHtml = "", waitButtonHtml = "" }: JoinNowHtmlInput): string => {
-  const buttonLabel = joining ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire' : "Land now";
-  const disabled = joining ? 'disabled aria-busy="true"' : "";
+export const joinNowHtml = ({ joining, waitHintHtml, warningHtml = "", waitButtonHtml = "", sectorListHtml = "", landDisabled = false }: JoinNowHtmlInput): string => {
+  const buttonLabel = joining ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire' : landDisabled ? "This sector is full" : "Land now";
+  const disabled = joining ? 'disabled aria-busy="true"' : landDisabled ? "disabled" : "";
   return `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
@@ -22,6 +24,7 @@ export const joinNowHtml = ({ joining, waitHintHtml, warningHtml = "", waitButto
           ${joining ? "" : waitButtonHtml}
           ${waitHintHtml}
         </section>
+        ${joining ? "" : sectorListHtml}
       </div>
     </div>
   `;
