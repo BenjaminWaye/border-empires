@@ -178,6 +178,16 @@ fetch_config() { # sha
   install -m 644 "$tmp/env/${BE_ENV}.env" "env/${BE_ENV}.env"
   install -m 755 "$tmp/bin/backup" backup
   install -m 755 "$tmp/bin/publish-client" publish-client
+  # Backup/restore helpers (deploy/bin/backup needs backup-snapshot.mjs). Optional
+  # so that deploying a sha from before they existed still works; the previous
+  # copies are then kept.
+  for f in backup-snapshot.mjs restore-prepare.mjs restore-backup; do
+    if curl -fsSL --retry 3 -o "$tmp/bin/$f" "${CONFIG_BASE_URL}/${sha}/deploy/bin/${f}"; then
+      case "$f" in *.mjs) install -m 644 "$tmp/bin/$f" "$f" ;; *) install -m 755 "$tmp/bin/$f" "$f" ;; esac
+    else
+      log "deploy/bin/${f} not found at ${sha}; keeping the installed copy, if any"
+    fi
+  done
   rm -rf "$tmp"
 }
 

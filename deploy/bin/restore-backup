@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Restore the game database from a backup made by deploy/bin/backup.
+# Installed at /opt/border-empires/restore-backup by `deploy`; run as `deploy`
+# on the server. Runbook: docs/agents/deploys.md "Backups".
+#
+#   restore-backup <source> [--apply] [--no-ledger]
+#     <source>     latest | hourly/<file>.db.zst | daily/<file>.db.zst  (from b2:$BACKUP_BUCKET)
+#                  or an absolute path to a .db.zst already on this server
+#     (no flag)    check only: download, `zstd -t`, decompress into
+#                  /data/restore-<stamp>/, full integrity_check, deletion-ledger
+#                  dry run. The game keeps running.
+#     --apply      then stop the app, move the current database files to
+#                  /data/pre-restore-<stamp>/, swap the checked copy in, reapply the
+#                  account-deletion ledger offline, start the app and wait for /health.
+#     --no-ledger  allow --apply when no deletion ledger exists on this server or in
+#                  b2 (only true if no account has ever been deleted)
+#
+# Nothing is deleted: the previous database stays in /data/pre-restore-<stamp>/
+# and the checked copy in /data/restore-<stamp>/ until an operator removes them
+# (they hold player data: remove them once the restore is confirmed good).
+set -euo pipefail
+
+SRC="${1:-}"
+shift || true
+APPLY=0
+NO_LEDGER=0
+for arg in "$@"; do
+  case "$arg" in
+    --apply) APPLY=1 ;;
+    --no-ledger) NO_LEDGER=1 ;;
+    *) echo "unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+[ -n "$SRC" ] || { sed -n '2,20p' "$0" >&2; exit 2; }
+
+. /etc/border-empires/host.conf
+cd /opt/border-empires
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+WORK="/srv/border-empires/restore/${STAMP}"   # deploy-owned; only the .zst lands here
+mkdir -p "$WORK"
+export RCLONE_CONFIG=/etc/border-empires/rclone.conf
+log() { echo "[restore $(date -u +%H:%M:%S)] $*" >&2; }
+need_bucket() { [ -n "${BACKUP_BUCKET:-}" ] || { log "BACKUP_BUCKET is not set in host.conf"; exit 1; }; }
+
+# --- 1. fetch ---------------------------------------------------------------
+case "$SRC" in
+  latest)
+    need_bucket
+    name="$(rclone lsf --files-only "b2:${BACKUP_BUCKET}/hourly/" | grep -E '^be-.*\.db\.zst$' | sort | tail -n 1)"
+    [ -n "$name" ] || { log "no hourly backups in b2:${BACKUP_BUCKET}/hourly/"; exit 1; }
+    rclone copyto "b2:${BACKUP_BUCKET}/hourly/${name}" "${WORK}/${name}"
+    ;;
+  hourly/*.db.zst|daily/*.db.zst)
+    need_bucket
+    name="$(basename "$SRC")"
+    rclone copyto "b2:${BACKUP_BUCKET}/${SRC}" "${WORK}/${name}"
+    ;;
+  /*.db.zst)
+    name="$(basename "$SRC")"
+    cp "$SRC" "${WORK}/${name}"
+    ;;
+  *) log "source must be latest, hourly/<file>.db.zst, daily/<file>.db.zst or /abs/path.db.zst"; exit 2 ;;
+esac
+chmod 755 "$WORK"
+chmod 644 "${WORK}/${name}"
+log "fetched ${name} ($(du -h "${WORK}/${name}" | cut -f1))"
+zstd -q -t "${WORK}/${name}"
+
+# --- 2. decompress and check inside the container (as the data owner) -------
+run_app() { docker compose run --rm --no-deps -T -v "${WORK}:/restore:ro" --entrypoint "$1" app "${@:2}"; }
+RESTORED="/data/restore-${STAMP}/border-empires.db"
+run_app sh -c "mkdir -p /data/restore-${STAMP}"
+run_app node --input-type=module - "/restore/${name}" "$RESTORED" < /opt/border-empires/restore-prepare.mjs
+
+# --- 3. deletion ledger -------------------------------------------------------
+LEDGER=""
+if run_app test -f /data/account-deletion-ledger.json; then
+  LEDGER=/data/account-deletion-ledger.json
+elif [ -n "${BACKUP_BUCKET:-}" ] && rclone lsf "b2:${BACKUP_BUCKET}/ledger/" 2>/dev/null | grep -qx account-deletion-ledger.json; then
+  rclone copyto "b2:${BACKUP_BUCKET}/ledger/account-deletion-ledger.json" "${WORK}/account-deletion-ledger.json"
+  chmod 644 "${WORK}/account-deletion-ledger.json"
+  LEDGER=/restore/account-deletion-ledger.json
+  log "using the off-site deletion ledger (none on this server)"
+fi
+if [ -n "$LEDGER" ]; then
+  log "deletion ledger dry run against the restored copy:"
+  run_app node scripts/account-deletion/restore-deletion-ledger.mjs --database "$RESTORED" --ledger "$LEDGER"
+elif [ "$NO_LEDGER" = 1 ]; then
+  log "no deletion ledger found; continuing because --no-ledger was given"
+else
+  log "no deletion ledger on this server or in b2; if no account was ever deleted, rerun with --no-ledger"
+  [ "$APPLY" = 1 ] && exit 1
+fi
+
+if [ "$APPLY" = 0 ]; then
+  log "check passed. Copy is at ${RESTORED} (in the data volume). Rerun with --apply to swap it in."
+  exit 0
+fi
+
+# --- 4. swap in (game is down from here) ------------------------------------
+log "stopping the app (final checkpoint, up to 30s)"
+docker compose stop app
+on_fail() {
+  log "FAILED after the app was stopped. The previous database is in /data/pre-restore-${STAMP}/."
+  log "To put it back: docker compose run --rm --no-deps --entrypoint sh app -c 'cp -a /data/pre-restore-${STAMP}/. /data/' && docker compose up -d app"
+}
+trap on_fail ERR
+run_app sh -c "set -e; mkdir -p /data/pre-restore-${STAMP}
+  for f in border-empires.db border-empires.db-wal border-empires.db-shm; do
+    [ ! -e /data/\$f ] || mv /data/\$f /data/pre-restore-${STAMP}/
+  done
+  cp ${RESTORED} /data/border-empires.db"
+if [ -n "$LEDGER" ]; then
+  run_app node scripts/account-deletion/restore-deletion-ledger.mjs \
+    --database /data/border-empires.db --ledger "$LEDGER" --apply --offline
+fi
+docker compose up -d app
+log "waiting for /health (up to 15 min: startup replays from the latest snapshot)"
+for _ in $(seq 180); do
+  if curl -fsS --max-time 5 http://127.0.0.1:8080/health 2>/dev/null | grep -q '"ok":true'; then
+    trap - ERR
+    log "restored ${name}; app healthy. Previous database: /data/pre-restore-${STAMP}/"
+    exit 0
+  fi
+  sleep 5
+done
+log "app did not report healthy within 15 min"
+on_fail
+exit 1

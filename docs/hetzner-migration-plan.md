@@ -167,7 +167,10 @@ New `deploy/` directory:
 - `deploy/bin/backup`, plus a systemd `.service`/`.timer` (hourly): runs
   `docker compose exec -T app node -e` with a `node:sqlite` `VACUUM INTO`
   writing to `/data/backups/`, then `zstd`, then rclone to B2. Keeps the last
-  3 locally. Retention lives in B2: 48 hourly, 14 daily.
+  3 locally. Retention lives in B2: 48 hourly, 14 daily. (Since 2026-11-27
+  the snapshot is a paced copy, `deploy/bin/backup-snapshot.mjs`, because the
+  single `VACUUM INTO` stalled the game; current procedure:
+  [`agents/deploys.md`](agents/deploys.md) "Backups".)
 
 Workflow and script changes:
 

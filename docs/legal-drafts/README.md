@@ -43,15 +43,20 @@ Publishing is blocked until these markers are filled in.
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
 
-**Settled on 2026-11-27** (the owner: "just do it"): Backblaze is not used
-(production's hourly Backblaze job is off and staging keeps no backups), so it
-is removed from the privacy draft. **Before publishing, check the existing
-buckets** (`be-backups-staging`, `be-backups-prod`, from
-`docs/hetzner-migration-plan.md`): expiry was done only by the now-disabled
-job, so old snapshots may still be there. Empty or delete them, or restore
-the Backblaze line with their region. If Backblaze is ever turned on again
-(re-running `bootstrap-server.sh` with `BACKUP_BUCKET` set does that), the
-bucket must be in Backblaze's EU region and the privacy page updated first.
+**Backblaze, decided 2026-11-27** (the owner): production gets an hourly
+off-site database backup in Backblaze B2 again, beside Hetzner's daily server
+backups, so paying players lose at most about an hour of play and a copy
+survives the loss of the Hetzner account. The privacy draft names Backblaze
+again: an EU-region bucket (Netherlands), 48 hours of hourly copies and 14 days
+of daily copies, deletions reaching backups within 14 days and reapplied on
+restore, and the hashed deletion ledger stored beside them. The job is still
+switched off until the owner turns it on (`docs/agents/deploys.md`
+"Backups"), and must not be turned on before this page is published.
+**Before publishing, check the old buckets** (`be-backups-staging`,
+`be-backups-prod`, from `docs/hetzner-migration-plan.md`): expiry was done
+only by the disabled job, and B2 kept "deleted" files as hidden versions, so
+old snapshots may still be there. Empty or delete them; production uses a new
+EU bucket with the lifecycle rule "keep only the last version".
 Hetzner keeps the 7 most recent daily backups of the production server
 (hosted sector servers and staging have none). Logs: the privacy page says
 what is true without a size or a day count, because only the app container's
@@ -291,8 +296,8 @@ built in test mode; selling waits for that text.
     Framework enough for analytics, and should fonts be served from our own
     server instead?
 12. **Service providers.** The privacy draft names Firebase, Hetzner, Stripe,
-    Resend, Slack, GitHub and Google Fonts, all found in the code (Backblaze
-    too, if its buckets are kept; see "Still to fill in").
+    Resend, Slack, GitHub and Google Fonts, all found in the code, and
+    Backblaze for off-site backups (see "Still to fill in").
     **Question:** for each, is it a processor or an independent controller, and
     is its data processing agreement accepted? Stripe is partly an
     independent controller.
@@ -391,8 +396,9 @@ section.
    published; until then turn analytics off for the web client.
 7. **Google Fonts.** Recommended: serve the fonts from our own server.
 8. **Hetzner fallback location.** Recommended: EU locations only.
-9. **Backblaze region.** Settled 2026-11-27: Backblaze is not used; if it
-   ever is, an EU bucket.
+9. **Backblaze region.** Settled 2026-11-27: Backblaze is used again for
+   hourly production backups, in an EU-region bucket (Netherlands); the
+   privacy draft says so.
 10. **United Kingdom at launch.** Recommended: refuse UK buyers until UK VAT
     registration is worth it, as the tax note proposes.
 11. **If Border Empires closes while hosted sectors run.** Recommended: promise
