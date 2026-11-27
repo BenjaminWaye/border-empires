@@ -54,6 +54,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("replays the welcome-back summary to a tab that joined without a fresh subscribe", () => {
+    const { replay, sent, send } = createHarness();
+    const welcome = { type: "WELCOME_BACK", elapsedMs: 7_200_000, goldEarned: 540, manpowerRefilled: 300, flagsDrawn: 120, incomeCapped: false, at: 10 };
+    replay.observe("p1", welcome, [{ id: "tab-1" }]);
+    const joining = { id: "tab-2" };
+    expect(replay.replayTo("p1", joining, send)).toBe(true);
+    expect(sent).toEqual([{ socket: joining, payload: welcome }]);
+  });
+
   it("does nothing for a player it never saw a REACH_UPDATE for", () => {
     const { replay, sent, send } = createHarness();
     expect(replay.replayTo("p1", { id: "tab-1" }, send)).toBe(false);

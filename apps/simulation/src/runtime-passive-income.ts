@@ -5,6 +5,7 @@ import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, StrategicResourceKey } from "./runtime-types.js";
 import { hasAwaitingSettleEntry } from "./runtime-dev-queue-settle-manpower-wait.js";
+import { noteAwayCoin, readAwayLedger, resetAwayLedger } from "./welcome-back/welcome-back-ledger.js";
 
 type TrackSync = <T>(phase: string, details: Record<string, string> | undefined, task: () => T) => T;
 
@@ -65,7 +66,10 @@ export const recordPlayerActivity = (
 ): void => {
   resumePassiveIncome(player, lastActiveAtByPlayer.get(playerId), lastIncomeTickAtByPlayer, playerId, nowMs);
   lastActiveAtByPlayer.set(playerId, nowMs);
-  if (player) player.lastActiveAt = nowMs;
+  if (player) {
+    player.lastActiveAt = nowMs;
+    resetAwayLedger(player, nowMs);
+  }
 };
 
 /**
@@ -161,6 +165,7 @@ export const applyPassiveIncomeForPlayer = (
     const creditedGold = Math.min(goldEarned, availableGoldCap);
     if (creditedGold > 0) {
       player.points += creditedGold;
+      noteAwayCoin(player, creditedGold, nowMs);
       anyCredited = true;
     }
   }
@@ -214,33 +219,55 @@ export const applyPassiveIncomeAsync = async (
   }
 };
 
+/** What the WELCOME_BACK message reports (see welcomeBackSummaryForPlayer). */
+export type WelcomeBackSummary = {
+  /** Time since the player's last command or visit. 0 when unknown. */
+  elapsedMs: number;
+  goldEarned: number;
+  manpowerRefilled: number;
+  flagsDrawn: number;
+  /** Away longer than the passive-income limit: coin stopped after that. */
+  incomeCapped: boolean;
+};
+
+const EMPTY_WELCOME_BACK = { goldEarned: 0, manpowerRefilled: 0, flagsDrawn: 0, incomeCapped: false };
+
 /**
- * Gold a player earned while away, for the welcome-back summary.
- * `goldPerMinuteOverride` lets callers that already computed the player's
- * income this request (e.g. the login snapshot build) reuse that value
- * instead of paying a second, synchronous `cachedEconomySnapshot` rebuild
- * on the live runtime — that rebuild scales with settled-tile count and
- * was blocking the post-subscribe WS event flush (bootstrap/hydrate/
- * welcome-back) whenever the per-player cache had just been invalidated
- * by a recent settle. The result is discarded below 60s of elapsed time
- * regardless, so we also skip the economy lookup entirely in that case.
+ * What a player's empire did while they were away, for the welcome-back
+ * summary, measured from their last activity (a command or a visit).
+ *
+ * It used to measure from the last income tick, which runs every 15s, so the
+ * 60s threshold was never crossed and the message never went out (Playtest
+ * Run 5: coin jumped on return with no explanation). Coin, refills and flag
+ * draws come from the away ledger (welcome-back-ledger.ts). When a restart
+ * cut the ledger short, coin falls back to the current rate over the time
+ * income ran (at most the inactivity limit). `goldPerMinuteOverride` lets the
+ * login snapshot reuse the income it already computed instead of paying a
+ * second, synchronous `cachedEconomySnapshot` rebuild on the live runtime;
+ * nothing is looked up below 60s away.
  */
 export const welcomeBackSummaryForPlayer = (
   ctx: Pick<RuntimePassiveIncomeContext, "players" | "lastActiveAtMsByPlayer" | "lastIncomeTickAtMsByPlayer" | "cachedEconomySnapshot">,
   playerId: string,
   nowMs: number,
   goldPerMinuteOverride?: number
-): { goldEarned: number; elapsedMs: number } => {
-  const lastTickAt = ctx.lastIncomeTickAtMsByPlayer.get(playerId);
-  if (lastTickAt === undefined) return { goldEarned: 0, elapsedMs: 0 };
-  const elapsedMs = Math.max(0, nowMs - lastTickAt);
-  if (elapsedMs <= 60_000) return { goldEarned: 0, elapsedMs };
+): WelcomeBackSummary => {
   const player = ctx.players.get(playerId);
-  const lastActiveAt = ctx.lastActiveAtMsByPlayer.get(playerId) ?? lastTickAt;
-  if (!player || isPassiveIncomePaused(player, lastActiveAt, nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS)) {
-    return { goldEarned: 0, elapsedMs };
-  }
-  const goldPerMinute = goldPerMinuteOverride ?? ctx.cachedEconomySnapshot(player).incomePerMinute;
-  const goldEarned = goldPerMinute * (elapsedMs / 60_000);
-  return { goldEarned: Math.floor(goldEarned), elapsedMs };
+  const lastActiveAt = ctx.lastActiveAtMsByPlayer.get(playerId) ?? player?.lastActiveAt;
+  if (!player || lastActiveAt === undefined) return { elapsedMs: 0, ...EMPTY_WELCOME_BACK };
+  const elapsedMs = Math.max(0, nowMs - lastActiveAt);
+  if (elapsedMs <= 60_000) return { elapsedMs, ...EMPTY_WELCOME_BACK };
+  const ledger = readAwayLedger(player);
+  const ledgerCoversAbsence = ledger !== undefined && ledger.since <= lastActiveAt + 60_000;
+  const incomeMs = player.isAi ? elapsedMs : Math.min(elapsedMs, PASSIVE_INCOME_INACTIVITY_CAP_MS);
+  const goldEarned = ledgerCoversAbsence
+    ? ledger.coin
+    : (goldPerMinuteOverride ?? ctx.cachedEconomySnapshot(player).incomePerMinute) * (incomeMs / 60_000);
+  return {
+    elapsedMs,
+    goldEarned: Math.floor(Math.max(0, goldEarned)),
+    manpowerRefilled: Math.floor(ledger?.manpowerRefilled ?? 0),
+    flagsDrawn: Math.floor(ledger?.flagsDrawn ?? 0),
+    incomeCapped: !player.isAi && elapsedMs > PASSIVE_INCOME_INACTIVITY_CAP_MS
+  };
 };

@@ -352,6 +352,12 @@ body.hud-v2 #side-panel.settings-panel-active { top: 50%; left: 50%; right: auto
 .hud-v2-orb-value { font-family: var(--v2-mono); font-size: 26px; font-weight: 700; line-height: 1.1; }
 .hud-v2-orb-cap { font-family: var(--v2-mono); font-size: 12px; }
 .hud-v2-orb-refill { margin-top: 4px; font-family: var(--v2-mono); font-size: 11px; color: #f3e6c4; }
+/* Muster flags refilling from the pool: amber line under the batch, and an amber rim arc for what flags hold. */
+.hud-v2-orb-drain { margin-top: 2px; font-family: var(--v2-mono); font-size: 10px; color: #f0a447; }
+.hud-v2-orb-flag-arc { fill: none; stroke: #f0a447; stroke-width: 5; stroke-linecap: round; opacity: 0.85; }
+.hud-v2-orb-flag-arc-draining { animation: hud-v2-orb-flag-drain 1.6s ease-in-out infinite; }
+@keyframes hud-v2-orb-flag-drain { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .hud-v2-orb-flag-arc-draining { animation: none; } }
 
 /* A pressurised fluid globe: contained rolling liquid, internal bubbles, and small escaping droplets. */
 .hud-v2-orb svg { overflow: visible; }

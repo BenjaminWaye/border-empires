@@ -1,6 +1,7 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
+import { musterFlagDrainText, musterFlagDrawText } from "../client-muster-drain/client-muster-drain.js";
 
 export type ManpowerPanelMusterFlag = {
   x: number;
@@ -8,6 +9,10 @@ export type ManpowerPanelMusterFlag = {
   amount: number;
   /** This flag's own cap (musterFlagCap with its capLevel), so every screen shows the same "x / cap". */
   cap?: number | undefined;
+  /** Manpower this flag drew from the pool in the last 10 minutes (client-muster-draw-log.ts). */
+  drawnRecently?: number | undefined;
+  /** Manpower/min this flag is drawing from the pool right now; 0 when full or the pool is empty. */
+  refillPerMin?: number | undefined;
   mode: "HOLD" | "ADVANCE" | "MARCH";
   targetX?: number | undefined;
   targetY?: number | undefined;
@@ -104,16 +109,18 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
         .map(
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
-              <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small></span>
+              <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small><small class="muster-flag-draw">${musterFlagDrawText(flag)}</small></span>
               <strong>${musterFillText(flag)}</strong>
             </button>
           `
         )
         .join("")
     : `<div class="economy-footnote">No active muster flags.</div>`;
+  const drain = musterFlagDrainText(flags);
   return `
     <section class="card manpower-detail-card">
       <h4>Active muster flags</h4>
+      ${drain ? `<div class="economy-footnote muster-flag-drain">${drain}</div>` : ""}
       ${rows}
     </section>
   `;

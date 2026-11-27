@@ -45,7 +45,7 @@ describe("truce offers and fighting", () => {
     expect(social.snapshotForPlayer("p1").outgoingTruceRequests).toEqual([expect.objectContaining({ toPlayerId: "p3" })]);
     const p1Payloads = JSON.stringify(result?.payloadsByPlayerId.get("p1"));
     expect(p1Payloads).toContain("Your truce offer to Valka was withdrawn because your empires fought.");
-    expect(JSON.stringify(result?.payloadsByPlayerId.get("p2"))).toContain("Nauticus's truce offer was withdrawn because your empires fought.");
+    expect(JSON.stringify(result?.payloadsByPlayerId.get("p2"))).toContain("Nauticus withdrew the truce offer: your empires fought.");
   });
 
   it("tells a player about every offer withdrawn, not just the last", () => {
@@ -56,7 +56,7 @@ describe("truce offers and fighting", () => {
       { id: "a", fromPlayerId: "p1", toPlayerId: "p2" },
       { id: "b", fromPlayerId: "p2", toPlayerId: "p1" }
     ] as SocialTruceRequest[], new Map([["p1", { name: "Nauticus" }], ["p2", { name: "Valka" }]]));
-    expect(notices.p1).toBe("Your truce offer to Valka was withdrawn because your empires fought. Valka's truce offer was withdrawn because your empires fought.");
+    expect(notices.p1).toBe("Your truce offer to Valka was withdrawn because your empires fought. Valka withdrew the truce offer: your empires fought.");
     expect(social.withdrawTruceOffersOnCombat("p1", "p2")?.ok).toBe(true);
   });
 

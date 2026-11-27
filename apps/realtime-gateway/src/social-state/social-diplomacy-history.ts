@@ -1,4 +1,5 @@
 import type { PersonalActivityDiplomacyCard, PersonalActivityDiplomacyEvent } from "@border-empires/game-domain";
+import type { AllianceFealty } from "@border-empires/shared";
 
 // Recent truce/alliance changes per player, merged into the personal activity
 // timeline (Chronicle "Yours") by handle-activity-timeline-messages.ts so
@@ -28,6 +29,8 @@ export type DiplomacyHistoryEntry = {
   endsAt?: number;
   byPlayerId?: string;
   court?: boolean;
+  /** ALLIANCE_OFFERED / ALLIANCE_DECLINED / ALLIANCE_FORMED: the offer's recorded fealty; absent before it was recorded. */
+  fealty?: AllianceFealty;
 };
 
 /** A row as saved in the social store. */
@@ -45,7 +48,7 @@ export type DiplomacyHistory = {
     bId: string,
     event: PersonalActivityDiplomacyEvent,
     occurredAt: number,
-    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "endsAt" | "byPlayerId" | "court">
+    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "endsAt" | "byPlayerId" | "court" | "fealty">
   ) => void;
   cardsFor: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   /** Forgets every row (a new season; the store clears its own table). */

@@ -5,12 +5,14 @@ import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js
 // gate and may not grow further -- see AGENTS.md's file-and-type-discipline
 // rule), following that file's existing apply-init-*.ts split pattern.
 import type { ClientState } from "../client-state/client-state.js";
+import { allianceFealtyFromMessage } from "../client-fealty/client-fealty-recorded.js";
 
 export const applyInitSocialState = (msg: Record<string, unknown>, state: ClientState): void => {
   applyAfcStateMessage(state, msg);
   applyResourceTradeState(state, msg);
   state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
+  state.allianceFealty = allianceFealtyFromMessage(msg.allianceFealty);
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
   state.activeTruces = (msg.activeTruces as any[]) ?? [];

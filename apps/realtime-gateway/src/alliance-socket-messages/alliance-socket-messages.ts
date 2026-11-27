@@ -10,7 +10,7 @@ import type { SocialAllianceRequest } from "../social-state/social-state.js";
 
 type SocialAllianceActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: string; message: string; requestId?: string };
 
 export type AllianceSocketMessageDeps = {
   requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: { terms?: DiplomacyTerms }) => SocialAllianceActionResult;
@@ -39,7 +39,7 @@ const sendError = (
   deps: AllianceSocketMessageDeps,
   socket: import("ws").WebSocket,
   result: Extract<SocialAllianceActionResult, { ok: false }>
-): void => deps.sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
+): void => deps.sendJson(socket, { type: "ERROR", code: result.code, message: result.message, ...(result.requestId ? { requestId: result.requestId } : {}) });
 
 /**
  * Handles the ALLIANCE_* client message ladder (REQUEST/ACCEPT/REJECT/CANCEL/BREAK).

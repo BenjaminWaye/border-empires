@@ -10,11 +10,11 @@ import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
 import { clockLabel, localDayKey, shortDayTag } from "../client-activity-dashboard/client-activity-dashboard-time.js";
 import { chronicleHeadlineHtml, type ChronicleRespawn } from "./client-hud-v2-chronicle-headline.js";
+import type { WelcomeBackSummary } from "../client-welcome-back/client-welcome-back.js";
 import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
 import { scoutReportFindsHtml } from "./client-hud-v2-chronicle-scout-chips.js";
 import { chronicleProgressHtml, type ProgressDelta } from "./client-hud-v2-chronicle-progress.js";
 import type { OccupationSurveyReport } from "../client-occupation-survey.js";
-import type { FealtyLookup } from "../client-fealty/client-fealty.js";
 
 export type ChronicleInput = {
   me: string;
@@ -28,13 +28,13 @@ export type ChronicleInput = {
   /** A House's crest (cosmetic); its initial shows when unset. */
   crestOf?: (playerId: string) => CrestCosmeticId | undefined;
   techName: (techId: string) => string | undefined;
-  /** Your standing with each empire by size: unequal alliance rows read as fealty (client-fealty.ts). */
-  fealtyWith?: FealtyLookup;
   nowMs: number;
   /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
   awaySince?: number | undefined;
   /** The latest respawn notice, so the headline can say the empire was wiped out and restarted. */
   respawn?: ChronicleRespawn | undefined;
+  /** The server's welcome-back summary (client-welcome-back.ts). */
+  welcomeBack?: WelcomeBackSummary | undefined;
   /** Victory-path progress since the last visit (client-hud-v2-chronicle-progress.ts); none on a first visit. */
   progress?: readonly ProgressDelta[];
   /** Open resource survey clues (not yet researched); they outlive the 24h timeline. */
@@ -131,7 +131,7 @@ export const chronicleRowTimeHtml = (at: number, nowMs: number, dated: boolean):
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = false): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
-  const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs, input.fealtyWith));
+  const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs));
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
   const coords = activityCardCoordinates(card);
   const show = coords
@@ -214,6 +214,6 @@ export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
   // A returning player gets a short "since you left" headline above everything else.
   const headline = input.awaySince === undefined
     ? ""
-    : chronicleHeadlineHtml({ me: input.me, timeline, awaySince: input.awaySince, respawn: input.respawn, nameOf: input.nameOf });
+    : chronicleHeadlineHtml({ me: input.me, timeline, awaySince: input.awaySince, respawn: input.respawn, nameOf: input.nameOf, welcomeBack: input.welcomeBack });
   return `${head}${headline}${summaryHtml(timeline, input)}${filtersHtml(timeline, input)}<div class="v2c-list" data-v2-scroll="chronicle">${chronicleSurveysHtml(openSurveys)}${list}</div>`;
 };
