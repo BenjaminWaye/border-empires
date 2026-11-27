@@ -42,6 +42,7 @@ import { TILE_LABELS_R2_ENTRY } from "./client-changelog-tile-labels-r2.js";
 import { DRONE_EXPLORE_R3_ENTRY } from "./client-changelog-drone-explore-r3.js";
 import { TRUCE_LENGTH_SHOWN_ENTRY } from "./client-changelog-truce-length-shown.js";
 import { STRIPED_FRONTIER_ENTRY } from "./client-changelog-striped-frontier.js";
+import { DIPLOMACY_R3_ENTRY } from "./client-changelog-diplomacy-r3.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -90,4 +91,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...STRIPED_FRONTIER_ENTRY, createdAt: 1795814931704 },
   { ...MANPOWER_VISIBILITY_ENTRY, createdAt: 1795816090130 },
   { ...DRONE_EXPLORE_R3_ENTRY, createdAt: 1795816268758 },
+  { ...DIPLOMACY_R3_ENTRY, createdAt: 1795816471552 },
 ];

@@ -11,6 +11,7 @@ export * from "./diplomacy-terms/diplomacy-town-return.js";
 export * from "./truce-extension/truce-extension.js";
 export * from "./diplomacy-gift/diplomacy-gift.js";
 export * from "./diplomacy-betrayal/diplomacy-betrayal.js";
+export * from "./alliance-fealty/alliance-fealty.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";

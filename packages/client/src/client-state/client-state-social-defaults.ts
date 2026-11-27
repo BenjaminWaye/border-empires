@@ -1,3 +1,4 @@
+import type { AllianceFealty } from "@border-empires/shared";
 import type {
   ActiveAllianceBreakView,
   ActiveTruceView,
@@ -15,6 +16,8 @@ import type { HouseChargeCardView } from "../client-house-charges/client-house-c
  */
 export const createInitialSocialState = () => ({
   allies: [] as string[],
+  // Each ally's recorded fealty, keyed by ally id (gateway allianceFealty; client-fealty-recorded.ts).
+  allianceFealty: {} as Record<string, AllianceFealty>,
   activeAllianceBreaks: [] as ActiveAllianceBreakView[],
   recentAllianceBreaks: [] as RecentAllianceBreakView[],
   activeTruces: [] as ActiveTruceView[],

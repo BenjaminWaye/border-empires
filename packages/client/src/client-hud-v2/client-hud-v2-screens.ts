@@ -40,7 +40,8 @@ import { townClick } from "./client-hud-v2-town-click.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
-import { allyStatusLabel, fealtyLookupFor } from "../client-fealty/client-fealty.js";
+import { allyStatusLabel } from "../client-fealty/client-fealty.js";
+import { recordedFealtyLookupFor } from "../client-fealty/client-fealty-recorded.js";
 import { ownPublicProfileShareView } from "../client-public-house/client-public-house-share.js";
 import { getGuestSave } from "../client-guest-save/client-guest-save.js";
 
@@ -205,7 +206,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       leaderboard: state.leaderboard.overall,
       warPlayerIds: warOpponentIds(state, Date.now()),
       nameOf: (id) => nameOf(deps, id),
-      fealtyWith: fealtyLookupFor(state),
+      fealtyWith: recordedFealtyLookupFor(state),
       colorOf: (id) => deps.ownerColor(id),
       crestOf: (id) => crestFor(state, id),
       nowMs: Date.now()
@@ -220,7 +221,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     forgetWritten("v2d-pact");
     hostTradeView(deps, target);
   }
-  const fealty = fealtyLookupFor(state)(target);
+  const fealty = recordedFealtyLookupFor(state)(target);
   const allyLabel = fealty === "ALLIANCE" ? {} : { allyLabel: allyStatusLabel(fealty) };
   writeHtml("v2d-pact", dealPactHtml({ targetId: target, allies: state.allies, activeTruces: state.activeTruces, activeAllianceBreaks: state.activeAllianceBreaks, nowMs: Date.now(), ...allyLabel }));
 };
@@ -235,7 +236,7 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const { state } = deps;
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
-  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()), fealtyWith: fealtyLookupFor(state) });
+  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()), fealtyWith: recordedFealtyLookupFor(state) });
   const theirs = tilesOf(target), mine = tilesOf(state.me);
   return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
 };
@@ -264,7 +265,7 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
 
 const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation => {
   if (id === state.me) return { kind: "self" };
-  if (state.allies.includes(id)) return { kind: "ally", label: allyStatusLabel(fealtyLookupFor(state)(id)) };
+  if (state.allies.includes(id)) return { kind: "ally", label: allyStatusLabel(recordedFealtyLookupFor(state)(id)) };
   const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
   if (truce) return { kind: "truce", endsAt: truce.endsAt };
   return warOpponentIds(state, Date.now()).has(id) ? { kind: "war" } : { kind: "none" };

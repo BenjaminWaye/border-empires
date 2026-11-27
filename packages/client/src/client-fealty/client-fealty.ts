@@ -6,13 +6,15 @@
 // larger demands it. Near-equals keep "Alliance". Wording only: the treaty,
 // its rules and AI pricing are the same alliance as before.
 //
-// "Clearly" is FEALTY_SIZE_RATIO on the leaderboard's garrisoned (settled)
-// tile count: the size the Diplomacy list shows each empire with, and the
-// count AI Houses compare when deciding who leads a bloc. Sizes are read now,
-// not when the alliance was made, because the victory check also reads them now.
+// "Clearly" is FEALTY_SIZE_RATIO (shared alliance-fealty.ts) on the
+// leaderboard's garrisoned (settled) tile count: the size the Diplomacy list
+// shows each empire with, and the count AI Houses compare when deciding who
+// leads a bloc. Live sizes here only word the deal screen for a NEW offer; the
+// gateway records the standing when an offer is sent, and every other surface
+// reads that record (client-fealty-recorded.ts, owner decision 2026-11-27).
+import { FEALTY_SIZE_RATIO } from "@border-empires/shared";
 
-/** One side has at least this many times the other's garrisoned tiles. */
-export const FEALTY_SIZE_RATIO = 2;
+export { FEALTY_SIZE_RATIO };
 
 /**
  * Your side of an alliance with another empire. SWEAR: you are clearly the
