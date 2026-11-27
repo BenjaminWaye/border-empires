@@ -101,7 +101,7 @@ run_app sh -c 'set -e
   avail=$(df -Pk /data | awk "NR==2 {print \$4}")
   [ "$avail" -ge "$need" ] || { echo "not enough free space on /data: ${avail} KiB free, need ${need} KiB" >&2; exit 1; }'
 run_app sh -c "mkdir -p /data/restore-${STAMP}"
-run_app node --input-type=module - "/restore/${name}" "$RESTORED" < /opt/border-empires/restore-prepare.mjs
+run_app node --input-type=module - "/restore/${name}" "$RESTORED" < "${APP_DIR:-/opt/border-empires}/restore-prepare.mjs"
 
 # --- 3. deletion ledger -------------------------------------------------------
 LEDGER=""
