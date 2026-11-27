@@ -45,7 +45,7 @@ describe("handleTileDeltaBatchMessage battle warning", () => {
     const tiles = Array.from({ length: 8 }, (_, x) => ({ x, y: 3, ownerId: "barbarian-1", ownershipState: "FRONTIER" }));
     handleTileDeltaBatchMessage({ tiles }, makeDeps(state));
     const now = Date.now();
-    expect(battleWarningView(battleWarnings, state, now)).toMatchObject({ title: "Under attack", detail: "Planetary Defense · 8 tiles lost" });
+    expect(battleWarningView(battleWarnings, state, now)).toMatchObject({ title: "Under attack", detail: "Insurgents · 8 tiles lost" });
     expect(activeBattleFlashes(battleWarnings, now)).toHaveLength(8);
   });
 

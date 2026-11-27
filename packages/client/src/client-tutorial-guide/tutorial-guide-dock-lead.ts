@@ -1,0 +1,52 @@
+// The guide's dock lead: where to send the scout drone when the nearest town is more than one drone leg
+// away (the player is probably on an island) and no dock shows on the player's land yet. Like the town
+// lead, it marks a real target instead of a random patch of fog (owner, 2026-11-27).
+//
+// No server help needed: the init message carries every dock in the world (mapMeta.dockPairs), so the
+// client picks the nearest dock that could be on the player's own land mass. It reuses the town route
+// check without dock crossings: a walk over LAND (unexplored ground counts as passable, seen water
+// blocks) from the dock back to the player's land, so a dock across a strait the player has seen is
+// skipped. A rival's or Planetary Defense dock is skipped too. Only a dock the player has never seen
+// and within one drone leg is a lead: a seen dock not on the player's known land may lie across water
+// (an Expand To there could fail), and a farther stop would be pulled back to the leg range every flight
+// and never reach it (QA review of PR #3029).
+
+import { tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import type { DockPair, Tile } from "../client-types.js";
+import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
+
+/** An unexplored dock to send the drone to (a tap on its tile offers Explore). */
+export type GuideDockLead = { x: number; y: number };
+
+/** Nearest docks checked for an overland route, so a world of docks costs a few bounded walks. */
+export const GUIDE_DOCK_LEAD_CANDIDATES = 6;
+
+const axisDistance = (a: number, b: number, size: number): number => {
+  const d = Math.abs(a - b);
+  return Math.min(d, size - d);
+};
+
+export const guideDockLead = (
+  tiles: ReadonlyMap<string, Tile>,
+  discovered: ReadonlySet<string>,
+  me: string,
+  home: { x: number; y: number } | undefined,
+  dockPairs: ReadonlyArray<DockPair>,
+  withinOneLeg: (dock: { x: number; y: number }) => boolean
+): GuideDockLead | undefined => {
+  if (!home || !me) return undefined;
+  const docks = new Map<string, { x: number; y: number; d: number }>();
+  const add = (x: number, y: number): void => {
+    const key = tileKey(x, y);
+    if (docks.has(key) || tiles.has(key) || discovered.has(key)) return;
+    docks.set(key, { x, y, d: Math.max(axisDistance(x, home.x, WORLD_WIDTH), axisDistance(y, home.y, WORLD_HEIGHT)) });
+  };
+  for (const pair of dockPairs) {
+    add(pair.ax, pair.ay);
+    add(pair.bx, pair.by);
+  }
+  const overland = createGuideTownRouteCheck(tiles, me, []);
+  const nearest = [...docks.values()].sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x).slice(0, GUIDE_DOCK_LEAD_CANDIDATES);
+  const dock = nearest.find((candidate) => withinOneLeg(candidate) && overland(candidate));
+  return dock ? { x: dock.x, y: dock.y } : undefined;
+};

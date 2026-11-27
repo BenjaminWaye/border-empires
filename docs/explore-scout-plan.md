@@ -176,9 +176,9 @@ the sea, and why it costs nothing extra: the House already has it. (The first
 draft of this plan had it as a courier drone with a sensor pod; the owner chose
 the Sentinel design in PR #2770, and canon in §12 was updated to match.)
 
-Turning back at a rival's border fits the existing description of reach as a
-House's local control field (§10). A rival's field would jam the drone's link.
-Planetary Defense has no such field, so drones can fly over it.
+Turning back at a rival's border fits the description of reach as the ground a
+House's relay signal covers (§10). A rival's signal would jam the drone's link.
+Planetary Defense relays no signal, so drones can fly over it.
 
 Canon text lives in the world bible §12.
 

@@ -14,7 +14,7 @@ export const isEmpireFellNotice = (notice: PlayerRespawnNotice): boolean => noti
 
 /** Barbarians have no player name; anyone else unknown to the client stays unnamed. */
 const captorLabel = (captorId: string, nameOf: (playerId: string) => string | undefined): string | undefined =>
-  captorId.startsWith("barbarian") ? "the barbarians" : nameOf(captorId);
+  captorId.startsWith("barbarian") ? "the Insurgents" : nameOf(captorId);
 
 export const empireFellMessage = (notice: PlayerRespawnNotice, nameOf: (playerId: string) => string | undefined): string => {
   const coords = spawnCoordsLabel(notice.spawnTileKey);

@@ -39,7 +39,7 @@ const deps = () => ({ pushFeed: vi.fn(), sendGameMessage: vi.fn(() => true), ren
 describe("afcScoutDroneActions", () => {
   const afc = (ownerId: string, status: "active" | "inactive"): Tile => ({ ...tile(1, 1, ownerId), afc: { ownerId, status } }) as Tile;
 
-  it("is offered only on your own active AFC, and never disabled (a drone out takes more stops)", () => {
+  it("is offered only on your own active AFC, enabled while a charge is ready (a drone out takes more stops)", () => {
     const me = { me: "me", scoutDroneCharges: undefined };
     expect(afcScoutDroneActions(me, afc("me", "active"))).toEqual([{ id: "afc_scout_drone", label: "Send scout drone", cost: "8/8", detail: expect.any(String) }]);
     expect(afcScoutDroneActions(me, afc("me", "inactive"))).toEqual([]);
@@ -53,6 +53,14 @@ describe("afcScoutDroneActions", () => {
     const [row] = afcScoutDroneActions(me, afc("me", "active"), 1_000 + 2 * 60 * 60_000);
     expect(row?.cost).toBe("5/8"); // the bar button has room for the count only
     expect(row?.detail).toContain("Charges: 5/8 · +1 in 2h 00m.");
+  });
+
+  // Player report 2026-11-26: with no charges the button still looked ready; it should grey out and say when one is back.
+  it("greys out with no charges left and says when the next one is back", () => {
+    const usedAt = Array.from({ length: 8 }, (_, i) => 1_000 + i);
+    const me = { me: "me", scoutDroneCharges: { max: 8, refillMs: 14_400_000, usedAt } };
+    const [row] = afcScoutDroneActions(me, afc("me", "active"), 1_000 + 60 * 60_000);
+    expect(row).toMatchObject({ disabled: true, disabledReason: "+1 in 3h 00m", cost: "0/8" });
   });
 });
 

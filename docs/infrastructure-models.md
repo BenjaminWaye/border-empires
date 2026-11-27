@@ -23,8 +23,9 @@ The fortifications, siege structures and completed Great Projects are unchanged.
 Roles, names and powers come from the current shared registry, modifier
 catalogue and simulation handlers, not visual inference. No capability, cost,
 resource meaning or gameplay rule is changed. Relay Beacon lore now explains
-a gravitational link to the orbital House AI and a local control field whose
-coverage defines settlement reach;
+a gravitational link to the Mothership's onboard AI in orbit, relayed to the
+ancillaries around the beacon; the ground the relayed signal covers is
+settlement reach;
 see the canonical world bible §10.
 
 `client-infrastructure/infrastructure-models.ts` owns the new merged geometry.

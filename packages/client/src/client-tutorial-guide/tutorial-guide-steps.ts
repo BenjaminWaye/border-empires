@@ -19,8 +19,10 @@
 //
 // Copy is deliberately short (about 10 words to do, one line of why) and
 // uses canon terms from docs/lore/galactic-lore.md: Manifests are
-// *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
+// *commissioned*, barbarians are *Insurgents*, empires are *Houses*.
 
+import type { GuideIslandDock } from "./tutorial-guide-island-dock.js";
+import type { GuideDockLead } from "./tutorial-guide-dock-lead.js";
 import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
@@ -107,6 +109,14 @@ export type GuideInput = {
   townLead?: { x: number; y: number };
   /** Drone charges still missing to fly the whole way to townLead (0 when enough are ready). */
   townLeadChargesShort?: number;
+  /** The nearest unowned town is more than one drone leg away: no lead to fly to, the player is probably on an island. */
+  townLeadFar?: boolean;
+  /** With townLeadFar and no dock on the player's land: the nearest dock that may be on it (tutorial-guide-dock-lead.ts). */
+  dockLead?: GuideDockLead;
+  /** The player's land is a fully seen island (not just a far town lead): the copy may say so. */
+  islandSealed?: boolean;
+  /** The dock to steer to on an island (tutorial-guide-island-dock.ts). */
+  islandDock?: GuideIslandDock;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;
 };
@@ -302,7 +312,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     why: "A flag gathers manpower so you can attack.",
     isDone: (i) => i.ownsMusterFlag,
     isAvailable: (i) => i.musterUnlocked,
-    waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
+    waitingNote: "Explore to find Insurgents or a rival House: this starts when you meet one.",
     highlight: (i) => i.musterTargetTiles,
     // The Stage Muster button once a tile is picked, then the first-flag confirm sheet's button.
     anchor: "muster"
