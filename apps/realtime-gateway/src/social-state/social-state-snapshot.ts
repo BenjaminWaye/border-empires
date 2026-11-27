@@ -1,6 +1,8 @@
 // Builds one player's SocialSnapshot from createSocialState's maps. Extracted
 // out of social-state.ts to keep that file under the repo's 500-line cap.
+import type { AllianceFealty } from "@border-empires/shared";
 import type { SocialOfferCooldowns } from "./social-offer-cooldowns.js";
+import { pairKey } from "./social-state-types.js";
 import type {
   SocialActiveTruce,
   SocialAllianceBreak,
@@ -17,6 +19,7 @@ export type SocialSnapshotSources = {
   now: () => number;
   playersById: ReadonlyMap<string, SocialPlayerRecord>;
   allianceRequests: ReadonlyMap<string, SocialAllianceRequest>;
+  allianceFealtyByPair: ReadonlyMap<string, AllianceFealty>;
   allianceBreaksByPair: ReadonlyMap<string, SocialAllianceBreak>;
   completedAllianceBreaks: ReadonlyMap<string, SocialCompletedAllianceBreak>;
   truceRequests: ReadonlyMap<string, SocialTruceRequest>;
@@ -25,12 +28,22 @@ export type SocialSnapshotSources = {
   offerCooldowns: SocialOfferCooldowns;
 };
 
+const allianceFealtyOf = (sources: SocialSnapshotSources, player: SocialPlayerRecord): Record<string, AllianceFealty> => {
+  const byAlly: Record<string, AllianceFealty> = {};
+  for (const allyId of player.allies) {
+    const fealty = sources.allianceFealtyByPair.get(pairKey(player.id, allyId));
+    if (fealty) byAlly[allyId] = fealty;
+  }
+  return byAlly;
+};
+
 export const buildSocialSnapshot = (sources: SocialSnapshotSources, player: SocialPlayerRecord): SocialSnapshot => {
   const playerId = player.id;
   const nameOf = (id: string): string => sources.playersById.get(id)?.name ?? id;
   return {
     ...(sources.forcedTruceCooldownUntil ? { forcedTruceCooldownUntil: sources.forcedTruceCooldownUntil } : {}),
     allies: [...player.allies],
+    allianceFealty: allianceFealtyOf(sources, player),
     activeAllianceBreaks: [...sources.allianceBreaksByPair.values()]
       .filter((notice) => notice.playerAId === playerId || notice.playerBId === playerId)
       .map((notice) => {

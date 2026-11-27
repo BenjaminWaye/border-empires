@@ -2,14 +2,16 @@ import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain"
 import type { PlayerNameLookup } from "./client-activity-dashboard-names.js";
 import { relativeDayTimeLabel } from "./client-activity-dashboard-time.js";
 import type { FealtyStanding } from "../client-fealty/client-fealty.js";
+import { recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
 
 // " · ends Sun 00:45": a truce row's end as of that row, so an extension visibly moves it.
 const endsPart = (card: PersonalActivityDiplomacyCard, nowMs: number): string =>
   typeof card.endsAt === "number" ? ` · ends ${relativeDayTimeLabel(card.endsAt, nowMs)}` : "";
 
-// An alliance row between unequal empires reads as fealty (client-fealty.ts).
-// The card records no sizes, so `standing` is today's: the same sizes the
-// victory check reads. A broken alliance stays plain "Alliance ... ended".
+// An alliance row reads as fealty when the gateway recorded it so: the card
+// carries the offer's fealty from when it was sent (client-fealty-recorded.ts),
+// so the row never changes with sizes. A row from before that was recorded,
+// and a broken alliance, stay plain "alliance".
 const fealtyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, other: string, standing: FealtyStanding): string | undefined => {
   if (standing === "ALLIANCE") return undefined;
   const swear = standing === "SWEAR";
@@ -31,9 +33,9 @@ const fealtyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, o
 // Timeline text for the gateway's truce/alliance rows. The live roster name
 // wins (a renamed player reads correctly); the card's own name is the
 // fallback for someone this client never saw.
-export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup, nowMs: number = Date.now(), fealtyWith?: (playerId: string) => FealtyStanding): string => {
+export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup, nowMs: number = Date.now()): string => {
   const other = playerNames(card.counterpartyPlayerId) ?? card.counterpartyName;
-  const fealty = fealtyWith ? fealtyCardText(card, playerId, other, fealtyWith(card.counterpartyPlayerId)) : undefined;
+  const fealty = fealtyCardText(card, playerId, other, recordedFealtyStanding(card.fealty, playerId, card.counterpartyPlayerId));
   if (fealty) return fealty;
   switch (card.event) {
     case "TRUCE_OFFERED":

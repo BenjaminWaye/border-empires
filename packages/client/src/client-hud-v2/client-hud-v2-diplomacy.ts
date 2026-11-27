@@ -29,7 +29,7 @@ export type DiplomacyListInput = {
   /** Who is at war with you now (warOpponentIds, the same signal as the profile's war state). */
   warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
-  /** Your standing with each empire by size (client-fealty.ts): unequal alliances read as fealty. Absent: "Ally"/"Alliance". */
+  /** Your recorded standing with each empire (client-fealty-recorded.ts): alliances and offers recorded as fealty read so. Absent: "Ally"/"Alliance". */
   fealtyWith?: FealtyLookup;
   colorOf: (playerId: string) => string | undefined;
   /** A House's crest (cosmetic); its initial shows when unset. */
@@ -80,7 +80,7 @@ const crest = (name: string, id: string, input: Pick<DiplomacyListInput, "colorO
 
 // A new truce runs from its offer (offeredTruceEndsAt), so it shows the time it has left, not the hours
 // offered: "Truce 12h" ended 2h after it was accepted (playtest 2026-11-26). Extensions add their hours.
-// An alliance row says which way fealty runs, by your standing with the other House (client-fealty.ts).
+// An alliance row says which way fealty runs, as recorded when the offer was sent (client-fealty-recorded.ts).
 const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput, incoming: boolean): string => {
   if (kind === "alliance") {
     const standing = input.fealtyWith?.(incoming ? r.fromPlayerId : r.toPlayerId) ?? "ALLIANCE";

@@ -25,6 +25,7 @@ import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.
 import { answerDiplomacyStanceQuery, tradeHoldingsOf } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createHumanTradeState } from "../ai-diplomacy-stance/human-trade-state.js";
 import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
+import { fealtyLookupFromSizes } from "../alliance-fealty/alliance-fealty-lookup.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
@@ -36,6 +37,7 @@ import { createReturnableTownsRead } from "../ai-diplomacy-stance/returnable-tow
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
+import { withdrawnOfferAnnouncements } from "../social-state/social-state-types.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
 import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
 import { everTrucedAnAi, onGuideTruceStep, type GuideProgressView } from "../ai-diplomacy-stance/ai-guide-truce-welcome.js";
@@ -168,7 +170,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       );
     },
     withdrawOffer: (kind, request) => {
-      const withdrawn = kind === "truce" ? socialState.cancelTruce(request.fromPlayerId, request.id) : socialState.cancelAlliance(request.fromPlayerId, request.id);
+      const line = withdrawnOfferAnnouncements(kind, request, request.fromName ?? socialState.playerNameOf(request.fromPlayerId));
+      const withdrawn = kind === "truce" ? socialState.cancelTruce(request.fromPlayerId, request.id, line) : socialState.cancelAlliance(request.fromPlayerId, request.id, line);
       if (withdrawn.ok) deps.fanoutPlayerPayloads(withdrawn.payloadsByPlayerId);
     }
   });
@@ -182,6 +185,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   // check's sizes come from the season leaderboard (cached, bounded wait).
   const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.simulationReads.getCurrentSeasonSummary());
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
+  // New alliance offers record who is liege from these sizes, so later size changes don't reword them.
+  socialState.setFealtyLookup(fealtyLookupFromSizes(seasonLeaderboard.latest));
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     // Both reads are bounded; run them side by side so the waits don't add up.
     const [sizes, returnableTowns, aiReturnableTowns, guide] = await Promise.all([
@@ -345,6 +350,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     if (await resourceTrades.handle(message, playerId, socket, session.isGuest === true)) return true;
     const guestSession = { isGuest: session.isGuest === true };
     // Guests can't send offers, so a counter from one must not reject anything.
+    // A human's alliance offer records its fealty from fresh sizes (bounded wait; a stale or missing board still records).
+    if (message.type === "ALLIANCE_REQUEST" && !guestSession.isGuest) await seasonLeaderboard();
     if (!guestSession.isGuest) rejectCounteredOffer({ rejectTruce: socialState.rejectTruce, rejectAlliance: socialState.rejectAlliance, fanoutPlayerPayloads: deps.fanoutPlayerPayloads }, message, playerId);
     if (
       await handleAllianceSocketMessage(

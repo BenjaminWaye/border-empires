@@ -18,6 +18,7 @@ export const buildUpdatePayloads = (
       {
         type: "ALLIANCE_UPDATE",
         allies: snapshot.allies,
+        allianceFealty: snapshot.allianceFealty,
         activeAllianceBreaks: snapshot.activeAllianceBreaks,
         recentAllianceBreaks: snapshot.recentAllianceBreaks,
         incomingAllianceRequests: snapshot.incomingAllianceRequests,

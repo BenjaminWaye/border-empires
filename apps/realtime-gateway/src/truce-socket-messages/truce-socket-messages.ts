@@ -6,7 +6,7 @@ import type { SocialTruceRequest } from "../social-state/social-state.js";
 
 type SocialTruceActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: string; message: string; requestId?: string };
 
 export type TruceSocketMessageDeps = {
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: { terms?: DiplomacyTerms }) => SocialTruceActionResult;
@@ -31,7 +31,7 @@ export type TruceSocketMessageDeps = {
 };
 
 const sendError = (deps: TruceSocketMessageDeps, socket: import("ws").WebSocket, result: Extract<SocialTruceActionResult, { ok: false }>): void =>
-  deps.sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
+  deps.sendJson(socket, { type: "ERROR", code: result.code, message: result.message, ...(result.requestId ? { requestId: result.requestId } : {}) });
 
 // Failures that mean the client is showing an offer the server already dropped:
 // expired offers are pruned silently, and a failed accept can delete the request.

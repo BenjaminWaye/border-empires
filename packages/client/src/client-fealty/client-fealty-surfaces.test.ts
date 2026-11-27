@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 // Owner decision 2026-11-27 (playtest: a 41-tile House allied the #1 and #2
 // empires for 0-16 coin and it read as a generic alliance): every surface that
-// names an alliance between clearly unequal empires names it as fealty.
+// names an alliance between clearly unequal empires names it as fealty. The
+// deal screen for a new offer reads live sizes; everything else reads the
+// fealty the gateway recorded when the offer was sent (client-fealty-recorded.ts).
 import { describe, expect, it, vi } from "vitest";
 
 import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
@@ -16,13 +18,20 @@ import { tradeVerdict, type TradeSelection } from "../client-diplomacy-trade/cli
 import { dealPactHtml } from "../client-hud-v2/client-hud-v2-diplomacy-pact.js";
 import { diplomacyListHtml, empireStance } from "../client-hud-v2/client-hud-v2-diplomacy.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
+import type { AllianceFealty } from "@border-empires/shared";
 import { fealtyLookupFor } from "./client-fealty.js";
+import { recordedFealtyLookupFor } from "./client-fealty-recorded.js";
 
 const rank = (id: string, tiles: number, position: number): LeaderboardOverallEntry => ({ id, name: id, tiles, incomePerMinute: 0, techs: 0, manpowerCap: 0, score: tiles, rank: position });
 // You hold 41 garrisoned tiles: "big" has 900 (SWEAR), "peer" 60 (ALLIANCE), "small" 10 (DEMAND).
 const leaderboard = { overall: [rank("big", 900, 1), rank("peer", 60, 2), rank("me", 41, 3), rank("small", 10, 4)], selfOverall: rank("me", 41, 3) };
 const fealtyWith = fealtyLookupFor({ me: "me", leaderboard });
-const request = (id: string, fromPlayerId: string, toPlayerId: string) => ({ id, fromPlayerId, toPlayerId, createdAt: 0, fromName: fromPlayerId, toName: toPlayerId });
+// What the gateway records (null below: no record, an offer from before it was recorded) for each pair at send time: the larger House is liege.
+const LIEGE: Record<string, string | null> = { big: "big", small: "me", peer: null };
+const recorded = (otherId: string): AllianceFealty => ({ liegePlayerId: LIEGE[otherId] ?? null });
+const request = (id: string, fromPlayerId: string, toPlayerId: string, fealty: AllianceFealty | null = recorded(fromPlayerId === "me" ? toPlayerId : fromPlayerId)) =>
+  ({ id, fromPlayerId, toPlayerId, createdAt: 0, fromName: fromPlayerId, toName: toPlayerId, ...(fealty ? { fealty } : {}) });
+const allianceFealty = { big: recorded("big"), small: recorded("small"), peer: recorded("peer") };
 
 describe("deal screen", () => {
   const alliance: TradeSelection = { kind: "alliance", durationHours: 12, terms: { give: { gold: 0 }, ask: { gold: 0 } } };
@@ -58,41 +67,63 @@ describe("deal screen", () => {
 
 describe("offer the recipient sees", () => {
   it("reads 'swears fealty' / 'demands your fealty' / 'proposes an alliance'", () => {
-    const state = { me: "me", leaderboard, incomingTruceRequests: [], incomingAllianceRequests: [request("a1", "small", "me"), request("a2", "big", "me"), request("a3", "peer", "me")] };
+    const state = { me: "me", incomingTruceRequests: [], incomingAllianceRequests: [request("a1", "small", "me"), request("a2", "big", "me"), request("a3", "peer", "me")] };
     const headlines = Object.fromEntries(offerDockEntries(state, new Map(), new Set(), 0, () => undefined).map((e) => [e.fromName, e.headline]));
     expect(headlines).toEqual({ small: "swears fealty", big: "demands your fealty", peer: "proposes an alliance" });
+  });
+
+  it("an offer from before fealty was recorded reads as an alliance", () => {
+    const state = { me: "me", incomingTruceRequests: [], incomingAllianceRequests: [request("a1", "big", "me", null)] };
+    expect(offerDockEntries(state, new Map(), new Set(), 0, () => undefined)[0]?.headline).toBe("proposes an alliance");
   });
 });
 
 describe("Diplomacy list and ally status", () => {
-  const base = { me: "me", metPlayerIds: new Set<string>(), activeTruces: [], incomingTruce: [], leaderboard: leaderboard.overall, nameOf: (id: string) => id, colorOf: () => undefined, nowMs: 0, fealtyWith };
+  const lookup = (allies: string[], incoming: ReturnType<typeof request>[] = [], outgoing: ReturnType<typeof request>[] = []) =>
+    recordedFealtyLookupFor({ me: "me", allies, allianceFealty, incomingAllianceRequests: incoming, outgoingAllianceRequests: outgoing });
+  const base = { me: "me", metPlayerIds: new Set<string>(), activeTruces: [], incomingTruce: [], leaderboard: leaderboard.overall, nameOf: (id: string) => id, colorOf: () => undefined, nowMs: 0 };
 
   it("shows a liege, a sworn House and a plain ally", () => {
-    expect(empireStance("big", { ...base, allies: ["big"] }).label).toBe("Your liege");
-    expect(empireStance("small", { ...base, allies: ["small"] }).label).toBe("Sworn to you");
-    expect(empireStance("peer", { ...base, allies: ["peer"] }).label).toBe("Ally");
+    expect(empireStance("big", { ...base, allies: ["big"], fealtyWith: lookup(["big"]) }).label).toBe("Your liege");
+    expect(empireStance("small", { ...base, allies: ["small"], fealtyWith: lookup(["small"]) }).label).toBe("Sworn to you");
+    expect(empireStance("peer", { ...base, allies: ["peer"], fealtyWith: lookup(["peer"]) }).label).toBe("Ally");
     expect(empireStance("big", { allies: ["big"], activeTruces: [], nowMs: 0 }).label).toBe("Ally");
   });
 
   it("words incoming and sent offers", () => {
-    const html = diplomacyListHtml({ ...base, allies: [], incomingAlliance: [request("a1", "small", "me")], outgoingAlliance: [request("a2", "me", "big")] });
+    const incoming = [request("a1", "small", "me")], outgoing = [request("a2", "me", "big")];
+    const html = diplomacyListHtml({ ...base, allies: [], incomingAlliance: incoming, outgoingAlliance: outgoing, fealtyWith: lookup([], incoming, outgoing) });
     expect(html).toContain("Swears fealty");
     expect(html).toContain("Fealty offered");
+  });
+
+  // Playtest run 5 (pt-diplomat): equal alliance offers sent before the sizes split read "Fealty demanded" / "Fealty offered".
+  it("keeps a sent offer's wording when sizes change, and an unrecorded offer plain", () => {
+    const outgoing = [request("a1", "me", "small", { liegePlayerId: null }), request("a2", "me", "big", null)];
+    const html = diplomacyListHtml({ ...base, allies: [], incomingAlliance: [], outgoingAlliance: outgoing, fealtyWith: lookup([], [], outgoing) });
+    expect(html).not.toContain("Fealty");
+    expect(html.match(/Alliance · waiting/g)).toHaveLength(2);
+  });
+
+  it("an alliance with no recorded fealty reads Ally whatever the sizes", () => {
+    const unrecorded = recordedFealtyLookupFor({ me: "me", allies: ["big"], allianceFealty: {}, incomingAllianceRequests: [], outgoingAllianceRequests: [] });
+    expect(empireStance("big", { ...base, allies: ["big"], fealtyWith: unrecorded }).label).toBe("Ally");
   });
 
   it("names the pact and the tile menu entry", () => {
     expect(dealPactHtml({ targetId: "big", allies: ["big"], activeTruces: [], activeAllianceBreaks: [], nowMs: 0, allyLabel: "Your liege" })).toContain(">Your liege<");
     expect(dealPactHtml({ targetId: "big", allies: ["big"], activeTruces: [], activeAllianceBreaks: [], nowMs: 0 })).toContain(">Allied<");
-    const tileState = { me: "me", leaderboard, allies: ["small", "peer"], incomingAllianceRequests: [], outgoingAllianceRequests: [], incomingTruceRequests: [], outgoingTruceRequests: [] };
+    const tileState = { me: "me", allianceFealty, allies: ["small", "peer"], incomingAllianceRequests: [], outgoingAllianceRequests: [], incomingTruceRequests: [], outgoingTruceRequests: [] };
     const deps = { activeTruceWithPlayer: () => undefined };
     expect(diplomacyActionForOwner(tileState, "small", deps).detail).toBe("Sworn to you");
     expect(diplomacyActionForOwner(tileState, "peer", deps).detail).toBe("Allied");
+    expect(diplomacyActionForOwner({ ...tileState, allianceFealty: {} }, "small", deps).detail).toBe("Allied");
   });
 });
 
 describe("feed", () => {
   const state = () => ({
-    me: "me", leaderboard,
+    me: "me", allianceFealty: {} as Record<string, AllianceFealty>,
     notifiedIncomingDiplomacyRequestIds: new Set<string>(), notifiedDiplomacyIdsLoadedFor: "",
     allies: [] as string[], activeAllianceBreaks: [], recentAllianceBreaks: [],
     incomingAllianceRequests: [] as ReturnType<typeof request>[], outgoingAllianceRequests: [] as ReturnType<typeof request>[],
@@ -112,17 +143,26 @@ describe("feed", () => {
     const d = deps();
     const s = state();
     s.outgoingAllianceRequests = [request("a1", "me", "big")];
-    handleDiplomacySocketMessage(s, { type: "ALLIANCE_UPDATE", allies: ["big"], outgoingAllianceRequests: [], announcement: "Big accepted your alliance. Big trusts you." }, d);
+    handleDiplomacySocketMessage(s, { type: "ALLIANCE_UPDATE", allies: ["big"], allianceFealty: { big: recorded("big") }, outgoingAllianceRequests: [], announcement: "Big accepted your alliance. Big trusts you." }, d);
     expect(d.pushFeed).toHaveBeenCalledWith("Big accepted your fealty. Big trusts you.", "alliance", "success");
     expect(d.showCaptureAlert).not.toHaveBeenCalled();
+    expect(s.allianceFealty).toEqual({ big: { liegePlayerId: "big" } });
+  });
+
+  it("keeps an answer plain when the offer was recorded as equal", () => {
+    const d = deps();
+    const s = state();
+    s.outgoingAllianceRequests = [request("a1", "me", "small", { liegePlayerId: null })];
+    handleDiplomacySocketMessage(s, { type: "ALLIANCE_UPDATE", allies: ["small"], allianceFealty: { small: { liegePlayerId: null } }, outgoingAllianceRequests: [], announcement: "Small accepted your alliance offer." }, d);
+    expect(d.pushFeed).toHaveBeenCalledWith("Small accepted your alliance offer.", "alliance", "success");
   });
 });
 
 describe("Chronicle", () => {
-  const card = (event: PersonalActivityDiplomacyCard["event"], counterpartyPlayerId: string, byPlayerId?: string): PersonalActivityDiplomacyCard => ({
-    kind: "DIPLOMACY", id: "c", occurredAt: 0, event, counterpartyPlayerId, counterpartyName: counterpartyPlayerId, ...(byPlayerId ? { byPlayerId } : {})
+  const card = (event: PersonalActivityDiplomacyCard["event"], counterpartyPlayerId: string, byPlayerId?: string, fealty: AllianceFealty | null = recorded(counterpartyPlayerId)): PersonalActivityDiplomacyCard => ({
+    kind: "DIPLOMACY", id: "c", occurredAt: 0, event, counterpartyPlayerId, counterpartyName: counterpartyPlayerId, ...(byPlayerId ? { byPlayerId } : {}), ...(fealty ? { fealty } : {})
   });
-  const text = (c: PersonalActivityDiplomacyCard) => diplomacyCardText(c, "me", () => undefined, 0, fealtyWith);
+  const text = (c: PersonalActivityDiplomacyCard) => diplomacyCardText(c, "me", () => undefined, 0);
 
   it("words formed, offered and declined alliances as fealty between unequal empires", () => {
     expect(text(card("ALLIANCE_FORMED", "big"))).toBe("You swore fealty to big");
@@ -135,5 +175,10 @@ describe("Chronicle", () => {
   it("keeps alliance wording between near-equals and for a broken alliance", () => {
     expect(text(card("ALLIANCE_FORMED", "peer"))).toBe("Alliance with peer formed");
     expect(text(card("ALLIANCE_BROKEN", "big"))).toBe("Alliance with big ended");
+  });
+
+  it("words a row by its recorded fealty, and a row from before it was recorded plainly", () => {
+    expect(text(card("ALLIANCE_OFFERED", "small", "me", { liegePlayerId: null }))).not.toContain("fealty");
+    expect(text(card("ALLIANCE_FORMED", "big", undefined, null))).toBe("Alliance with big formed");
   });
 });

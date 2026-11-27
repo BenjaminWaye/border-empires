@@ -17,7 +17,8 @@ import {
   notifyIncomingAllianceRequest,
   notifyIncomingTruceRequest
 } from "./client-diplomacy-notifications.js";
-import { allianceOfferedLine, fealtyLookupFor, type FealtyState } from "../client-fealty/client-fealty.js";
+import { allianceOfferedLine } from "../client-fealty/client-fealty.js";
+import { recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
 
 type DiplomacyMessageState = Pick<
   ClientState,
@@ -33,7 +34,7 @@ type DiplomacyMessageState = Pick<
   | "truceBreaksThisSeason"
   | "incomingTruceRequests"
   | "outgoingTruceRequests"
-> & { leaderboard?: FealtyState["leaderboard"] };
+> & Partial<Pick<ClientState, "allianceFealty">>;
 
 export type DiplomacyMessageDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
@@ -60,7 +61,8 @@ export const handleDiplomacySocketMessage = (state: DiplomacyMessageState, msg: 
       state.outgoingAllianceRequests.push(request);
     }
     const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? deps.playerNameForOwner(request.toPlayerId) : undefined);
-    const standing = fealtyLookupFor({ me: state.me, leaderboard: state.leaderboard })(request?.toPlayerId);
+    // Worded as the gateway recorded the offer, so it matches the Sent row (client-fealty-recorded.ts).
+    const standing = request ? recordedFealtyStanding(request.fealty, state.me, request.toPlayerId) : "ALLIANCE";
     deps.pushFeed(allianceOfferedLine(standing, targetName), "alliance", "success");
     return true;
   }
@@ -89,6 +91,14 @@ export const handleDiplomacySocketMessage = (state: DiplomacyMessageState, msg: 
     setDiplomacyOfferCooldowns(msg.offerCooldowns);
     refreshDiplomacyTradeScreen();
     return true;
+  }
+  // An accept refused because the proposer took the offer back: drop it from the bar and the lists now,
+  // not on the next update (playtest run 5: Accept stayed live). Returns false so the error still shows.
+  if (msg.type === "ERROR" && msg.code === "DIPLOMACY_OFFER_WITHDRAWN" && typeof msg.requestId === "string") {
+    const gone = msg.requestId;
+    state.incomingTruceRequests = state.incomingTruceRequests.filter((request) => request.id !== gone);
+    state.incomingAllianceRequests = state.incomingAllianceRequests.filter((request) => request.id !== gone);
+    return false;
   }
   if (msg.type === "DIPLOMACY_STANCE") {
     receiveDiplomacyStance(msg as unknown as DiplomacyStanceReply);

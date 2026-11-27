@@ -311,6 +311,11 @@ export type PersonalActivityDiplomacyCard = {
   byPlayerId?: string;
   /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
   court?: boolean;
+  /**
+   * ALLIANCE_OFFERED / ALLIANCE_DECLINED / ALLIANCE_FORMED: who was liege when the offer was sent
+   * (AllianceFealty in shared; null for near-equals). Absent on rows from before it was recorded.
+   */
+  fealty?: { liegePlayerId: string | null };
 };
 
 // A resource supply deal with another House ended: cancelled by either side,
