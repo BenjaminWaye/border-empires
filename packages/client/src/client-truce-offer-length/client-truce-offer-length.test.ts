@@ -50,8 +50,8 @@ describe("accepting a truce offer says the truce you'd get", () => {
   });
 });
 
-describe("truce agreed popup", () => {
-  it("tells the player who accepted, with the truce they got", () => {
+describe("truce agreed", () => {
+  it("does not pop up for the player who accepted; the truce shows in Diplomacy", () => {
     const state = { activeTruces: [] as ActiveTruceView[], truceBreaksThisSeason: [], incomingTruceRequests: [offer], outgoingTruceRequests: [] };
     const deps = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
     vi.useFakeTimers();
@@ -61,7 +61,7 @@ describe("truce agreed popup", () => {
       announcement: "Me and Freja agreed to a 24h truce, counted from the offer: 22h 00m left."
     }, deps);
     vi.useRealTimers();
-    expect(deps.showCaptureAlert).toHaveBeenCalledWith("Truce agreed", "Truce with Freja · 22h", "success");
+    expect(deps.showCaptureAlert).not.toHaveBeenCalled();
   });
 
   it("leaves out unchanged truces and Court armistices", () => {

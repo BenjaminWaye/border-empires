@@ -24,10 +24,6 @@ export const offeredTruceLength = (request: Pick<TruceRequest, "createdAt" | "du
 /** "Accept 22h truce"; plain "Accept" for an extension (its row says the hours it adds). */
 export const acceptTruceLabel = (length: string | undefined, verb = "Accept"): string => (length ? `${verb} ${length} truce` : verb);
 
-/** The popup line once a truce is agreed or extended: "Truce with House X · 22h". */
-export const truceAgreedLine = (truce: Pick<ActiveTruceView, "otherPlayerName" | "endsAt">, nowMs: number): string =>
-  `Truce with ${truce.otherPlayerName} · ${truceLengthLabel(truce.endsAt - nowMs)}`;
-
 /**
  * Negotiated truces that an update started or extended: new partners, or a later end than before.
  * A Court armistice is imposed, not agreed, so it is left out.

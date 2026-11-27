@@ -56,6 +56,7 @@ describe("client debug bundle", () => {
         hover: undefined,
         capture: undefined,
         captureAlert: undefined,
+        goodNewsAlert: undefined,
         actionInFlight: true,
         actionCurrent: { x: 12, y: 34, retries: 0 },
         actionTargetKey: "12,34",

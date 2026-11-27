@@ -29,11 +29,11 @@ describe("showArrowGestureConfirmSheet Go feedback", () => {
     return { state, pushFeed };
   };
 
-  it("shows a March sent alert and feed entry once Go sends the march", () => {
+  it("logs the march to the feed once Go sends it, with no pop-up card", () => {
     const { state, pushFeed } = open(true);
     expect(state.captureAlert).toBeUndefined();
     sheets[0]!.onConfirm(120, undefined);
-    expect(state.captureAlert).toMatchObject({ title: "March sent", detail: "120 manpower from (1, 1) to (4, 1)", tone: "success", focusX: 4, focusY: 1 });
+    expect(state.captureAlert).toBeUndefined();
     expect(pushFeed).toHaveBeenCalledWith("March sent: 120 manpower from (1, 1) to (4, 1)", "combat", "info");
   });
 

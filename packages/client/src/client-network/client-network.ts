@@ -1076,7 +1076,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic reads as one named alert, not just a violet box
+      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic gets one feed line; the map plate and edge tab name it on screen
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
