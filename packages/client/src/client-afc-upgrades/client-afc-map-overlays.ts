@@ -3,7 +3,7 @@ import { ownObservatoryMaxShots } from "../client-observatory-rules/client-obser
 import { createAfcFxLayer, type AfcFxTower } from "./client-afc-fx-layer.js";
 import { towerOpenToHijack } from "./client-afc-tower-action.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
+import { afcUpgradeBadgesPaused, createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import "./client-afc-map-overlays.css";
@@ -27,6 +27,7 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
     const canHijack = state.domainIds.includes("afc-oracle-5");
     const maxShots = ownObservatoryMaxShots(state);
     const ready = readyAfcUpgradeCount(state);
+    const badgesPaused = afcUpgradeBadgesPaused(state); // no stray tap on a bubble while picking tiles
     const positions: AfcReadyBadgePosition[] = [];
     const shown = new Set<string>();
     const dormant = new Set(state.dormantStructures.map(item => item.key));
@@ -44,7 +45,7 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
       const wardUnpowered = t?.ownerId === state.me && dormant.has(`${wk}:fort`);
       const ward = vis === "visible" && t?.fort?.wardEnabled ? wardUnpowered ? "Ward unpowered" : (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : t.ownerId === state.me ? "Ward ready" : "Ward charged" : "";
       const label = suppressed ? "Tower suppressed" : hijackable ? "Hijackable" : lastShot ? "Last shot: firing it opens this tower to hijack" : stacks ? `Momentum +${Math.round(stacks * AFC_MOMENTUM_ATTACK_PER_STACK * 100)}%` : ward;
-      const showUpgrade = vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop);
+      const showUpgrade = !badgesPaused && vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop);
       if (!label && !showUpgrade) continue;
       const at = isTrue3DRendererActive() ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
       if (showUpgrade) {
