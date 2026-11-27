@@ -102,3 +102,14 @@ export const confirmPromptOffer = (
   const cost = action.loading ? undefined : action.cost;
   return { label: action.label, ...(cost ? { cost } : {}), ...(action.disabled ? { disabled: true } : {}) };
 };
+
+/**
+ * The on-map confirm prompt for a tile tap, or nothing on the phone layout. There the tap also opens the bottom
+ * tile sheet, whose gold primary button is the same claim or attack, so players saw two "Expand To" buttons for one
+ * tile and didn't know which to press (playtest 2026-11-26). The re-tap on the tile still confirms. Relay Beacon
+ * placement keeps its prompt: no sheet carries that one.
+ */
+export const offerBesideTileSheet = <T>(
+  offer: T | undefined,
+  doc: Document | undefined = typeof document === "undefined" ? undefined : document
+): T | undefined => (doc?.body?.classList.contains("hud-v2-compact") ? undefined : offer);
