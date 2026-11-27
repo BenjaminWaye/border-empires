@@ -44,6 +44,7 @@ import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-s
 import { applyLostTileMemory } from "../client-lost-tile-memory/client-lost-tile-memory.js";
 import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, markWaystationActivationsSeenFromEventLog, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
+import { hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -175,6 +176,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.authEmail,
     state.bridgeDebugSeasonId
   );
+  hydrateMetPlayersFromServer(state, player.metPlayerIds, player.metPlayersSeasonId); // after state.me and the season id are set
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
   if (!state.profileSetupRequired) clearFoundingNameDraft(); // founded: the typed-name draft has served its purpose

@@ -142,3 +142,20 @@ describe("phone Diplomacy list: incoming truce offers", () => {
     expect(diplomacyListHtml(input({ incomingTruce: [truce], nowMs: 10 * hour }))).toContain("Extend truce 24h");
   });
 });
+
+// Playtest run 5: "Empires you've met" dropped a rival the player was fighting, and an ✕ on an incoming
+// offer read as "close" but declined it, with the Chronicle logging "You declined…" and no undo.
+describe("Diplomacy list: playtest run 5", () => {
+  it("lists an empire you are at war with as met, even before its land was scanned", () => {
+    const html = diplomacyListHtml(input({ warPlayerIds: new Set(["ai-2", "barbarian-1"]) }));
+    expect(html).toContain("Empires you've met · 1");
+    expect(html).toMatch(/data-v2-dip-open="ai-2"[\s\S]*?War/);
+  });
+
+  it("spells out Decline on an incoming offer instead of an ✕", () => {
+    const alliance: AllianceRequest = { id: "a9", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0 };
+    const html = diplomacyListHtml(input({ incomingAlliance: [alliance] }));
+    expect(html).toMatch(/data-v2-dip-reject="alliance" data-request-id="a9">Decline<\/button>/);
+    expect(html).not.toContain("✕");
+  });
+});
