@@ -1,8 +1,9 @@
 // Greys out Launch Attack on a tile this player already has an attack heading
-// for (or fighting over). The server combat-locks the target from the moment
-// an attack is accepted -- including the march -- until it resolves, so a
-// second Launch Attack was only ever refused with "Another battle is already
-// being fought for this tile". The button now says so before the tap.
+// for (or fighting over). Once the server accepts an attack it combat-locks
+// the target until the fight resolves, so a second Launch Attack was refused
+// with "Another battle is already being fought for this tile". Attacks still
+// held client-side (a muster company marching, or parked until its flag
+// fills) count too: a second one would be refused as soon as the first fires.
 
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
@@ -10,7 +11,7 @@ import type { Tile, TileActionDef } from "../client-types.js";
 export const ATTACK_EN_ROUTE_LABEL = "Attack En Route";
 export const ATTACK_EN_ROUTE_REASON = "Your troops are already on the way";
 
-type AttackEnRouteState = Pick<
+export type AttackEnRouteState = Pick<
   ClientState,
   | "capture"
   | "actionInFlight"
@@ -20,6 +21,7 @@ type AttackEnRouteState = Pick<
   | "musterTransitByCommand"
   | "deferredAttackByCommand"
   | "detachedAttacksByCommandId"
+  | "pendingMusterAttacks"
 >;
 
 const live = (resolvesAt: number | undefined, nowMs: number): boolean => resolvesAt === undefined || resolvesAt > nowMs;
@@ -41,7 +43,7 @@ export const hasOwnAttackEnRoute = (state: AttackEnRouteState, x: number, y: num
   for (const detached of state.detachedAttacksByCommandId.values()) {
     if (detached.targetX === x && detached.targetY === y && detached.resolvesAt > nowMs) return true;
   }
-  return false;
+  return state.pendingMusterAttacks.some((parked) => parked.targetX === x && parked.targetY === y);
 };
 
 /**
@@ -50,9 +52,14 @@ export const hasOwnAttackEnRoute = (state: AttackEnRouteState, x: number, y: num
  * another reason (spawn shield, no origin) keep that reason. Feeds both the
  * tile sheet and the confirming second tap, so neither can re-send it.
  */
+/** The disabled row gateAttackEnRouteActions puts in Launch Attack's place. */
+export const attackEnRouteRow = (): TileActionDef => ({ id: "launch_attack", label: ATTACK_EN_ROUTE_LABEL, disabled: true, disabledReason: ATTACK_EN_ROUTE_REASON });
+
+export const isAttackEnRouteRow = (action: TileActionDef): boolean => action.id === "launch_attack" && action.disabledReason === ATTACK_EN_ROUTE_REASON;
+
 export const gateAttackEnRouteActions = (actions: TileActionDef[], state: AttackEnRouteState, tile: Pick<Tile, "x" | "y">, nowMs = Date.now()): TileActionDef[] => {
   const launch = actions.find((action) => action.id === "launch_attack");
   if (!launch || launch.disabled || !hasOwnAttackEnRoute(state, tile.x, tile.y, nowMs)) return actions;
-  const gated: TileActionDef = { id: launch.id, label: ATTACK_EN_ROUTE_LABEL, disabled: true, disabledReason: ATTACK_EN_ROUTE_REASON };
+  const gated = attackEnRouteRow();
   return actions.map((action) => (action === launch ? gated : action));
 };

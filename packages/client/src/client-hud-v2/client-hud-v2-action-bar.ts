@@ -14,6 +14,7 @@ import { tileProgressHtml } from "./client-hud-v2-tile-progress.js";
 import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
 import { TILE_VIEW_PANELS, TILE_VIEW_TITLE, type TileViewPanel } from "./client-hud-v2-tile-views.js";
+import { isAttackEnRouteRow } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
 
 export type BarPanel = "aether" | "build" | "details" | "progress" | "status" | TileViewPanel;
 
@@ -103,6 +104,9 @@ const isExpandingBeacon = (a: TileActionDef): boolean => a.id === "build_relay_b
  * the bar: in the minor row the reason was only a tooltip, which a phone never shows (2026-11-14 playtest).
  */
 const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
+  // A greyed "Attack En Route" keeps the gold slot Launch Attack had, so the player sees why.
+  const enRoute = view.actions.find(isAttackEnRouteRow);
+  if (enRoute) return enRoute;
   if (view.actions.some((a) => a.id === "settle_land" && !a.disabled)) return undefined;
   return view.actions.find((a) => isGarrison(a) && a.recommended)
     ?? view.actions.find((a) => a.id === "explore_scout")
