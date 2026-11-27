@@ -81,7 +81,7 @@ export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: Deal
   // A coin pledge (stored per hour, shown per day) runs for the supply term, or a slot-free truce's own length.
   const coinHours = recurringCoinTermHours(selection.kind === "gift" ? "trade" : selection.kind, selection.durationHours, terms) ?? RESOURCE_SUPPLY_TRADE_DAYS * 24;
   const give = sideItemsHtml(terms, "give", coinHours) + dealTownItemsHtml(terms, "give", input.townName);
-  const ask = sideItemsHtml(terms, "ask", coinHours) + dealTownItemsHtml(terms, "ask", input.townName);
+  const ask = sideItemsHtml(terms, "ask", coinHours) + dealTownItemsHtml(terms, "ask", input.townName, true);
   const sideBlock = (heading: string, items: string, side: TradeSide): string =>
     `<div class="diplomacy-deal-side" data-deal-side="${side}"><h4>${escapeHtml(heading)}</h4>${items ? `<ul>${items}</ul>` : `<p class="diplomacy-deal-none">Nothing</p>`}</div>`;
   const supplyNote = hasSupply(terms)

@@ -86,7 +86,9 @@ export const tradeGoodsLimits = (own: DiplomacyGoods, reply: DiplomacyStanceRepl
   const limits = {} as TradeGoodsLimits;
   for (const spec of TRADE_GOODS) {
     if (spec.good === "coinPerHour") {
-      limits[spec.key] = Math.max(100, tradeAmount(reach, spec));
+      // An AI pledges at most its spare earned income; a human's is unknown.
+      const aiSpare = spec.side === "ask" && reply?.found && reply.ai ? reply.pricing?.aiSpareCoinPerHour : undefined;
+      limits[spec.key] = Math.max(aiSpare === undefined ? 100 : Math.max(0, Math.floor(aiSpare)), tradeAmount(reach, spec));
       continue;
     }
     const held =
