@@ -11,7 +11,8 @@
 import { SETTLE_COST, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-export type TownRingGarrison = { ringKeys: string[]; startedAt: number; townSettledAt?: number };
+/** awaitTier: registered by growing the town; nothing is sent until the town shows that tier. */
+export type TownRingGarrison = { ringKeys: string[]; startedAt: number; townSettledAt?: number; awaitTier?: string };
 
 type RingState = { tiles: ReadonlyMap<string, Tile>; me: string; townRingGarrisons: Map<string, TownRingGarrison> };
 
@@ -108,6 +109,15 @@ export const processTownRingGarrisons = (state: RingState, deps: TownRingGarriso
     if (town.ownershipState !== "SETTLED" || town.optimisticPending) {
       if (entry.townSettledAt === undefined && deps.now - entry.startedAt > TOWN_RING_GARRISON_TTL_MS) state.townRingGarrisons.delete(townKey);
       continue;
+    }
+    if (entry.awaitTier !== undefined) {
+      // Growth: wait for the upgrade to land; a rejected one (coin, FOOD slot) is dropped after the window.
+      if (town.town?.populationTier !== entry.awaitTier) {
+        if (deps.now - entry.startedAt > TOWN_RING_AFTER_SETTLE_WINDOW_MS) state.townRingGarrisons.delete(townKey);
+        continue;
+      }
+      delete entry.awaitTier;
+      entry.townSettledAt = deps.now;
     }
     entry.townSettledAt ??= deps.now;
     if (deps.now - entry.townSettledAt > TOWN_RING_AFTER_SETTLE_WINDOW_MS) {

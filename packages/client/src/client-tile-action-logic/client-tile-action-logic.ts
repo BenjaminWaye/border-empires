@@ -7,7 +7,6 @@ export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherW
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import {
-  nextTownGrowthUpgrade,
   type BuildableStructureType,
   SETTLE_COST,
   structureBuildDurationMs,
@@ -20,7 +19,7 @@ import {
   type RetortTargetResource,
 } from "@border-empires/shared";
 import { manufactoryGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
-import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
+import { townGrowthAndPlotActions } from "./client-tile-action-town-growth.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { allyLaunchAttackAction, breakTruceAction, gateAttackRowsOnTruce } from "../client-pact-attack-gate/client-pact-attack-gate.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
@@ -630,10 +629,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         )
       });
     }
-    const townGrowthAction = tile.town?.populationTier && typeof tile.town.population === "number"
-      ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
-      : undefined;
-    if (townGrowthAction) out.push(townGrowthAction);
+    out.push(...townGrowthAndPlotActions(state, tile));
     // One Fortify row (Palisade and every fort tier) that opens the tier picker
     // (client-structure-tier-options.ts); a fortification may share a tile with
     // any building (economic structure or Aether Tower), never a siege engine.
