@@ -40,6 +40,12 @@ export type SectorView = {
   funding?: FundingView;
   /** True while this account can withdraw from what it paid for here: shows the "Withdraw from contract" button. */
   canWithdraw: boolean;
+  /**
+   * The sector server's public `/sector/board` (day, Houses, top standings), once it has an
+   * address and is open or ended: the Sector Map reads it before entering, with no ticket
+   * (docs/sector-map-plan.md §4.1). Board data is public under Q9.
+   */
+  boardUrl?: string;
 };
 
 /**
@@ -90,7 +96,8 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       ...(role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? { checkoutUrl: sector.checkoutUrl } : {}),
       delayed: sector.state === "creating" && sector.createAttempts > 0,
       ...(fundingView ? { funding: fundingView } : {}),
-      canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId)
+      canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId),
+      ...((sector.state === "open" || sector.state === "ended") && sector.hostname ? { boardUrl: `https://${sector.hostname}/sector/board` } : {})
     };
   };
 

@@ -30,7 +30,36 @@ describe("GET /sector/board", () => {
     const { app, store } = setup(["alice", "bob", "ai-1"], 100);
     await store.join({ seasonId: "season-9", playerId: "carol", joinedAt: 1 });
     const response = await app.inject({ method: "GET", url: "/sector/board" });
-    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, full: false, noLandingSite: false, waitingCount: 1 });
+    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, full: false, noLandingSite: false, waitingCount: 1, standings: [] });
+  });
+
+  it("adds the start time and the top-5 standings, without player ids, for the Sector Map card", async () => {
+    const app = Fastify();
+    const overall = Array.from({ length: 7 }, (_, index) => ({ rank: 7 - index, name: `House ${7 - index}`, score: (index + 1) * 10, id: `p${index}` }));
+    registerSectorBoardRoute(app, {
+      store: new InMemorySectorWaitlistStore(),
+      getOccupancy: async () => ({ seasonId: "season-9", status: "active", playerIds: [], startedAt: 1_000, standings: overall }),
+      maxHouses: () => 100
+    });
+    const body = (await app.inject({ method: "GET", url: "/sector/board" })).json();
+    expect(body.startedAt).toBe(1_000);
+    expect(body.standings).toEqual([
+      { rank: 1, name: "House 1", score: 70 },
+      { rank: 2, name: "House 2", score: 60 },
+      { rank: 3, name: "House 3", score: 50 },
+      { rank: 4, name: "House 4", score: 40 },
+      { rank: 5, name: "House 5", score: 30 }
+    ]);
+  });
+
+  it("leaves out the start time while the contest is not running", async () => {
+    const app = Fastify();
+    registerSectorBoardRoute(app, {
+      store: new InMemorySectorWaitlistStore(),
+      getOccupancy: async () => ({ seasonId: "season-9", status: "pending", playerIds: [], startedAt: 1_000 }),
+      maxHouses: () => 100
+    });
+    expect((await app.inject({ method: "GET", url: "/sector/board" })).json()).not.toHaveProperty("startedAt");
   });
 
   it("marks the Sector full at the cap", async () => {
