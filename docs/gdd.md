@@ -339,6 +339,13 @@ baseline.
     iOS needs an owner decision (add in-app purchase, or ship without it and
     risk rejection); no link-outs at launch. Owner decisions listed in the
     research note.
+  - *Delegated decisions, 2026-11-28, pending the owner's confirmation* (made by
+    the parent agent session at the owner's request; details in the research
+    note): iOS prices equal the web prices; no US link-out at launch; enrol in
+    Apple's and Google's 15 % tiers (the owner enrols); buying requires 18 or
+    older; playing 13 or older is proposed and needs the owner's say; the owner
+    rechecks the store rules before each submission and after the Supreme Court
+    ruling in Apple v. Epic.
 
 ## 12. Keeping this document true
 
