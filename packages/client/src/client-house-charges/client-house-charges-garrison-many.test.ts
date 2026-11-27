@@ -44,7 +44,7 @@ const state = (active: boolean) => ({
 // which tiles count toward it.
 describe("Garrison Many shows which tiles count for a region charge", () => {
   it("shades only kept region charges, and only while Garrison Many is open", () => {
-    expect(houseChargeTintTiles(state(true))).toEqual([{ x: 25, y: 2, garrisoned: true }, { x: 26, y: 2, garrisoned: false }]);
+    expect(houseChargeTintTiles(state(true))).toEqual([{ x: 25, y: 2, garrisoned: true }, { x: 26, y: 2, garrisoned: false, owned: true }]);
     expect(houseChargeTintTiles(state(false))).toEqual([]);
   });
 

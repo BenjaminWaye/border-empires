@@ -29,6 +29,8 @@ export function createRelicCaptureDialog(state: NaturalWonderState, garrisoned: 
   set(".relic-benefit", status === "depleted" ? "The surviving reserve is exhausted. This site cannot provide another reserve this campaign." : active ? definition.benefit : "");
   set(".relic-allocation", active && state.resourceBonus ? `Recovered supply: +${state.resourceBonus.amount} ${state.resourceBonus.resource} capacity, available to a holder who has revealed that resource.` : "");
   set(".relic-reserve", active ? relicReserveLabel(state) ?? "" : "");
+  // A dormant relic's effect panel holds only its status; boxed alone it read as a dead button (playtest), so it is plain text.
+  if (status === "dormant") dialog.querySelector(".relic-effect")?.classList.add("relic-effect--status-only");
   set(".relic-footnote", "The installation remains part of the planet. Taking it from another House does not replenish its reserves.");
   const art = dialog.querySelector<HTMLElement>(".relic-art")!;
   art.setAttribute("aria-label", `Cutaway artwork of a weathered ziggurat above ${definition.installation.toLowerCase()}`);

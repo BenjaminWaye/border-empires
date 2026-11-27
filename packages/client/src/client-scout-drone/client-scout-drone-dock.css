@@ -192,3 +192,27 @@ body.hud-v2-compact #scout-drone-dock {
 #scout-drone-dock button * {
   pointer-events: none;
 }
+
+/* Why the route differs from the taps: "Blocked · Rosa's Garden II border", "Stop moved · range limit". */
+#scout-drone-dock {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+#scout-drone-dock .sd-note {
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(20, 15, 10, 0.92);
+  border: 1px solid rgba(255, 138, 92, 0.6);
+  color: #ffd2bf;
+  font: 600 12px/1.2 var(--sp-font-sans, system-ui, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.hud-v2-compact #scout-drone-dock {
+  align-items: flex-start;
+}

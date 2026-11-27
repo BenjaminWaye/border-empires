@@ -1,9 +1,10 @@
 // The SSH step of deploy/bin/bootstrap-server.sh, run against stub `systemctl`
 // and `sshd` that behave like Ubuntu 24.04 before anyone has connected:
 // ssh.service is inactive, so `systemctl reload ssh` fails. A hosted sector
-// server is set up by cloud-init with no SSH connection ever made; the first
-// test sector (2026-11-25) most likely stopped right here, before its
-// firewall, Docker deploy and Caddy.
+// server is set up by cloud-init with no SSH connection ever made. (This was
+// first blamed for the failed 2026-11-25 test sector. The only log read, from a
+// later test sector, showed the deploy-user step failing first; see
+// bootstrap-server-user.test.mjs.)
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
