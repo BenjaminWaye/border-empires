@@ -8,6 +8,7 @@ import type { PersonalActivityCard } from "@border-empires/game-domain";
 import type { ScoutFindingTile } from "@border-empires/shared";
 import { nameOf as resolvedName, type PlayerNameLookup } from "../client-activity-dashboard/client-activity-dashboard-names.js";
 import { scoutFindingParts } from "../client-scout-drone/client-scout-drone-state.js";
+import { reportedPlaces } from "../client-scout-drone/client-scout-drone-find-places.js";
 import { showScoutFindingHighlight } from "../client-scout-drone/client-scout-finding-highlight.js";
 import { focusCamera, screen, type HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -43,7 +44,11 @@ export const scoutReportFindsHtml = (card: PersonalActivityCard, playerNames: Pl
 export const chronicleScoutFindClick = (deps: Pick<HudV2Deps, "state" | "wrapX" | "wrapY" | "requestViewRefresh" | "renderHud">, target: Element, rerender: () => void): boolean => {
   const find = target.closest<HTMLElement>("[data-v2-chronicle-find]");
   if (!find) return false;
-  const tiles = decodeScoutFindTiles(find.dataset.tiles);
+  // The reported place, not the edge pressed into the player's land (client-scout-drone-find-places.ts); a
+  // find held by them since keeps its old tiles, so an old row still goes somewhere.
+  const listed = decodeScoutFindTiles(find.dataset.tiles);
+  const clear = reportedPlaces(deps.state, listed);
+  const tiles = clear.length > 0 ? clear : listed;
   const first = tiles[0];
   if (first) {
     focusCamera(deps, first.x, first.y);

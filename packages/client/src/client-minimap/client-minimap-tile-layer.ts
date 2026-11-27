@@ -10,6 +10,7 @@
 
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { unwrapIntoBox } from "./client-minimap-view-box.js";
+import { isMiniMapAlliedTile, miniMapTintsOwner } from "./client-minimap-known-territory.js";
 import type { Tile } from "../client-types.js";
 
 export type MiniMapBox = { x0: number; y0: number; w: number; h: number };
@@ -23,6 +24,8 @@ export type MiniMapTileLayerDeps = {
   withAlpha: (hex: string, alpha: number) => string;
   /** The Resources lens (client-resource-lens.ts): undefined while off, else a resource colour or null for no paint. */
   lensTileColor?: (tile: Tile) => string | null | undefined;
+  /** The viewer's allies: their known land is tinted even under fog (client-minimap-known-territory.ts). */
+  alliedOwnerIds?: ReadonlySet<string>;
 };
 
 export type TileRect = { x: number; y: number; w: number; h: number };
@@ -63,13 +66,14 @@ export const drawMiniMapTileLayer = (cctx: CanvasRenderingContext2D, box: MiniMa
   const border = miniMapBorderPx(w / box.w);
   for (const { tile, r } of shown) {
     const lensColor = deps.lensTileColor?.(tile);
-    if (lensColor === null || tile.fogged) continue;
+    if (lensColor === null) continue;
     if (lensColor) {
+      if (tile.fogged) continue;
       cctx.fillStyle = lensColor;
       cctx.fillRect(r.x, r.y, r.w, r.h);
       continue;
     }
-    if (!tile.ownerId) continue;
+    if (!tile.ownerId || !miniMapTintsOwner(tile, deps.alliedOwnerIds)) continue;
     const color = deps.overlayColor(tile.ownerId);
     cctx.fillStyle = deps.withAlpha(color, tile.ownershipState === "SETTLED" ? 0.72 : 0.48);
     cctx.fillRect(r.x, r.y, r.w, r.h);
@@ -87,7 +91,7 @@ export const drawMiniMapTileLayer = (cctx: CanvasRenderingContext2D, box: MiniMa
 
   for (const { tile, r } of shown) {
     const vis = deps.tileVisibilityStateAt(tile.x, tile.y, tile);
-    if (vis === "visible") continue;
+    if (vis === "visible" || isMiniMapAlliedTile(tile, deps.alliedOwnerIds)) continue;
     cctx.fillStyle = vis === "unexplored" ? "#000000" : "rgba(0,0,0,0.62)";
     cctx.fillRect(r.x, r.y, r.w, r.h);
   }
