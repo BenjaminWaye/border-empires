@@ -182,8 +182,9 @@ acknowledgement (8c) and saving results (8d).
     endpoint stays open, as Q9 decided.
 13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
-   **Decided by the owner, 2026-11-26:** at launch, block the United Kingdom
-   only. The owner applies the rule in Stripe before sales open.
+   **Decided by the owner, 2026-11-27** (replaces 2026-11-26): no country is
+   blocked, the United Kingdom included. The owner registers for UK VAT when
+   the first UK consumer buys. No Radar rule is needed.
 
 ## Change to the Terms of Service
 
@@ -328,9 +329,11 @@ Each refers to [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 4. **Stripe under the threshold.** Stripe Tax calculates tax only where a
    registration is added. Confirm the Stripe setting that charges Swedish VAT
    to consumers in other EU countries, and test it before the first sale.
-5. **United Kingdom.** No threshold for a non-UK seller. Register for UK VAT
-   before launch, or refuse UK buyers? Is a Radar rule on the declared billing
-   country enough to refuse them?
+5. **United Kingdom.** No threshold for a non-UK seller. The owner decided on
+   2026-11-27 to sell to UK consumers from launch and register for UK VAT when
+   the first one buys. **Question:** how soon after that first sale must TIDN
+   AB register, and how is VAT on that sale accounted for if registration
+   comes after it?
 6. **Norway, Switzerland, United States.** Confirm the thresholds in the note,
    whether a US state that taxes the service accepts a tax-inclusive price, and
    who watches Stripe's threshold alerts.
@@ -367,7 +370,9 @@ section.
   sector less than 30 days old).
 - 12: accepted as recommended ("for as long as Border Empires is operated").
   The Count bundle is the only cosmetic for launch.
-- Still open: 2, 3, 7, 8 and 10 (the United Kingdom).
+- 10: sell to the United Kingdom from launch; the owner handles UK VAT when
+  the first UK consumer buys.
+- Still open: 2, 3, 7 and 8.
 
 1. **Telephone number** for the pages (`[[PHONE]]`). Recommended: give one,
    unless the lawyer says it is not needed.
