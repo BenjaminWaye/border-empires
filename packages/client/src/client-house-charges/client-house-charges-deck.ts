@@ -2,7 +2,8 @@
 // cards"). Each charge is one full-width trading card the player scrolls
 // through: title and difficulty, art, type and rarity, then
 // the objective (a kept card also shows the Domain score it banks if held at the
-// crowning), the House's reason for the charge, progress and status, with
+// crowning), progress and status, then the House's reason for the charge last
+// (it is the first thing cut when a card's text runs long), with
 // Keep and Show on map on the card itself. Replaces the separate card table and
 // details list.
 import { houseChargeDomain, houseChargePips, type HouseChargeView } from "@border-empires/shared";
@@ -57,11 +58,11 @@ export const houseChargeDeckCardHtml = (charge: HouseChargeView, options: HouseC
       <div class="hc-bar hc-type"><span>${HOUSE_CHARGE_KIND_LABEL[charge.kind]}</span><span class="hcd-reward">✦ ${HOUSE_CHARGE_RARITY_LABEL[charge.rarity]}${kept ? ` · +${domain} Domain` : ""}</span></div>
       <div class="hc-text">
         <p class="hcd-objective">${esc(houseChargeObjective(charge))}</p>
-        <p class="hc-flavour">“${esc(houseChargeLetter(charge))}”</p>
         ${progress ? `<p class="hcd-progress">${esc(progress)}</p>` : ""}
         ${scoutHint ? `<p class="hcd-progress is-scout">${esc(scoutHint)}</p>` : ""}
         ${garrisonTip && !choosing ? `<p class="hcd-progress is-tip">${esc(garrisonTip)}</p>` : ""}
         ${statusHtml(charge, options)}
+        <p class="hc-flavour">“${esc(houseChargeLetter(charge))}”</p>
       </div>
       <div class="hcd-foot">${keep}<button class="hcd-map${focused ? " is-active" : ""}" type="button" data-house-charge-jump="${esc(charge.id)}" aria-pressed="${focused}">${focused ? "Hide on map" : "Show on map"}</button></div>
     </div>
