@@ -5,8 +5,10 @@
 // on screen (relic-site-reached.ts). The plates are DOM buttons over the
 // canvas placed through the frame's projection, so one layer serves the 2D
 // canvas and the true-3D renderer (isTrue3DRendererActive picks the anchor).
-// A tap opens the site's card (Show, Send scout) and never reaches the map,
-// where a tap on fog would start a scout flight plan instead.
+// A plate on screen is a label only: taps pass through it to the tiles under
+// it (playtest: the plate hid the tiles it covered), and a tap on the site's
+// own tile opens its card (openRelicSiteCardAt, ahead of the scout plan).
+// An edge tab has no tile under it to tap, so it stays a button that opens the card.
 import type { ClientState } from "../client-state/client-state.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { PHOTO_MODE_BODY_CLASS } from "../client-photo-mode/client-photo-mode.js";
@@ -15,7 +17,7 @@ import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/cl
 import { createSeparatedOwnerColor } from "../client-owner-colors/client-owner-color-separation.js";
 import { handleScoutPlanTap, scoutPlanTapStarts } from "../client-scout-drone/client-scout-drone-plan.js";
 import { RELIC_WAKE_FALLBACK_COLOR } from "./relic-map-hints.js";
-import { RELIC_EXPLAINER, edgeTabPoint, mapPointPickArmed, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
+import { RELIC_EXPLAINER, edgeTabPoint, mapPointPickArmed, relicPlatePassesTaps, relicSitePlateFor, tilesFromCamera, wrappedDelta, type RelicSitePlate, type ScreenInsets } from "./relic-site-plate-model.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { markRelicSiteReached, relicSiteReached } from "./relic-site-reached.js";
 import "./relic-site-plates.css";
@@ -140,8 +142,8 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
       const shown = new Set<string>();
       let cardShown = false;
       // Picking a map point: plates let taps through to the map and no card is open.
-      const passive = mapPointPickArmed(state);
-      if (passive) openKey = undefined;
+      const picking = mapPointPickArmed(state);
+      if (picking) openKey = undefined;
       for (const hint of live ? state.relicMapHints.values() : []) {
         const plate = relicSitePlateFor(hint, state.tiles.get(`${hint.x},${hint.y}`), state.me, nameOf);
         if (!plate) continue;
@@ -164,7 +166,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
         if (!entry) {
           const el = doc.createElement("button");
           el.type = "button";
-          // The tap is the plate's: the fog tile under it does not start a scout plan.
+          // An edge tab's tap is its own: the fog tile under it does not start a scout plan.
           el.onpointerdown = (event) => event.stopPropagation();
           layer.append(el);
           entry = { el, html: "" };
@@ -181,6 +183,7 @@ export function createRelicSitePlates(canvas: HTMLCanvasElement, state: ClientSt
           const detail = el.querySelector(".relic-plate-detail") as HTMLElement;
           if (detail.textContent !== plate.detail) detail.textContent = plate.detail;
         }
+        const passive = relicPlatePassesTaps(Boolean(edge), picking);
         const className = `relic-plate is-${plate.kind === "WAKE" ? "wake" : "signal"}${edge ? ` is-edge${edge.x >= bounds.width / 2 ? " is-edge-right" : ""}` : ""}${openKey === plate.key ? " is-open" : ""}${passive ? " is-passive" : ""}`;
         if (el.className !== className) el.className = className;
         const label = `${plate.title}, ${plate.detail}, at ${plate.x}, ${plate.y}`;

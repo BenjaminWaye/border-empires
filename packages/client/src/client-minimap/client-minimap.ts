@@ -8,6 +8,7 @@ import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js"
 import { drawMiniMapTileLayer, drawWrappedWorldImage, miniMapBoxPoint, miniMapTileRect } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 import { resourceLensTileColor } from "../client-resource-lens/client-resource-lens.js";
+import { isMiniMapAlliedTile, miniMapTintsOwner } from "./client-minimap-known-territory.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
 
@@ -93,6 +94,8 @@ export const drawMiniMap = (options: {
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
   /** Terrain colour of a known tile; when given, fog is on and no replay runs, the content is drawn tile by tile (client-minimap-tile-layer.ts). */
   terrainColorAt?: (x: number, y: number, terrain: Tile["terrain"]) => string;
+  /** The viewer's allies: their known land is drawn in their colour even under fog. Include them in colorKey so a new ally repaints. */
+  alliedOwnerIds?: ReadonlySet<string>;
 }): boolean => {
   // Camera/zoom moves need an immediate redraw of the viewport indicator for input
   // responsiveness, but they must NOT force a recompute of the expensive content layer below —
@@ -172,7 +175,8 @@ export const drawMiniMap = (options: {
         overlayColor: options.effectiveOverlayColor,
         tileVisibilityStateAt: options.tileVisibilityStateAt,
         withAlpha: hexWithAlpha,
-        lensTileColor: (tile) => resourceLensTileColor(options.state, tile)
+        lensTileColor: (tile) => resourceLensTileColor(options.state, tile),
+        ...(options.alliedOwnerIds ? { alliedOwnerIds: options.alliedOwnerIds } : {})
       });
     } else {
       const prevSmoothing = cctx.imageSmoothingEnabled;
@@ -193,7 +197,7 @@ export const drawMiniMap = (options: {
         for (const tile of options.state.tiles.values()) {
           const lensColor = resourceLensTileColor(options.state, tile); // Resources lens: resource tiles only
           if (lensColor === null || (!lensColor && !tile.ownerId)) continue;
-          if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+          if (!effectiveFogDisabled(options.state) && (lensColor ? tile.fogged : !miniMapTintsOwner(tile, options.alliedOwnerIds))) continue;
           const at = miniMapBoxPoint(tile.x, tile.y, box);
           if (!at) continue;
           const r = miniMapTileRect(at.x, at.y, box, w, h);
@@ -222,7 +226,7 @@ export const drawMiniMap = (options: {
             const wx = unwrapIntoBox(Math.floor(box.x0 + (px / w) * box.w), 0, WORLD_WIDTH);
             const tile = options.state.tiles.get(options.keyFor(wx, wy));
             const vis = options.tileVisibilityStateAt(wx, wy, tile);
-            const cellVis = vis === "visible" ? undefined : vis;
+            const cellVis = vis === "visible" || isMiniMapAlliedTile(tile, options.alliedOwnerIds) ? undefined : vis;
             if (cellVis !== runVis) {
               flushRun(px);
               runVis = cellVis;
