@@ -13,6 +13,7 @@
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
@@ -75,6 +76,12 @@ const trackSheetTarget = (shown: boolean, deps: PreviewDeps, tile: Tile | undefi
   sheetTargetKey = shown && tile ? deps.keyFor(tile.x, tile.y) : undefined;
 };
 
+/** The sheet's only subtitle: "Starts war with House X" when the attack would start a war (client-attack-war-warning.ts). */
+const warSubtitle = (state: ClientState, ownerIds: ReadonlyArray<string | undefined>): { subtitle?: string } => {
+  const warning = attackWarWarning(state, ownerIds, Date.now());
+  return warning ? { subtitle: warning } : {};
+};
+
 /** Records the chosen commitment, or clears a stale one when the player stayed at the floor. */
 const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): void => {
   if (commitManpower > attackEffortFloorForTarget(tile, state)) setAttackCommit(state, tile.x, tile.y, commitManpower);
@@ -97,6 +104,7 @@ export const promptAttackEffortForTarget = (
   const winChanceAt = stickyCommitWinChance(state, tile, deps);
   const handle = showEffortConfirmSheet({
     title: options.title,
+    ...warSubtitle(state, [tile.ownerId]),
     floor,
     cap: Math.max(floor, state.manpowerCap),
     // Presets only: Normal / Extra / Double read at a glance; the cost and
@@ -179,6 +187,7 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
+    ...warSubtitle(state, eligible.map((tile) => tile.ownerId)),
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",

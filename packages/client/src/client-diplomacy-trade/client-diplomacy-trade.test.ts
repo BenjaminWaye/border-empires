@@ -348,6 +348,18 @@ describe("diplomacy trade screen", () => {
     expect(sendButton.textContent).toBe("Can offer again in 10m");
   });
 
+  it("lets a counter to their offer through your own re-offer cooldown (playtest run 5)", () => {
+    setDiplomacyOfferCooldowns([{ kind: "truce", targetPlayerId: "ai-1", until: Date.now() + 30 * 60_000 }]);
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen(
+      { targetName: "Milo", kind: "truce", durationHours: 12, counters: { kind: "truce", requestId: "req-1" } },
+      { send, ownHoldings: () => ({ gold: 100 }) }
+    );
+    receiveDiplomacyStance(aiReply);
+    const sendButton = document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-send]")!;
+    expect(sendButton.textContent).not.toContain("Can offer again");
+  });
+
   it("re-enables truce offers when the lockout expires with the sheet still open", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
