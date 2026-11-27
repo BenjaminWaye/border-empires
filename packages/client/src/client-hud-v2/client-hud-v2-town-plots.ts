@@ -98,7 +98,7 @@ export const townPlotsStatHtml = (plots: readonly TownPlot[] | undefined, fresh:
   // Pips grouped by state (built, in progress, open, to garrison), each group with its count beside the same
   // swatch, so the row reads as a tally. Ring order meant nothing on screen and the states were hard to tell apart.
   const groups = PLOT_ORDER.map((state) => ({ state, plots: plots.filter((p) => p.state === state) })).filter((g) => g.plots.length > 0);
-  const pips = groups.map((g) => `<span class="v2t-plot-group" title="${g.plots.length} ${PLOT_LEGEND[g.state]}">${g.plots.map((p) => `<span class="v2t-plot v2t-plot-${p.state}${fresh.has(p.key) ? " v2t-plot-new" : ""}" title="${PLOT_TITLES[p.state]}"></span>`).join("")}</span>`).join("");
+  const pips = groups.map((g) => `<span class="v2t-plot-group">${g.plots.map((p) => `<span class="v2t-plot v2t-plot-${p.state}${fresh.has(p.key) ? " v2t-plot-new" : ""}" title="${PLOT_TITLES[p.state]}"></span>`).join("")}</span>`).join("");
   const legend = groups.map((g) => `<span class="v2t-plot-key"><span class="v2t-plot v2t-plot-${g.state}" aria-hidden="true"></span>${g.plots.length} ${PLOT_LEGEND[g.state]}</span>`).join("");
   // "Full" only once nothing is left to garrison: with plots still to garrison it read as "can never build here".
   const value = open > 0 ? `${open} open` : locked > 0 ? "0 open" : plots.length > 0 ? "Full" : "None";

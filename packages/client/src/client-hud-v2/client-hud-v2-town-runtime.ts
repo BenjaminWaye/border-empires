@@ -142,6 +142,8 @@ export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus): void => {
   if (!current) return;
   selectTownFocus(deps, current.townKey, focus);
   renderTownScreen(deps);
+  // A preview (a tap, or keys 1–4 while the card is closed) must be visible; writeHtml keeps it open from here on.
+  document.querySelector<HTMLDetailsElement>("#v2t-left details.v2tf")?.setAttribute("open", "");
 };
 
 /** Confirm on the open town: switches to the previewed focus, which then locks until the next refill. */

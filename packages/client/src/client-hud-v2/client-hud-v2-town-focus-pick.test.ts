@@ -65,6 +65,4 @@ describe("town focus picks", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 1, y: 0 }], focus: "LEVY" });
     expect(state.tiles.get("2,0")?.ownerId).toBe("rival");
   });
-
-
 });

@@ -141,7 +141,7 @@ const summary = (card: TownFocusCard): string => {
   const active = card.options.find((o) => o.focus === card.active);
   const rule = card.unfed ? "Unfed: no Coin or growth" : active?.rule || "No change";
   const lock = card.lockedInMs > 0 ? `<span class="v2tf-current-lock" title="A town's focus can change once per refill">Locked · ${esc(until(card.lockedInMs))}</span>` : "";
-  return `<summary class="v2tf-top v2tf-f-${key(card.active)}" title="Show every focus and what it would change here">
+  return `<summary class="v2tf-top v2tf-f-${key(card.active)}" title="Show every focus and what it would change here. Keys 1–4 preview a focus; ← and → step to the next town">
       <span class="v2tf-h">Town focus</span>
       <span class="v2tf-current">${icon(card.active)}<span class="v2tf-current-name">${esc(active?.name ?? "")}</span></span>
       ${lock}<span class="v2tf-chev" aria-hidden="true"></span>
@@ -149,10 +149,10 @@ const summary = (card: TownFocusCard): string => {
     </summary>`;
 };
 
-/** Collapsed by default; a pending preview (a key press or a pick waiting on Confirm) keeps it open. */
+/** Collapsed by default; the town screen opens it when a focus is previewed (openTownFocusCard), and the player can close it again. */
 export const townFocusCardHtml = (card: TownFocusCard | undefined, extras: TownFocusCardExtras = {}): string => {
   if (!card) return "";
-  return `<details class="v2tf" data-v2-open="town-focus"${previewed(card, extras) ? " open" : ""} role="group" aria-label="Town focus">
+  return `<details class="v2tf" data-v2-open="town-focus" role="group" aria-label="Town focus">
       ${summary(card)}
       <div class="v2tf-clock-row"><span class="v2tf-clock" title="Manpower each focus earns banks from the moment it starts and is paid at each refill.">Next refill <b>${esc(until(card.nextRefillInMs))}</b>${phoneEmpire(card, extras)}</span></div>
       <div class="v2tf-opts">${card.options.map((option) => optionButton(option, card, extras)).join("")}</div>

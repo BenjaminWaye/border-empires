@@ -56,8 +56,8 @@ describe("Town focus card (town screen)", () => {
     expect(summary).not.toContain("v2tf-opt");
   });
 
-  it("opens itself while a picked focus waits on Confirm, so a key-press preview is never hidden", () => {
-    expect(townFocusCardHtml(card(), { selected: "LEVY" })).toMatch(/^<details class="v2tf" data-v2-open="town-focus" open/);
+  it("never forces itself open from markup, so the player can close it while a preview waits", () => {
+    expect(townFocusCardHtml(card(), { selected: "LEVY" })).toMatch(/^<details class="v2tf" data-v2-open="town-focus" role="group"/);
   });
 });
 
