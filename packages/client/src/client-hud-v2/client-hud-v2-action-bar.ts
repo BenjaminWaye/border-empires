@@ -211,7 +211,7 @@ const factsHtml = (facts: readonly TileFact[]): string =>
 
 /** The status explainer on its own: tapping the status chip shows only this, not the whole Details list. */
 const statusHelpHtml = (view: Pick<TileMenuView, "statusText" | "statusHelpText">): string =>
-  `<div class="hud-v2-pop hud-v2-details hud-v2-status-help" role="region" aria-label="Status"><div class="hud-v2-detail-line tile-overview-line"><strong>${esc(plainText(view.statusText ?? ""))}:</strong> ${esc(view.statusHelpText ?? "")}</div></div>`;
+  `<div class="hud-v2-pop hud-v2-details hud-v2-status-help" role="region" aria-label="Status"><div class="hud-v2-detail-line tile-overview-line"><strong>${esc(view.statusText ?? "")}:</strong> ${esc(view.statusHelpText ?? "")}</div></div>`;
 
 /** ownerTagHtml: trusted markup shown before the owner's name (the stance tag). */
 export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = [], ownerTagHtml = ""): string => {
