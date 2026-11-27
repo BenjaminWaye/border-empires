@@ -12,6 +12,7 @@ import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
 
+import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
   { ...DEPLOY_COUNTDOWN_ENTRY, createdAt: 1795627725789, },
@@ -27,4 +28,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
+  { ...MOTHERSHIP_AI_ENTRY, createdAt: 1795769269985, },
 ];
