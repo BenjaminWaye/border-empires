@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
@@ -22,6 +23,8 @@ import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
+  // Out of time order on purpose: kept off the end of the list, where every new entry is appended.
+  { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795777142349, },
   { ...DEPLOY_COUNTDOWN_ENTRY, createdAt: 1795627725789, },
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
   { ...UI_TYPE_CONSISTENCY_ENTRY, createdAt: 1795637381397, },
@@ -42,5 +45,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
-  { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795777142349, },
+  { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
 ];

@@ -4,7 +4,9 @@
 .v2t-left, .v2t-right, .v2t-bar, .v2t-place {
   background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }
-.v2t-left { position: fixed; left: 16px; top: 74px; bottom: 16px; width: 360px; display: flex; flex-direction: column; border-top: 3px solid #3fb0a6; }
+/* The whole panel scrolls: a big town (focus card open, many bonuses) is taller than a laptop screen. */
+.v2t-left { position: fixed; left: 16px; top: 74px; bottom: 16px; width: 360px; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; border-top: 3px solid #3fb0a6; }
+.v2t-left > * { flex-shrink: 0; }
 .v2t-name-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 6px; }
 .v2t-step { width: 36px; height: 36px; background: var(--v2-well); border: 1px solid var(--v2-line); color: var(--v2-gold); font-size: 16px; }
 .v2t-name { display: grid; justify-items: center; min-width: 0; }
@@ -24,14 +26,14 @@
 .v2t-gold { color: var(--v2-gold-hi); }
 .v2t-warn { color: var(--v2-amber); }
 .v2t-h { padding: 14px 18px 6px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
-.v2t-built-list { flex: 1; min-height: 0; overflow-y: auto; }
+.v2t-built-list { flex: none; }
 .v2t-built { display: flex; gap: 10px; padding: 6px 18px; font-size: 14px; }
 .v2t-built > span:last-child { display: grid; gap: 2px; }
 .v2t-built-ico { flex: none; width: 26px; height: 26px; background: repeating-linear-gradient(45deg, #2a2216 0 4px, #1d1913 4px 8px); border: 1px solid var(--v2-line); }
 .v2t-built-mods { font-size: 12px; color: var(--v2-muted); }
 .v2t-mod-positive { color: var(--v2-green); }
 .v2t-mod-negative { color: var(--v2-red-hi); }
-.v2t-grow-wrap { margin-top: auto; display: grid; gap: 6px; padding: 14px 18px 18px; border-top: 1px solid var(--v2-line); }
+.v2t-grow-wrap { position: sticky; bottom: 0; margin-top: auto; background: rgba(15, 13, 10, 0.98); display: grid; gap: 6px; padding: 14px 18px 18px; border-top: 1px solid var(--v2-line); }
 .v2t-grow-wrap:empty { display: none; }
 .v2t-grow { height: 50px; font-size: 15px; }
 .v2t-grow-cost, .v2t-grow-why { font-size: 13px; color: var(--v2-muted); text-align: center; }
@@ -186,12 +188,17 @@
 .v2t-place-docked .v2t-build-all { flex-basis: 100%; }
 
 /* Build plots card: one pip per support plot (client-hud-v2-town-plots.ts). */
-.v2t-plot-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 0 1px; }
-.v2t-plot { width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; }
+/* Pips come grouped by state; a wider gap between groups, and a legend with the same swatches, makes it a tally. */
+.v2t-plot-row { display: flex; flex-wrap: wrap; gap: 4px 9px; padding: 4px 0 2px; }
+.v2t-plot-group { display: flex; flex-wrap: wrap; gap: 3px; }
+.v2t-plot { flex: none; width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; }
 .v2t-plot-built { background: var(--v2-gold); }
-.v2t-plot-building { background: transparent; border: 2px solid var(--v2-gold); }
-.v2t-plot-open { background: transparent; border: 2px solid var(--v2-green-hi); }
-.v2t-plot-locked { background: var(--v2-line); opacity: 0.6; }
+.v2t-plot-building { background: repeating-linear-gradient(135deg, var(--v2-gold) 0 2px, transparent 2px 4px); border: 1px solid var(--v2-gold); }
+.v2t-plot-open { background: color-mix(in srgb, var(--v2-green-hi) 22%, transparent); border: 2px solid var(--v2-green-hi); }
+.v2t-plot-locked { background: transparent; border: 1px dashed var(--v2-muted); }
+.v2t-plot-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.v2t-plot-key { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.v2t-plot-key .v2t-plot { width: 8px; height: 8px; }
 /* Steady highlights, not animations: the town screen repaints as its numbers tick, which would restart them. */
 .v2t-plot-new { box-shadow: 0 0 0 2px var(--v2-gold-hi), 0 0 8px var(--v2-gold-hi); }
 .v2t-plots.v2t-plots-changed { box-shadow: inset 3px 0 0 var(--v2-gold-hi); background: color-mix(in srgb, var(--v2-gold) 14%, var(--v2-well)); }
