@@ -62,7 +62,7 @@ describe("drawPlanetaryDefenseOverlay (2D fallback)", () => {
   });
 
   it("draws no insignia on tiny tiles or when the ownership state is unknown", () => {
-    for (const [tile, size] of [[campLand, 6], [{ ...campLand, ownershipState: undefined } as Tile, 64]] as const) {
+    for (const [tile, size] of [[campLand, 6], [(({ ownershipState: _omit, ...rest }) => rest as Tile)(campLand), 64]] as const) {
       const { ctx, fills } = recordingCtx();
       drawPlanetaryDefenseOverlay(ctx, tile, 0, 0, size, 3, 4, 1000);
       expect(fills).toHaveLength(0);
