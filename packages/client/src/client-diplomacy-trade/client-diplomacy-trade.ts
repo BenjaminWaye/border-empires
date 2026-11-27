@@ -121,8 +121,9 @@ const ensureStyles = (): void => {
   document.head.appendChild(style);
 };
 
+// A counter answers their live offer: the gateway waives your own re-offer cooldown for it (diplomacy-counter-offer.ts).
 const cooldownRemainingMs = (screen: OpenScreen): number => {
-  if (!screen.reply?.found) return 0;
+  if (!screen.reply?.found || screen.counters) return 0;
   const targetId = screen.reply.targetPlayerId;
   const entry = offerCooldowns.find((cooldown) => cooldown.kind === screen.selection.kind && cooldown.targetPlayerId === targetId);
   return entry ? Math.max(0, entry.until - Date.now()) : 0;
