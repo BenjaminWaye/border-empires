@@ -1046,7 +1046,7 @@ export class SimulationRuntime {
   }
 
   /** Offline-gold estimate for the welcome-back toast — see welcomeBackSummaryForPlayer. */
-  welcomeBackSummary(playerId: string, nowMs: number, goldPerMinuteOverride?: number): { goldEarned: number; elapsedMs: number } {
+  welcomeBackSummary(playerId: string, nowMs: number, goldPerMinuteOverride?: number): ReturnType<typeof welcomeBackSummaryForPlayer> {
     return welcomeBackSummaryForPlayer(this.passiveIncomeContext(), playerId, nowMs, goldPerMinuteOverride);
   }
 
