@@ -17,7 +17,7 @@ describe("empireFellMessage", () => {
   });
 
   it("names barbarians without a player name", () => {
-    expect(empireFellMessage(notice({ fellToPlayerId: "barbarian-1" }), nameOf)).toBe("Your empire fell to the barbarians. You've been given a new start at (12, 34).");
+    expect(empireFellMessage(notice({ fellToPlayerId: "barbarian-1" }), nameOf)).toBe("Your empire fell to the Insurgents. You've been given a new start at (12, 34).");
   });
 
   it("drops the captor when it is unknown or unnamed", () => {

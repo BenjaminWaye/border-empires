@@ -36,7 +36,7 @@ describe("handlePlayerRespawned", () => {
   it("names barbarians and sends no email for a recovery respawn", () => {
     const d = deps();
     handlePlayerRespawned("p1", { reason: "eliminated", x: 1, y: 2, fellToPlayerId: "barbarian-1" }, d);
-    expect(d.sendEmpireFellAlert).toHaveBeenCalledWith(expect.objectContaining({ captorName: "the barbarians" }));
+    expect(d.sendEmpireFellAlert).toHaveBeenCalledWith(expect.objectContaining({ captorName: "the Insurgents" }));
     handlePlayerRespawned("p1", { reason: "auth_recovery", x: 1, y: 2 }, d);
     expect(d.sendEmpireFellAlert).toHaveBeenCalledTimes(1);
     expect(d.alertPlayerRespawned).toHaveBeenLastCalledWith("p1", "auth_recovery");

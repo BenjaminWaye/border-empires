@@ -155,7 +155,7 @@ export const scoutFindingParts = (findings: ScoutReportFindings, nameOf: (player
   } else if (findings.resourceTiles > 0) {
     add(plural(findings.resourceTiles, "resource tile"), sites ? Object.values(sites.resources).flat() : undefined);
   }
-  if (findings.planetaryDefenseTiles > 0) add(`Planetary Defense (${plural(findings.planetaryDefenseTiles, "tile")})`, sites?.planetaryDefense);
+  if (findings.planetaryDefenseTiles > 0) add(`Insurgents (${plural(findings.planetaryDefenseTiles, "tile")})`, sites?.planetaryDefense);
   findings.empiresSighted.forEach((id, index) => {
     const name = nameOf(id);
     add(index === 0 ? `the borders of ${name}` : name, sites?.empires[id]);
@@ -163,7 +163,7 @@ export const scoutFindingParts = (findings: ScoutReportFindings, nameOf: (player
   return parts;
 };
 
-/** The findings as a short list, e.g. "1 town, 2 waystations, Planetary Defense (6 tiles)". Empty when nothing was found. */
+/** The findings as a short list, e.g. "1 town, 2 waystations, Insurgents (6 tiles)". Empty when nothing was found. */
 export const scoutFindingsText = (findings: ScoutReportFindings, nameOf: (playerId: string) => string): string =>
   scoutFindingParts(findings, nameOf).map((part) => part.text).join(", ");
 

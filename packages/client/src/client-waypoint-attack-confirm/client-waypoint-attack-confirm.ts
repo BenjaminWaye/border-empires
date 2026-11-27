@@ -8,13 +8,13 @@ import type { ClientState } from "../client-state/client-state.js";
 
 type NameState = Pick<ClientState, "tiles" | "me" | "meName" | "playerNames" | "leaderboard">;
 
-/** Who the route attacks, each named once, in route order: "barbarians" or the empire's name. */
+/** Who the route attacks, each named once, in route order: "Insurgents" or the empire's name. */
 export const waypointAttackedOwners = (plan: WaypointPlan, state: NameState, keyFor: (x: number, y: number) => string): string[] => {
   const names: string[] = [];
   for (const step of plan.steps) {
     if (step.action !== "ATTACK") continue;
     const ownerId = state.tiles.get(keyFor(step.target.x, step.target.y))?.ownerId;
-    const name = ownerId?.startsWith("barbarian-") ? "barbarians" : playerDisplayNameForOwnerFromState(state, ownerId) ?? "another empire";
+    const name = ownerId?.startsWith("barbarian-") ? "Insurgents" : playerDisplayNameForOwnerFromState(state, ownerId) ?? "another empire";
     if (!names.includes(name)) names.push(name);
   }
   return names;

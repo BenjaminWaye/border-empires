@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HouseChargeView } from "@border-empires/shared";
 import { renderHouseChargesPanel } from "./client-house-charges-panel.js";
 import { houseChargesProfileSectionHtml } from "./client-house-charges-profile.js";
-import { MANAGE_CHARGES_CALLOUT_MS, resetHouseChargesProfileTipForTests } from "./client-house-charges-profile-tip.js";
+import { MANAGE_CHARGES_CALLOUT_MS, resetHouseChargesProfileTipForTests, scrollManageChargesIntoView } from "./client-house-charges-profile-tip.js";
 
 // happy-dom makes import.meta.url non-file; tests run from packages/client.
 const source = (name: string): string =>
@@ -145,5 +145,24 @@ describe("House Charges card shape", () => {
     expect(motion).toMatch(/charges-panel-active \.hcd-card \.hc-text \{[^}]*overflow-y: auto/);
     // Review of #2922: a fixed shape alone pushed card bottoms below the fold on a short laptop screen.
     expect(motion).toMatch(/charges-panel-active \.hcd-card\.hc-card \{[^}]*max-height: max\(320px, calc\(100dvh - 270px\)\)/);
+  });
+});
+
+describe("Manage charges scroll retry", () => {
+  // CI regression (2026-11-27): the "Show me" retry timer outlived its test and threw "window is not defined"
+  // after teardown. A test reset, or a newer call, now cancels the pending retry.
+  it("stops retrying once reset", () => {
+    vi.useFakeTimers();
+    try {
+      const root = document.createElement("div");
+      const look = vi.spyOn(root, "querySelector");
+      scrollManageChargesIntoView(root);
+      expect(look).toHaveBeenCalledTimes(1);
+      resetHouseChargesProfileTipForTests();
+      vi.advanceTimersByTime(5_000);
+      expect(look).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
