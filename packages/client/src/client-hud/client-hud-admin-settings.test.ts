@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { settingsAdminPageHtml, settingsHubHtml } from "./client-hud-settings-panel.js";
 
-const hubState = { meName: "Ada", authUserLabel: "ada", authReady: true, authSessionReady: true, mapRevealEligible: false };
+const hubState = { meName: "Ada", authUserLabel: "ada", authReady: true, authSessionReady: true, mapRevealEligible: false, authIsGuest: false };
 const adminCardState = { authSessionReady: true, mapRevealEnabled: false, fogDisabled: false };
 
 describe("Settings > Admin", () => {

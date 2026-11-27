@@ -196,7 +196,7 @@ const openRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void =
   void mint();
 };
 
-// Delegated so it also catches the "Get Rally Link" settings-panel button:
+// Delegated so it also catches the "Invite friends" settings-hub button:
 // that button opens the panel in place (no navigation), which keeps the
 // already-signed-in Firebase session intact instead of racing a page reload.
 export const bindRallyLinkOpenClicks = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
