@@ -8,12 +8,13 @@ import type { HouseChargeView } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { correctionAfcsInView } from "./client-house-charges-correction-afcs.js";
 import { metropolisHighlight } from "./client-house-charges-landmass.js";
+import { regionChargeTileKeys } from "./client-house-charges-garrison-many.js";
 
 export type ChargeMapPoint = { x: number; y: number };
 /** `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning). */
 export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true };
 
-type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision">>;
+type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision" | "garrisonMany">>;
 
 /**
  * Upper bound on shaded tiles, shared with the true-3D overlay's instance buffers. A Survey landmass
@@ -90,14 +91,29 @@ export const houseChargeTintTiles = (state: ChargeMapState): ChargeTintTile[] =>
     }
     return tint;
   }
-  if (!charge?.areaTileKeys) return [];
+  if (charge) return charge.areaTileKeys ? tintForArea(state, charge.areaTileKeys) : [];
+  // Garrison Many with no charge focused shades every kept region charge, so the player sees which tiles count.
+  return state.garrisonMany?.active ? garrisonManyTint(state) : [];
+};
+
+const tintForArea = (state: ChargeMapState, areaKeys: Iterable<string>): ChargeTintTile[] => {
   const tiles: ChargeTintTile[] = [];
-  for (const key of charge.areaTileKeys) {
+  for (const key of areaKeys) {
     if (tiles.length >= MAX_TINT_TILES) break;
     const tile = state.tiles.get(key);
     if (!tile || tile.terrain !== "LAND") continue;
     tiles.push({ x: tile.x, y: tile.y, garrisoned: tile.ownerId === state.me && tile.ownershipState === "SETTLED" });
   }
+  return tiles;
+};
+
+// Drawn every frame while Garrison Many is open: reuse the list (and so its cached outline) until tiles or charges change.
+let garrisonManyTintCache: { charges: ChargeMapState["houseCharges"]; revision: number; me: string; tiles: ChargeTintTile[] } | undefined;
+const garrisonManyTint = (state: ChargeMapState): ChargeTintTile[] => {
+  const cached = garrisonManyTintCache;
+  if (cached && state.tilesRevision !== undefined && cached.charges === state.houseCharges && cached.revision === state.tilesRevision && cached.me === state.me) return cached.tiles;
+  const tiles = tintForArea(state, regionChargeTileKeys(state));
+  garrisonManyTintCache = state.tilesRevision === undefined ? undefined : { charges: state.houseCharges, revision: state.tilesRevision, me: state.me, tiles };
   return tiles;
 };
 

@@ -35,6 +35,7 @@ import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { setOnboardingRelayBeaconSite } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
+import { syncGuideCardAlertYield } from "./tutorial-guide-alert-yield.js";
 
 type StepView = Extract<GuideView, { kind: "step" }>;
 
@@ -265,6 +266,7 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
 /** Every frame, after renderTutorialGuide: moves the card off the step's ringed tiles and off notifications (tutorial-guide-placement.ts). */
 export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefined, nowMs: number): void => {
   if (!lastView) return;
+  syncGuideCardAlertYield();
   syncGuideCardPlacement(lastView.highlightTiles, project, nowMs);
 };
 

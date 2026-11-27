@@ -1,0 +1,10 @@
+/* The slow-3D prompt (client-renderer-prompt-layer.ts): a centred modal above the HUD and the guide card, below
+   the Report Bug dialog (z-index 9000) the prompt can open. */
+#renderer-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  place-items: center;
+  padding: 20px;
+  z-index: 8000;
+  color: #e9f2ff; /* what it inherited inside #hud */
+}
