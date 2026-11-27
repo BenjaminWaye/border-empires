@@ -23,6 +23,7 @@ export * from "../structure-modifier-catalog/structure-modifier-catalog.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
 export * from "../victory-resource-tally.js";
+export * from "../leaderboard-score/leaderboard-score.js";
 
 import {
   ATTACK_MANPOWER_COST,
