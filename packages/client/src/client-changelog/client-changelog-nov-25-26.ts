@@ -22,9 +22,11 @@ import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border
 import { BATTLE_WARNINGS_ENTRY } from "./client-changelog-battle-warnings.js";
 import { PUBLIC_HOUSE_SHARE_STATE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
+import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garrison.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
+import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -54,8 +56,10 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...ACCOUNT_TEXT_FIXES_ENTRY, createdAt: 1795765537068, },
   { ...HOUSE_CRESTS_ENTRY, createdAt: 1795769381841, },
+  { ...SIEGE_ODDS_ENTRY, createdAt: 1795769624813, },
   { ...BATTLE_WARNINGS_ENTRY, createdAt: 1795769680653, },
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
   { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
+  { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
 ];

@@ -1,5 +1,6 @@
 import { activeRelicTiles, fieldGeneratorForTarget, type RelicReadContext } from "../runtime-relics.js";
 import { fortWardIsReady } from "./afc-battle-effects.js";
+import { targetTownBesiegedFor } from "../runtime-combat-target-fort/runtime-combat-target-fort.js";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { AfcCombatFacts } from "@border-empires/sim-protocol";
@@ -28,5 +29,6 @@ export function buildPlayerCombatSummary(context: CombatSummaryContext, playerId
     relicCombatFacts: { attackMultiplier: activeRelicTiles(context, playerId, "WARPRESS").length ? 1.5 : 1,
       defenseMultiplier: tile && fieldGeneratorForTarget(context, playerId, tile) ? 1.5 : 1,
       dockAttackMultiplier: player.wonderDockAttackMultiplier ?? 1 },
-    afcCombatFacts: { ...afcPlayerCombatFacts(player, context), ...(key ? { targetFortWardReady: Boolean(tile?.ownerId === playerId && !context.isFortDormant(playerId, key) && fortWardIsReady(context.players, tile, context.now())) } : {}) } };
+    afcCombatFacts: { ...afcPlayerCombatFacts(player, context), ...(key ? { targetFortWardReady: Boolean(tile?.ownerId === playerId && !context.isFortDormant(playerId, key) && fortWardIsReady(context.players, tile, context.now())),
+      targetTownBesieged: targetTownBesiegedFor(context, tile, playerId) } : {}) } };
 }

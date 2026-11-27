@@ -8,6 +8,7 @@ export type TileActionDef = {
     | import("./client-refineries/refinery-action-ids.js").RefineryPickerActionId
     | "settle_land"
     | "settle_many"
+    | "garrison_town_plots"
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"
