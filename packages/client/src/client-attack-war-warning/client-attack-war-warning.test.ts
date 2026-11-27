@@ -57,7 +57,7 @@ describe("Launch Attack confirm", () => {
   };
 
   it("warns when the attack starts a war", () => {
-    expect(launch("ai-ash")).toMatch(/^Starts war with House Ashhaven · Garrisoned tile/);
+    expect(launch("ai-ash")).toBe("Starts war with House Ashhaven");
   });
 
   it("doesn't when you are already at war", () => {
