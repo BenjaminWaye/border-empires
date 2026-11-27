@@ -6,6 +6,7 @@ import { createAfcMapOverlays } from "../client-afc-upgrades/client-afc-map-over
 import type { ClientState } from "../client-state/client-state.js";
 import { createSalvageReadyToasts } from "../client-salvage-tribute/client-salvage-ready-toasts.js";
 import { createTownNameplates } from "../client-town-nameplates/client-town-nameplates.js";
+import { townHasPlotsToGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
 import { createMapTipPins } from "../client-map-tip-pins/client-map-tip-pins.js";
@@ -21,7 +22,7 @@ type MapOverlayProjection = Parameters<AfcMapOverlays["render"]>[1];
 export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void, relicActions: RelicSiteActions): {
   render: (tiles: MapOverlayTiles, projection: MapOverlayProjection) => void;
 } {
-  const townNameplates = createTownNameplates(canvas, state);
+  const townNameplates = createTownNameplates(canvas, state, () => townHasPlotsToGarrison(state));
   const afcMapOverlays = createAfcMapOverlays(canvas, state, openAfcUpgrades);
   const salvageToasts = createSalvageReadyToasts(canvas, state);
   const waystationToasts = createWaystationReadyToasts(canvas, state);
