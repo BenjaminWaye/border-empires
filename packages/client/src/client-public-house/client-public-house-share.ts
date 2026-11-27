@@ -7,67 +7,22 @@ import { Capacitor } from "@capacitor/core";
 
 import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import {
+  publicProfileSharePending,
+  publicProfileShareView,
+  rememberPublicProfileShareState,
+  setPublicProfileSharePending,
+  showPublicProfileShareNote,
+  type PublicProfileShareDeps,
+  type PublicProfileShareView
+} from "./client-public-house-share-state.js";
 
-export type PublicProfileShareDeps = {
-  wsUrl: string;
-  getIdToken: () => Promise<string | undefined>;
-  /** Who is signed in; the cached sharing state belongs to one account. */
-  accountKey?: () => string | undefined;
-  fetchImpl?: typeof fetch;
-};
+export type { PublicProfileShareDeps } from "./client-public-house-share-state.js";
 
-/** Whether this account has a live public link; "unknown" until the gateway answers. */
-export type PublicProfileShareState = "unknown" | "on" | "off";
-
-let knownShareState: { account: string; state: "on" | "off" } | undefined;
-let shareStateRequest: Promise<void> | undefined;
-let shareStateFailedAt = 0;
 let installedDeps: PublicProfileShareDeps | undefined;
-const SHARE_STATE_RETRY_MS = 30_000;
 
-const accountOf = (deps: PublicProfileShareDeps): string => deps.accountKey?.() ?? "";
-const rememberShareState = (deps: PublicProfileShareDeps, state: "on" | "off"): void => {
-  knownShareState = { account: accountOf(deps), state };
-};
-
-/** GET /hq/public-profile/link: whether the caller already has a link. undefined when it can't tell. */
-export const requestPublicProfileShareState = async (deps: PublicProfileShareDeps): Promise<"on" | "off" | undefined> => {
-  const fetchImpl = deps.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
-  try {
-    const token = await deps.getIdToken();
-    if (!token) return undefined;
-    const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "GET", headers: { authorization: `Bearer ${token}` } });
-    const body = (await response.json().catch(() => undefined)) as { ok?: unknown; publicId?: unknown } | undefined;
-    if (body?.ok !== true) return undefined;
-    return typeof body.publicId === "string" ? "on" : "off";
-  } catch {
-    return undefined;
-  }
-};
-
-/** Read on every profile render: answers from cache and asks the gateway (once at a time) when the account's state is not known yet. */
-export const publicProfileShareState = (deps: PublicProfileShareDeps | undefined = installedDeps, nowMs = Date.now()): PublicProfileShareState => {
-  if (!deps) return "unknown";
-  const account = accountOf(deps);
-  if (knownShareState?.account === account) return knownShareState.state;
-  if (!shareStateRequest && nowMs - shareStateFailedAt >= SHARE_STATE_RETRY_MS) {
-    shareStateRequest = requestPublicProfileShareState(deps)
-      .then((state) => {
-        if (state) knownShareState = { account, state };
-        else shareStateFailedAt = Date.now();
-      })
-      .finally(() => { shareStateRequest = undefined; });
-  }
-  return "unknown";
-};
-
-/** Tests only. */
-export const resetPublicProfileShareState = (): void => {
-  knownShareState = undefined;
-  shareStateRequest = undefined;
-  shareStateFailedAt = 0;
-  installedDeps = undefined;
-};
+/** Your own profile's sharing buttons, for the HUD render. */
+export const ownPublicProfileShareView = (nowMs = Date.now()): PublicProfileShareView => publicProfileShareView(installedDeps, nowMs);
 
 export type PublicProfileLinkResult = { ok: true; publicId: string } | { ok: false; error: "signed_out" | "account_required" | "unavailable" };
 
@@ -106,7 +61,7 @@ type ShareNavigator = { share?: (data: { title: string; url: string }) => Promis
 export const sharePublicProfile = async (deps: PublicProfileShareDeps, nav: ShareNavigator = navigator): Promise<string> => {
   const link = await requestPublicProfileLink(deps);
   if (!link.ok) return publicProfileShareFailureLabel(link.error);
-  rememberShareState(deps, "on");
+  rememberPublicProfileShareState(deps, "on");
   const url = publicHouseUrl(link.publicId);
   if (nav.share) {
     try {
@@ -138,32 +93,29 @@ export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Pr
     const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
     const body = (await response.json().catch(() => undefined)) as { ok?: unknown } | undefined;
     if (body?.ok !== true) return "Couldn't stop sharing. Try again";
-    rememberShareState(deps, "off");
+    rememberPublicProfileShareState(deps, "off");
     return "Sharing stopped";
   } catch {
     return "Couldn't stop sharing. Try again";
   }
 };
 
-/** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. */
+/** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. Progress and outcome go through the share state, which the render reads. */
 export const installPublicProfileShare = (deps: PublicProfileShareDeps): void => {
   installedDeps = deps;
   if (typeof document === "undefined") return;
-  let busy = false;
-  const run = (selector: string, pending: string, failed: string, action: () => Promise<string>): void => {
-    busy = true;
-    const label = (text: string): void => {
-      // The profile may have been re-rendered meanwhile; label whichever button is on screen.
-      const current = document.querySelector<HTMLButtonElement>(selector);
-      if (current) current.textContent = text;
-    };
-    label(pending);
-    void action().then(label, () => label(failed)).finally(() => { busy = false; });
+  const run = (kind: "share" | "stop", failed: string, action: () => Promise<string>): void => {
+    setPublicProfileSharePending(kind);
+    showPublicProfileShareNote(undefined);
+    void action()
+      .then((label) => showPublicProfileShareNote(label === PUBLIC_PROFILE_SHARE_LABEL ? undefined : label), () => showPublicProfileShareNote(failed))
+      .finally(() => setPublicProfileSharePending(undefined));
   };
   document.addEventListener("click", (event) => {
-    if (busy || !(event.target instanceof Element)) return;
-    if (event.target.closest("[data-v2-profile-save-to-share]")) { openGuestSavePanel("badge"); return; }
-    if (event.target.closest("[data-v2-profile-share]")) run("[data-v2-profile-share]", "Making link…", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
-    else if (event.target.closest("[data-v2-profile-unshare]")) run("[data-v2-profile-unshare]", "Stopping…", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("[data-v2-profile-save-to-share]")) { openGuestSavePanel("share"); return; }
+    if (publicProfileSharePending()) return;
+    if (event.target.closest("[data-v2-profile-share]")) run("share", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
+    else if (event.target.closest("[data-v2-profile-unshare]")) run("stop", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
   });
 };
