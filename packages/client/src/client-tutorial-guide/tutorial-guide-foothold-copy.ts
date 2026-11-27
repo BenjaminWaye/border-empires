@@ -49,17 +49,34 @@ const DOCK_SEARCH_STEP: Partial<Record<GuideTargetAction, { title: string; why: 
   scouting: { title: "Your drone is flying: wait for its report", why: "Look for a dock in what it finds. It's how your troops cross the water." }
 };
 
-/** The dock-search copy, while the nearest town is too far for one drone leg and no town can be taken. */
-const dockSearch = (input: GuideInput): { title: string; why: string } | undefined => {
+// The dock lead (tutorial-guide-dock-lead.ts) while its tile is unexplored: marked like the town lead,
+// and here the guide does say what is there, so the player knows what they're looking for.
+const DOCK_LEAD_EXPLORE = { title: "Find a dock: tap the mark, then Explore", why: "Towns lie across the sea. A dock is how your troops cross." };
+
+type DockStep = { title: string; why: string; highlight?: ReadonlyArray<{ x: number; y: number }> };
+
+const noTownToTake = (input: GuideInput): boolean => {
   const town = input.footholdTargets.town;
-  if (!input.townLeadFar || town.pending.length + town.garrison.length + town.expand.length > 0) return undefined;
-  return DOCK_SEARCH_STEP[townAction(input)];
+  return town.pending.length + town.garrison.length + town.expand.length === 0;
 };
 
-/** The island's dock, while the player is on a fully seen island and no town on it can be taken. */
-export const islandDockLead = (input: GuideInput): GuideIslandDock | undefined => {
-  const town = input.footholdTargets.town;
-  return town.pending.length + town.garrison.length + town.expand.length === 0 ? input.islandDock : undefined;
+/** The island's dock, while the player is on an island and no town on it can be taken. */
+export const islandDockLead = (input: GuideInput): GuideIslandDock | undefined => (noTownToTake(input) ? input.islandDock : undefined);
+
+/**
+ * The town step's dock ask, when the player is probably on an island and no town can be taken: the dock
+ * on their land, else the dock lead, else a nearby Explore to look for one. `highlight` unset: the
+ * step's usual Explore highlight.
+ */
+const dockStep = (input: GuideInput): DockStep | undefined => {
+  const dock = islandDockLead(input);
+  if (dock) return { ...ISLAND_DOCK_STEP[dock.action], highlight: [{ x: dock.x, y: dock.y }] };
+  if (!input.townLeadFar || !noTownToTake(input)) return undefined;
+  const lead = input.dockLead;
+  if (lead && !lead.unexplored) return { ...ISLAND_DOCK_STEP.expand, highlight: [{ x: lead.x, y: lead.y }] };
+  if (lead && input.scout === "ready") return { ...DOCK_LEAD_EXPLORE, highlight: [{ x: lead.x, y: lead.y }] };
+  if (lead && input.scout === "out") return { ...DOCK_SEARCH_STEP.scouting!, highlight: [] };
+  return DOCK_SEARCH_STEP[townAction(input)];
 };
 
 /** The town and food steps ask for Explore only for the first few flights: past that, a target the drone can't reach would loop, so they fall back to a beacon. */
@@ -101,8 +118,8 @@ export const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist
 export const targetHighlights =
   (kind: "town" | "food") =>
   (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
-    const dock = kind === "town" ? islandDockLead(input) : undefined;
-    if (dock) return [{ x: dock.x, y: dock.y }];
+    const dock = kind === "town" ? dockStep(input)?.highlight : undefined;
+    if (dock) return dock;
     const action = kind === "town" ? townAction(input) : foodAction(input);
     if (kind === "town" && action === "explore" && followsTownLead(input) && input.townLead) return leadNeedsCharges(input) > 0 ? [] : [input.townLead];
     if (action === "explore") return exploreHighlight(input);
@@ -121,7 +138,7 @@ export const targetHighlights =
 export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
   if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
   const footholdBeacon =
-    ((stepId === "foothold-take-town" || (stepId === "build-first" && needsTownForBuild(input))) && !islandDockLead(input) && townAction(input) === "beacon") ||
+    ((stepId === "foothold-take-town" || (stepId === "build-first" && needsTownForBuild(input))) && !dockStep(input)?.highlight && townAction(input) === "beacon") ||
     ((stepId === "foothold-take-food" || stepId === "build-food-slot") && foodAction(input) === "beacon");
   return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
 };
@@ -151,20 +168,16 @@ const TOWN_LEAD_EXPLORE = {
 };
 
 export const townWhy = (input: GuideInput): string => {
-  const dock = islandDockLead(input);
-  if (dock) return ISLAND_DOCK_STEP[dock.action].why;
-  const search = dockSearch(input);
-  if (search) return search.why;
+  const dock = dockStep(input);
+  if (dock) return dock.why;
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).why;
   return followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
 };
 
 export const townTitle = (input: GuideInput): string => {
-  const dock = islandDockLead(input);
-  if (dock) return ISLAND_DOCK_STEP[dock.action].title;
-  const search = dockSearch(input);
-  if (search) return search.title;
+  const dock = dockStep(input);
+  if (dock) return dock.title;
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).title;
   if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;

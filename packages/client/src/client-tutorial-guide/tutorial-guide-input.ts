@@ -19,6 +19,7 @@ import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
 import { guideLandDock, type GuideLandDock } from "./tutorial-guide-island-dock.js";
+import { guideDockLead, type GuideDockLead } from "./tutorial-guide-dock-lead.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
@@ -192,6 +193,8 @@ let cached:
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
       landDock: GuideLandDock | undefined;
+      /** Filled on first use: only a town lead too far for one drone leg, with no dock on the player's land, asks for it. */
+      dockLead?: { value: GuideDockLead | undefined; discovered: number };
       /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
       beaconSite?: { value: { x: number; y: number } | undefined };
     }
@@ -220,7 +223,7 @@ const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead" | "t
 };
 
 /** The dock to steer to: on a fully seen island, or on any land mass once the nearest town is more than a leg away. */
-const islandDockOf = (landDock: GuideLandDock | undefined, townLeadFar: boolean | undefined): Pick<GuideInput, "islandDock"> =>
+const islandDockOf = (landDock: GuideLandDock | undefined, townLeadFar: boolean | undefined): Pick<GuideInput, "islandDock" | "dockLead"> =>
   landDock && (landDock.sealed || townLeadFar) ? { islandDock: landDock.dock } : {};
 
 // The explore target scans rings of discoveredTiles around home. A drone flight grows that set
@@ -307,6 +310,14 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
   }
   const current = cached;
   const lead = townLeadInFog(state);
+  const dockSteer = islandDockOf(current.landDock, lead.townLeadFar);
+  if (lead.townLeadFar && !dockSteer.islandDock) {
+    // A drone flight grows discoveredTiles without a tiles change: recompute so the lead's Explore ask clears.
+    if (current.dockLead?.discovered !== state.discoveredTiles.size) {
+      current.dockLead = { value: guideDockLead(state.tiles, state.discoveredTiles, state.me, state.homeTile, state.dockPairs), discovered: state.discoveredTiles.size };
+    }
+    if (current.dockLead.value) dockSteer.dockLead = current.dockLead.value;
+  }
   const signals = guideInputSignals();
   const openPanel = openPanelOf(state);
   return {
@@ -346,7 +357,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     exploreTarget: () => exploreTargetOf(state),
     scoutFlights: scoutFlightsOf(state),
     ...lead,
-    ...islandDockOf(current.landDock, lead.townLeadFar),
+    ...dockSteer,
     // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
     nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };

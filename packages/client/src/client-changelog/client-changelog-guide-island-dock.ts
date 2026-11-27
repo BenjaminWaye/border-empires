@@ -7,6 +7,6 @@ export const GUIDE_ISLAND_DOCK_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
   changes: [
     "The guide no longer sends your drone more than one leg to find a town",
     "When the nearest town is further, or you're on an island, it marks your dock: Expand To it, Garrison it, then Cross the sea",
-    "With no dock in sight yet, it asks for a nearby Explore to find one"
+    "With no dock in sight yet, it marks where the nearest dock is and asks you to Explore there"
   ]
 };

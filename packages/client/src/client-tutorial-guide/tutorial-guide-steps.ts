@@ -22,6 +22,7 @@
 // *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
 
 import type { GuideIslandDock } from "./tutorial-guide-island-dock.js";
+import type { GuideDockLead } from "./tutorial-guide-dock-lead.js";
 import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
@@ -110,6 +111,8 @@ export type GuideInput = {
   townLeadChargesShort?: number;
   /** The nearest unowned town is more than one drone leg away: no lead to fly to, the player is probably on an island. */
   townLeadFar?: boolean;
+  /** With townLeadFar and no dock on the player's land: the nearest dock that may be on it (tutorial-guide-dock-lead.ts). */
+  dockLead?: GuideDockLead;
   /** The dock to steer to on an island (tutorial-guide-island-dock.ts). */
   islandDock?: GuideIslandDock;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
