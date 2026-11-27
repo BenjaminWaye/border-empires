@@ -2,7 +2,6 @@ import { tileActionAvailability } from "./client-tile-action-availability.js";
 import { OUT_OF_REACH_LABEL, frontierBuildBlockedByReach, RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, INCUBATION_ENGINE_INSTANT_POPULATION_BURST } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { supportPlacementBlockedReason } from "./client-town-tile-support-gate.js";
-import { structureCommandActions } from "../client-structure-command-actions.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
@@ -50,7 +49,7 @@ import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveOb
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { ownTowerReadyInMs, ownTowerShotReadyInMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
-import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
+import { finishSingleTileActions } from "./client-single-tile-action-extras.js";
 import { fortTierOptionsForTile, tierRowAvailability } from "./client-structure-tier-options.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { frontierBuildDetailSuffix, manpowerSupportBuildActions } from "./client-tile-action-manpower-support.js";
@@ -183,9 +182,9 @@ export const chainedBuildAvailabilityFromModule = (
   ];
 };
 
-// Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
+// Also appends structure commands, "Cancel March" and the Attack En Route gate (client-single-tile-action-extras.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
-  appendMarchCancelAction([...menuActionsForSingleTileInner(state, tile, deps), ...structureCommandActions(state, tile)], state, tile);
+  finishSingleTileActions(menuActionsForSingleTileInner(state, tile, deps), state, tile);
 
 const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return foggedTileActions(state, tile, deps);
