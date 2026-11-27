@@ -31,6 +31,16 @@ server, and the trend says a setting, not the server, gives out first.**
   every hour or two, so a multi-day run is not possible here. See
   [What is needed next](#what-is-needed-next).
 
+**Added 2026-11-27: a run of 69.5 hours on the owner's MacBook
+([§4](#4-three-days-on-the-owners-macbook-2026-11-24-to-27)).** The heap does
+not stop growing. What the simulation holds after garbage collection rose from
+about 400 MB on day 1 to 470 MB at the end, about 1.2–1.5 MB an hour and
+barely slowing. If that rate holds, the heap's peaks reach the 900 MB limit
+around day 10 of a contest. Process memory reached 1,323 MB, past the
+1,250 MB watermark from hour 50; 1,500 MB would have put off nothing. The run's
+tap times and stalls cannot be put down to the server, because the Mac was
+heavily loaded by other programs for much of it.
+
 ## What was run
 
 Everything ran inside the production base image, `node:22-alpine` (Node
@@ -228,10 +238,116 @@ Real-time runs only, 2 cores.
   everything else carried on.
 - The database was 50 MB after run B and 81 MB after run D.
 
+## 4. Three days on the owner's MacBook, 2026-11-24 to 27
+
+One continuous run of `scripts/sector-memory-probe/soak.sh .local-data/soak 72`
+on the owner's Apple-silicon MacBook, from 20:17 UTC on 24 November, ended by
+hand at 17:48 UTC on 27 November after 69.5 hours (4,172 minutes). Same setup
+as above: `node:22-alpine` (arm64 here), pinned to 2 of the Docker VM's CPUs
+(`--cpuset-cpus 0,1`), 4 GB, production settings, a fresh world, 60 AI Houses,
+900 MB heap limit, watermarks 1,250 MB process and 680 MB heap. Real clock, no
+restarts, no revealed session.
+
+The 40 humans played in turns, 15–30 minutes on and about four hours away, so
+1 to 7 were online at a time. They sent 3,557 commands that were accepted. The
+world recorded 2.59 million events, about 620 a minute (runs B and D:
+880–1,350 a minute with all 40 humans online).
+
+### Memory
+
+Eight-hour windows. "Heap after GC" is the lowest simulation heap in the
+window, as in §2.
+
+| Hours | Process memory, avg / max | Sim heap after GC | Sim heap, avg / peak | Owned tiles |
+|---|---|---|---|---|
+| 0–8 | 960 / 1,047 MB | 189 MB (fresh world) | 410 / 561 MB | 53,014 |
+| 8–16 | 1,039 / 1,095 | 383 | 451 / 562 | 56,512 |
+| 16–24 | 1,060 / 1,116 | 393 | 462 / 572 | 59,825 |
+| 24–32 | 1,099 / 1,183 | 407 | 477 / 641 | 61,746 |
+| 32–40 | 1,129 / 1,176 | 415 | 484 / 585 | 64,180 |
+| 40–48 | 1,167 / 1,214 | 433 | 504 / 608 | 67,017 |
+| 48–56 | 1,170 / 1,301 | 443 | 520 / 676 | 69,486 |
+| 56–64 | 1,234 / 1,296 | 460 | 538 / 642 | 71,524 |
+| 64–69.5 | 1,253 / 1,323 | 470 | 548 / 663 | 73,877 |
+
+- **The heap still grows on day 3.** Heap after GC: +14 MB on day 1 after
+  the first eight hours, +36 MB on day 2, +27 MB in the 21.5 hours of day 3.
+  About 1.2–1.5 MB an hour, against 27 MB an hour in run B's first
+  100 minutes. It slows a great deal after the first hours and then barely.
+- **What that means for a 30-day contest, if the rate holds.** Peaks run
+  150–200 MB above the heap after GC, so peaks would reach the 900 MB limit
+  when that is about 700 MB: roughly a week after the end of this run, around
+  day 10. The heap after GC itself would reach 900 MB around day 16. This is a
+  straight-line guess from three days; it may slow further or not.
+- **Land kept being taken** the whole run, about 300 tiles an hour at the end.
+  In the 100-minute runs ownership levelled off at 52–56 % of land; here it
+  did not. The largest House stayed at about 2,650 tiles from hour 24. Part of
+  the growth may be territory; what holds the heap was not looked at (no heap
+  snapshot).
+- **Process memory** grew about 4 MB an hour after the first eight hours,
+  well inside 4 GB. The gateway and helper threads held 170 MB of heap at the
+  median, 220 MB at most.
+- **Database** 138 MB on disk at the end (81 MB after run D).
+
+### Checkpoints
+
+2,424 saved. 124 put off for memory, 31 forced at 4,000 events.
+
+| | This run |
+|---|---|
+| Process memory at attempts, median / highest | 1,111 / 1,306 MB |
+| Attempts a 1,250 / 1,500 MB watermark puts off | 156 / 0 |
+| Heap at attempts, median / 95th pct / highest | 481 / 585 / 659 MB |
+| Attempts a 600 / 640 / 680 MB heap watermark puts off | 68 / 6 / 0 |
+| Seconds between saves, median / 95th pct | 91 / 146 |
+| Checkpoint build, 95th percentile | 1.5–5 s, 11 s in the last window |
+
+- **1,250 MB is passed from hour 50** (first put off at 22:23 UTC on
+  26 November), and by the last three hours 20–25 checkpoints an hour were
+  put off. 1,500 MB, now on `develop`, would have put off none.
+- **680 MB for the heap held** for three days, with 21 MB to spare.
+- **Graceful stop:** final checkpoint 1.0 s, whole stop 1.7 s (0.23 s and
+  0.28 s on run D's nine-hour world).
+
+### Responsiveness, and why it cannot be judged from this run
+
+| | Hours 0–16 | Hours 16–48 | Hours 48–69.5 |
+|---|---|---|---|
+| CPU average, of one core | 33–38 % | 36–51 % | 45–68 % |
+| CPU 95th percentile | 101–110 % | 105–135 % | 116–165 % |
+| AI decision round, 95th percentile | 20–22 ms | 29–32 ms | 34–46 ms |
+| Simulation loop delay, 95th percentile | 31–40 ms | 45–94 ms | 50–105 ms |
+| Tap round trip, 95th percentile | 0.16–0.22 s | 0.5–0.7 s | 0.9–2.0 s |
+
+The AI kept its full pace (200 ms loop) throughout. But the run went
+noticeably worse, with three marked spells:
+
+- 25 November around 19:52 UTC: 852 commands refused with
+  `SIMULATION_UNAVAILABLE` in one minute, then most taps timing out at 15 s
+  for the next three hours.
+- 26 November 20:16–22:16 UTC (hours 48–50): the simulation applied only about
+  2,000 events in two hours, against about 620 a minute otherwise. One gap
+  between checkpoints was 93 minutes. 97 reconnects failed and 14 connections
+  closed unexpectedly.
+- 27 November, hours 56–64: AI decision round 282 ms at the 95th
+  percentile and taps 3.5 s in hours 60–64; one 13.8 s simulation stall.
+
+In all: 2,393 commands refused with `SIMULATION_UNAVAILABLE`, 101 of 555
+reconnects failed, 15 unexpected closes, login 0.46 s median, 3.3 s at the
+95th percentile, 63 s at worst.
+
+**The Mac was not quiet.** Its load average was 271 on 10 cores at hour 24,
+95 at hour 48 and 3 at hour 69.5, with over 100 copies each of several
+leftover helper processes from other programs. Pinning to two CPUs limits how
+many the stack uses, not whether macOS gives the Docker VM time to run. The
+first two spells line up with those readings. So these responsiveness figures
+are not evidence about the server either way. The memory figures stand: memory
+does not depend on how fast the stack is scheduled.
+
 ## Not measured
 
-- **A late contest.** Nine game hours of up to 30 days. No contest end, no
-  rollover.
+- **A late contest.** Nine game hours of up to 30 days in runs A–D; 69.5
+  hours in the MacBook run (§4). No contest end, no rollover.
 - **Real Hetzner hardware.** A cloud container limited to 2 of its cores is
   not a shared-vCPU CX23. Disk and network were local.
 - **The image CI builds.** Same base image and Node version, not the
@@ -246,8 +362,20 @@ Real-time runs only, 2 cores.
 
 ## What is needed next
 
-The remaining question is whether the simulation heap stops growing, and only a
-run of days answers it. That needs the owner:
+Updated 2026-11-27. The run of days (item 1) was made: §4. The heap did not
+stop growing in 69.5 hours. What is open now:
+
+- **What holds the slowly growing heap.** A heap snapshot of a world a few
+  days old, compared with one a day old, would show whether it is territory
+  (expected to stop when the map is full) or something that grows with play.
+- **Whether it fits 30 days.** At the measured rate it does not without a
+  larger heap limit, a fix, or both (item 3).
+- **Responsiveness on a quiet machine or the real server.** §4 could not
+  measure it.
+- **Item 2 is settled:** `develop` now uses 1,500 MB and 680 MB, and §4 put
+  off nothing at either.
+
+The original list:
 
 1. **A run of days on the owner's MacBook** (owner, 2026-11-24). One command,
    from a checkout with `pnpm install` done and Docker Desktop running with at
