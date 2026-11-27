@@ -11,7 +11,7 @@ import { resetFrontierActionStateAfterError } from "./client-frontier-error-rese
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
-import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
+import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -49,7 +49,7 @@ import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
-import { applyPlayerAppearanceMessage, settleCrestSaveFromError } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerAppearanceMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
@@ -60,7 +60,7 @@ import { applyInitMessage } from "../client-network-init-message/client-network-
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyPlayerUpdateColorChange, applyProfileSaveRejection } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
-import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
+import { applyServerErrorSideEffects } from "./client-network-error-side-effects.js";
 import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld, hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -1076,7 +1076,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic reads as one named alert, not just a violet box
+      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic gets one feed line; the map plate and edge tab name it on screen
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -1929,12 +1929,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); applySeasonErrorCodes(state, rawCode, rawMessage, renderHud); settleCrestSaveFromError(rawCode, rawMessage);
+      clearAuthInFlight?.();
+      applyServerErrorSideEffects(state, msg, rawCode, rawMessage, renderHud);
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
       const errorMessage = String(msg.message ?? "unknown failure");
-      clearTechCommissionOnError(state, errorCode);
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }

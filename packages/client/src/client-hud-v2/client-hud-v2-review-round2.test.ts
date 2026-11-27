@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { Tile, TileMenuView } from "../client-types.js";
-import { offerSentTitle } from "./client-hud-v2-screens.js";
 import { tileFactsFor } from "./client-hud-v2-tile-facts.js";
 import { captureIsBattle } from "./client-hud-v2-tracker.js";
 
@@ -8,15 +7,6 @@ const tile = (patch: Partial<Tile>): Tile => ({ x: 1, y: 1, terrain: "LAND", ...
 const noView: Pick<TileMenuView, "combatBreakdown" | "overviewLines"> = { overviewLines: [] };
 
 describe("HUD v2 review fixes", () => {
-  // Review: opening a deal sends a stance lookup, which raised a false "Truce offered" alert.
-  it("only confirms real truce and alliance offers", () => {
-    expect(offerSentTitle({ type: "TRUCE_REQUEST", durationHours: 24 })).toBe("Truce offered · 24h");
-    expect(offerSentTitle({ type: "TRUCE_REQUEST", durationHours: 12 }, true)).toBe("Truce extension offered · 12h");
-    expect(offerSentTitle({ type: "ALLIANCE_REQUEST" })).toBe("Alliance offered");
-    expect(offerSentTitle({ type: "DIPLOMACY_STANCE_REQUEST" })).toBeUndefined();
-    expect(offerSentTitle(null)).toBeUndefined();
-  });
-
   it("tells an attack from a frontier expansion", () => {
     expect(captureIsBattle({ actionType: "ATTACK" })).toBe(true);
     expect(captureIsBattle({ combatSnapshot: { winChance: 0.5 } })).toBe(true);

@@ -23,6 +23,7 @@ type DebugBundleState = Pick<
   | "hover"
   | "capture"
   | "captureAlert"
+  | "goodNewsAlert"
   | "actionInFlight"
   | "actionCurrent"
   | "actionTargetKey"
@@ -138,6 +139,7 @@ const stateSnapshot = (state: DebugBundleState): Record<string, unknown> => ({
   hover: state.hover,
   capture: state.capture,
   captureAlert: state.captureAlert,
+  goodNewsAlert: state.goodNewsAlert,
   actionInFlight: state.actionInFlight,
   actionCurrent: state.actionCurrent,
   actionTargetKey: state.actionTargetKey,

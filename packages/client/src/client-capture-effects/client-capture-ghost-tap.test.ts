@@ -5,7 +5,7 @@ import { CAPTURE_CARD_GHOST_TAP_MS, isCaptureCardGhostTap, resetCaptureCardGhost
 
 const el = (): HTMLElement => document.createElement("div");
 
-const renderWith = (captureAlert: { title: string; detail: string; until: number; tone: "success" } | undefined, card: HTMLElement) => {
+const renderWith = (captureAlert: { title: string; detail: string; until: number; tone: "warn" } | undefined, card: HTMLElement) => {
   const state = { captureAlert, capture: undefined, tiles: new Map(), pendingCombatReveal: undefined, activeBattles: new Map() } as never;
   renderCaptureProgress(state, {
     keyFor: (x: number, y: number) => `${x},${y}`, formatCooldownShort: () => "", showCaptureAlert: vi.fn(), pushFeed: vi.fn(), finalizePredictedCombat: vi.fn(),
@@ -35,9 +35,9 @@ const autoHideCard = (): HTMLElement => {
   const card = el();
   vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, right: 310, bottom: 120, width: 300, height: 100, x: 10, y: 20, toJSON: () => ({}) });
   vi.spyOn(Date, "now").mockReturnValue(1_000);
-  renderWith({ title: "Territory Claimed", detail: "", until: 5_000, tone: "success" }, card);
+  renderWith({ title: "Attack failed", detail: "", until: 5_000, tone: "warn" }, card);
   vi.spyOn(Date, "now").mockReturnValue(5_001);
-  renderWith({ title: "Territory Claimed", detail: "", until: 5_000, tone: "success" }, card);
+  renderWith({ title: "Attack failed", detail: "", until: 5_000, tone: "warn" }, card);
   return card;
 };
 
@@ -54,11 +54,11 @@ describe("result card ghost taps", () => {
     const card = el();
     vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, right: 310, bottom: 120, width: 300, height: 100, x: 10, y: 20, toJSON: () => ({}) });
     vi.spyOn(Date, "now").mockReturnValue(1_000);
-    renderWith({ title: "Territory Claimed", detail: "", until: 5_000, tone: "success" }, card);
+    renderWith({ title: "Attack failed", detail: "", until: 5_000, tone: "warn" }, card);
     expect(card.style.display).toBe("grid");
 
     vi.spyOn(Date, "now").mockReturnValue(5_001);
-    renderWith({ title: "Territory Claimed", detail: "", until: 5_000, tone: "success" }, card);
+    renderWith({ title: "Attack failed", detail: "", until: 5_000, tone: "warn" }, card);
     expect(card.style.display).toBe("none");
 
     const mapTap = vi.fn();
@@ -79,7 +79,7 @@ describe("result card ghost taps", () => {
     const card = el();
     vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, right: 310, bottom: 120, width: 300, height: 100, x: 10, y: 20, toJSON: () => ({}) });
     vi.spyOn(Date, "now").mockReturnValue(1_000);
-    renderWith({ title: "Territory Claimed", detail: "", until: 5_000, tone: "success" }, card);
+    renderWith({ title: "Attack failed", detail: "", until: 5_000, tone: "warn" }, card);
     renderWith(undefined, card);
     expect(isCaptureCardGhostTap(300, 30, 1_100)).toBe(false);
   });
@@ -108,7 +108,7 @@ describe("result card ghost taps", () => {
   it("stops guarding as soon as the next card shows", () => {
     const card = autoHideCard();
     vi.spyOn(Date, "now").mockReturnValue(5_100);
-    renderWith({ title: "Attack failed", detail: "", until: 9_000, tone: "success" }, card);
+    renderWith({ title: "Attack failed", detail: "", until: 9_000, tone: "warn" }, card);
     expect(isCaptureCardGhostTap(300, 30, 5_100)).toBe(false);
     expect(tap("pointerdown", 300, 30)).toBe(true);
   });

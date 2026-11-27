@@ -24,7 +24,8 @@
 //
 // Per instance, `aBannerCrest` puts the owner's House crest (a free cosmetic)
 // in place of the device, the cog or the sun, stitched in the same thread
-// with the same dark outline (muster-banner-crest-atlas.ts). 0 keeps the device.
+// with the same dark outline (muster-banner-crest-atlas.ts). 0 keeps the device,
+// and so does a crest whose atlas cell has not loaded yet.
 import {
   Color,
   DoubleSide,
@@ -148,16 +149,19 @@ float bannerSun(vec2 p) {
   float disc = bannerFill(r - 0.13);
   return clamp(rays - gap + ring - hollow + disc, 0.0, 1.0);
 }
-// House crest from the atlas: x = the crest, y = the crest grown for its outline.
+// House crest from the atlas: x = the crest, y = the crest grown for its outline,
+// z = 1 once the crest's cell has loaded (0 keeps the device).
 // p is in half-widths, centred on the device; the crest fills a square 0.9 across.
-vec2 bannerCrest(vec2 p, float crest) {
+vec3 bannerCrest(vec2 p, float crest) {
   vec2 local = p / 0.9 + 0.5;
   float inside = step(0.0, local.x) * step(local.x, 1.0) * step(0.0, local.y) * step(local.y, 1.0);
   float cell = max(crest - 1.0, 0.0);
   float column = mod(cell, ${CREST_ATLAS_COLUMNS}.0);
   float row = floor(cell / ${CREST_ATLAS_COLUMNS}.0);
   vec2 uv = vec2((column + clamp(local.x, 0.0, 1.0)) / ${CREST_ATLAS_COLUMNS}.0, 1.0 - (row + 1.0 - clamp(local.y, 0.0, 1.0)) / ${CREST_ATLAS_ROWS}.0);
-  return texture2D(uBannerCrests, uv).rg * inside;
+  vec2 centre = vec2((column + 0.5) / ${CREST_ATLAS_COLUMNS}.0, 1.0 - (row + 0.5) / ${CREST_ATLAS_ROWS}.0);
+  float loaded = texture2D(uBannerCrests, centre).b;
+  return vec3(texture2D(uBannerCrests, uv).rg * inside, loaded);
 }
 `;
 
@@ -209,8 +213,9 @@ const COLOR_PATCH = /* glsl */ `
     outline = clamp(bannerSun(sunP / 0.86) - device, 0.0, 1.0);
   }
   // Sampled outside any branch so the atlas's mipmaps see smooth derivatives.
-  vec2 crestTexel = bannerCrest(deviceP, vBannerCrest);
-  float hasCrest = step(0.5, vBannerCrest);
+  vec3 crestTexel = bannerCrest(deviceP, vBannerCrest);
+  // Only a crest whose atlas cell has loaded replaces the device.
+  float hasCrest = step(0.5, vBannerCrest) * step(0.5, crestTexel.z);
   device = mix(device, crestTexel.x, hasCrest);
   outline = mix(outline, clamp(crestTexel.y - crestTexel.x, 0.0, 1.0), hasCrest);
   // Folds turned away from the camera sit in their own shade.

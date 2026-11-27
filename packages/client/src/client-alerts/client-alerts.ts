@@ -135,14 +135,28 @@ export const focusFromAlert = (alert: { focusX?: number; focusY?: number; action
 // feedEntryForEventLogEntry, combatResolutionAlert) so the on-map capture
 // popup can offer the same "jump to tile" action the feed already has,
 // instead of only ever showing the tile's name/coordinates as plain text.
+// Good news never takes the card (owner call 2026-11-27): it shows where it happened (the tile, the battle
+// screen, the tracker, the Diplomacy list). It goes to goodNewsAlert instead, which only the battle screen reads,
+// so it can neither hide a warning that is showing nor be overwritten before a fight settles.
 export const showCaptureAlert = (
-  state: Pick<ClientState, "captureAlert">,
+  state: Pick<ClientState, "captureAlert"> & Partial<Pick<ClientState, "goodNewsAlert">>,
   title: string,
   detail: string,
   tone: "success" | "error" | "warn" = "error",
   manpowerLoss?: number,
   focus?: { x: number; y: number; actionLabel?: string }
 ): void => {
+  if (tone === "success") {
+    state.goodNewsAlert = {
+      title,
+      detail,
+      until: Date.now() + CAPTURE_ALERT_MS,
+      tone,
+      ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
+      ...(focus ? { focusX: focus.x, focusY: focus.y } : {})
+    };
+    return;
+  }
   state.captureAlert = {
     title,
     detail,

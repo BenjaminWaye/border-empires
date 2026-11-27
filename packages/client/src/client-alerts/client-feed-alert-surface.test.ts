@@ -64,7 +64,7 @@ describe("feed warn/error entries surface on the alert card", () => {
   it("replaces an explicit alert once it has expired", () => {
     const state = freshState();
     const now = 1_000_000;
-    state.captureAlert = { title: "Old", detail: "old", tone: "success", until: now - 1 };
+    state.captureAlert = { title: "Old", detail: "old", tone: "warn", until: now - 1 };
     surfaceFeedEntryAsAlert(state, { text: "new", type: "alliance", severity: "warn", at: now }, now);
     expect(state.captureAlert).toMatchObject({ title: "Diplomacy", detail: "new" });
   });

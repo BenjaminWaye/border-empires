@@ -21,7 +21,8 @@ describe("announceNewRelicWakes", () => {
   it("names a rival's running relic once, with Show centring on the site", () => {
     const state = { me: "me", relicMapHints: hints({ x: 440, y: 165, kind: "WAKE", ownerId: "rival" }) };
     expect(announceNewRelicWakes(state, push, (id) => names[id], 1000)).toBe(1);
-    expect(posted[0]).toMatchObject({ title: "Concordance relic running", text: "House Vey · (440, 165)", focusX: 440, focusY: 165, actionLabel: "Show", alert: true });
+    expect(posted[0]).toMatchObject({ title: "Concordance relic running", text: "House Vey · (440, 165)", focusX: 440, focusY: 165, actionLabel: "Show" });
+    expect(posted[0]?.severity).toBe("info");
     expect(announceNewRelicWakes(state, push, (id) => names[id], 2000)).toBe(0);
     expect(posted).toHaveLength(1);
   });

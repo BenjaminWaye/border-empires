@@ -15,7 +15,6 @@ import { diplomacyTradeDepsFor } from "../client-diplomacy-trade/client-diplomac
 import { tradeVerdict, type TradeSelection } from "../client-diplomacy-trade/client-diplomacy-trade-view.js";
 import { dealPactHtml } from "../client-hud-v2/client-hud-v2-diplomacy-pact.js";
 import { diplomacyListHtml, empireStance } from "../client-hud-v2/client-hud-v2-diplomacy.js";
-import { offerSentTitle } from "../client-hud-v2/client-hud-v2-screens.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { fealtyLookupFor } from "./client-fealty.js";
 
@@ -107,16 +106,15 @@ describe("feed", () => {
     handleDiplomacySocketMessage(state(), { type: "ALLIANCE_REQUEST_INCOMING", request: request("a2", "small", "me"), fromName: "Small" }, d);
     expect(d.pushFeed).toHaveBeenNthCalledWith(1, "Fealty offered to Big.", "alliance", "success");
     expect(d.pushFeed).toHaveBeenNthCalledWith(2, "Small swears fealty.", "alliance", "info");
-    expect(offerSentTitle({ type: "ALLIANCE_REQUEST" }, false, "DEMAND")).toBe("Fealty demanded");
   });
 
-  it("rewords the answer to your offer and titles its popup", () => {
+  it("rewords the answer to your offer; an accepted offer does not pop up", () => {
     const d = deps();
     const s = state();
     s.outgoingAllianceRequests = [request("a1", "me", "big")];
     handleDiplomacySocketMessage(s, { type: "ALLIANCE_UPDATE", allies: ["big"], outgoingAllianceRequests: [], announcement: "Big accepted your alliance. Big trusts you." }, d);
     expect(d.pushFeed).toHaveBeenCalledWith("Big accepted your fealty. Big trusts you.", "alliance", "success");
-    expect(d.showCaptureAlert).toHaveBeenCalledWith("Fealty sworn", "Big accepted your fealty. Big trusts you.", "success");
+    expect(d.showCaptureAlert).not.toHaveBeenCalled();
   });
 });
 

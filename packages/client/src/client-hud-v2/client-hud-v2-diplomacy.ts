@@ -10,6 +10,7 @@ import { emblemFaceHtml, emblemInitial } from "../client-house-crest/client-hous
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
+import { acceptTruceLabel, offeredTruceLength } from "../client-truce-offer-length/client-truce-offer-length.js";
 import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 import { allyStatusLabel, incomingAllianceLabel, sentAllianceLabel, type FealtyLookup } from "../client-fealty/client-fealty.js";
 
@@ -94,9 +95,11 @@ const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceReques
   const endsAt = kind === "truce" ? offeredTruceEndsAt(r as TruceRequest) : undefined;
   const what = `${offerWhat(kind, r, input, true)}${endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, input.nowMs)} left`}`;
   const terms = r.terms ? describeDiplomacyTermsForRecipient(r.terms, name) : "";
+  // Accept says the truce you'd get now: "Accept 22h truce" for a 24h offer sent 2h ago.
+  const accept = kind === "truce" ? acceptTruceLabel(offeredTruceLength(r as TruceRequest, input.nowMs)) : "Accept";
   return `<div class="v2d-req">${crest(name, r.fromPlayerId, input)}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
-    <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">Accept</button>
+    <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">${esc(accept)}</button>
     <button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-counter="${kind}" data-request-id="${esc(r.id)}">Counter</button>
     <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-reject="${kind}" data-request-id="${esc(r.id)}">Decline</button>
   </div>`;
