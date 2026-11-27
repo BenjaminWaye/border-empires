@@ -54,6 +54,24 @@ export function shouldShowAfcUpgradeReadyBadge(
     tile.afc?.ownerId === me && tile.afc.status === "active" && !isAfcHiddenForJoinDrop(drop, tile.x, tile.y));
 }
 
+/** The map modes where a tap picks tiles: Garrison Many's multi-select, a placement and the targeting modes. */
+export interface AfcBadgeMapPickState {
+  readonly garrisonMany: { readonly active: boolean };
+  readonly buildingPlacement: { readonly active: boolean };
+  readonly crystalTargeting: { readonly active: boolean };
+  readonly aetherWallTargeting: { readonly active: boolean };
+  readonly musterMarchTargeting: { readonly active: boolean };
+}
+
+/**
+ * The floating "1 upgrade ready" bubbles step aside while the map is picking tiles: during Garrison Many a tap
+ * meant for a tile landed on the bubble and opened the permanent-upgrade panel behind the selection bar
+ * (playtest 2026-11-26). The AFC's own sheet and the nav badge still show the count.
+ */
+export const afcUpgradeBadgesPaused = (state: AfcBadgeMapPickState): boolean =>
+  state.garrisonMany.active || state.buildingPlacement.active || state.crystalTargeting.active ||
+  state.aetherWallTargeting.active || state.musterMarchTargeting.active;
+
 export interface AfcReadyBadgePosition {
   readonly key: string;
   readonly x: number;
