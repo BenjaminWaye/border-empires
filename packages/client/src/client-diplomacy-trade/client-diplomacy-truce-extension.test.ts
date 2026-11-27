@@ -58,6 +58,15 @@ describe("extending a truce from the trade screen", () => {
     expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses trade Coin per day only for a truce." });
   });
 
+  // Review regression: an AI's pledge set in a truce stayed in the deal, hidden, after switching to an alliance.
+  it("takes the AI's Coin per day out when the deal stops being a truce", () => {
+    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12, terms: { give: { gold: 0 }, ask: { gold: 0, coinPerHour: 2 } } }, { send: vi.fn(() => true), ownHoldings: () => ({ gold: 100 }) });
+    receiveDiplomacyStance({ ...aiReply, pricing: { ...pricing, required: { ...pricing.required, alliance: 0 }, aiSpareCoinPerHour: 10 } });
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent).toContain("Coin per day");
+    document.querySelector<HTMLButtonElement>('[data-trade-kind^="alliance"]')!.click();
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent ?? "").not.toContain("Coin per day");
+  });
+
   it("disables an extension past the 48h cap and falls back to one that fits", () => {
     const { overlay } = openInTruce(30);
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.disabled).toBe(true);

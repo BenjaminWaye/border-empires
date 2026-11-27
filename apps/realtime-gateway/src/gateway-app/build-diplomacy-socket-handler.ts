@@ -7,12 +7,13 @@ import { createProactiveAiResourceTrade } from "../proactive-ai-resource-trade/p
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import { activeSupplyAgreementCount, netValueToAi, type ClientMessage } from "@border-empires/shared";
+import { activeSupplyAgreementCount, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { PlayerTradeHoldingsResult } from "../sim-client/sim-client-trade-holdings.js";
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { aiPaymentFromDeal } from "../ai-diplomacy-memory/ai-deal-payment.js";
 import { atWarFromMemory } from "../ai-diplomacy-stance/ai-diplomacy-opinion.js";
 import { createDiplomacyMemoryWriter, type DiplomacyMemoryPersistence } from "../ai-diplomacy-memory/ai-diplomacy-memory-writer.js";
 import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
@@ -147,10 +148,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       if (!aiId) return;
       const otherId = aiId === request.toPlayerId ? request.fromPlayerId : request.toPlayerId;
       if (kind === "truce") memory.recordTruceDeal(aiId, otherId);
-      if (request.terms) {
-        const toTarget = netValueToAi(request.terms);
-        memory.recordPayment(aiId, otherId, aiId === request.toPlayerId ? toTarget : -toTarget);
-      }
+      if (request.terms) memory.recordPayment(aiId, otherId, aiPaymentFromDeal(aiId, request));
     },
     // An AI's counter-offer stands until accepted: it re-weighs it first.
     recheckProposer: async (kind, request) => {

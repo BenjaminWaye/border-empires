@@ -133,12 +133,19 @@ const cooldownRemainingMs = (screen: OpenScreen): number => {
 /** Until the stance reply says otherwise, assume an AI: the gift path is the one only an AI's reply can confirm. */
 const targetIsAi = (reply: DiplomacyStanceReply | undefined): boolean => !reply?.found || reply.ai;
 
+/** An AI pledges Coin per day only in a truce: outside one its row is hidden, so the amount comes out too. */
+const withoutHiddenAskedPledge = (terms: DiplomacyTerms, kind: TradeSelection["kind"], ai: boolean): DiplomacyTerms => {
+  if (!ai || kind === "truce" || terms.ask.coinPerHour === undefined) return terms;
+  const { coinPerHour: _pledge, ...ask } = terms.ask;
+  return { ...terms, ask };
+};
+
 /** Sets the treaty and terms, deriving the offer kind from them. */
 const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms): void => {
   screen.treaty = treaty;
   const kind = dealKind(treaty, terms, targetIsAi(screen.reply));
   // Only a truce or a gift carries towns (only a truce asks for one): switching to anything else takes them out.
-  const kept = !townsAllowedFor(kind) ? withoutTowns(terms) : townsAllowedFor(kind, "ask") ? terms : withoutAskedTowns(terms);
+  const kept = withoutHiddenAskedPledge(!townsAllowedFor(kind) ? withoutTowns(terms) : townsAllowedFor(kind, "ask") ? terms : withoutAskedTowns(terms), kind, targetIsAi(screen.reply));
   screen.selection = { ...screen.selection, terms: kept, kind: kept === terms ? kind : dealKind(treaty, kept, targetIsAi(screen.reply)) };
   if (!screen.giftPending) screen.notice = undefined;
 };

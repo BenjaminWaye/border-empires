@@ -289,8 +289,9 @@ export type AiCounterOffer =
 
 /**
  * The smallest change to the requester's terms that the AI would accept,
- * never asking for more than the requester actually holds: first drop what
- * the requester asked the AI for, then ask for the requester's coin, then
+ * never asking for more than the requester actually holds: first drop the coin
+ * and supply the requester asked the AI for, then (when their coin can't cover
+ * it) the AI's pledge and towns they asked for, then ask for the requester's coin, then
  * their resource supply, then (truces only) Coin per hour from their spare income,
  * then (truces only) one of its own towns back. A truce the AI refuses while it
  * can still retake its land (pricing.townReturn) asks for a town first. If even
@@ -344,7 +345,9 @@ export const aiCounterOffer = (
     const drop = Math.min(next.ask.resources?.[resource] ?? 0, Math.ceil(deficit / unitValue));
     if (drop > 0 && next.ask.resources) { next.ask.resources[resource] = (next.ask.resources[resource] ?? 0) - drop; deficit -= drop * unitValue; }
   }
-  deficit = dropAskedPledgeAndTowns(pricing, kind, durationHours, next, deficit);
+  // The requester asked for the AI's pledge or a town on purpose: price it in
+  // their coin when they hold enough, and only drop it when they can't.
+  if (deficit > Math.max(0, requesterHoldings.gold - next.give.gold)) deficit = dropAskedPledgeAndTowns(pricing, kind, durationHours, next, deficit);
   if (deficit > 0) {
     const addGold = Math.min(Math.max(0, requesterHoldings.gold - next.give.gold), Math.ceil(deficit));
     next.give.gold += addGold;
