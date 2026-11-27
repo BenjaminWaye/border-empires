@@ -23,7 +23,7 @@ const stateWithOwners = () => {
 describe("Expand To asks before it fights", () => {
   it("names everyone the route attacks, once each", () => {
     const plan = planWith([step(1, "ATTACK"), step(2, "ATTACK"), step(3, "ATTACK"), step(4, "EXPAND")]);
-    expect(waypointAttackedOwners(plan, stateWithOwners(), keyFor)).toEqual(["barbarians", "Rasmus"]);
+    expect(waypointAttackedOwners(plan, stateWithOwners(), keyFor)).toEqual(["Insurgents", "Rasmus"]);
   });
 
   // Regression: a route through barbarian or rival land attacked with no question asked.
@@ -34,7 +34,7 @@ describe("Expand To asks before it fights", () => {
     expect(proceed).not.toHaveBeenCalled();
     expect(show).toHaveBeenCalledWith(expect.objectContaining({
       title: "Attack on the way?",
-      subtitle: "The way there goes through land held by barbarians and Rasmus.",
+      subtitle: "The way there goes through land held by Insurgents and Rasmus.",
       consequences: ["2 attacks on the way, up to 40 manpower in all.", "A muster flag is raised to fund them if none is near.", "Attacks can fail."]
     }));
     show.mock.calls[0]![0].onConfirm();

@@ -162,7 +162,7 @@ const activeIncomingCount = (state: IncomingAttackState, nowMs: number): number 
   return count;
 };
 
-/** Terse banner text, e.g. "Planetary Defense · 3 tiles lost · 1 incoming"; undefined when nothing to show. */
+/** Terse banner text, e.g. "Insurgents · 3 tiles lost · 1 incoming"; undefined when nothing to show. */
 export const battleWarningView = (store: BattleWarningStore, state: IncomingAttackState, nowMs: number): BattleWarningView | undefined => {
   const batch = store.batch;
   if (!batch) return undefined;

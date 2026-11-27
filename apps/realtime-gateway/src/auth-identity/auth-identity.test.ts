@@ -136,7 +136,7 @@ describe("initialSocialNameForSeedPlayer", () => {
     expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("Clara");
     expect(initialSocialNameForSeedPlayer("ai-6", "ai-6")).toBe("Clara");
     expect(initialSocialNameForSeedPlayer("ai-21", undefined)).toBe("AI 21");
-    expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Planetary Defense");
+    expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Insurgents");
   });
 });
 
