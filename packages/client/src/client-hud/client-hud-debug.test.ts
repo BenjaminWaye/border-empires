@@ -114,3 +114,24 @@ describe("bindAuthDebugCopyButton", () => {
     expect(onCopied).toHaveBeenCalledTimes(1);
   });
 });
+
+// Playtest 2026-11 (staging): Settings > Diagnostics showed the account email and Firebase UID in full.
+describe("authDebugHtml personal data", () => {
+  const auth = { currentUser: { uid: "AbCdEf123456789xyz", email: "benjamin@example.com", providerData: [] } } as unknown as Parameters<typeof authDebugSnapshot>[2];
+
+  it("masks the email and shortens the UID on screen", () => {
+    const html = authDebugHtml(authDebugSnapshot(buildAuthDebugState(30), "wss://example.test/ws", auth));
+    expect(html).toContain("<strong>Email</strong> b***@…");
+    expect(html).toContain("<strong>UID</strong> AbCdEf…");
+    expect(html).not.toContain("benjamin@example.com");
+    expect(html).not.toContain("example.com");
+    expect(html).not.toContain("AbCdEf123456789xyz");
+  });
+
+  it("keeps both in full in the support copy", () => {
+    const state = buildAuthDebugState(30);
+    const payload = decodeURIComponent(authDebugCopyPayload(state, authDebugSnapshot(state, "wss://example.test/ws", auth)));
+    expect(payload).toContain("Auth uid AbCdEf123456789xyz");
+    expect(payload).toContain("Auth email benjamin@example.com");
+  });
+});

@@ -16,3 +16,18 @@ export const guestSlotsFullErrorPayload = (): { type: "ERROR"; code: "GUEST_SLOT
   code: "GUEST_SLOTS_FULL",
   message: "Guest spots for this Sector Contest are full. Sign in to claim an empire."
 });
+
+// Sent when JoinSeason turned a new player away because the map has no
+// viable landing site left (GDD §6). `reserved`: the player's place in the
+// next contest was recorded on the next-Sector waitlist. A hosted sector has
+// no next contest, so nothing is reserved there.
+export const noLandingSiteErrorPayload = (
+  reserved: boolean
+): { type: "ERROR"; code: "NO_LANDING_SITE"; message: string; reserved: boolean } => ({
+  type: "ERROR",
+  code: "NO_LANDING_SITE",
+  message: reserved
+    ? "There is no free landing site left on this map, so joining is closed. Your place in the next Sector Contest is reserved."
+    : "There is no free landing site left in this Sector, so joining is closed.",
+  reserved
+});

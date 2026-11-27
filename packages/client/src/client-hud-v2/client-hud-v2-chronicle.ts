@@ -14,6 +14,7 @@ import { chronicleSurveysHtml } from "./client-hud-v2-chronicle-surveys.js";
 import { scoutReportFindsHtml } from "./client-hud-v2-chronicle-scout-chips.js";
 import { chronicleProgressHtml, type ProgressDelta } from "./client-hud-v2-chronicle-progress.js";
 import type { OccupationSurveyReport } from "../client-occupation-survey.js";
+import type { FealtyLookup } from "../client-fealty/client-fealty.js";
 
 export type ChronicleInput = {
   me: string;
@@ -27,6 +28,8 @@ export type ChronicleInput = {
   /** A House's crest (cosmetic); its initial shows when unset. */
   crestOf?: (playerId: string) => CrestCosmeticId | undefined;
   techName: (techId: string) => string | undefined;
+  /** Your standing with each empire by size: unequal alliance rows read as fealty (client-fealty.ts). */
+  fealtyWith?: FealtyLookup;
   nowMs: number;
   /** The read watermark when the Chronicle opened: losses after it are pinned to the top. */
   awaySince?: number | undefined;
@@ -128,7 +131,7 @@ export const chronicleRowTimeHtml = (at: number, nowMs: number, dated: boolean):
 const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = false): string => {
   const tone = activityCardTone(card, input.me);
   const where = activityCardCoordinatesLabel(card);
-  const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs));
+  const whatHtml = scoutReportFindsHtml(card, input.nameOf) ?? esc(activityCardText(card, input.me, input.nameOf, input.techName, input.nowMs, input.fealtyWith));
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
   const coords = activityCardCoordinates(card);
   const show = coords

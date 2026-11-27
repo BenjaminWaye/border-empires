@@ -11,6 +11,7 @@ import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRe
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
 import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
+import { allyStatusLabel, incomingAllianceLabel, sentAllianceLabel, type FealtyLookup } from "../client-fealty/client-fealty.js";
 
 export type DiplomacyListInput = {
   resourceOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
@@ -27,6 +28,8 @@ export type DiplomacyListInput = {
   /** Who is at war with you now (warOpponentIds, the same signal as the profile's war state). */
   warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
+  /** Your standing with each empire by size (client-fealty.ts): unequal alliances read as fealty. Absent: "Ally"/"Alliance". */
+  fealtyWith?: FealtyLookup;
   colorOf: (playerId: string) => string | undefined;
   /** A House's crest (cosmetic); its initial shows when unset. */
   crestOf?: (playerId: string) => CrestCosmeticId | undefined;
@@ -40,8 +43,8 @@ const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // A rival you are fighting reads "War", not "Met" (playtest: an enemy's card still said MET once the war began).
-export const empireStance = (id: string, input: Pick<DiplomacyListInput, "allies" | "activeTruces" | "nowMs" | "warPlayerIds">): EmpireStance => {
-  if (input.allies.includes(id)) return { kind: "ally", label: "Ally" };
+export const empireStance = (id: string, input: Pick<DiplomacyListInput, "allies" | "activeTruces" | "nowMs" | "warPlayerIds" | "fealtyWith">): EmpireStance => {
+  if (input.allies.includes(id)) return { kind: "ally", label: allyStatusLabel(input.fealtyWith?.(id) ?? "ALLIANCE") };
   const truce = input.activeTruces.find((t) => t.otherPlayerId === id);
   if (truce && isTruceEndingSoon(truce, input.nowMs)) return { kind: "truce", label: `Truce ends ${truceTimeLeftLabel(truce.endsAt, input.nowMs)}`, ending: true };
   if (truce) return { kind: "truce", label: `Truce ${socialRemainingLabel(truce.endsAt, input.nowMs)}` };
@@ -76,14 +79,20 @@ const crest = (name: string, id: string, input: Pick<DiplomacyListInput, "colorO
 
 // A new truce runs from its offer (offeredTruceEndsAt), so it shows the time it has left, not the hours
 // offered: "Truce 12h" ended 2h after it was accepted (playtest 2026-11-26). Extensions add their hours.
-const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest): string =>
-  kind === "alliance" ? "Alliance" : (r as TruceRequest).extendsTruce ? `Extend truce ${(r as TruceRequest).durationHours}h` : "Truce";
+// An alliance row says which way fealty runs, by your standing with the other House (client-fealty.ts).
+const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput, incoming: boolean): string => {
+  if (kind === "alliance") {
+    const standing = input.fealtyWith?.(incoming ? r.fromPlayerId : r.toPlayerId) ?? "ALLIANCE";
+    return incoming ? incomingAllianceLabel(standing) : sentAllianceLabel(standing);
+  }
+  return (r as TruceRequest).extendsTruce ? `Extend truce ${(r as TruceRequest).durationHours}h` : "Truce";
+};
 
 // Decline is spelt out: an ✕ here read as "close" and declined the offer, which the Chronicle logs with no undo (playtest run 5).
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
   const endsAt = kind === "truce" ? offeredTruceEndsAt(r as TruceRequest) : undefined;
-  const what = `${offerWhat(kind, r)}${endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, input.nowMs)} left`}`;
+  const what = `${offerWhat(kind, r, input, true)}${endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, input.nowMs)} left`}`;
   const terms = r.terms ? describeDiplomacyTermsForRecipient(r.terms, name) : "";
   return `<div class="v2d-req">${crest(name, r.fromPlayerId, input)}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
@@ -100,7 +109,7 @@ const sentRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, 
   const expiresAt = (r as TruceRequest).expiresAt;
   const left = typeof expiresAt === "number" ? ` · ${socialRemainingLabel(expiresAt, input.nowMs)} left` : "";
   return `<div class="v2d-req v2d-sent">${crest(name, r.toPlayerId, input)}
-    <span class="v2d-req-text"><b>${esc(name)}</b><span>${offerWhat(kind, r)}${terms ? ` · ${esc(terms)}` : ""} · waiting${left}</span></span>
+    <span class="v2d-req-text"><b>${esc(name)}</b><span>${offerWhat(kind, r, input, false)}${terms ? ` · ${esc(terms)}` : ""} · waiting${left}</span></span>
     <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-cancel="${kind}" data-request-id="${esc(r.id)}">Withdraw</button>
   </div>`;
 };

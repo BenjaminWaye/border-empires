@@ -57,7 +57,8 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyPlayerUpdateColorChange, applyProfileSaveRejection } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
+import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
 import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld, hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
@@ -1092,14 +1093,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
-      if (myTileColor) {
-        state.playerColors.set(state.me, myTileColor);
-        authProfileColorEl.value = myTileColor;
-        if (state.pendingColorChange && state.pendingColorChange === myTileColor) {
-          state.pendingColorChange = "";
-          pushFeed("Empire colour updated.", "info", "success");
-        }
-      }
+      if (myTileColor) applyPlayerUpdateColorChange(myTileColor, { state, authProfileColorEl, pushFeed });
       if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
       const myVisualStyle = msg.visualStyle as any;
       if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
@@ -1944,51 +1938,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
-        authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
-        const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
-        const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
-        setAuthStatus(fullMessage, "error");
-        syncAuthOverlay();
-        // A pending display-name or color change rides on the same SET_PROFILE
-        // message as the (unchanged) color, so a color-collision rejection here
-        // also means both updates were never persisted — surface that on the
-        // Settings feed too, since the auth overlay above isn't visible from there.
-        if (state.pendingColorChange) {
-          state.pendingColorChange = "";
-          pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
-        }
-        if (state.pendingDisplayNameChange) {
-          state.pendingDisplayNameChange = "";
-          pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
-        }
-        return;
-      }
+      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; }
+      // COLOR_TAKEN / limits / a generic error during a profile save: clears both pending changes and tells the waiting modal.
+      if (applyProfileSaveRejection({ state, authProfileColorEl, setAuthStatus, syncAuthOverlay, pushFeed }, errorCode, msg as { message?: unknown; suggestion?: unknown })) return;
       // Queue-mirror dedup and rate-limit backoff: handled silently, never a popup.
       if (handleSilentServerError(ws, errorCode, msg as Record<string, unknown>)) return;
-      if (errorCode === "DISPLAY_NAME_LIMIT") {
-        state.pendingDisplayNameChange = "";
-        pushFeed(errorMessage, "error", "warn");
-        return;
-      }
-      if (errorCode === "COLOR_LIMIT") {
-        state.pendingColorChange = "";
-        pushFeed(errorMessage, "error", "warn");
-        return;
-      }
-      // A generic gateway internal error can also orphan pending profile changes.
-      // Clear them here so the next PLAYER_UPDATE doesn't silently skip its feed
-      // message, even though the error is also surfaced via the generic handler.
-      if (errorCode === "GATEWAY_INTERNAL_ERROR") {
-        if (state.pendingDisplayNameChange) {
-          state.pendingDisplayNameChange = "";
-          pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
-        }
-        if (state.pendingColorChange) {
-          state.pendingColorChange = "";
-          pushFeed(`Empire colour not updated: ${errorMessage}`, "error", "error");
-        }
-      }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
       const serverErrorContext = buildServerErrorContext(state, { code: msg.code, message: msg.message, failedTargetKey, failedTargetTile });

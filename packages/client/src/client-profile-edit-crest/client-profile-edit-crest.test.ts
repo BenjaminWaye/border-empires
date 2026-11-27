@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindProfileEditModal, profileEditModalHtml } from "../client-hud/client-hud-profile-edit-overlay.js";
+import { settleProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import { CREST_SAVE_NO_REPLY, settleCrestSaveFromError, settleCrestSaveFromState } from "./client-profile-edit-crest.js";
 
 // The House crest is chosen in the Edit Name, Colour & Crest dialog (owner,
@@ -75,14 +76,34 @@ describe("crest in the Edit Name, Colour & Crest dialog", () => {
   });
 
   it("lists the crest in the confirmation when the name changes too, and saves all three", async () => {
-    const { q, send, confirms } = mount(makeState({ crest: "crest-cog" }));
+    const { q, send, confirms, onClose } = mount(makeState({ crest: "crest-cog" }));
     q<HTMLInputElement>("[data-profile-edit-name]").value = "Harrowgate";
     q<HTMLButtonElement>('[data-profile-edit-crest=""]').click();
     q<HTMLButtonElement>("[data-profile-edit-save]").click();
     await flush();
     expect(confirms[0]?.consequences).toEqual(["Name: Harrowgate", "Crest: Letter"]);
+    // The crest goes once the server has confirmed the name (client-profile-edit-outcome.ts).
+    expect(send.mock.calls.map(([payload]) => (payload as { type: string }).type)).toEqual(["SET_PROFILE"]);
+    settleProfileEditOutcome({ ok: true });
+    await flush();
     expect(send.mock.calls.map(([payload]) => (payload as { type: string }).type)).toEqual(["SET_PROFILE", "SET_COSMETIC"]);
     expect(send.mock.calls[1]?.[0]).toEqual({ type: "SET_COSMETIC", slot: "crest", cosmeticId: null });
+    settleCrestSaveFromState({ type: "COSMETICS_STATE", owned: [], selected: {} });
+    await flush();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send the crest when the server refuses the name, and shows why", async () => {
+    const { q, send, onClose, status } = mount(makeState({ crest: "crest-cog" }));
+    q<HTMLInputElement>("[data-profile-edit-name]").value = "Harrowgate";
+    q<HTMLButtonElement>('[data-profile-edit-crest="crest-stag"]').click();
+    q<HTMLButtonElement>("[data-profile-edit-save]").click();
+    await flush();
+    settleProfileEditOutcome({ ok: false, reason: "Name taken" });
+    await flush();
+    expect(send.mock.calls.map(([payload]) => (payload as { type: string }).type)).toEqual(["SET_PROFILE"]);
+    expect(status()).toBe("Name taken");
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("shows the server's refusal and stays open", async () => {

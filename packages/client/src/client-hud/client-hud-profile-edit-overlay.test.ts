@@ -2,6 +2,7 @@
 import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
+import { settleProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import { bindProfileEditModal, profileEditModalHtml } from "./client-hud-profile-edit-overlay.js";
 
 const makeState = (overrides: Record<string, unknown> = {}) => ({
@@ -58,6 +59,7 @@ const mount = (state: ReturnType<typeof makeState>, choice: ConfirmChoice = "con
 };
 
 afterEach(() => {
+  settleProfileEditOutcome({ ok: false, reason: "test over" });
   document.body.innerHTML = "";
   vi.restoreAllMocks();
 });
@@ -120,6 +122,7 @@ describe("profile edit overlay", () => {
     await flush();
 
     expect(sendGameMessage).toHaveBeenCalledTimes(1);
+    settleProfileEditOutcome({ ok: true });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -132,17 +135,66 @@ describe("profile edit overlay", () => {
 
     expect(confirm.calls).toHaveLength(1);
     expect(sendGameMessage).toHaveBeenCalledTimes(1);
+    settleProfileEditOutcome({ ok: true });
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("selects the current name on focus and shows an n/24 count", () => {
-    const state = makeState();
-    const { overlayEl } = mount(state);
+  // Playtest 2026-11: typing into the pre-filled box appended to the old name and maxlength cut
+  // the result ("House DovetailHouse Dove"). The box now starts empty with the name as placeholder.
+  it("starts empty with the current name as placeholder, so typing can never append to it", async () => {
+    const state = makeState({ meName: "House Dovetail" });
+    const { overlayEl, sendGameMessage } = mount(state);
     const nameInput = overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]")!;
-    nameInput.dispatchEvent(new FocusEvent("focus"));
-    expect(nameInput.selectionStart).toBe(0);
-    expect(nameInput.selectionEnd).toBe("Old Name".length);
-    expect(overlayEl.querySelector("[data-profile-name-count]")!.textContent).toBe("8/24");
+    expect(nameInput.value).toBe("");
+    expect(nameInput.placeholder).toBe("House Dovetail");
+    expect(overlayEl.querySelector("[data-profile-name-count]")!.textContent).toBe("0/24");
+    nameInput.value += "House Dove";
+    overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!.click();
+    await flush();
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_PROFILE", displayName: "House Dove", color: "#38b000" }, expect.any(String));
+  });
+
+  it("an empty box keeps the current name (a colour-only change)", async () => {
+    const state = makeState();
+    const { overlayEl, sendGameMessage } = mount(state);
+    overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-color]")!.value = "#f59e0b";
+    overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!.click();
+    await flush();
+    expect(sendGameMessage).toHaveBeenCalledTimes(1);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_PROFILE", displayName: "Old Name", color: "#f59e0b" }, expect.any(String));
+  });
+
+  // Playtest 2026-11: tapping Change closed the dialog at once, so a refused rename showed nothing.
+  it("stays open until the server answers and shows a refusal in the dialog", async () => {
+    const state = makeState();
+    const { overlayEl, onClose } = mount(state);
+    overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]")!.value = "New Name";
+    const saveBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!;
+    saveBtn.click();
+    await flush();
+    const status = overlayEl.querySelector("[data-profile-edit-status]")!;
+    expect(onClose).not.toHaveBeenCalled();
+    expect(status.textContent).toBe("Saving…");
+    expect(saveBtn.disabled).toBe(true);
+    settleProfileEditOutcome({ ok: false, reason: "You can only change your display name once per Sector Contest." });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(status.textContent).toBe("You can only change your display name once per Sector Contest.");
+    expect(saveBtn.disabled).toBe(false);
+  });
+
+  it("says so when the server never answers", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = makeState();
+      const { overlayEl, onClose } = mount(state);
+      overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]")!.value = "New Name";
+      overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!.click();
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(overlayEl.querySelector("[data-profile-edit-status]")!.textContent).toBe("No reply. Try again.");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sends the new name with the unchanged colour when only the name changes, then closes", async () => {
@@ -159,6 +211,7 @@ describe("profile edit overlay", () => {
       { type: "SET_PROFILE", displayName: "New Name", color: "#38b000" },
       expect.any(String)
     );
+    settleProfileEditOutcome({ ok: true });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -215,6 +268,7 @@ describe("profile edit overlay", () => {
       { type: "SET_PROFILE", displayName: "New Name", color: "#f59e0b" },
       expect.any(String)
     );
+    settleProfileEditOutcome({ ok: true });
     expect(onClose).toHaveBeenCalled();
   });
 

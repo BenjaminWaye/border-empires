@@ -5,6 +5,7 @@ import type { BuildingCategory } from "../client-tile-menu-building-category/cli
 import type { TileActionDef } from "../client-types.js";
 import { focusCamera, screen, type HudV2Deps } from "./client-hud-v2-context.js";
 import { townPlotPickClick } from "./client-hud-v2-town-plot-pick.js";
+import { garrisonPlotsClick } from "./client-hud-v2-town-garrison-plots.js";
 import { renderTownScreen, runTileActionOn, runTownFocusConfirm, runTownFocusPick, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 import { TownFocusSchema } from "@border-empires/shared";
 
@@ -49,10 +50,9 @@ export const townClick = (deps: HudV2Deps, target: Element, closeScreen: CloseSc
     runTownFocusConfirm(deps);
     return true;
   }
-  const focusEl = target.closest<HTMLElement>("[data-v2-town-focus]");
-  const focus = TownFocusSchema.safeParse(focusEl?.dataset.v2TownFocus);
+  const focus = TownFocusSchema.safeParse(target.closest<HTMLElement>("[data-v2-town-focus]")?.dataset.v2TownFocus);
   if (focus.success) {
-    runTownFocusPick(deps, focus.data, focusEl?.dataset.v2TownFocusAll === "1");
+    runTownFocusPick(deps, focus.data);
     return true;
   }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");
@@ -60,6 +60,7 @@ export const townClick = (deps: HudV2Deps, target: Element, closeScreen: CloseSc
     if (!work.disabled && work.dataset.v2WorkAction && work.dataset.targetKey) runTownWork(deps, work.dataset.v2WorkAction, work.dataset.targetKey);
     return true;
   }
+  if (garrisonPlotsClick(deps, target)) return true;
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
     runTileActionOn(deps, action.dataset.hudV2Action as TileActionDef["id"], action.dataset.targetKey, action.dataset.originKey);

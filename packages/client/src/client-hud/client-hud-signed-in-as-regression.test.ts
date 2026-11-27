@@ -14,7 +14,7 @@ describe("client HUD Settings 'Signed in as' regression", () => {
     // and the Account page still greet the player by name).
     const settingsPanelSource = readFileSync(new URL("./client-hud-settings-panel.ts", import.meta.url), "utf8");
 
-    const occurrences = settingsPanelSource.split("Signed in as ${state.meName || state.authUserLabel || \"Guest\"}.").length - 1;
+    const occurrences = settingsPanelSource.split("Signed in as ${escapeHtml(state.meName || state.authUserLabel || \"Guest\")}.").length - 1;
     expect(occurrences).toBeGreaterThanOrEqual(1);
   });
 });
