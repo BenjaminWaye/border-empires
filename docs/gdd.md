@@ -132,7 +132,10 @@ self-contained and fair.
   the same map switches sectors in game. A House left behind stays and plays
   on. With only one contest running, there is no map and the player goes
   straight into it. In the fiction a funded sector is an ordinary Sector
-  campaign: paying is how Houses make the Court open more of them.
+  campaign: paying is how Houses make the Court open more of them. Its
+  backers may keep it private: then it shows only to its members and its
+  win probably earns no galaxy holdings (direction 2026-11-28; an open
+  funded campaign, listed for everyone, is not built).
 - **When the free sector is full:** a waiting list for the next free contest,
   plus an offer to fund a new sector (§8). The owner decides case by case
   whether to pay for a second free sector.

@@ -233,7 +233,7 @@ between two sectors.
 | 2 | Land intent across servers (§4.2), including Small-map builds. In-game **Sectors** entry replaces "My sectors". | Same |
 | 3 | Ships when hosted sectors launch, with that flag. | Web players with a hosted sector |
 | 4 | Running contests drawn in Space View (2D strategic map and true-3D), so a Duke sees them beside their worlds. | Dukes |
-| Later | Leave this sector (Q4), a second free sector (Q6), native apps. | Needs owner decisions |
+| Later | Open funded campaigns (§8), Leave this sector (Q4), a second free sector (Q6), native apps. | Needs owner decisions |
 
 Each phase is a separate PR to `develop` with a changelog entry when it is
 visible, and regression tests for the board fields and the land intent's
@@ -255,6 +255,25 @@ force the Court to open more contests than it would on its own; the free
 public contest is simply the one the Court opens unasked. The map draws them
 all alike. Recorded in the world bible's §2, "Sector campaigns".
 
+**Open or private (owner direction, 2026-11-28, details to decide):** the
+Houses paying for a campaign choose whether it is open or private.
+
+- An **open** campaign is listed on every player's Sector Map like the
+  public one, anyone may land, and its winner's world counts in the galaxy
+  (a Planet, and Outposts and Stipends as usual). *New system:* hosted
+  sectors are members-only today ([`hosted-sectors-plan.md`](hosted-sectors-plan.md)
+  §7, Q9); an open one needs a public listing from the hosting service, no
+  ticket check on that server, and its crowning sent to the main gateway's
+  galaxy stores, which today only the public sector writes to.
+- A **private** campaign is shown only to its members (as hosted sectors are
+  now) and probably does not count in the galaxy: no Planet, Outpost or
+  Stipend, matching the existing rule that it does not count toward rating
+  (Q4 there). In the fiction it is a House's own affair the Court does not
+  recognise as a Sector of the Imperium.
+
+Until the open option exists, every hosted sector is private, so phases 1–3
+need nothing from this.
+
 Still open, and only if the owner builds the matching rule:
 
 - **A House on two worlds at once.** The Mothership stays in orbit for a
@@ -275,6 +294,8 @@ Still open, and only if the owner builds the matching rule:
 | Leave this sector (only if Q4 says so) | Rule change and new simulation command |
 | Sector card counts as the join screen (Q2) | Interpretation of a 2026-11-27 decision |
 | Paid campaigns as the ordinary way Sectors open | Lore, accepted 2026-11-28 |
+| Open funded campaigns: public listing, open landing, galaxy credit | New system (hosting service, sector server, gateway) |
+| Private campaigns earn no galaxy holdings | Rule, owner direction 2026-11-28 |
 
 ## 10. Questions for the owner
 

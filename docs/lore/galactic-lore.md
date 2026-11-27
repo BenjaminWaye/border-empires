@@ -70,7 +70,9 @@ The Court opens few Sectors on its own. Houses force its hand by paying for
 the expedition themselves, and most campaigns are opened that way; the Court
 can hardly refuse a frontier world retaken at someone else's cost. A Sector
 opened this way is no different from any other campaign (owner decision,
-2026-11-28).
+2026-11-28), unless its backers keep it private: a private campaign is their
+own affair, and the Court does not recognise its winner as holding a Sector
+of the Imperium (direction 2026-11-28; see §14).
 
 A Sector takes only as many Houses as it can hold. Houses turned away wait
 for the next one. Once a campaign is decided, the next Sector is proclaimed,
@@ -512,6 +514,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
 | Umbrite in forests | Since 2026-11-23 the 3D map draws every Umbrite deposit as violet Umbrite inside wood: a mineralized elder tree, a bed of split roots, or a fallen log (Storybook **Sandbox / Umbrite Forest / Concepts**). Why Umbrite grows through wood, and what it is doing in deserts and tundra, is still undecided. |
 | Town focus and the sale of labour | Canon since 2026-11-25 as contracted labour (§11, "Manpower and materials"; [town focus plan](../town-focus-plan.md)). Undecided: whether Houses also sell people outright, and whether creditors lend against population generally or only through a Commerce focus. |
+| Private campaigns | Owner direction 2026-11-28: a campaign its backers keep private probably earns no Planet, Outpost or Stipend. Not built, and the exact rule (is a private campaign's world still a Sector at all?) is undecided. See [`sector-map-plan.md`](../sector-map-plan.md) §8. |
 
 ### Retired concepts
 
