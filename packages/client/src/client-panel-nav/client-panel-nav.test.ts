@@ -112,3 +112,42 @@ describe("renderSidePanel", () => {
     expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(false);
   });
 });
+
+// Playtest 2026-11-26: Settings reopened scrolled down, so a tap meant for Credits opened "Join the Discord".
+describe("renderSidePanel scroll on open", () => {
+  const setup = () => {
+    document.body.innerHTML = `<aside id="side-panel"><div><h2 id="panel-title"></h2></div><div id="side-panel-body"><section id="panel-settings" class="panel-body"></section></div></aside>`;
+    return {
+      sidePanelEl: document.getElementById("side-panel")!,
+      sidePanelBodyEl: document.getElementById("side-panel-body")!,
+      panelTitleEl: document.getElementById("panel-title")!
+    };
+  };
+  const render = (deps: ReturnType<typeof setup>, activePanel: "settings" | "economy" | null): void =>
+    renderSidePanel({ activePanel, techTreeExpanded: false, domainDetailOpen: false }, deps);
+
+  it("reopens Settings at the top", () => {
+    const deps = setup();
+    render(deps, "settings");
+    deps.sidePanelBodyEl.scrollTop = 120;
+    render(deps, null);
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(0);
+  });
+
+  it("keeps the scroll of an open panel across re-renders", () => {
+    const deps = setup();
+    render(deps, "settings");
+    deps.sidePanelBodyEl.scrollTop = 120;
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(120);
+  });
+
+  it("starts at the top when switching to another panel", () => {
+    const deps = setup();
+    render(deps, "economy");
+    deps.sidePanelBodyEl.scrollTop = 80;
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(0);
+  });
+});

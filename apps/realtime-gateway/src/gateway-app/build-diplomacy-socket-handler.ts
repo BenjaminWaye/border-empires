@@ -37,6 +37,7 @@ import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-d
 import type { SocialState } from "../social-state/social-state.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
 import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
+import { everTrucedAnAi, onGuideTruceStep, type GuideProgressView } from "../ai-diplomacy-stance/ai-guide-truce-welcome.js";
 import type { SendGameplayEmailAlert } from "../gameplay-email-alert/gameplay-email-alert.js";
 
 /** Every 10 minutes the memory's size and eviction/prune totals are logged (state-and-persistence-discipline.md). */
@@ -60,6 +61,8 @@ export type DiplomacySocketHandlerDeps = {
   sendAllianceBreakAlert: AllianceSocketMessageDeps["sendAllianceBreakAlert"];
   sendTruceRequestAlert: TruceSocketMessageDeps["sendTruceRequestAlert"];
   sendTruceEndingAlert: TruceEndingEmailNotifierDeps["sendTruceEndingAlert"];
+  /** The player's saved tutorial-guide progress (player profile): an AI welcomes a player on the guide's truce step. */
+  guideProgressOf?: (playerId: string) => Promise<GuideProgressView | undefined>;
   onDiplomacyInteraction: (playerId: string, targetPlayerId: string | undefined, kind: "truce" | "alliance") => void;
   gatewayMetrics: { incrementGuestDiplomacyBlockedTotal: () => void };
   /** Already wrapped in the gateway's submit timeout. */
@@ -183,7 +186,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     // Both reads are bounded; run them side by side so the waits don't add up.
-    const [sizes, returnableTowns] = await Promise.all([seasonLeaderboard(), returnableTownsOf(requesterId)]);
+    const [sizes, returnableTowns, guide] = await Promise.all([
+      seasonLeaderboard(),
+      returnableTownsOf(requesterId),
+      deps.guideProgressOf?.(requesterId).catch(() => undefined)
+    ]);
     const dominance = dominanceSizingFor(sizes);
     const now = Date.now();
     return {
@@ -197,7 +204,10 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         requesterId, aiPlayerId, alliesOf, warMemory: memory.view, nameOf: socialState.playerNameOf, now
       }),
       ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
-      ...(dominance ? { dominance } : {})
+      ...(dominance ? { dominance } : {}),
+      ...(onGuideTruceStep(guide)
+        ? { requesterOnGuideTruceStep: true, requesterEverTrucedAnAi: everTrucedAnAi(deps.seededAiPlayerIds, requesterId, memory.view) }
+        : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
