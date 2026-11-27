@@ -5,13 +5,24 @@
 // carries the player id.
 import { Capacitor } from "@capacitor/core";
 
+import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import {
+  publicProfileSharePending,
+  publicProfileShareView,
+  rememberPublicProfileShareState,
+  setPublicProfileSharePending,
+  showPublicProfileShareNote,
+  type PublicProfileShareDeps,
+  type PublicProfileShareView
+} from "./client-public-house-share-state.js";
 
-export type PublicProfileShareDeps = {
-  wsUrl: string;
-  getIdToken: () => Promise<string | undefined>;
-  fetchImpl?: typeof fetch;
-};
+export type { PublicProfileShareDeps } from "./client-public-house-share-state.js";
+
+let installedDeps: PublicProfileShareDeps | undefined;
+
+/** Your own profile's sharing buttons, for the HUD render. */
+export const ownPublicProfileShareView = (nowMs = Date.now()): PublicProfileShareView => publicProfileShareView(installedDeps, nowMs);
 
 export type PublicProfileLinkResult = { ok: true; publicId: string } | { ok: false; error: "signed_out" | "account_required" | "unavailable" };
 
@@ -50,6 +61,7 @@ type ShareNavigator = { share?: (data: { title: string; url: string }) => Promis
 export const sharePublicProfile = async (deps: PublicProfileShareDeps, nav: ShareNavigator = navigator): Promise<string> => {
   const link = await requestPublicProfileLink(deps);
   if (!link.ok) return publicProfileShareFailureLabel(link.error);
+  rememberPublicProfileShareState(deps, "on");
   const url = publicHouseUrl(link.publicId);
   if (nav.share) {
     try {
@@ -80,29 +92,30 @@ export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Pr
     if (!token) return "Sign in to stop sharing";
     const response = await fetchImpl(`${rallyApiOrigin(deps.wsUrl)}/hq/public-profile/link`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
     const body = (await response.json().catch(() => undefined)) as { ok?: unknown } | undefined;
-    return body?.ok === true ? "Sharing stopped" : "Couldn't stop sharing. Try again";
+    if (body?.ok !== true) return "Couldn't stop sharing. Try again";
+    rememberPublicProfileShareState(deps, "off");
+    return "Sharing stopped";
   } catch {
     return "Couldn't stop sharing. Try again";
   }
 };
 
-/** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. */
+/** One document-level listener: the profile is re-rendered as HTML, so the buttons themselves are not stable. Progress and outcome go through the share state, which the render reads. */
 export const installPublicProfileShare = (deps: PublicProfileShareDeps): void => {
+  installedDeps = deps;
   if (typeof document === "undefined") return;
-  let busy = false;
-  const run = (selector: string, pending: string, failed: string, action: () => Promise<string>): void => {
-    busy = true;
-    const label = (text: string): void => {
-      // The profile may have been re-rendered meanwhile; label whichever button is on screen.
-      const current = document.querySelector<HTMLButtonElement>(selector);
-      if (current) current.textContent = text;
-    };
-    label(pending);
-    void action().then(label, () => label(failed)).finally(() => { busy = false; });
+  const run = (kind: "share" | "stop", failed: string, action: () => Promise<string>): void => {
+    setPublicProfileSharePending(kind);
+    showPublicProfileShareNote(undefined);
+    void action()
+      .then((label) => showPublicProfileShareNote(label === PUBLIC_PROFILE_SHARE_LABEL ? undefined : label), () => showPublicProfileShareNote(failed))
+      .finally(() => setPublicProfileSharePending(undefined));
   };
   document.addEventListener("click", (event) => {
-    if (busy || !(event.target instanceof Element)) return;
-    if (event.target.closest("[data-v2-profile-share]")) run("[data-v2-profile-share]", "Making link…", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
-    else if (event.target.closest("[data-v2-profile-unshare]")) run("[data-v2-profile-unshare]", "Stopping…", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("[data-v2-profile-save-to-share]")) { openGuestSavePanel("share"); return; }
+    if (publicProfileSharePending()) return;
+    if (event.target.closest("[data-v2-profile-share]")) run("share", "Couldn't make the link. Try again", () => sharePublicProfile(deps));
+    else if (event.target.closest("[data-v2-profile-unshare]")) run("stop", "Couldn't stop sharing. Try again", () => stopSharingPublicProfile(deps));
   });
 };

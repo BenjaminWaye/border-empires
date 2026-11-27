@@ -220,15 +220,6 @@ export const townFocusEmpireCoinPerDay = (towns: Iterable<Pick<Tile, "town" | "d
   return delta;
 };
 
-/** How the player's towns are spread across the focuses, for the card's empire line. */
-export const townFocusCounts = (towns: Iterable<Pick<Tile, "town" | "ownershipState">>, nowMs = Date.now()): Record<TownFocus, number> => {
-  // Each town counts under the focus chosen for it, so a town just switched to X is not one "All towns → X" would
-  // change; a locked town cannot change at all, so it is left out.
-  const counts: Record<TownFocus, number> = { BALANCED: 0, GROWTH: 0, LEVY: 0, COMMERCE: 0 };
-  for (const tile of towns) if (tile.town && tile.ownershipState === "SETTLED" && townFocusLockedInMs(tile.town, nowMs) === 0) counts[shownTownFocus(tile.town)] += 1;
-  return counts;
-};
-
 /**
  * The town record after the player confirms `focus` now: what the server will store, shown before its reply. A
  * change locks the town until the owner's next refill; a locked town or a pick that changes nothing returns `town`.

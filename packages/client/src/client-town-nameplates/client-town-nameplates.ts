@@ -33,6 +33,8 @@ const NEUTRAL_PLATE_LINE = "#5a4828";
 // The bubble names the cause; whether the town grows rides on its population (GROWTH_MARK).
 const STATUS_ICON: Record<TownNameplateStatus, string> = {
   ungarrisoned: resourceSimpleIconUrl("GOLD"),
+  // The same garrison badge, without the "Not garrisoned" tag: the town itself is garrisoned.
+  plots: resourceSimpleIconUrl("GOLD"),
   unfed: resourceSimpleIconUrl("FOOD"),
   unruly: resourceSimpleIconUrl("LUXURY_BIOTA"),
   upgrade: "/icons/simple/town-upgrade.svg",
@@ -81,7 +83,7 @@ export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
 
 const plateHtml = (plate: TownNameplate): string => {
   const badge = plate.status
-    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "ungarrisoned" || plate.status === "unfed" || plate.status === "unruly" ? STATUS_STRIKE : ""}</span>`
+    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "ungarrisoned" || plate.status === "plots" || plate.status === "unfed" || plate.status === "unruly" ? STATUS_STRIKE : ""}</span>`
     : "";
   const growth = plate.growth ? GROWTH_MARK[plate.growth] : "";
   const population = plate.population === undefined
@@ -92,7 +94,12 @@ const plateHtml = (plate: TownNameplate): string => {
 };
 
 /** Screen-space town plates over either map renderer, fed the frame's visible tiles and real projection. */
-export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNameplatesState): {
+export function createTownNameplates(
+  canvas: HTMLCanvasElement,
+  state: TownNameplatesState,
+  /** Per frame: which of your garrisoned towns still have plots to garrison (townHasPlotsToGarrison). */
+  plotsToGarrison?: () => (town: Tile) => boolean
+): {
   render: (tiles: readonly NameplateTile[], projection: NameplateProjection) => void;
   dispose: () => void;
 } {
@@ -111,10 +118,11 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
       const three = isTrue3DRendererActive();
       const unruly = unrulyTownKeys(state.manpowerBreakdown?.biotaTowns);
       const garrisoning = garrisonPlannedTileKeys(state);
+      const hasPlots = plotsToGarrison?.();
       const candidates: Placed[] = [];
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible") continue;
-        const plate = townNameplateFor(t, state.me, nowMs, unruly, garrisoning);
+        const plate = townNameplateFor(t, state.me, nowMs, unruly, garrisoning, hasPlots);
         if (!plate) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
         // 3D: the tile's on-screen width comes from the camera (zoom alone doesn't say it);

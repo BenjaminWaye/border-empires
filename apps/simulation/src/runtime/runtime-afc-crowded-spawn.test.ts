@@ -40,7 +40,7 @@ describe("AFC starting vision", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       // Rival first, so its towns' reach is granted before the AFC's and keeps every contested tile.
-      initialPlayers: new Map([["rival", buildPlayer("rival")], ["newcomer", buildPlayer("newcomer")]]),
+      initialPlayers: new Map([["rival", buildPlayer("rival")], ["newcomer", buildPlayer("newcomer", { isAi: true })]]),
       seedTiles: new Map(),
       initialState: { tiles: buildWorld(), activeLocks: [] }
     });
@@ -101,10 +101,11 @@ describe("AFC landing inside a rival's reach", () => {
   it("grants the AFC's whole 3x3 footprint, and keeps it across a restart", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
-      initialPlayers: new Map([["rival", buildPlayer("rival")]]),
+      initialPlayers: new Map([["rival", buildPlayer("rival")], ["newcomer", buildPlayer("newcomer", { isAi: true })]]),
       seedTiles: new Map(),
       initialState: { tiles: buildCrowdedWorld(), activeLocks: [] }
     });
+    // A human House is refused here (no viable site; see the test below); only AI Houses still use the last-resort pass.
     expect(runtime.ensurePlayerHasSpawnTerritory("newcomer")).toBe(true);
 
     const afcTile = runtime.exportState().tiles.find((tile) => tile.afcJson !== undefined && tile.ownerId === "newcomer");
@@ -132,5 +133,34 @@ describe("AFC landing inside a rival's reach", () => {
       initialState: { tiles: withNewcomerLand(buildCrowdedWorld(), runtime), activeLocks: [] }
     });
     expect(reachInWorld(restarted)).toEqual(footprint);
+  });
+});
+
+// Owner decision 2026-11-27: a human House lands only on a viable site, a redeploy included.
+describe("human House on a map with no viable landing site", () => {
+  const crowdedWorld = (): DomainTileState[] => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 7; y <= 13; y += 1) {
+      for (let x = 8; x <= 16; x += 1) {
+        const isTown = y === 10 && (x === 10 || x === 14);
+        tiles.push(isTown
+          ? { x, y, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED", town: { name: `Rival ${x}`, type: "FARMING", populationTier: "TOWN" } }
+          : { x, y, terrain: "LAND" });
+      }
+    }
+    return tiles;
+  };
+
+  it("does not land an eliminated human House inside a rival's reach; it stays landless until a site frees up", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["rival", buildPlayer("rival")], ["fallen", buildPlayer("fallen")]]),
+      seedTiles: new Map(),
+      initialState: { tiles: crowdedWorld(), activeLocks: [] }
+    });
+    (runtime as unknown as { respawnIfEliminated: (id: string, commandId: string) => void }).respawnIfEliminated("fallen", "test-elimination");
+    expect(runtime.exportState().tiles.filter((tile) => tile.ownerId === "fallen")).toEqual([]);
+    expect(runtime.ensurePlayerHasSpawnTerritory("fallen")).toBe(false);
+    expect(runtime.exportState().tiles.filter((tile) => tile.ownerId === "fallen")).toEqual([]);
   });
 });

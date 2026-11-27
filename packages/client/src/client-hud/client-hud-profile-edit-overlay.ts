@@ -1,4 +1,5 @@
-// "Edit Name & Colour" overlay, opened from Settings > Account. Genuinely
+// "Edit Name, Colour & Crest" overlay, opened from Settings > Account or by
+// tapping the emblem on your own profile. Genuinely
 // reuses the onboarding profile-setup screen's design: the same colour-swatch
 // picker (client-auth-ui.ts's syncColorSwatchButtons, shared with the actual
 // onboarding panel) and the same CSS classes (.auth-color-block,
@@ -10,9 +11,12 @@
 // closed -> open transition, never while the fields are being edited.
 import type { Auth } from "firebase/auth";
 import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
+import { bindCrestEditor, cancelCrestSave, crestEditorHtml, saveCrest } from "../client-profile-edit-crest/client-profile-edit-crest.js";
+import { crestLabel } from "../client-house-crest/client-house-crest.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
 import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
+import { awaitProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
 import { updateFirebaseDisplayNameBestEffort, updateSettingsColor, updateSettingsDisplayName } from "./client-hud-settings.js";
@@ -32,7 +36,9 @@ export const setProfileEditOpen = (open: boolean): void => { profileEditOpen = o
 const escapeAttr = (value: string): string =>
   value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
 
-export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | "playerColors">): string => {
+type CrestFields = "playerCosmetics" | "ownedCosmetics" | "authSessionReady";
+
+export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | "playerColors" | CrestFields>): string => {
   const currentColor = state.playerColors.get(state.me) ?? "#38b000";
   return `
   <div class="profile-edit-backdrop" data-profile-edit-backdrop></div>
@@ -42,7 +48,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
       <div class="auth-panel-subtitle">Once per Sector Contest.</div>
     </div>
     <div class="profile-name-field">
-      <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${escapeAttr(state.meName || "")}" data-profile-edit-name />
+      <input class="auth-style-input" type="text" placeholder="${escapeAttr(state.meName || "Display name")}" autocomplete="nickname" maxlength="24" value="" data-profile-edit-name />
       ${profileNameCountHtml()}
     </div>
     <div class="auth-color-block">
@@ -60,6 +66,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
         <input type="color" value="${currentColor}" data-profile-edit-color />
       </label>
     </div>
+    ${crestEditorHtml(state)}
     <div class="profile-edit-status" data-profile-edit-status role="status" aria-live="polite"></div>
     <div class="profile-edit-actions">
       <button type="button" class="panel-btn" data-profile-edit-cancel>Cancel</button>
@@ -74,7 +81,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
 // ---------------------------------------------------------------------------
 
 export const bindProfileEditModal = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors">;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | CrestFields>;
   overlayEl: HTMLElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
@@ -110,9 +117,14 @@ export const bindProfileEditModal = (args: {
   const setStatus = (text: string): void => {
     if (statusEl) statusEl.textContent = text;
   };
-  bindProfileNameField(nameInput, { onUserInput: () => setStatus("") });
+  const crestEditor = bindCrestEditor(overlayEl, state, () => setStatus(""));
+  const refreshPreview = (): void => crestEditor.refresh(colorInput.value, nameInput.value.trim());
+  bindProfileNameField(nameInput, { onUserInput: () => { setStatus(""); refreshPreview(); } });
 
-  const syncSwatches = (): void => syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value);
+  const syncSwatches = (): void => {
+    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value);
+    refreshPreview();
+  };
   syncSwatches();
 
   swatchButtons.forEach((btn) => {
@@ -125,7 +137,11 @@ export const bindProfileEditModal = (args: {
   });
   colorInput.oninput = syncSwatches;
 
+  let cancelWait: (() => void) | undefined;
   const close = (): void => {
+    cancelWait?.();
+    cancelWait = undefined;
+    cancelCrestSave();
     hideConfirm();
     setProfileEditOpen(false);
     overlayEl.innerHTML = "";
@@ -134,8 +150,30 @@ export const bindProfileEditModal = (args: {
   if (backdrop) backdrop.onclick = close;
   if (cancelBtn) cancelBtn.onclick = close;
 
-  const save = async (newName: string, newColor: string, nameChanged: boolean, colorChanged: boolean): Promise<void> => {
+  const save = async (newName: string, newColor: string, nameChanged: boolean, colorChanged: boolean, crestChanged: boolean): Promise<void> => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
+    // Stay open until the server answers: name and colour are confirmed by
+    // PLAYER_UPDATE (client-profile-edit-outcome.ts), then the crest by
+    // COSMETICS_STATE (client-profile-edit-crest.ts). A refusal of either shows here.
+    saveBtn.disabled = true;
+    setStatus("Saving…");
+    const fail = (reason: string): void => {
+      saveBtn.disabled = false;
+      setStatus(reason);
+    };
+    const saveCrestThenClose = async (): Promise<void> => {
+      const crest = await saveCrest(crestEditor.chosen(), sendGameMessage);
+      if (crest.ok) close();
+      else fail(crest.reason);
+    };
+    if (nameChanged || colorChanged) {
+      cancelWait = awaitProfileEditOutcome((outcome) => {
+        cancelWait = undefined;
+        if (!outcome.ok) fail(outcome.reason);
+        else if (crestChanged) void saveCrestThenClose();
+        else close();
+      });
+    }
     // Neither update function reports success/failure back to its caller
     // (the server confirms asynchronously via PLAYER_UPDATE), so track
     // whether the synchronous send itself failed (e.g. connection not
@@ -169,13 +207,21 @@ export const bindProfileEditModal = (args: {
         setPendingColorChange
       });
     }
-    if (sendFailed) setStatus("Not sent");
-    else close();
+    if (sendFailed) {
+      cancelWait?.();
+      cancelWait = undefined;
+      fail("Not sent");
+      return;
+    }
+    if (!nameChanged && !colorChanged) await saveCrestThenClose();
   };
 
   saveBtn.onclick = (): void => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
-    const newName = nameInput.value.trim();
+    // The box starts empty (current name as placeholder): a pre-filled box let a
+    // tap put the caret at the end, so typing appended to the old name and
+    // maxlength cut it ("House DovetailHouse Dove", 2026-11 playtest).
+    const newName = nameInput.value.trim() || state.meName;
     const newColor = colorInput.value.trim();
     if (newName.length < 2) {
       setStatus("Name too short");
@@ -184,15 +230,23 @@ export const bindProfileEditModal = (args: {
     }
     const nameChanged = newName !== state.meName;
     const colorChanged = newColor !== currentColor;
-    if (!nameChanged && !colorChanged) {
+    const crestChanged = crestEditor.changed();
+    if (!nameChanged && !colorChanged && !crestChanged) {
       setStatus("No changes");
       pushFeed("No changes to save.", "info", "info");
       return;
     }
     setStatus("");
+    // A crest can change any time; only a name or colour change needs the once-per-contest confirmation.
+    if (!nameChanged && !colorChanged) {
+      void save(newName, newColor, false, false, true);
+      return;
+    }
+    const chosenCrest = crestEditor.chosen();
     const consequences = [
       ...(nameChanged ? [`Name: ${newName}`] : []),
-      ...(colorChanged ? [`Colour: ${newColor}`] : [])
+      ...(colorChanged ? [`Colour: ${newColor}`] : []),
+      ...(crestChanged ? [`Crest: ${chosenCrest ? crestLabel(chosenCrest) : "Letter"}`] : [])
     ];
     const shown = showConfirm({
       title: "Change empire?",
@@ -200,12 +254,12 @@ export const bindProfileEditModal = (args: {
       consequences,
       confirmLabel: "Change",
       sheetId: "profile-edit-confirm",
-      onConfirm: () => void save(newName, newColor, nameChanged, colorChanged),
+      onConfirm: () => void save(newName, newColor, nameChanged, colorChanged, crestChanged),
       onCancel: () => setStatus("Not saved")
     });
     // No DOM to show the sheet in: the modal's own subtitle already carries
     // the once-per-contest note, so save rather than silently doing nothing.
-    if (!shown) void save(newName, newColor, nameChanged, colorChanged);
+    if (!shown) void save(newName, newColor, nameChanged, colorChanged, crestChanged);
   };
 };
 

@@ -17,6 +17,7 @@ import {
   notifyIncomingAllianceRequest,
   notifyIncomingTruceRequest
 } from "./client-diplomacy-notifications.js";
+import { allianceOfferedLine, fealtyLookupFor, type FealtyState } from "../client-fealty/client-fealty.js";
 
 type DiplomacyMessageState = Pick<
   ClientState,
@@ -32,7 +33,7 @@ type DiplomacyMessageState = Pick<
   | "truceBreaksThisSeason"
   | "incomingTruceRequests"
   | "outgoingTruceRequests"
->;
+> & { leaderboard?: FealtyState["leaderboard"] };
 
 export type DiplomacyMessageDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
@@ -59,7 +60,8 @@ export const handleDiplomacySocketMessage = (state: DiplomacyMessageState, msg: 
       state.outgoingAllianceRequests.push(request);
     }
     const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? deps.playerNameForOwner(request.toPlayerId) : undefined);
-    deps.pushFeed(`Alliance offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
+    const standing = fealtyLookupFor({ me: state.me, leaderboard: state.leaderboard })(request?.toPlayerId);
+    deps.pushFeed(allianceOfferedLine(standing, targetName), "alliance", "success");
     return true;
   }
   if (msg.type === "ALLIANCE_UPDATE") {

@@ -1,3 +1,5 @@
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
+
 export type OwnershipHelpKind = "unclaimed" | "frontier" | "settled";
 
 const HELP: Array<{ kind: OwnershipHelpKind; name: string; text: string }> = [
@@ -21,9 +23,10 @@ export const ownershipHelpSubtitleHtml = (kind: OwnershipHelpKind, ownerLabel: s
 /**
  * Header status line that expands in place to a plain-text explainer when one
  * is given (same native <details> pattern and styling as the ownership help).
- * `statusText` is already HTML-safe; `helpText` is trusted static copy.
+ * `statusText` is plain text (it can hold an empire name) and is escaped here,
+ * like every other renderer of it; `helpText` is trusted static copy.
  */
 export const statusWithHelpHtml = (statusText: string, helpText?: string): string =>
   helpText
-    ? `<details class="tile-ownership-help"><summary>${statusText}</summary><div class="tile-ownership-help-body"><p>${helpText}</p></div></details>`
-    : statusText;
+    ? `<details class="tile-ownership-help"><summary>${escapeHtml(statusText)}</summary><div class="tile-ownership-help-body"><p>${helpText}</p></div></details>`
+    : escapeHtml(statusText);
