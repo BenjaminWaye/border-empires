@@ -305,6 +305,7 @@ export const createSocialState = (options: {
       sink?.deleteAllianceRequest(requestId);
       if (options?.recordDecline !== false) diplomacyHistory.recordPair(playerId, request.fromPlayerId, "ALLIANCE_DECLINED", now(), { byPlayerId: playerId });
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
+      if (options?.waiveOwnCooldown) startOfferCooldown(options.waiveOwnCooldown, playerId, request.fromPlayerId, 0);
       const notifyPlayerIds = [playerId, request.fromPlayerId];
       return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId)) };
     },
@@ -434,6 +435,7 @@ export const createSocialState = (options: {
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
+      if (options?.waiveOwnCooldown) startOfferCooldown(options.waiveOwnCooldown, playerId, request.fromPlayerId, 0);
       return ok([playerId, request.fromPlayerId], declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId));
     },
     cancelTruce(playerId, requestId) {
