@@ -118,7 +118,7 @@ const heroHtml = (input: ProfileInput): string => {
 const scoreCardHtml = (entry: LeaderboardOverallEntry | undefined): string => {
   if (!entry) return `<div class="v2p-stat"><span>Score</span><b>—</b></div>`;
   const parts = leaderboardScoreParts(entry.tiles, entry.incomePerMinute, entry.techs);
-  return `<div class="v2p-stat v2p-stat-score" title="Garrisoned tiles + coin income + Manifests. Empire Integrity scales coin." data-v2-profile-score>
+  return `<div class="v2p-stat v2p-stat-score" data-v2-profile-score>
     <span>Score</span><b>${int(entry.score)}</b>
     <small class="v2p-score-parts">Tiles ${int(parts.tiles)} · Coin ${parts.coin.toFixed(1)} · Manifests ${int(parts.manifests)}</small>
     <small class="v2p-score-parts">Frontier scores once garrisoned</small>

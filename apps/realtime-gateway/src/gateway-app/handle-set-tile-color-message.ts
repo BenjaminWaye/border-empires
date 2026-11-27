@@ -40,11 +40,9 @@ export const handleSetTileColorMessage = async (deps: SetTileColorMessageDeps): 
     return;
   }
   const existing = await profileStore.get(playerId);
-  if (normalizeHex(existing?.tileColor ?? "") === normalized) {
-    sendJson({ type: "PLAYER_UPDATE", tileColor: normalized, canToggleFog });
-    return;
-  }
-  const seasonId = existing?.profileComplete === true ? await getCurrentSeasonId() : undefined;
+  // Re-saving the colour already held is not a change and spends nothing.
+  const colorChanging = normalizeHex(existing?.tileColor ?? "") !== normalized;
+  const seasonId = colorChanging && existing?.profileComplete === true ? await getCurrentSeasonId() : undefined;
   if (profileChangeUsed(existing?.colorChangedSeasonId, seasonId)) {
     sendJson({ type: "ERROR", code: "COLOR_LIMIT", message: PROFILE_CHANGE_LIMIT_REASON.color });
     return;
