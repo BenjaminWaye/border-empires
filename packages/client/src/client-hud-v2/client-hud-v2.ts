@@ -41,6 +41,7 @@ import { handleFoodShortageClick } from "./client-hud-v2-food-plots.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { RELAY_BEACON_TOWARD_ACTION_ID } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
+import { houseChargesBubbleCovered } from "../client-house-charges/client-house-charges-bubble-cover.js";
 import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
 import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
@@ -415,7 +416,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     const nowMs = Date.now();
     // Before the off-screen return, so the bubble also goes away on sign-out, the lobby and other waits.
-    const bubbleHidden = !onScreen || !deps.state.me || screen.id !== null || Boolean(deps.state.activePlayerProfileId);
+    // The tile sheet, Build list and popups also hide it: the cards drew over their titles and buttons.
+    const bubbleHidden = !onScreen || !deps.state.me || screen.id !== null || Boolean(deps.state.activePlayerProfileId) || houseChargesBubbleCovered(document);
     syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
       deps.setActivePanel("charges");
       deps.renderHud();
