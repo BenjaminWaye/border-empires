@@ -101,8 +101,8 @@ export const buildMusterActions = (
       siege ? { disabled: true, disabledReason: musterSiegeReason(siege, nowMs) } : avail();
     const huntAction = (prefix: string): TileActionDef => ({
       id: "muster_hunt",
-      label: "Hunt Planetary Defense",
-      detail: `${prefix} · chase down Planetary Defense within ${MUSTER_ADVANCE_RANGE_STEPS} steps, leaving other empires alone, then report back.`,
+      label: "Hunt Insurgents",
+      detail: `${prefix} · chase down Insurgents within ${MUSTER_ADVANCE_RANGE_STEPS} steps, leaving other empires alone, then report back.`,
       ...siegeLock()
     });
     // Muster flag exists — offer mode toggle and clear.
@@ -110,7 +110,7 @@ export const buildMusterActions = (
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged}/${cap} manpower staged · clears Planetary Defense and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · clears Insurgents and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
         ...siegeLock()
       });
       out.push(huntAction(`Mustering… ${staged}/${cap} manpower staged`));
@@ -131,7 +131,7 @@ export const buildMusterActions = (
         out.push({
           id: "muster_advance",
           label: "Set Advance",
-          detail: `${status} (${staged}/${cap} staged) · attack every enemy in range, not only Planetary Defense.`,
+          detail: `${status} (${staged}/${cap} staged) · attack every enemy in range, not only Insurgents.`,
           ...siegeLock()
         });
       } else {
@@ -247,7 +247,7 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   }
   if (actionId === "muster_hunt") {
     deps.sendGameMessage(huntOrderMessage(x, y));
-    deps.pushFeed(`Flag at (${x}, ${y}) is hunting Planetary Defense`, "combat", "info");
+    deps.pushFeed(`Flag at (${x}, ${y}) is hunting Insurgents`, "combat", "info");
     announceFirstMuster();
     return true;
   }
@@ -255,8 +255,8 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
     const flag = sendHuntAttackersOrder(tile, deps.state, deps.sendGameMessage, Date.now());
     deps.pushFeed(
       flag
-        ? `Flag at (${flag.x}, ${flag.y}) is hunting the Planetary Defense taking (${x}, ${y}) — it strikes when they land`
-        : `No holding muster flag nearby to hunt Planetary Defense`,
+        ? `Flag at (${flag.x}, ${flag.y}) is hunting the Insurgents taking (${x}, ${y}) — it strikes when they land`
+        : `No holding muster flag nearby to hunt Insurgents`,
       "combat",
       flag ? "info" : "warn"
     );

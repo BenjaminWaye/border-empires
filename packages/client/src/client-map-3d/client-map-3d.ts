@@ -208,7 +208,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const sovereignSiegeEngineShakeFx = createCameraShakeFx(camera);
   const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const dockRouteOverlay = createDockRouteOverlay(scene); const syncDockRoutes = createDockRouteSync(dockRouteOverlay);
-  const barbarianOverlay = createPlanetaryDefenseOverlay(scene); // Planetary Defense patrols on barbarian-owned tiles
+  const barbarianOverlay = createPlanetaryDefenseOverlay(scene, undefined, MAX_VISIBLE_TILES); // Insurgent patrols on camps + insignia on their frontier
   const relicHintOverlay = createRelicHintOverlay(scene);
   const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const waystationOverlay = createWaystationOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt); const afcOverlayGroup = createAfcOverlayGroup(scene, AFC_MAX_INSTANCES, atmosphere.buildingEnvironmentTexture);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
@@ -836,9 +836,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         }
         // Rubble of a razed/wrecked structure and smoke over a captured resource, until the hold ends (both renderers).
         if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, x, z, surfaceY, wx, wy, shouldDrawForestInstance(forestTile, tile) ? (tropicalForestTile ? "TROPICAL" : "TEMPERATE") : undefined);
-        if (tile && ownerId === "barbarian-1" && terrain === "LAND" && tile.ownershipState === "SETTLED") { // soldiers on camps only (isPlanetaryDefenseCampTile)
-          barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy);
-          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+        if (tile && ownerId === "barbarian-1" && terrain === "LAND") { // Insurgents: soldiers on camps (isPlanetaryDefenseCampTile), the cracked-shield insignia on their frontier
+          if (tile.ownershipState === "SETTLED") { barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); }
+          else if (tile.ownershipState) barbarianOverlay.addFrontierInsignia(x, z, flatOverlayY);
         }
         if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy, { state: tile.naturalWonder, ownerId: tile.ownerId ?? undefined, garrisoned: Boolean(tile.ownerId && tile.ownershipState === "SETTLED"), ownerColor: normalizeColorForThree(deps.state.playerColors.get(tile.ownerId ?? "") ?? "#a8b69d") }); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         if (tile?.afc && terrain === "LAND" && visibility === "visible" && !isAfcHiddenForJoinDrop(deps.state.afcJoinDrop, wx, wy)) {

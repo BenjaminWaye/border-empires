@@ -83,15 +83,15 @@ export const huntAttackersAction = (tile: Tile, state: HuntState, nowMs: number)
   if (!flag) {
     return {
       id: "muster_hunt_attackers",
-      label: "Hunt Planetary Defense",
+      label: "Hunt Insurgents",
       disabled: true,
       disabledReason: "No flag in reach"
     };
   }
   return {
     id: "muster_hunt_attackers",
-    label: "Hunt Planetary Defense",
-    detail: `Flag at (${flag.x}, ${flag.y}) hunts the Planetary Defense taking this tile — it strikes the moment they land, and chases them if they move.`,
+    label: "Hunt Insurgents",
+    detail: `Flag at (${flag.x}, ${flag.y}) hunts the Insurgents taking this tile — it strikes the moment they land, and chases them if they move.`,
     disabled: false
   };
 };

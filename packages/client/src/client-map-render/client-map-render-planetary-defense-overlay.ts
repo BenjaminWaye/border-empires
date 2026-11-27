@@ -14,6 +14,7 @@
 // path has no marine battle squads, so combat itself isn't shown here.
 import { isPlanetaryDefenseCampTile, PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
 import type { Tile } from "../client-types.js";
+import { drawInsurgentInsignia } from "../client-insurgent-insignia.js";
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "../client-map-3d-planetary-defense-patrol.js";
 
 const VISOR_COLOR = "rgba(150, 205, 255, 0.9)";
@@ -76,7 +77,19 @@ export const drawSoldierGlyph2D = (
   ctx.stroke();
 };
 
-// Soldiers stand only on a camp, not on the frontier it holds (same rule as the 3D map).
+// Insurgent frontier tiles get the cracked-shield insignia; a tile whose
+// ownership state is unknown (reveal-only update) gets nothing. Same rule
+// and same drawing as the 3D ground decal (client-map-3d-insurgent-insignia-overlay.ts).
+export const INSURGENT_INSIGNIA_2D_MIN_TILE_PX = 8;
+const drawFrontierInsignia2D = (ctx: CanvasRenderingContext2D, tile: Tile, px: number, py: number, size: number): void => {
+  if (size < INSURGENT_INSIGNIA_2D_MIN_TILE_PX || !tile.ownershipState) return;
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  drawInsurgentInsignia(ctx, px + size / 2, py + size / 2, size * 0.5);
+  ctx.restore();
+};
+
+// Soldiers stand only on a camp; the frontier it holds shows the insignia (same rule as the 3D map).
 export const drawPlanetaryDefenseOverlay = (
   ctx: CanvasRenderingContext2D,
   tile: Tile,
@@ -87,7 +100,11 @@ export const drawPlanetaryDefenseOverlay = (
   wy: number,
   nowMs: number
 ): void => {
-  if (size < 10 || !isPlanetaryDefenseCampTile(tile)) return;
+  if (!isPlanetaryDefenseCampTile(tile)) {
+    drawFrontierInsignia2D(ctx, tile, px, py, size);
+    return;
+  }
+  if (size < 10) return;
   const h = Math.max(5, size * 0.34);
   ctx.save();
   for (let i = 0; i < SOLDIERS_PER_TILE; i += 1) {

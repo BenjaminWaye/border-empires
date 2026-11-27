@@ -85,14 +85,14 @@ const musterBaseStatusText = (
   if (flag.nextActionAt !== undefined && flag.nextActionAt > nowMs) {
     const remainingS = Math.max(1, Math.ceil((flag.nextActionAt - nowMs) / 1000));
     if (flag.insufficientManpower) return `Not enough manpower for the nearest target — retrying in ${remainingS}s.`;
-    if (flag.noTargetInRange) return flag.hunt ? `No Planetary Defense within range — retrying in ${remainingS}s.` : `No target within range — retrying in ${remainingS}s.`;
-    if (flag.hunt) return `Tracking Planetary Defense — next move in ${remainingS}s.`;
+    if (flag.noTargetInRange) return flag.hunt ? `No Insurgents within range — retrying in ${remainingS}s.` : `No target within range — retrying in ${remainingS}s.`;
+    if (flag.hunt) return `Tracking Insurgents — next move in ${remainingS}s.`;
     return `Planning next move — ${remainingS}s.`;
   }
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
     return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
   }
-  if (flag.hunt) return `Hunting Planetary Defense — ${Math.floor(flag.amount)} manpower staged.`;
+  if (flag.hunt) return `Hunting Insurgents — ${Math.floor(flag.amount)} manpower staged.`;
   if (flag.clearing) return `Clearing the area — ${Math.floor(flag.amount)} manpower staged.`;
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };

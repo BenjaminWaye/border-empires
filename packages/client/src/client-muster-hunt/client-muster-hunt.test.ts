@@ -27,7 +27,7 @@ describe("Hunt Planetary Defense on a tile it is capturing", () => {
   it("offers to send the nearest holding flag after the attackers", () => {
     const state = capturedState();
     const actions = buildMusterActions(state.tiles.get("2,150")!, state, NOW);
-    expect(actions[0]).toMatchObject({ id: "muster_hunt_attackers", label: "Hunt Planetary Defense", disabled: false });
+    expect(actions[0]).toMatchObject({ id: "muster_hunt_attackers", label: "Hunt Insurgents", disabled: false });
     expect(actions[0]?.detail).toContain("(6, 150)");
   });
 
@@ -120,6 +120,6 @@ describe("Hunt Planetary Defense on a flag", () => {
   });
 
   it("says the flag is hunting Planetary Defense", () => {
-    expect(musterStatusText({ mode: "ADVANCE", amount: 80, x: 1, y: 1, hunt: true }, NOW)).toBe("Hunting Planetary Defense — 80 manpower staged.");
+    expect(musterStatusText({ mode: "ADVANCE", amount: 80, x: 1, y: 1, hunt: true }, NOW)).toBe("Hunting Insurgents — 80 manpower staged.");
   });
 });

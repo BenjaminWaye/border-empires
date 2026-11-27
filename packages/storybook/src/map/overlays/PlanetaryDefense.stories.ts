@@ -37,7 +37,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Overlays/Planetary Defense",
+  title: "Map/Overlays/Insurgents",
   argTypes: {
     gridRadius: { control: { type: "range", min: 0, max: 3, step: 1 } },
     spacing: { control: { type: "range", min: 1, max: 3, step: 0.25 } },

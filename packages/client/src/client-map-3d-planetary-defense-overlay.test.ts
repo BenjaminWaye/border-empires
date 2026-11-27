@@ -1,11 +1,12 @@
 // Coverage for the Planetary Defense patrol overlay's tile diffing, combat
 // hand-off and tint — the real marine glb is mocked out with a minimal
 // skinned rig so these run instantly without network/glb parsing.
-import { AnimationClip, Bone, BufferGeometry, Group, MeshStandardMaterial, Object3D, Scene, Skeleton, SkinnedMesh } from "three";
+import { AnimationClip, Bone, BufferGeometry, Group, InstancedMesh, Matrix4, MeshStandardMaterial, Object3D, Scene, Skeleton, SkinnedMesh, Vector3 } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { createPlanetaryDefenseOverlay } from "./client-map-3d-planetary-defense-overlay.js";
 import { PATROL_RADIUS, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import type { UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
 vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOriginal) => {
@@ -207,5 +208,41 @@ describe("createPlanetaryDefenseOverlay", () => {
       expect(positions.size).toBeGreaterThan(5);
       overlay.dispose();
     });
+  });
+});
+
+// Regression: Insurgent frontier tiles had no 3D marker at all and read as empty terrain.
+describe("Insurgent frontier insignia (3D)", () => {
+  const insigniaMesh = (scene: Scene): InstancedMesh =>
+    scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === "insurgent-insignia-overlay")!;
+
+  it("stamps one flat insignia per frontier tile and hides it when none are left", async () => {
+    const scene = new Scene();
+    const overlay = createPlanetaryDefenseOverlay(scene);
+    await flush();
+    overlay.clear();
+    overlay.addFrontierInsignia(3.5, 4.5, 0.2);
+    overlay.addFrontierInsignia(4.5, 4.5, 0.2);
+    overlay.commit();
+    const mesh = insigniaMesh(scene);
+    expect(mesh.visible).toBe(true);
+    expect(mesh.count).toBe(2);
+    const m = new Matrix4();
+    mesh.getMatrixAt(0, m);
+    const pos = new Vector3().setFromMatrixPosition(m);
+    expect(pos.x).toBeCloseTo(3.5);
+    expect(pos.z).toBeCloseTo(4.5);
+    expect(pos.y).toBeGreaterThan(0.2);
+
+    overlay.clear();
+    overlay.commit();
+    expect(mesh.visible).toBe(false);
+    overlay.dispose();
+    expect(scene.children.includes(mesh)).toBe(false);
+  });
+
+  it("draws over the owner tint but under the fog layers", () => {
+    expect(RENDER_ORDER.insurgentInsignia).toBeGreaterThan(RENDER_ORDER.ownershipFrontier);
+    expect(RENDER_ORDER.insurgentInsignia).toBeLessThan(RENDER_ORDER.fogDarkenSettled);
   });
 });

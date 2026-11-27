@@ -10,11 +10,14 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 import { createUnitMotionGate, type UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
+import { createInsurgentInsigniaOverlay } from "./client-map-3d-insurgent-insignia-overlay.js";
 
-// Planetary Defense camp marker: a pair of dark-grey-armored soldiers
-// patrolling each camp tile, not the camp's frontier ("barbarian" is still the internal
-// owner id; players see "Planetary Defense" — what is left of the planet's
-// own defense force after the world was prepared for the planetary games).
+// Insurgent camp marker: a pair of dark-grey-armored soldiers patrolling
+// each camp tile ("barbarian" / "Planetary Defense" are still the internal
+// names; players see "Insurgents" — garrisons of the planet's own defense
+// force that survived the Court's purge). The camp's frontier instead gets
+// the flat cracked-shield insignia (client-map-3d-insurgent-insignia-overlay.ts),
+// which this overlay owns so both share one clear/commit/dispose lifecycle.
 // Replaces the earlier Voidcrystal Colossus monster.
 //
 // The soldiers are the same skinned marine model the battle overlay uses
@@ -79,6 +82,8 @@ type Slot = {
 export type PlanetaryDefenseOverlay = {
   readonly clear: () => void;
   readonly addInstance: (tileKey: TileKey, worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number) => void;
+  /** An Insurgent FRONTIER tile: the flat insignia, no soldiers. */
+  readonly addFrontierInsignia: (worldX: number, worldZ: number, flatOverlayY: number) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number, engagedTileKeys?: ReadonlySet<string>) => void;
   readonly dispose: () => void;
@@ -94,7 +99,12 @@ const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 const buildMaterial = (): MeshStandardMaterial =>
   new MeshStandardMaterial({ color: PLANETARY_DEFENSE_ARMOR_COLOR, vertexColors: true, roughness: 0.55, metalness: 0.5 });
 
-export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMotionGate = createUnitMotionGate()): PlanetaryDefenseOverlay => {
+export const createPlanetaryDefenseOverlay = (
+  scene: Scene,
+  motionGate: UnitMotionGate = createUnitMotionGate(),
+  maxInsigniaTiles = 4096
+): PlanetaryDefenseOverlay => {
+  const insignia = createInsurgentInsigniaOverlay(scene, maxInsigniaTiles);
   let disposed = false;
   let pool: Slot[] = [];
   const byTileKey = new Map<TileKey, Slot>();
@@ -148,7 +158,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
     })
     .catch((err: unknown) => {
       // Nothing renders rather than crashing the 3D map.
-      console.error("popup-marine model failed to load; Planetary Defense tiles will not render soldiers", err);
+      console.error("popup-marine model failed to load; Insurgent camps will not render soldiers", err);
     });
 
   type Pending = { tileKey: TileKey; worldX: number; worldZ: number; surfaceY: number; wx: number; wy: number };
@@ -156,6 +166,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
 
   const clear = (): void => {
     pendingTiles = [];
+    insignia.clear();
   };
 
   const addInstance = (tileKey: TileKey, worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number): void => {
@@ -184,6 +195,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
   };
 
   const commit = (): void => {
+    insignia.commit();
     if (pool.length === 0) {
       pendingTiles = [];
       return;
@@ -333,6 +345,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
 
   const dispose = (): void => {
     disposed = true;
+    insignia.dispose();
     for (const slot of pool) {
       for (const soldier of slot.soldiers) {
         soldier.mixer.stopAllAction();
@@ -348,5 +361,5 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
     byTileKey.clear();
   };
 
-  return { clear, addInstance, commit, tick, dispose };
+  return { clear, addInstance, addFrontierInsignia: insignia.addInstance, commit, tick, dispose };
 };

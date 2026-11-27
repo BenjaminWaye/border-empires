@@ -14,6 +14,9 @@ export const RENDER_ORDER = {
   riverWater: 8,
   // Ground ore flecks and crystal clues stay readable over the owner tint.
   prospectClues: 8.25,
+  // Insurgent frontier insignia stamped on the ground (client-map-3d-insurgent-insignia-overlay.ts):
+  // over the owner tint, under both fog layers so remembered Insurgent land darkens with the rest.
+  insurgentInsignia: 8.3,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
   // Map names inked on the ground (client-map-3d-name-decal): over the

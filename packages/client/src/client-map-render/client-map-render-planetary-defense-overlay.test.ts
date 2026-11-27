@@ -12,11 +12,11 @@ const recordingCtx = () => {
   const fills: string[] = [];
   const noop = (): void => {};
   const ctx = {
-    save: noop, restore: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop,
+    save: noop, restore: noop, beginPath: noop, moveTo: noop, lineTo: noop, closePath: noop, quadraticCurveTo: noop,
     fill: noop, stroke: noop, fillRect: noop,
     arc: (x: number, y: number) => { helmets.push({ x, y }); },
     set fillStyle(value: string) { fills.push(value); },
-    strokeStyle: "", lineWidth: 1, lineCap: "butt"
+    strokeStyle: "", lineWidth: 1, lineCap: "butt", lineJoin: "miter", globalAlpha: 1
   } as unknown as CanvasRenderingContext2D;
   return { ctx, helmets, fills };
 };
@@ -52,5 +52,20 @@ describe("drawPlanetaryDefenseOverlay (2D fallback)", () => {
     const { ctx, helmets } = recordingCtx();
     drawPlanetaryDefenseOverlay(ctx, campLand, 0, 0, 64, 3, 4, 1000);
     expect(helmets).toHaveLength(0);
+  });
+
+  // Regression: Insurgent frontier drew nothing at all, so it looked like empty terrain.
+  it("stamps the cracked-shield insignia on a camp's frontier", () => {
+    const { ctx, fills } = recordingCtx();
+    drawPlanetaryDefenseOverlay(ctx, campLand, 0, 0, 64, 3, 4, 1000);
+    expect(fills).toContain(PLANETARY_DEFENSE_ARMOR_COLOR);
+  });
+
+  it("draws no insignia on tiny tiles or when the ownership state is unknown", () => {
+    for (const [tile, size] of [[campLand, 6], [{ ...campLand, ownershipState: undefined } as Tile, 64]] as const) {
+      const { ctx, fills } = recordingCtx();
+      drawPlanetaryDefenseOverlay(ctx, tile, 0, 0, size, 3, 4, 1000);
+      expect(fills).toHaveLength(0);
+    }
   });
 });

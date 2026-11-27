@@ -19,7 +19,7 @@
 //
 // Copy is deliberately short (about 10 words to do, one line of why) and
 // uses canon terms from docs/lore/galactic-lore.md: Manifests are
-// *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
+// *commissioned*, barbarians are *Insurgents*, empires are *Houses*.
 
 import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
@@ -302,7 +302,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     why: "A flag gathers manpower so you can attack.",
     isDone: (i) => i.ownsMusterFlag,
     isAvailable: (i) => i.musterUnlocked,
-    waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
+    waitingNote: "Explore to find Insurgents or a rival House: this starts when you meet one.",
     highlight: (i) => i.musterTargetTiles,
     // The Stage Muster button once a tile is picked, then the first-flag confirm sheet's button.
     anchor: "muster"

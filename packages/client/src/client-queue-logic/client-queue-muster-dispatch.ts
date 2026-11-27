@@ -113,7 +113,7 @@ const huntInsteadOfAttack = (
   state.queuedTargetKeys.delete(input.targetKey);
   attackSyncLog("muster-attack-became-hunt", { targetKey: input.targetKey, flag: { x: flag.x, y: flag.y } });
   deps.pushFeed(
-    `Flag at (${flag.x}, ${flag.y}) is hunting Planetary Defense, starting with (${input.to.x}, ${input.to.y})`,
+    `Flag at (${flag.x}, ${flag.y}) is hunting Insurgents, starting with (${input.to.x}, ${input.to.y})`,
     "combat",
     "info"
   );
