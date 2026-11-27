@@ -49,7 +49,7 @@ import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
-import { applyPlayerAppearanceMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerAppearanceMessage, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
@@ -1094,7 +1094,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
       if (myTileColor) applyPlayerUpdateColorChange(myTileColor, { state, authProfileColorEl, pushFeed });
-      if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
+      applyPlayerProfileFields(state, msg, false); // suggested swatches + once-per-contest change flags
       const myVisualStyle = msg.visualStyle as any;
       if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
       syncAuthOverlay();

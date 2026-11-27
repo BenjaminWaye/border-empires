@@ -148,7 +148,7 @@ describe("profile edit overlay", () => {
     const nameInput = overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]")!;
     expect(nameInput.value).toBe("");
     expect(nameInput.placeholder).toBe("House Dovetail");
-    expect(overlayEl.querySelector("[data-profile-name-count]")!.textContent).toBe("0/24");
+    expect(overlayEl.querySelector("[data-profile-name-count]")!.textContent).toBe("Blank keeps name");
     nameInput.value += "House Dove";
     overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!.click();
     await flush();

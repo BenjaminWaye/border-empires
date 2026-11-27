@@ -20,6 +20,8 @@ export type PublicProfileShareView = {
   pending?: "share" | "stop";
   /** How the last share or stop went ("Link copied", "Sharing stopped", a failure). */
   note?: string;
+  /** The public page this page made or shared, shown while sharing is on so the player always sees it. */
+  link?: string;
 };
 
 // A link made or removed on another device shows up within this long.
@@ -28,6 +30,7 @@ const SHARE_STATE_RETRY_MS = 30_000;
 const NOTE_MS = 4_000;
 
 const known = new Map<string, { state: "on" | "off"; at: number }>();
+const links = new Map<string, string>();
 const failedAt = new Map<string, number>();
 const inFlight = new Set<string>();
 // Bumped by every share or stop, so a status check that started before one cannot overwrite its result.
@@ -40,6 +43,12 @@ export const shareAccountOf = (deps: PublicProfileShareDeps): string => deps.acc
 export const rememberPublicProfileShareState = (deps: PublicProfileShareDeps, state: "on" | "off", nowMs = Date.now()): void => {
   generation += 1;
   known.set(shareAccountOf(deps), { state, at: nowMs });
+};
+
+/** The link the last share made for this account (cleared by Stop sharing). */
+export const rememberPublicProfileLink = (deps: PublicProfileShareDeps, url: string | undefined): void => {
+  if (url) links.set(shareAccountOf(deps), url);
+  else links.delete(shareAccountOf(deps));
 };
 
 export const setPublicProfileSharePending = (value: PublicProfileShareView["pending"]): void => {
@@ -85,12 +94,15 @@ export const publicProfileShareView = (deps: PublicProfileShareDeps | undefined,
       })
       .finally(() => inFlight.delete(account));
   }
-  return { state: entry?.state ?? "unknown", ...extras };
+  const state = entry?.state ?? "unknown";
+  const link = state === "on" ? links.get(account) : undefined;
+  return { state, ...extras, ...(link ? { link } : {}) };
 };
 
 /** Tests only. */
 export const resetPublicProfileShareState = (): void => {
   known.clear();
+  links.clear();
   failedAt.clear();
   inFlight.clear();
   generation = 0;

@@ -56,6 +56,11 @@ let checklistFlagSynced = false;
 let postFinishKey: string | undefined;
 const postFinishOpened = new Set<string>();
 let postFinishShown = false;
+// An alert hid the card (tutorial-guide-alert-yield.ts): whether one was up last frame, and the step the
+// card was folded on when it closed. Playtest 2026-11-27: the card stuck on "Drag the map" popped back
+// over the map after every alert. It now folds to its launcher and unfolds on the next step.
+let alertYielding = false;
+let alertFoldedStepId: string | undefined;
 
 const resetPostFinish = (): void => {
   postFinishKey = undefined;
@@ -148,6 +153,7 @@ const handlers: GuideCardHandlers = {
     removeTutorialGuideUi();
   },
   onToggle: () => {
+    alertFoldedStepId = undefined;
     // Over a scout fold the card was hidden whatever `expanded` said: "?" opens it.
     expanded = openGuideCardOverScoutFold() ? true : !expanded;
     forceRerender();
@@ -239,6 +245,10 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     return [];
   }
   syncPostFinishFold(view, completed);
+  if (alertFoldedStepId !== undefined && alertFoldedStepId !== view.step.id) {
+    alertFoldedStepId = undefined;
+    if (!completed.has(FINISH_STEP_ID)) expanded = true;
+  }
   setOnboardingRelayBeaconSite(!deferred && !view.waiting ? guideBeaconSite(view.step.id, input) : undefined);
   if (deferred) {
     if (lastView) removeTutorialGuideUi();
@@ -266,13 +276,22 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
 /** Every frame, after renderTutorialGuide: moves the card off the step's ringed tiles and off notifications (tutorial-guide-placement.ts). */
 export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefined, nowMs: number): void => {
   if (!lastView) return;
-  syncGuideCardAlertYield();
+  const yielding = syncGuideCardAlertYield();
+  const alertClosed = alertYielding && !yielding;
+  alertYielding = yielding;
+  if (alertClosed && expanded) {
+    expanded = false;
+    alertFoldedStepId = lastView.step.id;
+    forceRerender();
+    if (!lastView) return;
+  }
   syncGuideCardPlacement(lastView.highlightTiles, project, nowMs);
 };
 
 /** Settings "Restart guide": reopen the card on the first unfinished step. */
 export const reopenTutorialGuideCard = (): void => {
   expanded = true;
+  alertFoldedStepId = undefined;
   resetPostFinish();
   lastSignature = "";
 };
@@ -287,5 +306,7 @@ export const resetTutorialGuideForTests = (): void => {
   lastState = undefined;
   showMeIndex = 0;
   checklistFlagSynced = false;
+  alertYielding = false;
+  alertFoldedStepId = undefined;
   resetPostFinish();
 };

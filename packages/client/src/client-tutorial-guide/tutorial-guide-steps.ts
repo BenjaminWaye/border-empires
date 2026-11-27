@@ -186,8 +186,10 @@ export const guideRecommendsAfcUpgrade = (stepId: string): boolean => stepId ===
 const otherManifestChosen = (i: GuideInput): boolean => i.manifestCount > 0 && !i.manufactoryResearched;
 
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
-  { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Towns, food and rivals are out there in the dark.", isDone: (i) => i.panned },
-  { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
+  // The drag/zoom signals live only in this page (tutorial-guide-input-signals.ts). A player who has
+  // already done later steps has looked around: playtest 2026-11-27 sat on "Drag the map" at 4/18.
+  { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Towns, food and rivals are out there in the dark.", isDone: (i) => i.panned, doneIfLaterStepDone: true },
+  { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed, doneIfLaterStepDone: true },
   {
     id: "look-explore",
     chapter: "look",

@@ -25,7 +25,7 @@ const ACCOUNTS_OF_KIND: Record<ShownLookKind, string> = {
     (SELECT 1 FROM account_cosmetics_selected p WHERE p.player_id = s.player_id AND p.cosmetic_id NOT IN (${FREE_ID_LIST}))`
 };
 
-// Both tables are private per-account rows. They are listed as PERSONAL_TABLES
+// All three tables are private per-account rows. They are listed as PERSONAL_TABLES
 // in scripts/account-deletion/erase-account-data.mjs, so account deletion
 // removes them.
 export class SqliteAccountCosmeticsStore implements AccountCosmeticsStore {
@@ -45,6 +45,13 @@ export class SqliteAccountCosmeticsStore implements AccountCosmeticsStore {
         slot TEXT NOT NULL,
         cosmetic_id TEXT NOT NULL,
         updated_at INTEGER NOT NULL,
+        PRIMARY KEY (player_id, slot)
+      );
+      CREATE TABLE IF NOT EXISTS account_cosmetics_slot_changes (
+        player_id TEXT NOT NULL,
+        slot TEXT NOT NULL,
+        season_id TEXT NOT NULL,
+        changed_at INTEGER NOT NULL,
         PRIMARY KEY (player_id, slot)
       );
     `);
@@ -126,5 +133,19 @@ export class SqliteAccountCosmeticsStore implements AccountCosmeticsStore {
       const selected = this.db.prepare("SELECT count(*) AS count FROM account_cosmetics_selected").get() as { count: number };
       return { owned: owned.count, selected: selected.count };
     });
+  }
+
+  async slotChangedSeasonId(playerId: string, slot: CosmeticSlot): Promise<string | undefined> {
+    const row = await withGatewaySqliteRetry(() => this.db
+      .prepare("SELECT season_id FROM account_cosmetics_slot_changes WHERE player_id = ? AND slot = ?")
+      .get(playerId, slot) as { season_id: string } | undefined);
+    return row?.season_id;
+  }
+
+  async recordSlotChange(playerId: string, slot: CosmeticSlot, seasonId: string): Promise<void> {
+    await withGatewaySqliteRetry(() => this.db
+      .prepare(`INSERT INTO account_cosmetics_slot_changes(player_id, slot, season_id, changed_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(player_id, slot) DO UPDATE SET season_id = excluded.season_id, changed_at = excluded.changed_at`)
+      .run(playerId, slot, seasonId, this.now()));
   }
 }

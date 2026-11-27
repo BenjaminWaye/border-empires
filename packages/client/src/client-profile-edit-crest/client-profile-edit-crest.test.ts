@@ -62,12 +62,13 @@ describe("crest in the Edit Name, Colour & Crest dialog", () => {
     expect(preview.style.background).toContain("#3b82f6");
   });
 
-  it("saves a crest-only change without the once-per-contest confirmation, and closes on the server's answer", async () => {
+  // Owner rule 2026-11-27: the crest also changes once per Sector Contest, so it is confirmed like the name and colour.
+  it("confirms a crest-only change as once per contest, and closes on the server's answer", async () => {
     const { q, send, onClose, confirms, status } = mount();
     q<HTMLButtonElement>('[data-profile-edit-crest="crest-stag"]').click();
     q<HTMLButtonElement>("[data-profile-edit-save]").click();
     await flush();
-    expect(confirms).toHaveLength(0);
+    expect(confirms.map((c) => c.consequences)).toEqual([["Crest"]]);
     expect(send.mock.calls.map(([payload]) => payload)).toEqual([{ type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-stag" }]);
     expect(status()).toBe("Saving…");
     expect(onClose).not.toHaveBeenCalled();
@@ -76,14 +77,13 @@ describe("crest in the Edit Name, Colour & Crest dialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves the crest off the once-per-contest confirmation when the name changes too, and saves both", async () => {
+  it("lists the crest on the once-per-contest confirmation when the name changes too, and saves both", async () => {
     const { q, send, confirms, onClose } = mount(makeState({ crest: "crest-cog" }));
     q<HTMLInputElement>("[data-profile-edit-name]").value = "Harrowgate";
     q<HTMLButtonElement>('[data-profile-edit-crest=""]').click();
     q<HTMLButtonElement>("[data-profile-edit-save]").click();
     await flush();
-    // A crest has no once-per-contest limit, so the sheet does not list it.
-    expect(confirms[0]?.consequences).toEqual(["Name: Harrowgate"]);
+    expect(confirms[0]?.consequences).toEqual(["Name: Harrowgate", "Crest"]);
     // The crest goes once the server has confirmed the name (client-profile-edit-outcome.ts).
     expect(send.mock.calls.map(([payload]) => (payload as { type: string }).type)).toEqual(["SET_PROFILE"]);
     settleProfileEditOutcome({ ok: true });

@@ -59,6 +59,21 @@ describe("player profile screen", () => {
     expect(render({ ...self, share: { state: "on" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
   });
 
+  // Playtest 2026-11-27: score 25 -> 24 after capturing 19 tiles, with nothing saying why.
+  it("breaks the score into garrisoned tiles, coin and Manifests", () => {
+    const host = render({ ...base, entry: { ...base.entry!, tiles: 12, incomePerMinute: 0.005, techs: 1, score: 24.3 } });
+    const card = host.querySelector("[data-v2-profile-score]");
+    expect(card?.querySelector("b")?.textContent).toBe("24");
+    expect(card?.textContent).toContain("Tiles 12 · Coin 4.3 · Manifests 8");
+    expect(card?.textContent).toContain("Frontier scores once garrisoned");
+  });
+
+  it("shows the shared link while sharing is on", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: { state: "on", note: "Link copied", link: "https://play.example/house.html?h=Ab" } });
+    expect(host.querySelector("[data-v2-profile-share-link]")?.getAttribute("href")).toBe("https://play.example/house.html?h=Ab");
+    expect(host.querySelector(".v2p-share-note")?.textContent).toBe("Link copied");
+  });
+
   it("keeps share progress and its outcome on screen across re-renders", () => {
     const self = { ...base, relation: { kind: "self" } as const };
     const stopping = render({ ...self, share: { state: "on", pending: "stop" } });

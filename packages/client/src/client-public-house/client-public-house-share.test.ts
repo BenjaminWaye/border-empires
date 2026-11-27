@@ -35,6 +35,20 @@ describe("public profile share", () => {
     expect(String(writeText.mock.calls[0]?.[0])).toMatch(/\/house\.html\?h=AbCdEfGhIjKlMnOp$/);
   });
 
+  // Playtest 2026-11-27: Share showed no message or link, only a new "Stop sharing" button.
+  it("keeps the link on screen and says it was copied, even when the share sheet is dismissed", async () => {
+    const d = { ...deps(reply({ ok: true, publicId: "AbCdEfGhIjKlMnOp" })), accountKey: () => "uid-share" };
+    const share = vi.fn().mockRejectedValue(Object.assign(new Error("dismissed"), { name: "AbortError" }));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    expect(await sharePublicProfile(d, { share, clipboard: { writeText } })).toBe("Link copied");
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(share).toHaveBeenCalledOnce();
+    expect(publicProfileShareView(d).link).toMatch(/\/house\.html\?h=AbCdEfGhIjKlMnOp$/);
+    // No clipboard and no sheet: the link is still shown, with a terse note.
+    expect(await sharePublicProfile(d, {})).toBe("Copy link below");
+    expect(publicProfileShareView(d).link).toMatch(/AbCdEfGhIjKlMnOp$/);
+  });
+
   it("stops sharing with a DELETE and reports failure without throwing", async () => {
     const fetchImpl = reply({ ok: true, publicId: null });
     expect(await stopSharingPublicProfile(deps(fetchImpl))).toBe("Sharing stopped");
