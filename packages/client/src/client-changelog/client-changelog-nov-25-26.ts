@@ -15,6 +15,7 @@ import { GUEST_LOGOUT_WARNING_ENTRY } from "./client-changelog-guest-logout-warn
 import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js";
 import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-flag-spot.js";
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
+import { CHARGE_CARD_TEXT_ENTRY } from "./client-changelog-charge-card-text.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
 import { ACCOUNT_TEXT_FIXES_ENTRY } from "./client-changelog-account-text-fixes.js";
 import { EFFORT_ODDS_REFRESH_ENTRY, HUNT_REMOVED_ENTRY } from "./client-changelog-combat-playtest-fixes.js";
@@ -61,6 +62,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...MOTHERSHIP_AI_ENTRY, createdAt: 1795769269985, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
+  { ...CHARGE_CARD_TEXT_ENTRY, createdAt: 1795728906406, },
   { ...GUIDE_ATTACK_TRUCE_ENTRY, createdAt: 1795764700050, },
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
   { ...HUNT_REMOVED_ENTRY, createdAt: 1795765029963, },

@@ -89,8 +89,10 @@
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { max-height: max(320px, calc(100vh - 270px)); max-height: max(320px, calc(100dvh - 270px)); }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card > .hc-frame { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: 3 / 1; }
-  /* The House's letter shrinks and scrolls first, so the objective, progress and whether it is held show; if even
-     those run long (a House named by its account id), the whole text scrolls. */
+  /* One scroll box only. The House's letter sits last, so the objective, progress and whether it is held show
+     first; when the text runs long the whole text box scrolls, its bottom edge fading while there is more below.
+     (A second, nested scroll box for the letter showed half-cut lines; a hover-only unclamp hid it from touch and
+     beat the short-screen rule that hides it.) */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
     display: flex;
     flex-direction: column;
@@ -101,15 +103,7 @@
     font-size: 14px;
   }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > p { flex: none; }
-  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour {
-    flex: 0 1 auto;
-    min-height: 2.8em;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(90, 70, 40, 0.5) transparent;
-    font-size: 13px;
-  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour { font-size: 13px; }
   /* The Keep bar and the profile tip float in the title row, between the title and Close, over the hand. The
      panel's centring transform makes it the box `fixed` is placed in, so the popover stays put as the cards scroll. */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover {
@@ -143,6 +137,29 @@
 @keyframes hcd-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-7px); }
+}
+/* The text box's bottom fade, driven by its own scroll: full while there is text below, gone at the end. A box that
+   does not scroll has no active timeline, so the property stays at its initial 0px and nothing fades. */
+@property --hcd-text-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes hcd-text-fade {
+  0%, 85% { --hcd-text-fade: 28px; }
+  100% { --hcd-text-fade: 0px; }
+}
+@media (min-width: 901px) {
+  @supports (animation-timeline: scroll()) {
+    body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
+      -webkit-mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
+      mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
+      animation-name: hcd-text-fade;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(self);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
