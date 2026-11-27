@@ -106,7 +106,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     readChoice: () => ({ displayName: dom.authProfileNameEl.value.trim(), color: dom.authProfileColorEl.value })
   });
   const sectorWaitlist = createSectorWaitlistController({ state, wsUrl, sync: () => syncAuthOverlay(), getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
-  installPublicProfileShare({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken() });
+  installPublicProfileShare({ wsUrl, getIdToken: async () => firebaseAuth?.currentUser?.getIdToken(), accountKey: () => firebaseAuth?.currentUser?.uid });
   const syncAuthOverlay = (): void => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
