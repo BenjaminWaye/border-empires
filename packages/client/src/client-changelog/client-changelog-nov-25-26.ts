@@ -7,10 +7,12 @@ import { TOWN_FOCUS_CONFIRM_ENTRY, TOWN_FOCUS_ENTRY, TOWN_FOCUS_LIST_ENTRY, TOWN
 import { UI_TYPE_CONSISTENCY_ENTRY } from "./client-changelog-ui-type-consistency.js";
 import { UNLOCK_CELEBRATION_ENTRY } from "./client-changelog-unlock-celebration.js";
 import { FRONTIER_GARRISON_ENTRY } from "./client-changelog-frontier-garrison.js";
+import { GUEST_LOGOUT_WARNING_ENTRY } from "./client-changelog-guest-logout-warning.js";
 import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js";
 import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-flag-spot.js";
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
+import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
@@ -23,10 +25,12 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
   { ...FRONTIER_GARRISON_ENTRY, createdAt: 1795692680347, },
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
+  { ...GUEST_LOGOUT_WARNING_ENTRY, createdAt: 1795707977072, },
   { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },
   { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
+  { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
 ];

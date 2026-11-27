@@ -7,7 +7,9 @@ import {
   SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS,
   SCOUT_SIGHTED_ALERT_COOLDOWN_MS,
   SCOUT_SIGHTED_MESSAGE_TYPE,
+  planScoutDroneRoute,
   planScoutDroneWaypointFlight,
+  scoutDroneRouteDeadEnd,
   SCOUT_DRONE_MAX_STOPS,
   extendScoutDroneFlight,
   scoutDroneStepIndexAt,
@@ -364,6 +366,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       if (targetOwnerId && isOwnOrAllied(actor.id, targetOwnerId)) return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
       const launch = nearestAfc(actor.id, first);
       if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from an active AFC");
+      // A border the player can see, right past their land: say so, and spend no charge on a flight that finds nothing.
+      if (scoutDroneRouteDeadEnd(planScoutDroneRoute(launch, stops, world))) return reject(command, "SCOUT_BORDER_BLOCKED", "a rival border blocks the way");
       const now = deps.now();
       if (stops.length > charges.available(actor.id, now)) {
         noChargeRefusals += 1;
