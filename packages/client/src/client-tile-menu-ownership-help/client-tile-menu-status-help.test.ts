@@ -11,4 +11,9 @@ describe("statusWithHelpHtml", () => {
     expect(html).toContain("<summary>Inside Ravenwood Reach</summary>");
     expect(html).toContain("<p>Protected by anchors.</p>");
   });
+
+  it("escapes a player-controlled name in the status", () => {
+    expect(statusWithHelpHtml("Inside <b>Evil</b> Reach")).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
+    expect(statusWithHelpHtml("Inside Rosa's Garden II Reach", "Help.")).toContain("<summary>Inside Rosa&#39;s Garden II Reach</summary>");
+  });
 });

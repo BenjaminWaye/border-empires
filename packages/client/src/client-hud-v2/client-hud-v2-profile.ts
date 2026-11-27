@@ -18,7 +18,7 @@ import type { PublicProfileShareView } from "../client-public-house/client-publi
 
 type Loadable<T> = T | "loading" | undefined;
 
-export type ProfileRelation = { kind: "self" } | { kind: "ally" } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
+export type ProfileRelation = { kind: "self" } | { kind: "ally"; label?: string } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
 
 export type ProfileInput = {
   id: string;
@@ -57,7 +57,7 @@ const int = (value: number): string => Math.round(value).toLocaleString("en-US")
 const relationHtml = (relation: ProfileRelation, nowMs: number): string => {
   switch (relation.kind) {
     case "self": return `<span class="v2p-rel v2p-rel-self">Your empire</span>`;
-    case "ally": return `<span class="v2p-rel v2p-rel-ally">Ally</span>`;
+    case "ally": return `<span class="v2p-rel v2p-rel-ally">${esc(relation.label ?? "Ally")}</span>`;
     case "truce": return `<span class="v2p-rel v2p-rel-truce">Truce · ${socialRemainingLabel(relation.endsAt, nowMs)} left</span>`;
     case "war": return `<span class="v2p-rel v2p-rel-war">At war</span>`;
     default: return `<span class="v2p-rel">No pact</span>`;
