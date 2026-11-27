@@ -248,7 +248,10 @@ slot until removal completes.
 - Gold is passive per-minute income, rescaled by `GOLD_RESCALE_DIVISOR = 288`.
   Baseline town income is `2 / 288` gold/minute and a dock is `0.5 / 288`;
   other modifiers and network effects are calculated in the economy module.
-- Gold has a town-linked cap; overage is lost rather than stored indefinitely.
+- Gold has no storage cap. A human's passive income stops 24h after their
+  last command or subscribe (`PASSIVE_INCOME_INACTIVITY_CAP_MS`, AI exempt);
+  the last activity is saved on the player record (`lastActiveAt`), so a
+  restart does not stop income early.
 - Town support is a separate settled-territory calculation. An unfed town does
   not produce gold until support recovers. Support and FOOD slots are separate
   systems.
