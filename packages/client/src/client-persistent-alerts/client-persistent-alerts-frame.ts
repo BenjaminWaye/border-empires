@@ -4,6 +4,7 @@ import { createHostileMusterAnnouncer, type HostileMusterNearBorder } from "../c
 import { createPopupBlockedCheck } from "../client-map-unobstructed/client-popup-gate.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { createBattleWarningsFrame } from "../client-battle-warnings/client-battle-warnings-frame.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
@@ -38,6 +39,8 @@ export const createPersistentAlertsFrame = (
   // The town-survey popup is held (not dropped) while What's New, the
   // Activity dashboard or the lobby is open or about to open.
   const surveyPopupGate = createPopupBlockedCheck();
+  // "Under attack" banner + lost-tile flash (client-battle-warnings/).
+  const battleWarningsFrame = createBattleWarningsFrame(state);
   return (nowMs, drawDeps) => {
     occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
     occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: !surveyPopupGate.isBlocked(state, Date.now()) }, drawDeps.worldToScreen, drawDeps.size, drawDeps.halfW, drawDeps.halfH);
@@ -56,7 +59,9 @@ export const createPersistentAlertsFrame = (
     }
     // Photo mode captures the bare map: no "!" pins over it (both renderers draw them here). The pins'
     // tap areas go too, or a tap meant for the map hits an invisible pin and jumps the camera.
-    if (!isPhotoModeOn()) drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
+    const photoMode = isPhotoModeOn();
+    battleWarningsFrame({ ctx: drawDeps.ctx, canvas: drawDeps.canvas, worldToScreen: drawDeps.worldToScreen, size: drawDeps.size, halfW: drawDeps.halfW, halfH: drawDeps.halfH, photoMode });
+    if (!photoMode) drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
     else state.persistentAlertLocators = [];
   };
 };

@@ -63,6 +63,9 @@ import {
 import { logOwnershipRenderChange } from "../client-debug/client-debug.js";
 import { createTownOverlay } from "../client-map-3d-town-overlay.js";
 import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
+import { createQueuedTileMarkerPool } from "./client-map-3d-queued-marker-pool.js";
+import { createBattleFlashOverlay3D } from "../client-battle-warnings/client-battle-flash-3d.js";
+import { activeBattleFlashes, battleWarnings } from "../client-battle-warnings/client-battle-warnings.js";
 import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
 import { createSlotResourceBadgeOverlays } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
@@ -215,6 +218,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const relayBeaconOverlay = createDeferredBuildingOverlay(() => createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture)); const tradeNexusOverlay = createDeferredBuildingOverlay(() => createTradeNexusOverlay(scene, MAX_VISIBLE_TILES)); const siegeTowerOverlay = createSiegeTowerOverlay(scene, MAX_VISIBLE_TILES, siegeTowerRotationMode, atmosphere.buildingEnvironmentTexture);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const farmlandOverlay = createFarmlandOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const fishingOverlay = createFishingOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture, (wx, wy) => heightfield.cornerYAt(deps.wrapX(wx), deps.wrapY(wy))); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteWeaponsFactoryOverlay = createDeferredBuildingOverlay(() => createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture)); const rawResourceOverlays: RawResourceOverlays = { farmland: farmlandOverlay, fishing: fishingOverlay, titaniumDeposit: titaniumDepositOverlay, umbriteDeposit: umbriteDepositOverlay, generic: resourceOverlay, refined: { addInstance: (x, z, y, resource, wx, wy) => resource === "UMBRITE" ? umbriteExtractionRigOverlay.addInstance(x, z, y, wx, wy) : structureOverlay.addInstance(x, z, y, "MINE", resource) } };
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
+  const battleFlashOverlay = createBattleFlashOverlay3D(scene); // lost-tile flash; 2D path: client-battle-flash-2d.ts
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   // Shared across every ground occupant below (structures, towns,
   // watchtowers, resources, deposits) rather than one per overlay module —
@@ -238,24 +242,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
-  const queuedActionMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#a78bfa", transparent: true, opacity: 0.93, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
-  const queuedSettlementMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#fbbf24", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
-  const queuedBuildMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#7dd3fc", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
+  // Queued action / settlement / build tile outlines (client-map-3d-queued-marker-pool.ts).
+  const queuedActionMarkers = createQueuedTileMarkerPool("#a78bfa", 0.93);
+  const queuedSettlementMarkers = createQueuedTileMarkerPool("#fbbf24", 0.95);
+  const queuedBuildMarkers = createQueuedTileMarkerPool("#7dd3fc", 0.95);
   // The waypoint flag is a full steampunk tower — anchored to the
   // destination tile and tinted by the player's empire color. Geometry
   // lives in its own factory (client-map-3d-waypoint-flag.ts) so the
@@ -1146,6 +1136,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); salvageDeliveryFx.update(nowMs); waystationOpenFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs); nameDecal.tick(nowMs);
+    battleFlashOverlay.sync(activeBattleFlashes(battleWarnings, Date.now()), (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }), Date.now()); // epoch ms, matches the loss stamps
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
@@ -1237,6 +1228,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose(); siegeTowerOverlay.dispose();
     resourceOverlay.dispose(); farmlandOverlay.dispose(); fishingOverlay.dispose(); titaniumDepositOverlay.dispose(); umbriteDepositOverlay.dispose(); umbriteExtractionRigOverlay.dispose(); umbriteWeaponsFactoryOverlay.dispose();
     attackOverlay.dispose();
+    battleFlashOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
     ambaricTransformerOverlay.dispose();

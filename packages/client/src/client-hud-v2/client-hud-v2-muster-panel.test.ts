@@ -35,7 +35,8 @@ describe("muster flag in the new tile panel", () => {
   });
 
   it("says which order the flag is on", () => {
-    expect(musterFactsFor(flagTile("ADVANCE", { hunt: true }), state)[1]).toEqual({ label: "Order", value: "Hunt" });
+    // A flag saved mid-hunt advances on everything now (the server dropped hunts), so it says Advance.
+    expect(musterFactsFor(flagTile("ADVANCE", { hunt: true }), state)[1]).toEqual({ label: "Order", value: "Advance" });
     expect(musterFactsFor(flagTile("ADVANCE"), state)[1]).toEqual({ label: "Order", value: "Advance" });
     expect(musterFactsFor(flagTile("MARCH"), state)[1]).toEqual({ label: "Order", value: "March" });
   });

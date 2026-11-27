@@ -1,3 +1,4 @@
+import { settleProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Applies a NAME_TAKEN rejection from SET_PROFILE. Mirrors the COLOR_TAKEN
@@ -28,4 +29,5 @@ export const applyNameTakenError = (
     deps.state.pendingColorChange = "";
     deps.pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
   }
+  settleProfileEditOutcome({ ok: false, reason: fullMessage });
 };
