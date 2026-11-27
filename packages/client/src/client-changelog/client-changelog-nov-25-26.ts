@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { INTEGRITY_EXPLAIN_ENTRY } from "./client-changelog-integrity-explain.js";
 import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
@@ -78,4 +79,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...HOUSE_CREST_FIXES_ENTRY, createdAt: 1795791560569, },
   { ...TRUCE_LENGTH_SHOWN_ENTRY, createdAt: 1795805060735, },
   { ...TILE_LABELS_R2_ENTRY, createdAt: 1795805295408, },
+  { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
 ];

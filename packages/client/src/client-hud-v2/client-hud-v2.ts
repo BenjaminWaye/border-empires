@@ -26,6 +26,7 @@ import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/cl
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
 import { activeLens, installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
+import { isAwaitingFreshPlayer } from "../client-player-freshness/client-player-freshness.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
@@ -281,7 +282,8 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
-    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
+    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog),
+    pending: isAwaitingFreshPlayer(state, nowMs)
   }));
   syncTreasury(written.get("bar") ?? "");
   writeRegion("nav", navHtml({
