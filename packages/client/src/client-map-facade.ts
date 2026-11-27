@@ -407,6 +407,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     // (below) is the only reliable way to tell whether tile/replay state was actually
     // consumed this frame.
     const contentComputedAtBefore = miniMapContentCache.computedAt;
+    // Allies' known land is drawn even under fog, so a new or broken alliance repaints the content layer.
+    const miniMapColorKey = `${diplomacyOverlayKey(state)}|allies:${state.allies.join(",")}`;
     const changed = drawMiniMapIntoCanvas({
       nowMs,
       state,
@@ -426,7 +428,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         tilesRevision: miniMapLastTilesRevision,
         colorKey: miniMapLastColorKey
       },
-      colorKey: diplomacyOverlayKey(state),
+      colorKey: miniMapColorKey,
+      alliedOwnerIds: new Set(state.allies),
       contentCache: miniMapContentCache,
       parseKey,
       keyFor,
@@ -450,7 +453,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
       miniMapLastTileCount = state.tiles.size;
       miniMapLastTilesRevision = state.tilesRevision;
-      miniMapLastColorKey = diplomacyOverlayKey(state);
+      miniMapLastColorKey = miniMapColorKey;
     }
   };
 

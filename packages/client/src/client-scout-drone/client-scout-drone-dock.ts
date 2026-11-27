@@ -8,6 +8,7 @@ import { nextScoutChargeAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanBlocked, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
+import { scoutPlanNote } from "./client-scout-drone-plan-note.js";
 import "./client-scout-drone-dock.css";
 import { activeFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
@@ -54,7 +55,7 @@ let ticker: ReturnType<typeof setInterval> | undefined;
 // The latest state and deps, read by the buttons' handlers (bound once, when the dock is built).
 let current: { state: ClientState; deps: ScoutDockDeps } | undefined;
 
-type DockView = { count: string; countClass: string; shaking: boolean; undoEnabled: boolean; goClass: string; goEnabled: boolean; goHtml: string };
+type DockView = { note: string; count: string; countClass: string; shaking: boolean; undoEnabled: boolean; goClass: string; goEnabled: boolean; goHtml: string };
 
 const dockView = (state: ClientState, nowMs: number): DockView => {
   const plan = state.scoutDronePicking;
@@ -65,7 +66,9 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const flightMs = preview?.flight ? preview.flight.landsAt - nowMs : 0;
   const noCharges = scoutChargesReady(state, nowMs) === 0 && plan.stops.length === 0;
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
-  const base = { count: `${DRONE_SVG}<b>${left}</b><small>/${scoutChargesMax(state)}</small>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
+  // Why the route is not what was tapped: a border or the range limit (Playtest Run 5: a bare "Blocked").
+  const note = scoutPlanNote(preview, plan.stops, (id) => state.playerNames.get(id)) ?? "";
+  const base = { note, count: `${DRONE_SVG}<b>${left}</b><small>/${scoutChargesMax(state)}</small>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
   // A seen rival border right past home: the drone would turn back having found nothing (Playtest Run 5).
   if (stops > 0 && scoutPlanBlocked(preview)) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-go-word">Blocked</span>` };
@@ -81,6 +84,7 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
  */
 const buildDock = (el: HTMLElement): void => {
   el.innerHTML = `
+    <div class="sd-note" role="status" aria-live="polite"></div>
     <div class="sd-bar">
       <button class="sd-icon sd-cancel" type="button" aria-label="Cancel">✕</button>
       <span class="sd-count" role="img" aria-label="Scout charges left"></span>
@@ -132,6 +136,9 @@ export const renderScoutDroneDock = (state: ClientState, deps: ScoutDockDeps): v
   if (!el.querySelector(".sd-bar")) buildDock(el);
   el.style.display = "flex";
   const view = dockView(state, now());
+  const note = el.querySelector(".sd-note") as HTMLElement;
+  if (note.textContent !== view.note) note.textContent = view.note;
+  note.style.display = view.note ? "" : "none";
   el.querySelector(".sd-bar")!.classList.toggle("is-shaking", view.shaking);
   const count = el.querySelector(".sd-count")!;
   count.className = view.countClass;

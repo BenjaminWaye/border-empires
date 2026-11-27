@@ -8,6 +8,8 @@ import { createScoutFindPopLayer } from "./client-map-3d-scout-drone-find-pops.j
 import { scoutReportCardVisible } from "../client-scout-drone/client-scout-drone-hud.js";
 import { SCOUT_FIND_POP_MS } from "../client-scout-drone/client-scout-drone-finds.js";
 import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.js";
+import { createScoutGhostHoverGate } from "../client-scout-drone/client-scout-drone-plan-ghost.js";
+import { scoutPlanRangeEdge } from "../client-scout-drone/client-scout-drone-range.js";
 
 // The planned scout flight in the true-3D map (docs/explore-scout-plan.md §13), drawn while the
 // player plans it (client-scout-drone-plan.ts): glowing cyan beads flowing from the AFC through
@@ -17,7 +19,8 @@ import type { ScoutDroneScenePoint } from "./client-map-3d-scout-drone-overlay.j
 // would put the stop, so the range is felt on the route itself -- nothing is drawn
 // on the fog. While the drone flies, the rest of its route stays drawn with a bright marker under the
 // drone, and a landing report's main find gets a short gold burst.
-// Only the true-3D map draws this; the 2D map shows the bottom HUD alone.
+// Only the true-3D map draws the route; the 2D map shows the bottom HUD and the range ring
+// (client-map-render-2d-scout-range.ts), drawn from the same tiles as the ring of beads here.
 
 type Point = { x: number; y: number };
 type PlanSource = ClientState;
@@ -28,6 +31,9 @@ const CYAN = new Color("#4fd8ff");
 const CYAN_DIM = new Color("#2a7f99");
 const GHOST = new Color("#cfe9f2");
 const BRASS = new Color("#f2c66b");
+/** The dotted ring at the leg's range limit (client-scout-drone-range.ts): where one more stop can reach. */
+const RANGE_EDGE = new Color("#7fd0e6");
+const RANGE_EDGE_SCALE = 0.45;
 /** The white drone badge shows only zoomed out past this (px per tile; default 22): closer in, the drone itself reads (owner 2026-11-21). */
 export const SCOUT_DRONE_BADGE_MAX_ZOOM = 16;
 /**
@@ -114,11 +120,12 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
   let ghost: Point[] = [];
   let stops: Array<Point & { clamped: boolean }> = [];
   let ghostEnd: (Point & { clamped: boolean }) | undefined;
+  const ghostHoverGate = createScoutGhostHoverGate();
 
-  const rebuildRoute = (state: PlanSource, nowMs: number): void => {
+  const rebuildRoute = (state: PlanSource, nowMs: number, ghostAllowed: boolean): void => {
     const plan = state.scoutDronePicking;
-    const hover = state.hover;
-    const key = scoutPlanRouteKey(state, nowMs);
+    const hover = ghostAllowed ? state.hover : undefined;
+    const key = `${scoutPlanRouteKey(state, nowMs)}|${ghostAllowed ? 1 : 0}`;
     if (key === cacheKey) return;
     cacheKey = key;
     const preview: ScoutPlanPreview | undefined = scoutPlanPreview(state, plan.stops, nowMs);
@@ -195,9 +202,16 @@ export const createScoutPlanOverlay = (scene: Scene, deps: { readonly state: Pla
     droneBadge.hide();
     findPin.hide();
     const flying = state.scoutDroneFlight && state.scoutDroneFlight.landsAt > nowMs;
+    // Only a pointer that moved since the plan opened draws the ghost leg (client-scout-drone-plan-ghost.ts).
+    const ghostAllowed = ghostHoverGate(plan.active, plan.stops.length, state.hover);
     if (plan.active) {
-      rebuildRoute(state, nowMs);
+      rebuildRoute(state, nowMs, ghostAllowed);
       const phase = ((nowMs / 1000) * FLOW_TILES_PER_SECOND) % 1;
+      // The range limit for the next leg, as a dotted ring (2D draws the same tiles, client-map-render-2d-scout-range.ts).
+      for (const tile of scoutPlanRangeEdge(state, nowMs)) {
+        deps.sceneFor(tile.x, tile.y, a);
+        pushBead(a.sceneX, a.surfaceY + RISE, a.sceneZ, RANGE_EDGE, RANGE_EDGE_SCALE);
+      }
       beadPath(outbound, CYAN, 1, phase);
       beadPath(home, CYAN_DIM, 0.7, phase);
       beadPath(ghost, GHOST, 0.75, phase);
