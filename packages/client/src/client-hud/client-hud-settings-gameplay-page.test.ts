@@ -1,7 +1,7 @@
 import { NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
-import { hostedSectorsCardHtml, settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
+import { hostedSectorsButtonHtml, settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
 
 const gameplayState = {
   authSessionReady: true,
@@ -18,11 +18,15 @@ describe("Settings > Gameplay", () => {
     expect(html).not.toContain("<select");
   });
 
-  it("shows no trace of hosted sectors until the build turns them on", () => {
+  it("leaves invites and sector switching to the hub", () => {
     expect(settingsGameplayPageHtml(gameplayState)).not.toContain("data-hosted-sectors-open");
-    expect(hostedSectorsCardHtml({ authSessionReady: true }, false)).toBe("");
-    expect(hostedSectorsCardHtml({ authSessionReady: false }, true)).toBe("");
-    expect(hostedSectorsCardHtml({ authSessionReady: true }, true)).toContain("data-hosted-sectors-open");
+    expect(settingsGameplayPageHtml(gameplayState)).not.toContain("data-rally-link-open");
+  });
+
+  it("shows no trace of hosted sectors until the build turns them on", () => {
+    expect(hostedSectorsButtonHtml({ authSessionReady: true }, false)).toBe("");
+    expect(hostedSectorsButtonHtml({ authSessionReady: false }, true)).toBe("");
+    expect(hostedSectorsButtonHtml({ authSessionReady: true }, true)).toContain("data-hosted-sectors-open");
   });
 
   it("uses the custom toggle and slider for every checkbox and range", () => {

@@ -29,6 +29,9 @@ export const bindAccountSettingsControls = (
       window.location.reload();
     };
   });
+  root.querySelectorAll<HTMLButtonElement>("[data-settings-guest-save]").forEach((button) => {
+    button.onclick = () => openGuestSavePanel("badge");
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-settings-nav]").forEach((button) => {
     button.onclick = () => {
       const page = button.dataset.settingsNav;

@@ -1,0 +1,52 @@
+/* Settings hub grouping: the guest banner on top, Log Out set apart in a
+   footer, and Delete account as a danger action on the Account page.
+   Imported after client-steampunk-settings-style.css so the --sp-* tokens
+   are defined and these rules win the cascade. */
+
+.settings-guest-status {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--sp-ember-600);
+  border-radius: 12px;
+  background: rgba(184, 80, 31, 0.12);
+}
+
+.settings-guest-status p {
+  margin: 0;
+  color: var(--sp-parchment-300);
+}
+
+.settings-guest-status strong {
+  color: var(--sp-ember-400);
+}
+
+.settings-hub-footer {
+  display: grid;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sp-brass-700);
+}
+
+.settings-logout-btn {
+  background: transparent;
+  color: var(--sp-parchment-muted);
+}
+
+.settings-danger-zone {
+  border-color: rgba(184, 80, 31, 0.55);
+}
+
+.settings-danger-zone p {
+  margin: 0;
+  color: var(--sp-parchment-muted);
+}
+
+.panel-btn.settings-danger-btn {
+  border-color: var(--sp-ember-600);
+  color: var(--sp-ember-400);
+}
+
+.panel-btn.settings-danger-btn:hover:not(:disabled) {
+  background: rgba(184, 80, 31, 0.2);
+}
