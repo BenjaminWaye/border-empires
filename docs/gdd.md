@@ -126,6 +126,13 @@ self-contained and fair.
   place taken, or no viable landing site) is greyed out. If none has room,
   the player can start funding a new sector. The host of a hosted sector is
   not notified.
+- **The Sector Map** (decided 2026-11-28, [`sector-map-plan.md`](sector-map-plan.md)):
+  when a player can choose between two or more Sector Contests, they pick
+  from a map of the galaxy, where each sector's card is the join screen, and
+  the same map switches sectors in game. A House left behind stays and plays
+  on. With only one contest running, there is no map and the player goes
+  straight into it. In the fiction a funded sector is an ordinary Sector
+  campaign: paying is how Houses make the Court open more of them.
 - **When the free sector is full:** a waiting list for the next free contest,
   plus an offer to fund a new sector (§8). The owner decides case by case
   whether to pay for a second free sector.

@@ -1,12 +1,14 @@
 # Choosing and switching Sector Contests from a galaxy map — design for approval
 
-Status: active proposal
+Status: accepted 2026-11-28, being built
 Owner: Benjamin Waye (every question in [§10](#10-questions-for-the-owner) is his to answer)
 Last verified: 2026-11-28, against `develop` at `5cd2616e6` and PR 3055 (branch `agent/wait-contest-map-stall`)
 Replaces: none. Builds on [`hosted-sectors-plan.md`](hosted-sectors-plan.md) and the join card and waiting screen in [`gdd.md`](gdd.md) §6.
 
-Nothing here is built. This is the plan only; code follows once the owner has
-answered §10.
+**Owner answers, 2026-11-28:** the plan is accepted as recommended (Q1–Q7).
+With only one Sector Contest running the player goes straight into it, with
+no map. Hosted sectors are not a separate kind of campaign in the fiction
+(Q8, §8).
 
 ## 1. What the owner asked for
 
@@ -93,8 +95,9 @@ site left" / "Full: every House place is taken"), matching the list today.
 | The apps | Public sector only until native hosted support (Q15), so no map. When that ships, the map comes with it; funding stays off in the apps. |
 | Duke (holds a Planet) | As above, plus, in phase 4, running contests drawn in Space View. |
 
-Recommendation: show the map whenever the player can choose between two or
-more sectors, and never otherwise. See Q1.
+Decided (Q1): show the map whenever the player can choose between two or
+more sectors, and never otherwise. With one, the player goes straight into
+that sector as today.
 
 ## 4. Selecting a sector, and landing
 
@@ -246,21 +249,19 @@ opened, placed beyond the Core like the won Sectors Space View already draws.
 When a contest is won, its world becomes a Sector with a number in the same
 place (positions are hashed from the `seasonId`).
 
-What the bible does not say yet (proposals, not canon):
+**Decided 2026-11-28 (owner):** there is one kind of Sector campaign. Most
+are opened because Houses pay the cost of the expedition, which is how they
+force the Court to open more contests than it would on its own; the free
+public contest is simply the one the Court opens unasked. The map draws them
+all alike. Recorded in the world bible's §2, "Sector campaigns".
 
-- **Hosted sectors in the fiction.** Proposal: a **chartered campaign**, a
-  Sector the Court opens at the petition and expense of a House, on which
-  that House names who lands. It fits the Court as a dictatorship that rules
-  through Houses and lets them pay for its expansion.
+Still open, and only if the owner builds the matching rule:
+
 - **A House on two worlds at once.** The Mothership stays in orbit for a
-  whole contest (§11 "Landings"). A House in two contests would need two
+  whole contest (§11 "Landings"). A House in two contests needs two
   expeditions; the simplest reading is that a House can send more than one.
-  Only matters if the owner allows several Houses (Q3).
 - **Leaving a Sector.** If Q4 is built, the House's expedition is recalled
   and its ground is abandoned.
-
-These go into the world bible's §14 as open questions when the owner accepts
-the plan; nothing changes in canon now.
 
 ## 9. New systems and rule changes, labelled
 
@@ -273,9 +274,11 @@ the plan; nothing changes in canon now.
 | One House per account at a time (only if Q3 says so) | Rule change and new cross-server check |
 | Leave this sector (only if Q4 says so) | Rule change and new simulation command |
 | Sector card counts as the join screen (Q2) | Interpretation of a 2026-11-27 decision |
-| Hosted sectors as chartered campaigns | Lore proposal |
+| Paid campaigns as the ordinary way Sectors open | Lore, accepted 2026-11-28 |
 
 ## 10. Questions for the owner
+
+All answered 2026-11-28: Q1–Q7 as recommended, Q8 as stated.
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -286,4 +289,4 @@ the plan; nothing changes in canon now.
 | Q5 | Is showing the public and hosted sectors' top-5 standings to anyone who opens the map acceptable? | Yes. The public board is already public, and Q9 says hosted standings are not secret. |
 | Q6 | If the owner pays for a second free sector, how is it listed? | Through the hosting service as a "public" sector row, so the map needs no special case. Decide when it happens. |
 | Q7 | Draw won Sectors faintly behind the running contests? | Yes, as background only, no interaction; it shows new players there is a galaxy to win. |
-| Q8 | Accept "chartered campaign" as the lore for hosted sectors? | Yes, recorded as an open question first. |
+| Q8 | Lore for hosted sectors? | **Decided 2026-11-28:** not a separate kind. Paying is how Houses force the Court to open more contests. |

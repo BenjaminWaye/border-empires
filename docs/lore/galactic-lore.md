@@ -66,6 +66,12 @@ point. While the nobility fights for worlds and the people watch them do it,
 nobody is looking at the dictatorship at home. Each campaign also shows the
 Court which Houses can actually command.
 
+The Court opens few Sectors on its own. Houses force its hand by paying for
+the expedition themselves, and most campaigns are opened that way; the Court
+can hardly refuse a frontier world retaken at someone else's cost. A Sector
+opened this way is no different from any other campaign (owner decision,
+2026-11-28).
+
 A Sector takes only as many Houses as it can hold. Houses turned away wait
 for the next one. Once a campaign is decided, the next Sector is proclaimed,
 and its expedition sails when enough Houses have committed.
