@@ -22,7 +22,10 @@ describe("sector cloud-init", () => {
     expect(userData.startsWith("#cloud-config\n")).toBe(true);
     expect(userData).toContain(`https://raw.githubusercontent.com/BenjaminWaye/border-empires/${"b".repeat(40)}/deploy/bin/bootstrap-server.sh`);
     expect(userData).toContain("BE_ENV=hosted BE_HOSTNAME=s-abc.borderempires-sectors.com");
-    expect(userData).toContain(`sudo -u deploy /opt/border-empires/bin/deploy ${"b".repeat(40)}`);
+    expect(userData).toContain(`runuser -u deploy -- env HOME=/home/deploy /opt/border-empires/bin/deploy ${"b".repeat(40)}`);
+    // Hetzner expires root's password on a server made without an SSH key, and sudo
+    // then refuses through PAM (third test sector, 2026-11-27).
+    expect(userData).not.toMatch(/\bsudo\b/);
     // The settings file is moved into place and removed, so it is not left readable by root alone.
     expect(userData).toContain("rm -f /root/be-sector.env");
   });

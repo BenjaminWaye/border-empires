@@ -58,7 +58,9 @@ export const sectorCloudInit = (input: SectorCloudInitInput): string => {
     `BE_ENV=hosted BE_HOSTNAME=${input.hostname} GITHUB_REPO=${input.githubRepo} bash /root/deploy/bin/bootstrap-server.sh`,
     "install -m 600 -o deploy -g deploy /root/be-sector.env /etc/border-empires/secrets.env",
     "rm -f /root/be-sector.env",
-    `sudo -u deploy /opt/border-empires/bin/deploy ${input.releaseSha}`
+    // runuser, not sudo: sudo checks root's account through PAM, and Hetzner expires
+    // root's password on a server created without an SSH key.
+    `runuser -u deploy -- env HOME=/home/deploy /opt/border-empires/bin/deploy ${input.releaseSha}`
   ].join("\n");
   return [
     "#cloud-config",
