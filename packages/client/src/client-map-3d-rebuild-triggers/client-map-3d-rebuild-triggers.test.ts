@@ -34,7 +34,8 @@ const createState = (): TriggerState => ({
   techCatalog: [],
   showDiplomacyOverlay: false,
   showResourceOverlay: false,
-  activeTruces: []
+  activeTruces: [],
+  playerCosmetics: new Map()
 });
 
 describe("3D map rebuild triggers", () => {

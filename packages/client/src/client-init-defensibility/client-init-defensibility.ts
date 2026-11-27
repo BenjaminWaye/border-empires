@@ -1,3 +1,5 @@
+import { markAwaitingFreshPlayer } from "../client-player-freshness/client-player-freshness.js";
+
 // Extracted from client-network-init-message.ts (which is at the 500-line
 // file cap) purely to keep that file's growth budget available for new
 // state fields -- no behavior change. integrityPct is the server-
@@ -17,3 +19,16 @@ export const initDefensibilityPct = (
         (player.Ts as number | undefined) ?? (player.T as number | undefined),
         (player.Es as number | undefined) ?? (player.E as number | undefined)
       );
+
+/**
+ * INIT's Integrity step: the value above, then hold the food/Integrity chips at "…" until the first full
+ * PLAYER_UPDATE, since INIT carries no integrityPct (client-player-freshness.ts).
+ */
+export const applyInitIntegrity = (
+  state: { defensibilityPct: number; awaitingFreshPlayerUntil: number },
+  player: Record<string, unknown>,
+  defensibilityPctFromTE: (t: number | undefined, e: number | undefined) => number
+): void => {
+  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE);
+  markAwaitingFreshPlayer(state);
+};

@@ -14,8 +14,9 @@ export type CounterOfferDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   state: {
     gold: number;
-    incomingTruceRequests: readonly TruceRequest[];
-    incomingAllianceRequests: readonly AllianceRequest[];
+    /** Mutable: sending the counter drops the offer it answers (client-countered-offer-drop.ts). */
+    incomingTruceRequests: TruceRequest[];
+    incomingAllianceRequests: AllianceRequest[];
     /** The deal screen offers no second truce while one is running. */
     activeTruces: readonly ActiveTruceView[];
   };

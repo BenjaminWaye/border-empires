@@ -54,10 +54,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"
@@ -82,10 +82,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"

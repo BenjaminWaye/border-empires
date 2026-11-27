@@ -1,10 +1,8 @@
 // The Alerts feed panel is only reachable from Settings > Admin (#2392), so a
 // warn/error written only to the feed never reaches the player. This mirrors
 // those entries onto the on-screen capture alert card, which every player
-// sees. Info/success entries stay feed-only: they are confirmations of the
-// player's own clicks whose effect is already visible in the UI. An entry
-// with FeedEntry.alert is the exception: a background result with no other
-// UI (a scout drone launching or reporting back) that must reach the card.
+// sees. Info/success entries stay feed-only: good news never takes the card
+// (owner call 2026-11-27; see showCaptureAlert).
 //
 // Rules, so the mirror never competes with purpose-built alerts:
 // - Background notices that already have their own UI (muster combat reports,
@@ -36,13 +34,13 @@ const FEED_ALERT_TITLE: Record<FeedType, string> = {
 };
 
 export const surfaceFeedEntryAsAlert = (state: FeedAlertSurfaceState, entry: FeedEntry, nowMs = Date.now()): void => {
-  if (entry.feedOnly || (!entry.alert && entry.severity !== "warn" && entry.severity !== "error")) return;
+  if (entry.feedOnly || (entry.severity !== "warn" && entry.severity !== "error")) return;
   const current = state.captureAlert;
   if (current && current.until > nowMs && (!current.fromFeed || current.openPanel)) return;
   state.captureAlert = {
     title: entry.title ?? FEED_ALERT_TITLE[entry.type],
     detail: entry.text,
-    tone: entry.severity === "warn" || entry.severity === "error" ? entry.severity : "success",
+    tone: entry.severity,
     fromFeed: true,
     until: nowMs + CAPTURE_ALERT_MS,
     ...(typeof entry.focusX === "number" && typeof entry.focusY === "number"

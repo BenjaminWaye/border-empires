@@ -65,7 +65,7 @@ export type MapGuideOverlays2dDeps = {
 };
 
 export const drawMapGuideOverlays = (
-  state: Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight">>,
+  state: Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight" | "garrisonMany" | "tilesRevision">>,
   deps: MapGuideOverlays2dDeps
 ): void => {
   const tint = houseChargeTintTiles(state);

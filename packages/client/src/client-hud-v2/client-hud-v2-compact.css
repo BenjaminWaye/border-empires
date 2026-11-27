@@ -68,6 +68,8 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label {
 }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon { display: block; width: 15px; height: 15px; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; }
+/* "free"/"short" under the number on phones: it widened every slot chip inline. */
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-unit { display: block; margin-top: 1px; font-size: 8px; line-height: 1; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-short { display: inline; font-size: 0.9em; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon + .hud-v2-chip-name,
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact {

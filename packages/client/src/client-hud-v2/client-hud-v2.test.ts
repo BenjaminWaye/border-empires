@@ -21,8 +21,8 @@ describe("resource bar", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
     // Playtest 2026-11-12: the phone chip showed "4" for both a shortfall (orange) and free slots (green); a shortfall now reads "−1".
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-unit"> short</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-unit"> free</span>');
     // Regression: the coin chip said /h while Economy and the tile panel say /day.
     expect(html).toContain("+2880.0/day");
     // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
@@ -40,7 +40,7 @@ describe("resource bar", () => {
     // Review: a bare green number didn't say what it counts; hover names it and keeps the totals.
     expect(html).toContain('data-hud-v2-chip="food" title="Food: 59 free slots (378 / 437 used)"');
     expect(html).not.toContain('class="hud-v2-chip-status"');
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-unit"> free</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">12.9M</span>');
   });

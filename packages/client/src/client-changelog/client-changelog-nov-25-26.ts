@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { INTEGRITY_EXPLAIN_ENTRY } from "./client-changelog-integrity-explain.js";
 import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
@@ -28,12 +29,15 @@ import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garri
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
+import { HOUSE_CREST_FIXES_ENTRY } from "./client-changelog-house-crest-fixes.js";
 import { DISTINCT_EMPIRE_COLOURS_ENTRY } from "./client-changelog-distinct-empire-colours.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 import { SIEGE_CUT_OFF_ENTRY } from "./client-changelog-siege-cut-off.js";
 import { AI_DEAL_ASKS_ENTRY } from "./client-changelog-ai-deal-asks.js";
 
 import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
+import { TILE_LABELS_R2_ENTRY } from "./client-changelog-tile-labels-r2.js";
+import { TRUCE_LENGTH_SHOWN_ENTRY } from "./client-changelog-truce-length-shown.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -73,5 +77,9 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
   { ...AI_DEAL_ASKS_ENTRY, createdAt: 1795779130551, },
   { ...SIEGE_CUT_OFF_ENTRY, createdAt: 1795791221185, },
+  { ...HOUSE_CREST_FIXES_ENTRY, createdAt: 1795791560569, },
+  { ...TRUCE_LENGTH_SHOWN_ENTRY, createdAt: 1795805060735, },
+  { ...TILE_LABELS_R2_ENTRY, createdAt: 1795805295408, },
+  { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
   { ...DISTINCT_EMPIRE_COLOURS_ENTRY, createdAt: 1795805465925 },
 ];

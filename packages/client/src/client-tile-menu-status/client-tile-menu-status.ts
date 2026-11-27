@@ -1,5 +1,6 @@
 import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, garrisonBlockedByReach, isCaptureHoldActive } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { RELAY_BEACON_TOWARD_LABEL } from "../client-relay-beacon-toward/client-relay-beacon-toward-label.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
 /**
@@ -19,10 +20,11 @@ export type TileMenuHeaderStatus = {
 
 const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
 // Says what reach is and how far it goes, not only what it blocks: players couldn't find where theirs ended (2026-11-14 playtest).
+// Names the button that works on this tile: Build Relay Beacon is greyed out here (playtest 2026-11-27).
 // Names the land-only spread (shared landGatedTileKeysInDisk): a tile 2 from a town behind a mountain or water is outside it.
 const BEYOND_REACH_HELP_TEXT =
   `Reach: ${TOWN_REACH_RADIUS} tiles from garrisoned towns (more with Dominion), ${OUTPOST_REACH_RADIUS} from Relay Beacons, over land only; mountains and sea stop it. ` +
-  "Outside it: claim only, no garrison or build, lost if cut off. A Relay Beacon extends it.";
+  `Outside it: claim only, no garrison or build, lost if cut off. Tap "${RELAY_BEACON_TOWARD_LABEL}" to extend it.`;
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 

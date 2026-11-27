@@ -2041,7 +2041,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections(), { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelectionFor, { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,

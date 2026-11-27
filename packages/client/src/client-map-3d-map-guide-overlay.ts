@@ -73,7 +73,7 @@ const disposeDotMesh = (mesh: InstancedMesh): void => {
 };
 
 export type MapGuideScenePoint = OnboardingChecklistHighlightTile;
-export type MapGuideState = Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight">>;
+export type MapGuideState = Pick<ClientState, "onboardingHighlightTiles" | "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "scoutFindingHighlight" | "garrisonMany" | "tilesRevision">>;
 
 export type MapGuideOverlay = {
   readonly sync: (state: MapGuideState, toScene: (x: number, y: number) => MapGuideScenePoint, nowMs: number) => void;

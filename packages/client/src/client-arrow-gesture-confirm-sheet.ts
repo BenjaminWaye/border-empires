@@ -8,7 +8,6 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
 import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 import { createMarchWinChancePreviewPoller, marchPreviewServerOdds } from "./client-march-win-chance-preview/client-march-win-chance-preview.js";
-import { showCaptureAlert } from "./client-alerts/client-alerts.js";
 
 // F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
 // replaced by click-to-target"): the confirm sheet shown after a March-To
@@ -110,13 +109,9 @@ export const showArrowGestureConfirmSheet = (
     onChange: paint,
     onConfirm: (commitManpower) => {
       const sent = deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
-      // Playtest 2026-11-12 (pt-snacker): after Go nothing on screen said the
-      // march had left; only the manpower pool falling later did.
-      if (sent) {
-        const detail = `${commitManpower} manpower from (${origin.x}, ${origin.y}) to (${target.x}, ${target.y})`;
-        showCaptureAlert(state, "March sent", detail, "success", undefined, { x: target.x, y: target.y });
-        deps.pushFeed(`March sent: ${detail}`, "combat", "info");
-      }
+      // Playtest 2026-11-12 (pt-snacker): after Go nothing on screen said the march had left. The tracker's
+      // flag row (⚑ … March) and the arrow on the map say so now; the feed keeps a line.
+      if (sent) deps.pushFeed(`March sent: ${commitManpower} manpower from (${origin.x}, ${origin.y}) to (${target.x}, ${target.y})`, "combat", "info");
       clearPending();
       deps.renderHud();
     },

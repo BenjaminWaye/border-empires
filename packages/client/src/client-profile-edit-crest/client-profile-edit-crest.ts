@@ -3,6 +3,7 @@ import type { CrestCosmeticId } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { availableCrests, crestFor, crestLabel, emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
 import { crestPickerHtml, pickedCrest } from "../client-house-crest/client-crest-picker.js";
+import { esc } from "../client-house-crest/client-crest-escape.js";
 import "./client-profile-edit-crest.css";
 
 // The crest part of the Edit Name, Colour & Crest dialog: a live preview of
@@ -22,7 +23,7 @@ export const crestEditorHtml = (state: CrestState): string => {
     <div class="profile-edit-crest">
       <div class="auth-color-label">House crest</div>
       <div class="profile-edit-preview-row">
-        <span class="profile-edit-preview" data-profile-edit-preview style="background:${color}" aria-label="Your emblem">${emblemFaceHtml(initial, crest)}</span>
+        <span class="profile-edit-preview" data-profile-edit-preview style="background:${esc(color)}" aria-label="Your emblem">${emblemFaceHtml(initial, crest)}</span>
         <span class="profile-edit-preview-note">Shown to every House. Looks only.</span>
       </div>
       ${crestPickerHtml({ color, initial, selected: crest, available: availableCrests(state), disabled: !state.authSessionReady, attr: ATTR })}
@@ -125,9 +126,13 @@ export const settleCrestSaveFromState = (msg: Record<string, unknown>): void => 
   if ((selected ?? null) === waiter.crest) finish({ ok: true });
 };
 
-/** An ERROR from the gateway: settles a waiting crest save when it is a cosmetics refusal. */
-export const settleCrestSaveFromError = (code: string, message: string): void => {
-  if (waiter && code.startsWith("COSMETIC_")) finish({ ok: false, reason: REASONS[code] ?? (message || "Crest not saved.") });
+/**
+ * An ERROR from the gateway: settles a waiting crest save only when it is a
+ * cosmetics refusal for the crest slot (the gateway names the slot), so a
+ * refusal of another slot's change cannot be taken for the crest's.
+ */
+export const settleCrestSaveFromError = (code: string, message: string, slot: unknown): void => {
+  if (waiter && code.startsWith("COSMETIC_") && slot === "crest") finish({ ok: false, reason: REASONS[code] ?? (message || "Crest not saved.") });
 };
 
 /** The dialog closed: stop waiting (the change may still land). */

@@ -180,7 +180,8 @@ come later.
   grant: the gateway adds every free id to `COSMETICS_STATE.owned`
   (`ownedWithFreeCosmetics`) and accepts `SET_COSMETIC` for it without a
   stored grant. Free cosmetics are never written to `account_cosmetics_owned`
-  and never count towards a title. To sell a crest later, add it without
+  and never count towards a title. Admin grant and revoke ignore a free id
+  (they answer `ok` and change nothing), so a revoke cannot clear a crest. To sell a crest later, add it without
   `free` and grant it like any other cosmetic.
 - **Art.** `packages/client/src/client-house-crest/client-house-crest-art.ts`:
   one bold silhouette per crest on a 24-unit grid in `currentColor`, outlined
@@ -200,11 +201,14 @@ come later.
   first to open the profile), or from Settings → Account. "Letter" clears the
   crest. Save sends `SET_COSMETIC` after any name or colour change, and the
   dialog stays open on "Saving…" until the gateway answers with
-  `COSMETICS_STATE`; a `COSMETIC_*` refusal or no reply in 15 s is shown in
+  `COSMETICS_STATE`; a `COSMETIC_*` refusal naming the `crest` slot (the
+  gateway's `COSMETIC_*` errors carry `slot`) or no reply in 15 s is shown in
   the dialog. A crest-only change skips the once-per-contest confirmation,
   since a crest can change at any time; with a name or colour change, the
-  confirmation lists the crest too. The Settings cosmetics card no longer
-  offers crests.
+  confirmation lists only the name and colour. If the name or colour is
+  refused, the crest is still saved and the dialog shows both outcomes
+  ("Name taken · Crest saved"). The Settings cosmetics card no longer offers
+  crests.
 
 | Emblem | Shows the crest |
 |---|---|
@@ -216,7 +220,7 @@ come later.
 | Battle sides (`client-hud-v2-battle.ts`) | Yes |
 | Profile hero (`client-hud-v2-profile.ts`) | Yes |
 | Public House web page (`client-public-house-view.ts`) | No: `GET /public/house/:id` does not carry the crest yet |
-| Muster flags, true-3D | Every visible flag, yours and rivals': the crest is stitched on the cloth in place of the cog (or the High-noble sun), in the same thread with the same dark outline. Crests are rasterised once into a 4×3 atlas (`muster-banner-crest-atlas.ts`); `aBannerCrest` per flag picks the cell. A flag with no crest keeps its cog. Relic banners keep the cog |
+| Muster flags, true-3D | Every visible flag, yours and rivals': the crest is stitched on the cloth in place of the cog (or the High-noble sun), in the same thread with the same dark outline. Crests are rasterised once into a 4×3 atlas (`muster-banner-crest-atlas.ts`); `aBannerCrest` per flag picks the cell. A flag keeps its cog (or sun) until its crest's cell has loaded, and for good if the image fails twice. A flag with no crest keeps its cog. Relic banners keep the cog. A crest or flag change redraws the flags at once (`cosmeticsRevision` in `client-map-3d-rebuild-triggers.ts`) |
 | Muster flags, 2D canvas | Your own besieged flag's pennant (the only muster flag 2D draws, see the known gap above) carries your crest in place of the High-noble sun once tiles are drawn 48 px or larger (`client-map-render-muster-siege-badge.ts`); smaller, the pennant stays plain. Rivals' flags are not drawn on the 2D map for anyone |
 
 AI Houses show their letter: nothing picks a crest for them.
@@ -262,7 +266,7 @@ client message reaches either.
 | Client → gateway | `SET_COSMETIC {slot, cosmeticId \| null}` | Show this owned cosmetic; `null` is the standard look. Refused with `COSMETIC_NOT_OWNED` or `COSMETIC_INVALID` |
 | Gateway → that client | `COSMETICS_STATE {owned, selected}` | Reply to both, and pushed when a grant or revoke lands |
 | Gateway → everyone | `PLAYER_STYLE {playerId, cosmetics}` | A player's look changed; `{}` is the standard look |
-| Gateway → joining client | `INIT.playerCosmetics` | Every account with a non-default look. Absent when there is none |
+| Gateway → joining client | `INIT.playerCosmetics` | The non-default looks of the players in the current world, the joining player and the pending contest's lobby. Absent when there is none |
 
 Settings → Account shows a cosmetics card to every account: it always has
 the House crest picker, plus a row per other slot the account owns something
@@ -277,17 +281,19 @@ for.
 - A non-default look is one short id per slot, about 45 bytes as JSON today. A
   change is one broadcast, serialised once and shared by every recipient.
 - The gateway keeps one small object per account with a non-default look
-  (`shown` in the service), loaded once at boot. It is limited to 5,000
-  accounts (`MAX_LOADED_COSMETIC_SELECTIONS`; free crests make that limit
-  likelier to be reached than paid looks did); past that a choice is still
-  saved but other players see the standard look, and a counter records it.
-- `INIT.playerCosmetics` lists every such account on the server, whether or
-  not it is in the current contest. At the limit that is about 250 KB per
-  login. If a server ever approaches that, filter the list to the contest's
-  players.
+  (`shown` in the service), loaded once at boot, in two sets with their own
+  limits: accounts showing a paid cosmetic (5,000,
+  `MAX_LOADED_COSMETIC_SELECTIONS`) and accounts showing only free crests
+  (20,000, `MAX_LOADED_FREE_COSMETIC_SELECTIONS`), so free crests never push
+  a paid look out. Past a limit a choice is still saved but other players see
+  the old look, and a counter records it.
+- `INIT.playerCosmetics` lists only the players this client can meet: the
+  current world's players, the joining player and the pending contest's
+  lobby (`init-cosmetics.ts`), so it grows with the world, not with every
+  account the server has seen.
 - Nothing is stored in the simulation, its checkpoints or its events.
 - Metrics: `gateway_account_cosmetics_owned`, `_selected`, `_shown_accounts`,
-  `_catalog_size` and `_shown_cap_rejections_total`.
+  `_shown_free_only_accounts`, `_catalog_size` and `_shown_cap_rejections_total`.
 
 ## Account deletion
 

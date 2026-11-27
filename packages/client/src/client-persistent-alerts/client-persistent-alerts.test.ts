@@ -31,6 +31,7 @@ const unfedTownTile = (overrides: TileOverrides = {}): Tile => {
     goldPerMinute: 0,
     cap: 0,
     isFed: false,
+    foodSlotDemand: 2,
     population: 25_000,
     maxPopulation: 100_000,
     populationGrowthPerMinute: 0,
@@ -95,7 +96,8 @@ describe("persistent alerts", () => {
         id: "town_unfed:12,18",
         kind: "town_unfed",
         title: "Town unfed",
-        detail: "Ravenhold: garrison grain or fish in your reach.",
+        // Playtest 2026-11-27 ("Aelharbor" starved with no reason): the alert names the need and the fix.
+        detail: "Ravenhold: Unfed · needs 2 food · build Farm Plot / garrison grain or fish",
         x: 12,
         y: 18
       })

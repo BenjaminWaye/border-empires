@@ -12,7 +12,6 @@
 import type { Auth } from "firebase/auth";
 import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
 import { bindCrestEditor, cancelCrestSave, crestEditorHtml, saveCrest } from "../client-profile-edit-crest/client-profile-edit-crest.js";
-import { crestLabel } from "../client-house-crest/client-house-crest.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
 import { rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
@@ -170,10 +169,17 @@ export const bindProfileEditModal = (args: {
       if (crest.ok) close();
       else fail(crest.reason);
     };
+    // A crest has no once-per-contest limit, so a refused name or colour does
+    // not stop it: save the crest anyway and stay open to show the refusal.
+    const saveCrestThenFail = async (reason: string): Promise<void> => {
+      const crest = await saveCrest(crestEditor.chosen(), sendGameMessage);
+      fail(crest.ok ? `${reason} · Crest saved` : `${reason} · ${crest.reason}`);
+    };
     if (nameChanged || colorChanged) {
       cancelWait = awaitProfileEditOutcome((outcome) => {
         cancelWait = undefined;
-        if (!outcome.ok) fail(outcome.reason);
+        if (!outcome.ok && crestChanged) void saveCrestThenFail(outcome.reason);
+        else if (!outcome.ok) fail(outcome.reason);
         else if (crestChanged) void saveCrestThenClose();
         else close();
       });
@@ -246,11 +252,11 @@ export const bindProfileEditModal = (args: {
       void save(newName, newColor, false, false, true);
       return;
     }
-    const chosenCrest = crestEditor.chosen();
+    // Only the once-per-contest fields: a crest can change any time, so
+    // listing it here would imply a limit it does not have.
     const consequences = [
       ...(nameChanged ? [`Name: ${newName}`] : []),
-      ...(colorChanged ? [`Colour: ${newColor}`] : []),
-      ...(crestChanged ? [`Crest: ${chosenCrest ? crestLabel(chosenCrest) : "Letter"}`] : [])
+      ...(colorChanged ? [`Colour: ${newColor}`] : [])
     ];
     const shown = showConfirm({
       title: "Change empire?",
