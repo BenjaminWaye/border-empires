@@ -63,19 +63,37 @@ Four workstreams, landed as separate PRs in this order.
   gains it.
 - Every owned AFC sees `AFC_VISION_RADIUS` (4) around itself.
 
-### 2. Colors that look different (gateway). Implemented on `claude/zealous-bardeen-mu9nyw`
+### 2. Colors that look different (gateway). Shipped 2026-11-27
 
-- Replace the exact-hex "taken" test with a perceptual distance (OKLab ΔE or
-  CIEDE2000) and a minimum-gap threshold. Use it for automatic assignment
-  (`assignUniqueColor`), suggestions (`pickSuggestedPalette`) and player picks
-  (`SET_TILE_COLOR` / `SET_PROFILE` collision rejection).
-- Prune `BASE_PALETTE` so no two entries fall under the threshold. Order it
-  so hash-picked colors spread around the hue wheel.
-- **Decided (2026-10-08): only new picks are checked.** A human player's
-  existing color is never changed behind their back. AI empires are the
-  exception: their colors are re-assigned at season rollover (and at boot)
-  against the full taken set, so an AI never keeps a color that now sits
-  under the threshold next to a human's pick.
+Owner decision (2026-11-27): empires must not have colours too close to tell
+apart. A playtester read a rival's pale pink land inside their island as
+their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
+
+- **Rule** (`packages/shared/src/empire-color-distance/`): two empire colours
+  must be at least `MIN_EMPIRE_COLOR_DELTA_E` = 15 apart in CIEDE2000. About 1
+  is a just-noticeable difference; territory interiors are drawn at 0.35
+  opacity, which shrinks the visible gap to about a third, so 15 still reads
+  at a glance there. A greedy packing of sRGB fits about 51–67 colours at 15
+  (about 38 in the mid-light, saturated band AIs use), against about 32 at 20.
+- **Active empires** (`buildTakenColorSet`): every empire in the gateway's
+  live profile overrides (seeded AIs, anyone who logged in since boot,
+  leaderboard players) plus stored profiles written in the last 14 days
+  (`ACTIVE_EMPIRE_WINDOW_MS`), plus barbarian grey. Older profiles still
+  block their exact colour only.
+- **Human picks**: `SET_PROFILE` ("Found your first standard" and "Update
+  your empire") and `SET_TILE_COLOR` refuse a colour too close to an active
+  empire with `COLOR_TAKEN` and "Too close to <name>'s colour." plus a
+  suggestion. Suggested swatches, suggestions and guest colours keep the
+  distance. Both pickers grey out swatches too close to a known rival and
+  show the reason under the custom colour.
+- **AI colours** are re-derived at every boot, keeping the distance from each
+  other and from active human colours, while still maximising colour-blind
+  distance (`ai-color-assignment.ts`). Beyond about 30 AIs the colour band
+  runs out and later AIs get the least-close colour left, so a 60-AI hosted
+  sector still has AI pairs under the threshold and little room for humans.
+- **Only new picks are checked** (decided 2026-10-08): a human's existing
+  colour is never changed behind their back, so clashes between existing
+  human empires remain until one of them picks again.
 
 ### 3. 3D reach and ownership overlay (client, 3D first). Partly implemented
 

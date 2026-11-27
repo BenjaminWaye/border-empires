@@ -9,6 +9,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   meName: "Old Name",
   me: "player-1",
   playerColors: new Map([["player-1", "#38b000"]]),
+  playerNames: new Map<string, string>(),
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6"],
   playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
   ownedCosmetics: [] as CosmeticId[],

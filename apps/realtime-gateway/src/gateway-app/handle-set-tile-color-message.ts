@@ -1,4 +1,5 @@
-import { isTaken, normalizeHex, suggestAlternative } from "../player-color-allocation/player-color-allocation.js";
+import { normalizeHex } from "../player-color-allocation/player-color-allocation.js";
+import { colorPickRejection } from "../player-color-allocation/color-pick-rejection.js";
 import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 
 // Extracted from gateway-app.ts's dispatcher switch to keep that (already
@@ -31,10 +32,10 @@ export const handleSetTileColorMessage = async (deps: SetTileColorMessageDeps): 
     return;
   }
   const taken = await buildTakenColorSet(playerId);
-  if (isTaken(normalized, taken)) {
-    const suggestion = suggestAlternative(normalized, taken);
+  const rejection = colorPickRejection(normalized, taken);
+  if (rejection) {
     incrementColorCollisionRejectedTotal();
-    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: "That colour is already taken by another empire.", suggestion });
+    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: rejection.message, suggestion: rejection.suggestion });
     return;
   }
   const storedProfile = await profileStore.setTileColor(playerId, normalized);

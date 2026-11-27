@@ -135,3 +135,4 @@ export { resourceSupplyCoinValue } from "./resource-supply-trades/resource-suppl
 export * from "./resource-supply-trades/resource-supply-capacity.js";
 export * from "./guide-town-lead/guide-town-lead.js";
 export * from "./hosted-sector/hosted-sector-contract.js";
+export * from "./empire-color-distance/empire-color-distance.js";

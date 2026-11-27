@@ -14,6 +14,7 @@ import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js"
 import { bindCrestEditor, cancelCrestSave, crestEditorHtml, saveCrest } from "../client-profile-edit-crest/client-profile-edit-crest.js";
 import { crestLabel } from "../client-house-crest/client-house-crest.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
+import { rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
 import { awaitProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
@@ -65,6 +66,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
         <span>Custom</span>
         <input type="color" value="${currentColor}" data-profile-edit-color />
       </label>
+      <div class="auth-color-clash" data-color-clash role="status" aria-live="polite" hidden></div>
     </div>
     ${crestEditorHtml(state)}
     <div class="profile-edit-status" data-profile-edit-status role="status" aria-live="polite"></div>
@@ -81,7 +83,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
 // ---------------------------------------------------------------------------
 
 export const bindProfileEditModal = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | CrestFields>;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "playerNames" | "suggestedColors" | CrestFields>;
   overlayEl: HTMLElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
@@ -122,7 +124,9 @@ export const bindProfileEditModal = (args: {
   bindProfileNameField(nameInput, { onUserInput: () => { setStatus(""); refreshPreview(); } });
 
   const syncSwatches = (): void => {
-    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value);
+    const rivals = rivalEmpireColors(state);
+    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value, rivals);
+    syncColorClashNote(overlayEl.querySelector<HTMLElement>("[data-color-clash]"), colorInput.value, rivals, state.playerColors.get(state.me));
     refreshPreview();
   };
   syncSwatches();
@@ -270,7 +274,7 @@ export const bindProfileEditModal = (args: {
 const OVERLAY_ID = "profile-edit-overlay";
 
 export const renderProfileEditOverlay = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested" | "authSessionReady" | "serverSupportedMessageTypes">;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "playerNames" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested" | "authSessionReady" | "serverSupportedMessageTypes">;
   dom: { hud: HTMLElement };
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
