@@ -10,7 +10,7 @@ import type { TileFact } from "./client-hud-v2-tile-facts.js";
 const musterOrder = (muster: NonNullable<Tile["muster"]>): string => {
   if (muster.mode === "HOLD") return "Hold";
   if (muster.mode === "MARCH") return "March";
-  return muster.hunt ? "Hunt" : "Advance";
+  return "Advance";
 };
 
 /** Facts for your own muster flag on this tile; empty for anything else. */

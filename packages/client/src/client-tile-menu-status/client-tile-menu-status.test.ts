@@ -154,10 +154,10 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  it("escapes player-controlled names and attaches the explainer to the reach line only", () => {
+  it("keeps player-controlled names as plain text (renderers escape) and attaches the explainer to the reach line only", () => {
     const tile = makeFrontierTile();
     const status = tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["<b>Evil</b>"]);
-    expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
+    expect(status?.text).toBe("Inside <b>Evil</b> Reach");
     expect(status?.helpText).toBe("Can't garrison inside another empire's reach.");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });

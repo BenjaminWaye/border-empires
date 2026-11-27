@@ -49,6 +49,8 @@ export const RENDER_ORDER = {
   // A focused House Charge's dotted rough circles and link (client-map-3d-map-guide-overlay.ts): over the
   // storm and fogged mist, since they mark unexplored ground; drawn at 2 the storm hid them (owner, 2026-11-19).
   houseChargeGuideDots: 14.15,
+  // Lost-tile flash (client-battle-warnings/client-battle-flash-3d.ts): over terrain and fog, under guide rings.
+  battleFlash: 14.1,
   guideMarkerHalo: 14.2,
   guideMarkerRing: 14.3,
   guideMarkerChevron: 14.4,

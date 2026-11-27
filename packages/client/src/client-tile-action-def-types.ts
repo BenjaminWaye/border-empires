@@ -8,6 +8,7 @@ export type TileActionDef = {
     | import("./client-refineries/refinery-action-ids.js").RefineryPickerActionId
     | "settle_land"
     | "settle_many"
+    | "garrison_town_plots"
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"
@@ -86,7 +87,7 @@ export type TileActionDef = {
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
-    | "muster_clear" | "muster_expand_cap" | "muster_cancel_queued_attack" | "muster_hunt" | "muster_hunt_attackers"
+    | "muster_clear" | "muster_expand_cap" | "muster_cancel_queued_attack"
     | "diplomacy"
     | "break_truce"
     | "aether_lance"

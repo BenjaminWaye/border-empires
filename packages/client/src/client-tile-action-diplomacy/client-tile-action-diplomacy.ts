@@ -1,13 +1,20 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveTruceView, TileActionDef } from "../client-types.js";
+import { allyStatusLabel, fealtyLookupFor, type FealtyState } from "../client-fealty/client-fealty.js";
 
 type DiplomacyActionState = Pick<
   ClientState,
   "allies" | "incomingAllianceRequests" | "outgoingAllianceRequests" | "incomingTruceRequests" | "outgoingTruceRequests"
->;
+> & Partial<Pick<ClientState, "me">> & { leaderboard?: FealtyState["leaderboard"] };
 
 type DiplomacyActionDeps = {
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
+};
+
+// "Your liege" / "Sworn to you" for an unequal alliance (client-fealty.ts), else "Allied".
+const allyDetail = (state: DiplomacyActionState, ownerId: string): string => {
+  const standing = fealtyLookupFor({ me: state.me ?? "", leaderboard: state.leaderboard })(ownerId);
+  return standing === "ALLIANCE" ? "Allied" : allyStatusLabel(standing);
 };
 
 /**
@@ -31,7 +38,7 @@ export const diplomacyActionForOwner = (
   const detail = awaitingYou
     ? "They sent you a request -- respond"
     : state.allies.includes(ownerId)
-      ? "Allied"
+      ? allyDetail(state, ownerId)
       : deps.activeTruceWithPlayer(ownerId)
         ? "Truce active"
         : sentByYou
