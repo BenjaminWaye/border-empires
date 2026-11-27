@@ -90,3 +90,13 @@ describe("feed warn/error entries surface on the alert card", () => {
     expect(battleOutcomeFromAlert(state.captureAlert, undefined, Date.now())).toBeUndefined();
   });
 });
+
+// Owner call 2026-11-27: a success alert never draws, so it must not hold the card's slot against a warning.
+describe("hidden good news does not block a warning", () => {
+  it("lets a feed warning replace a live success alert", () => {
+    const state = freshState();
+    state.captureAlert = { title: "Victory", detail: "Won.", tone: "success", until: Date.now() + 10_000 };
+    pushFeed(state, "Not enough coin.", "combat", "warn");
+    expect(state.captureAlert).toMatchObject({ detail: "Not enough coin.", tone: "warn", fromFeed: true });
+  });
+});

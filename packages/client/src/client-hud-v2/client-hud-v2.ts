@@ -8,7 +8,6 @@ import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
 import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
-import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
@@ -164,7 +163,8 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   }
   // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
-    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
+    // The queued expansions leave the tracker and the map; no card.
+    clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage });
     deps.renderHud();
     return;
   }

@@ -54,10 +54,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"
@@ -82,10 +82,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"
@@ -156,5 +156,41 @@ describe("renderCaptureProgress panel action", () => {
     openPanelFromCaptureAlert(s, "charges", handlers);
     expect(setActivePanel).not.toHaveBeenCalled();
     expect(openPanelFromCaptureAlert(s, undefined, handlers)).toBe(false);
+  });
+});
+
+// Owner call 2026-11-27: good news never pops the card (a won fight shows on the map and the battle screen; a sent
+// march in the tracker). The alert stays in state until it expires, since the battle screen reads the win from it.
+describe("renderCaptureProgress good news", () => {
+  it("never draws a success alert but keeps it in state until it expires", () => {
+    const d = {
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      formatCooldownShort: () => "0s",
+      showCaptureAlert: vi.fn(),
+      pushFeed: vi.fn(),
+      finalizePredictedCombat: vi.fn(),
+      captureCardEl: makeElement(),
+      captureWrapEl: makeElement(),
+      captureCancelBtn: makeElement(),
+      captureDismissBtn: makeElement(),
+      captureCloseBtn: makeElement(),
+      captureReportBugBtn: makeElement(),
+      captureBarEl: makeElement(),
+      captureTitleEl: makeElement(),
+      captureTimeEl: makeElement(),
+      captureTargetEl: makeElement(),
+      captureGotoBtn: makeElement() as unknown as HTMLButtonElement
+    };
+    const alert = { title: "Victory", detail: "Tundra (12, 34) was conquered.", until: 5_000, tone: "success", focusX: 12, focusY: 34 };
+    const s = { captureAlert: alert, activeBattles: new Map(), capture: undefined, me: "p", tiles: new Map(), pendingCombatReveal: undefined, pendingMusterAttacks: [] } as any;
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    renderCaptureProgress(s, d);
+    expect((d.captureCardEl.dataset as Record<string, string>).state).toBeUndefined();
+    expect(d.captureTitleEl.textContent).toBe("");
+    expect(d.captureGotoBtn.style.display).toBe("none");
+    expect(s.captureAlert).toBe(alert);
+    vi.spyOn(Date, "now").mockReturnValue(9_000);
+    renderCaptureProgress(s, d);
+    expect(s.captureAlert).toBeUndefined();
   });
 });

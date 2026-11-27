@@ -5,6 +5,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 import { clearCaptureCardGhostTap, noteCaptureCardAutoHidden } from "./client-capture-ghost-tap.js";
+import { captureAlertShowsCard } from "../client-alerts/client-feed-alert-surface.js";
 
 export const renderCaptureProgress = (
   state: Pick<
@@ -39,7 +40,8 @@ export const renderCaptureProgress = (
     captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
+  const alertLive = Boolean(state.captureAlert && state.captureAlert.until > Date.now());
+  if (state.captureAlert && captureAlertShowsCard(state.captureAlert, Date.now())) {
     clearCaptureCardGhostTap();
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
@@ -77,7 +79,8 @@ export const renderCaptureProgress = (
   delete deps.captureCardEl.dataset.state;
   // Closed on its own (the ✕ clears captureAlert first): guard the spot it covered against a late tap.
   if (state.captureAlert && deps.captureCardEl.style.display !== "none") noteCaptureCardAutoHidden(deps.captureCardEl.getBoundingClientRect(), Date.now());
-  state.captureAlert = undefined;
+  // A good-news alert never draws, but stays in state until it expires: the battle screen reads a fight's win from it.
+  if (!alertLive) state.captureAlert = undefined;
 
   deps.captureGotoBtn.style.display = "none";
   delete deps.captureGotoBtn.dataset.feedFocusX;

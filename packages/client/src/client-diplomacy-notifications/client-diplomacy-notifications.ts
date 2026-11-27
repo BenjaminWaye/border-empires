@@ -136,7 +136,8 @@ export const applyTruceUpdateMessage = (
   // (Compared by the newest break, not the count: the server caps that list.)
   const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
-  else if (answeredOutgoing) deps.showCaptureAlert(declined ? "Truce declined" : "Truce agreed", announcement, declined ? "warn" : "success");
+  // An agreed truce shows in the Diplomacy list and the Activity feed; only a refusal interrupts.
+  else if (answeredOutgoing && declined) deps.showCaptureAlert("Truce declined", announcement, "warn");
 };
 
 /**
@@ -195,7 +196,7 @@ export const applyAllianceUpdateMessage = (
   if (!announcement) return;
   const { title, tone } = allianceAnnouncementTitle(announcement);
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
-  if (answeredOutgoing) deps.showCaptureAlert(title, announcement, tone);
+  if (answeredOutgoing && tone !== "success") deps.showCaptureAlert(title, announcement, tone);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (

@@ -26,6 +26,14 @@ export type FeedAlertSurfaceState = Partial<Pick<ClientState, "captureAlert">>;
 /** Lifetime of every capture alert card (shared with showCaptureAlert). */
 export const CAPTURE_ALERT_MS = 12_000;
 
+/**
+ * Whether an alert draws the on-screen card. Good news (tone success: a won fight, say) never does: it shows
+ * where it happened instead (the tile changes hands, the battle screen, the tracker, the Diplomacy list, the
+ * Activity feed). The alert is still kept in state, since the battle screen reads a fight's outcome from it.
+ */
+export const captureAlertShowsCard = (alert: NonNullable<ClientState["captureAlert"]>, nowMs: number): boolean =>
+  alert.until > nowMs && alert.tone !== "success";
+
 const FEED_ALERT_TITLE: Record<FeedType, string> = {
   combat: "Combat",
   alliance: "Diplomacy",
@@ -38,7 +46,7 @@ const FEED_ALERT_TITLE: Record<FeedType, string> = {
 export const surfaceFeedEntryAsAlert = (state: FeedAlertSurfaceState, entry: FeedEntry, nowMs = Date.now()): void => {
   if (entry.feedOnly || (!entry.alert && entry.severity !== "warn" && entry.severity !== "error")) return;
   const current = state.captureAlert;
-  if (current && current.until > nowMs && (!current.fromFeed || current.openPanel)) return;
+  if (current && captureAlertShowsCard(current, nowMs) && (!current.fromFeed || current.openPanel)) return;
   state.captureAlert = {
     title: entry.title ?? FEED_ALERT_TITLE[entry.type],
     detail: entry.text,
