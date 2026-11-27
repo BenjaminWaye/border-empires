@@ -90,9 +90,11 @@ their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
   from active human colours, while still maximising colour-blind distance
   (`ai-color-assignment.ts`). Owner rule (2026-11-27): an empire's colour
   never changes mid-game, so an AI keeps its stored colour across restarts
-  and deploys (`seed-ai-colors.ts`); only an AI with no stored colour, an
-  invalid one, or one now too close to a human or an earlier-kept AI is
-  given a new colour. Beyond about 30 AIs the colour band
+  and deploys (`seed-ai-colors.ts`). Only an AI with no stored colour, a
+  reserved one, exactly a human's or another kept AI's colour, or one too
+  close to another kept AI (colours seeded before the distance rule; not
+  checked in a crowded sector) gets a new colour. Closeness to a human and
+  palette edits never repaint an AI. Beyond about 30 AIs the colour band
   runs out and later AIs get the least-close colour left, so a 60-AI hosted
   sector still has AI pairs under the threshold and little room for humans.
 - **Only new picks are checked** (decided 2026-10-08): a human's existing

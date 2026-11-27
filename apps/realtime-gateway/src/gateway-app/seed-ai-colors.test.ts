@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { aiDisplayNameForId, isEmpireColorFarEnough } from "@border-empires/shared";
+import { aiDisplayNameForId, ciede2000, isEmpireColorFarEnough } from "@border-empires/shared";
 import { BASE_PALETTE } from "../player-color-allocation/player-color-allocation.js";
 import { assignAiColors } from "../player-color-allocation/ai-color-assignment.js";
+import { colorBlindSafeDistance } from "../player-color-allocation/perceptual-color-distance.js";
 import { seedAiColors } from "./seed-ai-colors.js";
 
 // Owner report 2026-11-27: an AI changed colour mid-game. The gateway
@@ -33,7 +34,7 @@ describe("AI colours stay put across gateway restarts", () => {
     expect([...secondBoot.entries()].sort()).toEqual([...firstBoot.entries()].sort());
   });
 
-  test("only the AI whose stored colour now clashes with a human gets a new colour", async () => {
+  test("only the AI whose stored colour is exactly a human's colour gets a new colour", async () => {
     const firstBoot = await boot(AI_IDS, new Map());
     const clashing = firstBoot.get("ai-7")!;
     const secondBoot = await boot(AI_IDS, firstBoot, new Set([clashing]));
@@ -49,8 +50,42 @@ describe("AI colours stay put across gateway restarts", () => {
     expect(isEmpireColorFarEnough(secondBoot.get("ai-20")!, firstBoot.values())).toBe(true);
   });
 
-  test("a stored colour that is not a valid AI colour (old hash colour) is replaced", async () => {
+  test("a reserved stored colour (barbarian grey) is replaced", async () => {
     const secondBoot = await boot(["ai-1"], new Map([["ai-1", "#2f3842"]]));
     expect(secondBoot.get("ai-1")).not.toBe("#2f3842");
+  });
+
+  // PR #3051 review findings.
+  test("a stored colour outside today's palette is kept, so palette edits do not repaint AIs", async () => {
+    const secondBoot = await boot(["ai-1"], new Map([["ai-1", "#c2457a"]]));
+    expect(secondBoot.get("ai-1")).toBe("#c2457a");
+  });
+
+  test("a human near (not on) an AI's colour does not repaint it, e.g. a player back from a long break", async () => {
+    const firstBoot = await boot(AI_IDS, new Map());
+    const alden = firstBoot.get("ai-1")!;
+    // Nudge one channel: a different colour, but well under the distance floor.
+    const near = `#${alden.slice(1, 5)}${((parseInt(alden.slice(5, 7), 16) + 3) % 256).toString(16).padStart(2, "0")}`;
+    expect(near).not.toBe(alden);
+    expect(ciede2000(near, alden)).toBeLessThan(15);
+    const secondBoot = await boot(AI_IDS, firstBoot, new Set([near]));
+    expect(secondBoot.get("ai-1")).toBe(alden);
+  });
+
+  test("a crowded 60-AI sector keeps every colour across a restart with a new human", async () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `ai-${i + 1}`);
+    const firstBoot = await boot(ids, new Map());
+    const human = BASE_PALETTE.find((hex) => ![...firstBoot.values()].includes(hex))!;
+    const secondBoot = await boot(ids, firstBoot, new Set([human]));
+    expect([...secondBoot.entries()].sort()).toEqual([...firstBoot.entries()].sort());
+  });
+
+  test("an AI added later still gets the same-initial spacing from a kept AI (Maren beside Milo)", async () => {
+    // Without the kept AIs' crest initials, late Maren took a colour 0.061 from Milo's.
+    expect(aiDisplayNameForId("ai-3")).toBe("Milo");
+    expect(aiDisplayNameForId("ai-13")).toBe("Maren");
+    const firstBoot = await boot(AI_IDS.filter((id) => id !== "ai-13"), new Map());
+    const secondBoot = await boot(AI_IDS, firstBoot);
+    expect(colorBlindSafeDistance(secondBoot.get("ai-3")!, secondBoot.get("ai-13")!)).toBeGreaterThan(0.08);
   });
 });
