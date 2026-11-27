@@ -4,6 +4,7 @@ import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { NOV_25_26_CHANGELOG } from "./client-changelog-nov-25-26.js";
 import { CHRONICLE_OPENS_YOURS_ENTRY } from "./client-changelog-chronicle-opens-yours.js";
 import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
+import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -486,6 +487,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_23_CHANGELOG,
   ...NOV_25_26_CHANGELOG,
   { ...CHRONICLE_OPENS_YOURS_ENTRY, createdAt: 1795724340365, },
+  { ...ATTACK_EN_ROUTE_ENTRY, createdAt: 1795779638841, },
   { ...INSURGENTS_ENTRY, createdAt: 1795780690085, },
 ];
 

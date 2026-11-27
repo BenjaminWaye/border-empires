@@ -219,10 +219,10 @@ ships to the Court's own patrols buys its favor back for a while.
 
 ## 10. Relay Beacons and reach
 
-A House AI in orbit coordinates the House's ancillaries and fabrication. A
-**Relay Beacon** is an unarmed relay mast: it receives the AI's command stream
-through modulated gravitational waves at light speed and relays it to the
-ancillaries around it. The ground its signal covers is its **reach**. A
+The Mothership's onboard AI coordinates the House's ancillaries and
+fabrication from orbit (§11). A **Relay Beacon** is an unarmed relay mast: it
+receives the AI's command stream through modulated gravitational waves at
+light speed and relays it to the ancillaries around it. The ground its signal covers is its **reach**. A
 beacon is a relay, not an AI in a tower.
 
 - **It marks.** Ground inside its reach is the House's to settle and build on:
@@ -297,8 +297,10 @@ only where held in depth. Thresholds are in the
 
 ### Landings
 
-A House lands with a limited package: an Automated Fabrication Complex (AFC),
-its knowledge and standard equipment. The AFC is its opening capital. It takes
+A House arrives in its **Mothership**, which stays in orbit for the whole
+contest. The Mothership's onboard AI coordinates the House's ancillaries and
+fabrication. The House lands with a limited package: an Automated Fabrication
+Complex (AFC), its knowledge and standard equipment. The AFC is its opening capital. It takes
 towns and builds their output into the means to commission more. What it
 commissions stays on that world; on the next Sector it keeps its knowledge but
 commissions its equipment again.
@@ -435,8 +437,8 @@ dropped from orbit.
 
 A **scout drone** (Sentinel pattern) docks in the AFC crown: an armoured sensor
 sphere with one large eye on four rotors. Running lights on over House ground,
-dark past the border. A rival's control field (§10) jams it and turns it back;
-The Insurgents have no such field.
+dark past the border. A rival's relay signal (§10) jams its link and turns it
+back; the Insurgents relay no signal.
 
 ### Replacement supply and withdrawal
 
