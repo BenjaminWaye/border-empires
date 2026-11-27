@@ -197,7 +197,9 @@ product, including paid Houses.
   way to personalise it). A House picks one of 12 crests, drawn in place of
   its initial inside the same emblem, so the diplomacy screen gains no extra
   marks, and stitched on its muster flags in place of the cog. Name, colour
-  and crest are chosen together in one dialog. The catalogue flags each crest `free`, so paid crests can be added
+  and crest are chosen together in one dialog. Each of the three can be changed
+  once per Sector Contest, with its own allowance; the first crest pick (letter
+  to crest) counts (owner decision, 2026-11-27). The catalogue flags each crest `free`, so paid crests can be added
   later without new plumbing. Details: [`cosmetics.md`](cosmetics.md#house-crests).
 - **Purchases belong to the account, not the device.** The web is the main
   shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
