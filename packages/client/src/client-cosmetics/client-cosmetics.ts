@@ -19,6 +19,9 @@ export type CosmeticsState = Pick<ClientState, "me" | "playerCosmetics" | "owned
 
 export type MusterFlagDesign = "default" | MusterFlagCosmeticId;
 
+/** The House crest an owner shows (a free cosmetic): its muster flags carry it too. */
+export { crestFor } from "../client-house-crest/client-house-crest.js";
+
 export const musterFlagDesignFor = (state: Pick<ClientState, "playerCosmetics">, ownerId: string | undefined): MusterFlagDesign =>
   (ownerId ? state.playerCosmetics.get(ownerId)?.musterFlag : undefined) ?? "default";
 

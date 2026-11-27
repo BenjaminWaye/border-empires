@@ -7,6 +7,7 @@ import type { AllianceRequest, TruceRequest } from "../client-types.js";
 import { attackerNoteText, recentAttacksOnMe } from "./client-offer-dock-attacker-note.js";
 import { ownGoodsShortfall } from "../client-diplomacy-trade/client-diplomacy-trade-view.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason } from "../client-diplomacy-trade/client-supply-agreement-limit.js";
+import { fealtyLookupFor, incomingAllianceHeadline, type FealtyState } from "../client-fealty/client-fealty.js";
 import "./client-diplomacy-offer-dock.css";
 
 // Incoming truce/alliance offers as a small dock you answer in place, instead
@@ -14,7 +15,7 @@ import "./client-diplomacy-offer-dock.css";
 // after 12s while the offer was still open. Offers stay here until accepted,
 // declined or expired; outcomes go to the Activity feed and the Chronicle.
 
-type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomingAllianceRequests"> & {
+type OfferDockState = Pick<ClientState, "me" | "incomingTruceRequests" | "incomingAllianceRequests"> & { leaderboard?: FealtyState["leaderboard"] } & {
   /** The Chronicle's 24h timeline, read to flag offers from empires that just attacked you. */
   activityDashboard?: { timeline?: PersonalActivityTimeline | undefined };
   /** Your coin and spare supply slots; unknown (undefined) never blocks an accept. */
@@ -124,6 +125,7 @@ export const offerDockEntries = (
   serverRemaining: ServerRemaining = serverClockRemaining
 ): OfferDockEntry[] => {
   const attacks = recentAttacksOnMe(state.activityDashboard?.timeline, state.me);
+  const fealtyOf = fealtyLookupFor({ me: state.me, leaderboard: state.leaderboard });
   const withNote = (entry: OfferDockEntry, fromPlayerId: string): OfferDockEntry => {
     const note = attackerNoteText(attacks.get(fromPlayerId));
     return note ? { ...entry, attackerNote: note } : entry;
@@ -147,7 +149,8 @@ export const offerDockEntries = (
     kind: "alliance",
     id: request.id,
     fromName: senderName(request),
-    headline: "proposes an alliance",
+    // Unequal sizes read as fealty: "Ada swears fealty" / "Ada demands your fealty" (client-fealty.ts).
+    headline: incomingAllianceHeadline(fealtyOf(request.fromPlayerId)),
     terms: describeDiplomacyTermsForRecipient(request.terms, senderName(request)),
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),

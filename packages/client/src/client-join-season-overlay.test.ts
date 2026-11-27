@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetAutoJoinForTests } from "./client-join-season-auto-join/client-join-season-auto-join.js";
+import { describe, expect, it, vi } from "vitest";
 import { JOIN_SEASON_PENDING_WATCHDOG_MS, joinWaitHint, renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
 
 const makeState = (overrides: Record<string, unknown> = {}) => ({
@@ -15,8 +14,6 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("join-season overlay", () => {
-  beforeEach(() => resetAutoJoinForTests());
-
   it("is hidden when needsSeasonJoin is false", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
@@ -74,17 +71,18 @@ describe("join-season overlay", () => {
     expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
   });
 
-  it("calls joinSeason and marks pending when Play is clicked after the automatic join could not be sent", () => {
+  it("does not join until the player chooses Land now, then calls joinSeason and marks pending (GDD §6)", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" });
-    const joinSeason = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    const joinSeason = vi.fn(() => true);
     const renderHud = vi.fn();
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
+    expect(joinSeason).not.toHaveBeenCalled();
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
-    expect(confirmBtn.textContent).toContain("Play");
+    expect(confirmBtn.textContent).toContain("Land now");
     confirmBtn.click();
     expect(state.joinSeasonPending).toBe(true);
-    expect(joinSeason).toHaveBeenCalledTimes(2);
+    expect(joinSeason).toHaveBeenCalledTimes(1);
     expect(renderHud).toHaveBeenCalledTimes(1);
   });
 
@@ -96,7 +94,7 @@ describe("join-season overlay", () => {
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
-    expect(joinSeason).toHaveBeenCalledTimes(2); // the automatic attempt, then the click
+    expect(joinSeason).toHaveBeenCalledTimes(1);
     expect(state.joinSeasonPending).toBe(false);
   });
 
@@ -196,13 +194,14 @@ describe("join-season overlay", () => {
     expect(document.body.classList.contains("season-lobby-active")).toBe(true);
   });
 
-  it("plain join-now branch is only a joining card: no board, roster, close button or invite actions", () => {
+  it("plain join-now branch while joining is only a joining card: no board, roster, close button or invite actions", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
       state: makeState({
         needsSeasonJoin: true,
         joinSeasonOverlayOpen: true,
         joinSeasonId: "season-42",
+        joinSeasonPending: true,
         seasonLobbyWaitingCount: 5,
         seasonLobbyMaxPlayers: 100,
         seasonLobbyRoster: [{ playerId: "p1", name: "Alice" }]
@@ -276,7 +275,7 @@ describe("join-season overlay", () => {
       const overlayEl = document.createElement("div");
       const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true }) as any;
       const pushFeed = vi.fn();
-      // The automatic retry after the give-up cannot send either, so Play is offered.
+      // After the give-up the card offers Land now again.
       const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => false, pushFeed }));
       renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true, pushFeed });
       expect(overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm")?.disabled).toBe(true);
@@ -285,7 +284,7 @@ describe("join-season overlay", () => {
       expect(pushFeed).toHaveBeenCalledTimes(1);
       const btn = overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm");
       expect(btn?.disabled).toBe(false);
-      expect(btn?.textContent).toContain("Play");
+      expect(btn?.textContent).toContain("Land now");
     } finally {
       vi.useRealTimers();
     }

@@ -4,6 +4,7 @@
 // (career stats, galactic holdings, public pacts), which keeps fetching while
 // its own overlay stays hidden under the new HUD.
 
+import { profileCrestHtml, type ProfileCrestFields } from "./client-hud-v2-profile-crest.js";
 import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
@@ -14,12 +15,13 @@ import { NET_COIN_TITLE } from "./client-hud-v2-resource-bar.js";
 import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
 import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
 import { achievementsProfileSectionHtml } from "../client-achievements/client-achievements-html.js";
+import type { PublicProfileShareView } from "../client-public-house/client-public-house-share-state.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
-export type ProfileRelation = { kind: "self" } | { kind: "ally" } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
+export type ProfileRelation = { kind: "self" } | { kind: "ally"; label?: string } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
 
-export type ProfileInput = {
+export type ProfileInput = ProfileCrestFields & {
   id: string;
   name: string;
   color: string;
@@ -42,6 +44,8 @@ export type ProfileInput = {
   achievements?: AchievementsView;
   /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
   chargeCards?: HouseChargeCardView[] | "loading" | undefined;
+  /** Your own profile only: a guest must save first; otherwise Stop sharing shows only while a public link exists. */
+  share?: "guest" | PublicProfileShareView;
   /** Rivals only: whether you've ever seen one of their tiles, so "Show on map" has somewhere to go. */
   mapFocus?: "seen" | "unseen";
 };
@@ -54,11 +58,22 @@ const int = (value: number): string => Math.round(value).toLocaleString("en-US")
 const relationHtml = (relation: ProfileRelation, nowMs: number): string => {
   switch (relation.kind) {
     case "self": return `<span class="v2p-rel v2p-rel-self">Your empire</span>`;
-    case "ally": return `<span class="v2p-rel v2p-rel-ally">Ally</span>`;
+    case "ally": return `<span class="v2p-rel v2p-rel-ally">${esc(relation.label ?? "Ally")}</span>`;
     case "truce": return `<span class="v2p-rel v2p-rel-truce">Truce · ${socialRemainingLabel(relation.endsAt, nowMs)} left</span>`;
     case "war": return `<span class="v2p-rel v2p-rel-war">At war</span>`;
     default: return `<span class="v2p-rel">No pact</span>`;
   }
+};
+
+const shareHtml = (share: NonNullable<ProfileInput["share"]>): string => {
+  if (share === "guest") return `<button type="button" class="v2p-action" data-v2-profile-save-to-share title="A saved account can share a public web page of your House">Save your empire to share</button>`;
+  const busy = share.pending ? " disabled" : "";
+  const start = `<button type="button" class="v2p-action" data-v2-profile-share${busy} title="Share a public web page of your House's contests, rating, charges and records">${share.pending === "share" ? "Making link…" : "Share profile"}</button>`;
+  const stop = share.state === "on" || share.pending === "stop"
+    ? `<button type="button" class="v2p-action" data-v2-profile-unshare${busy} title="Take your public House page down. The old link stops working">${share.pending === "stop" ? "Stopping…" : "Stop sharing"}</button>`
+    : "";
+  const note = share.note ? `<p class="v2p-share-note" role="status">${esc(share.note)}</p>` : "";
+  return `${start}${stop}${note}`;
 };
 
 const heroHtml = (input: ProfileInput): string => {
@@ -81,9 +96,9 @@ const heroHtml = (input: ProfileInput): string => {
       ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
       : "";
   // Your own profile only: makes (on first use) and shares the public web link (client-public-house-share.ts).
-  const share = input.relation.kind === "self" ? `<button type="button" class="v2p-action" data-v2-profile-share title="Share a public web page of your House's contests, rating, charges and records">Share profile</button><button type="button" class="v2p-action" data-v2-profile-unshare title="Take your public House page down. The old link stops working">Stop sharing</button>` : "";
+  const share = input.relation.kind === "self" ? shareHtml(input.share ?? { state: "unknown" }) : "";
   return `<aside class="v2p-hero">
-    <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
+    ${profileCrestHtml(input)}
     <h2 class="v2p-name">${esc(input.name)}</h2>
     ${relationHtml(input.relation, input.nowMs)}
     ${rank}

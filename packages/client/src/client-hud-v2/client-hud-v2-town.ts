@@ -162,7 +162,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
     ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
-    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
+    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
@@ -240,7 +240,7 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonTile = focusGarrison ? input.focus : input.town;
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), "garrison_town_plots", ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])

@@ -3,10 +3,11 @@
 // sheet (it still owns validation and sending; this view forwards to its
 // buttons). After launch it follows the live capture, then shows the result.
 
-import type { FrontierCombatSideBreakdown } from "@border-empires/shared";
+import type { CrestCosmeticId, FrontierCombatSideBreakdown } from "@border-empires/shared";
+import { emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
 import type { TileCombatBreakdown } from "../client-types.js";
 
-export type BattleSide = { id: string; name: string; color: string | undefined; role: string; sub: string };
+export type BattleSide = { id: string; name: string; color: string | undefined; crest?: CrestCosmeticId | undefined; role: string; sub: string };
 
 export type BattleEffort = { key: string; label: string; amount: number; active: boolean };
 
@@ -73,7 +74,7 @@ const sideHtml = (side: BattleSide, breakdown: FrontierCombatSideBreakdown | und
        <div class="v2b-eff"><span>Effective</span><b>${Math.round(breakdown.effective)}</b></div>`
     : `<div class="v2s-empty">Reading the odds…</div>`;
   return `<section class="v2b-side v2b-side-${mine ? "you" : "them"}">
-    <div class="v2b-side-head"><span class="v2b-crest" style="background:${esc(side.color ?? "#5a4828")}" aria-hidden="true">${esc((side.name.trim()[0] ?? "?").toUpperCase())}</span>
+    <div class="v2b-side-head"><span class="v2b-crest" style="background:${esc(side.color ?? "#5a4828")}" aria-hidden="true">${emblemFaceHtml(emblemInitial(side.name), side.crest)}</span>
       <span><span class="v2b-role">${esc(side.role)}</span><span class="v2b-name">${esc(side.name)}</span><span class="v2b-sub">${esc(side.sub)}</span></span></div>
     ${body}
   </section>`;

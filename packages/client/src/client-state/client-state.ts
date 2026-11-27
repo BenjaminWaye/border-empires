@@ -1,3 +1,4 @@
+import type { SectorListRow } from "../client-sector-list/client-sector-list.js";
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
 import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
@@ -296,7 +297,7 @@ export const createInitialState = () => ({
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
-  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string; title?: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "" as string, sectorListRows: [] as SectorListRow[], sectorListLoadedFor: "" as string, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string; title?: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts; seasonStartedAt/singleContest/joinSeasonClosedMessage: honest join card and NO_LANDING_SITE (client-join-season-late-join.ts); sectorList*: the join card's sector list (client-sector-list/)
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",

@@ -117,6 +117,15 @@ self-contained and fair.
   choose to wait for the next contest instead.
 - **No landing site, no join.** If the map has no viable site, joining is
   closed and the player's place in the next contest is reserved.
+  *Decided 2026-11-27 (owner):* a viable site is one whose opening reach is
+  clear of every rival's reach; a reserved place gets in even when the next
+  contest is at its player cap; a House redeploying after elimination also
+  needs a viable site; and the join screen is always shown, never skipped.
+- **The sector list** (decided 2026-11-27): the join screen lists the Sector
+  Contests running now that the player can play in. A full one (every House
+  place taken, or no viable landing site) is greyed out. If none has room,
+  the player can start funding a new sector. The host of a hosted sector is
+  not notified.
 - **When the free sector is full:** a waiting list for the next free contest,
   plus an offer to fund a new sector (§8). The owner decides case by case
   whether to pay for a second free sector.
@@ -182,8 +191,14 @@ product, including paid Houses.
   sold as one bundle, not as separate items. The title confers nothing in a
   contest; Duke is still only earned. Details: [`cosmetics.md`](cosmetics.md).
 - **Cosmetics not in the launch set:** an AFC skin, because rivals rarely see
-  the AFC; and a House crest, until it can be shown without cluttering the
-  diplomacy screen.
+  the AFC.
+- **House crests, free for now** (owner decision, 2026-11-27, after two
+  playtesters found the letter-in-a-square emblem generic and looked for a
+  way to personalise it). A House picks one of 12 crests, drawn in place of
+  its initial inside the same emblem, so the diplomacy screen gains no extra
+  marks, and stitched on its muster flags in place of the cog. Name, colour
+  and crest are chosen together in one dialog. The catalogue flags each crest `free`, so paid crests can be added
+  later without new plumbing. Details: [`cosmetics.md`](cosmetics.md#house-crests).
 - **Purchases belong to the account, not the device.** The web is the main
   shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
   the money but does not file sales tax or VAT for the owner; registration and
@@ -272,6 +287,26 @@ baseline.
     have put off none. Still to confirm on a run of days
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
+  *Answered 2026-11-26, owner decisions 2026-11-27* ([`game-mechanics.md`](game-mechanics.md), "No landing
+  site, no join"):
+  - Before: a new player was sent into a running contest with no warning, and
+    on a full map was landed inside a rival's reach, owning little more than
+    their landing site. Nobody was ever told the map was full.
+  - Now, as §6 says: the join card states the day, the extra manpower and that
+    difficulty is high, with the choice to wait. With no viable landing site,
+    joining is closed and the player is put on the next-Sector waitlist as
+    their reserved place.
+  - "Viable" keeps the rule the code already had: a site whose opening reach is
+    clear of every rival's reach (confirmed 2026-11-27).
+  - Decided 2026-11-27 and built: a reserved place skips the next contest's
+    player cap; human redeploys need a viable site (an eliminated House waits,
+    landless, and tries again at its next login; a withdrawal is refused while
+    no site is free); the join screen is kept, with no automatic join; full
+    sectors are greyed out in the sector list (§6), which offers funding a new
+    sector when none has room, on hosted sectors too. AI Houses still land in
+    the last-resort pass.
+  - Not built yet: an eliminated House that is online when a site frees up is
+    not landed until it logs in again, and is not told why it is waiting.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps. *Researched 2026-11-25*
   ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google
