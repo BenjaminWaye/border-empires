@@ -6,7 +6,7 @@
 
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
-import { addReasonCount, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
+import { addReasonCount, reasonKeysForTile, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
 import { parseVisibilityTileKey as parseTileKey } from "./visibility-tile-key.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
@@ -75,8 +75,7 @@ export class VisibilityCoverageCache {
    * "tile owned by someone else, currently visible" case.
    */
   reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string> {
-    const byReason = this.reasons.get(viewerId)?.get(tileKey);
-    return byReason ? new Set(byReason.keys()) : EMPTY_REASONS;
+    return reasonKeysForTile(this.reasons, viewerId, tileKey) ?? EMPTY_REASONS;
   }
 
   /**
@@ -210,11 +209,11 @@ export class VisibilityCoverageCache {
     const W = this.worldWidth;
     const H = this.worldHeight;
     if (this.footprintTable) {
-      for (const [dx, dy] of this.footprintTable.getOffsets(x, y, radius, ignoreForest)) {
+      this.footprintTable.forEachOffset(x, y, radius, ignoreForest, (dx, dy) => {
         const nx = ((x + dx) % W + W) % W;
         const ny = ((y + dy) % H + H) % H;
         cb(simulationTileKey(nx, ny));
-      }
+      });
       return;
     }
     for (let dx = -radius; dx <= radius; dx += 1) {

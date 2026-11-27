@@ -184,7 +184,7 @@ describe("VisionFootprintTable", () => {
     bumpEpoch(); // simulates an unrelated CREATE_MOUNTAIN elsewhere in the world
 
     const after = table.getOffsets(50, 50, 4);
-    expect(after).toBe(before); // same cached array reference, no rescan
+    expect(after).toEqual(before); // same memoized footprint, no rescan (asserted below)
     expect(forestAt.mock.calls.length).toBe(callsAfterFirst);
   });
 
@@ -241,5 +241,45 @@ describe("VisionFootprintTable", () => {
     forests.clear();
     resetForestClearings();
     expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
+  });
+
+  it("stays bounded however many distinct (tile, radius) footprints a season touches", () => {
+    // Regression: the memo used to keep every (tile, radius) ever queried
+    // for the whole season (21 MB and still growing 25 game hours in, see
+    // docs/load-results/sim-heap-growth-2026-11-28.md). Forest everywhere,
+    // so every query is occluded and stores a real footprint.
+    const forests = new Set<string>();
+    for (let x = 0; x < 200; x += 1) for (let y = 0; y < 200; y += 1) if ((x + y) % 3 === 0) forests.add(`${x},${y}`);
+    const generationSize = 500;
+    const table = new VisionFootprintTable(200, 200, { terrainAt: () => "LAND", getTerrainEpoch: () => 0, forestAt: (x, y) => forests.has(`${x},${y}`) }, generationSize);
+    for (let radius = 2; radius <= 4; radius += 1) {
+      for (let x = 0; x < 100; x += 1) for (let y = 0; y < 40; y += 1) table.getOffsets(x, y, radius);
+    }
+    const { permanent } = table.stats();
+    expect(permanent.entries).toBeLessThanOrEqual(2 * generationSize);
+    expect(permanent.rollovers).toBeGreaterThan(0);
+    expect(permanent.evictedEntries).toBeGreaterThan(0);
+    // Packed: 2 bytes per coordinate, not a JS array per cell.
+    expect(permanent.bytes).toBeLessThanOrEqual(permanent.entries * 9 * 9 * 2 * 2);
+  });
+
+  it("recomputes an evicted footprint identically", () => {
+    const forests = new Set(["51,50", "50,52"]);
+    const mountains = new Set(["48,50"]);
+    const terrainAt = (x: number, y: number): Terrain => (mountains.has(`${x},${y}`) ? "MOUNTAIN" : "LAND");
+    const forestAt = (x: number, y: number) => forests.has(`${x},${y}`);
+    const table = new VisionFootprintTable(200, 200, { terrainAt, getTerrainEpoch: () => 0, forestAt }, 2);
+    const first = table.getOffsets(50, 50, 4);
+    for (let x = 100; x < 110; x += 1) table.getOffsets(x, x, 4); // pushes (50, 50) out of both generations
+    expect(table.getOffsets(50, 50, 4)).toEqual(first);
+  });
+
+  it("forEachOffset visits exactly the getOffsets footprint, occluded or plain", () => {
+    const { table } = makeTable(new Set(["51,50"]), 200, 200, new Set(["50,48"]));
+    for (const [x, y] of [[50, 50], [150, 150]] as const) {
+      const visited: string[] = [];
+      table.forEachOffset(x, y, 4, false, (dx, dy) => visited.push(`${dx},${dy}`));
+      expect(visited).toEqual(table.getOffsets(x, y, 4).map(([dx, dy]) => `${dx},${dy}`));
+    }
   });
 });

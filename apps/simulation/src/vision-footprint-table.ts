@@ -36,23 +36,27 @@
  *   so the Map.get() calls this function does on every call — clean or
  *   occluded — never allocate a string on the hot path.
  *
- * Bound on `permanentByKey`/`epochScopedByKey` growth: since forest is common
- * terrain (unlike sparse mountains), a much larger fraction of ever-touched
- * tiles now get a real cached entry here, and neither map ever evicts.
- * Unlike a request-driven cache this is NOT unbounded by load/time, though:
- * the key space is capped by (world tile count) × (distinct radius values
- * ever queried) — both hard, finite ceilings for a fixed world size — the
- * same bound VisibilityCoverageCache already relies on for its own per-player
- * O(territory) storage. In practice the number of
- * distinct radii is small (a handful of tech/observatory-derived integers),
- * so total entries stay well under (world tiles), not anywhere near the
- * theoretical (world tiles × distinct radii) ceiling.
+ * Bound on `permanentByKey`/`epochScopedByKey` growth: each is a
+ * VisionFootprintMemo (vision-footprint-memo.ts) holding at most
+ * 2 x VISION_FOOTPRINT_MEMO_GENERATION_SIZE entries, each a packed Int16Array
+ * rather than an array of [dx, dy] tuples (about 64 bytes per cell as JS
+ * arrays). The old unbounded maps kept every (tile, radius) ever queried for
+ * the whole season -- radius grows with tech, so stale radii piled up -- and
+ * grew without levelling off in the 2026-11-28 heap snapshots.
  */
 
 import type { Terrain } from "@border-empires/shared";
 import { HILLS_VISION_BONUS, forestClearingEpoch, isForestTileAt, isHillsTileAt } from "@border-empires/shared";
 import { computeLosOffsets, squareOffsets } from "./vision-line-of-sight.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { runtimeLogInfo } from "./runtime-log/runtime-log.js";
+import { VisionFootprintMemo, packOffsets, unpackOffsets, type PackedFootprint, type VisionFootprintMemoStats } from "./vision-footprint-memo.js";
+
+// Per tier and per generation. The S3 snapshot (43k owned tiles) held 16.7k
+// entries across both tiers, so two generations of this size keep the live
+// working set of a mature map while capping the worst case at about 4 x 16k
+// packed footprints.
+export const VISION_FOOTPRINT_MEMO_GENERATION_SIZE = 16_384;
 
 export type VisionFootprintTableDeps = {
   /** Live (mutable) terrain lookup — must reflect CREATE_MOUNTAIN/REMOVE_MOUNTAIN. */
@@ -76,17 +80,20 @@ export class VisionFootprintTable {
   // Forest-only (or fully clean) results — forest only changes on an AFC
   // landing (forestClearingEpoch), so these are otherwise never invalidated. `null` means "clean, use the shared
   // plain square"; an array means "forest-occluded, use this footprint".
-  private readonly permanentByKey = new Map<number, ReadonlyArray<[number, number]> | null>();
+  private readonly permanentByKey: VisionFootprintMemo;
   // Results whose computation touched a mountain — cleared on terrainEpoch
   // change (CREATE_MOUNTAIN/REMOVE_MOUNTAIN). Kept separate from
   // permanentByKey so a rare mountain edit doesn't force every (much more
   // common) forest-adjacent footprint to be recomputed too.
-  private readonly epochScopedByKey = new Map<number, ReadonlyArray<[number, number]>>();
+  private readonly epochScopedByKey: VisionFootprintMemo;
   private epoch = -1;
   private forestEpoch = forestClearingEpoch();
   private readonly forestAt: (x: number, y: number) => boolean;
 
-  constructor(worldWidth: number, worldHeight: number, deps: VisionFootprintTableDeps) {
+  constructor(worldWidth: number, worldHeight: number, deps: VisionFootprintTableDeps, generationSize = VISION_FOOTPRINT_MEMO_GENERATION_SIZE) {
+    const onRollover = (tier: string) => (stats: VisionFootprintMemoStats) => runtimeLogInfo({ tier, ...stats }, "simulation vision footprint memo rollover");
+    this.permanentByKey = new VisionFootprintMemo(generationSize, onRollover("permanent"));
+    this.epochScopedByKey = new VisionFootprintMemo(generationSize, onRollover("epoch"));
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
     this.deps = deps;
@@ -118,6 +125,30 @@ export class VisionFootprintTable {
    * It is part of the memo key, so the two footprints never share an entry.
    */
   getOffsets(x: number, y: number, radius: number, ignoreForest = false): ReadonlyArray<[number, number]> {
+    const resolved = this.resolve(x, y, radius, ignoreForest);
+    return typeof resolved === "number" ? this.plainSquare(resolved) : unpackOffsets(resolved);
+  }
+
+  /**
+   * Same footprint as getOffsets, without allocating: calls `cb` once per
+   * (dx, dy). The hot path (VisibilityCoverageCache's dilation) uses this.
+   */
+  forEachOffset(x: number, y: number, radius: number, ignoreForest: boolean, cb: (dx: number, dy: number) => void): void {
+    const resolved = this.resolve(x, y, radius, ignoreForest);
+    if (typeof resolved === "number") {
+      for (const [dx, dy] of this.plainSquare(resolved)) cb(dx, dy);
+      return;
+    }
+    for (let i = 0; i < resolved.length; i += 2) cb(resolved[i]!, resolved[i + 1]!);
+  }
+
+  /** Size gauge for both memo tiers (state-and-persistence-discipline.md). */
+  stats(): { permanent: VisionFootprintMemoStats; epochScoped: VisionFootprintMemoStats } {
+    return { permanent: this.permanentByKey.stats(), epochScoped: this.epochScopedByKey.stats() };
+  }
+
+  // A number is the effective radius of an unoccluded (plain square) footprint.
+  private resolve(x: number, y: number, radius: number, ignoreForest: boolean): number | Int16Array {
     this.invalidateIfEpochChanged();
     // radius 0 means "self-tile only, no standing halo" (a FRONTIER claim —
     // see visibility-coverage-cache.ts's tileOwnershipChanged) — the hills
@@ -127,18 +158,18 @@ export class VisionFootprintTable {
     const effectiveRadius = radius > 0 && isHillsTileAt(x, y) ? radius + HILLS_VISION_BONUS : radius;
     const key = this.packKey(x, y, effectiveRadius) * 2 + (ignoreForest ? 1 : 0);
 
-    const permanent = this.permanentByKey.get(key);
-    if (permanent !== undefined) return permanent ?? this.plainSquare(effectiveRadius);
+    const permanent: PackedFootprint | undefined = this.permanentByKey.get(key);
+    if (permanent !== undefined) return permanent ?? effectiveRadius;
     const epochScoped = this.epochScopedByKey.get(key);
-    if (epochScoped !== undefined) return epochScoped;
+    if (epochScoped) return epochScoped;
 
     const { hasMountain, hasForest } = this.scanOccluders(x, y, effectiveRadius, ignoreForest);
     if (!hasMountain && !hasForest) {
       this.permanentByKey.set(key, null);
-      return this.plainSquare(effectiveRadius);
+      return effectiveRadius;
     }
 
-    const offsets = computeLosOffsets(x, y, effectiveRadius, (mx, my) => this.mountainAt(mx, my), ignoreForest ? () => false : this.forestAt);
+    const offsets = packOffsets(computeLosOffsets(x, y, effectiveRadius, (mx, my) => this.mountainAt(mx, my), ignoreForest ? () => false : this.forestAt));
     if (hasMountain) {
       this.epochScopedByKey.set(key, offsets);
     } else {
