@@ -22,6 +22,7 @@ import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border
 import { BATTLE_WARNINGS_ENTRY } from "./client-changelog-battle-warnings.js";
 import { PUBLIC_HOUSE_SHARE_STATE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
+import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garrison.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 
@@ -56,4 +57,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
   { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
+  { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
 ];
