@@ -10,6 +10,7 @@ import { clearCameraLocation } from "../client-view-refresh.js";
 type RolloverState = Pick<
   ClientState,
   | "detachedAttacksByCommandId"
+  | "musterFlagPlanByTargetKey"
   | "outgoingMusterAttacksByTile"
   | "musterTransitByCommand"
   | "deferredAttackByCommand"
@@ -78,6 +79,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   state.seasonStartVoted = false;
   state.actionQueue = [];
   state.queuedTargetKeys.clear();
+  state.musterFlagPlanByTargetKey.clear();
   clearOwnAttackTracking(state);
   state.waypoint = [];
   state.selected = undefined;

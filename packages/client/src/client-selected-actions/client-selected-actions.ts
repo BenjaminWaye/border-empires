@@ -121,6 +121,7 @@ export const cancelOngoingCapture = (
   state: Pick<
     ClientState,
     | "actionQueue"
+    | "musterFlagPlanByTargetKey"
     | "queuedTargetKeys"
     | "dragPreviewKeys"
     | "musterTransitByCommand"
@@ -162,6 +163,8 @@ export const cancelOngoingCapture = (
   const serverMayHoldCapture = state.capture !== undefined || state.actionInFlight || state.actionCurrent !== undefined;
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
+  // Flag spots chosen for the cancelled attacks go with them.
+  state.musterFlagPlanByTargetKey.clear();
   state.dragPreviewKeys.clear();
   // Muster-fed attacks still marching (not yet sent to the server) are
   // purely local — cancel all of them immediately rather than just the
