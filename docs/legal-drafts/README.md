@@ -42,7 +42,6 @@ Publishing is blocked until these markers are filled in.
 | Marker | File | What is needed |
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
-| `[[PHONE]]` | `purchase-terms.html` | A telephone number for the seller. EU law lists it among the information a consumer must get before buying (Directive 2011/83/EU Art. 6(1)(c); lag (2005:59) 2 kap. 2 §) |
 
 **Settled on 2026-11-27** (the owner: "just do it"): Backblaze is not used
 (production's hourly Backblaze job is off and staging keeps no backups), so it
@@ -357,6 +356,18 @@ Each refers to [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 
 Each has a recommendation. They are also in the pull request that added this
 section.
+
+**Owner answers, 2026-11-27:**
+- 1: the telephone number +46 827 84 88 is filled in.
+- 4: minimum age for buying is 18. Whether a parent's or guardian's
+  permission can replace it is left to the lawyer.
+- 6: build the analytics consent prompt (plan step 8f) before the privacy page
+  is published.
+- 11: accepted as recommended (30 days' notice; a daily-basis refund for any
+  sector less than 30 days old).
+- 12: accepted as recommended ("for as long as Border Empires is operated").
+  The Count bundle is the only cosmetic for launch.
+- Still open: 2, 3, 7, 8 and 10 (the United Kingdom).
 
 1. **Telephone number** for the pages (`[[PHONE]]`). Recommended: give one,
    unless the lawyer says it is not needed.
