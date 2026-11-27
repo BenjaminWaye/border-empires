@@ -46,8 +46,34 @@ describe("player profile screen", () => {
 
   it("offers Share profile on your own profile only", () => {
     expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
-    expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
-    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
+    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare], [data-v2-profile-save-to-share]")).toBeNull();
+  });
+
+  it("shows Stop sharing only while a public link exists", () => {
+    const self = { ...base, relation: { kind: "self" } as const };
+    for (const share of [undefined, { state: "unknown" }, { state: "off" }] as const) {
+      const host = render(share ? { ...self, share } : self);
+      expect(host.querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
+      expect(host.querySelector("[data-v2-profile-unshare]")).toBeNull();
+    }
+    expect(render({ ...self, share: { state: "on" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
+  });
+
+  it("keeps share progress and its outcome on screen across re-renders", () => {
+    const self = { ...base, relation: { kind: "self" } as const };
+    const stopping = render({ ...self, share: { state: "on", pending: "stop" } });
+    expect(stopping.querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stopping…");
+    expect(stopping.querySelector<HTMLButtonElement>("[data-v2-profile-share]")?.disabled).toBe(true);
+    const stopped = render({ ...self, share: { state: "off", note: "Sharing stopped" } });
+    expect(stopped.querySelector("[data-v2-profile-unshare]")).toBeNull();
+    expect(stopped.querySelector(".v2p-share-note")?.textContent).toBe("Sharing stopped");
+    expect(render({ ...self, share: { state: "unknown", pending: "share" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Making link…");
+  });
+
+  it("sends a guest to save their empire instead of offering share or stop", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: "guest" });
+    expect(host.querySelector("[data-v2-profile-save-to-share]")?.textContent).toBe("Save your empire to share");
+    expect(host.querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
   });
 
   it("offers Show on map only for an empire you have seen", () => {

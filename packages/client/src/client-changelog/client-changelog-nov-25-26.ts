@@ -20,12 +20,15 @@ import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-pla
 import { TOWN_PLOT_GARRISON_ENTRY } from "./client-changelog-town-plot-garrison.js";
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { BATTLE_WARNINGS_ENTRY } from "./client-changelog-battle-warnings.js";
+import { PUBLIC_HOUSE_SHARE_STATE_ENTRY } from "./client-changelog-public-house-profile.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
+  // Out of time order on purpose: kept off the end of the list, where every new entry is appended.
+  { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795777142349, },
   { ...DEPLOY_COUNTDOWN_ENTRY, createdAt: 1795627725789, },
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
   { ...UI_TYPE_CONSISTENCY_ENTRY, createdAt: 1795637381397, },

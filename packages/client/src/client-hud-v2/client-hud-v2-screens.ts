@@ -40,6 +40,8 @@ import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js"
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
 import { allianceOfferedTitle, allyStatusLabel, fealtyLookupFor, type FealtyStanding } from "../client-fealty/client-fealty.js";
+import { ownPublicProfileShareView } from "../client-public-house/client-public-house-share.js";
+import { getGuestSave } from "../client-guest-save/client-guest-save.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -306,7 +308,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     nameOf: (other) => nameOf(deps, other) || undefined,
     nowMs: Date.now(),
     ...(self ? {} : { mapFocus: hasSeenEmpireTile({ tiles: state.tiles, discoveredTiles: state.discoveredTiles, ownerId: id, revision: state.tilesRevision, chunkCount: state.chunkFullCount }) ? "seen" : "unseen" }),
-    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ...(state.achievements ? { achievements: state.achievements } : {}), ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute } : {})
+    ...(self ? { combat: { attack: state.modBreakdown.attack ?? [], defense: state.modBreakdown.defense ?? [] }, houseCharges: houseChargesWithLiveNames(state.houseCharges, state.playerNames) ?? null, ...(state.achievements ? { achievements: state.achievements } : {}), ownNetCoinPerMinute: empireCoinIncome(state).netPerMinute, share: state.authIsGuest && getGuestSave() ? "guest" : ownPublicProfileShareView() } : {})
   }));
 };
 
