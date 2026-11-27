@@ -28,9 +28,15 @@
   border-top: 1px solid var(--sp-brass-700);
 }
 
-.settings-logout-btn {
+.panel-btn.settings-logout-btn,
+.panel-btn.settings-logout-btn:hover:not(:disabled) {
   background: transparent;
   color: var(--sp-parchment-muted);
+}
+
+.panel-btn.settings-logout-btn:hover:not(:disabled) {
+  color: var(--sp-parchment-100);
+  border-color: var(--sp-brass-300);
 }
 
 .settings-danger-zone {

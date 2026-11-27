@@ -10,9 +10,13 @@ describe("Settings hub", () => {
   // Regression: a guest read "Signed in as House Noname 40" with nothing saying Log Out would lose the empire.
   it("tells a guest their progress isn't saved and offers to save it", () => {
     const html = settingsHubHtml({ ...hubState, authIsGuest: true });
-    expect(html).toContain("<strong>Guest</strong>");
+    expect(html).toContain("<strong>Guest</strong> · lost if you log out");
     expect(html).toContain("data-settings-guest-save");
     expect(html).not.toContain("Signed in as");
+  });
+
+  it("waits for a live session before offering a guest the save button", () => {
+    expect(settingsHubHtml({ ...hubState, authIsGuest: true, authSessionReady: false })).not.toContain("data-settings-guest-save");
   });
 
   it("keeps the plain signed-in line for a saved account", () => {
@@ -30,8 +34,10 @@ describe("Settings hub", () => {
   it("keeps Log Out last, in its own footer", () => {
     const html = settingsHubHtml(hubState);
     const footer = html.indexOf("settings-hub-footer");
-    expect(footer).toBeGreaterThan(html.indexOf("data-settings-nav"));
-    expect(footer).toBeGreaterThan(html.indexOf("discord-join-btn"));
+    for (const marker of ['data-settings-nav="credits"', "data-photo-mode-toggle", "data-rally-link-open", "discord-join-btn"]) {
+      expect(html.indexOf(marker)).toBeGreaterThan(-1);
+      expect(footer).toBeGreaterThan(html.lastIndexOf(marker));
+    }
     expect(html.indexOf("data-auth-logout")).toBeGreaterThan(footer);
   });
 });

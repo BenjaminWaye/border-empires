@@ -90,12 +90,13 @@ const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
 export const settingsAdminAvailable = (state: Pick<ClientState, "mapRevealEligible" | "authSessionReady">): boolean =>
   mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady });
 
-// A guest (Play now) account is lost on log out, so the hub says so up front
-// and offers the save panel instead of a plain "Signed in as" line.
-const settingsIdentityHtml = (state: Pick<ClientState, "meName" | "authUserLabel" | "authIsGuest">): string =>
-  state.authIsGuest
-    ? `<div class="settings-guest-status">
-      <p><strong>Guest</strong> · progress isn't saved</p>
+// A guest (Play now) empire lives on an anonymous account that log out can't
+// recover, so the hub says so up front and offers the save panel instead of a
+// plain "Signed in as" line. Gated like the HUD badge (syncGuestSaveBadge).
+const settingsIdentityHtml = (state: Pick<ClientState, "meName" | "authUserLabel" | "authIsGuest" | "authSessionReady">): string =>
+  state.authIsGuest && state.authSessionReady
+    ? `<div class="settings-guest-status" role="status">
+      <p><strong>Guest</strong> · lost if you log out</p>
       <button type="button" class="panel-btn settings-guest-save-btn" data-settings-guest-save>Save your empire</button>
     </div>`
     : `<p>Signed in as ${escapeHtml(state.meName || state.authUserLabel || "Guest")}.</p>`;
