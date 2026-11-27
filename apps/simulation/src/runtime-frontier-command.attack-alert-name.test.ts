@@ -20,4 +20,11 @@ describe("attackAlertDisplayName", () => {
     const opaqueId = "VK5iriJAhickNf9ArrRweUDnq1W2";
     expect(attackAlertDisplayName(opaqueId, undefined)).toBe(attackAlertDisplayName(opaqueId, undefined));
   });
+  // Regression: a running season's barbarian player is still saved as "Planetary Defense",
+  // so attack alerts and emails named the old faction after the rename.
+  it("names the barbarian attacker by the current faction name, whatever its saved name", () => {
+    expect(attackAlertDisplayName("barbarian-1", "Planetary Defense")).toBe("Insurgents");
+    expect(attackAlertDisplayName("barbarian-1", "Barbarians")).toBe("Insurgents");
+    expect(attackAlertDisplayName("barbarian-1")).toBe("Insurgents");
+  });
 });

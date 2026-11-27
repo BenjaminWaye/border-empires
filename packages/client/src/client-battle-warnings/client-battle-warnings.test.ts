@@ -60,7 +60,7 @@ describe("battle warning banner", () => {
     recordOwnTileLosses(store, state, [{ x: 30, y: 9, newOwnerId: "barbarian-1" }], NOW + 5_000);
     expect(battleWarningView(store, state, NOW + 5_000)).toEqual({
       title: "Under attack",
-      detail: "Planetary Defense · 9 tiles lost",
+      detail: "Insurgents · 9 tiles lost",
       focusX: 30,
       focusY: 9
     });
@@ -95,7 +95,7 @@ describe("battle warning banner", () => {
     // A new attack on another tile raises it again.
     state.incomingAttacksByTile.set("9,9", { attackerName: "Planetary Defense", attackerId: "barbarian-1", resolvesAt: NOW + 12_000 });
     syncIncomingAttacks(store, state, NOW + 2_000);
-    expect(battleWarningView(store, state, NOW + 2_000)?.detail).toBe("Planetary Defense +1 · 2 incoming");
+    expect(battleWarningView(store, state, NOW + 2_000)?.detail).toBe("Insurgents +1 · 2 incoming");
   });
 
   it("ignores incoming attacks that already resolved", () => {

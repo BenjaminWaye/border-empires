@@ -13,7 +13,8 @@ export const isOpaquePlayerId = (value: string): boolean => OPAQUE_PLAYER_ID_RE.
 
 export const anonymizedEmpireNameForId = (playerId: string): string => `Empire ${stableDisplayCode(playerId)}`;
 
-// Player-facing name for the "barbarian" system owner: what is left of the
-// planet's own defense force after the world was prepared for the planetary
-// games. Internal ids stay "barbarian" / "barbarian-1".
-export const PLANETARY_DEFENSE_DISPLAY_NAME = "Planetary Defense";
+// Player-facing name for the "barbarian" system owner: the Insurgents, the
+// planet's defense forces that survived the Court's purge (lore §4). The
+// constant keeps its old "Planetary Defense" name; internal ids stay
+// "barbarian" / "barbarian-1".
+export const PLANETARY_DEFENSE_DISPLAY_NAME = "Insurgents";

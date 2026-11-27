@@ -31,7 +31,7 @@ export const IRON_WALL_MIN_TILES = 1_000;
 
 export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   { id: "METROPOLIS", name: "Metropolis", goal: "Grow a town to Metropolis", target: TOWN_TIER_RANK.METROPOLIS, progress: (s) => s.bestTownTierRank },
-  { id: "PACIFIER", name: "Pacifier", goal: "Clear 50 Planetary Defense camps", target: 50, progress: (s) => s.campsCleared },
+  { id: "PACIFIER", name: "Pacifier", goal: "Clear 50 Insurgent camps", target: 50, progress: (s) => s.campsCleared },
   { id: "WARLORD", name: "Warlord", goal: "Take 500 tiles from rival Houses in battle", target: 500, progress: (s) => s.tilesTakenInBattle },
   { id: "CARTOGRAPHER", name: "Cartographer", goal: "Explore 30,000 tiles", target: 30_000, progress: (s) => s.tilesExplored },
   { id: "MASTER_BUILDER", name: "Master Builder", goal: "Finish 100 structures", target: 100, progress: (s) => s.structuresBuilt },
