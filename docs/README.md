@@ -50,6 +50,7 @@ remain authoritative for runtime behavior.
 | Planetary Defense camps: Civ-style camps replace barbarian walk/multiply (proposal) | [`planetary-defense-camps-plan.md`](planetary-defense-camps-plan.md) |
 | House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
 | Hosted sectors with payment: Stripe purchase, automatic Hetzner servers, teardown, owner decisions (proposal, awaiting approval) | [`hosted-sectors-plan.md`](hosted-sectors-plan.md) |
+| Choosing and switching Sector Contests from a galaxy map: Sector Map, sector card, landing across servers, owner questions (proposal, awaiting approval) | [`sector-map-plan.md`](sector-map-plan.md) |
 | Hosted sectors: tax setup for TIDN AB (proposal, needs the accountant) | [`hosted-sectors-tax.md`](hosted-sectors-tax.md) |
 | Hosted sectors: draft Terms of Sale and privacy policy for TIDN AB (drafts, not published) | [`legal-drafts/README.md`](legal-drafts/README.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
