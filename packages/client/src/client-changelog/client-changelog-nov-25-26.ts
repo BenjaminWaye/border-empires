@@ -30,6 +30,7 @@ import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 import { HOUSE_CREST_FIXES_ENTRY } from "./client-changelog-house-crest-fixes.js";
+import { DISTINCT_EMPIRE_COLOURS_ENTRY } from "./client-changelog-distinct-empire-colours.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 import { SIEGE_CUT_OFF_ENTRY } from "./client-changelog-siege-cut-off.js";
 import { AI_DEAL_ASKS_ENTRY } from "./client-changelog-ai-deal-asks.js";
@@ -80,4 +81,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TRUCE_LENGTH_SHOWN_ENTRY, createdAt: 1795805060735, },
   { ...TILE_LABELS_R2_ENTRY, createdAt: 1795805295408, },
   { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
+  { ...DISTINCT_EMPIRE_COLOURS_ENTRY, createdAt: 1795805465925 },
 ];

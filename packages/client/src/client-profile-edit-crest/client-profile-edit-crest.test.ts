@@ -14,6 +14,7 @@ const makeState = (selection?: PlayerCosmeticSelection) => ({
   meName: "Harrow",
   me: "me",
   playerColors: new Map([["me", "#38b000"]]),
+  playerNames: new Map<string, string>(),
   suggestedColors: ["#38b000", "#f59e0b"],
   playerCosmetics: new Map<string, PlayerCosmeticSelection>(selection ? [["me", selection]] : []),
   ownedCosmetics: [] as CosmeticId[],

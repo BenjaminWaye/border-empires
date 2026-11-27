@@ -93,7 +93,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authPanelEl: dom.authPanelEl,
       authEmailSentAddressEl: dom.authEmailSentAddressEl,
       authProfileColorEl: dom.authProfileColorEl,
-      authColorPresetButtons: dom.authColorPresetButtons
+      authColorPresetButtons: dom.authColorPresetButtons,
+      authColorClashEl: document.getElementById("auth-color-clash")
     });
 
   const setAuthBusy = (busy: boolean): void => {

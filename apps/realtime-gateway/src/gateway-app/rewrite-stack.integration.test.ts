@@ -1837,10 +1837,10 @@ describe("rewrite stack integration", () => {
 
       // Re-sending the same name (e.g. only intending a colour change) is not
       // a rename and should never hit the throttle.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#654321" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#3a1a00" }));
       const style = await nextTypedMessage(sock, "unchanged-name resend", "PLAYER_STYLE");
       expect(style.name).toBe("P1 Renamed");
-      expect(style.tileColor).toBe("#654321");
+      expect(style.tileColor).toBe("#3a1a00");
     }, 15_000);
   });
 
