@@ -36,8 +36,8 @@ const deps = {
 // "Unclaimed" although another House had taken it, and Expand To there turned into an attack.
 describe("fogged neutral tile ownership label", () => {
   it("says the tile was only last seen unclaimed", () => {
-    const menu = tileMenuViewForTile({ x: 14, y: 16, terrain: "LAND", fogged: true, regionType: "TUNDRA_FOREST" }, deps);
-    expect(menu.subtitle).toBe("Last seen unclaimed · TUNDRA_FOREST");
+    const menu = tileMenuViewForTile({ x: 14, y: 16, terrain: "LAND", fogged: true, regionType: "DEEP_FOREST" }, deps);
+    expect(menu.subtitle).toBe("Last seen unclaimed · DEEP_FOREST");
     expect(menu.subtitleHtml).toContain("<summary>Last seen unclaimed</summary>");
     expect(menu.subtitleHtml).toContain("may have an owner now");
   });
