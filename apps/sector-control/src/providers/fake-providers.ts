@@ -17,8 +17,15 @@ export class FakePaymentProvider implements PaymentProvider {
     return this.statuses.get(paymentRef) ?? "expired";
   }
 
-  async refund(paymentRef: string): Promise<void> {
+  /** Partial refunds by idempotency key: payment ref and amount. */
+  readonly partialRefunds = new Map<string, { paymentRef: string; amountCents: number }>();
+
+  async refund(paymentRef: string, partial?: { amountCents: number; idempotencyKey: string }): Promise<void> {
     if (this.failRefunds) throw new Error("fake refund failure");
+    if (partial) {
+      if (!this.partialRefunds.has(partial.idempotencyKey)) this.partialRefunds.set(partial.idempotencyKey, { paymentRef, amountCents: partial.amountCents });
+      return;
+    }
     if (!this.refunded.includes(paymentRef)) this.refunded.push(paymentRef);
   }
 

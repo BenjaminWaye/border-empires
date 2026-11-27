@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
-import { HOUSE_CHARGES_DOCK_NOTE_MS, houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
+import { HOUSE_CHARGES_POINTER_MS, houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
 
 const charge = (id: string): HouseChargeView => ({
   id,
@@ -83,32 +83,32 @@ describe("sealed charges bubble", () => {
     expect(open).toHaveBeenCalledOnce();
   });
 
-  it("the first time the cards dock, a note says the charges stay there, then it goes for good", () => {
+  it("the first time the cards dock, a pointer says where charges live, then it goes for good", () => {
     const open = vi.fn();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, open);
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000, false, open);
-    expect(root()?.textContent).toContain("Your charges stay here. Tap the cards to see them again.");
-    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000 + HOUSE_CHARGES_DOCK_NOTE_MS, false, open);
-    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    expect(root()?.querySelector(".hcb-pointer")?.textContent).toBe("Charges live here");
+    syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 3_000 + HOUSE_CHARGES_POINTER_MS, false, open);
+    expect(root()?.querySelector(".hcb-pointer")).toBeNull();
     resetHouseChargesBubbleForTests();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 99_000, false, open);
     expect(root()?.querySelector(".hcb-orb.is-docked")).not.toBeNull();
-    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    expect(root()?.querySelector(".hcb-pointer")).toBeNull();
   });
 
   // Review of #2875: the note fired on the first docked frame, so a House whose choice closed unseen, or one dealt
   // only two charges, was told its charges "stay here" before it had ever seen them.
-  it("the dock note waits until the charges have been opened, even with nothing to choose", () => {
+  it("the pointer waits until the charges have been opened, even with nothing to choose", () => {
     const open = vi.fn();
     const pair = { ...deal, charges: [charge("a"), charge("b")] };
     syncHouseChargesBubble({ houseCharges: pair, activePanel: null }, 2_000, false, open);
     expect(root()?.classList.contains("is-docked")).toBe(true);
-    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    expect(root()?.querySelector(".hcb-pointer")).toBeNull();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 95_000, false, open);
-    expect(root()?.querySelector(".hcb-speech")).toBeNull();
+    expect(root()?.querySelector(".hcb-pointer")).toBeNull();
     syncHouseChargesBubble({ houseCharges: pair, activePanel: "charges" }, 3_000, false, open);
     syncHouseChargesBubble({ houseCharges: pair, activePanel: null }, 4_000, false, open);
-    expect(root()?.textContent).toContain("Your charges stay here.");
+    expect(root()?.textContent).toContain("Charges live here");
   });
 
   it("opening the Charges panel another way also handles the deal", () => {
@@ -176,12 +176,12 @@ describe("sealed charges bubble", () => {
   });
 
   // Review of #2876: the focus note hid the first-dock note while still marking it seen, so it never showed.
-  it("keeps the one-time dock note for later while a charge is shown on the map", () => {
+  it("keeps the one-time pointer for later while a charge is shown on the map", () => {
     const open = vi.fn();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_000, false, open);
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null, houseChargeFocusId: "a" }, 3_000, false, open);
     expect(root()?.querySelector(".hcb-focus")).not.toBeNull();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 4_000, false, open);
-    expect(root()?.textContent).toContain("Your charges stay here.");
+    expect(root()?.textContent).toContain("Charges live here");
   });
 });
