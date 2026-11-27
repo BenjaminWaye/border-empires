@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EXTENSION_CLIENT_MESSAGE_SCHEMAS } from "./client-message-extensions.js";
+import { SetHintStateMessageSchema } from "./hint-state-message.js";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
@@ -105,33 +106,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
   ...EXTENSION_CLIENT_MESSAGE_SCHEMAS,
-  // Server-persisted hint/tutorial state (see player-profile-store.ts's
-  // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
-  // update -- omitted fields leave the stored value unchanged.
-  z.object({
-    type: z.literal("SET_HINT_STATE"),
-    dismissedHints: z.array(z.string()).optional(),
-    hintsMuted: z.boolean().optional(),
-    onboardingChecklistCompleted: z.boolean().optional(),
-    // Season id (CurrentSeasonSummary.seasonId) mustering was last unlocked in
-    // -- see player-profile-store.ts's musterUnlockedSeasonId. Per-season:
-    // meeting an enemy in an earlier season does not carry the unlock into a
-    // new one, since a new season is a fresh map with no enemies met yet.
-    musterUnlockedSeasonId: z.string().optional(),
-    // Season id (CurrentSeasonSummary.seasonId) whose first login already got
-    // the quiet pass -- the Activity dashboard (What's New / Yours) is not
-    // auto-opened on a season's first login. See player-profile-store.ts's
-    // dashboardQuietedSeasonId.
-    dashboardQuietedSeasonId: z.string().optional(),
-    // New-account tutorial guide (client-tutorial-guide/): whether it is
-    // running, finished or dismissed, plus the bounded list of completed
-    // step ids. See player-profile-store.ts's guideStatus/guideSteps.
-    guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
-    guideSteps: z.array(z.string().max(48)).max(64).optional(),
-    // The season (CurrentSeasonSummary.seasonId) the guide state belongs to:
-    // the guide restarts for every player in each new season.
-    guideSeasonId: z.string().max(128).optional()
-  }),
+  SetHintStateMessageSchema,
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
   // per-send prefs check). A partial update -- omitted categories leave the
