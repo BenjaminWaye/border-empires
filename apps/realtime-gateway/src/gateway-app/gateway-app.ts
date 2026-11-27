@@ -705,7 +705,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   await seedAiColors(seededAiPlayerIds, async (id, color) => {
     await profileStore.setTileColor(id, color);
     profileOverrides.upsert(id, { tileColor: color });
-  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }));
+  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }), async (id) => (await profileStore.get(id))?.tileColor);
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
