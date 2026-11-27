@@ -158,4 +158,24 @@ describe("startAttackPreviewKeepaliveTicker", () => {
     vi.advanceTimersByTime(2_000);
     expect(requestAttackPreviewForTarget).not.toHaveBeenCalled();
   });
+
+  // 2026-11-26 playtest: the effort sheet closes the tile menu, so the preview
+  // aged out under it and every effort showed the same stale odds.
+  it("keeps the open effort sheet's target fresh while no tile menu is open", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 2, y: 1, ownerId: "enemy" });
+    state.tiles.set("2,1", target);
+    const requestAttackPreviewForTarget = vi.fn();
+
+    startAttackPreviewKeepaliveTicker(state, {
+      isTileOwnedByAlly: () => false,
+      attackPreviewIsStaleForTarget: () => true,
+      requestAttackPreviewForTarget,
+      effortSheetTargetKey: () => "2,1"
+    });
+
+    vi.advanceTimersByTime(1_000);
+    expect(requestAttackPreviewForTarget).toHaveBeenCalledWith(target);
+  });
 });

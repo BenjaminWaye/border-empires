@@ -63,8 +63,7 @@ const musterLabel = (tile: Tile, state: Pick<ClientState, "me" | "tiles">): stri
     noTargetInRange: muster.noTargetInRange,
     insufficientManpower: muster.insufficientManpower,
     unfundableTarget: muster.unfundableTarget,
-    clearing: muster.clearing,
-    hunt: muster.hunt
+    clearing: muster.clearing
   });
 };
 

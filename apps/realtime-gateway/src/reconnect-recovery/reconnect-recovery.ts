@@ -44,7 +44,10 @@ export const buildInitMessage = (
   seasonPendingRoster?: SeasonLobbyUpdatePayload,
   dukeAuthUids?: ReadonlySet<string>,
   // Account cosmetics: every account with a non-default look (account-cosmetics-service.ts).
-  shownCosmetics?: Record<string, PlayerCosmeticSelection>
+  shownCosmetics?: Record<string, PlayerCosmeticSelection>,
+  // Honest join screen (GDD §6): when the running contest started, for the
+  // day and late-join manpower bonus; singleContest = hosted, no next contest.
+  joinScreen?: { seasonStartedAt?: number; singleContest?: boolean }
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -100,6 +103,8 @@ export const buildInitMessage = (
   needsSeasonJoin?: boolean;
   seasonPending?: boolean;
   seasonPendingScheduledStartAt?: number;
+  seasonStartedAt?: number;
+  singleContest?: boolean;
   seasonLobbyWaitingCount?: number;
   seasonLobbyMaxPlayers?: number;
   seasonLobbyRoster?: SeasonLobbyUpdatePayload["roster"];
@@ -208,6 +213,8 @@ export const buildInitMessage = (
       mapMeta: bootstrap.mapMeta,
       ...(initialState ? { initialState } : {}),
       ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
+      ...(needsSeasonJoin && typeof joinScreen?.seasonStartedAt === "number" ? { seasonStartedAt: joinScreen.seasonStartedAt } : {}),
+      ...(joinScreen?.singleContest ? { singleContest: true } : {}),
       ...(seasonPending
         ? { seasonPending: true, ...(typeof seasonPendingScheduledStartAt === "number" ? { seasonPendingScheduledStartAt } : {}) }
         : {}),

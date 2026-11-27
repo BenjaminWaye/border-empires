@@ -32,6 +32,9 @@
 .house-charges-popover-text { display: grid; gap: 2px; min-width: 0; }
 .house-charges-popover-actions { display: flex; flex: none; gap: 8px; }
 .house-charges-popover .panel-btn { white-space: nowrap; }
+/* Until the right number of cards is kept, Keep is greyed so a tap on it never seems ignored (owner 2026-11-27).
+   No pointer events, so the theme's unguarded .panel-btn:hover never lights it up (a phone tap leaves hover stuck). */
+.house-charges-popover [data-house-charges-save]:disabled { opacity: 0.4; box-shadow: none; pointer-events: none; }
 .house-charges-popover-actions [data-house-charges-tip-show] { flex: 1 1 auto; }
 .house-charges-popover-close { flex: none; min-width: 40px; font-size: 18px; line-height: 1; }
 

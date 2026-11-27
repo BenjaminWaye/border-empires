@@ -17,6 +17,8 @@ import {
 
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import type { MusterFlagDesign } from "./client-cosmetics/client-cosmetics.js";
+import type { CrestCosmeticId } from "@border-empires/shared";
+import { bannerCrestIndex } from "./client-map-3d-muster-banner/muster-banner-crest-atlas.js";
 import { BANNER_DESIGN_INDEX, createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { createMusterBannerRegalia, type RegaliaFlag } from "./client-map-3d-muster-banner/muster-banner-regalia.js";
@@ -116,6 +118,8 @@ type TileEntry = {
   tintColor: Color;
   /** The owner's muster flag cosmetic: embroidery only (muster-banner-cloth-material.ts). */
   design: MusterFlagDesign;
+  /** The owner's House crest, stitched in place of the device; undefined keeps the device. */
+  crest: CrestCosmeticId | undefined;
   /** Epoch ms the siege on this flag's tile resolves; 0 when not besieged. */
   siegeEndsAt: number;
 };
@@ -125,7 +129,7 @@ export type MusterOverlay = {
   readonly addMuster: (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt?: number, design?: MusterFlagDesign
+    worldTileX: number, worldTileY: number, siegeEndsAt?: number, design?: MusterFlagDesign, crest?: CrestCosmeticId
   ) => void;
   readonly commit: () => void;
   readonly tick:    (nowMs: number) => void;
@@ -168,6 +172,8 @@ export const createMusterOverlay = (
   clothGeometry.setAttribute("aBannerWind", wind);
   const design = new InstancedBufferAttribute(new Float32Array(MAX), 1);
   clothGeometry.setAttribute("aBannerDesign", design);
+  const crestAttr = new InstancedBufferAttribute(new Float32Array(MAX), 1);
+  clothGeometry.setAttribute("aBannerCrest", crestAttr);
 
   const body = new InstancedMesh(geometry.body, bodyMaterial, MAX);
   const metal = new InstancedMesh(geometry.metal, metalMaterial, MAX);
@@ -223,12 +229,12 @@ export const createMusterOverlay = (
   const addMuster = (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number, siegeEndsAt = 0, design: MusterFlagDesign = "default"
+    worldTileX: number, worldTileY: number, siegeEndsAt = 0, design: MusterFlagDesign = "default", crest?: CrestCosmeticId
   ): void => {
     if (entries.length >= MAX) return;
     tmpColor.set(ownerColor);
     if (advance) tmpColor.lerp(white, 0.30); // brighter in ADVANCE
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt, design });
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt, design, crest });
   };
 
   const commit = (): void => {
@@ -245,10 +251,12 @@ export const createMusterOverlay = (
       cloth.setColorAt(i, e.tintColor);
       wind.setXY(i, hash01(e.worldTileX, e.worldTileY, 0, 99), e.advance ? ADVANCE_WIND_SPEED : 1);
       design.setX(i, BANNER_DESIGN_INDEX[e.design]);
+      crestAttr.setX(i, bannerCrestIndex(e.crest));
     }
     body.instanceMatrix.clearUpdateRanges();
     wind.clearUpdateRanges();
     design.clearUpdateRanges();
+    crestAttr.clearUpdateRanges();
     regalia.commit(regaliaFlags);
     if (count === 0) return;
     body.instanceMatrix.addUpdateRange(0, count * 16);
@@ -257,6 +265,8 @@ export const createMusterOverlay = (
     wind.needsUpdate = true;
     design.addUpdateRange(0, count);
     design.needsUpdate = true;
+    crestAttr.addUpdateRange(0, count);
+    crestAttr.needsUpdate = true;
     for (const mesh of [enamel, cloth]) {
       const colors = mesh.instanceColor;
       if (!colors) continue;

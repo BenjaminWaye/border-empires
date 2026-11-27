@@ -102,4 +102,18 @@ describe("town build plots", () => {
     expect(html).toContain(">0 open<");
     expect(html).toContain("8 to garrison");
   });
+
+  // Playtest 2026-11-26: pips in ring order mixed every state together and were hard to read.
+  it("groups pips by state and labels each group with its swatch and count", () => {
+    const plots = [
+      { key: "a", state: "locked" as const }, { key: "b", state: "built" as const }, { key: "c", state: "open" as const },
+      { key: "d", state: "built" as const }, { key: "e", state: "locked" as const }
+    ];
+    const html = townPlotsStatHtml(plots);
+    const order = [...html.matchAll(/class="v2t-plot v2t-plot-(\w+)"/g)].map((m) => m[1]);
+    expect(order.slice(0, 5)).toEqual(["built", "built", "open", "locked", "locked"]);
+    expect(html).toContain('v2t-plot-built" aria-hidden="true"></span>2 built');
+    expect(html).toContain('v2t-plot-open" aria-hidden="true"></span>1 open');
+    expect(html).toContain('v2t-plot-locked" aria-hidden="true"></span>2 to garrison');
+  });
 });
