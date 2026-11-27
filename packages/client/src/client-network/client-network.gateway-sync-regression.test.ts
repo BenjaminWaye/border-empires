@@ -249,7 +249,7 @@ describe("client gateway sync regression", () => {
     expect(state.incomingTruceRequests).toEqual([expect.objectContaining({ id: "truce-1", fromName: "Beejac" })]);
     expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
     expect(pushFeed).toHaveBeenCalledWith("Valka sent an alliance request.", "alliance", "info");
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 12h truce.", "alliance", "info");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringMatching(/^Beejac offered a truce · .+ left\.$/), "alliance", "info"); // the time left, not the hours offered
     expect(renderHud).toHaveBeenCalled();
 
     const feedCallCount = pushFeed.mock.calls.length;
@@ -304,7 +304,7 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.captureAlert).toBeUndefined(); // diplomacy no longer takes over the map: offers wait in the offer dock, news goes to the feed
-    expect(pushFeed).toHaveBeenCalledWith("Beejac offered a 24h truce.", "alliance", "info");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringMatching(/^Beejac offered a truce · .+ left\.$/), "alliance", "info"); // the time left, not the hours offered
   });
 
   it("feeds alliance break notices without a popup and keeps the active ally visible", () => {

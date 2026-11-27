@@ -53,6 +53,38 @@ export const resumePassiveIncome = (
 };
 
 /**
+ * A human's command or subscribe: resumes paused income (resumePassiveIncome) and stamps the
+ * activity on the map the income tick reads and on the player record, which snapshots save.
+ */
+export const recordPlayerActivity = (
+  player: RuntimePlayer | undefined,
+  lastActiveAtByPlayer: Map<string, number>,
+  lastIncomeTickAtByPlayer: Map<string, number>,
+  playerId: string,
+  nowMs: number
+): void => {
+  resumePassiveIncome(player, lastActiveAtByPlayer.get(playerId), lastIncomeTickAtByPlayer, playerId, nowMs);
+  lastActiveAtByPlayer.set(playerId, nowMs);
+  if (player) player.lastActiveAt = nowMs;
+};
+
+/**
+ * Boot: the income cursors and each player's last activity from the snapshot. The activity map
+ * lived only in memory, so after every restart a human who had not acted since read as inactive
+ * since 1970 and earned nothing until they came back; away over 24h from the restart, they
+ * then lost all of it (Playtest Run 5: new players at 0 coin after a day away).
+ */
+export const restorePassiveIncomeClocks = (
+  collectionEpochs: ReadonlyArray<{ playerId: string; collectedAt: number }> | undefined,
+  players: ReadonlyMap<string, Pick<RuntimePlayer, "lastActiveAt">>,
+  lastIncomeTickAtByPlayer: Map<string, number>,
+  lastActiveAtByPlayer: Map<string, number>
+): void => {
+  for (const entry of collectionEpochs ?? []) lastIncomeTickAtByPlayer.set(entry.playerId, entry.collectedAt);
+  for (const [playerId, player] of players) if (typeof player.lastActiveAt === "number") lastActiveAtByPlayer.set(playerId, player.lastActiveAt);
+};
+
+/**
  * Credits passive gold + strategic resource income for a single player since
  * their last income tick.
  *

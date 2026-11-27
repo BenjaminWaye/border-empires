@@ -48,6 +48,30 @@ describe("rejectCounteredOffer", () => {
     expect(social.snapshotForPlayer("player-2").incomingAllianceRequests).toEqual([]);
   });
 
+  it("lets you answer a counter to your refused offer despite your own re-offer cooldown (playtest run 5)", () => {
+    const { social, counterDeps } = setup();
+    // Tove offers, Valka refuses (Tove's 30m cooldown starts) and counters with her own offer.
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const firstId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]!.id;
+    expect(social.rejectTruce("player-2", firstId).ok).toBe(true);
+    expect(social.requestTruce("player-2", "Tove", 12).ok).toBe(true);
+    const counterId = social.snapshotForPlayer("player-1").incomingTruceRequests[0]!.id;
+    const reply: ClientMessage = { type: "TRUCE_REQUEST", targetPlayerName: "Valka", durationHours: 24, counters: { kind: "truce", requestId: counterId } };
+
+    rejectCounteredOffer(counterDeps, reply, "player-1");
+
+    expect(social.requestTruce("player-1", "Valka", 24).ok).toBe(true);
+    expect(social.snapshotForPlayer("player-2").incomingTruceRequests).toEqual([expect.objectContaining({ fromPlayerId: "player-1", durationHours: 24 })]);
+  });
+
+  it("keeps the cooldown for a fresh offer that answers nothing", () => {
+    const { social } = setup();
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const firstId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]!.id;
+    expect(social.rejectTruce("player-2", firstId).ok).toBe(true);
+    expect(social.requestTruce("player-1", "Valka", 12)).toMatchObject({ ok: false, code: "TRUCE_OFFER_COOLDOWN" });
+  });
+
   it("ignores requests that aren't counters and counters to offers that are already gone", () => {
     const { counterDeps, fanoutPlayerPayloads } = setup();
     rejectCounteredOffer(counterDeps, { type: "TRUCE_REQUEST", targetPlayerName: "Tove", durationHours: 12 }, "player-2");
