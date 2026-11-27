@@ -19,7 +19,7 @@ export const readEmpireFell = (playerId: string, payload: Record<string, unknown
 
 /** Barbarians have no display name of their own. */
 export const captorDisplayName = (captorId: string, nameOf: (playerId: string) => string): string =>
-  captorId.startsWith("barbarian") ? "the barbarians" : nameOf(captorId);
+  captorId.startsWith("barbarian") ? "the Insurgents" : nameOf(captorId);
 
 export type PlayerRespawnedDeps = {
   alertPlayerRespawned?: (playerId: string, reason: string) => void;

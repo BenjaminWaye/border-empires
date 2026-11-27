@@ -499,7 +499,7 @@ to expansion and war.
    as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
-   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A besieged town (none of its 8 surrounding plots garrisoned by its owner, a non-allied rival on one of them) defends ×0.75 (2026-11-27). A fort's perimeter
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A besieged town (its owner holds none of its 8 surrounding land plots, settled or frontier, and a non-allied rival holds one of them) defends ×0.75 (2026-11-27). A fort's perimeter
    lends its owner's garrisoned tiles around it a share of that bonus
    (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for Titanium and 1/5 for Thunder Bastion;
    `fort-perimeter.ts`), and plain frontier tiles inside a perimeter

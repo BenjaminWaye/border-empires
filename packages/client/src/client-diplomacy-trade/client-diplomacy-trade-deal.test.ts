@@ -154,7 +154,8 @@ describe("diplomacy deal table", () => {
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
   });
 
-  it("lists only the resources an AI has spare once its holdings are known", () => {
+  // Owner, 2026-11-27: hiding them made it look like Coin was all an AI could give.
+  it("greys out the resources an AI has none spare of, once its holdings are known", () => {
     const { overlay } = openScreen();
     const ai: DiplomacyStanceReply = {
       found: true,
@@ -165,7 +166,9 @@ describe("diplomacy deal table", () => {
     };
     receiveDiplomacyStance(ai);
     expect(overlay.querySelector<HTMLElement>("[data-trade-row='ask-TITANIUM']")!.hidden).toBe(false);
-    expect(overlay.querySelector<HTMLElement>("[data-trade-row='ask-CRYSTAL']")!.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLElement>("[data-trade-row='ask-CRYSTAL']")!.hidden).toBe(false);
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-CRYSTAL']")!.disabled).toBe(true);
+    expect(overlay.querySelector("[data-trade-have='ask-CRYSTAL']")?.textContent).toBe("0 spare");
     expect(overlay.querySelector("[data-trade-have='ask-gold']")?.textContent).toBe("Has 40");
     expect(overlay.querySelector<HTMLInputElement>("[data-trade-ask-TITANIUM]")!.max).toBe("3");
   });

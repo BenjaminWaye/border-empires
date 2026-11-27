@@ -81,6 +81,21 @@ describe("returnable towns over the wire", () => {
     expect(reply.returnableTowns).toEqual([oak]);
   });
 
+  // Owner, 2026-11-27: you can ask a target for a town back that it took from you.
+  it("lists in the stance reply the target's towns taken from the requester", async () => {
+    const theirs = { ...oak, x: 9, y: 9, toPlayerId: "p1" };
+    const reply = await answerDiplomacyStanceQuery({
+      resolvePlayerByName: (name) => (name === "Konrad" ? { id: "ai-1", name: "Konrad" } : undefined),
+      isAutoRespondingAi: () => false,
+      fetchAiSnapshot: async () => undefined,
+      requesterSnapshot: async () => undefined,
+      diplomacyContext: () => { throw new Error("not used"); },
+      returnableTowns: async (holderId) => (holderId === "ai-1" ? [theirs, { ...theirs, x: 1, toPlayerId: "p9" }] : [])
+    }, "p1", "Konrad");
+    expect(reply.askableTowns).toEqual([theirs]);
+    expect(reply.returnableTowns).toBeUndefined();
+  });
+
   it("gives a town back as a gift, valued as goodwill before it moves", async () => {
     const settle = vi.fn(async () => ({ ok: true as const }));
     const recordPayment = vi.fn();

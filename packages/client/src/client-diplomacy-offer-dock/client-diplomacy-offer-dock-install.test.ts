@@ -55,6 +55,14 @@ describe("installed offer dock", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_ACCEPT", requestId: "t1", confirmedResourceSupply: true }, expect.any(String));
   });
 
+  // Review regression: a truce asking for one of your towns back was accepted in one tap.
+  it("asks for a second tap before handing over a town", () => {
+    const { sendGameMessage, button } = mount([truce("t1", { gold: 0, towns: [{ x: 7, y: 8 }] } as { gold: number })]);
+    button("accept", "t1").click();
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(button("accept", "t1").textContent).toBe("Confirm");
+  });
+
   // Playtest 2026-11-12: on an AI counter-offer the Confirm tap sent the accept, but the
   // disabled button went straight back to "Accept", so it read as a tap that did nothing.
   it("labels a sent accept as Sending until the server answers, instead of reverting to Accept", () => {

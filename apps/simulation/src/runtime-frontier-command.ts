@@ -1,6 +1,6 @@
 import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import type { DockLandingIndex } from "@border-empires/shared";
+import { PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
@@ -39,6 +39,9 @@ export type MusterSourceResult = { sourceKey: string; available: number };
  * opaque player IDs (e.g. raw Firebase UIDs) instead of leaking the ID.
  */
 export const attackAlertDisplayName = (playerId: string, actorName?: string): string => {
+  // The barbarian system player keeps whatever name its season saved ("Planetary
+  // Defense", "Barbarians"); players always see the current faction name.
+  if (playerId.startsWith("barbarian")) return PLANETARY_DEFENSE_DISPLAY_NAME;
   if (actorName && actorName !== playerId) return actorName;
   return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
 };

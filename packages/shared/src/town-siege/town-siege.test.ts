@@ -21,16 +21,27 @@ const ring = (town: { x: number; y: number }, plot: (dx: number, dy: number) => 
 
 const town = { x: 10, y: 10, terrain: "LAND", ownerId: OWNER, ownershipState: "SETTLED" };
 const ALLY = "ally";
+const ownerFrontier: TownSiegeTileFacts = { terrain: "LAND", ownerId: OWNER, ownershipState: "FRONTIER" };
 const rivalFrontier: TownSiegeTileFacts = { terrain: "LAND", ownerId: RIVAL, ownershipState: "FRONTIER" };
 const allyGarrison: TownSiegeTileFacts = { terrain: "LAND", ownerId: ALLY, ownershipState: "SETTLED" };
 // The owner's alliances: ALLY is allied, RIVAL is not.
 const notAlly = (id: string) => id !== ALLY;
 
 describe("isTownBesieged", () => {
-  it("is besieged when rivals hold the ring and the owner garrisons none of it", () => {
+  it("is besieged when the ring is fully encircled and the owner holds none of it", () => {
     expect(isTownBesieged(town, ring(town, () => rivalFrontier), notAlly)).toBe(true);
-    // The owner's ungarrisoned frontier on the ring doesn't lift the siege.
-    expect(isTownBesieged(town, ring(town, (dx) => (dx === 1 ? { terrain: "LAND", ownerId: OWNER, ownershipState: "FRONTIER" } : rivalFrontier)), notAlly)).toBe(true);
+  });
+
+  it("is not besieged while the owner holds any ring plot, even ungarrisoned frontier", () => {
+    // "Cut off completely" (owner 2026-11-27): one owner frontier plot lifts the siege.
+    expect(isTownBesieged(town, ring(town, (dx) => (dx === 1 ? ownerFrontier : rivalFrontier)), notAlly)).toBe(false);
+  });
+
+  it("does not besiege a fresh town whose ring is its owner's frontier when attacked from one plot", () => {
+    // Regression (post-merge review of #3023): the attacker's launch plot sits on
+    // the ring, so the old rule called this town besieged the moment it was attacked.
+    const attackedFromWest = ring(town, (dx, dy) => (dx === -1 && dy === 0 ? rivalFrontier : ownerFrontier));
+    expect(isTownBesieged(town, attackedFromWest, notAlly)).toBe(false);
   });
 
   it("is not besieged while the owner garrisons one plot", () => {
@@ -38,7 +49,7 @@ describe("isTownBesieged", () => {
   });
 
   it("is not a siege when no rival is on the ring (an ungarrisoned or neutral ring)", () => {
-    expect(isTownBesieged(town, ring(town, () => ({ terrain: "LAND", ownerId: OWNER, ownershipState: "FRONTIER" })), notAlly)).toBe(false);
+    expect(isTownBesieged(town, ring(town, () => ownerFrontier), notAlly)).toBe(false);
     expect(isTownBesieged(town, ring(town, () => ({ terrain: "LAND" })), notAlly)).toBe(false);
   });
 

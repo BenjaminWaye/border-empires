@@ -82,7 +82,7 @@ diamond. It is safe to mine because it is quiet. Refining it puts the aether
 back to work: it powers Aether Towers and the other aether-work a House
 builds.
 
-## 4. The Wardens, Planetary Defense and relics
+## 4. The Wardens, the Insurgents and relics
 
 The Concordance built the **Wardens**, automated constructs meant to hunt
 the Bleed. They did: they burned away most of it. But they could not tell
@@ -95,14 +95,21 @@ suffers. Court fleets screen Dukes in good standing (§9), and the Court offers
 a new Duke a period of protection in exchange for a pledge not to move
 against it.
 
-### Planetary Defense
+### Insurgents
 
 Sector worlds are frontier colonies, cut off since the Engine fell. Their
 towns run on plain machinery: combustion engines, mechanical carts, no
 aether-work, because aether-work is what drew the Wardens. Before opening a
-Sector the Court strips the world of its government, but not every garrison
-lays down its arms. What is left is **Planetary Defense**, the remnant of the
-planet's own defense force.
+Sector the Court purges the world: it strips away the government and orders
+the planet's own defense force to disband, and breaks the garrisons that
+refuse. Not all of them break. The survivors of that purge are what the
+Court calls **Insurgents**: what is left of the planetary defense force, still
+under arms, with no government left to answer to. (Code and older documents
+call them "Planetary Defense", their name before 2026-11-27.)
+
+They have taken up the raised fist as their mark, painted faintly on the
+ground they picket: the sign of a force that was ordered to disband and
+refused.
 
 It holds out in fortified **camps**: old barracks, depots and strongpoints. A
 camp does not move. It holds the ground around it with pickets, and that ground
@@ -398,8 +405,8 @@ cache is unsealed, its supplies collected, and the pad beams the empty crates
 away. Any fertile ground or deposit under it is left to work.
 
 A **muster flag** marks bodies gathered to march. A House that takes the ground
-they stand on takes them too, pressed into its own manpower. Planetary Defense
-keeps no reserve, so a muster it overruns is simply lost.
+they stand on takes them too, pressed into its own manpower. The Insurgents
+keep no reserve, so a muster they overrun is simply lost.
 
 A House's industry shows on its soldiers. A Titanium Weapons Factory puts them
 in heavy House-coloured plate riveted in titanium. An Umbrite Weapons Factory
@@ -431,7 +438,7 @@ dropped from orbit.
 A **scout drone** (Sentinel pattern) docks in the AFC crown: an armoured sensor
 sphere with one large eye on four rotors. Running lights on over House ground,
 dark past the border. A rival's relay signal (§10) jams its link and turns it
-back; Planetary Defense relays no signal.
+back; the Insurgents relay no signal.
 
 ### Replacement supply and withdrawal
 
@@ -493,7 +500,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 
 | Question | Status |
 |---|---|
-| The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; Planetary Defense replaced it as the on-world hostile. |
+| The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; the Insurgents replaced it as the on-world hostile. |
 | The Imperium's name | "Imperium" is new; the game says "Imperial" and "Emperor" but has no player-facing name for the state yet. |
 | Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |
@@ -505,7 +512,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 - **Shards** and shard rain (fragments of the old engine, removed November
   2026). Do not reintroduce without an accepted lore decision.
 - **Bleed infestations** on Sector worlds, and the idea that working aether
-  draws them. Replaced by Planetary Defense.
+  draws them. Replaced by the Insurgents (then called Planetary Defense).
 - **Houses held in ward** (Imperial Ward), removed November 2026.
 - **The Sovereign Siege Engine as the ancient artifact.** The artifact is the
   World Engine; the name now belongs only to the Great Project.

@@ -18,7 +18,7 @@ describe("battle warning banner", () => {
     const banner = createBattleWarningBanner(state, store);
     banner.sync(battleWarningView(store, state, now));
     const el = document.getElementById(BATTLE_WARNING_BANNER_ID) as HTMLButtonElement;
-    expect(el.textContent).toBe("Under attack · Planetary Defense · 1 tile lost");
+    expect(el.textContent).toBe("Under attack · Insurgents · 1 tile lost");
     expect(el.style.display).toBe("block");
     el.click();
     expect([state.camX, state.camY]).toEqual([40, 22]);

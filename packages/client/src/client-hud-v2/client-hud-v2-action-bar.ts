@@ -133,6 +133,10 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   const modules: BarButton | undefined = isOwnAfc(view) && view.tabs.includes("modules") ? { kind: "panel", panel: "modules", label: "Modules ▸", primary: modulesReady } : undefined;
   if (modulesReady && modules) buttons.push(modules);
   if (afcReady || (isOwnAfc(view) && !primary && !modulesReady)) buttons.push({ kind: "afc", primary: true });
+  // Out of charges, Send scout drone stays on the bar greyed out with its refill time, rather than
+  // dropping into the minor row where it looked gone (player report 2026-11-26).
+  const restingScout = !afcReady && !primary && !modulesReady ? view.actions.find((a) => a.id === "afc_scout_drone" && a.disabled) : undefined;
+  if (restingScout) buttons.push({ kind: "action", action: restingScout, primary: false });
   if (primary) buttons.push({ kind: "action", action: primary, primary: true });
   if (isOwnAfc(view) && (primary || modulesReady)) buttons.push({ kind: "afc", primary: false });
   if (!modulesReady && modules) buttons.push(modules);

@@ -57,7 +57,7 @@ describe("handleScoutDroneMessage", () => {
     expect(state.scoutDroneFlight).toBeUndefined();
     expect(pushFeed).toHaveBeenCalledWith(expect.objectContaining({
       title: "Scout report",
-      text: "Scout drone returned from (12, 4): 1 town, 2 waystations, TITANIUM (4 tiles), Planetary Defense (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
+      text: "Scout drone returned from (12, 4): 1 town, 2 waystations, TITANIUM (4 tiles), Insurgents (6 tiles), the borders of House Vey. It was turned back at House Vey's border.",
       severity: "success",
       focusX: 12,
       focusY: 4

@@ -21,7 +21,7 @@ export type FrontierCombatPreviewTile = {
   // Post-capture hold window end (capture-hold.ts): a FRONTIER tile defends
   // until then instead of having zero defense.
   captureHoldUntil?: number | undefined;
-  // Town cut off from its owner's garrisons by a rival (town-siege.ts isTownBesieged).
+  // Town whose owner holds none of its ring, with a rival on it (town-siege.ts isTownBesieged).
   townBesieged?: boolean | undefined;
 };
 
@@ -220,7 +220,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Manifests vs garrisoned tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Manifests vs forts", modifiers.attackVsFortsMult);
-  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Manifests vs Planetary Defense", modifiers.attackVsBarbariansMult);
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Manifests vs Insurgents", modifiers.attackVsBarbariansMult);
   return { entries, mult };
 };
 

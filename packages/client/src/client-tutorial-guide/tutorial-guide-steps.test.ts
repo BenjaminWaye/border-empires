@@ -96,7 +96,7 @@ describe("tutorial guide steps", () => {
     const view = evaluateGuide(baseInput({ checklist: footholdDone, musterTargetTiles: [{ x: 2, y: 2 }] }), allButContest);
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.waiting).toBe(true);
-    expect(view.title).toMatch(/Planetary Defense/);
+    expect(view.title).toMatch(/Insurgents/);
     expect(view.highlightTiles).toEqual([]);
 
     const unlocked = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, musterTargetTiles: [{ x: 2, y: 2 }] }), allButContest);

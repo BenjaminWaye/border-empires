@@ -77,6 +77,16 @@ describe("action bar on your own AFC", () => {
       expect(selectBarButtons(home)[0]).toEqual({ kind: "afc", primary: true });
     });
 
+    // Player report 2026-11-26: out of charges, the button vanished into the minor row instead of greying out.
+    it("stays on the bar greyed out with its refill time when out of charges", () => {
+      const v = ownAfc({ actions: [{ ...send, cost: "0/8", disabled: true, disabledReason: "+1 in 3h 58m" }] });
+      expect(selectBarButtons(v)[0]).toEqual({ kind: "afc", primary: true });
+      expect(kinds(v)).toEqual(["afc", "afc_scout_drone", "modules"]);
+      const html = actionBarHtml(v);
+      expect(html).toContain('class="hud-v2-act hud-v2-act-disabled" data-hud-v2-action="afc_scout_drone" disabled');
+      expect(html).toContain('<span class="hud-v2-act-cost">+1 in 3h 58m</span>');
+    });
+
     it("gives way to an urgent action", () => {
       const v = ownAfc({ actions: [act("launch_attack"), send] });
       expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
