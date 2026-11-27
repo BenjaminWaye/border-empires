@@ -1,4 +1,4 @@
-import { terrainCombatFacts } from "@border-empires/shared";
+import { terrainCombatFacts, type FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
 // The March To sheet's server-side odds: an ATTACK_PREVIEW from the march
@@ -22,16 +22,31 @@ export const requestMarchWinChancePreview = (origin: Point, target: Point, sendG
   sendGameMessage({ type: "ATTACK_PREVIEW", fromX: origin.x, fromY: origin.y, toX: target.x, toY: target.y, march: true, hillsDefense });
 };
 
+/**
+ * The cached server odds for this march: the base win chance (before
+ * commit/shield scaling) and the defender breakdown it was scored with, or
+ * undefined when none has arrived. Callers that show the server's odds take
+ * the siege tag from the same `defender`, so the two never disagree.
+ */
+export type MarchServerOdds = { winChance: number; defender?: FrontierCombatSideBreakdown | undefined };
+
+export const marchPreviewServerOdds = (
+  state: Pick<ClientState, "attackPreviewCacheByKey">,
+  origin: Point,
+  target: Point,
+  keyFor: (x: number, y: number) => string
+): MarchServerOdds | undefined => {
+  const preview = state.attackPreviewCacheByKey.get(`${keyFor(origin.x, origin.y)}->${keyFor(target.x, target.y)}`);
+  return preview?.valid && typeof preview.winChance === "number" ? { winChance: preview.winChance, defender: preview.defender } : undefined;
+};
+
 /** The cached server win chance for this march (base, before commit/shield scaling), or undefined when none has arrived. */
 export const marchPreviewBaseWinChance = (
   state: Pick<ClientState, "attackPreviewCacheByKey">,
   origin: Point,
   target: Point,
   keyFor: (x: number, y: number) => string
-): number | undefined => {
-  const preview = state.attackPreviewCacheByKey.get(`${keyFor(origin.x, origin.y)}->${keyFor(target.x, target.y)}`);
-  return preview?.valid && typeof preview.winChance === "number" ? preview.winChance : undefined;
-};
+): number | undefined => marchPreviewServerOdds(state, origin, target, keyFor)?.winChance;
 
 /**
  * Requests the march preview now and again whenever `poll` runs more than

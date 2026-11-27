@@ -28,6 +28,7 @@ import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
+import { SIEGE_CUT_OFF_ENTRY } from "./client-changelog-siege-cut-off.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
@@ -64,4 +65,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
   { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
   { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
+  { ...SIEGE_CUT_OFF_ENTRY, createdAt: 1795791221185, },
 ];

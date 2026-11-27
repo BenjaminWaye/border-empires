@@ -21,7 +21,7 @@ export type FrontierCombatPreviewTile = {
   // Post-capture hold window end (capture-hold.ts): a FRONTIER tile defends
   // until then instead of having zero defense.
   captureHoldUntil?: number | undefined;
-  // Town cut off from its owner's garrisons by a rival (town-siege.ts isTownBesieged).
+  // Town whose owner holds none of its ring, with a rival on it (town-siege.ts isTownBesieged).
   townBesieged?: boolean | undefined;
 };
 
