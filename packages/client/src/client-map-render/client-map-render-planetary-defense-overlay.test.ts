@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { drawPlanetaryDefenseOverlay } from "./client-map-render-planetary-defense-overlay.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
 import type { Tile } from "../client-types.js";
@@ -13,6 +13,9 @@ const fakeSprite = { width: 128, height: 128, getContext: () => ({
 }) };
 beforeAll(() => {
   vi.stubGlobal("document", { createElement: () => fakeSprite });
+});
+afterAll(() => {
+  vi.unstubAllGlobals();
 });
 
 // Records arc() centers (one per soldier helmet) and every fillStyle used.
@@ -85,9 +88,18 @@ describe("drawPlanetaryDefenseOverlay (2D fallback)", () => {
   });
 
   it("draws no mark on tiny tiles or when the ownership state is unknown", () => {
-    for (const [tile, size] of [[campLand, 6], [(({ ownershipState: _omit, ...rest }) => rest as Tile)(campLand), 64]] as const) {
+    for (const [tile, size] of [[campLand, 11], [(({ ownershipState: _omit, ...rest }) => rest as Tile)(campLand), 64]] as const) {
       const { ctx, images } = recordingCtx();
       drawPlanetaryDefenseOverlay(ctx, tile, 0, 0, size, 3, 4, 1000);
+      expect(images).toHaveLength(0);
+    }
+  });
+
+  // Review: the 2D mark was painted over the tile's resource/town/structure icon.
+  it("steps aside on a tile that already shows its own icon", () => {
+    for (const extra of [{ resource: "IRON" }, { town: {} }, { dockId: "d1" }, { fort: {} }, { economicStructure: {} }]) {
+      const { ctx, images } = recordingCtx();
+      drawPlanetaryDefenseOverlay(ctx, { ...campLand, ...extra } as unknown as Tile, 0, 0, 64, 3, 4, 1000);
       expect(images).toHaveLength(0);
     }
   });

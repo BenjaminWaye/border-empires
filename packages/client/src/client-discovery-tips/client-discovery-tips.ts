@@ -63,7 +63,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   BARBARIAN: {
     id: "BARBARIAN",
     title: "Insurgents Discovered!",
-    body: "Insurgents are the planet's own defense forces that survived the Court's purge of this world. They hold out in fortified camps, picket the land around them (marked with a raised fist) and raid your empire. Attack and clear their tiles to earn Coin and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
+    body: "Insurgents are the planet's own defense forces that survived the Court's purge of this world. They hold out in fortified camps, picket the land around them (marked with a raised fist) and raid your empire. Attack and clear their tiles to earn Coin. They cannot raise new troops, so every camp you take is gone for good, but a town or harbour they seize becomes a new camp."
   },
   FOOD: {
     id: "FOOD",

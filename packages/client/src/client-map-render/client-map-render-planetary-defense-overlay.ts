@@ -77,12 +77,17 @@ export const drawSoldierGlyph2D = (
   ctx.stroke();
 };
 
-// Insurgent frontier tiles get the raised-fist mark; a tile whose
-// ownership state is unknown (reveal-only update) gets nothing. Same rule
-// and same drawing as the 3D ground decal (client-map-3d-insurgent-insignia-overlay.ts).
-export const INSURGENT_INSIGNIA_2D_MIN_TILE_PX = 8;
+// Insurgent frontier tiles get the faint raised-fist mark (client-insurgent-insignia.ts),
+// the 2D side of the 3D ground decal. A tile whose ownership state is unknown
+// (reveal-only update) gets nothing. The 2D map paints it over the tile's
+// other icons, so it steps aside wherever a resource, town, dock or structure
+// already sits (3D keeps it under their models), and below
+// INSURGENT_INSIGNIA_2D_MIN_TILE_PX, where a few pixels of it read as a smudge.
+export const INSURGENT_INSIGNIA_2D_MIN_TILE_PX = 12;
+const tileHasOwnIcon = (tile: Tile): boolean =>
+  Boolean(tile.resource || tile.town || tile.dock || tile.dockId || tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure || tile.watchtower || tile.naturalWonder);
 const drawFrontierInsignia2D = (ctx: CanvasRenderingContext2D, tile: Tile, px: number, py: number, size: number): void => {
-  if (size < INSURGENT_INSIGNIA_2D_MIN_TILE_PX || !tile.ownershipState) return;
+  if (size < INSURGENT_INSIGNIA_2D_MIN_TILE_PX || !tile.ownershipState || tileHasOwnIcon(tile)) return;
   drawInsurgentInsignia(ctx, px + size / 2, py + size / 2, size * 0.6);
 };
 

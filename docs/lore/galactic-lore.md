@@ -404,7 +404,7 @@ away. Any fertile ground or deposit under it is left to work.
 
 A **muster flag** marks bodies gathered to march. A House that takes the ground
 they stand on takes them too, pressed into its own manpower. The Insurgents
-keeps no reserve, so a muster it overruns is simply lost.
+keep no reserve, so a muster they overrun is simply lost.
 
 A House's industry shows on its soldiers. A Titanium Weapons Factory puts them
 in heavy House-coloured plate riveted in titanium. An Umbrite Weapons Factory
@@ -498,7 +498,7 @@ Do not infer gameplay rules from these while doing unrelated work.
 
 | Question | Status |
 |---|---|
-| The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; The Insurgents replaced it as the on-world hostile. |
+| The Bleed in play | The Bleed is mostly gone and is setting only. No current mechanic represents it; the Insurgents replaced it as the on-world hostile. |
 | The Imperium's name | "Imperium" is new; the game says "Imperial" and "Emperor" but has no player-facing name for the state yet. |
 | Farm Plots and fertile land | No contradiction proposed: fertile land stays the efficient food source and a plot is a costly fallback. Confirm, and settle the final name ("Farm Plot" is a working name). |
 | Relic reactivation risk | Repair costs, activation encounters and breakdowns are ideas, not mechanics. |

@@ -87,7 +87,8 @@ export const createInsurgentInsigniaOverlay = (scene: Scene, maxTiles: number): 
 
   const commit = (): void => {
     mesh.count = count;
-    mesh.visible = count > 0;
+    // No texture (no DOM canvas, or a blocked 2D context): an unmapped plane would render as a solid white square.
+    mesh.visible = count > 0 && texture !== null;
     mesh.instanceMatrix.clearUpdateRanges();
     mesh.instanceMatrix.addUpdateRange(0, count * 16);
     mesh.instanceMatrix.needsUpdate = true;

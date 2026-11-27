@@ -11,6 +11,7 @@ import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defen
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 import { createUnitMotionGate, type UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 import { createInsurgentInsigniaOverlay } from "./client-map-3d-insurgent-insignia-overlay.js";
+import { isPlanetaryDefenseCampTile } from "./client-planetary-defense-style.js";
 
 // Insurgent camp marker: a pair of dark-grey-armored soldiers patrolling
 // each camp tile ("barbarian" / "Planetary Defense" are still the internal
@@ -84,9 +85,20 @@ export type PlanetaryDefenseOverlay = {
   readonly addInstance: (tileKey: TileKey, worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number) => void;
   /** An Insurgent FRONTIER tile: the flat insignia, no soldiers. */
   readonly addFrontierInsignia: (worldX: number, worldZ: number, flatOverlayY: number) => void;
+  /**
+   * One Insurgent-owned land tile: a camp (SETTLED) gets the patrol, any other
+   * known ownership state the frontier mark, an unknown state nothing. Returns
+   * what was placed so the caller can add a camp's contact shadow.
+   */
+  readonly addTile: (tile: InsurgentTileState, tileKey: TileKey, at: InsurgentTilePlacement) => "camp" | "mark" | undefined;
   readonly commit: () => void;
   readonly tick: (nowMs: number, engagedTileKeys?: ReadonlySet<string>) => void;
   readonly dispose: () => void;
+};
+
+export type InsurgentTileState = { readonly ownerId?: string | null; readonly ownershipState?: string | null };
+export type InsurgentTilePlacement = {
+  readonly worldX: number; readonly worldZ: number; readonly surfaceY: number; readonly flatOverlayY: number; readonly wx: number; readonly wy: number;
 };
 
 const isAdjacent = (aWx: number, aWy: number, bWx: number, bWy: number): boolean =>
@@ -361,5 +373,15 @@ export const createPlanetaryDefenseOverlay = (
     byTileKey.clear();
   };
 
-  return { clear, addInstance, addFrontierInsignia: insignia.addInstance, commit, tick, dispose };
+  const addTile = (tile: InsurgentTileState, tileKey: TileKey, at: InsurgentTilePlacement): "camp" | "mark" | undefined => {
+    if (isPlanetaryDefenseCampTile(tile)) {
+      addInstance(tileKey, at.worldX, at.worldZ, at.surfaceY, at.wx, at.wy);
+      return "camp";
+    }
+    if (!tile.ownershipState) return undefined;
+    insignia.addInstance(at.worldX, at.worldZ, at.flatOverlayY);
+    return "mark";
+  };
+
+  return { clear, addInstance, addFrontierInsignia: insignia.addInstance, addTile, commit, tick, dispose };
 };

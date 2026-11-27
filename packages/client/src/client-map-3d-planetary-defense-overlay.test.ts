@@ -22,6 +22,10 @@ vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOrigi
   return { ...actual, loadPopupMarineTemplate: () => Promise.resolve({ root, clips }) };
 });
 
+// Node has no DOM canvas: hand the overlay a stand-in mark sprite (null = a blocked 2D context).
+const markSprite: { current: { width: number; height: number } | null } = vi.hoisted(() => ({ current: { width: 128, height: 128 } }));
+vi.mock("./client-insurgent-insignia.js", () => ({ insurgentMarkSprite: () => markSprite.current }));
+
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const visibleSoldiers = (scene: Scene): Object3D[] => scene.children.filter((c) => c.visible);
 
@@ -244,5 +248,39 @@ describe("Insurgent frontier insignia (3D)", () => {
   it("draws over the owner tint but under the fog layers", () => {
     expect(RENDER_ORDER.insurgentInsignia).toBeGreaterThan(RENDER_ORDER.ownershipFrontier);
     expect(RENDER_ORDER.insurgentInsignia).toBeLessThan(RENDER_ORDER.fogDarkenSettled);
+  });
+
+  // Review: the camp-or-mark choice lived inline in client-map-3d.ts, untested.
+  it("puts soldiers on a camp, the mark on its frontier, and nothing on a tile of unknown state", async () => {
+    const scene = new Scene();
+    const overlay = createPlanetaryDefenseOverlay(scene);
+    await flush();
+    const at = { worldX: 1.5, worldZ: 1.5, surfaceY: 0, flatOverlayY: 0, wx: 1, wy: 1 };
+    overlay.clear();
+    expect(overlay.addTile({ ownerId: "barbarian-1", ownershipState: "SETTLED" }, "1,1", at)).toBe("camp");
+    expect(overlay.addTile({ ownerId: "barbarian-1", ownershipState: "FRONTIER" }, "2,1", { ...at, worldX: 2.5, wx: 2 })).toBe("mark");
+    expect(overlay.addTile({ ownerId: "barbarian-1" }, "3,1", { ...at, worldX: 3.5, wx: 3 })).toBeUndefined();
+    overlay.commit();
+    overlay.tick(1000);
+    expect(insigniaMesh(scene).count).toBe(1);
+    expect(scene.children.filter((c) => c.visible && c.name !== "insurgent-insignia-overlay")).toHaveLength(SOLDIERS_PER_TILE);
+    overlay.dispose();
+  });
+
+  // Review: with no texture an unmapped plane renders as a solid white square on every frontier tile.
+  it("stays hidden when the mark sprite could not be painted", async () => {
+    markSprite.current = null;
+    try {
+      const scene = new Scene();
+      const overlay = createPlanetaryDefenseOverlay(scene);
+      await flush();
+      overlay.clear();
+      overlay.addFrontierInsignia(3.5, 4.5, 0.2);
+      overlay.commit();
+      expect(insigniaMesh(scene).visible).toBe(false);
+      overlay.dispose();
+    } finally {
+      markSprite.current = { width: 128, height: 128 };
+    }
   });
 });
