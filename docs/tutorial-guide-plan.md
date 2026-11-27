@@ -176,12 +176,26 @@ the same rule.
   nearest unowned town (`guideTownLead` on PLAYER_UPDATE, computed by
   `apps/simulation/src/guide-town-lead/` from the neutral-town index, sent while
   the player holds no town beyond their landing settlement), for as many
-  flights as it takes. Tapping that ringed tile plans the whole way there, one
-  stop per leg along the line, as many as the charges allow
-  (`client-scout-drone-lead-route.ts`): a single far stop is pulled back to the
-  leg range every flight. Added after Playtest Run 4, where a newcomer flew
+  flights as it takes, but only while it is one drone leg from the AFC
+  (`LEAD_ROUTE_LEG_TILES`). Added after Playtest Run 4, where a newcomer flew
   five flights in random directions over three mornings, built four beacons
   and quit.
+- Island starts (owner, 2026-11-27: never fly the drone more than one leg to
+  a town; that far, the player is probably on an island). With no town to
+  take, the town step steers to a dock instead
+  (`tutorial-guide-island-dock.ts`, `tutorial-guide-dock-lead.ts`), when the
+  player's land is a fully seen island (every edge meets seen water) or the
+  town lead is more than one leg away:
+  - A dock on the player's land (walked over known LAND): their garrisoned
+    dock, "…, then Cross the sea"; their frontier dock, "…, then Garrison";
+    else the nearest free one, "…, then Expand To" ("You're on an island: …"
+    only on a fully seen island, "No town close by: …" otherwise).
+  - Otherwise, the dock lead: the nearest dock from the world's dock list the
+    client already has (`mapMeta.dockPairs`) that the player has never seen,
+    is within one leg of the AFC and could be on their land (an overland walk,
+    unexplored ground passable, seen water blocking): "Find a dock: tap the
+    mark, then Explore", ringed on the dock.
+  - Otherwise, the usual nearby Explore, told to look for a dock.
 - Otherwise, nothing known: "tap the marked dark ground, then Explore"
   while the drone can launch (ringed at the Explore target), or "Your drone
   is flying: wait for its report" while it flies. Only for the first 3
