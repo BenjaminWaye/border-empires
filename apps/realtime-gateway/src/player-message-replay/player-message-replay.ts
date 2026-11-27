@@ -31,7 +31,8 @@
  * report is kept when it carries an `id`: the client shows each report id once,
  * so a socket that reconnects before the old one is reaped (no fresh
  * subscribe, so no resend) still gets a report it missed. A report without an
- * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
+ * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts);
+ * everything else, `charges` included, is kept.
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`

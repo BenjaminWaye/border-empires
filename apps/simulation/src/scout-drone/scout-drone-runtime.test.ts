@@ -387,8 +387,22 @@ describe("scout drone runtime", () => {
       const sent = h.messages.length;
       h.explore(9, 10, "me", "empty");
       expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_NO_CHARGES" });
-      expect(h.messages.length).toBeGreaterThan(sent);
-      expect(chargesOf(h)).toHaveLength(SCOUT_DRONE_MAX_CHARGES);
+      const resent = h.messages.slice(sent).filter((m) => m.playerId === "me" && m.payload.type === "SCOUT_DRONE");
+      expect(resent).toHaveLength(1);
+      expect((resent[0]!.payload as unknown as ScoutDronePayload).charges?.usedAt).toHaveLength(SCOUT_DRONE_MAX_CHARGES);
+    });
+
+    it("resends the charges when adding stops to a flying drone is refused for want of charges", () => {
+      const h = harness(homeRow());
+      const eight = Array.from({ length: SCOUT_DRONE_MAX_CHARGES }, (_, i) => ({ x: 6 + (i % 2), y: 10 + i }));
+      h.exploreRoute(eight);
+      expect(h.runtime.flightFor("me")).toBeDefined();
+      const sent = h.messages.length;
+      h.explore(9, 10, "me", "more");
+      expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", commandId: "more", code: "SCOUT_NO_CHARGES" });
+      const resent = h.messages.slice(sent).filter((m) => m.playerId === "me" && m.payload.type === "SCOUT_DRONE");
+      expect(resent).toHaveLength(1);
+      expect((resent[0]!.payload as unknown as ScoutDronePayload).charges?.usedAt).toHaveLength(SCOUT_DRONE_MAX_CHARGES);
     });
 
     it("refuses a route longer than the charges left without spending any", () => {

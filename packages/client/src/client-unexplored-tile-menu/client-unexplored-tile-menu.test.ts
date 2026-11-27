@@ -88,6 +88,16 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.actions.map((action) => [action.id, action.disabled ?? false])).toEqual([["explore_scout", false]]);
   });
 
+  // Review of the 2026-11-26 fix: the fog tile's Explore stayed enabled at 0 charges, so a tap still got "No scout drone charges left".
+  it("greys out Explore with no charges left and says when the next one is back", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const now = Date.now();
+    state.scoutDroneFlight = flight(now + 80_000);
+    state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: Array.from({ length: 8 }, () => now - 60 * 60_000) };
+    expect(openAt(state, 3, 3).actions[0]).toMatchObject({ id: "explore_scout", disabled: true, disabledReason: expect.stringMatching(/^\+1 in /) });
+  });
+
   it("enables Explore again once the drone has landed", () => {
     const state = createInitialState();
     state.me = "me";
