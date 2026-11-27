@@ -51,23 +51,23 @@ describe("crest picker", () => {
   it("offers the letter and every free crest even before the server lists what the account owns", () => {
     expect(availableCrests({ ownedCosmetics: [] })).toEqual([...CREST_COSMETIC_IDS]);
     const host = document.createElement("div");
-    host.innerHTML = crestPickerHtml({ color: "#123456", initial: "H", selected: "crest-key", available: availableCrests({ ownedCosmetics: [] }), disabled: false, attr: "data-v2-crest" });
-    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>("[data-v2-crest]"));
-    expect(buttons.map((b) => b.dataset.v2Crest)).toEqual(["", ...CREST_COSMETIC_IDS]);
-    expect(host.querySelector('[aria-pressed="true"]')?.getAttribute("data-v2-crest")).toBe("crest-key");
+    host.innerHTML = crestPickerHtml({ color: "#123456", initial: "H", selected: "crest-key", available: availableCrests({ ownedCosmetics: [] }), disabled: false, attr: "data-profile-edit-crest" });
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>("[data-profile-edit-crest]"));
+    expect(buttons.map((b) => b.getAttribute("data-profile-edit-crest"))).toEqual(["", ...CREST_COSMETIC_IDS]);
+    expect(host.querySelector('[aria-pressed="true"]')?.getAttribute("data-profile-edit-crest")).toBe("crest-key");
     expect(host.querySelector<HTMLElement>(".crest-pick-emblem")?.style.background).toContain("#123456");
   });
 
   it("reads the picked crest, null for the letter, and ignores anything else", () => {
     const button = (value: string | null): HTMLElement => {
       const el = document.createElement("button");
-      if (value !== null) el.setAttribute("data-v2-crest", value);
+      if (value !== null) el.setAttribute("data-profile-edit-crest", value);
       return el;
     };
-    expect(pickedCrest(button("crest-stag"), "data-v2-crest")).toBe("crest-stag");
-    expect(pickedCrest(button(""), "data-v2-crest")).toBeNull();
-    expect(pickedCrest(button("flag-high-noble"), "data-v2-crest")).toBeUndefined();
-    expect(pickedCrest(button(null), "data-v2-crest")).toBeUndefined();
-    expect(pickedCrest(null, "data-v2-crest")).toBeUndefined();
+    expect(pickedCrest(button("crest-stag"), "data-profile-edit-crest")).toBe("crest-stag");
+    expect(pickedCrest(button(""), "data-profile-edit-crest")).toBeNull();
+    expect(pickedCrest(button("flag-high-noble"), "data-profile-edit-crest")).toBeUndefined();
+    expect(pickedCrest(button(null), "data-profile-edit-crest")).toBeUndefined();
+    expect(pickedCrest(null, "data-profile-edit-crest")).toBeUndefined();
   });
 });

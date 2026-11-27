@@ -49,7 +49,7 @@ import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
-import { applyPlayerAppearanceMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerAppearanceMessage, settleCrestSaveFromError } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
@@ -1935,7 +1935,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); applySeasonErrorCodes(state, rawCode, rawMessage, renderHud);
+      clearAuthInFlight?.(); applySeasonErrorCodes(state, rawCode, rawMessage, renderHud); settleCrestSaveFromError(rawCode, rawMessage);
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");

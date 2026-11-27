@@ -9,6 +9,7 @@ import { diplomacyListHtml } from "./client-hud-v2-diplomacy.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { profileCrestClick, profileCrestFields, profileCrestHtml } from "./client-hud-v2-profile-crest.js";
 import { ranksBodyHtml } from "./client-hud-v2-ranks.js";
+import { isProfileEditOpen, setProfileEditOpen } from "../client-hud/client-hud-profile-edit-overlay.js";
 import { rivalsHtml } from "./client-hud-v2-rivals.js";
 
 // Playtest 2026-11-27: a House's emblem was only ever a letter in a square.
@@ -76,27 +77,27 @@ describe("House emblems show the crest or the letter", () => {
   });
 });
 
-describe("your profile's crest picker", () => {
-  const state = { playerCosmetics: new Map([["me", { crest: "crest-anchor" as const }]]), ownedCosmetics: [], authSessionReady: true };
+describe("your own profile's emblem", () => {
+  const state = { playerCosmetics: new Map([["me", { crest: "crest-anchor" as const }]]) };
 
-  it("opens from your own emblem, and is absent on a rival's profile", () => {
+  it("is a button to the Edit Name, Colour & Crest dialog, and plain on a rival's profile", () => {
     const mine = host(profileCrestHtml({ name: "Harrow", color: "#abc", ...profileCrestFields(state, "me", true) }));
-    expect(mine.querySelector("details[data-v2-open] summary .v2p-crest svg")).not.toBeNull();
-    expect(mine.querySelector('[data-v2-crest="crest-anchor"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(mine.querySelector("button[data-v2-edit-profile] .v2p-crest svg")).not.toBeNull();
+    expect(mine.querySelector("[data-profile-edit-crest]")).toBeNull();
     const theirs = host(profileCrestHtml({ name: "Anna", color: "#abc", ...profileCrestFields(state, "anna", false) }));
-    expect(theirs.querySelector("details")).toBeNull();
+    expect(theirs.querySelector("button")).toBeNull();
     expect(theirs.querySelector(".v2p-crest")?.textContent).toBe("A");
   });
 
-  it("asks the gateway for the picked crest and leaves other clicks alone", () => {
+  it("opens the dialog when tapped and leaves other clicks alone", () => {
     const el = host(profileCrestHtml({ name: "Harrow", color: "#abc", ...profileCrestFields(state, "me", true) }));
-    const send = vi.fn((_payload: unknown, _message?: string) => true);
-    expect(profileCrestClick(send, el.querySelector('[data-v2-crest="crest-tower"] .crest-pick-name') as Element)).toBe(true);
-    expect(profileCrestClick(send, el.querySelector('[data-v2-crest=""]') as Element)).toBe(true);
-    expect(profileCrestClick(send, el.querySelector(".v2p-crest-note") as Element)).toBe(false);
-    expect(send.mock.calls.map(([payload]) => payload)).toEqual([
-      { type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-tower" },
-      { type: "SET_COSMETIC", slot: "crest", cosmeticId: null }
-    ]);
+    const renderHud = vi.fn();
+    setProfileEditOpen(false);
+    expect(profileCrestClick(renderHud, el.querySelector(".v2p-crest-change") as Element)).toBe(true);
+    expect(isProfileEditOpen()).toBe(true);
+    expect(renderHud).toHaveBeenCalledTimes(1);
+    setProfileEditOpen(false);
+    expect(profileCrestClick(renderHud, host("<span class='x'></span>").querySelector(".x") as Element)).toBe(false);
+    expect(isProfileEditOpen()).toBe(false);
   });
 });

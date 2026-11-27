@@ -187,7 +187,8 @@ product, including paid Houses.
   playtesters found the letter-in-a-square emblem generic and looked for a
   way to personalise it). A House picks one of 12 crests, drawn in place of
   its initial inside the same emblem, so the diplomacy screen gains no extra
-  marks. The catalogue flags each crest `free`, so paid crests can be added
+  marks, and stitched on its muster flags in place of the cog. Name, colour
+  and crest are chosen together in one dialog. The catalogue flags each crest `free`, so paid crests can be added
   later without new plumbing. Details: [`cosmetics.md`](cosmetics.md#house-crests).
 - **Purchases belong to the account, not the device.** The web is the main
   shop. Payments go through Stripe (decided 2026-11-23). Stripe collects

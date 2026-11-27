@@ -5,9 +5,9 @@ import { crestLabel } from "./client-house-crest.js";
 import "./client-crest-picker.css";
 
 // The crest picker: every crest the account may show, each drawn on the
-// House's own colour, plus "Letter" (no crest). Used by your profile (tap your
-// emblem) and Settings → Account. `attr` names the data attribute the
-// caller's click handler reads; the picked id is its value ("" = letter).
+// House's own colour, plus "Letter" (no crest). It lives in the Edit Name,
+// Colour & Crest dialog (client-profile-edit-crest.ts). `attr` names the data
+// attribute the click handler reads; the picked id is its value ("" = letter).
 
 export type CrestPickerInput = {
   color: string;
@@ -16,7 +16,7 @@ export type CrestPickerInput = {
   /** Crests this account may show (today every crest is free). */
   available: readonly CrestCosmeticId[];
   disabled: boolean;
-  attr: "data-v2-crest" | "data-cosmetic-crest";
+  attr: "data-profile-edit-crest";
 };
 
 const esc = (text: string): string =>

@@ -352,7 +352,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     closeScreen(deps);
     return true;
   }
-  if (profileCrestClick(deps.sendGameMessage, target)) return true;
+  if (profileCrestClick(deps.renderHud, target)) return true;
   if (target.closest("[data-v2-open-charges]")) {
     if (deps.state.activePanel !== "charges") deps.setActivePanel("charges");
     deps.renderHud();

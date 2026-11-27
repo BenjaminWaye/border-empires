@@ -188,13 +188,23 @@ come later.
   steampunk icon rule: simple and legible at 16 to 24 px.
 - **What a rival must still read.** The emblem's field stays the House
   colour, and the crest takes the place of the letter, never more space. On
+  a muster flag the crest replaces the device inside the same square: the
+  cloth's colour, outline, wind, ADVANCE cues and soldiers are unchanged. On
   the 16 px Chronicle emblem a crest is harder to tell apart than a letter;
   the House name always sits beside the emblem.
-- **Choosing.** Tap your emblem in the HUD to open your profile, then tap the
-  emblem there to open the picker (`client-hud-v2-profile-crest.ts`). The
-  same picker is in Settings → Account (`client-cosmetics-card.ts`). "Letter"
-  clears the crest. The client changes nothing until the gateway's
-  `PLAYER_STYLE` comes back.
+- **Choosing.** Name, colour and crest are set together in one dialog,
+  "Edit Name, Colour & Crest" (`client-hud-profile-edit-overlay.ts`, crest
+  part in `client-profile-edit-crest.ts`): a live preview of your emblem in
+  the chosen colour and crest above the crest picker (owner, 2026-11-27).
+  Open it by tapping the emblem on your own profile (tap your HUD emblem
+  first to open the profile), or from Settings → Account. "Letter" clears the
+  crest. Save sends `SET_COSMETIC` after any name or colour change, and the
+  dialog stays open on "Saving…" until the gateway answers with
+  `COSMETICS_STATE`; a `COSMETIC_*` refusal or no reply in 15 s is shown in
+  the dialog. A crest-only change skips the once-per-contest confirmation,
+  since a crest can change at any time; with a name or colour change, the
+  confirmation lists the crest too. The Settings cosmetics card no longer
+  offers crests.
 
 | Emblem | Shows the crest |
 |---|---|
@@ -206,7 +216,8 @@ come later.
 | Battle sides (`client-hud-v2-battle.ts`) | Yes |
 | Profile hero (`client-hud-v2-profile.ts`) | Yes |
 | Public House web page (`client-public-house-view.ts`) | No: `GET /public/house/:id` does not carry the crest yet |
-| The map, 2D canvas and true-3D | Neither renderer draws a House emblem on the map, so there is nothing to change |
+| Muster flags, true-3D | Every visible flag, yours and rivals': the crest is stitched on the cloth in place of the cog (or the High-noble sun), in the same thread with the same dark outline. Crests are rasterised once into a 4×3 atlas (`muster-banner-crest-atlas.ts`); `aBannerCrest` per flag picks the cell. A flag with no crest keeps its cog. Relic banners keep the cog |
+| Muster flags, 2D canvas | Your own besieged flag's pennant (the only muster flag 2D draws, see the known gap above) carries your crest in place of the High-noble sun once tiles are drawn 48 px or larger (`client-map-render-muster-siege-badge.ts`); smaller, the pennant stays plain. Rivals' flags are not drawn on the 2D map for anyone |
 
 AI Houses show their letter: nothing picks a crest for them.
 
