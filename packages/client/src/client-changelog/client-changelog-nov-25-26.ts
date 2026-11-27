@@ -38,6 +38,7 @@ import { AI_DEAL_ASKS_ENTRY } from "./client-changelog-ai-deal-asks.js";
 
 import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
 import { TILE_LABELS_R2_ENTRY } from "./client-changelog-tile-labels-r2.js";
+import { DRONE_EXPLORE_R3_ENTRY } from "./client-changelog-drone-explore-r3.js";
 import { TRUCE_LENGTH_SHOWN_ENTRY } from "./client-changelog-truce-length-shown.js";
 import { GUIDE_PROFILE_R3_ENTRY } from "./client-changelog-guide-profile-r3.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
@@ -85,5 +86,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TILE_LABELS_R2_ENTRY, createdAt: 1795805295408, },
   { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
   { ...DISTINCT_EMPIRE_COLOURS_ENTRY, createdAt: 1795805465925 },
+  { ...DRONE_EXPLORE_R3_ENTRY, createdAt: 1795816268758 },
   { ...GUIDE_PROFILE_R3_ENTRY, createdAt: 1795816165167 },
 ];

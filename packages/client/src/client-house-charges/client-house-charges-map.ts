@@ -11,8 +11,20 @@ import { metropolisHighlight } from "./client-house-charges-landmass.js";
 import { regionChargeTileKeys } from "./client-house-charges-garrison-many.js";
 
 export type ChargeMapPoint = { x: number; y: number };
-/** `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning). */
-export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true };
+/**
+ * `plain`: a Three Metropolises landmass, shaded only to show where it is (nothing there needs garrisoning).
+ * `owned`: the player's own tile that is not garrisoned yet (frontier), as against land someone else holds or nobody does.
+ */
+export type ChargeTintTile = ChargeMapPoint & { garrisoned: boolean; plain?: true; owned?: true };
+
+/**
+ * How both renderers shade a charge-area tile. Own ungarrisoned frontier and land the player doesn't hold need
+ * different looks: a playtester couldn't tell "mine but not garrisoned" from "not mine" until tapping.
+ * `ownOpen`: solid diagonal hatching. `unowned`: a fainter wash with sparse dots.
+ */
+export type ChargeTintStyle = "plain" | "garrisoned" | "ownOpen" | "unowned";
+export const chargeTintStyle = (tile: ChargeTintTile): ChargeTintStyle =>
+  tile.plain ? "plain" : tile.garrisoned ? "garrisoned" : tile.owned ? "ownOpen" : "unowned";
 
 type ChargeMapState = Pick<ClientState, "houseCharges" | "houseChargeFocusId" | "tiles" | "me"> & Partial<Pick<ClientState, "tilesRevision" | "garrisonMany">>;
 
@@ -102,7 +114,9 @@ const tintForArea = (state: ChargeMapState, areaKeys: Iterable<string>): ChargeT
     if (tiles.length >= MAX_TINT_TILES) break;
     const tile = state.tiles.get(key);
     if (!tile || tile.terrain !== "LAND") continue;
-    tiles.push({ x: tile.x, y: tile.y, garrisoned: tile.ownerId === state.me && tile.ownershipState === "SETTLED" });
+    const mine = tile.ownerId === state.me;
+    const garrisoned = mine && tile.ownershipState === "SETTLED";
+    tiles.push(mine && !garrisoned ? { x: tile.x, y: tile.y, garrisoned, owned: true } : { x: tile.x, y: tile.y, garrisoned });
   }
   return tiles;
 };
