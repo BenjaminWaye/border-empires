@@ -2,10 +2,39 @@ import type { ClientState } from "../client-state/client-state.js";
 import { storageGet, storageSet } from "../client-state/client-storage.js";
 import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
 
+/** The diplomacy lists whose counterparts count as met (diplomacyContactIds). */
+type DiplomacyContacts = Partial<Pick<
+  ClientState,
+  | "allies" | "activeTruces" | "truceBreaksThisSeason" | "activeAllianceBreaks" | "recentAllianceBreaks"
+  | "incomingTruceRequests" | "outgoingTruceRequests" | "incomingAllianceRequests" | "outgoingAllianceRequests"
+>>;
+
 export type MetPlayersState = Pick<
   ClientState,
   "tiles" | "tilesRevision" | "me" | "bridgeDebugSeasonId" | "metPlayerIds" | "metPlayersScannedRevision" | "metPlayersLoadedFor" | "metPlayersSavedCount"
->;
+> & DiplomacyContacts;
+
+/**
+ * Every empire you have, or just had, a pact or a pending offer with: an
+ * ally, a truce partner, either side of an offer, an alliance on notice or
+ * just broken, a truce you broke. Playtest run 5 (pt-spender): right after a
+ * truce with Elin, Diplomacy still listed her as "Not met yet" with 0 met,
+ * because only seen land counted and a pact counted only while it ran. Added
+ * to the saved set, so a partner stays met after the pact ends.
+ */
+export const diplomacyContactIds = (state: DiplomacyContacts & Pick<ClientState, "me">): string[] => {
+  const ids = [
+    ...(state.allies ?? []),
+    ...(state.activeTruces ?? []).map((truce) => truce.otherPlayerId),
+    ...(state.truceBreaksThisSeason ?? []).map((record) => record.targetPlayerId),
+    ...(state.activeAllianceBreaks ?? []).map((notice) => notice.otherPlayerId),
+    ...(state.recentAllianceBreaks ?? []).map((notice) => notice.otherPlayerId)
+  ];
+  for (const request of [...(state.incomingTruceRequests ?? []), ...(state.outgoingTruceRequests ?? []), ...(state.incomingAllianceRequests ?? []), ...(state.outgoingAllianceRequests ?? [])]) {
+    ids.push(request.fromPlayerId, request.toPlayerId);
+  }
+  return ids.filter((id) => isMeetablePlayerId(id, state.me));
+};
 
 // Barbarians / Planetary Defense are environment, not diplomatic counterparts.
 export const isMeetablePlayerId = (ownerId: string | undefined, me: string | undefined): ownerId is string =>
@@ -78,7 +107,8 @@ const ensureLoaded = (state: MetPlayersState): void => {
 };
 
 /**
- * "Met" = you have seen a tile owned by that player this season. The set only
+ * "Met" = you have seen a tile owned by that player this season, or had a
+ * pact or offer with them (diplomacyContactIds). The set only
  * ever grows within a season (a player you saw and later lost sight of, or
  * whose border tiles were captured, stays met) and is bounded by the player
  * count. New sightings come from `state.tiles`, memoized on `tilesRevision`,
@@ -87,11 +117,14 @@ const ensureLoaded = (state: MetPlayersState): void => {
  */
 export const refreshMetPlayerIds = (state: MetPlayersState): ReadonlySet<string> => {
   ensureLoaded(state);
-  if (state.metPlayersScannedRevision === state.tilesRevision) return state.metPlayerIds;
-  for (const tile of state.tiles.values()) {
-    if (isMeetablePlayerId(tile.ownerId, state.me)) state.metPlayerIds.add(tile.ownerId);
+  // Pacts and offers are short lists, read every time: they change without a tile revision.
+  for (const id of diplomacyContactIds(state)) state.metPlayerIds.add(id);
+  if (state.metPlayersScannedRevision !== state.tilesRevision) {
+    for (const tile of state.tiles.values()) {
+      if (isMeetablePlayerId(tile.ownerId, state.me)) state.metPlayerIds.add(tile.ownerId);
+    }
+    state.metPlayersScannedRevision = state.tilesRevision;
   }
-  state.metPlayersScannedRevision = state.tilesRevision;
   // The set only grows, so a size change means new sightings to save.
   if (isLoaded(state) && state.metPlayerIds.size !== state.metPlayersSavedCount) save(state);
   return state.metPlayerIds;
