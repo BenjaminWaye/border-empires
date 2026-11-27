@@ -81,7 +81,9 @@ describe("hosting HTTP routes", () => {
     expect(unconfirmed.statusCode).toBe(400);
     expect(h.store.getSector(sectorId)?.state).toBe("open");
     expect((await call("GET", `/hosting/sectors/${sectorId}/withdrawal`, "stranger")).statusCode).toBe(404);
-    const done = await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", { confirm: true });
+    // Confirmed, but not for the purchase that was quoted: refused.
+    expect((await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", { confirm: true, purchaseKey: "other" })).statusCode).toBe(409);
+    const done = await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", { confirm: true, purchaseKey: (quoted.json() as { quote: { purchaseKey: string } }).quote.purchaseKey });
     expect(done.json()).toMatchObject({ ok: true, withdrawal: { refundCents: 1933 } });
     expect(h.store.getSector(sectorId)?.state).toBe("refunded");
     expect((await call("GET", `/hosting/sectors/${sectorId}/withdrawal`, "host")).statusCode).toBe(409);

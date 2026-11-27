@@ -71,6 +71,7 @@ export type HostingAlertKind =
   | "payment_dispute"
   | "payment_dispute_closed"
   | "partial_refund"
+  | "withdrawal"
   | "payment_for_unknown_sector";
 
 /** Tells the owner. Must never throw. */

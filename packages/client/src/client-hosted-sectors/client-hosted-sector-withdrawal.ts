@@ -26,11 +26,15 @@ export const withdrawalConfirmHtml = (sectorId: string, quote: HostedWithdrawalQ
       <p>Your purchase ends now: if you paid for the whole sector, it closes for every member once its results are saved; if you paid a share, the sector keeps running for the others.</p>
       <div class="hosted-sector-form-actions">
         <button type="button" class="panel-btn" data-hosted-sector-withdraw-cancel>Keep my purchase</button>
-        <button type="button" class="panel-btn" data-hosted-sector-withdraw-confirm="${id}">Confirm withdrawal</button>
+        <button type="button" class="panel-btn" data-hosted-sector-withdraw-confirm="${id}" data-hosted-sector-purchase="${escapeHtml(quote.purchaseKey)}">Confirm withdrawal</button>
       </div>
+      <p class="hosted-sector-error" data-hosted-sector-withdrawal-error role="alert" hidden></p>
     </div>`;
 };
 
 /** Shown after the withdrawal is recorded. The emailed copy follows (plan 8c). */
-export const withdrawalReceivedNotice = (refundCents: number, at: number): string =>
-  `We received your withdrawal on ${new Date(at).toUTCString()}. ${usd(refundCents)} is on its way back to your card.`;
+export const withdrawalReceivedNotice = (refundCents: number, at: number, refundPending: boolean): string =>
+  `We received your withdrawal on ${new Date(at).toISOString().slice(0, 16).replace("T", " ")} UTC. ` +
+  (refundPending
+    ? `${usd(refundCents)} will be refunded to your card within 14 days; the refund could not be sent yet and is retried automatically.`
+    : `${usd(refundCents)} has been sent back to your card.`);

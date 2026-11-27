@@ -256,7 +256,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
     /** The withdrawal's confirmation step: what would be refunded. Nothing is done. */
     quoteWithdrawal: (account: HostingAccount, sectorId: string) => withdrawal.quote(account.uid, sectorId),
     /** A confirmed withdrawal: refunds the price less the days used and closes the purchase. */
-    withdraw: (account: HostingAccount, sectorId: string) => withdrawal.withdraw(account.uid, sectorId),
+    withdraw: (account: HostingAccount, sectorId: string, purchaseKey: unknown) => withdrawal.withdraw(account.uid, sectorId, purchaseKey),
 
     async issueTicket(account: HostingAccount, sectorId: string): Promise<HostingResult<{ ticket: string; expiresAt: number; wsUrl: string }>> {
       const sector = store.getSector(sectorId);

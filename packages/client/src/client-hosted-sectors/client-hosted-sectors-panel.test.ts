@@ -27,8 +27,8 @@ const makeDeps = (overrides: Partial<HostedSectorsPanelDeps> = {}) => {
     createInvite: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ code: string }>> => ({ ok: true, code: "invite1" })),
     openFundingBar: vi.fn(async (_options: HostedSectorSummary["options"]): Promise<HostingApiResult<{ sector: HostedSectorSummary }>> => ({ ok: true, sector: sector({ state: "funding", role: "host" }) })),
     contribute: vi.fn(async (_sectorId: string, _amountCents: number, _consent: unknown): Promise<HostingApiResult<{ checkoutUrl: string }>> => ({ ok: true, checkoutUrl: "https://checkout.stripe.com/c/pay/share1" })),
-    quoteWithdrawal: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ quote: HostedWithdrawalQuote }>> => ({ ok: true, quote: { paidCents: 2000, daysOpen: 3, deductionCents: 200, refundCents: 1800, deadline: 0 } })),
-    withdraw: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number }>> => ({ ok: true, refundCents: 1800, requestedAt: Date.UTC(2026, 10, 26, 12) }))
+    quoteWithdrawal: vi.fn(async (_sectorId: string): Promise<HostingApiResult<{ quote: HostedWithdrawalQuote }>> => ({ ok: true, quote: { purchaseKey: "s-abc", paidCents: 2000, daysOpen: 3, deductionCents: 200, refundCents: 1800, deadline: 0 } })),
+    withdraw: vi.fn(async (_sectorId: string, _purchaseKey: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number; refundPending: boolean }>> => ({ ok: true, refundCents: 1800, requestedAt: Date.UTC(2026, 10, 26, 12), refundPending: false }))
   };
   const navigate = vi.fn();
   const deps: HostedSectorsPanelDeps = { api, isSignedIn: () => true, navigate, storage, pageIsLocal: false, shareOrigin: "https://play.borderempires.com", refreshMs: 0, ...overrides };
@@ -264,9 +264,13 @@ describe("my sectors panel", () => {
 
     document.querySelector<HTMLButtonElement>("[data-hosted-sector-withdraw]")?.click();
     await vi.waitFor(() => expect(document.querySelector("[data-hosted-sector-withdraw-confirm]")).not.toBeNull());
-    document.querySelector<HTMLElement>("[data-hosted-sector-withdraw-confirm]")?.click();
-    await vi.waitFor(() => expect(h.api.withdraw).toHaveBeenCalledWith("s-abc"));
-    await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/We received your withdrawal on .*2026.*USD 18 is on its way back/));
+    // A double click sends one request, for the purchase that was quoted.
+    const confirm = document.querySelector<HTMLElement>("[data-hosted-sector-withdraw-confirm]");
+    confirm?.click();
+    confirm?.click();
+    await vi.waitFor(() => expect(h.api.withdraw).toHaveBeenCalledWith("s-abc", "s-abc"));
+    expect(h.api.withdraw).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(document.querySelector(".hosted-sector-notice")?.textContent).toMatch(/We received your withdrawal on 2026-11-26 12:00 UTC.*USD 18 has been sent back/));
     panel.close();
   });
 

@@ -121,10 +121,11 @@ export const registerHostingRoutes = (app: FastifyInstance, deps: HostingRoutesD
     const account = await authenticate(request, reply);
     const sectorId = account ? idParam(request, reply, "sectorId") : undefined;
     if (!account || !sectorId) return reply;
-    if ((request.body as { confirm?: unknown } | undefined)?.confirm !== true) {
+    const body = (request.body ?? {}) as { confirm?: unknown; purchaseKey?: unknown };
+    if (body.confirm !== true) {
       return reply.code(400).send({ ok: false, code: "CONFIRMATION_REQUIRED", message: "Confirm that you want to withdraw." });
     }
-    return send(reply, await service.withdraw(account, sectorId));
+    return send(reply, await service.withdraw(account, sectorId, body.purchaseKey));
   });
 
   app.post("/hosting/invites/:code/accept", async (request, reply) => {

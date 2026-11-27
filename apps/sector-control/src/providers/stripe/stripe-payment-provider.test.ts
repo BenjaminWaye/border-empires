@@ -64,6 +64,32 @@ describe("Stripe payment provider", () => {
     expect(await provider.getCheckoutStatus("cs_open")).toBe("open");
   });
 
+  it("refunds part of a payment once, even after Stripe forgets the idempotency key, and never more than is left", async () => {
+    let refunds: Array<Record<string, unknown>> = [];
+    const stripe = fakeStripeFetch((call) => {
+      if (call.path.startsWith("/checkout/sessions/")) return { body: { id: "cs_1", payment_intent: "pi_1", client_reference_id: "s-abc" } };
+      if (call.path.startsWith("/refunds?")) return { body: { data: refunds } };
+      if (call.path === "/payment_intents/pi_1") return { body: { id: "pi_1", amount_received: 2000 } };
+      return { body: { id: "re_new" } };
+    });
+    const provider = createStripePaymentProvider(createStripeApi({ secretKey: "sk_test_x", fetchImpl: stripe.fetchImpl }), CONFIG);
+    await provider.refund("cs_1", { amountCents: 1933, idempotencyKey: "withdrawal-s-abc" });
+    expect(stripe.calls.at(-1)).toMatchObject({
+      method: "POST", path: "/refunds",
+      params: { payment_intent: "pi_1", amount: "1933", "metadata[withdrawal]": "withdrawal-s-abc" },
+      headers: { "idempotency-key": "refund-withdrawal-s-abc-1933" }
+    });
+    // A day later the key has expired at Stripe, but the refund it made is found by its metadata.
+    refunds = [{ amount: 1933, status: "succeeded", metadata: { withdrawal: "withdrawal-s-abc" } }];
+    const before = stripe.calls.length;
+    await provider.refund("cs_1", { amountCents: 1933, idempotencyKey: "withdrawal-s-abc" });
+    expect(stripe.calls.slice(before).some((call) => call.method === "POST")).toBe(false);
+    // The owner refunded USD 10 by hand first: only what is left goes back.
+    refunds = [{ amount: 1000, status: "succeeded", metadata: {} }];
+    await provider.refund("cs_1", { amountCents: 1933, idempotencyKey: "withdrawal-s-xyz" });
+    expect(stripe.calls.at(-1)).toMatchObject({ method: "POST", path: "/refunds", params: { amount: "1000" } });
+  });
+
   it("refunds the session's payment in full, once, and treats an earlier refund as done", async () => {
     let alreadyRefunded = false;
     const stripe = fakeStripeFetch((call) => {
@@ -76,10 +102,7 @@ describe("Stripe payment provider", () => {
     expect(stripe.calls[1]?.params.amount).toBeUndefined();
     alreadyRefunded = true;
     await expect(provider.refund("cs_1")).resolves.toBeUndefined();
-    // A withdrawal refunds part of the payment, with its own key, so a retry cannot refund twice.
-    alreadyRefunded = false;
-    await provider.refund("cs_1", { amountCents: 1933, idempotencyKey: "withdrawal-s-abc" });
-    expect(stripe.calls.at(-1)).toMatchObject({ method: "POST", path: "/refunds", params: { payment_intent: "pi_1", amount: "1933" }, headers: { "idempotency-key": "refund-withdrawal-s-abc-1933" } });
+
   });
 
   it("throws on any other refund failure, so the reconciler tries again", async () => {

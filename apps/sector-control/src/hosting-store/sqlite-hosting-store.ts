@@ -110,6 +110,17 @@ const toContribution = (row: ContributionRow): ContributionRecord => {
 
 const CONTRIBUTION_PATCH_COLUMNS: Record<keyof ContributionPatch, string> = { state: "state", amountCents: "amount_cents", paymentRef: "payment_ref", checkoutUrl: "checkout_url" };
 
+type WithdrawalRow = {
+  withdrawal_key: string; sector_id: string; contribution_id: string | null; account_uid: string; payment_ref: string;
+  paid_cents: number; deduction_cents: number; refund_cents: number; requested_at: number; refunded_at: number | null;
+};
+
+const toWithdrawal = (row: WithdrawalRow): WithdrawalRecord => ({
+  withdrawalKey: row.withdrawal_key, sectorId: row.sector_id, ...(row.contribution_id !== null ? { contributionId: row.contribution_id } : {}),
+  accountUid: row.account_uid, paymentRef: row.payment_ref, paidCents: row.paid_cents, deductionCents: row.deduction_cents,
+  refundCents: row.refund_cents, requestedAt: row.requested_at, ...(row.refunded_at !== null ? { refundedAt: row.refunded_at } : {})
+});
+
 const toInvite = (row: InviteRow): SectorInvite => ({
   code: row.code, sectorId: row.sector_id, createdBy: row.created_by, createdAt: row.created_at, expiresAt: row.expires_at,
   ...(row.revoked_at !== null ? { revokedAt: row.revoked_at } : {})
@@ -186,11 +197,14 @@ export class SqliteHostingStore implements HostingStore {
         sector_id TEXT NOT NULL,
         contribution_id TEXT,
         account_uid TEXT NOT NULL,
+        payment_ref TEXT NOT NULL,
         paid_cents INTEGER NOT NULL,
         deduction_cents INTEGER NOT NULL,
         refund_cents INTEGER NOT NULL,
-        requested_at INTEGER NOT NULL
+        requested_at INTEGER NOT NULL,
+        refunded_at INTEGER
       );
+      CREATE INDEX IF NOT EXISTS hosted_withdrawals_pending_idx ON hosted_withdrawals (requested_at) WHERE refunded_at IS NULL;
       CREATE TABLE IF NOT EXISTS hosted_payment_disputes (
         dispute_id TEXT PRIMARY KEY,
         account_uid TEXT NOT NULL,
@@ -276,6 +290,10 @@ export class SqliteHostingStore implements HostingStore {
     return Number(result.changes) > 0;
   }
 
+  removeMember(sectorId: string, accountUid: string): boolean {
+    return Number(this.db.prepare(`DELETE FROM hosted_sector_members WHERE sector_id = ? AND account_uid = ?`).run(sectorId, accountUid).changes) > 0;
+  }
+
   getMember(sectorId: string, accountUid: string): SectorMember | undefined {
     const row = this.db
       .prepare(`SELECT sector_id, account_uid, role, joined_at FROM hosted_sector_members WHERE sector_id = ? AND account_uid = ?`)
@@ -349,20 +367,23 @@ export class SqliteHostingStore implements HostingStore {
 
   insertWithdrawal(withdrawal: WithdrawalRecord): boolean {
     const result = this.db
-      .prepare(`INSERT OR IGNORE INTO hosted_withdrawals (withdrawal_key, sector_id, contribution_id, account_uid, paid_cents, deduction_cents, refund_cents, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(withdrawal.withdrawalKey, withdrawal.sectorId, withdrawal.contributionId ?? null, withdrawal.accountUid, withdrawal.paidCents, withdrawal.deductionCents, withdrawal.refundCents, withdrawal.requestedAt);
+      .prepare(`INSERT OR IGNORE INTO hosted_withdrawals (withdrawal_key, sector_id, contribution_id, account_uid, payment_ref, paid_cents, deduction_cents, refund_cents, requested_at, refunded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(withdrawal.withdrawalKey, withdrawal.sectorId, withdrawal.contributionId ?? null, withdrawal.accountUid, withdrawal.paymentRef, withdrawal.paidCents,
+        withdrawal.deductionCents, withdrawal.refundCents, withdrawal.requestedAt, withdrawal.refundedAt ?? null);
     return Number(result.changes) > 0;
   }
 
   getWithdrawal(withdrawalKey: string): WithdrawalRecord | undefined {
-    const row = this.db.prepare(`SELECT * FROM hosted_withdrawals WHERE withdrawal_key = ?`).get(withdrawalKey) as
-      | { withdrawal_key: string; sector_id: string; contribution_id: string | null; account_uid: string; paid_cents: number; deduction_cents: number; refund_cents: number; requested_at: number }
-      | undefined;
-    if (!row) return undefined;
-    return {
-      withdrawalKey: row.withdrawal_key, sectorId: row.sector_id, ...(row.contribution_id !== null ? { contributionId: row.contribution_id } : {}),
-      accountUid: row.account_uid, paidCents: row.paid_cents, deductionCents: row.deduction_cents, refundCents: row.refund_cents, requestedAt: row.requested_at
-    };
+    const row = this.db.prepare(`SELECT * FROM hosted_withdrawals WHERE withdrawal_key = ?`).get(withdrawalKey) as WithdrawalRow | undefined;
+    return row ? toWithdrawal(row) : undefined;
+  }
+
+  markWithdrawalRefunded(withdrawalKey: string, at: number): boolean {
+    return Number(this.db.prepare(`UPDATE hosted_withdrawals SET refunded_at = ? WHERE withdrawal_key = ? AND refunded_at IS NULL`).run(at, withdrawalKey).changes) > 0;
+  }
+
+  listPendingWithdrawals(): WithdrawalRecord[] {
+    return (this.db.prepare(`SELECT * FROM hosted_withdrawals WHERE refunded_at IS NULL ORDER BY requested_at`).all() as WithdrawalRow[]).map(toWithdrawal);
   }
 
   openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean {

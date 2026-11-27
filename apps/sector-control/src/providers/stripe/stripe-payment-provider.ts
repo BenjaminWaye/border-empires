@@ -77,12 +77,33 @@ export const createStripePaymentProvider = (api: StripeApi, config: StripePaymen
     },
 
     async refund(paymentRef, partial) {
+      /**
+       * How much of a partial refund still to send: 0 when a refund with this
+       * key exists already; otherwise the amount asked, capped at what has not
+       * been refunded yet (the owner may have refunded part by hand).
+       */
+      const partialRefundAmount = async (paymentIntent: string, wanted: { amountCents: number; idempotencyKey: string }): Promise<number> => {
+        const listed = await api.get(`/refunds?payment_intent=${encodeURIComponent(paymentIntent)}&limit=100`);
+        const live = ((listed.data ?? []) as Array<{ amount?: unknown; status?: unknown; metadata?: Record<string, unknown> }>)
+          .filter((refund) => refund.status !== "failed" && refund.status !== "canceled");
+        if (live.some((refund) => refund.metadata?.withdrawal === wanted.idempotencyKey)) return 0;
+        const intent = await api.get(`/payment_intents/${encodeURIComponent(paymentIntent)}`);
+        const refunded = live.reduce((sum, refund) => sum + (typeof refund.amount === "number" ? refund.amount : 0), 0);
+        const received = typeof intent.amount_received === "number" ? intent.amount_received : 0;
+        return Math.min(wanted.amountCents, received - refunded);
+      };
       const session = await api.get(`/checkout/sessions/${encodeURIComponent(paymentRef)}`);
       const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : undefined;
       if (!paymentIntent) throw new Error(`Checkout Session ${paymentRef} has no payment to refund`);
       try {
         const params: Record<string, string> = { payment_intent: paymentIntent, "metadata[sectorId]": String(session.client_reference_id ?? "") };
-        if (partial) params.amount = String(partial.amountCents);
+        if (partial) {
+          const amount = await partialRefundAmount(paymentIntent, partial);
+          // Made already (Stripe keeps idempotency keys for 24 hours only), or nothing left to refund.
+          if (amount <= 0) return;
+          params.amount = String(amount);
+          params["metadata[withdrawal]"] = partial.idempotencyKey;
+        }
         await api.post("/refunds", params, partial ? `refund-${partial.idempotencyKey}-${partial.amountCents}` : `refund-${paymentRef}`);
       } catch (error) {
         // Refunded already (by hand in the dashboard, or by an earlier attempt): the goal is met.

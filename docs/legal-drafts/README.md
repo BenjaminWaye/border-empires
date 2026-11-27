@@ -105,7 +105,12 @@ acknowledgement (8c) and saving results (8d).
    within 14 days; close the sector after saving results; send an
    acknowledgement. **Built 2026-11-26 (8b-2)**, except saving results first
    (8d) and the emailed acknowledgement (8c). The deduction runs to the
-   withdrawal request; a sector already closed cannot be withdrawn from.
+   withdrawal request; a sector already closed cannot be withdrawn from. The
+   purchase closes when the withdrawal is received, and a refund that fails is
+   retried until it is accepted. The period is counted as 15 times 24 hours
+   from payment, which always reaches the end of the 14th day after the day of
+   payment; the lawyer should confirm that for a share it starts when the bar
+   filled and the share was charged, not when it was first held.
 7. **Partial refunds.** The payment provider can only make a full refund
    (`PaymentProvider.refund` in `apps/sector-control/src/providers/providers.ts`),
    and any refund event moves the sector to `refunded`, after which the server

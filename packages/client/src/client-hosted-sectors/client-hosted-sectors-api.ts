@@ -35,7 +35,7 @@ export type HostedSectorSummary = {
   canWithdraw?: boolean;
 };
 
-export type HostedWithdrawalQuote = { paidCents: number; daysOpen: number; deductionCents: number; refundCents: number; deadline: number };
+export type HostedWithdrawalQuote = { purchaseKey: string; paidCents: number; daysOpen: number; deductionCents: number; refundCents: number; deadline: number };
 
 export type HostedSectorTicket = { ticket: string; expiresAt: number; wsUrl: string };
 
@@ -159,18 +159,19 @@ export const createHostingApi = (deps: HostingApiDeps) => {
       if ("ok" in reply) return reply;
       const quote = okBody(reply)?.quote as Record<string, unknown> | undefined;
       const fields = ["paidCents", "daysOpen", "deductionCents", "refundCents", "deadline"] as const;
-      return quote && fields.every((field) => typeof quote[field] === "number")
+      return quote && typeof quote.purchaseKey === "string" && fields.every((field) => typeof quote[field] === "number")
         ? { ok: true, quote: quote as unknown as HostedWithdrawalQuote }
         : failure(reply.body, "Withdrawal is not available right now.");
     },
 
     /** The confirmed withdrawal. */
-    async withdraw(sectorId: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number }>> {
-      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/withdrawal`, { confirm: true });
+    async withdraw(sectorId: string, purchaseKey: string): Promise<HostingApiResult<{ refundCents: number; requestedAt: number; refundPending: boolean }>> {
+      const reply = await call("POST", `/hosting/sectors/${encodeURIComponent(sectorId)}/withdrawal`, { confirm: true, purchaseKey });
       if ("ok" in reply) return reply;
-      const withdrawal = okBody(reply)?.withdrawal as { refundCents?: unknown; requestedAt?: unknown } | undefined;
+      const body = okBody(reply);
+      const withdrawal = body?.withdrawal as { refundCents?: unknown; requestedAt?: unknown } | undefined;
       return withdrawal && typeof withdrawal.refundCents === "number" && typeof withdrawal.requestedAt === "number"
-        ? { ok: true, refundCents: withdrawal.refundCents, requestedAt: withdrawal.requestedAt }
+        ? { ok: true, refundCents: withdrawal.refundCents, requestedAt: withdrawal.requestedAt, refundPending: body?.refundPending === true }
         : failure(reply.body, "Your withdrawal could not be sent. Nothing was changed; please try again.");
     },
 

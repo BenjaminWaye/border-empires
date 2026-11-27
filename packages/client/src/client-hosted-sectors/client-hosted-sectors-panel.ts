@@ -270,14 +270,18 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
   };
 
   /** Step two: the confirmed withdrawal, then the list with an acknowledgement. */
-  const confirmWithdrawal = async (sectorId: string): Promise<void> => {
-    const done = await deps.api.withdraw(sectorId);
+  const confirmWithdrawal = async (button: HTMLButtonElement, sectorId: string, purchaseKey: string): Promise<void> => {
+    // One request at a time: a second click would otherwise send it again.
+    if (button.disabled) return;
+    button.disabled = true;
+    const done = await deps.api.withdraw(sectorId, purchaseKey);
     if (!done.ok) {
-      const box = panel?.querySelector<HTMLElement>("[data-hosted-sector-withdrawal]");
-      if (box) box.insertAdjacentHTML("beforeend", `<p class="hosted-sector-error" role="alert">${escapeHtml(done.message)}</p>`);
+      button.disabled = false;
+      const error = panel?.querySelector<HTMLElement>("[data-hosted-sector-withdrawal-error]");
+      if (error) { error.textContent = done.message; error.hidden = false; }
       return;
     }
-    await showList(withdrawalReceivedNotice(done.refundCents, done.requestedAt));
+    await showList(withdrawalReceivedNotice(done.refundCents, done.requestedAt, done.refundPending));
   };
 
   const enter = async (sectorId: string): Promise<void> => {
@@ -321,8 +325,10 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (payButton?.dataset.hostedSectorPay) pay(checkoutUrls.get(payButton.dataset.hostedSectorPay));
       const withdraw = target.closest<HTMLElement>("[data-hosted-sector-withdraw]")?.dataset.hostedSectorWithdraw;
       if (withdraw) void startWithdrawal(withdraw);
-      const confirmWithdraw = target.closest<HTMLElement>("[data-hosted-sector-withdraw-confirm]")?.dataset.hostedSectorWithdrawConfirm;
-      if (confirmWithdraw) void confirmWithdrawal(confirmWithdraw);
+      const confirmWithdraw = target.closest<HTMLButtonElement>("[data-hosted-sector-withdraw-confirm]");
+      if (confirmWithdraw?.dataset.hostedSectorWithdrawConfirm && confirmWithdraw.dataset.hostedSectorPurchase) {
+        void confirmWithdrawal(confirmWithdraw, confirmWithdraw.dataset.hostedSectorWithdrawConfirm, confirmWithdraw.dataset.hostedSectorPurchase);
+      }
       if (target.closest("[data-hosted-sector-withdraw-cancel]")) void showList();
       const inviteButton = target.closest<HTMLElement>("[data-hosted-sector-invite]");
       if (inviteButton?.dataset.hostedSectorInvite) void invite(inviteButton.dataset.hostedSectorInvite);
