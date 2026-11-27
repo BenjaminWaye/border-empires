@@ -13,6 +13,7 @@ import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js"
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
 import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
+import { awaitProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
 import { updateFirebaseDisplayNameBestEffort, updateSettingsColor, updateSettingsDisplayName } from "./client-hud-settings.js";
@@ -42,7 +43,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
       <div class="auth-panel-subtitle">Once per Sector Contest.</div>
     </div>
     <div class="profile-name-field">
-      <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${escapeAttr(state.meName || "")}" data-profile-edit-name />
+      <input class="auth-style-input" type="text" placeholder="${escapeAttr(state.meName || "Display name")}" autocomplete="nickname" maxlength="24" value="" data-profile-edit-name />
       ${profileNameCountHtml()}
     </div>
     <div class="auth-color-block">
@@ -125,7 +126,10 @@ export const bindProfileEditModal = (args: {
   });
   colorInput.oninput = syncSwatches;
 
+  let cancelWait: (() => void) | undefined;
   const close = (): void => {
+    cancelWait?.();
+    cancelWait = undefined;
     hideConfirm();
     setProfileEditOpen(false);
     overlayEl.innerHTML = "";
@@ -136,6 +140,19 @@ export const bindProfileEditModal = (args: {
 
   const save = async (newName: string, newColor: string, nameChanged: boolean, colorChanged: boolean): Promise<void> => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
+    // Stay open until the server answers: it closes on the confirming
+    // PLAYER_UPDATE, or shows the refusal here (client-profile-edit-outcome.ts).
+    saveBtn.disabled = true;
+    setStatus("Saving…");
+    cancelWait = awaitProfileEditOutcome((outcome) => {
+      cancelWait = undefined;
+      if (outcome.ok) {
+        close();
+        return;
+      }
+      saveBtn.disabled = false;
+      setStatus(outcome.reason);
+    });
     // Neither update function reports success/failure back to its caller
     // (the server confirms asynchronously via PLAYER_UPDATE), so track
     // whether the synchronous send itself failed (e.g. connection not
@@ -169,13 +186,20 @@ export const bindProfileEditModal = (args: {
         setPendingColorChange
       });
     }
-    if (sendFailed) setStatus("Not sent");
-    else close();
+    if (sendFailed) {
+      cancelWait?.();
+      cancelWait = undefined;
+      saveBtn.disabled = false;
+      setStatus("Not sent");
+    }
   };
 
   saveBtn.onclick = (): void => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
-    const newName = nameInput.value.trim();
+    // The box starts empty (current name as placeholder): a pre-filled box let a
+    // tap put the caret at the end, so typing appended to the old name and
+    // maxlength cut it ("House DovetailHouse Dove", 2026-11 playtest).
+    const newName = nameInput.value.trim() || state.meName;
     const newColor = colorInput.value.trim();
     if (newName.length < 2) {
       setStatus("Name too short");
