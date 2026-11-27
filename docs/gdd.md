@@ -121,10 +121,15 @@ self-contained and fair.
   clear of every rival's reach; a reserved place gets in even when the next
   contest is at its player cap; a House redeploying after elimination also
   needs a viable site; and the join screen is always shown, never skipped.
+  *Decided 2026-11-27 (owner):* choosing to wait keeps the player on a
+  waiting screen, not an empty map: the Sector Contests running now, the
+  offer to fund a new sector, a way to be emailed when the next contest
+  starts, and the option to land after all. Waiting does not reserve a place.
 - **The sector list** (decided 2026-11-27): the join screen lists the Sector
   Contests running now that the player can play in. A full one (every House
   place taken, or no viable landing site) is greyed out. If none has room,
-  the player can start funding a new sector. The host of a hosted sector is
+  or the player chose to wait for the next contest (decided 2026-11-27), the
+  player can start funding a new sector. The host of a hosted sector is
   not notified.
 - **When the free sector is full:** a waiting list for the next free contest,
   plus an offer to fund a new sector (§8). The owner decides case by case

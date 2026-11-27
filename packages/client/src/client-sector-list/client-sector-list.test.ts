@@ -133,3 +133,22 @@ describe("join card when the sector is at its House cap (review regression)", ()
     expect(overlayEl.querySelector(".sector-list-row.is-full")?.textContent).toContain("every House place is taken");
   });
 });
+
+describe("sectorListHtml on the waiting view", () => {
+  const openRow = buildSectorListRows({ publicBoard: { status: "active", houses: 3, maxHouses: 40, full: false, noLandingSite: false } });
+
+  it("offers funding even while a sector has room", () => {
+    const html = sectorListHtml(openRow, true, true);
+    expect(html).toContain("Fund a new sector");
+    expect(html).not.toContain("Every Sector Contest is full");
+  });
+
+  it("never offers funding where funding is not available", () => {
+    expect(sectorListHtml(openRow, false, true)).not.toContain("Fund a new sector");
+  });
+
+  it("offers funding with no sectors listed", () => {
+    expect(sectorListHtml([], true, true)).toContain("Fund a new sector");
+    expect(sectorListHtml([], false, true)).toBe("");
+  });
+});

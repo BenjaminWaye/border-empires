@@ -7,7 +7,8 @@ import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 const baseState = () => ({
   needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-3", joinSeasonPending: false, seasonPending: false,
   seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [], profileSetupRequired: false,
-  seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "", sectorListRows: [], sectorListLoadedFor: ""
+  seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "", sectorListRows: [], sectorListLoadedFor: "",
+  joinSeasonWaiting: false, authIsGuest: false, authEmail: ""
 });
 
 afterEach(() => document.getElementById("join-season-reopen")?.remove());
@@ -21,13 +22,15 @@ describe("join card reopen button", () => {
     expect(document.getElementById("join-season-reopen")).toBeNull();
 
     (overlayEl.querySelector("#join-season-wait") as HTMLButtonElement).click();
+    expect(state.joinSeasonOverlayOpen).toBe(true); // the waiting view (client-join-season-waiting/)
+    (overlayEl.querySelector("#join-season-close") as HTMLButtonElement).click();
     expect(state.joinSeasonOverlayOpen).toBe(false);
     const reopen = document.getElementById("join-season-reopen") as HTMLButtonElement;
     expect(reopen.textContent).toBe("Join this Sector Contest");
 
     reopen.click();
     expect(state.joinSeasonOverlayOpen).toBe(true);
-    expect(overlayEl.querySelector("#join-season-confirm")).not.toBeNull();
+    expect(overlayEl.querySelector("#join-season-wait")).not.toBeNull(); // back on the join card, not the waiting view
     expect(document.getElementById("join-season-reopen")).toBeNull();
   });
 
