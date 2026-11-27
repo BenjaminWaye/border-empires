@@ -16,11 +16,12 @@ import {
   type StorageLike
 } from "./client-hosted-sector-session.js";
 import { fundingRowHtml, readChipInCents } from "./client-hosted-sector-funding.js";
+import { withdrawalConfirmHtml, withdrawalReceivedNotice, withdrawButtonHtml } from "./client-hosted-sector-withdrawal.js";
 import { CHECKOUT_CONSENT, hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 
 export type HostedSectorsPanelDeps = {
-  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite" | "openFundingBar" | "contribute">;
+  api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite" | "openFundingBar" | "contribute" | "quoteWithdrawal" | "withdraw">;
   /** Where invite links point, for example https://play.borderempires.com. */
   shareOrigin: string;
   /** How often the list is refreshed while a sector is being prepared. 0 turns it off. */
@@ -56,7 +57,7 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
   const status = sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
   const enterable = sector.state === "open" || sector.state === "ended";
   const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open");
-  const hostActions = `${sector.role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? `<button type="button" class="panel-btn" data-hosted-sector-pay="${escapeHtml(sector.sectorId)}">Pay</button>` : ""}${invitable ? `<button type="button" class="panel-btn" data-hosted-sector-invite="${escapeHtml(sector.sectorId)}">Invite</button>` : ""}`;
+  const hostActions = `${sector.role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? `<button type="button" class="panel-btn" data-hosted-sector-pay="${escapeHtml(sector.sectorId)}">Pay</button>` : ""}${invitable ? `<button type="button" class="panel-btn" data-hosted-sector-invite="${escapeHtml(sector.sectorId)}">Invite</button>` : ""}${sector.canWithdraw ? withdrawButtonHtml(sector.sectorId) : ""}`;
   const action = sector.sectorId === activeSectorId
     ? `<span class="hosted-sector-here">You are here</span>`
     : !enterable
@@ -256,6 +257,33 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
     pay(pledged.checkoutUrl);
   };
 
+  /** Step one of a withdrawal: show what would be refunded, with a confirm button. */
+  const startWithdrawal = async (sectorId: string): Promise<void> => {
+    const quoted = await deps.api.quoteWithdrawal(sectorId);
+    if (!quoted.ok) {
+      showError(quoted.message);
+      return;
+    }
+    stopRefresh();
+    listRequest += 1;
+    setBody(withdrawalConfirmHtml(sectorId, quoted.quote));
+  };
+
+  /** Step two: the confirmed withdrawal, then the list with an acknowledgement. */
+  const confirmWithdrawal = async (button: HTMLButtonElement, sectorId: string, purchaseKey: string): Promise<void> => {
+    // One request at a time: a second click would otherwise send it again.
+    if (button.disabled) return;
+    button.disabled = true;
+    const done = await deps.api.withdraw(sectorId, purchaseKey);
+    if (!done.ok) {
+      button.disabled = false;
+      const error = panel?.querySelector<HTMLElement>("[data-hosted-sector-withdrawal-error]");
+      if (error) { error.textContent = done.message; error.hidden = false; }
+      return;
+    }
+    await showList(withdrawalReceivedNotice(done.refundCents, done.requestedAt, done.refundPending));
+  };
+
   const enter = async (sectorId: string): Promise<void> => {
     const issued = await deps.api.issueTicket(sectorId);
     if (!issued.ok) {
@@ -295,6 +323,13 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       if (resume) pay(checkoutUrls.get(`share:${resume}`));
       const payButton = target.closest<HTMLElement>("[data-hosted-sector-pay]");
       if (payButton?.dataset.hostedSectorPay) pay(checkoutUrls.get(payButton.dataset.hostedSectorPay));
+      const withdraw = target.closest<HTMLElement>("[data-hosted-sector-withdraw]")?.dataset.hostedSectorWithdraw;
+      if (withdraw) void startWithdrawal(withdraw);
+      const confirmWithdraw = target.closest<HTMLButtonElement>("[data-hosted-sector-withdraw-confirm]");
+      if (confirmWithdraw?.dataset.hostedSectorWithdrawConfirm && confirmWithdraw.dataset.hostedSectorPurchase) {
+        void confirmWithdrawal(confirmWithdraw, confirmWithdraw.dataset.hostedSectorWithdrawConfirm, confirmWithdraw.dataset.hostedSectorPurchase);
+      }
+      if (target.closest("[data-hosted-sector-withdraw-cancel]")) void showList();
       const inviteButton = target.closest<HTMLElement>("[data-hosted-sector-invite]");
       if (inviteButton?.dataset.hostedSectorInvite) void invite(inviteButton.dataset.hostedSectorInvite);
       if (target.closest("[data-hosted-sector-host]")) { stopRefresh(); listRequest += 1; setBody(hostSectorFormHtml()); }
