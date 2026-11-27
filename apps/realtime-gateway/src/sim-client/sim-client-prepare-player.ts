@@ -8,12 +8,16 @@ export type ProtoPreparePlayerAck = {
   guest_full?: boolean;
   pending?: boolean;
   scheduled_start_at?: number;
+  season_started_at?: number;
+  no_landing_site?: boolean;
 };
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 // isGuest undefined means "unknown": the simulation then leaves a player's
 // guest status alone. Only an explicit false upgrades a recorded guest.
-export type PrepareLikeOptions = { isGuest?: boolean };
-export type PrepareLikeRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: "guest" | "account" };
+// reservedPlace: the player holds a reserved place in this contest
+// (reserve-next-contest-place.ts), so JoinSeason skips the player cap.
+export type PrepareLikeOptions = { isGuest?: boolean; reservedPlace?: boolean };
+export type PrepareLikeRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: "guest" | "account"; reserved_place?: boolean };
 export type PrepareLikeResult = {
   playerId: string;
   spawned: boolean;
@@ -22,6 +26,10 @@ export type PrepareLikeResult = {
   guestFull?: boolean;
   pending?: boolean;
   scheduledStartAt?: number;
+  /** Active season's start (Unix ms), sent for a player who has not joined it yet. */
+  seasonStartedAt?: number;
+  /** JoinSeason turned a new player away: no viable landing site (GDD §6). */
+  noLandingSite?: boolean;
 };
 
 type PrepareLikeRpc = (
@@ -44,7 +52,8 @@ const callPrepareLikeRpc = (
     const request: PrepareLikeRequest = {
       player_id: playerId,
       ...(rallyAnchor ? { rally_anchor_json: JSON.stringify(rallyAnchor) } : {}),
-      ...(options.isGuest === undefined ? {} : { auth_kind: options.isGuest ? "guest" : "account" })
+      ...(options.isGuest === undefined ? {} : { auth_kind: options.isGuest ? "guest" : "account" }),
+      ...(options.reservedPlace === true ? { reserved_place: true } : {})
     };
     rpc(request, (error, response) => {
       if (error) {
@@ -63,7 +72,9 @@ const callPrepareLikeRpc = (
         full: response.full === true,
         pending: response.pending === true,
         ...(response.guest_full === true ? { guestFull: true } : {}),
-        ...(typeof response.scheduled_start_at === "number" ? { scheduledStartAt: response.scheduled_start_at } : {})
+        ...(typeof response.scheduled_start_at === "number" ? { scheduledStartAt: response.scheduled_start_at } : {}),
+        ...(typeof response.season_started_at === "number" && response.season_started_at > 0 ? { seasonStartedAt: response.season_started_at } : {}),
+        ...(response.no_landing_site === true ? { noLandingSite: true } : {})
       });
     });
   });
