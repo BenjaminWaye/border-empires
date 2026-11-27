@@ -18,6 +18,7 @@ import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
+import { guideIslandDock, type GuideIslandDock } from "./tutorial-guide-island-dock.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
@@ -190,6 +191,7 @@ let cached:
       scan: TileScan;
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
+      islandDock: GuideIslandDock | undefined;
       /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
       beaconSite?: { value: { x: number; y: number } | undefined };
     }
@@ -292,6 +294,8 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved, reach: resolveMyReach(state) }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: footholdTargetsFor(state),
+      // Only while the foothold is still being taught: a big empire's walk would just run out of budget.
+      islandDock: footholdSaved ? undefined : guideIslandDock(state.tiles, state.me, state.homeTile),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
@@ -335,6 +339,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     exploreTarget: () => exploreTargetOf(state),
     scoutFlights: scoutFlightsOf(state),
     ...townLeadInFog(state),
+    ...(current.islandDock ? { islandDock: current.islandDock } : {}),
     // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
     nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };
