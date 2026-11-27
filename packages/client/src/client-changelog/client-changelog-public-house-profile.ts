@@ -11,3 +11,13 @@ export const PUBLIC_HOUSE_PROFILE_ENTRY: Omit<ClientChangelogEntry, "createdAt">
     "Stop sharing on your profile takes the page down"
   ]
 };
+
+export const PUBLIC_HOUSE_SHARE_STATE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
+  introducedIn: "2026.11.26",
+  title: "Profile sharing buttons fixed",
+  why: "Stop sharing showed before you had shared anything, and guests got a dead end.",
+  changes: [
+    "Stop sharing only appears while your profile link is live",
+    "Guests see Save your empire to share, which opens the save screen"
+  ]
+};

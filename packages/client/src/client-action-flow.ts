@@ -74,7 +74,7 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
-import { requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
+import { handleTownPlotAction, requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-plot-garrison.js";
 import { processAutoSettleTargetsForState } from "./client-auto-settle-targets/client-process-auto-settle-targets.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
@@ -1209,7 +1209,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
-    if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
+    if (handleTownPlotAction(actionId, selected, { state, sendGameMessage, requestSettlement, now: Date.now() })) return hideTileActionMenu(); // growth + "Garrison N plots"
     if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, viewForTile: tileMenuViewForTile, queueDevelopmentAction, renderPlacementOverlay: () => { renderPlacementOverlay(); renderHud(); } })) return;
     if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);

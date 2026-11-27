@@ -1,6 +1,7 @@
 import { MUSTER_ATTACK_COST, musterFlagCap } from "@border-empires/shared";
 import { predictedMusterAmount, type MusterRateCache } from "./client-muster-prediction/client-muster-prediction.js";
 import { musterFlagDesignFor } from "./client-cosmetics/client-cosmetics.js";
+import { crestFor } from "./client-house-crest/client-house-crest.js";
 import type { MusterOverlay } from "./client-map-3d-muster-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -52,6 +53,7 @@ export const addMusterFlagForTile = (
   const fillRatio = musterFillRatioForTile(tile, place.tileKey, state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile);
   overlay.addMuster(
     place.sceneX, place.sceneZ, place.surfaceY, fillRatio, deps.effectiveOverlayColor(muster.ownerId), muster.mode === "ADVANCE",
-    place.wx, place.wy, muster.ownerId === state.me ? place.siegeResolvesAt : 0, musterFlagDesignFor(state, muster.ownerId)
+    place.wx, place.wy, muster.ownerId === state.me ? place.siegeResolvesAt : 0, musterFlagDesignFor(state, muster.ownerId),
+    crestFor(state, muster.ownerId)
   );
 };

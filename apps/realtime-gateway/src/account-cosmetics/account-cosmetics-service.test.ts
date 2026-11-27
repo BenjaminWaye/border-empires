@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { FREE_COSMETIC_IDS } from "@border-empires/shared";
+
 import { createAccountCosmeticsService } from "./account-cosmetics-service.js";
 import { InMemoryAccountCosmeticsStore } from "./account-cosmetics-store.js";
 
@@ -27,7 +29,7 @@ describe("account cosmetics service", () => {
   it("reports what an account owns and shows", async () => {
     const { service, send } = build();
     await service.grant("p1", "flag-high-noble", "admin");
-    expect(await send("p1", { type: "REQUEST_COSMETICS" })).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble"], selected: {} }]);
+    expect(await send("p1", { type: "REQUEST_COSMETICS" })).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: {} }]);
   });
 
   it("refuses a cosmetic the account does not own, and tells nobody", async () => {
@@ -59,7 +61,7 @@ describe("account cosmetics service", () => {
     const { send, service, broadcasts } = build();
     await service.grant("p1", "flag-high-noble", "admin");
     const replies = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" });
-    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble"], selected: { musterFlag: "flag-high-noble" } }]);
+    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: { musterFlag: "flag-high-noble" } }]);
     expect(broadcasts).toEqual([{ type: "PLAYER_STYLE", playerId: "p1", cosmetics: { musterFlag: "flag-high-noble" } }]);
     expect(service.shownSelections()).toEqual({ p1: { musterFlag: "flag-high-noble" } });
 
@@ -74,7 +76,7 @@ describe("account cosmetics service", () => {
     expect(await service.grant("", "flag-high-noble", "admin")).toEqual({ ok: false, error: "invalid_player" });
     expect(await service.grant("p1", "flag-high-noble", "admin")).toEqual({ ok: true, newlyGranted: true, owned: ["flag-high-noble"] });
     expect(await service.grant("p1", "flag-high-noble", "admin")).toEqual({ ok: true, newlyGranted: false, owned: ["flag-high-noble"] });
-    expect(direct).toEqual([["p1", { type: "COSMETICS_STATE", owned: ["flag-high-noble"], selected: {} }]]);
+    expect(direct).toEqual([["p1", { type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: {} }]]);
   });
 
   it("revoking a shown cosmetic returns everyone's view to the default look", async () => {
@@ -146,5 +148,27 @@ describe("account cosmetics service", () => {
     clock += 1_000;
     await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null });
     expect(broadcasts).toHaveLength(2);
+  });
+
+  it("lets every account show a free House crest without a grant, and keeps it across a restart", async () => {
+    const store = new InMemoryAccountCosmeticsStore();
+    const { send, broadcasts, service } = build(store);
+    const [state] = await send("p1", { type: "REQUEST_COSMETICS" });
+    expect((state as { owned: string[] }).owned).toEqual([...FREE_COSMETIC_IDS]);
+    const replies = await send("p1", { type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-anchor" });
+    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: [...FREE_COSMETIC_IDS], selected: { crest: "crest-anchor" } }]);
+    expect(broadcasts).toEqual([{ type: "PLAYER_STYLE", playerId: "p1", cosmetics: { crest: "crest-anchor" } }]);
+    expect(await store.listOwned("p1")).toEqual([]);
+    expect(await service.titleOf("p1")).toBeUndefined();
+
+    const rebooted = build(store).service;
+    await rebooted.hydrate();
+    expect(rebooted.shownSelections()).toEqual({ p1: { crest: "crest-anchor" } });
+  });
+
+  it("refuses a crest id in another slot", async () => {
+    const { send } = build();
+    const [reply] = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "crest-anchor" });
+    expect((reply as { code: string }).code).toBe("COSMETIC_INVALID");
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
+import { FREE_COSMETIC_IDS, type CosmeticId, type PlayerCosmeticSelection } from "@border-empires/shared";
 
 import { bindCosmeticsCard, cosmeticsCardHtml } from "./client-cosmetics-card.js";
 
@@ -16,6 +16,11 @@ const createState = (owned: CosmeticId[] = [], selection?: PlayerCosmeticSelecti
 describe("cosmeticsCardHtml", () => {
   it("renders nothing for an account that owns no cosmetic", () => {
     expect(cosmeticsCardHtml(createState())).toBe("");
+  });
+
+  it("renders nothing for an account that owns only the free House crests, which the profile dialog picks", () => {
+    expect(cosmeticsCardHtml(createState([...FREE_COSMETIC_IDS]))).toBe("");
+    expect(cosmeticsCardHtml(createState(["flag-high-noble", ...FREE_COSMETIC_IDS]))).not.toContain("crest");
   });
 
   it("offers the standard look and each owned cosmetic", () => {

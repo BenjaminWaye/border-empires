@@ -1,9 +1,10 @@
 // Town growth upgrade tile-action split out of client-tile-action-logic.ts to
 // keep that file from growing past the repo's 500-line cap.
-import { manpowerPerBatch, supportRingRadiusForTier, TOWN_MANPOWER_BY_TIER, type TownGrowthUpgradeView } from "@border-empires/shared";
+import { manpowerPerBatch, nextTownGrowthUpgrade, supportRingRadiusForTier, TOWN_MANPOWER_BY_TIER, type TownGrowthUpgradeView } from "@border-empires/shared";
 import { townPopulationMultiplier } from "@border-empires/game-domain";
 import type { ClientState } from "../client-state/client-state.js";
-import type { TileActionDef } from "../client-types.js";
+import { garrisonTownPlotsAction } from "../client-town-ring-garrison/client-town-plot-garrison.js";
+import type { Tile, TileActionDef } from "../client-types.js";
 import { freeSlotsOf, resourceSlotReasonText } from "./client-resource-slot-reason.js";
 import { tileActionAvailability } from "./client-tile-action-logic.js";
 
@@ -60,4 +61,13 @@ export const townGrowthActionForUpgrade = (
     ...(enabled ? { detail } : {}),
     ...tileActionAvailability(enabled, missingReason, `${upgrade.goldCost} coin + 1 FOOD slot`)
   };
+};
+
+/** A town tile's growth upgrade (when available) and its "Garrison N plots" (when any plot is left to garrison). */
+export const townGrowthAndPlotActions = (state: ClientState, tile: Tile): TileActionDef[] => {
+  const growth = tile.town?.populationTier && typeof tile.town.population === "number"
+    ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
+    : undefined;
+  const plots = garrisonTownPlotsAction(state, tile);
+  return [...(plots ? [plots] : []), ...(growth ? [growth] : [])];
 };
