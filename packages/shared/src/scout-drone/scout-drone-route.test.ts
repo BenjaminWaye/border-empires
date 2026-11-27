@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SCOUT_DRONE_HOME_STEP_MS, SCOUT_DRONE_STEP_MS, speedUpScoutDroneFlight, type ScoutDroneWorld } from "./scout-drone.js";
-import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg, turnScoutDroneFlightHome, extendScoutDroneFlight } from "./scout-drone-route.js";
+import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, planScoutDroneWaypointFlight, scoutDroneLeg, scoutDroneRouteDeadEnd, turnScoutDroneFlightHome, extendScoutDroneFlight } from "./scout-drone-route.js";
 import { SCOUT_DRONE_CHARGE_REFILL_MS, SCOUT_DRONE_MAX_CHARGES, nextScoutChargeAt, scoutChargesAvailable } from "./scout-drone-charges.js";
 
 const W = 200;
@@ -37,6 +37,17 @@ describe("planScoutDroneRoute", () => {
   it("chains legs from each stop as reached", () => {
     const route = planScoutDroneRoute({ x: 2, y: 5 }, [{ x: 15, y: 5 }, { x: 15, y: 60 }], world);
     expect(route.stops).toEqual([{ x: 15, y: 5 }, { x: 15, y: 5 + SCOUT_DRONE_MAX_LEG_TILES }]);
+  });
+
+  it("is a dead end when a rival border meets it before any open tile", () => {
+    // Own land touching a rival: the leg ends on home ground (Playtest Run 5, "Explore past your own land").
+    const touching: ScoutDroneWorld = { width: W, height: H, classify: (x) => (x < 5 ? { kind: "HOME" } : { kind: "BLOCKED", ownerId: "rival" }) };
+    const blocked = planScoutDroneRoute({ x: 2, y: 5 }, [{ x: 20, y: 5 }], touching);
+    expect(blocked.stops).toEqual([{ x: 4, y: 5 }]);
+    expect(scoutDroneRouteDeadEnd(blocked)).toBe(true);
+    // A border reached after open ground, or no border at all, is not.
+    expect(scoutDroneRouteDeadEnd(planScoutDroneRoute({ x: 35, y: 30 }, [{ x: 35, y: 50 }], world))).toBe(false);
+    expect(scoutDroneRouteDeadEnd(planScoutDroneRoute({ x: 2, y: 5 }, [{ x: 15, y: 5 }], world))).toBe(false);
   });
 
   it("drops the stops after a rival border", () => {

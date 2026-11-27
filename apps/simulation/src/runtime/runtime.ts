@@ -400,7 +400,7 @@ import {
   applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
-  resumePassiveIncome, welcomeBackSummaryForPlayer,
+  recordPlayerActivity, restorePassiveIncomeClocks, welcomeBackSummaryForPlayer,
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
@@ -856,7 +856,7 @@ export class SimulationRuntime {
       changed: (journalCursor, action, agreement, targetCoinDelta) => this.emitEvent({ eventType: "PLAYER_MESSAGE", messageType: "RESOURCE_SUPPLY_CHANGED", playerId: agreement.proposerId, commandId: `resource-supply:${action}:${agreement.id}`, payloadJson: JSON.stringify({ action, agreement, targetCoinDelta, ...journalCursor }) }),
       recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     }, options.initialState?.resourceSupplyAgreements, options.initialState?.resourceSupplyJournalSequence);
-    for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
+    restorePassiveIncomeClocks(options.initialState?.playerYieldCollectionEpochByPlayer, this.state.players, this.lastIncomeTickAtMsByPlayer, this.lastActiveAtMsByPlayer);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
     const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
     for (const playerId of this.state.players.keys()) {
@@ -1022,8 +1022,7 @@ export class SimulationRuntime {
   } // docs/replenishment-update-plan.md D1/D11 "Manpower full" email (bounded O(players) sweep, not a per-spend deadline queue -- see runtime-manpower-full-alert.ts's header comment) follows on the same line below to hold this file's net line count:
   tickManpowerFullAlerts(nowMs: number = this.now()): number { return tickManpowerFullAlertsImpl({ nowMs, players: this.state.players, playerManpowerCap: (player) => this.playerManpowerCap(player), playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player), effectiveManpowerAt: (player, at) => this.effectiveManpowerAt(player, at), isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitEvent: (event) => this.emitEvent(event), alertedPlayerIds: this.alertedManpowerFullPlayerIds }); }
   updatePlayerLastActive(playerId: string, nowMs: number): void {
-    resumePassiveIncome(this.state.players.get(playerId), this.lastActiveAtMsByPlayer.get(playerId), this.lastIncomeTickAtMsByPlayer, playerId, nowMs);
-    this.lastActiveAtMsByPlayer.set(playerId, nowMs);
+    recordPlayerActivity(this.state.players.get(playerId), this.lastActiveAtMsByPlayer, this.lastIncomeTickAtMsByPlayer, playerId, nowMs);
   }
 
   private passiveIncomeContext(): RuntimePassiveIncomeContext {
