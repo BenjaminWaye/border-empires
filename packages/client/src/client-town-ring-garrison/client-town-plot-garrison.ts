@@ -1,5 +1,5 @@
 // Garrisoning a garrisoned town's plots (its support ring), two ways:
-//   - "Garrison N plots" on the town: every claimed, ungarrisoned plot in reach, in one click.
+//   - "Garrison N plots" in the town's tile menu: every plot the town screen's Garrison plots button takes.
 //   - Growing the town: Settlement -> Town opens the ring and Town -> City widens it to radius 2. The server
 //     claims the new outer plots on the upgrade (handleUpgradeTownTierCommand -> autoClaimFrontier), but only
 //     garrisons them when the player's "towns" auto-garrison switch is on. Growing now garrisons the new plots
@@ -7,8 +7,8 @@
 import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, isAutoSettleAllowedForTile, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { canAffordCost } from "../client-constants.js";
 import { queuedDevelopmentActionExists } from "../client-development-queue/client-development-queue.js";
-import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { garrisonableTownPlotsFor } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 import { tileActionAvailability } from "../client-tile-action-logic/client-tile-action-availability.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { TOWN_RING_GARRISON_MAX_ENTRIES } from "./client-town-ring-garrison.js";
@@ -29,21 +29,10 @@ const isSettling = (state: PlotState, key: string): boolean =>
 const isOwnGarrisonedTown = (state: Pick<ClientState, "me">, town: Tile): boolean =>
   Boolean(town.town) && town.ownerId === state.me && town.ownershipState === "SETTLED";
 
-/** This town's claimed, ungarrisoned plots that a SETTLE can take now: your in-reach FRONTIER land, not already settling. */
-export const townPlotsToGarrison = (state: PlotState, town: Tile, reach: { has: (key: string) => boolean }): Tile[] => {
-  if (!isOwnGarrisonedTown(state, town)) return [];
-  return supportRingCandidates(state.tiles, town.x, town.y, supportRingRadiusForTier(town.town?.populationTier))
-    .map(({ tile }) => tile)
-    .filter((tile) => {
-      const key = keyOf(tile);
-      return tile.terrain === "LAND" && tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending && reach.has(key) && !isSettling(state, key);
-    });
-};
-
 /** "Garrison N plots" for a garrisoned town with any plot left to garrison, else undefined. */
 export const garrisonTownPlotsAction = (state: ClientState, town: Tile): TileActionDef | undefined => {
   if (!isOwnGarrisonedTown(state, town)) return undefined;
-  const count = townPlotsToGarrison(state, town, resolveMyReachCached(state)).length;
+  const count = garrisonableTownPlotsFor(state, town).length;
   if (count === 0) return undefined;
   const coin = count * SETTLE_COST;
   const cost = `${coin > 0 ? `${coin} coin, ` : ""}${count * state.settleManpowerCost} manpower`;
@@ -119,7 +108,8 @@ export const handleTownPlotAction = (actionId: string, town: Tile, deps: TownPlo
     return false;
   }
   if (actionId !== "garrison_town_plots") return false;
-  for (const plot of townPlotsToGarrison(deps.state, town, resolveMyReachCached(deps.state))) {
+  // The same plots the town screen's Garrison plots button takes (client-town-plot-garrison/).
+  for (const plot of garrisonableTownPlotsFor(deps.state, town)) {
     deps.requestSettlement(plot.x, plot.y, { forceQueue: true, suppressWarnings: true });
   }
   return true;

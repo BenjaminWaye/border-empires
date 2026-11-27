@@ -1,11 +1,12 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const TOWN_PLOT_GARRISON_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
-  introducedIn: "2026.11.26",
-  title: "Fixed: growing a town left its new plots ungarrisoned",
-  why: "Upgrading a Town to a City claimed the second ring of plots but only garrisoned them with town auto-garrison on, and a town had no way to garrison all its plots at once.",
+  introducedIn: "2026.11.25",
+  title: "Garrison a town's leftover plots in one tap",
+  why: "Once a town was garrisoned, plots around it you held but hadn't garrisoned had no button and no badge, so they sat idle.",
   changes: [
-    "Growing a town now garrisons the plots it gains",
-    "A garrisoned town with ungarrisoned plots shows Garrison N plots on its screen and tile menu"
+    "A garrisoned town's screen leads with a gold Garrison plots button while any of its plots can be garrisoned",
+    "Its nameplate shows the garrison badge until they are",
+    "Plots on rival or neutral land, outside your reach, or already garrisoning don't count"
   ]
 };

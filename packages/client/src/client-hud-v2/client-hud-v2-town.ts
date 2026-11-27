@@ -32,6 +32,7 @@ import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import type { TownPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 
 /** An ungarrisoned town gives no coin or manpower: "none" sent yet, or a garrison "on_its_way". */
 export type TownGarrisonState = "none" | "on_its_way";
@@ -51,6 +52,8 @@ export type TownScreenInput = {
   focusWorkLocked?: boolean;
   /** Absent once the town is garrisoned. */
   garrison?: TownGarrisonState | undefined;
+  /** A garrisoned town's plots you hold but haven't garrisoned (client-town-plot-garrison.ts); absent when none. */
+  plotGarrison?: TownPlotGarrison | undefined;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
@@ -223,21 +226,21 @@ const barHtml = (input: TownScreenInput): string => {
   const garrisonBtn = garrison
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
-  // A garrisoned town with claimed plots left ungarrisoned: one gold button garrisons them all.
-  // The selected tile's own improvement keeps the gold slot; the plots button then sits beside it as a plain one.
   const improvement = garrison ? undefined : availableResourceImprovement(input.focusView);
-  const plots = garrison ? undefined : actionFor(input.townView, "garrison_town_plots");
-  const plotsHtml = plots ? btn(plots, esc(plots.label)) : "";
-  const plotsBtn = improvement ? plotsHtml : plotsHtml.replace('class="v2t-act"', 'class="v2t-act v2t-act-primary"');
   const improvementBtn = improvement
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="${esc(improvement.id)}"${targetAttrs(improvement, keyOf(input.focus))} title="${esc(improvement.detail ?? improvement.label)}">${esc(improvement.label)}${improvement.cost ? `<small>${esc(improvement.cost)}</small>` : ""}</button>`
+    : "";
+  // A garrisoned town with plots still to garrison: one gold button garrisons them all (the selected tile's own action wins the slot).
+  const plots = garrison || improvement ? undefined : input.plotGarrison;
+  const plotsBtn = plots
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-v2-garrison-plots="${esc(keyOf(input.town))}"${plots.disabledReason ? " disabled" : ""} title="${esc(plots.disabledReason ?? `Garrison ${plots.count} plot${plots.count === 1 ? "" : "s"} around the town`)}">Garrison plots<small>${esc(plots.disabledReason ?? plots.cost)}</small></button>`
     : "";
   // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
   // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
   const garrisonTile = focusGarrison ? input.focus : input.town;
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(plots ? ["garrison_town_plots" as const] : []), ...(improvement ? [improvement.id] : [])]);
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), "garrison_town_plots", ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
