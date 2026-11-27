@@ -13,6 +13,7 @@ import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-s
 import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import { attackEnRouteRow, hasOwnAttackEnRoute, type AttackEnRouteState } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
 
 // One fixed id per listed flag, since TileActionDef["id"] is a closed union.
 export const MARCH_ATTACK_FLAG_ACTION_IDS = ["march_attack_flag", "march_attack_flag_2", "march_attack_flag_3"] as const;
@@ -175,7 +176,7 @@ const NO_BORDERING_ORIGIN_REASON = "No bordering origin tile or linked dock";
 export const injectMarchAttackActions = (
   view: TileMenuView,
   tile: Tile,
-  state: MarchAttackState & Pick<ClientState, "allies">
+  state: MarchAttackState & AttackEnRouteState & Pick<ClientState, "allies">
 ): void => {
   if (view.actions.some((action) => MARCH_ATTACK_ACTION_IDS.includes(action.id))) return;
   const launch = view.actions.find((action) => action.id === "launch_attack");
@@ -183,6 +184,11 @@ export const injectMarchAttackActions = (
     ? launch.disabled === true && launch.disabledReason === NO_BORDERING_ORIGIN_REASON
     : Boolean(tile.fogged && tile.terrain === "LAND" && tile.ownerId && tile.ownerId !== state.me && !state.allies.includes(tile.ownerId));
   if (!deepEnemy) return;
+  // An own march on this tile is already under way: a second would be refused LOCKED.
+  if (hasOwnAttackEnRoute(state, tile.x, tile.y)) {
+    view.actions = launch ? view.actions.map((action) => (action === launch ? attackEnRouteRow() : action)) : [attackEnRouteRow(), ...view.actions];
+    return;
+  }
   const { rows, unavailableReason } = buildMarchAttackActions(tile, state);
   if (rows.length === 0) {
     if (!unavailableReason) return;
