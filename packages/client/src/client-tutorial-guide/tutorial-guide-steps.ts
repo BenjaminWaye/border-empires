@@ -108,7 +108,9 @@ export type GuideInput = {
   townLead?: { x: number; y: number };
   /** Drone charges still missing to fly the whole way to townLead (0 when enough are ready). */
   townLeadChargesShort?: number;
-  /** The dock to use when the player's land is a fully seen island (tutorial-guide-island-dock.ts). */
+  /** The nearest unowned town is more than one drone leg away: no lead to fly to, the player is probably on an island. */
+  townLeadFar?: boolean;
+  /** The dock to steer to on an island (tutorial-guide-island-dock.ts). */
   islandDock?: GuideIslandDock;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;

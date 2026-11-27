@@ -7,11 +7,13 @@
 // then Cross the sea from it (docs/game-mechanics.md, Docks).
 //
 // Client-only, run with the guide's tile scan (tutorial-guide-input.ts). It
-// walks 8 ways over LAND from the player's land, like Expand To's planner; a
-// tile the client has never received counts as open ground, so a coast not yet
-// seen is never called an island. A walk that runs past its budget is a
-// continent, not an island. Fogged tiles keep their dockId, so a dock seen once
-// still counts.
+// walks 8 ways over known LAND from the player's land, like Expand To's planner.
+// `sealed` says every edge of that land meets known water; a tile the client
+// has never received leaves it open (maybe not an island). The guide uses an
+// open result's dock too once the nearest town is more than one drone leg away
+// (owner, 2026-11-27: then the player is probably on an island). A walk that
+// runs past its budget is a continent. Fogged tiles keep their dockId, so a
+// dock seen once still counts.
 
 import { tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
@@ -19,6 +21,8 @@ import type { Tile } from "../client-types.js";
 /** "expand": a free dock on the island. "garrison": the player's dock, not yet garrisoned. "cross": the player's garrisoned dock. */
 export type GuideIslandDockAction = "expand" | "garrison" | "cross";
 export type GuideIslandDock = { action: GuideIslandDockAction; x: number; y: number };
+/** The dock on the player's land mass, and whether that land is a fully seen island. */
+export type GuideLandDock = { dock: GuideIslandDock; sealed: boolean };
 
 /** Land tiles the walk may visit before calling the land mass a continent. */
 export const GUIDE_ISLAND_TILE_BUDGET = 4096;
@@ -40,16 +44,16 @@ const dockAction = (tile: Tile, me: string): GuideIslandDockAction | undefined =
 };
 
 /**
- * The dock to point at when the player's land is on a fully seen island, or
- * undefined when it isn't (open or unseen ground, a continent) or the island
- * shows no dock the player can use. Prefers the player's garrisoned dock, then
- * their own, then the free dock nearest home.
+ * The dock on the player's land mass, or undefined on a continent (the walk
+ * runs past its budget) or when the land shows no dock the player can use.
+ * Prefers the player's garrisoned dock, then their own, then the free dock
+ * nearest home.
  */
-export const guideIslandDock = (
+export const guideLandDock = (
   tiles: ReadonlyMap<string, Tile>,
   me: string,
   home: { x: number; y: number } | undefined
-): GuideIslandDock | undefined => {
+): GuideLandDock | undefined => {
   if (!me) return undefined;
   const queue: Tile[] = [];
   const seen = new Set<string>();
@@ -61,6 +65,7 @@ export const guideIslandDock = (
   if (queue.length === 0) return undefined;
   let best: GuideIslandDock | undefined;
   let bestDistance = Infinity;
+  let sealed = true;
   for (let head = 0; head < queue.length; head++) {
     if (seen.size > GUIDE_ISLAND_TILE_BUDGET) return undefined;
     const at = queue[head]!;
@@ -81,11 +86,24 @@ export const guideIslandDock = (
         if (seen.has(key)) continue;
         const tile = tiles.get(key);
         // Ground the client has never received: the coast could go on, so this may not be an island.
-        if (!tile) return undefined;
+        if (!tile) {
+          sealed = false;
+          continue;
+        }
         seen.add(key);
         if (tile.terrain === "LAND") queue.push(tile);
       }
     }
   }
-  return best;
+  return best ? { dock: best, sealed } : undefined;
+};
+
+/** The dock when the player's land is a fully seen island (see guideLandDock). */
+export const guideIslandDock = (
+  tiles: ReadonlyMap<string, Tile>,
+  me: string,
+  home: { x: number; y: number } | undefined
+): GuideIslandDock | undefined => {
+  const found = guideLandDock(tiles, me, home);
+  return found?.sealed ? found.dock : undefined;
 };

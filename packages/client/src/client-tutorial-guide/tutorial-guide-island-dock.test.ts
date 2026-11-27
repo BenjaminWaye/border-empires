@@ -11,7 +11,7 @@ const HOME = { x: 12, y: 12 };
 const DOCK = { x: 14, y: 14 };
 
 /** A 5x5 island (10..14) ringed by sea out to 8..16; the player holds its middle, a free dock sits on its corner. */
-const islandTiles = (options: { dropSeaAt?: { x: number; y: number }; dock?: Partial<Tile> } = {}): Map<string, Tile> => {
+const islandTiles = (options: { dropSeaAt?: { x: number; y: number }; dock?: Partial<Tile> | null } = {}): Map<string, Tile> => {
   const tiles = new Map<string, Tile>();
   for (let y = 8; y <= 16; y++) {
     for (let x = 8; x <= 16; x++) {
@@ -19,7 +19,8 @@ const islandTiles = (options: { dropSeaAt?: { x: number; y: number }; dock?: Par
       const land = x >= 10 && x <= 14 && y >= 10 && y <= 14;
       const tile: Tile = { x, y, terrain: land ? "LAND" : "SEA" };
       if (Math.abs(x - HOME.x) <= 1 && Math.abs(y - HOME.y) <= 1) Object.assign(tile, { ownerId: ME, ownershipState: "SETTLED" });
-      if (x === DOCK.x && y === DOCK.y) Object.assign(tile, { dockId: "dock-1", fogged: true }, options.dock);
+      if (x === DOCK.x && y === DOCK.y && options.dock !== null) Object.assign(tile, { dockId: "dock-1", fogged: true }, options.dock);
+      if (x === HOME.x && y === HOME.y) tile.afc = { ownerId: ME, status: "active" };
       tiles.set(tileKey(x, y), tile);
     }
   }
@@ -72,5 +73,44 @@ describe("guide island dock", () => {
     // Also while the drone is already out toward the lead (the screenshot's state).
     const flying = evaluateGuide({ ...input, scout: "out" }, pastLook);
     expect(flying.kind === "step" && flying.title).toBe("You're on an island: tap the marked dock, then Expand To");
+  });
+
+  // Owner 2026-11-27: never send the drone more than one leg to a town; that far, the player is probably on an island.
+  describe("a town lead more than one drone leg away", () => {
+    const view = (tiles: Map<string, Tile>, lead: { x: number; y: number }) => {
+      resetGuideInputCacheForTests();
+      const state = createInitialState();
+      state.me = ME;
+      state.homeTile = HOME;
+      state.tiles = tiles;
+      state.tilesRevision += 1;
+      state.guideTownLead = lead;
+      const input = buildGuideInput(state);
+      const pastLook = new Set(GUIDE_STEPS.filter((s) => s.id.startsWith("look")).map((s) => s.id));
+      return { input, view: evaluateGuide({ ...input, scout: "ready", exploreTarget: () => ({ x: 12, y: 20 }) }, pastLook) };
+    };
+    // Open land: one coast tile never received, so this is not a fully seen island.
+    const open = { dropSeaAt: { x: 9, y: 12 } };
+
+    it("is no drone target: the guide marks a dock on the player's land instead", () => {
+      const { input, view: far } = view(islandTiles(open), { x: 60, y: 8 });
+      expect(input.townLead).toBeUndefined();
+      expect(input.townLeadFar).toBe(true);
+      expect(far).toEqual(expect.objectContaining({ title: "You're on an island: tap the marked dock, then Expand To", highlightTiles: [DOCK] }));
+    });
+
+    it("with no dock seen, asks for a nearby Explore to look for one, not the far town", () => {
+      const { view: far } = view(islandTiles({ ...open, dock: null }), { x: 60, y: 8 });
+      expect(far).toEqual(
+        expect.objectContaining({ title: "Towns lie across the sea: tap the marked ground, then Explore", why: "Look for a dock. It's how your troops cross the water.", highlightTiles: [{ x: 12, y: 20 }] })
+      );
+    });
+
+    it("still flies to a town one leg away", () => {
+      const lead = { x: 25, y: 12 };
+      const { input, view: near } = view(islandTiles({ ...open, dock: null }), lead);
+      expect(input.townLead).toEqual(lead);
+      expect(near).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore", highlightTiles: [lead] }));
+    });
   });
 });

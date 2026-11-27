@@ -42,6 +42,20 @@ const ISLAND_DOCK_STEP: Record<GuideIslandDockAction, { title: string; why: stri
   cross: { title: "Tap your marked dock, then Cross the sea", why: "Your troops sail to the dock across the water and land there." }
 };
 
+// The nearest town is more than one drone leg away and no dock is known yet: the usual nearby Explore,
+// told to look for a dock (owner, 2026-11-27: never fly the drone more than one leg to a town).
+const DOCK_SEARCH_STEP: Partial<Record<GuideTargetAction, { title: string; why: string }>> = {
+  explore: { title: "Towns lie across the sea: tap the marked ground, then Explore", why: "Look for a dock. It's how your troops cross the water." },
+  scouting: { title: "Your drone is flying: wait for its report", why: "Look for a dock in what it finds. It's how your troops cross the water." }
+};
+
+/** The dock-search copy, while the nearest town is too far for one drone leg and no town can be taken. */
+const dockSearch = (input: GuideInput): { title: string; why: string } | undefined => {
+  const town = input.footholdTargets.town;
+  if (!input.townLeadFar || town.pending.length + town.garrison.length + town.expand.length > 0) return undefined;
+  return DOCK_SEARCH_STEP[townAction(input)];
+};
+
 /** The island's dock, while the player is on a fully seen island and no town on it can be taken. */
 export const islandDockLead = (input: GuideInput): GuideIslandDock | undefined => {
   const town = input.footholdTargets.town;
@@ -139,6 +153,8 @@ const TOWN_LEAD_EXPLORE = {
 export const townWhy = (input: GuideInput): string => {
   const dock = islandDockLead(input);
   if (dock) return ISLAND_DOCK_STEP[dock.action].why;
+  const search = dockSearch(input);
+  if (search) return search.why;
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).why;
   return followsTownLead(input) && townAction(input) === "explore" ? TOWN_LEAD_EXPLORE.why : TOWN_STEP[townAction(input)].why;
@@ -147,6 +163,8 @@ export const townWhy = (input: GuideInput): string => {
 export const townTitle = (input: GuideInput): string => {
   const dock = islandDockLead(input);
   if (dock) return ISLAND_DOCK_STEP[dock.action].title;
+  const search = dockSearch(input);
+  if (search) return search.title;
   const short = leadNeedsCharges(input);
   if (short > 0) return townLeadWait(short).title;
   if (followsTownLead(input) && townAction(input) === "explore") return TOWN_LEAD_EXPLORE.title;

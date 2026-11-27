@@ -5,7 +5,8 @@ export const GUIDE_ISLAND_DOCK_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = 
   title: "Guide points island starts at their dock",
   why: "Starting on an island, the guide sent your drone legs out to a town across the sea that you couldn't reach.",
   changes: [
-    "On an island with no town to take, the guide marks your island's dock and asks you to Expand To it",
-    "Then it asks you to Garrison the dock and Cross the sea"
+    "The guide no longer sends your drone more than one leg to find a town",
+    "When the nearest town is further, or you're on an island, it marks your dock: Expand To it, Garrison it, then Cross the sea",
+    "With no dock in sight yet, it asks for a nearby Explore to find one"
   ]
 };
