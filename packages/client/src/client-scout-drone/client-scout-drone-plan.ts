@@ -13,6 +13,7 @@ import {
   WORLD_WIDTH,
   extendScoutDroneFlight,
   planScoutDroneRoute,
+  scoutDroneRouteDeadEnd,
   scoutDroneStepIndexAt,
   planScoutDroneWaypointFlight,
   scoutChargesAvailable,
@@ -167,6 +168,9 @@ export const scoutPlanPreview = (state: ScoutPlanState, stops: readonly Point[],
   return { launch, route: planScoutDroneRoute(launch, stops, world), flight };
 };
 
+/** True when a rival border right past the player's land blocks the plan before any open tile: Go stays off (Playtest Run 5). */
+export const scoutPlanBlocked = (preview: ScoutPlanPreview | undefined): boolean => Boolean(preview && scoutDroneRouteDeadEnd(preview.route));
+
 const isHome = (state: ScoutPlanState, x: number, y: number): boolean => {
   const ownerId = state.tiles.get(keyOf(x, y))?.ownerId;
   return Boolean(ownerId && (ownerId === state.me || state.allies.includes(ownerId)));
@@ -252,7 +256,7 @@ export type ScoutPlanLaunchDeps = { sendGameMessage?: ((payload: unknown) => boo
  */
 export const launchScoutPlan = (state: ScoutPlanState, deps: ScoutPlanLaunchDeps, nowMs: number): boolean => {
   const preview = scoutPlanPreview(state, state.scoutDronePicking.stops, nowMs);
-  if (!preview || preview.route.stops.length === 0 || !deps.sendGameMessage) return false;
+  if (!preview || preview.route.stops.length === 0 || scoutPlanBlocked(preview) || !deps.sendGameMessage) return false;
   const stops = preview.route.stops.map((stop) => ({ x: stop.x, y: stop.y }));
   const first = stops[0]!;
   if (!deps.sendGameMessage({ type: "EXPLORE", x: first.x, y: first.y, waypoints: stops })) return false;

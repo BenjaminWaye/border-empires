@@ -216,6 +216,17 @@ describe("scout drone runtime", () => {
     expect(idle.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_NO_AFC" });
   });
 
+  // Playtest Run 5: own land touching a rival's, fog past it. The drone flew to the border over home
+  // ground only and came back with nothing, or Go was refused with "explore past your own land".
+  it("refuses a route a seen rival border blocks before any open tile, spending no charge", () => {
+    const h = harness([...homeRow(), land(5, 10, { ownerId: "rival" })]);
+    h.explore(9, 10, "me", "blocked");
+    expect(h.events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "SCOUT_BORDER_BLOCKED", message: "a rival border blocks the way" });
+    expect(h.runtime.flightFor("me")).toBeUndefined();
+    h.runtime.sendTo("me");
+    expect(lastPayload(h).charges?.usedAt).toEqual([]);
+  });
+
   it("turns back early when a rival claims a tile on its path mid-flight, alerting that rival", () => {
     const h = harness(homeRow());
     h.explore(12, 10, "me", "c1");
