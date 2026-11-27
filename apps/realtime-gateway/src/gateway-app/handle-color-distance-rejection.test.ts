@@ -62,7 +62,8 @@ describe("SET_TILE_COLOR colour distance", () => {
       canToggleFog: false,
       buildTakenColorSet: async () => rosaTaken(),
       incrementColorCollisionRejectedTotal: () => {},
-      profileStore: { setTileColor },
+      profileStore: { get: async () => undefined, setTileColor },
+      getCurrentSeasonId: async () => "s1",
       invalidateProfileCache: () => {},
       profileOverrides: { upsert: (_id, patch) => patch },
       sendJson: (payload) => sent.push(payload),
@@ -85,6 +86,6 @@ describe("SET_TILE_COLOR colour distance", () => {
     const sent: unknown[] = [];
     const { deps, setTileColor } = tileDeps(sent, "#1f77b4");
     await handleSetTileColorMessage(deps);
-    expect(setTileColor).toHaveBeenCalledWith("me", "#1f77b4");
+    expect(setTileColor).toHaveBeenCalledWith("me", "#1f77b4", undefined);
   });
 });

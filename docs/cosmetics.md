@@ -183,6 +183,16 @@ come later.
   and never count towards a title. Admin grant and revoke ignore a free id
   (they answer `ok` and change nothing), so a revoke cannot clear a crest. To sell a crest later, add it without
   `free` and grant it like any other cosmetic.
+- **Once per Sector Contest** (owner decision, 2026-11-27). Like the name and
+  colour, a House can change its crest once per contest, the first pick from
+  the letter included. The gateway records the contest of each crest change in
+  `account_cosmetics_slot_changes` and refuses a second with `COSMETIC_LIMIT`
+  ("Crest already changed this contest."); `COSMETICS_STATE.crestChangeUsed`
+  tells the client. Name and colour use `nameChangedSeasonId` /
+  `colorChangedSeasonId` on the profile row (`profile-change-allowance.ts`;
+  `SET_PROFILE` and `SET_TILE_COLOR` both enforce the colour limit). The Edit
+  dialog labels each field ("Name · 1 change left", "Crest · used"), disables
+  a used one and lists every change, crest included, on the confirm.
 - **Art.** `packages/client/src/client-house-crest/client-house-crest-art.ts`:
   one bold silhouette per crest on a 24-unit grid in `currentColor`, outlined
   by a CSS drop shadow so it reads on light House colours. Built to the

@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
+import { markProfileChangeUsed } from "../client-profile-change-allowance/client-profile-change-allowance.js";
 
 // Settings > Account > Edit Name & Colour used to close the moment SET_PROFILE
 // was sent, so the server's answer landed only in the (admin-only) feed or a
@@ -105,7 +106,10 @@ export const applyProfileSaveRejection = (
   }
   const shownReason = errorCode === "BAD_MSG" ? "Name not accepted." : reason;
   // The once-per-contest refusals already name what was refused.
-  if (errorCode === "DISPLAY_NAME_LIMIT" || errorCode === "COLOR_LIMIT") deps.pushFeed(shownReason, "error", "warn");
+  if (errorCode === "DISPLAY_NAME_LIMIT" || errorCode === "COLOR_LIMIT") {
+    markProfileChangeUsed(errorCode === "COLOR_LIMIT" ? "color" : "name");
+    deps.pushFeed(shownReason, "error", "warn");
+  }
   else if (state.pendingDisplayNameChange) deps.pushFeed(`Display name not updated: ${shownReason}`, "error", "error");
   else if (state.pendingColorChange) deps.pushFeed(`Empire colour not updated: ${shownReason}`, "error", "error");
   else deps.pushFeed(shownReason, "error", "warn");

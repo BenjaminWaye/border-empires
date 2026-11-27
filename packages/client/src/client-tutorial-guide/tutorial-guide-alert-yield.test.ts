@@ -94,4 +94,37 @@ describe("tutorial guide and alerts", () => {
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(card()?.classList.contains("tg-yield-alert")).toBe(false);
   });
+
+  it("folds to its launcher when an alert closes instead of popping back over the map", () => {
+    const state = footholdDoneState();
+    const alert = document.createElement("div");
+    alert.id = "capture-card";
+    alert.style.display = "none";
+    document.body.appendChild(alert);
+    startAt(state, 2);
+    const cardShown = (): boolean => !(card()?.querySelector(".tg-card") as HTMLElement | null)?.hidden;
+    expect(cardShown()).toBe(true);
+    const stepBefore = card()?.querySelector(".tg-title")?.textContent;
+
+    alert.dataset.state = "error";
+    alert.style.display = "grid";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    alert.style.display = "none";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardShown()).toBe(false);
+    expect(card()?.querySelector(".tg-launcher")?.hasAttribute("hidden")).toBe(false);
+
+    // Later alerts leave it folded; the next step unfolds it.
+    alert.style.display = "grid";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    alert.style.display = "none";
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardShown()).toBe(false);
+    click("toggle");
+    expect(cardShown()).toBe(true);
+    click("skip");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()?.querySelector(".tg-title")?.textContent).not.toBe(stepBefore);
+    expect(cardShown()).toBe(true);
+  });
 });

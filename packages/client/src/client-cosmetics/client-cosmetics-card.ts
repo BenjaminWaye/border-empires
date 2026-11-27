@@ -8,7 +8,7 @@ import "./client-cosmetics-card.css";
 
 type BindState = CosmeticsState & Pick<ClientState, "authSessionReady" | "serverSupportedMessageTypes">;
 
-// House crests are free and picked in the Edit Name, Colour & Crest dialog, not here.
+// House crests are free to own; they are picked (once per contest) in the Edit Name, Colour & Crest dialog, not here.
 type CardSlot = Exclude<CosmeticSlot, "crest">;
 const SLOT_TITLES: Record<CardSlot, string> = { musterFlag: "Muster flag", ancillaries: "Ancillaries" };
 const CARD_SLOTS = COSMETIC_SLOTS.filter((slot): slot is CardSlot => slot !== "crest");

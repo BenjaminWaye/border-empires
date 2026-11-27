@@ -4,6 +4,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { availableCrests, crestFor, crestLabel, emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
 import { crestPickerHtml, pickedCrest } from "../client-house-crest/client-crest-picker.js";
 import { esc } from "../client-house-crest/client-crest-escape.js";
+import { markProfileChangeUsed, profileChangeAllowanceLabel, profileChangeUsed } from "../client-profile-change-allowance/client-profile-change-allowance.js";
 import "./client-profile-edit-crest.css";
 
 // The crest part of the Edit Name, Colour & Crest dialog: a live preview of
@@ -19,14 +20,17 @@ export const crestEditorHtml = (state: CrestState): string => {
   const color = state.playerColors.get(state.me) ?? "#38b000";
   const crest = crestFor(state, state.me);
   const initial = emblemInitial(state.meName || "?");
+  // Once per Sector Contest, like the name and colour: a used crest change locks the picker.
+  const allowance = profileChangeAllowanceLabel("crest");
   return `
     <div class="profile-edit-crest">
       <div class="auth-color-label">House crest</div>
+      ${allowance ? `<div class="profile-edit-allowance" data-profile-allowance="crest">${esc(allowance)}</div>` : ""}
       <div class="profile-edit-preview-row">
         <span class="profile-edit-preview" data-profile-edit-preview style="background:${esc(color)}" aria-label="Your emblem">${emblemFaceHtml(initial, crest)}</span>
         <span class="profile-edit-preview-note">Shown to every House. Looks only.</span>
       </div>
-      ${crestPickerHtml({ color, initial, selected: crest, available: availableCrests(state), disabled: !state.authSessionReady, attr: ATTR })}
+      ${crestPickerHtml({ color, initial, selected: crest, available: availableCrests(state), disabled: !state.authSessionReady || profileChangeUsed("crest") === true, attr: ATTR })}
     </div>`;
 };
 
@@ -102,7 +106,8 @@ export const CREST_SAVE_NO_REPLY = "Crest not saved: no reply. Try again.";
 const REASONS: Record<string, string> = {
   COSMETIC_NOT_OWNED: "Your account does not own that crest.",
   COSMETIC_INVALID: "That crest does not exist.",
-  COSMETIC_RATE_LIMITED: "Wait a moment, then save again."
+  COSMETIC_RATE_LIMITED: "Wait a moment, then save again.",
+  COSMETIC_LIMIT: "Crest already changed this contest."
 };
 
 /** Sends the crest and resolves with the gateway's answer. Resolves at once when the send itself fails. */
@@ -132,6 +137,7 @@ export const settleCrestSaveFromState = (msg: Record<string, unknown>): void => 
  * refusal of another slot's change cannot be taken for the crest's.
  */
 export const settleCrestSaveFromError = (code: string, message: string, slot: unknown): void => {
+  if (code === "COSMETIC_LIMIT" && slot === "crest") markProfileChangeUsed("crest");
   if (waiter && code.startsWith("COSMETIC_") && slot === "crest") finish({ ok: false, reason: REASONS[code] ?? (message || "Crest not saved.") });
 };
 

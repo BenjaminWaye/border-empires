@@ -29,7 +29,7 @@ describe("account cosmetics service", () => {
   it("reports what an account owns and shows", async () => {
     const { service, send } = build();
     await service.grant("p1", "flag-high-noble", "admin");
-    expect(await send("p1", { type: "REQUEST_COSMETICS" })).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: {} }]);
+    expect(await send("p1", { type: "REQUEST_COSMETICS" })).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: {}, crestChangeUsed: false }]);
   });
 
   it("refuses a cosmetic the account does not own, and tells nobody", async () => {
@@ -61,7 +61,7 @@ describe("account cosmetics service", () => {
     const { send, service, broadcasts } = build();
     await service.grant("p1", "flag-high-noble", "admin");
     const replies = await send("p1", { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" });
-    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: { musterFlag: "flag-high-noble" } }]);
+    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: ["flag-high-noble", ...FREE_COSMETIC_IDS], selected: { musterFlag: "flag-high-noble" }, crestChangeUsed: false }]);
     expect(broadcasts).toEqual([{ type: "PLAYER_STYLE", playerId: "p1", cosmetics: { musterFlag: "flag-high-noble" } }]);
     expect(service.shownSelections()).toEqual({ p1: { musterFlag: "flag-high-noble" } });
 
@@ -156,7 +156,7 @@ describe("account cosmetics service", () => {
     const [state] = await send("p1", { type: "REQUEST_COSMETICS" });
     expect((state as { owned: string[] }).owned).toEqual([...FREE_COSMETIC_IDS]);
     const replies = await send("p1", { type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-anchor" });
-    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: [...FREE_COSMETIC_IDS], selected: { crest: "crest-anchor" } }]);
+    expect(replies).toEqual([{ type: "COSMETICS_STATE", owned: [...FREE_COSMETIC_IDS], selected: { crest: "crest-anchor" }, crestChangeUsed: false }]);
     expect(broadcasts).toEqual([{ type: "PLAYER_STYLE", playerId: "p1", cosmetics: { crest: "crest-anchor" } }]);
     expect(await store.listOwned("p1")).toEqual([]);
     expect(await service.titleOf("p1")).toBeUndefined();

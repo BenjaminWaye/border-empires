@@ -1,6 +1,6 @@
 import { applyInitJoinScreenFields } from "../client-join-season-late-join/client-join-season-late-join.js";
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
-import { applyInitPlayerStyles } from "../client-player-style-message/client-player-style-message.js";
+import { applyInitPlayerStyles, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -337,7 +337,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.playerColors.set(state.me, myTileColor);
     authProfileColorEl.value = myTileColor;
   }
-  if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
+  applyPlayerProfileFields(state, player, true); // suggested swatches + once-per-contest change flags
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
   seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up
