@@ -192,6 +192,15 @@ dictatorship survives; its master changes, and a new era begins.
 So every alliance is uneasy: a Duke can spend everything against the Court
 and watch a quieter rival inherit it.
 
+### Fealty
+
+Because the throne goes to the greatest domain, an alliance between Houses of
+very different size is not a pact of equals. The lesser House **swears
+fealty**: it pledges its worlds to the greater House's claim. The greater
+House **demands** it. Houses of comparable size still speak of alliance. The
+oath binds no tribute and hands over no worlds; it is a promise of support,
+and either side may still renounce it.
+
 ### Grievances and Renown
 
 A Duke may lodge a **grievance** against a rival with the Court's heralds:

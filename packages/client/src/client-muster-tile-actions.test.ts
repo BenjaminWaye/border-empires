@@ -61,7 +61,7 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), activeAetherBridges: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_hunt", "muster_march", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
 
   it("offers Set Hold and March To for an ADVANCE flag", () => {
@@ -70,7 +70,7 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "ADVANCE", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), activeAetherBridges: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_hunt", "muster_march", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
 
   it("offers Change Target and Cancel March instead of the mode toggle for a MARCH flag", () => {
@@ -196,4 +196,17 @@ describe("dispatchMusterTileAction muster_advance", () => {
     expect(sheets).toHaveLength(0);
     expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "SET_MUSTER", mode: "ADVANCE" }));
   });
+
+  // 2026-11-26 playtest: "Hunt Planetary Defense" (a plain Advance on the server since the camps) attacked a human.
+  it("never offers Hunt Planetary Defense on a flag, held or advancing", () => {
+    stubWindowStorage();
+    for (const mode of ["HOLD", "ADVANCE"] as const) {
+      const actions = buildMusterActions(
+        ownTile({ muster: { ownerId: "me", amount: 40, mode, updatedAt: 0, hunt: true } }),
+        { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], dockPairs: [], musterTransitByCommand: new Map(), activeAetherBridges: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
+      );
+      expect(actions.map((a) => a.label)).not.toContain("Hunt Planetary Defense");
+    }
+  });
 });
+

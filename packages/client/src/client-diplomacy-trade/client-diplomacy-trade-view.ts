@@ -24,6 +24,7 @@ import {
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
 import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
+import { allianceActionLabel, allianceOfferPhrase, type FealtyStanding } from "../client-fealty/client-fealty.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
@@ -60,7 +61,7 @@ export type DiplomacyStanceReply = {
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
 
 /** What an alliance obliges both sides to (game-mechanics.md Alliances; the break notice and bloc rules). */
-export const ALLIANCE_OBLIGATIONS = "Allies can't attack each other and count as one bloc toward Diplomatic Dominance. Breaking it takes 24 hours' notice.";
+export const ALLIANCE_OBLIGATIONS = "Allies can't attack each other. Their land counts as one bloc toward Diplomatic Dominance, won by its largest member. Breaking it takes 24 hours' notice.";
 
 export const ATTITUDE_LABEL: Record<DiplomacyAttitude, string> = {
   FURIOUS: "Furious",
@@ -141,8 +142,8 @@ export type TradeVerdict = {
   sendLabel: string;
 };
 
-const offerLabel = (selection: TradeSelection): string =>
-  selection.kind === "trade" ? "a resource trade" : selection.kind === "alliance" ? "an alliance" : `a ${selection.durationHours}h truce${extendsTruce(selection) ? " extension" : ""}`;
+const offerLabel = (selection: TradeSelection, fealty: FealtyStanding): string =>
+  selection.kind === "trade" ? "a resource trade" : selection.kind === "alliance" ? allianceOfferPhrase(fealty) : `a ${selection.durationHours}h truce${extendsTruce(selection) ? " extension" : ""}`;
 
 /**
  * An AI below Pleased asks tribute for an alliance (the gateway's
@@ -186,14 +187,17 @@ export const tradeVerdict = (input: {
   nowMs?: number;
   /** Your active supply agreements; at the limit, a deal with resource supply can't be sent. */
   ownSupplyAgreements?: number;
+  /** Your standing with the target by size: an unequal alliance is sworn or demanded fealty (client-fealty.ts). */
+  fealty?: FealtyStanding;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
+  const fealty = input.fealty ?? "ALLIANCE";
   const kind = selection.kind;
   if (kind === "gift") return giftVerdict(input);
   // What an alliance binds you to, said plainly (Playtest Run 4: Henrik couldn't tell what he had signed up for).
   const binds = kind === "alliance" ? ` ${ALLIANCE_OBLIGATIONS}` : "";
   const sendLabel =
-    kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
+    kind === "trade" ? "Offer resource trade" : kind === "alliance" ? allianceActionLabel(fealty) : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
   const lockoutReason = kind === "truce" ? activeTruceLockoutReason(reply, input.nowMs) : undefined;
   if (lockoutReason) return { tone: "bad", text: lockoutReason, canSend: false, sendLabel };
   if (input.cooldownRemainingMs > 0) {
@@ -239,10 +243,10 @@ export const tradeVerdict = (input: {
   // An AI counts Coin per day only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
   const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
   const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per day only up to your spare income (${spare * 24}/day).` : "");
-  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}${binds}`, canSend: true, sendLabel };
+  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection, fealty)} on these terms.${tribute}${binds}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
-    return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
+    return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection, fealty)} at any price right now.`, canSend: true, sendLabel };
   }
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
   if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };

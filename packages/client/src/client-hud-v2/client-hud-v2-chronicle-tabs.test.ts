@@ -94,6 +94,18 @@ describe("merged Chronicle", () => {
     expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: { overall, me: "nobody" } })).toContain("Unranked");
   });
 
+  // Playtest 2026-11 (staging): the rank went live in #2999 but its ▲/▼ still came from the fetched rank.
+  it("measures the rank arrow against the live rank", () => {
+    // Last visit #25, fetched #24 (rankChange 1), live #23: up 2 since the last visit.
+    const pulse = { generatedAt: "", seasonId: "s", rank: 24, rankChange: 1, leadingPowers: [], stories: [] };
+    const live = (rank: number) => ({ overall: [{ id: "me", name: "Me", score: 40, rank }], me: "me" });
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: live(23) })).toContain("You #23<span class=\"v2c-rank-change v2c-up\">▲2</span>");
+    // Fell back to where the last visit left it: no arrow.
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: live(25) })).not.toContain("v2c-rank-change");
+    // No change at fetch time, then slipped one place live.
+    expect(worldTabHtml({ pulse: { generatedAt: "", seasonId: "s", rank: 24, leadingPowers: [], stories: [] }, loading: false, error: undefined, standings: live(25) })).toContain("▼1");
+  });
+
   // Playtest 2026-11-18: the button's badge stayed at 117 after reading Yours (unseen release notes only cleared on Updates).
   it("clears the button badge when the Chronicle is read on Yours, and keeps the Updates tab's own count", () => {
     const state = createInitialState();
