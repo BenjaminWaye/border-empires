@@ -2,6 +2,7 @@
 // buttons it shows. Split out of client-diplomacy-trade.ts (line cap).
 import type { DiplomacyGoods, ResourceSupplyAgreementStatus, ResourceSupplyOffer, ResourceTradeOffer } from "@border-empires/shared";
 import type { ChronicleWarCounts } from "./client-diplomacy-trade-view.js";
+import { fealtyLookupFor, type FealtyLookup, type FealtyState } from "../client-fealty/client-fealty.js";
 
 export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
@@ -14,6 +15,8 @@ export type DiplomacyTradeDeps = {
   activeSupply?: () => { ownId: string; agreements: readonly ResourceSupplyAgreementStatus[]; offers?: readonly ResourceTradeOffer[] };
   /** This empire's row in your last-fetched Chronicle, so the war tally shows the Chronicle's own tile counts. */
   chronicleRival?: (targetPlayerId: string) => ChronicleWarCounts | undefined;
+  /** Your standing with the target by size: an unequal alliance is sworn or demanded fealty (client-fealty.ts). */
+  fealtyWith?: FealtyLookup;
 };
 
 type TradeDepsState = {
@@ -25,6 +28,7 @@ type TradeDepsState = {
   activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }>;
   allies?: readonly string[];
   activityDashboard?: { timeline?: { rivals?: ReadonlyArray<ChronicleWarCounts & { playerId: string }> } | undefined };
+  leaderboard?: FealtyState["leaderboard"];
 };
 
 /**
@@ -34,6 +38,7 @@ type TradeDepsState = {
  */
 export const diplomacyTradeDepsFor = (state: TradeDepsState, send: DiplomacyTradeDeps["send"]): DiplomacyTradeDeps => ({
   send,
+  fealtyWith: fealtyLookupFor({ me: state.me ?? "", leaderboard: state.leaderboard }),
   chronicleRival: (targetPlayerId) => state.activityDashboard?.timeline?.rivals?.find((rival) => rival.playerId === targetPlayerId),
   runningTruce: (targetPlayerId, targetName) =>
     state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase())),

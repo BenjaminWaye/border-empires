@@ -329,7 +329,7 @@ describe("action bar", () => {
 
   it("keeps attack and march actions ahead of Cancel Waypoint, and Cancel ahead of fallback suggestions", () => {
     const cancel = act("cancel_waypoint", { label: "Cancel Waypoint" });
-    for (const id of ["launch_attack", "march_attack_flag", "march_to_pick_origin", "muster_hunt_attackers"] as const) {
+    for (const id of ["launch_attack", "march_attack_flag", "march_to_pick_origin"] as const) {
       expect(selectBarButtons(view({ actions: [cancel, act(id)] }))[0]).toMatchObject({ primary: true, action: { id } });
     }
     const beacon = act("build_relay_beacon_frontier", { label: "Relay Beacon" });

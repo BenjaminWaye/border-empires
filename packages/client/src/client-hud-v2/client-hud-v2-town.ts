@@ -32,6 +32,7 @@ import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import type { TownPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 
 /** An ungarrisoned town gives no coin or manpower: "none" sent yet, or a garrison "on_its_way". */
 export type TownGarrisonState = "none" | "on_its_way";
@@ -51,6 +52,8 @@ export type TownScreenInput = {
   focusWorkLocked?: boolean;
   /** Absent once the town is garrisoned. */
   garrison?: TownGarrisonState | undefined;
+  /** A garrisoned town's plots you hold but haven't garrisoned (client-town-plot-garrison.ts); absent when none. */
+  plotGarrison?: TownPlotGarrison | undefined;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
@@ -159,7 +162,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
     ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
-    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
+    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
@@ -227,6 +230,11 @@ const barHtml = (input: TownScreenInput): string => {
   const improvementBtn = improvement
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="${esc(improvement.id)}"${targetAttrs(improvement, keyOf(input.focus))} title="${esc(improvement.detail ?? improvement.label)}">${esc(improvement.label)}${improvement.cost ? `<small>${esc(improvement.cost)}</small>` : ""}</button>`
     : "";
+  // A garrisoned town with plots still to garrison: one gold button garrisons them all (the selected tile's own action wins the slot).
+  const plots = garrison || improvement ? undefined : input.plotGarrison;
+  const plotsBtn = plots
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-v2-garrison-plots="${esc(keyOf(input.town))}"${plots.disabledReason ? " disabled" : ""} title="${esc(plots.disabledReason ?? `Garrison ${plots.count} plot${plots.count === 1 ? "" : "s"} around the town`)}">Garrison plots<small>${esc(plots.disabledReason ?? plots.cost)}</small></button>`
+    : "";
   // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
   // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
   const garrisonTile = focusGarrison ? input.focus : input.town;
@@ -246,7 +254,7 @@ const barHtml = (input: TownScreenInput): string => {
   const raiseBtn = raise
     ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
-  return `${garrisonBtn}${improvementBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  return `${garrisonBtn}${improvementBtn}${plotsBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map<span class="v2-key-hint"> · Esc</span></button>${garrisonOption}`;
 };

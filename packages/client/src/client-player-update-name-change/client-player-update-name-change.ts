@@ -1,7 +1,8 @@
+import { settleProfileEditIfConfirmed } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type ApplyPlayerUpdateNameChangeDeps = {
-  state: Pick<ClientState, "meName" | "pendingDisplayNameChange">;
+  state: Pick<ClientState, "meName" | "pendingDisplayNameChange" | "pendingColorChange">;
   authProfileNameEl: { value: string };
   pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
 };
@@ -19,6 +20,8 @@ export const applyPlayerUpdateNameChange = (name: string, deps: ApplyPlayerUpdat
   if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === name) {
     state.pendingDisplayNameChange = "";
     pushFeed("Display name updated.", "info", "success");
+    // The waiting Edit Name & Colour modal closes on this.
+    settleProfileEditIfConfirmed(state);
     if (typeof window !== "undefined" && typeof window.alert === "function") {
       window.alert(`Your display name is now "${name}".`);
     }

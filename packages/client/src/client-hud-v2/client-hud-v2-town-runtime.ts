@@ -19,10 +19,11 @@ import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScre
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions, type TownGarrisonState } from "./client-hud-v2-town.js";
 import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-growth/client-town-growth.js";
+import { garrisonableTownPlotsFor, townPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
-import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { pickTownFocus, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
 import { townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
 import type { TownFocus } from "@border-empires/shared";
 
@@ -123,6 +124,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
     garrison: townGarrisonState(deps.state, town),
+    plotGarrison: townPlotGarrison(garrisonableTownPlotsFor(deps.state, town), deps.state),
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
@@ -137,22 +139,13 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   watchTownBarHeight(document.getElementById("v2t-bar"));
 };
 
-/** A Town focus press: previews `focus` on the open town (Confirm switches), or with `allTowns` sets every town. */
-export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
+/** A Town focus press: previews `focus` on the open town (Confirm switches). */
+export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus): void => {
   if (!current) return;
-  // "All towns" asks for a second press before it changes every town; the first press only redraws the button.
-  if (allTowns && !confirmTownFocusForAll(current.townKey, focus)) {
-    renderTownScreen(deps);
-    return;
-  }
-  // A confirmed "All towns" always redraws, so its button leaves the "again to confirm" state even if nothing changed.
-  if (allTowns) {
-    pickTownFocusForAll(deps, myTowns(deps), focus);
-    renderTownScreen(deps);
-  } else {
-    selectTownFocus(deps, current.townKey, focus);
-    renderTownScreen(deps);
-  }
+  selectTownFocus(deps, current.townKey, focus);
+  renderTownScreen(deps);
+  // A preview (a tap, or keys 1–4 while the card is closed) must be visible; writeHtml keeps it open from here on.
+  document.querySelector<HTMLDetailsElement>("#v2t-left details.v2tf")?.setAttribute("open", "");
 };
 
 /** Confirm on the open town: switches to the previewed focus, which then locks until the next refill. */
