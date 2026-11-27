@@ -46,20 +46,29 @@ type BeaconChainStep = "build" | "garrison" | "expand";
 const chainStepFor = (state: ClientState, tile: Tile): BeaconChainStep =>
   tile.ownerId === state.me ? (tile.ownershipState === "SETTLED" ? "build" : "garrison") : "expand";
 
-/** What confirming here costs: the whole expand + garrison + build chain the tile needs. */
-export const relayBeaconPlacementCost = (state: ClientState, tile: Tile): { manpower: number; gold: number } => {
+/**
+ * What confirming here costs: the whole expand + garrison + build chain the tile needs. `manpowerNow` is the part
+ * Confirm spends; each later step is charged when it starts (garrison once the claim lands, the beacon once the
+ * garrison lands).
+ */
+export const relayBeaconPlacementCost = (state: ClientState, tile: Tile): { manpower: number; gold: number; manpowerNow: number } => {
   const step = chainStepFor(state, tile);
   const build = relayBeaconManpowerCostForState(state);
-  if (step === "build") return { manpower: build, gold: 0 };
-  if (step === "garrison") return { manpower: state.settleManpowerCost + build, gold: SETTLE_COST };
-  return { manpower: state.expandManpowerCost + state.settleManpowerCost + build, gold: FRONTIER_CLAIM_COST + SETTLE_COST };
+  if (step === "build") return { manpower: build, gold: 0, manpowerNow: build };
+  if (step === "garrison") return { manpower: state.settleManpowerCost + build, gold: SETTLE_COST, manpowerNow: state.settleManpowerCost };
+  return { manpower: state.expandManpowerCost + state.settleManpowerCost + build, gold: FRONTIER_CLAIM_COST + SETTLE_COST, manpowerNow: state.expandManpowerCost };
 };
 
-/** Short cost line for the placement bar, e.g. "36 m.p., 2 coin". */
+/**
+ * Short cost line for the placement bar, e.g. "70 m.p. (20 now), 2 coin". Playtest 2026-11-27: "70 m.p." on
+ * frontier land took only the 20 garrison manpower at Confirm (the 50 for the beacon follows the garrison), so
+ * a chain says what Confirm spends now.
+ */
 export const relayBeaconPlacementCostLabel = (state: ClientState, tile: Tile | undefined): string => {
   if (!tile || !isRelayBeaconPlacementTarget(state, tile)) return "pick a highlighted tile";
-  const { manpower, gold } = relayBeaconPlacementCost(state, tile);
-  return gold > 0 ? `${manpower} m.p., ${gold} coin` : `${manpower} m.p.`;
+  const { manpower, gold, manpowerNow } = relayBeaconPlacementCost(state, tile);
+  const mp = manpowerNow < manpower ? `${manpower} m.p. (${manpowerNow} now)` : `${manpower} m.p.`;
+  return gold > 0 ? `${mp}, ${gold} coin` : mp;
 };
 
 export type RelayBeaconChainDeps = {

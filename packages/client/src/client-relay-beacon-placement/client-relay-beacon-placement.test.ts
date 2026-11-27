@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { tileKey } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { isRelayBeaconPlacementRetap, isRelayBeaconPlacementTarget, startRelayBeaconChain } from "./client-relay-beacon-placement.js";
+import { isRelayBeaconPlacementRetap, isRelayBeaconPlacementTarget, relayBeaconPlacementCostLabel, startRelayBeaconChain } from "./client-relay-beacon-placement.js";
 
 const setup = (tiles: Tile[], reach: string[]) => {
   const state = createInitialState();
@@ -73,5 +73,31 @@ describe("startRelayBeaconChain (runs only after Confirm)", () => {
     startRelayBeaconChain(state, state.tiles.get("2,1")!, deps);
     expect(deps.warn).toHaveBeenCalledWith("Relay Beacon unaffordable", expect.stringMatching(/^Need \d+ manpower$/));
     expect(deps.sendGameMessage).not.toHaveBeenCalled();
+  });
+});
+
+// Playtest 2026-11-27 (strategist): the quote said 70 manpower but Confirm took 20. On frontier land the 70 is
+// garrison (20) + beacon (50); Confirm pays the garrison and the beacon is charged once the garrison lands.
+describe("relayBeaconPlacementCostLabel", () => {
+  const priced = (tiles: Tile[], reach: string[]) => {
+    const { state } = setup(tiles, reach);
+    state.settleManpowerCost = 20;
+    state.expandManpowerCost = 10;
+    return state;
+  };
+
+  it("says what Confirm spends now on owned frontier land", () => {
+    const state = priced([{ x: 2, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }], ["2,1"]);
+    expect(relayBeaconPlacementCostLabel(state, state.tiles.get("2,1"))).toMatch(/^70 m\.p\. \(20 now\)(, \d+ coin)?$/);
+  });
+
+  it("says what Confirm spends now on neutral land", () => {
+    const state = priced([{ x: 3, y: 1, terrain: "LAND" }], ["3,1"]);
+    expect(relayBeaconPlacementCostLabel(state, state.tiles.get("3,1"))).toMatch(/^80 m\.p\. \(10 now\)(, \d+ coin)?$/);
+  });
+
+  it("keeps a single number on garrisoned land, where Confirm pays it all", () => {
+    const state = priced([{ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }], ["1,1"]);
+    expect(relayBeaconPlacementCostLabel(state, state.tiles.get("1,1"))).toMatch(/^\d+ m\.p\.$/);
   });
 });
