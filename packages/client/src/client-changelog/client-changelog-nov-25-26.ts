@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
@@ -29,6 +30,7 @@ import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
+  { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
   // Out of time order on purpose: kept off the end of the list, where every new entry is appended.
   { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795777142349, },
