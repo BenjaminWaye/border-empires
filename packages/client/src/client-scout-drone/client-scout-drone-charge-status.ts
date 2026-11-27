@@ -15,3 +15,10 @@ export const scoutChargeStatus = (state: Pick<ClientState, "scoutDroneCharges">,
   const next = ready < scoutChargesMax(state) && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
   return next === undefined ? scoutChargeCount(state, nowMs) : `${scoutChargeCount(state, nowMs)} · +1 in ${scoutClock(next - nowMs)}`;
 };
+
+/** With no charge ready, how long until the next one is back ("3h 58m"); undefined while any is ready. */
+export const scoutChargeRefillIn = (state: Pick<ClientState, "scoutDroneCharges">, nowMs: number): string | undefined => {
+  if (scoutChargesReady(state, nowMs) > 0 || !state.scoutDroneCharges) return undefined;
+  const next = nextScoutChargeAt(state.scoutDroneCharges, nowMs);
+  return next === undefined ? undefined : scoutClock(next - nowMs);
+};

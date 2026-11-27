@@ -9,6 +9,7 @@ import { TOWN_FOCUS_CONFIRM_ENTRY, TOWN_FOCUS_ENTRY, TOWN_FOCUS_LIST_ENTRY, TOWN
 import { UI_TYPE_CONSISTENCY_ENTRY } from "./client-changelog-ui-type-consistency.js";
 import { UNLOCK_CELEBRATION_ENTRY } from "./client-changelog-unlock-celebration.js";
 import { FRONTIER_GARRISON_ENTRY } from "./client-changelog-frontier-garrison.js";
+import { SCOUT_CHARGE_SYNC_ENTRY } from "./client-changelog-scout-charge-sync.js";
 import { GUEST_LOGOUT_WARNING_ENTRY } from "./client-changelog-guest-logout-warning.js";
 import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js";
 import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-flag-spot.js";
@@ -43,6 +44,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUEST_BADGE_DRONE_ENTRY, createdAt: 1795678223664, },
   { ...TOWN_FOCUS_PANEL_ENTRY, createdAt: 1795678750561, },
   { ...FRONTIER_GARRISON_ENTRY, createdAt: 1795692680347, },
+  { ...SCOUT_CHARGE_SYNC_ENTRY, createdAt: 1795769841486, },
   { ...TOWN_FOCUS_LIST_ENTRY, createdAt: 1795706978426, },
   { ...GUEST_LOGOUT_WARNING_ENTRY, createdAt: 1795707977072, },
   { ...PROGRESS_COUNTERS_ENTRY, createdAt: 1795721664780, },

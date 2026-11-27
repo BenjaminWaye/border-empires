@@ -18,6 +18,8 @@ import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import { createGuideTownRouteCheck } from "./tutorial-guide-town-route.js";
+import { guideLandDock, type GuideLandDock } from "./tutorial-guide-island-dock.js";
+import { guideDockLead, type GuideDockLead } from "./tutorial-guide-dock-lead.js";
 import { resolveMyReach, serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
@@ -190,6 +192,9 @@ let cached:
       scan: TileScan;
       footholdTargets: GuideFootholdTargets;
       musterUnlocked: boolean;
+      landDock: GuideLandDock | undefined;
+      /** Filled on first use: only a town lead too far for one drone leg, with no dock on the player's land, asks for it. */
+      dockLead?: { value: GuideDockLead | undefined; discovered: number };
       /** Filled on first use: only the Relay Beacon step reads it, so other steps skip the reach scan. */
       beaconSite?: { value: { x: number; y: number } | undefined };
     }
@@ -203,17 +208,23 @@ const beaconSiteOf = (tiles: ReadonlyMap<string, Tile>, me: string, ownsRelayBea
 };
 
 /** The server's town lead, only while its tile is still fog: once seen, the town targets take over. */
-const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead" | "townLeadChargesShort"> => {
+const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead" | "townLeadChargesShort" | "townLeadFar"> => {
   const lead = state.guideTownLead;
   if (!lead) return {};
   const key = tileKey(lead.x, lead.y);
   if (state.discoveredTiles.has(key) || state.tiles.has(key)) return {};
-  // Every flight starts at the AFC, so a town further than the ready charges' legs can't be reached by
-  // flying part-way again and again: the step waits for charges instead (review of PR #2933).
+  // Every flight starts at the AFC. A town more than one leg away is no drone target: the player is
+  // probably on an island, and the guide steers to a dock instead (owner, 2026-11-27).
   const launch = scoutLaunchAfc(state, lead);
-  const short = launch ? leadRouteLegs(launch, lead) - scoutChargesReady(state, Date.now()) : 0;
+  const legs = launch ? leadRouteLegs(launch, lead) : 1;
+  if (legs > 1) return { townLeadFar: true };
+  const short = launch ? legs - scoutChargesReady(state, Date.now()) : 0;
   return { townLead: lead, townLeadChargesShort: Math.max(0, short) };
 };
+
+/** The dock to steer to: on a fully seen island, or on any land mass once the nearest town is more than a leg away. */
+const islandDockOf = (landDock: GuideLandDock | undefined, townLeadFar: boolean | undefined): Pick<GuideInput, "islandDock" | "islandSealed" | "dockLead"> =>
+  landDock && (landDock.sealed || townLeadFar) ? { islandDock: landDock.dock, islandSealed: landDock.sealed } : {};
 
 // The explore target scans rings of discoveredTiles around home. A drone flight grows that set
 // without touching tiles, so it is cached on the set's size and home, not on the tiles revision.
@@ -292,10 +303,25 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail, { completed: footholdSaved, reach: resolveMyReach(state) }),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
       footholdTargets: footholdTargetsFor(state),
+      // Only while the foothold is still being taught: a big empire's walk would just run out of budget.
+      landDock: footholdSaved ? undefined : guideLandDock(state.tiles, state.me, state.homeTile),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
   const current = cached;
+  const lead = townLeadInFog(state);
+  const dockSteer = islandDockOf(current.landDock, lead.townLeadFar);
+  if (lead.townLeadFar && !dockSteer.islandDock) {
+    // A drone flight grows discoveredTiles without a tiles change: recompute so the lead's Explore ask clears.
+    if (current.dockLead?.discovered !== state.discoveredTiles.size) {
+      const withinOneLeg = (dock: { x: number; y: number }): boolean => {
+        const launch = scoutLaunchAfc(state, dock);
+        return launch !== undefined && leadRouteLegs(launch, dock) <= 1;
+      };
+      current.dockLead = { value: guideDockLead(state.tiles, state.discoveredTiles, state.me, state.homeTile, state.dockPairs, withinOneLeg), discovered: state.discoveredTiles.size };
+    }
+    if (current.dockLead.value) dockSteer.dockLead = current.dockLead.value;
+  }
   const signals = guideInputSignals();
   const openPanel = openPanelOf(state);
   return {
@@ -334,7 +360,8 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
     exploreTarget: () => exploreTargetOf(state),
     scoutFlights: scoutFlightsOf(state),
-    ...townLeadInFog(state),
+    ...lead,
+    ...dockSteer,
     // Not before home is known: an unknown home also has no target, and the Explore step's completion is sticky.
     nothingToExplore: () => state.homeTile !== undefined && exploreTargetOf(state) === undefined
   };

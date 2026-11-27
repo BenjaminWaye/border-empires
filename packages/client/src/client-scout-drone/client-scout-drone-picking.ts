@@ -10,7 +10,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import type { ExploreDispatchDeps } from "./client-scout-drone-explore-action.js";
 import { cancelScoutPlan, handleScoutPlanTap, scoutPlanTapStarts, type ScoutPlanState } from "./client-scout-drone-plan.js";
-import { scoutChargeCount, scoutChargeStatus } from "./client-scout-drone-charge-status.js";
+import { scoutChargeCount, scoutChargeRefillIn, scoutChargeStatus } from "./client-scout-drone-charge-status.js";
 import { takeMenuClosingPress } from "./client-scout-drone-closing-press.js";
 import { scoutReportCardVisible } from "./client-scout-drone-hud.js";
 
@@ -25,7 +25,10 @@ export const afcScoutDroneActions = (state: Pick<ClientState, "me" | "scoutDrone
   if (tile.afc?.ownerId !== state.me || tile.afc.status !== "active") return [];
   // The bar's button has room for the count only (about 44px); the full refill time is in the detail and on
   // the AFC screen (client-afc-upgrades.ts).
-  return [{ id: AFC_SCOUT_ACTION_ID, label: "Send scout drone", cost: scoutChargeCount(state, nowMs), detail: `${AFC_SCOUT_ACTION_DETAIL} Charges: ${scoutChargeStatus(state, nowMs)}.` }];
+  const action: TileActionDef = { id: AFC_SCOUT_ACTION_ID, label: "Send scout drone", cost: scoutChargeCount(state, nowMs), detail: `${AFC_SCOUT_ACTION_DETAIL} Charges: ${scoutChargeStatus(state, nowMs)}.` };
+  // No charges: greyed out, and the bar shows when the next one is back where the count was (player report 2026-11-26).
+  const refill = scoutChargeRefillIn(state, nowMs);
+  return [refill === undefined ? action : { ...action, disabled: true, disabledReason: `+1 in ${refill}` }];
 };
 
 /** Handles the AFC menu row. Returns true when `actionId` was Send scout drone. */

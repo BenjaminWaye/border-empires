@@ -9,6 +9,8 @@ export const MANAGE_CHARGES_CALLOUT_MS = 6_000;
 /** The save waiting for the server's word (then the tip shows), or the one the tip is showing for. */
 let pending: { dealtAt: number; keptKey: string } | undefined;
 let calloutUntil = 0;
+/** The pending scroll retry, so a newer call or a test reset cancels it (CI: a retry fired after teardown). */
+let scrollRetry: ReturnType<typeof setTimeout> | undefined;
 
 const readSeen = (): string | null => {
   try {
@@ -69,16 +71,20 @@ export const manageChargesCalloutActive = (nowMs: number): boolean => nowMs < ca
 
 /** Brings the glowing Manage charges button into view once the profile screen has drawn it. */
 export const scrollManageChargesIntoView = (root: ParentNode, tries = 10): void => {
+  if (scrollRetry !== undefined) clearTimeout(scrollRetry);
+  scrollRetry = undefined;
   const button = root.querySelector<HTMLElement>("[data-v2-open-charges]");
   if (button) {
     button.scrollIntoView({ block: "center", behavior: "smooth" });
     return;
   }
-  if (tries > 0) window.setTimeout(() => scrollManageChargesIntoView(root, tries - 1), 120);
+  if (tries > 0) scrollRetry = setTimeout(() => scrollManageChargesIntoView(root, tries - 1), 120);
 };
 
 /** Test-only. */
 export const resetHouseChargesProfileTipForTests = (): void => {
   pending = undefined;
   calloutUntil = 0;
+  if (scrollRetry !== undefined) clearTimeout(scrollRetry);
+  scrollRetry = undefined;
 };
