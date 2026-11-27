@@ -50,7 +50,10 @@ describe("House Charges card styles", () => {
   // exactly like the live button, so tapping it seemed to do nothing. A disabled Keep must look disabled.
   it("dims the Keep button while it cannot be pressed", () => {
     const style = source("client-house-charges-style.css").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(style).toMatch(/\.house-charges-popover \.panel-btn:disabled \{[^}]*opacity: 0\.4/);
+    const rule = style.match(/\.house-charges-popover \[data-house-charges-save\]:disabled \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/opacity:\s*0?\.\d/);
+    // The steampunk theme's .panel-btn:hover has no :not(:disabled); a tap must not light the greyed button up.
+    expect(rule).toMatch(/pointer-events:\s*none/);
   });
 
   // Review of #2887: a phone held sideways is wider than 900 px but compact, and must keep the phone panel.
