@@ -59,8 +59,8 @@ describe("Planetary Defense owner names", () => {
     state.leaderboard.overall = [
       { id: "barbarian-1", name: "Barbarians", rank: 1, score: 1, tiles: 1, incomePerMinute: 0, techs: 0, manpowerCap: 0 }
     ];
-    expect(playerNameForOwnerFromState(state, "barbarian-1")).toBe("Planetary Defense");
-    expect(playerDisplayNameForOwnerFromState(state, "barbarian-1")).toBe("Planetary Defense");
-    expect(playerDisplayNameForOwnerFromState(state, "barbarian")).toBe("Planetary Defense");
+    expect(playerNameForOwnerFromState(state, "barbarian-1")).toBe("Insurgents");
+    expect(playerDisplayNameForOwnerFromState(state, "barbarian-1")).toBe("Insurgents");
+    expect(playerDisplayNameForOwnerFromState(state, "barbarian")).toBe("Insurgents");
   });
 });

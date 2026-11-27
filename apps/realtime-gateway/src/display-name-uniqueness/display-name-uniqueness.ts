@@ -10,7 +10,7 @@ export const displayNameKey = (name: string): string =>
 
 // The seasonal AIs' names are reserved too, so no one can pass as an AI (seasonal-ai-names.ts).
 const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set([
-  "barbarians", "barbarian", "planetary defense", "nauticus", ...SEASONAL_AI_NAMES.map((name) => displayNameKey(name))
+  "barbarians", "barbarian", "planetary defense", "insurgents", "insurgent", "nauticus", ...SEASONAL_AI_NAMES.map((name) => displayNameKey(name))
 ]);
 // "House Noname <n>" is the name guests are given (see guest-profile/), so a
 // real player cannot take one and pass as a guest.
