@@ -98,7 +98,7 @@ export const buildMusterActions = (
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged}/${cap} manpower staged · clears Planetary Defense and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · clears Insurgents and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
         ...siegeLock()
       });
       out.push({

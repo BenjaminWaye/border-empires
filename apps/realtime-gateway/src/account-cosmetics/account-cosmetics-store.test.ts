@@ -73,3 +73,17 @@ describe.each(stores)("%s account cosmetics store", (_name, create) => {
     expect(capped.selections).toHaveLength(1);
   });
 });
+
+describe("sqlite account cosmetics store across a restart", () => {
+  it("keeps a House crest beside the other slots when the database is reopened", async () => {
+    const db = new DatabaseSync(":memory:");
+    const first = new SqliteAccountCosmeticsStore(db, () => 1_000);
+    first.applySchema();
+    await first.setSelection("p1", "crest", "crest-lighthouse");
+    await first.setSelection("p1", "musterFlag", "flag-high-noble");
+    const reopened = new SqliteAccountCosmeticsStore(db, () => 2_000);
+    reopened.applySchema();
+    expect(await reopened.getSelection("p1")).toEqual({ musterFlag: "flag-high-noble", crest: "crest-lighthouse" });
+    expect((await reopened.listSelections(10)).selections).toEqual([["p1", { musterFlag: "flag-high-noble", crest: "crest-lighthouse" }]]);
+  });
+});

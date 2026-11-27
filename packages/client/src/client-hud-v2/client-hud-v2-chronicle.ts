@@ -2,6 +2,8 @@
 // personal activity timeline. Every event that happened somewhere has a Show
 // button that flies the camera there; rivals filter one timeline.
 
+import type { CrestCosmeticId } from "@border-empires/shared";
+import { emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
 import { SCREEN_HINTS } from "./client-hud-v2-hints.js";
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText } from "../client-activity-dashboard/client-activity-dashboard-format.js";
@@ -23,6 +25,8 @@ export type ChronicleInput = {
   selectedId: string | undefined;
   nameOf: (playerId: string) => string | undefined;
   colorOf: (playerId: string) => string | undefined;
+  /** A House's crest (cosmetic); its initial shows when unset. */
+  crestOf?: (playerId: string) => CrestCosmeticId | undefined;
   techName: (techId: string) => string | undefined;
   /** Your standing with each empire by size: unequal alliance rows read as fealty (client-fealty.ts). */
   fealtyWith?: FealtyLookup;
@@ -141,8 +145,8 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput, dated = fals
   </div>`;
 };
 
-const crest = (name: string, color: string | undefined): string =>
-  `<span class="v2c-crest" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
+const crest = (name: string, color: string | undefined, charge: CrestCosmeticId | undefined): string =>
+  `<span class="v2c-crest" style="background:${esc(color ?? "#5a4828")}" aria-hidden="true">${emblemFaceHtml(emblemInitial(name), charge)}</span>`;
 
 /** One rival's head-to-head line in words: "took 11 of your tiles · you held off 2 attacks". */
 export const rivalTallyText = (r: NonNullable<PersonalActivityTimeline["rivals"]>[number]): string => {
@@ -169,7 +173,7 @@ const summaryHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput):
   ].join("");
   const rivals = (timeline.rivals ?? []).slice(0, 2).map((r) => {
     const name = input.nameOf(r.playerId) ?? "Empire";
-    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId))}<b>${esc(name)}</b><span>${esc(rivalTallyText(r))}</span></span>`;
+    return `<span class="v2c-rival">${crest(name, input.colorOf(r.playerId), input.crestOf?.(r.playerId))}<b>${esc(name)}</b><span>${esc(rivalTallyText(r))}</span></span>`;
   }).join("");
   return `<div class="v2c-summary"><span class="v2c-summary-h">Last 24 hours</span><div class="v2c-chips">${chips}</div>${rivals}</div>`;
 };

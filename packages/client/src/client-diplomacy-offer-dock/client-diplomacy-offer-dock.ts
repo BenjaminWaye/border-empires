@@ -91,10 +91,10 @@ const remainingFor = (
   return Math.max(0, onServerClock === undefined ? sinceSeen : Math.min(sinceSeen, onServerClock));
 };
 
-// Coin, or an ongoing resource supply from your slots.
+// Coin, an ongoing resource supply from your slots, or a town.
 const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
   (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.coinPerHour ?? 0) > 0 ||
-  hasResourceSupplyOffer(request.terms?.ask.resources);
+  hasResourceSupplyOffer(request.terms?.ask.resources) || (request.terms?.ask.towns?.length ?? 0) > 0;
 
 /**
  * The deal screen's own affordability check (ownGoodsShortfall), applied to

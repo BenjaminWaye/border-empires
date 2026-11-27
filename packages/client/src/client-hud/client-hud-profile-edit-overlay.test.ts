@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { settleProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
@@ -9,6 +10,9 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   me: "player-1",
   playerColors: new Map([["player-1", "#38b000"]]),
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6"],
+  playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
+  ownedCosmetics: [] as CosmeticId[],
+  authSessionReady: true,
   ...overrides
 });
 

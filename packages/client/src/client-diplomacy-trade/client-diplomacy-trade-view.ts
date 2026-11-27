@@ -1,4 +1,4 @@
-import { townsValueToAi, truceNeedsTownReturn, type ReturnableTown } from "@border-empires/shared";
+import { truceNeedsTownReturn, type ReturnableTown } from "@border-empires/shared";
 import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
@@ -11,8 +11,7 @@ import {
   evaluateAiOffer,
   extensionPricing,
   requiredForOffer,
-  netValueToAi,
-  aiCoinHours,
+  aiValueOfTerms,
   recurringCoinTermHours,
   type AiDiplomacyPricing,
   type AiGiftView,
@@ -35,6 +34,8 @@ export type DiplomacyStanceReply = {
   supplyAgreementsFull?: true;
   /** Your towns taken from this target lately that you could hand back (client-diplomacy-town-return.ts). */
   returnableTowns?: ReturnableTown[];
+  /** Their towns taken from you lately that you could ask back. */
+  askableTowns?: ReturnableTown[];
 } & (
   | { found: false; targetPlayerName: string }
   /** holdings: the human's coin and spare supply, absent when they're offline or the gateway predates it. */
@@ -178,6 +179,12 @@ export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): st
   return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
 };
 
+/** Why an AI can't give what was asked: towns it never took, more Coin per day than it earns spare, or more than it holds. */
+const cannotPayText = (missing: DiplomacyGoods, aiSpareCoinPerHour: number | undefined): string =>
+  missing.towns?.length ? "can't hand back a town it didn't take from you in the last day."
+    : missing.coinPerHour ? `can pledge at most ${Math.max(0, Math.floor(aiSpareCoinPerHour ?? 0)) * 24} Coin per day.`
+    : "doesn't have that much to give.";
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
@@ -214,9 +221,9 @@ export const tradeVerdict = (input: {
     return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
   }
   if (hasRecurringCoin(selection.terms)) {
-    // An AI takes Coin per day only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
-    if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
-      return { tone: "bad", text: "AI Houses accept Coin per day only from you, and only for a truce.", canSend: false, sendLabel };
+    // An AI pledges or takes Coin per day only for a truce: say so before pointing at a slot that wouldn't help.
+    if (reply?.found && reply.ai && kind !== "truce")
+      return { tone: "bad", text: "AI Houses trade Coin per day only for a truce.", canSend: false, sendLabel };
     if (recurringCoinTermHours(kind, selection.durationHours, selection.terms) === null)
       return { tone: "neutral", text: "Add a resource slot to pledge Coin per day outside a truce.", canSend: false, sendLabel };
   }
@@ -249,13 +256,13 @@ export const tradeVerdict = (input: {
     return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection, fealty)} at any price right now.`, canSend: true, sendLabel };
   }
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
-  if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
+  if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} ${cannotPayText(verdict.missing, reply.pricing.aiSpareCoinPerHour)}`, canSend: true, sendLabel };
   const required = requiredForOffer(pricing, kind, selection.durationHours, selection.terms) ?? 0;
   // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms)) + townsValueToAi(pricing.townValues, selection.terms.give.towns);
+  const offered = aiValueOfTerms(pricing, kind, selection.durationHours, selection.terms);
   return {
     tone: "bad",
     text: (affordable

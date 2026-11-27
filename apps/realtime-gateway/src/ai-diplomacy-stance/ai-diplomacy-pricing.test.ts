@@ -305,7 +305,7 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      pricing: { required: { truce12: 240, truce24: 360, alliance: 92 }, aiHoldings: { gold: 40 } },
+      pricing: { required: { truce12: 240, truce24: 360, alliance: 92 }, aiHoldings: { gold: 40 }, aiSpareCoinPerHour: 120 },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 },
       temperament: { label: "Measured", traits: "No strong leanings" }
     });

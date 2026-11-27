@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
@@ -26,8 +27,13 @@ import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garrison.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
+import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
+import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
+import { AI_DEAL_ASKS_ENTRY } from "./client-changelog-ai-deal-asks.js";
 
+import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
+  { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
   // Out of time order on purpose: kept off the end of the list, where every new entry is appended.
   { ...PUBLIC_HOUSE_SHARE_STATE_ENTRY, createdAt: 1795777142349, },
@@ -47,6 +53,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
+  { ...MOTHERSHIP_AI_ENTRY, createdAt: 1795769269985, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
   { ...GUIDE_ATTACK_TRUCE_ENTRY, createdAt: 1795764700050, },
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
@@ -55,9 +62,12 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...ACCOUNT_TEXT_FIXES_ENTRY, createdAt: 1795765537068, },
+  { ...HOUSE_CRESTS_ENTRY, createdAt: 1795769381841, },
+  { ...SIEGE_ODDS_ENTRY, createdAt: 1795769624813, },
   { ...BATTLE_WARNINGS_ENTRY, createdAt: 1795769680653, },
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
   { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
   { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
+  { ...AI_DEAL_ASKS_ENTRY, createdAt: 1795779130551, },
 ];

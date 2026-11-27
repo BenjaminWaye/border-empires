@@ -106,6 +106,24 @@ describe("trade screen: return a town", () => {
     expect(townButton().disabled).toBe(true);
   });
 
+  // Owner, 2026-11-27: you can ask an AI for a town back that it took from you.
+  it("asks an AI for a town it took from you, in a truce only", () => {
+    const pine: ReturnableTown = { x: 7, y: 8, toPlayerId: "p-me", name: "Pinewatch", tier: "TOWN", capturedAt: 1 };
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 500 }) });
+    receiveDiplomacyStance({ ...reply, returnableTowns: [], askableTowns: [pine],
+      pricing: { required: { truce12: 100, truce24: 200, alliance: null }, aiHoldings: { gold: 0 }, aiTownValues: [{ x: 7, y: 8, value: 200 }] } });
+    expect(document.querySelector<HTMLElement>('[data-trade-towns="ask"]')?.hidden).toBe(false);
+    const pineButton = () => document.querySelector<HTMLButtonElement>('[data-trade-town="7,8"][data-trade-town-side="ask"]')!;
+    pineButton().click();
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent).toContain("Pinewatch");
+    // 100 for the truce plus 200 for the town.
+    expect(verdictText()).toContain("wants about 300 more coin");
+    document.querySelector<HTMLButtonElement>('[data-trade-kind^="alliance"]')!.click();
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent ?? "").not.toContain("Pinewatch");
+    expect(pineButton().disabled).toBe(true);
+  });
+
   it("toggles a town in and out of what you give", () => {
     const withOak = withTownToggled({ give: { gold: 5 }, ask: { gold: 0 } }, oak);
     expect(withOak.give).toEqual({ gold: 5, towns: [{ x: 4, y: 4 }] });

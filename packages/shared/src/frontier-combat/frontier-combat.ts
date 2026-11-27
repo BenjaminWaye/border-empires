@@ -4,6 +4,7 @@ import { BREAKTHROUGH_DEBUFF_MULT, NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT } f
 import { attackManpowerLossRangeForFort } from "../structure-costs/structure-costs.js";
 import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive } from "../capture-hold/capture-hold.js";
 import { fortPerimeterDefenseMult } from "../fort-perimeter/fort-perimeter.js";
+import { TOWN_BESIEGED_DEFENSE_MULT, TOWN_BESIEGED_LABEL } from "../town-siege/town-siege.js";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
@@ -20,6 +21,8 @@ export type FrontierCombatPreviewTile = {
   // Post-capture hold window end (capture-hold.ts): a FRONTIER tile defends
   // until then instead of having zero defense.
   captureHoldUntil?: number | undefined;
+  // Town cut off from its owner's garrisons by a rival (town-siege.ts isTownBesieged).
+  townBesieged?: boolean | undefined;
 };
 
 export type FrontierCombatBreakdownEntry = {
@@ -217,7 +220,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Manifests vs garrisoned tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Manifests vs forts", modifiers.attackVsFortsMult);
-  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Manifests vs Planetary Defense", modifiers.attackVsBarbariansMult);
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Manifests vs Insurgents", modifiers.attackVsBarbariansMult);
   return { entries, mult };
 };
 
@@ -238,6 +241,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
     mult *= foldMult(entries, "Ancient force field", modifiers.relicDefenseMult);
     mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
     mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
+    mult *= foldMult(entries, TOWN_BESIEGED_LABEL, target.townType && target.townBesieged ? TOWN_BESIEGED_DEFENSE_MULT : undefined);
     const techMult = modifiers.fortDefenseMult ?? 1;
     const ownFortMult = target.fortVariant ? baseFortDefenseMult(target.fortVariant) * techMult : 1;
     const perimeterMult =

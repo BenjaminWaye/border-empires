@@ -79,3 +79,7 @@
 .ach-goal, .ach-state { font-size: 12px; opacity: 0.85; }
 .ach-bar { display: block; height: 4px; background: rgba(255, 255, 255, 0.12); }
 .ach-bar > span { display: block; height: 100%; background: var(--v2-gold); }
+/* Your own emblem opens the Edit Name, Colour & Crest dialog (client-hud-v2-profile-crest.ts). */
+.v2p-crest-edit { display: grid; justify-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.v2p-crest-edit:hover .v2p-crest, .v2p-crest-edit:focus-visible .v2p-crest { box-shadow: 0 0 0 6px rgba(240, 207, 130, 0.3), 0 16px 36px rgba(0, 0, 0, 0.55); }
+.v2p-crest-change { font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-gold); }
