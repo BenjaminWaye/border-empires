@@ -279,12 +279,21 @@ baseline.
     every four hours. Next (owner, 2026-11-24): a run of days on the owner's
     own machine with humans playing in turns. Until then the hosting price
     is not settled.
+  - Known 2026-11-27, from 69.5 hours on the owner's MacBook with humans
+    playing in turns: the growth does not stop. What the simulation holds
+    after garbage collection rose to 470 MB, still about 1.2–1.5 MB an hour
+    on day 3; at that rate the heap's peaks reach the 900 MB limit around
+    day 10 of a contest. What holds it is not known yet. Tap times from that
+    run do not count, because the Mac was heavily loaded by other programs.
+    The hosting price is still not settled.
   - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
     process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
     watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
     100 Houses. 1,250 MB held early in a contest but not on a world with about
     nine game hours of play (1.2–1.3 GB); in every run so far 1,500 MB would
-    have put off none. Still to confirm on a run of days
+    have put off none. Confirmed 2026-11-27 on the 69.5-hour run: process
+    memory reached 1,323 MB and the heap 659 MB at a checkpoint, so neither
+    watermark would have put one off
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
   *Answered 2026-11-26, owner decisions 2026-11-27* ([`game-mechanics.md`](game-mechanics.md), "No landing
