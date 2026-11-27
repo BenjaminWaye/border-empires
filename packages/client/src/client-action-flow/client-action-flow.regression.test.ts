@@ -305,7 +305,8 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
     expect(source).toContain("const confirmTap = tapConfirm.take(wx, wy);");
     expect(source).toContain("if (confirmTap && confirmAction && confirmTapReady(confirmAction)) {\n      handleTileAction(confirmAction.id);");
-    expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(confirmAction && (() => confirmPromptOffer(");
+    // Off the phone layout only: there the bottom sheet already carries the same button (offerBesideTileSheet).
+    expect(source).toContain("tapConfirm.arm(wx, wy);\n    confirmButton.offer(offerBesideTileSheet(confirmAction && (() => confirmPromptOffer(");
     // An action button disarms, so a later tap on the same tile can't fire it again.
     expect(source).toContain("tapConfirm.disarm(); // an action button ran");
     // Never a one-tap attack on an ally or truce partner, never a Garrison on own land (review of #2848).
