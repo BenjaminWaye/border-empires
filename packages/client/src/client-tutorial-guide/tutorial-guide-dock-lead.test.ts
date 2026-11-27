@@ -33,18 +33,30 @@ const pairs = [
   { ax: 18, ay: 18, bx: 61, by: 61 }
 ];
 
+const anyLeg = (): boolean => true;
+
 describe("guide dock lead", () => {
-  it("picks the nearest dock the player could walk to, from the world's dock list", () => {
-    expect(guideDockLead(world(), new Set(), ME, HOME, pairs)).toEqual({ ...UNSEEN_DOCK, unexplored: true });
+  it("picks the nearest unexplored dock the player could walk to, from the world's dock list", () => {
+    expect(guideDockLead(world(), new Set(), ME, HOME, pairs, anyLeg)).toEqual(UNSEEN_DOCK);
   });
 
-  it("skips a dock across water the player has seen, and a rival's dock", () => {
-    const islet = [{ ax: 18, ay: 18, bx: 13, by: 30 }];
-    // (13,30) is never received, so it may be on the player's land; the nearer islet dock is ringed by seen sea.
-    expect(guideDockLead(world(), new Set(), ME, HOME, islet)).toEqual({ x: 13, y: 30, unexplored: true });
+  // QA review of PR #3029: a seen dock not on the player's known land may lie across water, so Expand To there
+  // could fail; and a dock beyond one leg would be pulled back to the leg range every flight, never reached.
+  it("skips a dock the player has seen, and one beyond a drone leg", () => {
     const tiles = world();
-    tiles.set(tileKey(UNSEEN_DOCK.x, UNSEEN_DOCK.y), { ...UNSEEN_DOCK, terrain: "LAND", ownerId: "rival", dockId: "d" });
-    expect(guideDockLead(tiles, new Set(), ME, HOME, pairs)?.x).not.toBe(UNSEEN_DOCK.x);
+    tiles.set(tileKey(UNSEEN_DOCK.x, UNSEEN_DOCK.y), { ...UNSEEN_DOCK, terrain: "LAND", dockId: "d" });
+    // The islet dock (18,18) is seen too; only (60,60) and (61,61) are left, both unexplored.
+    expect(guideDockLead(tiles, new Set(), ME, HOME, pairs, anyLeg)).toEqual({ x: 60, y: 60 });
+    expect(guideDockLead(world(), new Set([tileKey(UNSEEN_DOCK.x, UNSEEN_DOCK.y)]), ME, HOME, pairs, anyLeg)?.x).not.toBe(UNSEEN_DOCK.x);
+    expect(guideDockLead(world(), new Set(), ME, HOME, pairs, (dock) => dock.x < 20)).toEqual(UNSEEN_DOCK);
+    expect(guideDockLead(world(), new Set(), ME, HOME, pairs, () => false)).toBeUndefined();
+  });
+
+  it("skips a dock across water the player has seen", () => {
+    // An unseen dock on a known LAND tile ringed by seen sea: no overland route.
+    const tiles = world();
+    tiles.delete(tileKey(18, 18));
+    expect(guideDockLead(tiles, new Set(), ME, HOME, [{ ax: 18, ay: 18, bx: 13, by: 30 }], anyLeg)).toEqual({ x: 13, y: 30 });
   });
 
   // Owner 2026-11-27: like the town lead, when the nearest town is too far for one drone leg and no dock shows,

@@ -43,15 +43,18 @@ const ISLAND_DOCK_STEP: Record<GuideIslandDockAction, { title: string; why: stri
 };
 
 // The nearest town is more than one drone leg away and no dock is known yet: the usual nearby Explore,
-// told to look for a dock (owner, 2026-11-27: never fly the drone more than one leg to a town).
+// told to look for a dock (owner, 2026-11-27: never fly the drone more than one leg to a town). Not "you're
+// on an island": only a fully seen island is sure (QA review of PR #3029).
 const DOCK_SEARCH_STEP: Partial<Record<GuideTargetAction, { title: string; why: string }>> = {
-  explore: { title: "Towns lie across the sea: tap the marked ground, then Explore", why: "Look for a dock. It's how your troops cross the water." },
-  scouting: { title: "Your drone is flying: wait for its report", why: "Look for a dock in what it finds. It's how your troops cross the water." }
+  explore: { title: "No town close by: tap the marked ground, then Explore", why: "Look for a dock. On an island, it's how your troops cross the sea." },
+  scouting: { title: "Your drone is flying: wait for its report", why: "Look for a dock in what it finds. On an island, it's how your troops cross the sea." }
 };
 
-// The dock lead (tutorial-guide-dock-lead.ts) while its tile is unexplored: marked like the town lead,
-// and here the guide does say what is there, so the player knows what they're looking for.
-const DOCK_LEAD_EXPLORE = { title: "Find a dock: tap the mark, then Explore", why: "Towns lie across the sea. A dock is how your troops cross." };
+// The dock lead (tutorial-guide-dock-lead.ts): marked like the town lead, and here the guide does say what
+// is there, so the player knows what they're looking for.
+const DOCK_LEAD_EXPLORE = { title: "Find a dock: tap the mark, then Explore", why: "No town close by. On an island, a dock is how your troops cross the sea." };
+/** The free dock on land that isn't a confirmed island. */
+const LAND_DOCK_EXPAND = { title: "No town close by: tap the marked dock, then Expand To", why: "On an island, a dock is how your troops cross the sea." };
 
 type DockStep = { title: string; why: string; highlight?: ReadonlyArray<{ x: number; y: number }> };
 
@@ -70,10 +73,12 @@ export const islandDockLead = (input: GuideInput): GuideIslandDock | undefined =
  */
 const dockStep = (input: GuideInput): DockStep | undefined => {
   const dock = islandDockLead(input);
-  if (dock) return { ...ISLAND_DOCK_STEP[dock.action], highlight: [{ x: dock.x, y: dock.y }] };
+  if (dock) {
+    const copy = dock.action === "expand" && !input.islandSealed ? LAND_DOCK_EXPAND : ISLAND_DOCK_STEP[dock.action];
+    return { ...copy, highlight: [{ x: dock.x, y: dock.y }] };
+  }
   if (!input.townLeadFar || !noTownToTake(input)) return undefined;
   const lead = input.dockLead;
-  if (lead && !lead.unexplored) return { ...ISLAND_DOCK_STEP.expand, highlight: [{ x: lead.x, y: lead.y }] };
   if (lead && input.scout === "ready") return { ...DOCK_LEAD_EXPLORE, highlight: [{ x: lead.x, y: lead.y }] };
   if (lead && input.scout === "out") return { ...DOCK_SEARCH_STEP.scouting!, highlight: [] };
   return DOCK_SEARCH_STEP[townAction(input)];

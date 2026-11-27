@@ -96,13 +96,14 @@ describe("guide island dock", () => {
       const { input, view: far } = view(islandTiles(open), { x: 60, y: 8 });
       expect(input.townLead).toBeUndefined();
       expect(input.townLeadFar).toBe(true);
-      expect(far).toEqual(expect.objectContaining({ title: "You're on an island: tap the marked dock, then Expand To", highlightTiles: [DOCK] }));
+      // Not a fully seen island, so the copy doesn't claim one.
+      expect(far).toEqual(expect.objectContaining({ title: "No town close by: tap the marked dock, then Expand To", highlightTiles: [DOCK] }));
     });
 
     it("with no dock seen, asks for a nearby Explore to look for one, not the far town", () => {
       const { view: far } = view(islandTiles({ ...open, dock: null }), { x: 60, y: 8 });
       expect(far).toEqual(
-        expect.objectContaining({ title: "Towns lie across the sea: tap the marked ground, then Explore", why: "Look for a dock. It's how your troops cross the water.", highlightTiles: [{ x: 12, y: 20 }] })
+        expect.objectContaining({ title: "No town close by: tap the marked ground, then Explore", why: "Look for a dock. On an island, it's how your troops cross the sea.", highlightTiles: [{ x: 12, y: 20 }] })
       );
     });
 

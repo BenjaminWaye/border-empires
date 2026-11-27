@@ -113,6 +113,8 @@ export type GuideInput = {
   townLeadFar?: boolean;
   /** With townLeadFar and no dock on the player's land: the nearest dock that may be on it (tutorial-guide-dock-lead.ts). */
   dockLead?: GuideDockLead;
+  /** The player's land is a fully seen island (not just a far town lead): the copy may say so. */
+  islandSealed?: boolean;
   /** The dock to steer to on an island (tutorial-guide-island-dock.ts). */
   islandDock?: GuideIslandDock;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */

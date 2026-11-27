@@ -223,8 +223,8 @@ const townLeadInFog = (state: GuideInputState): Pick<GuideInput, "townLead" | "t
 };
 
 /** The dock to steer to: on a fully seen island, or on any land mass once the nearest town is more than a leg away. */
-const islandDockOf = (landDock: GuideLandDock | undefined, townLeadFar: boolean | undefined): Pick<GuideInput, "islandDock" | "dockLead"> =>
-  landDock && (landDock.sealed || townLeadFar) ? { islandDock: landDock.dock } : {};
+const islandDockOf = (landDock: GuideLandDock | undefined, townLeadFar: boolean | undefined): Pick<GuideInput, "islandDock" | "islandSealed" | "dockLead"> =>
+  landDock && (landDock.sealed || townLeadFar) ? { islandDock: landDock.dock, islandSealed: landDock.sealed } : {};
 
 // The explore target scans rings of discoveredTiles around home. A drone flight grows that set
 // without touching tiles, so it is cached on the set's size and home, not on the tiles revision.
@@ -314,7 +314,11 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
   if (lead.townLeadFar && !dockSteer.islandDock) {
     // A drone flight grows discoveredTiles without a tiles change: recompute so the lead's Explore ask clears.
     if (current.dockLead?.discovered !== state.discoveredTiles.size) {
-      current.dockLead = { value: guideDockLead(state.tiles, state.discoveredTiles, state.me, state.homeTile, state.dockPairs), discovered: state.discoveredTiles.size };
+      const withinOneLeg = (dock: { x: number; y: number }): boolean => {
+        const launch = scoutLaunchAfc(state, dock);
+        return launch !== undefined && leadRouteLegs(launch, dock) <= 1;
+      };
+      current.dockLead = { value: guideDockLead(state.tiles, state.discoveredTiles, state.me, state.homeTile, state.dockPairs, withinOneLeg), discovered: state.discoveredTiles.size };
     }
     if (current.dockLead.value) dockSteer.dockLead = current.dockLead.value;
   }
