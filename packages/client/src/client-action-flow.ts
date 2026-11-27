@@ -148,7 +148,7 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { confirmPromptOffer, confirmTapAction, confirmTapActionForTile, confirmTapReady, createTapConfirm, neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapAction, confirmTapActionForTile, confirmTapReady, createTapConfirm, neutralTileClickOutcome, offerBesideTileSheet } from "./client-tile-interaction/client-tile-interaction.js";
 import { createSheetDismissDisarm } from "./client-tile-interaction/client-tap-confirm-dismiss.js";
 import { createTapConfirmButton } from "./client-tap-confirm-button/client-tap-confirm-button.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
@@ -1445,7 +1445,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       tapConfirm.arm(wx, wy);
       const foggedTile = persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor);
       const adjacentClaim = isLand && isNeutral && Boolean(pickOriginForTarget(wx, wy, false)); // only an adjacent claim confirms on a re-tap here
-      confirmButton.offer(adjacentClaim ? confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(foggedTile))) : undefined, reTap);
+      confirmButton.offer(offerBesideTileSheet(adjacentClaim ? confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(foggedTile))) : undefined), reTap);
       openSingleTileActionMenu(foggedTile, clientX, clientY);
       renderHud();
       return;
@@ -1501,7 +1501,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     tapConfirm.arm(wx, wy);
-    confirmButton.offer(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to)))), reTap); // live: an attack's cost lands with its preview
+    confirmButton.offer(offerBesideTileSheet(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to))))), reTap); // live: an attack's cost lands with its preview
     openSingleTileActionMenu(to, clientX, clientY, to === clicked ? undefined : afcArmTapMenuOptions(to, wx, wy)); // an arm tap spotlights that arm's module
     requestAttackPreviewForHover();
     renderHud();
