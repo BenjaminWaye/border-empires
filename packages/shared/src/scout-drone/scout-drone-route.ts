@@ -78,6 +78,15 @@ export const planScoutDroneRoute = (launch: Point, stops: readonly Point[], worl
 };
 
 /**
+ * True when a rival border ends the route before it crosses a single open tile: it would fly
+ * over home ground only and turn back, finding nothing. Its first stop is pulled back onto the
+ * player's own land or reach, so the player is told the border is in the way instead (Playtest
+ * Run 5: Go said "Explore past your own land", or the drone came back with nothing).
+ */
+export const scoutDroneRouteDeadEnd = (route: ScoutDroneRoutePlan): boolean =>
+  route.legs.at(-1)?.blocked !== undefined && route.legs.every((leg) => leg.tiles.every((tile) => tile.stepMs !== SCOUT_DRONE_STEP_MS));
+
+/**
  * A waypoint flight: out through every stop, then straight home, so the way
  * back reveals new ground too. When a rival border lies across the line home it
  * takes the shortest way round (scoutDroneHomePath), retracing its route only
@@ -213,7 +222,7 @@ export const extendScoutDroneFlight = (
   const route = planScoutDroneRoute(resume, [...remaining, ...newStops], world);
   const newStopsReached = Math.max(0, route.legs.length - remaining.length);
   const legTiles = route.legs.flatMap((leg) => leg.tiles);
-  if (newStopsReached === 0 || legTiles.length === 0) return undefined;
+  if (newStopsReached === 0 || legTiles.length === 0 || scoutDroneRouteDeadEnd(route)) return undefined;
   const steps: ScoutDroneStep[] = flight.steps.slice(0, resumeIndex + 1).map((step) => ({ ...step }));
   let at = steps.at(-1)!.at;
   for (const tile of legTiles) {
