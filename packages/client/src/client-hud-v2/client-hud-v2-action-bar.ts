@@ -77,7 +77,8 @@ export const availableResourceImprovement = (view: Pick<BarView, "actions" | "bu
  */
 const primaryAction = (view: BarView): TileActionDef | undefined => {
   for (const id of PRIMARY_ORDER) {
-    const hit = view.actions.find((a) => a.id === id && !a.disabled);
+    // An attack that would break a truce is never the gold main action (selectBarButtons shows it plainly).
+    const hit = view.actions.find((a) => a.id === id && !a.disabled && !a.breaksTruce);
     if (hit) return hit;
   }
   // The active waypoint's target (incl. a plain Expand click, which queues one): Cancel is gold
@@ -141,6 +142,12 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   if (isOwnAfc(view) && (primary || modulesReady)) buttons.push({ kind: "afc", primary: false });
   if (!modulesReady && modules) buttons.push(modules);
   let secondary = 0;
+  // Launch Attack on a truced House stays on the bar, not gold, with "Breaks truce" on it; pressing it asks first.
+  const truceAttack = view.actions.find((a) => a.breaksTruce && !a.disabled && a !== primary);
+  if (truceAttack) {
+    buttons.push({ kind: "action", action: truceAttack, primary: false });
+    secondary += 1;
+  }
   for (const id of SECONDARY_ORDER) {
     if (secondary >= MAX_SECONDARY) break;
     const hit = view.actions.find((a) => a.id === id && a !== primary);

@@ -3,6 +3,7 @@ import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
 import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
+import { agreedTruces, truceAgreedLine } from "../client-truce-offer-length/client-truce-offer-length.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
@@ -144,7 +145,11 @@ export const applyTruceUpdateMessage = (
   // carries player-chosen names (an empire called "Locked Out", say).
   // (Compared by the newest break, not the count: the server caps that list.)
   const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
+  // Both sides see the truce they got: accepting from the offer dock used to just close the card
+  // (playtest 2026-11-27), and the length is what's left of the offer, not the hours offered.
+  const agreed = declined || broken || !msg.activeTruces ? undefined : agreedTruces(previousTruces, state.activeTruces)[0];
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
+  else if (agreed) deps.showCaptureAlert(agreed.extended ? "Truce extended" : "Truce agreed", truceAgreedLine(agreed, Date.now()), "success");
   else if (answeredOutgoing) deps.showCaptureAlert(declined ? "Truce declined" : "Truce agreed", announcement, declined ? "warn" : "success");
 };
 
