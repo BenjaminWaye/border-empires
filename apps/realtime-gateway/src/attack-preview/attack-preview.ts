@@ -1,4 +1,4 @@
-import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, fortPerimeterSourceVariant, isCaptureHoldActive, requiredMusterForFort, salvageArmsMultiplier } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, fortPerimeterSourceVariant, isCaptureHoldActive, isTownBesieged, requiredMusterForFort, salvageArmsMultiplier } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -198,7 +198,9 @@ export const attackPreviewResult = async (
             const fortTile = tileMap.get(previewTileKey(x, y));
             return Boolean(fortTile) && !isCaptureHoldActive(fortTile!, Date.now());
           })
-        : undefined
+        : undefined,
+      // Siege: the sim answers from its full tile map; the requester's view is the fallback.
+      townBesieged: Boolean(target.townType) && (defenderFacts?.targetTownBesieged ?? isTownBesieged(target, (x, y) => tileMap.get(previewTileKey(x, y))))
     },
     {
       attackerOutpostMult,

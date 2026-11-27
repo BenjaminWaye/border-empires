@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { fortPerimeterSourceVariant, isCaptureHoldActive, isFortDefending, type FortVariant } from "@border-empires/shared";
+import { fortPerimeterSourceVariant, isCaptureHoldActive, isFortDefending, isTownBesieged, type FortVariant } from "@border-empires/shared";
 
 // Narrow slice of RuntimeCombatSupportContext (runtime-combat-support.ts) the
 // fort check needs; kept structural so this module doesn't import back.
@@ -52,3 +52,14 @@ export const targetFortPerimeterVariantFor = (
     }
   );
 };
+
+// Siege (town-siege.ts): the defender's town has no garrisoned plot of its
+// own around it and a rival holds one. Read from the live tile map at roll
+// time, the same rule the gateway preview and client paint apply.
+export const targetTownBesiegedFor = (
+  ctx: { tiles: ReadonlyMap<string, DomainTileState> },
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined
+): boolean =>
+  Boolean(previousTarget?.town && defenderOwnerId && previousTarget.ownerId === defenderOwnerId) &&
+  isTownBesieged(previousTarget!, (x, y) => ctx.tiles.get(`${x},${y}`));
