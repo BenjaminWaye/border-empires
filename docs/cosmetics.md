@@ -2,7 +2,7 @@
 
 Status: canonical reference
 Owner: Border Empires maintainers
-Last verified: 2026-11-24
+Last verified: 2026-11-27
 
 The product decisions are in [`gdd.md`](gdd.md) §8. This page describes what
 is built and the rules new cosmetics must follow.
@@ -166,6 +166,61 @@ and with a Titanium Weapons Factory blue's guards wear titanium plate:
 ![Lancet guards in a skirmish](design/cosmetics/ancillaries-lancet-guard-skirmish.png)
 ![The titanium Lancet guard against the Lancet guard](design/cosmetics/ancillaries-lancet-guard-under-titanium.png)
 
+## House crests
+
+Owner decision, 2026-11-27: build a crest picker now, free, so a House's
+emblem stops being only its initial in a coloured square. Paid crests may
+come later.
+
+- **Catalogue.** `packages/shared/src/cosmetics/crest-cosmetics.ts`, slot
+  `crest`, 12 crests: cog, anchor, tower, lighthouse, airship, crossed
+  spanners, gear-wing, key, compass, kraken, stag and hammer. Every entry has
+  `free: true`. There is no crown, which would read as the earned Duke title.
+- **Free cosmetics.** A `free` cosmetic is owned by every account without a
+  grant: the gateway adds every free id to `COSMETICS_STATE.owned`
+  (`ownedWithFreeCosmetics`) and accepts `SET_COSMETIC` for it without a
+  stored grant. Free cosmetics are never written to `account_cosmetics_owned`
+  and never count towards a title. To sell a crest later, add it without
+  `free` and grant it like any other cosmetic.
+- **Art.** `packages/client/src/client-house-crest/client-house-crest-art.ts`:
+  one bold silhouette per crest on a 24-unit grid in `currentColor`, outlined
+  by a CSS drop shadow so it reads on light House colours. Built to the
+  steampunk icon rule: simple and legible at 16 to 24 px.
+- **What a rival must still read.** The emblem's field stays the House
+  colour, and the crest takes the place of the letter, never more space. On
+  a muster flag the crest replaces the device inside the same square: the
+  cloth's colour, outline, wind, ADVANCE cues and soldiers are unchanged. On
+  the 16 px Chronicle emblem a crest is harder to tell apart than a letter;
+  the House name always sits beside the emblem.
+- **Choosing.** Name, colour and crest are set together in one dialog,
+  "Edit Name, Colour & Crest" (`client-hud-profile-edit-overlay.ts`, crest
+  part in `client-profile-edit-crest.ts`): a live preview of your emblem in
+  the chosen colour and crest above the crest picker (owner, 2026-11-27).
+  Open it by tapping the emblem on your own profile (tap your HUD emblem
+  first to open the profile), or from Settings → Account. "Letter" clears the
+  crest. Save sends `SET_COSMETIC` after any name or colour change, and the
+  dialog stays open on "Saving…" until the gateway answers with
+  `COSMETICS_STATE`; a `COSMETIC_*` refusal or no reply in 15 s is shown in
+  the dialog. A crest-only change skips the once-per-contest confirmation,
+  since a crest can change at any time; with a name or colour change, the
+  confirmation lists the crest too. The Settings cosmetics card no longer
+  offers crests.
+
+| Emblem | Shows the crest |
+|---|---|
+| Your HUD emblem (`client-hud-v2-nav.ts`) | Yes |
+| Rivals strip (`client-hud-v2-rivals.ts`) | Yes |
+| Diplomacy list and requests (`client-hud-v2-diplomacy.ts`) | Yes |
+| Ranks race pins and standings (`client-hud-v2-ranks.ts`) | Yes; a House without a crest keeps its one or two letters |
+| Chronicle rivals (`client-hud-v2-chronicle.ts`) | Yes |
+| Battle sides (`client-hud-v2-battle.ts`) | Yes |
+| Profile hero (`client-hud-v2-profile.ts`) | Yes |
+| Public House web page (`client-public-house-view.ts`) | No: `GET /public/house/:id` does not carry the crest yet |
+| Muster flags, true-3D | Every visible flag, yours and rivals': the crest is stitched on the cloth in place of the cog (or the High-noble sun), in the same thread with the same dark outline. Crests are rasterised once into a 4×3 atlas (`muster-banner-crest-atlas.ts`); `aBannerCrest` per flag picks the cell. A flag with no crest keeps its cog. Relic banners keep the cog |
+| Muster flags, 2D canvas | Your own besieged flag's pennant (the only muster flag 2D draws, see the known gap above) carries your crest in place of the High-noble sun once tiles are drawn 48 px or larger (`client-map-render-muster-siege-badge.ts`); smaller, the pennant stays plain. Rivals' flags are not drawn on the 2D map for anyone |
+
+AI Houses show their letter: nothing picks a crest for them.
+
 ## Ownership and selection
 
 - The account key is the gateway player id, which is the same in every Sector
@@ -209,17 +264,22 @@ client message reaches either.
 | Gateway → everyone | `PLAYER_STYLE {playerId, cosmetics}` | A player's look changed; `{}` is the standard look |
 | Gateway → joining client | `INIT.playerCosmetics` | Every account with a non-default look. Absent when there is none |
 
-Settings → Account shows a cosmetics card only to an account that owns
-something.
+Settings → Account shows a cosmetics card to every account: it always has
+the House crest picker, plus a row per other slot the account owns something
+for.
 
 ## Wire and memory cost
 
-- A player who owns nothing adds **no bytes** to `INIT` or to any broadcast.
+- A player who shows no cosmetic (no crest either) adds **no bytes** to
+  `INIT` or to any broadcast.
+- `COSMETICS_STATE.owned` always lists the 12 free crest ids, about 200
+  bytes, once per session to that player only.
 - A non-default look is one short id per slot, about 45 bytes as JSON today. A
   change is one broadcast, serialised once and shared by every recipient.
 - The gateway keeps one small object per account with a non-default look
   (`shown` in the service), loaded once at boot. It is limited to 5,000
-  accounts (`MAX_LOADED_COSMETIC_SELECTIONS`); past that a choice is still
+  accounts (`MAX_LOADED_COSMETIC_SELECTIONS`; free crests make that limit
+  likelier to be reached than paid looks did); past that a choice is still
   saved but other players see the standard look, and a counter records it.
 - `INIT.playerCosmetics` lists every such account on the server, whether or
   not it is in the current contest. At the limit that is about 250 KB per
@@ -239,7 +299,8 @@ the account. Payment records are a separate matter for the payment work. See
 ## Adding a cosmetic
 
 1. Add it to `COSMETIC_CATALOG`. A new slot also goes in `COSMETIC_SLOTS` and
-   `PlayerCosmeticSelection`.
+   `PlayerCosmeticSelection`. Set `free: true` only if every account should
+   own it without paying.
 2. Give it a look in **both** renderers, or disclose the gap in the table
    above. A flag design needs an index in `BANNER_DESIGN_INDEX`, which is
    typed so a catalogue id without a look does not compile.

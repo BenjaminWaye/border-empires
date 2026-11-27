@@ -4,6 +4,7 @@
 // (career stats, galactic holdings, public pacts), which keeps fetching while
 // its own overlay stays hidden under the new HUD.
 
+import { profileCrestHtml, type ProfileCrestFields } from "./client-hud-v2-profile-crest.js";
 import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
@@ -20,7 +21,7 @@ type Loadable<T> = T | "loading" | undefined;
 
 export type ProfileRelation = { kind: "self" } | { kind: "ally"; label?: string } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
 
-export type ProfileInput = {
+export type ProfileInput = ProfileCrestFields & {
   id: string;
   name: string;
   color: string;
@@ -97,7 +98,7 @@ const heroHtml = (input: ProfileInput): string => {
   // Your own profile only: makes (on first use) and shares the public web link (client-public-house-share.ts).
   const share = input.relation.kind === "self" ? shareHtml(input.share ?? { state: "unknown" }) : "";
   return `<aside class="v2p-hero">
-    <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
+    ${profileCrestHtml(input)}
     <h2 class="v2p-name">${esc(input.name)}</h2>
     ${relationHtml(input.relation, input.nowMs)}
     ${rank}

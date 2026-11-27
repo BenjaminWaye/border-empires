@@ -39,6 +39,7 @@ export const createRelicMapOverlay = (scene: Scene, capacity: number): RelicMapO
   for (let i = 0; i < capacity; i += 1) wind.set([i * 0.19, 0.8], i * 2);
   geometry.setAttribute("aBannerWind", new InstancedBufferAttribute(wind, 2));
   geometry.setAttribute("aBannerDesign", new InstancedBufferAttribute(new Float32Array(capacity), 1)); // 0: the standard livery
+  geometry.setAttribute("aBannerCrest", new InstancedBufferAttribute(new Float32Array(capacity), 1)); // 0: no House crest, the cog
   const fabric = createMusterBannerClothMaterials();
   const cloth = new InstancedMesh(geometry, fabric.cloth, capacity);
   cloth.customDepthMaterial = fabric.depth;

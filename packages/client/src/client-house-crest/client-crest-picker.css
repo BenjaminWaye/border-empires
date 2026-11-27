@@ -1,0 +1,36 @@
+/* Crest picker (client-crest-picker.ts): a grid of emblems in the House colour. */
+.crest-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+.crest-pick {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 5px 2px 4px;
+  border: 1px solid rgba(240, 207, 130, 0.22);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #d9c9a3;
+  font: inherit;
+  cursor: pointer;
+}
+.crest-pick:hover:not(:disabled) { border-color: rgba(240, 207, 130, 0.6); }
+.crest-pick.is-active { border-color: #f0cf82; box-shadow: inset 0 0 0 1px #f0cf82; background: rgba(240, 207, 130, 0.12); }
+.crest-pick:disabled { opacity: 0.55; cursor: default; }
+.crest-pick-emblem {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid rgba(246, 236, 212, 0.7);
+  color: #f6ecd4;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.crest-pick-name { font-size: 10px; line-height: 1.1; white-space: nowrap; }
