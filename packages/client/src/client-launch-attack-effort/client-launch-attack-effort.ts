@@ -26,6 +26,7 @@ import {
 import { launchFlagPlacement, type LaunchFlagPlacement } from "./client-launch-attack-flag-placement.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { hasOwnAttackEnRoute, type AttackEnRouteState } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
 
 export type AttackLaunchScope = "single" | "bulk" | "region";
 
@@ -133,10 +134,12 @@ export const promptAttackEffortForTarget = (
 
 const launchTitle = (scope: AttackLaunchScope, count: number): string => (scope === "region" ? `Attack region · ${count} tiles` : `Attack ${count} tiles`);
 
-const enemyTargetKeys = (state: EffortState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
+// Skips tiles an own attack is already heading for: a connected-region or
+// bulk launch would otherwise re-send them and be refused LOCKED.
+const enemyTargetKeys = (state: EffortState & AttackEnRouteState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
   targetKeys.filter((k) => {
     const t = state.tiles.get(k);
-    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t));
+    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t) && !hasOwnAttackEnRoute(state, t.x, t.y));
   });
 
 const queueAndReport = (
