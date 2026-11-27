@@ -10,6 +10,7 @@ import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
+import type { IntegrityDropNotice } from "../client-integrity-drop/client-integrity-drop-cause.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
@@ -119,6 +120,8 @@ export const createInitialState = () => ({
   settledT: 1,
   settledE: 4,
   ownedT: undefined as number | undefined, // owned land tiles (PLAYER_UPDATE T): what Integrity's shape is judged against
+  integrityDropNotice: undefined as IntegrityDropNotice | undefined, // last Integrity drop explained (client-integrity-drop/)
+  awaitingFreshPlayerUntil: 0, // after INIT, food/Integrity chips show "…" until a full PLAYER_UPDATE or this time (client-player-freshness/)
   // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
   selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
@@ -262,7 +265,9 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; openPanel?: "charges"; timeout?: boolean } | undefined,
+  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; openPanel?: "charges" | "integrity"; timeout?: boolean } | undefined,
+  /** Good news (a won fight, a claimed tile): never drawn as a card, kept only so the battle screen can read a win. */
+  goodNewsAlert: undefined as { title: string; detail: string; until: number; tone: "success"; manpowerLoss?: number; focusX?: number; focusY?: number } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],

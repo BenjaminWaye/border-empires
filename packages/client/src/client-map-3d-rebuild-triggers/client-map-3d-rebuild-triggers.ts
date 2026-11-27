@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { createRetiredProspectCluesLookup } from "../client-prospect-clue/client-prospect-clue.js";
+import { playerCosmeticsRevision } from "../client-cosmetics/client-cosmetics.js";
 import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js";
 import { serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { diplomacyOverlayKey } from "../client-diplomacy-overlay/client-diplomacy-overlay.js";
@@ -34,6 +35,9 @@ export type Map3DRebuildTriggers = {
   retiredProspectCluesKey: string;
   // See diplomacyOverlayKey: the Diplomacy tint repaints when toggled or when an alliance/truce changes.
   diplomacyOverlayKey: string;
+  // A player's crest or muster flag changed (PLAYER_STYLE, INIT, COSMETICS_STATE):
+  // the muster banners are built in the rebuild, so redraw them now.
+  cosmeticsRevision?: number;
 };
 
 export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: DEFAULT_INCURSION_BREACH_STYLE, aetherProtectionKey: "", retiredProspectCluesKey: "", diplomacyOverlayKey: "" };
@@ -92,7 +96,7 @@ export const aetherProtectionRebuildKey = (state: AetherProtectionTriggerState, 
   isAetherProtectionFieldShown(state, keyFor) ? `on:${aetherProtectionFieldKey(aetherProtectionField(state, Date.now()))}` : "";
 
 export const captureMap3DRebuildTriggers = (
-  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog" | "showDiplomacyOverlay" | "showResourceOverlay" | "allies" | "activeTruces"> & { relicMapHintsRevision?: number } & AetherProtectionTriggerState,
+  state: Pick<ClientState, "playerCosmetics" | "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog" | "showDiplomacyOverlay" | "showResourceOverlay" | "allies" | "activeTruces"> & { relicMapHintsRevision?: number } & AetherProtectionTriggerState,
   keyFor: (x: number, y: number) => string,
   reach3DActive: boolean
 ): Map3DRebuildTriggers => ({
@@ -103,7 +107,8 @@ export const captureMap3DRebuildTriggers = (
   incursionBreachStyle: incursionBreachStyle(),
   aetherProtectionKey: aetherProtectionRebuildKey(state, keyFor),
   retiredProspectCluesKey: [...retiredProspectClues(state.techIds, state.techCatalog)].join(","),
-  diplomacyOverlayKey: diplomacyOverlayKey(state)
+  diplomacyOverlayKey: diplomacyOverlayKey(state),
+  cosmeticsRevision: playerCosmeticsRevision(state)
 });
 
 export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Map3DRebuildTriggers): boolean =>
@@ -114,4 +119,5 @@ export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Ma
   built.incursionBreachStyle !== now.incursionBreachStyle ||
   built.aetherProtectionKey !== now.aetherProtectionKey ||
   built.retiredProspectCluesKey !== now.retiredProspectCluesKey ||
-  built.diplomacyOverlayKey !== now.diplomacyOverlayKey;
+  built.diplomacyOverlayKey !== now.diplomacyOverlayKey ||
+  (built.cosmeticsRevision ?? 0) !== (now.cosmeticsRevision ?? 0);

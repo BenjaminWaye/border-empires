@@ -1,3 +1,6 @@
+import { isEmpireColorFarEnough } from "@border-empires/shared";
+import { activeEmpiresOf } from "./taken-color-set.js";
+
 // -- palette ------------------------------------------------------------------
 
 export const BASE_PALETTE: readonly string[] = [
@@ -57,6 +60,15 @@ export function isTaken(hex: string, taken: ReadonlySet<string>): boolean {
   return taken.has(hex) || RESERVED_COLORS.has(hex);
 }
 
+/**
+ * Free to hand out: not held exactly by anyone, and (when `taken` is a
+ * TakenColorSet) at least MIN_EMPIRE_COLOR_DELTA_E from every active empire.
+ */
+export function isColorAvailable(hex: string, taken: ReadonlySet<string>): boolean {
+  if (isTaken(hex, taken)) return false;
+  return isEmpireColorFarEnough(hex, activeEmpiresOf(taken).map((empire) => empire.color));
+}
+
 // -- HSL helpers (used by suggestAlternative) -----------------------------------
 
 interface Hsl {
@@ -100,6 +112,17 @@ function hslToHex(hsl: Hsl): string {
   return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
 }
 
+// -- generated candidates --------------------------------------------------------
+
+/** Hue-wheel colours past the palette, at a few saturations and lightnesses, starting from `startHue`. */
+function* generatedCandidates(startHue: number): Generator<string> {
+  for (const s of [0.65, 0.9]) {
+    for (const l of [0.5, 0.4, 0.62, 0.3, 0.74]) {
+      for (let step = 0; step < 120; step++) yield hslToHex({ h: (startHue + step * 3) % 360, s, l });
+    }
+  }
+}
+
 // -- suggest alternative --------------------------------------------------------
 
 const MIN_SUGGESTION_DISTANCE = 22;
@@ -122,7 +145,7 @@ export function suggestAlternative(desired: string, taken: ReadonlySet<string>):
       const candidate = hslToHex(candidateHsl);
       const norm = normalizeHex(candidate);
       if (!norm) continue;
-      if (isTaken(norm, taken)) continue;
+      if (!isColorAvailable(norm, taken)) continue;
       if (colorDistance(norm, desired) < MIN_SUGGESTION_DISTANCE) continue;
       return norm;
     }
@@ -134,24 +157,19 @@ export function suggestAlternative(desired: string, taken: ReadonlySet<string>):
 
 // -- palette selection ---------------------------------------------------------
 
+/** Up to `count` colours a player could pick right now; fewer when the map has no room left. */
 export function pickSuggestedPalette(count: number, taken: ReadonlySet<string>): string[] {
-  const free: string[] = [];
+  const result: string[] = [];
   for (const entry of BASE_PALETTE) {
-    if (!isTaken(entry, taken)) free.push(entry);
+    if (result.length >= count) return result;
+    if (isColorAvailable(entry, taken)) result.push(entry);
   }
-
-  if (free.length >= count) return free.slice(0, count);
-
-  // generate additional colours by rotating hue evenly
-  const result = [...free];
-  let hue = 0;
-  let iter = 0;
-  while (result.length < count && iter++ < 720) {
-    const generated = hslToHex({ h: hue, s: 0.6, l: 0.5 });
-    if (!isTaken(generated, taken)) result.push(generated);
-    hue = (hue + 1) % 360;
+  // generate additional colours around the hue wheel
+  for (const generated of generatedCandidates(0)) {
+    if (result.length >= count) break;
+    if (!result.includes(generated) && isColorAvailable(generated, taken)) result.push(generated);
   }
-  return result.slice(0, count);
+  return result;
 }
 
 // -- deterministic AI assignment ------------------------------------------------
@@ -165,25 +183,33 @@ function fnv32(key: string): number {
   return hash >>> 0;
 }
 
+/**
+ * A colour for an auto-assigned empire (guests): walks the palette from a
+ * hash of `seed`, then the hue wheel, taking the first available colour.
+ * When no colour is far enough from every active empire (a very crowded
+ * map) it still returns one nobody holds exactly.
+ */
 export function assignUniqueColor(seed: string, taken: ReadonlySet<string>): string {
   const hash = fnv32(seed);
   const start = hash % BASE_PALETTE.length;
+  let exactFree: string | undefined;
 
   // walk forward from hashed index
   for (let offset = 0; offset < BASE_PALETTE.length; offset++) {
     const idx = (start + offset) % BASE_PALETTE.length;
     const entry = BASE_PALETTE[idx];
-    if (entry && !isTaken(entry, taken)) return entry;
+    if (!entry || isTaken(entry, taken)) continue;
+    if (isColorAvailable(entry, taken)) return entry;
+    exactFree ??= entry;
   }
 
-  // all 100 taken — generate via HSL rotation
-  let hue = (hash % 360);
-  for (let i = 0; i < 360; i++) {
-    const generated = hslToHex({ h: hue, s: 0.6, l: 0.5 });
-    if (!isTaken(generated, taken)) return generated;
-    hue = (hue + 1) % 360;
+  // palette used up — generate via HSL rotation
+  for (const generated of generatedCandidates(hash % 360)) {
+    if (isTaken(generated, taken)) continue;
+    if (isColorAvailable(generated, taken)) return generated;
+    exactFree ??= generated;
   }
 
   // ultimate fallback (should never reach here)
-  return "#ff00ff";
+  return exactFree ?? "#ff00ff";
 }

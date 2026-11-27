@@ -412,12 +412,10 @@ export type FeedEntry = {
   focusY?: number;
   actionLabel?: string;
   /** The alert card's action opens this side panel instead of centring the map (e.g. "Manage charges"). */
-  openPanel?: "charges";
+  openPanel?: "charges" | "integrity";
   unread?: boolean;
   /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
   feedOnly?: boolean;
-  /** Mirror onto the alert card even when info/success: a background result the player has no other way to see. */
-  alert?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };

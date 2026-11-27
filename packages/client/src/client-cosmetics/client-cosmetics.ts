@@ -1,8 +1,10 @@
 import {
+  COSMETIC_SLOTS,
   isCosmeticId,
   isEmptyCosmeticSelection,
   sanitizeCosmeticSelection,
-  type MusterFlagCosmeticId
+  type MusterFlagCosmeticId,
+  type PlayerCosmeticSelection
 } from "@border-empires/shared";
 
 import type { ClientState } from "../client-state/client-state.js";
@@ -25,14 +27,32 @@ export { crestFor } from "../client-house-crest/client-house-crest.js";
 export const musterFlagDesignFor = (state: Pick<ClientState, "playerCosmetics">, ownerId: string | undefined): MusterFlagDesign =>
   (ownerId ? state.playerCosmetics.get(ownerId)?.musterFlag : undefined) ?? "default";
 
+// Bumped whenever any player's look changes, per playerCosmetics map. The
+// true-3D map rebuilds when it moves (client-map-3d-rebuild-triggers.ts), so a
+// crest or flag change redraws the muster banners at once instead of waiting
+// for the next pan or tile change. Kept beside the map, not in ClientState.
+const revisions = new WeakMap<ReadonlyMap<string, PlayerCosmeticSelection>, number>();
+const bumpRevision = (looks: ReadonlyMap<string, PlayerCosmeticSelection>): void => {
+  revisions.set(looks, (revisions.get(looks) ?? 0) + 1);
+};
+
+/** Changes whenever any player's shown cosmetics change. */
+export const playerCosmeticsRevision = (state: Pick<ClientState, "playerCosmetics">): number => revisions.get(state.playerCosmetics) ?? 0;
+
+const sameLook = (a: PlayerCosmeticSelection | undefined, b: PlayerCosmeticSelection): boolean =>
+  COSMETIC_SLOTS.every((slot) => a?.[slot] === b[slot]);
+
 const setPlayerCosmetics = (state: Pick<ClientState, "playerCosmetics">, playerId: string, raw: unknown): void => {
   const selection = sanitizeCosmeticSelection(raw);
+  if (sameLook(state.playerCosmetics.get(playerId), selection)) return;
   if (isEmptyCosmeticSelection(selection)) state.playerCosmetics.delete(playerId);
   else state.playerCosmetics.set(playerId, selection);
+  bumpRevision(state.playerCosmetics);
 };
 
 /** INIT: the server sends every non-default look, so start from empty. */
 export const applyInitPlayerCosmetics = (state: Pick<ClientState, "playerCosmetics">, raw: unknown): void => {
+  if (state.playerCosmetics.size > 0) bumpRevision(state.playerCosmetics);
   state.playerCosmetics.clear();
   if (!raw || typeof raw !== "object") return;
   for (const [playerId, selection] of Object.entries(raw as Record<string, unknown>)) setPlayerCosmetics(state, playerId, selection);

@@ -785,7 +785,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
+    expect(state.goodNewsAlert).toEqual(
       expect.objectContaining({
         tone: "success"
       })

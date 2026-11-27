@@ -101,7 +101,15 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     // can't do there and how to extend reach instead of a countdown.
     const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
     expect(status?.text).toBe("Beyond your reach");
-    expect(status?.helpText).toBe("Reach: 3 tiles from garrisoned towns (more with Dominion), 5 from Relay Beacons, over land only; mountains and sea stop it. Outside it: claim only, no garrison or build, lost if cut off. A Relay Beacon extends it.");
+    expect(status?.helpText).toBe("Reach: 3 tiles from garrisoned towns (more with Dominion), 5 from Relay Beacons, over land only; mountains and sea stop it. Outside it: claim only, no garrison or build, lost if cut off. Tap \"Relay Beacon toward here\" to extend it.");
+  });
+
+  // Playtest 2026-11-27: the tip said to build a Relay Beacon, but this tile greys Build Relay Beacon out
+  // ("Outside your reach"); the button that works here is "Relay Beacon toward here".
+  it("points the beyond-reach tip at the button that works on that tile", () => {
+    const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
+    expect(status?.helpText).toContain("Relay Beacon toward here");
+    expect(status?.helpText).not.toContain("A Relay Beacon extends it");
   });
 
   it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {

@@ -2,6 +2,7 @@ import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { NOV_25_26_CHANGELOG } from "./client-changelog-nov-25-26.js";
+import { QUIET_GOOD_NEWS_ENTRY } from "./client-changelog-quiet-good-news.js";
 import { CHRONICLE_OPENS_YOURS_ENTRY } from "./client-changelog-chronicle-opens-yours.js";
 import { GUIDE_ISLAND_DOCK_ENTRY } from "./client-changelog-guide-island-dock.js";
 import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
@@ -488,6 +489,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_21_CHANGELOG,
   ...NOV_23_CHANGELOG,
   ...NOV_25_26_CHANGELOG,
+  { ...QUIET_GOOD_NEWS_ENTRY, createdAt: 1795724321729, },
   { ...CHRONICLE_OPENS_YOURS_ENTRY, createdAt: 1795724340365, },
   { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
   { ...ATTACK_EN_ROUTE_ENTRY, createdAt: 1795779638841, },

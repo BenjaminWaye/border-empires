@@ -62,7 +62,7 @@ describe("Economy rows (new HUD)", () => {
 
   it("gives used / supply, where supply comes from and what uses it", () => {
     const food = render(input()).querySelector("[data-v2e-row='FOOD']")!;
-    expect(food.textContent).toContain("9 / 10");
+    expect(food.textContent).toContain("9 / 10 used"); // labelled: the top bar shows the same row as "1 free" (playtest 2026-11-27)
     expect(food.textContent).toContain("1 free");
     expect(food.textContent).toContain("Farm ×4");
     expect(food.textContent).toContain("Town support ×3");

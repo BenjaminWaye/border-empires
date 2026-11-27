@@ -8,14 +8,22 @@ import type { ClientState } from "../client-state/client-state.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
-/** The alert card's panel action: opens that panel (never toggles it shut) and clears the card. True when handled. */
+/**
+ * The alert card's panel action: opens that panel (never toggles it shut) and clears the card. True when handled.
+ * "integrity" (the Integrity drop notice's Fix) opens the Integrity panel with weak tiles and holes highlighted.
+ */
 export const openPanelFromCaptureAlert = (
-  state: Pick<ClientState, "activePanel" | "captureAlert">,
+  state: Pick<ClientState, "activePanel" | "captureAlert"> & Partial<Pick<ClientState, "showWeakDefensibility">>,
   panel: string | undefined,
-  deps: { setActivePanel: (panel: ClientState["activePanel"]) => void; renderCaptureProgress: () => void; renderHud: () => void }
+  deps: { setActivePanel: (panel: ClientState["activePanel"]) => void; renderCaptureProgress: () => void; renderHud: () => void; requestViewRefresh?: () => void }
 ): boolean => {
-  if (panel !== "charges") return false;
-  if (state.activePanel !== "charges") deps.setActivePanel("charges");
+  if (panel !== "charges" && panel !== "integrity") return false;
+  const target = panel === "integrity" ? "defensibility" : "charges";
+  if (panel === "integrity" && !state.showWeakDefensibility) {
+    state.showWeakDefensibility = true; // the 2D and 3D map overlays redraw on the next view refresh
+    deps.requestViewRefresh?.();
+  }
+  if (state.activePanel !== target) deps.setActivePanel(target);
   state.captureAlert = undefined;
   deps.renderCaptureProgress();
   deps.renderHud();
@@ -55,6 +63,8 @@ type UiControlsDeps = {
   renderCaptureProgress: () => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   syncAuthPanelState: () => void;
+  /** Redraws the map after the alert card turns a map overlay on (the Integrity drop notice's Fix). */
+  requestViewRefresh?: () => void;
 };
 
 export const bindClientUiControls = (deps: UiControlsDeps): void => {
@@ -85,7 +95,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderVictoryHoldAlert,
     renderCaptureProgress,
     setActivePanel,
-    syncAuthPanelState
+    syncAuthPanelState,
+    requestViewRefresh
   } = deps;
   const { chooseTech, cancelOngoingCapture, confirmBuildingPlacement, cancelBuildingPlacement } = actionFlow;
 
@@ -112,7 +123,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   // An alert whose action opens a panel ("Manage charges"). A listener, not onclick: client-hud.ts owns
   // onclick for the map-centring alerts, and its handler ignores a button without focus coordinates.
   const gotoBtn = captureGotoBtn ?? captureCloseBtn.ownerDocument.querySelector<HTMLButtonElement>("#capture-goto");
-  gotoBtn?.addEventListener("click", () => openPanelFromCaptureAlert(state, gotoBtn.dataset.captureOpenPanel, { setActivePanel, renderCaptureProgress, renderHud }));
+  gotoBtn?.addEventListener("click", () => openPanelFromCaptureAlert(state, gotoBtn.dataset.captureOpenPanel, { setActivePanel, renderCaptureProgress, renderHud, ...(requestViewRefresh ? { requestViewRefresh } : {}) }));
   victoryAlertCollapseBtn.onclick = () => {
     acknowledgeVictoryHoldAlert();
     renderVictoryHoldAlert();

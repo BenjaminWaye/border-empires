@@ -8,6 +8,7 @@ import type { CrestCosmeticId } from "@border-empires/shared";
 
 import type { ClientState } from "../client-state/client-state.js";
 import { crestFor, emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
+import { esc } from "../client-house-crest/client-crest-escape.js";
 import { setProfileEditOpen } from "../client-hud/client-hud-profile-edit-overlay.js";
 
 export type ProfileCrestFields = { crest?: CrestCosmeticId | undefined; editable?: boolean };
@@ -17,9 +18,6 @@ export const profileCrestFields = (state: Pick<ClientState, "playerCosmetics">, 
   crest: crestFor(state, id),
   editable: self
 });
-
-const esc = (text: string): string =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export const profileCrestHtml = (input: { name: string; color: string } & ProfileCrestFields): string => {
   const emblem = `<span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${emblemFaceHtml(emblemInitial(input.name), input.crest)}</span>`;
