@@ -43,7 +43,7 @@ import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-ba
 import { haveText } from "./client-diplomacy-trade-have-text.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
 import { renderTradeHeader } from "./client-diplomacy-trade-header.js";
-import { bindTownReturn, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, townsAllowedFor, withTownToggled, withoutTowns } from "./client-diplomacy-town-return.js";
+import { bindTownReturn, replyAskableTowns, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, townsAllowedFor, withoutAskedTowns, withTownToggled, withoutTowns } from "./client-diplomacy-town-return.js";
 import {
   activeTruceLockoutReason,
   tradeVerdict,
@@ -137,8 +137,8 @@ const targetIsAi = (reply: DiplomacyStanceReply | undefined): boolean => !reply?
 const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms): void => {
   screen.treaty = treaty;
   const kind = dealKind(treaty, terms, targetIsAi(screen.reply));
-  // Only a truce or a gift carries towns: switching to anything else takes them out.
-  const kept = townsAllowedFor(kind) ? terms : withoutTowns(terms);
+  // Only a truce or a gift carries towns (only a truce asks for one): switching to anything else takes them out.
+  const kept = !townsAllowedFor(kind) ? withoutTowns(terms) : townsAllowedFor(kind, "ask") ? terms : withoutAskedTowns(terms);
   screen.selection = { ...screen.selection, terms: kept, kind: kept === terms ? kind : dealKind(treaty, kept, targetIsAi(screen.reply)) };
   if (!screen.giftPending) screen.notice = undefined;
 };
@@ -167,13 +167,14 @@ const render = (screen: OpenScreen): void => {
     limits: tradeGoodsLimits(own, reply, screen.reach),
     expanded: screen.expanded,
     haveText: (spec) => haveText(own, theirs, spec),
-    hideEmptySupply: { give: true, ask: Boolean(theirs?.resources) },
-    hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: true } : {}
+    hideEmptySupply: { give: true, ask: false },
+    hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: screen.treaty !== "truce" } : {}
   });
-  const towns = replyReturnableTowns(reply);
+  const towns = replyReturnableTowns(reply), askable = replyAskableTowns(reply);
   renderTownReturn(overlay, { towns, terms: selection.terms, kind: selection.kind });
+  renderTownReturn(overlay, { towns: askable, terms: selection.terms, kind: selection.kind, side: "ask" });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
-  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup(towns), fealty });
+  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup([...towns, ...askable]), fealty });
   const shared = tradeVerdict({ targetName, reply, selection, own, fealty, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
@@ -333,6 +334,7 @@ export const openDiplomacyTradeScreen = (
       <section class="diplomacy-trade-side" data-trade-side="ask" aria-label="Theirs">
         <h3>${name}'s</h3>
         ${tradeGoodsHtml("ask", withSupply)}
+        ${townReturnHtml("ask")}
       </section>
     </div>
     <div class="diplomacy-resource-terms" data-resource-agreements></div>
@@ -392,8 +394,8 @@ export const openDiplomacyTradeScreen = (
       render(screen);
     }
   });
-  bindTownReturn(overlay, (town) => {
-    setDeal(screen, screen.treaty, withTownToggled(screen.selection.terms, town));
+  bindTownReturn(overlay, (town, side) => {
+    setDeal(screen, screen.treaty, withTownToggled(screen.selection.terms, town, side));
     render(screen);
   });
   // The middle column: ✕ takes an item out of the deal; pressing an item opens its slider.
