@@ -26,6 +26,7 @@ import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garri
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
+import { HOUSE_CREST_FIXES_ENTRY } from "./client-changelog-house-crest-fixes.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
@@ -62,4 +63,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
   { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
   { ...TOWN_GROWTH_GARRISON_ENTRY, createdAt: 1795777090280, },
+  { ...HOUSE_CREST_FIXES_ENTRY, createdAt: 1795791560569, },
 ];
