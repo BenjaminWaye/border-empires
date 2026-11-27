@@ -51,6 +51,14 @@ describe("battle outcome with the win off-card", () => {
     expect(battleOutcomeFromState(state, none, { x: 4, y: 5 }, Date.now())).toMatchObject({ won: false, headline: "Attack failed" });
   });
 
+  it("never takes a lone result about another tile as this fight's", () => {
+    const state = fresh();
+    showCaptureAlert(state, "Expansion queued", "Behind 2 others.", "warn", undefined, { x: 9, y: 9 });
+    expect(battleOutcomeFromState(state, none, { x: 4, y: 5 }, Date.now())).toBeUndefined();
+    showCaptureAlert(state, "Victory", "Other fight.", "success", 0, { x: 9, y: 9 });
+    expect(battleOutcomeFromState(state, none, { x: 4, y: 5 }, Date.now())).toBeUndefined();
+  });
+
   it("ignores a win recorded before the fight went live", () => {
     const state = fresh();
     showCaptureAlert(state, "Victory", "Earlier.", "success", 0, { x: 4, y: 5 });

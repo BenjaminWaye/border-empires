@@ -36,7 +36,7 @@ type Battle = {
 };
 
 /** A loss shows on the alert card (captureAlert); a win is recorded off-card in goodNewsAlert (showCaptureAlert). */
-type OutcomeAlert = { title: string; detail: string; until: number; tone: string; manpowerLoss?: number; fromFeed?: boolean; focusX?: number; focusY?: number } | undefined;
+type OutcomeAlert = { title: string; detail: string; until: number; tone: "success" | "warn" | "error"; manpowerLoss?: number; fromFeed?: boolean; focusX?: number; focusY?: number } | undefined;
 
 /**
  * The fight's outcome, from the alert the game shows when a combat resolves -- never guessed from tile
@@ -53,8 +53,8 @@ export const battleOutcomeFromAlert = (
 };
 
 /**
- * This fight's outcome from either record. When both are new (a win is off-card, so a warning such as a hostile
- * flag can land after it), the one about this fight's tile wins; failing that, the later one.
+ * This fight's outcome from either record. A record about another tile (a hostile flag, another fight) is never
+ * this fight's result; when both are still new, the later one.
  */
 export const battleOutcomeFromState = (
   state: Pick<ClientState, "captureAlert" | "goodNewsAlert">,
@@ -62,11 +62,10 @@ export const battleOutcomeFromState = (
   at: { x: number; y: number },
   nowMs: number
 ): ReturnType<typeof battleOutcomeFromAlert> => {
-  const loss = battleOutcomeFromAlert(state.captureAlert, before.alert, nowMs);
-  const win = battleOutcomeFromAlert(state.goodNewsAlert, before.goodNews, nowMs);
+  const elsewhere = (a: OutcomeAlert): boolean => typeof a?.focusX === "number" && (a.focusX !== at.x || a.focusY !== at.y);
+  const loss = elsewhere(state.captureAlert) ? undefined : battleOutcomeFromAlert(state.captureAlert, before.alert, nowMs);
+  const win = elsewhere(state.goodNewsAlert) ? undefined : battleOutcomeFromAlert(state.goodNewsAlert, before.goodNews, nowMs);
   if (!loss || !win) return loss ?? win;
-  const onTile = (a: OutcomeAlert): boolean => a?.focusX === at.x && a?.focusY === at.y;
-  if (onTile(state.goodNewsAlert) !== onTile(state.captureAlert)) return onTile(state.goodNewsAlert) ? win : loss;
   return (state.goodNewsAlert?.until ?? 0) >= (state.captureAlert?.until ?? 0) ? win : loss;
 };
 

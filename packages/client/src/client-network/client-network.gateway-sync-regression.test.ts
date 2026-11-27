@@ -785,7 +785,8 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(state.captureAlert).toEqual(
+    // Good news is recorded off the alert card (owner call 2026-11-27).
+    expect(state.goodNewsAlert).toEqual(
       expect.objectContaining({
         tone: "success"
       })
