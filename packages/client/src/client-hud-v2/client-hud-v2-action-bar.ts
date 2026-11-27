@@ -197,7 +197,9 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
 const detailLineHtml = (line: TileMenuView["overviewLines"][number]): string => {
   const kind = line.kind ? ` hud-v2-detail-${line.kind}` : "";
   const html = line.html.replace(/<button\b([^>]*)>([\s\S]*?)<\/button>/g,
-    (button: string, attributes: string, label: string) => /\bdata-(?:view-tech|structure-info)=/.test(attributes) ? button : label);
+    // Buttons with a document-level handler survive (relic-capture-dialog.ts listens for data-relic-state);
+    // the rest act only inside the legacy menu, so they drop to their label.
+    (button: string, attributes: string, label: string) => /\bdata-(?:view-tech|structure-info|relic-state)=/.test(attributes) ? button : label);
   return `<div class="hud-v2-detail-line tile-overview-line${line.kind ? ` tile-overview-line-${line.kind}` : ""}${line.nested ? " tile-overview-line-nested" : ""}${kind}">${html}</div>`;
 };
 
