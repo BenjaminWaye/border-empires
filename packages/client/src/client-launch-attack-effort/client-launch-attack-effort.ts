@@ -24,6 +24,7 @@ import {
   setAttackCommit
 } from "../client-attack-commit/client-attack-commit.js";
 import { launchFlagPlacement, type LaunchFlagPlacement } from "./client-launch-attack-flag-placement.js";
+import { attackFlagFillNote } from "../client-muster-fill-eta/client-muster-fill-eta.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { hasOwnAttackEnRoute, type AttackEnRouteState } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
@@ -104,6 +105,7 @@ export const promptAttackEffortForTarget = (
   if (!isAttackEffortEligibleTarget(tile)) return false;
   const floor = attackEffortFloorForTarget(tile, state);
   const winChanceAt = stickyCommitWinChance(state, tile, deps);
+  const origin = deps.pickOriginForTarget(tile.x, tile.y);
   const handle = showEffortConfirmSheet({
     title: options.title,
     ...warSubtitle(state, [tile.ownerId]),
@@ -119,6 +121,7 @@ export const promptAttackEffortForTarget = (
       const siege = winChance ? besiegedOddsSuffix(targetShowsBesieged(tile, state, attackPreviewBreakdownForTarget(state, tile, deps))) : "";
       return `${winChance ? `Win ${winChance}${siege} · ` : ""}${commitManpower} MP`;
     },
+    note: (commitManpower) => attackFlagFillNote(state, origin, tile, commitManpower),
     onConfirm: (commitManpower) => {
       sheetTargetKey = undefined;
       options.placement?.apply();
@@ -188,6 +191,11 @@ const promptBulkEffort = (
     return chance ? `Win ${chance} · ` : "";
   };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
+  // The fill line follows one flag: the tapped tile's when it is one of the targets, else the first.
+  const fillTile = focusTile ?? eligible[0];
+  const fillOrigin = fillTile && focus ? focus.deps.pickOriginForTarget(fillTile.x, fillTile.y) : undefined;
+  const fillNote = (preset: MusterCommitPreset): string =>
+    fillTile ? attackFlagFillNote(state, fillOrigin, fillTile, musterCommitPresetAmount(preset, attackEffortFloorForTarget(fillTile, state))) : "";
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
@@ -199,6 +207,7 @@ const promptBulkEffort = (
     ...(placement ? { flagSpots: placement.sheet } : {}),
     confirmLabel: "Attack",
     describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}${totalFor(preset ?? "normal")} MP total`,
+    note: (_commit, preset) => fillNote(preset ?? "normal"),
     onConfirm: (_commit, preset) => {
       sheetTargetKey = undefined;
       placement?.apply();
@@ -245,7 +254,7 @@ const launchWithEffort = (
     // attackCommitForTarget already ignores ineligible targets; clearing too
     // means a tile that later settles can't revive an old choice.
     for (const t of enemyTiles) clearAttackCommit(state, t.x, t.y);
-    if (!placement || !promptFlagPlacementOnly(state, enemyTiles, request, placement, launch)) launch();
+    if (!placement || !promptFlagPlacementOnly(state, enemyTiles, request, placement, launch, deps.pickOriginForTarget)) launch();
     return;
   }
   if (enemyKeys.length === 1 && eligible.length === 1) {
@@ -285,9 +294,12 @@ const promptFlagPlacementOnly = (
   targets: Tile[],
   request: { scope: AttackLaunchScope },
   placement: LaunchFlagPlacement,
-  launch: () => void
+  launch: () => void,
+  pickOriginForTarget: AttackLaunchDeps["pickOriginForTarget"]
 ): boolean => {
   const only = targets.length === 1 ? targets[0] : undefined;
+  const first = targets[0];
+  const origin = first ? pickOriginForTarget(first.x, first.y) : undefined;
   const handle = showEffortConfirmSheet({
     title: only ? `Attack (${only.x}, ${only.y})` : launchTitle(request.scope, targets.length),
     floor: 1,
@@ -295,6 +307,7 @@ const promptFlagPlacementOnly = (
     mode: "none",
     flagSpots: placement.sheet,
     confirmLabel: "Attack",
+    note: () => (first ? attackFlagFillNote(state, origin, first, attackEffortFloorForTarget(first, state)) : ""),
     onConfirm: () => {
       placement.apply();
       launch();

@@ -73,6 +73,21 @@ defines what these systems mean in the fiction; follow the
 - The HUD shows manpower as a gauge (spendable now, manpower staged in muster
   flags, countdown to the next refill; ember below an ordinary attack, green at
   the cap; below 1440px wide the gauge is a strip along the chip's bottom edge) and the Development chip as one gear per slot (busy slots spin).
+- Muster flags refill from the pool at `MUSTER_BASE_RATE_PER_MIN` (180/min,
+  split evenly across the player's flags) until full or the pool is empty;
+  there is no per-flag pause or auto-refill switch, only clearing the flag. The
+  HUD v2 orb shows "−N/min → flags" while any flag refills and an amber rim arc
+  for manpower held in flags; the Manpower panel lists each flag's draw over the
+  last 10 minutes (seen by this client, `client-muster-draw-log/`) and its fill
+  target. The Launch Attack sheet says how long the attack's flag takes to fill
+  at the current rate (`client-muster-fill-eta/`).
+- On each visit the simulation sends `WELCOME_BACK`: time since the player's
+  last command, coin credited, manpower paid by refills and manpower drawn into
+  flags in that absence (`apps/simulation/src/welcome-back/welcome-back-ledger.ts`,
+  in memory only; after a restart coin is estimated at the current rate), and
+  whether coin stopped at the 24h inactivity limit. The gateway replays the
+  latest one to a tab that attaches without a fresh subscribe; the Chronicle's
+  "Since you last looked" card leads with it.
 - Taking a tile that holds another player's muster flag in combat credits
   the captor with the flag's staged manpower (minus any amount reserved by the
   owner's in-flight attacks), clamped to the captor's manpower ceiling; the

@@ -31,6 +31,8 @@ export type EffortConfirmSheetOptions = {
   confirmLabel?: string;
   /** Live info line under the controls (e.g. win chance); re-run on every change and on a short timer. */
   describe?: (commitManpower: number, preset: MusterCommitPreset | undefined) => string;
+  /** Second live line, for how long the attack's muster flag takes to fill (client-muster-fill-eta.ts); hidden when empty. */
+  note?: (commitManpower: number, preset: MusterCommitPreset | undefined) => string;
   onChange?: (commitManpower: number) => void;
   /** `preset` is undefined when the player dragged the slider off a preset. */
   onConfirm: (commitManpower: number, preset: MusterCommitPreset | undefined) => void;
@@ -113,6 +115,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
     </div>`
     }
     <p class="effort-confirm-info" data-effort-info></p>
+    ${options.note ? `<p class="effort-confirm-fill" data-effort-fill hidden></p>` : ""}
     <div class="effort-confirm-actions">
       <button type="button" class="effort-confirm-cancel" data-effort-cancel>Cancel</button>
       <button type="button" class="effort-confirm-go" data-effort-go>${escapeHtml(options.confirmLabel ?? "Go")}</button>
@@ -123,6 +126,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   const slider = card.querySelector<HTMLInputElement>("[data-effort-slider]");
   const valueEl = card.querySelector<HTMLElement>("[data-effort-value]");
   const infoEl = card.querySelector<HTMLElement>("[data-effort-info]");
+  const fillEl = card.querySelector<HTMLElement>("[data-effort-fill]");
   const presetButtons = Array.from(card.querySelectorAll<HTMLButtonElement>("[data-effort-preset]"));
 
   const refresh = (): void => {
@@ -138,6 +142,11 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
       btn.classList.toggle("is-active", selected);
     }
     if (infoEl && options.describe) infoEl.textContent = options.describe(commitManpower, preset);
+    if (fillEl && options.note) {
+      const note = options.note(commitManpower, preset);
+      fillEl.textContent = note;
+      fillEl.hidden = note === "";
+    }
   };
   const changed = (): void => {
     refresh();
@@ -196,7 +205,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   activeSheet = { overlay, teardown: cancel };
   refresh();
   options.onChange?.(commitManpower);
-  if (options.describe) refreshTimer = setInterval(refresh, DESCRIBE_REFRESH_MS);
+  if (options.describe || options.note) refreshTimer = setInterval(refresh, DESCRIBE_REFRESH_MS);
   goBtn?.focus();
   return { close: cancel };
 };
