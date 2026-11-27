@@ -59,14 +59,15 @@ export const syncAuthPanelState = (
     authEmailSentAddressEl: HTMLElement;
     authProfileColorEl: HTMLInputElement;
     authColorPresetButtons: NodeListOf<HTMLButtonElement>;
+    /** "Too close to X's colour" note under the custom colour; absent in tests without the panel. */
+    authColorClashEl?: HTMLElement | null;
   }
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
   const rivals = rivalEmpireColors(state);
   syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value, rivals);
-  const clashEl = deps.authProfileColorEl.closest(".auth-color-block")?.querySelector<HTMLElement>("[data-color-clash]");
-  syncColorClashNote(clashEl, deps.authProfileColorEl.value, rivals, state.playerColors.get(state.me));
+  syncColorClashNote(deps.authColorClashEl, deps.authProfileColorEl.value, rivals, state.playerColors.get(state.me));
 };
 
 export const syncAuthOverlay = (
