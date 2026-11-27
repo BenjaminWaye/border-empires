@@ -106,6 +106,8 @@ export const setActiveHostedSectorSession = (session: HostedSectorSession | unde
 };
 
 export const activeHostedSectorId = (): string | undefined => active?.sectorId;
+/** The hosted sector server this page plays on, for HTTP calls to that server (its Sector board). */
+export const activeHostedSectorWsUrl = (): string | undefined => active?.wsUrl;
 
 /**
  * Supplies the ticket for each AUTH. Every connect and reconnect goes through
