@@ -9,11 +9,15 @@ import type { Tile } from "../client-types.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
+// A flag of the player's sits next to the firing tile by default, so these
+// tests cover the effort sheet alone; the new-flag placement step is
+// covered in client-launch-attack-flag-placement.test.ts.
 const setup = (targets: Array<Partial<Tile> & { x: number; y: number }>) => {
   const state = createInitialState();
   state.me = "me";
   state.manpowerCap = 1_000;
   state.tiles.set("0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "me" } as Tile);
+  state.tiles.set("0,1", { x: 0, y: 1, terrain: "LAND", ownerId: "me", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } } as Tile);
   for (const t of targets) state.tiles.set(keyFor(t.x, t.y), { terrain: "LAND", ownerId: "enemy", ...t } as Tile);
   const queueSpecificTargets = vi.fn((keys: string[]) => ({ queued: keys.length, skipped: 0, queuedKeys: keys }));
   const deps: AttackLaunchDeps = {
@@ -107,10 +111,12 @@ describe("region attack effort sheet odds", () => {
     (state as { attackPreview?: unknown }).attackPreview = { fromKey: "0,0", toKey: "1,0", valid: true, winChance: 0.22, receivedAt: Date.now() };
     launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);
     const info = (): string => document.querySelector("[data-effort-info]")?.textContent ?? "";
-    expect(info()).toContain("Win chance 22% at (1, 0)");
-    expect(document.querySelector(".effort-confirm-subtitle")?.textContent).toContain("Extra commits 50% more manpower per target.");
+    expect(info()).toContain("Win 22%");
+    // No explanatory paragraph: each preset shows its own cost instead.
+    expect(document.querySelector(".effort-confirm-subtitle")).toBeNull();
+    expect(document.querySelector('[data-effort-preset="extra"] small')?.textContent).toMatch(/^\d+ MP$/);
     click('[data-effort-preset="double"]');
-    expect(info()).toContain("Win chance 36% at (1, 0)");
+    expect(info()).toContain("Win 36%");
   });
 });
 
