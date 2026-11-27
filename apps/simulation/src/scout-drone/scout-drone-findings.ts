@@ -13,6 +13,8 @@ import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resou
 export type ScoutFindings = {
   /** Walks the drone's vision square at a step; returns what it found there that this flight had not seen yet. */
   readonly observe: (x: number, y: number, viewer: DomainPlayer) => ScoutFind[];
+  /** One tile seen outside the drone's own vision square (the camp a launch reveals, scout-drone-camp-lead.ts). */
+  readonly observeTile: (x: number, y: number, viewer: DomainPlayer) => ScoutFind[];
   readonly seenTileCount: () => number;
   readonly counts: () => ScoutReportFindings;
 };
@@ -59,71 +61,76 @@ export const createScoutFindings = (
     const id = viewerId;
     return id === undefined ? 0 : unexploredAtSight.filter((cell) => lookup(id, cell % width, Math.floor(cell / width))).length;
   };
+  // What one tile adds to the report, once per flight.
+  const observeOne = (tx: number, ty: number, viewer: DomainPlayer, found: ScoutFind[]): void => {
+    const key = `${tx},${ty}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    viewerId = viewer.id;
+    if (isExplored && !isExplored(viewer.id, tx, ty)) unexploredAtSight.push(ty * width + tx);
+    const tile = tiles().get(key);
+    if (!tile) return;
+    const owner = tile.ownerId;
+    if (owner && (owner === viewer.id || viewer.allies.has(owner))) return;
+    if (owner?.startsWith("barbarian-")) {
+      // One pop for Planetary Defense ground per flight, not one per tile.
+      if (result.planetaryDefenseTiles === 0) found.push({ kind: "defense", x: tx, y: ty });
+      result.planetaryDefenseTiles += 1;
+      keep(sites.planetaryDefense, tx, ty);
+      consider(6, tx, ty);
+    } else if (owner) {
+      if (!empires.has(owner)) {
+        empires.add(owner);
+        result.empiresSighted.push(owner);
+        consider(5, tx, ty);
+        found.push({ kind: "empire", x: tx, y: ty });
+      }
+      keepKeyed(sites.empires, owner, tx, ty);
+    }
+    if (tile.town) {
+      result.towns += 1;
+      keep(sites.towns, tx, ty);
+      consider(0, tx, ty);
+      found.push({ kind: "town", x: tx, y: ty });
+    }
+    if (tile.dockId) {
+      result.docks += 1;
+      keep(sites.docks, tx, ty);
+      consider(1, tx, ty);
+      found.push({ kind: "dock", x: tx, y: ty });
+    }
+    if (tile.waystation) {
+      result.waystations += 1;
+      keep(sites.waystations, tx, ty);
+      consider(2, tx, ty);
+      found.push({ kind: "waystation", x: tx, y: ty });
+    }
+    if (tile.watchtower && !tile.watchtower.activated) {
+      result.watchtowers += 1;
+      keep(sites.watchtowers, tx, ty);
+      consider(3, tx, ty);
+      found.push({ kind: "watchtower", x: tx, y: ty });
+    }
+    const resource = revealedResourceValueForPlayer(tile.resource, viewer);
+    if (resource) {
+      result.resourceTiles += 1;
+      consider(4, tx, ty);
+      resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
+      keepKeyed(sites.resources, resource, tx, ty);
+      found.push({ kind: "resource", x: tx, y: ty, resource });
+    }
+  };
   return {
     observe: (x, y, viewer) => {
       const found: ScoutFind[] = [];
       for (let dy = -r; dy <= r; dy += 1) {
-        for (let dx = -r; dx <= r; dx += 1) {
-          const tx = wrap(x + dx, width);
-          const ty = wrap(y + dy, height);
-          const key = `${tx},${ty}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          viewerId = viewer.id;
-          if (isExplored && !isExplored(viewer.id, tx, ty)) unexploredAtSight.push(ty * width + tx);
-          const tile = tiles().get(key);
-          if (!tile) continue;
-          const owner = tile.ownerId;
-          if (owner && (owner === viewer.id || viewer.allies.has(owner))) continue;
-          if (owner?.startsWith("barbarian-")) {
-            // One pop for Planetary Defense ground per flight, not one per tile.
-            if (result.planetaryDefenseTiles === 0) found.push({ kind: "defense", x: tx, y: ty });
-            result.planetaryDefenseTiles += 1;
-            keep(sites.planetaryDefense, tx, ty);
-            consider(6, tx, ty);
-          } else if (owner) {
-            if (!empires.has(owner)) {
-              empires.add(owner);
-              result.empiresSighted.push(owner);
-              consider(5, tx, ty);
-              found.push({ kind: "empire", x: tx, y: ty });
-            }
-            keepKeyed(sites.empires, owner, tx, ty);
-          }
-          if (tile.town) {
-            result.towns += 1;
-            keep(sites.towns, tx, ty);
-            consider(0, tx, ty);
-            found.push({ kind: "town", x: tx, y: ty });
-          }
-          if (tile.dockId) {
-            result.docks += 1;
-            keep(sites.docks, tx, ty);
-            consider(1, tx, ty);
-            found.push({ kind: "dock", x: tx, y: ty });
-          }
-          if (tile.waystation) {
-            result.waystations += 1;
-            keep(sites.waystations, tx, ty);
-            consider(2, tx, ty);
-            found.push({ kind: "waystation", x: tx, y: ty });
-          }
-          if (tile.watchtower && !tile.watchtower.activated) {
-            result.watchtowers += 1;
-            keep(sites.watchtowers, tx, ty);
-            consider(3, tx, ty);
-            found.push({ kind: "watchtower", x: tx, y: ty });
-          }
-          const resource = revealedResourceValueForPlayer(tile.resource, viewer);
-          if (resource) {
-            result.resourceTiles += 1;
-            consider(4, tx, ty);
-            resourceCounts.set(resource, (resourceCounts.get(resource) ?? 0) + 1);
-            keepKeyed(sites.resources, resource, tx, ty);
-            found.push({ kind: "resource", x: tx, y: ty, resource });
-          }
-        }
+        for (let dx = -r; dx <= r; dx += 1) observeOne(wrap(x + dx, width), wrap(y + dy, height), viewer, found);
       }
+      return found;
+    },
+    observeTile: (x, y, viewer) => {
+      const found: ScoutFind[] = [];
+      observeOne(wrap(x, width), wrap(y, height), viewer, found);
       return found;
     },
     seenTileCount: () => seen.size,

@@ -20,7 +20,7 @@ export const harness = (
   players: DomainPlayer[] = [player("me"), player("rival"), player("friend")],
   visible: (playerId: string, x: number, y: number) => boolean = () => true,
   // Explored-tile memory as the runtime keeps it (a reveal explores what it covers), and the landing PLAYER_UPDATE.
-  options: { trackExplored?: boolean } = {}
+  options: { trackExplored?: boolean; liveCampKeys?: () => Iterable<string> } = {}
 ) => {
   const explored = new Set<string>();
   const playerUpdates: string[] = [];
@@ -61,6 +61,17 @@ export const harness = (
         reveals.push(`-${viewer}@${x},${y}r${radius}`);
         live.set(`${viewer}@${x},${y}`, (live.get(`${viewer}@${x},${y}`) ?? 0) - 1);
         cover(viewer, x, y, radius, -1);
+      },
+      // Cell reveals (the camp lead): every cell counts as covered; the key list names the centre and radius.
+      addTemporaryRevealCells: (viewer, x, y, radius) => {
+        reveals.push(`+cells:${viewer}@${x},${y}r${radius}`);
+        cover(viewer, x, y, radius, 1);
+        return [`${x},${y},${radius}`];
+      },
+      removeTemporaryRevealCells: (viewer, keys) => {
+        const [x, y, radius] = keys[0]!.split(",").map(Number) as [number, number, number];
+        reveals.push(`-cells:${viewer}@${x},${y}r${radius}`);
+        cover(viewer, x, y, radius, -1);
       }
     }),
     visionTransitionCallbacks: () => ({}),
@@ -69,7 +80,8 @@ export const harness = (
     recordPersonalImpact: (event) => impacts.push(event),
     ...(options.trackExplored
       ? { isExplored: (playerId: string, x: number, y: number) => explored.has(`${playerId}@${x},${y}`), emitPlayerStateUpdate: (command: { playerId: string }) => { playerUpdates.push(command.playerId); } }
-      : {})
+      : {}),
+    ...(options.liveCampKeys ? { liveCampKeys: options.liveCampKeys } : {})
   });
   const explore = (x: number, y: number, playerId = "me", commandId = `cmd-${events.length}`): void =>
     runtime.handleExplore({ commandId, playerId, sessionId: "s", type: "EXPLORE", payloadJson: JSON.stringify({ x, y }) } as unknown as CommandEnvelope);
