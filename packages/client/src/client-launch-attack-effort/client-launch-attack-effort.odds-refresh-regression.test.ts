@@ -45,22 +45,22 @@ describe("Launch Attack effort sheet odds after the preview ages out", () => {
     vi.useFakeTimers();
     const { state, deps } = setup([{ x: 1, y: 0 }]);
     launchAttacksWithEffort(state, { targetKeys: ["1,0"], scope: "single", selected: state.tiles.get("1,0") }, deps);
-    expect(info()).toContain("Win chance 37%");
+    expect(info()).toContain("Win 37% · ");
     vi.advanceTimersByTime(6_000);
     click('[data-effort-preset="double"]');
-    expect(info()).toContain("Win chance 54%");
+    expect(info()).toContain("Win 54% · ");
     click('[data-effort-preset="normal"]');
-    expect(info()).toContain("Win chance 37%");
+    expect(info()).toContain("Win 37% · ");
   });
 
   it("keeps the region sheet's win chance after Double once the cached preview has expired", () => {
     vi.useFakeTimers();
     const { state, deps } = setup([{ x: 1, y: 0 }, { x: 2, y: 0 }]);
     launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);
-    expect(info()).toContain("Win chance 37% at (1, 0)");
+    expect(info()).toContain("Win 37% · ");
     vi.advanceTimersByTime(6_000);
     click('[data-effort-preset="double"]');
-    expect(info()).toContain("Win chance 54% at (1, 0)");
+    expect(info()).toContain("Win 54% · ");
   });
 
   it("names the sheet's target for the preview keepalive while it is open, and forgets it on close", () => {

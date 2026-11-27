@@ -6,7 +6,10 @@
 // least one target is effort-eligible (SETTLED or holding captured ground,
 // non-barbarian -- see isAttackEffortEligibleTarget); any other frontier or
 // barbarian attack gains nothing
-// from extra manpower, so it still fires on the first click.
+// from extra manpower, so it still fires on the first click -- unless the
+// attack would raise a brand new muster flag: then the same sheet first asks
+// where to raise it (docs/launch-attack-flag-placement-plan.md), with no
+// effort controls when no target benefits from extra manpower.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
@@ -18,6 +21,7 @@ import {
   isAttackEffortEligibleTarget,
   setAttackCommit
 } from "../client-attack-commit/client-attack-commit.js";
+import { launchFlagPlacement, type LaunchFlagPlacement } from "./client-launch-attack-flag-placement.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -85,7 +89,7 @@ const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): v
 export const promptAttackEffortForTarget = (
   state: ClientState,
   tile: Tile | undefined,
-  options: { title: string; confirmLabel: string; onConfirm: (commitManpower: number | undefined) => void },
+  options: { title: string; confirmLabel: string; onConfirm: (commitManpower: number | undefined) => void; placement?: LaunchFlagPlacement | undefined },
   deps: PreviewDeps
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
@@ -93,17 +97,20 @@ export const promptAttackEffortForTarget = (
   const winChanceAt = stickyCommitWinChance(state, tile, deps);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
-    mode: "slider",
+    // Presets only: Normal / Extra / Double read at a glance; the cost and
+    // win chance on the line below say what each buys.
+    mode: "presets",
+    ...(options.placement ? { flagSpots: options.placement.sheet } : {}),
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
       const winChance = percent(winChanceAt(commitManpower));
-      return `${winChance ? `Win chance ${winChance}` : "Win chance shown once the target borders you"} · costs ${commitManpower} manpower`;
+      return `${winChance ? `Win ${winChance} · ` : ""}${commitManpower} MP`;
     },
     onConfirm: (commitManpower) => {
       sheetTargetKey = undefined;
+      options.placement?.apply();
       options.onConfirm(commitManpower > floor ? commitManpower : undefined);
     },
     onCancel: () => {
@@ -113,6 +120,8 @@ export const promptAttackEffortForTarget = (
   trackSheetTarget(handle !== undefined, deps, tile);
   return handle !== undefined;
 };
+
+const launchTitle = (scope: AttackLaunchScope, count: number): string => (scope === "region" ? `Attack region · ${count} tiles` : `Attack ${count} tiles`);
 
 const enemyTargetKeys = (state: EffortState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
   targetKeys.filter((k) => {
@@ -154,7 +163,8 @@ const promptBulkEffort = (
   eligible: Tile[],
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void,
-  focus?: { tile: Tile | undefined; deps: PreviewDeps }
+  focus?: { tile: Tile | undefined; deps: PreviewDeps },
+  placement?: LaunchFlagPlacement
 ): boolean => {
   const focusTile = focus?.tile && eligible.includes(focus.tile) ? focus.tile : undefined;
   const winChanceAt = focusTile && focus ? stickyCommitWinChance(state, focusTile, focus.deps) : undefined;
@@ -162,21 +172,22 @@ const promptBulkEffort = (
     if (!focusTile || !winChanceAt) return "";
     const commit = musterCommitPresetAmount(preset, attackEffortFloorForTarget(focusTile, state));
     const chance = percent(winChanceAt(commit));
-    return chance ? `Win chance ${chance} at (${focusTile.x}, ${focusTile.y}) · ` : "";
+    return chance ? `Win ${chance} · ` : "";
   };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
+    ...(placement ? { flagSpots: placement.sheet } : {}),
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
+    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}${totalFor(preset ?? "normal")} MP total`,
     onConfirm: (_commit, preset) => {
       sheetTargetKey = undefined;
+      placement?.apply();
       onConfirm(preset ?? "normal");
     },
     onCancel: () => {
@@ -211,16 +222,16 @@ const launchWithEffort = (
   enemyKeys: string[],
   deps: AttackLaunchDeps
 ): void => {
-  const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter((tile) => isAttackEffortEligibleTarget(tile));
+  const enemyTiles = enemyKeys.map((k) => state.tiles.get(k)).filter((tile): tile is Tile => tile !== undefined);
+  const eligible = enemyTiles.filter((tile) => isAttackEffortEligibleTarget(tile));
   const launch = (): void => queueAndReport(enemyKeys, request, deps);
+  const focus = request.selected ? state.tiles.get(deps.keyFor(request.selected.x, request.selected.y)) : undefined;
+  const placement = launchFlagPlacement(state, enemyTiles, focus, deps.pickOriginForTarget);
   if (eligible.length === 0) {
     // attackCommitForTarget already ignores ineligible targets; clearing too
     // means a tile that later settles can't revive an old choice.
-    for (const k of enemyKeys) {
-      const t = state.tiles.get(k);
-      if (t) clearAttackCommit(state, t.x, t.y);
-    }
-    launch();
+    for (const t of enemyTiles) clearAttackCommit(state, t.x, t.y);
+    if (!placement || !promptFlagPlacementOnly(state, enemyTiles, request, placement, launch)) launch();
     return;
   }
   if (enemyKeys.length === 1 && eligible.length === 1) {
@@ -229,8 +240,9 @@ const launchWithEffort = (
       state,
       tile,
       {
-        title: `Launch attack on (${tile.x}, ${tile.y})`,
+        title: `Attack (${tile.x}, ${tile.y})`,
         confirmLabel: "Attack",
+        placement,
         onConfirm: (commitManpower) => {
           recordCommit(state, tile, commitManpower ?? attackEffortFloorForTarget(tile, state));
           launch();
@@ -241,11 +253,38 @@ const launchWithEffort = (
     if (!shown) launch();
     return;
   }
-  const title = request.scope === "region" ? `Attack connected region (${enemyKeys.length})` : `Launch ${enemyKeys.length} attacks`;
+  const title = launchTitle(request.scope, enemyKeys.length);
   const shown = promptBulkEffort(state, eligible, title, (preset) => {
     const multiplier = MUSTER_COMMIT_PRESET_MULTIPLIERS[preset];
     for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile, state) * multiplier));
     launch();
-  }, { tile: request.selected ? state.tiles.get(deps.keyFor(request.selected.x, request.selected.y)) : undefined, deps });
+  }, { tile: focus, deps }, placement);
   if (!shown) launch();
+};
+
+/**
+ * The sheet for targets where extra manpower buys nothing (barbarians, plain
+ * frontier) when the attack would raise a new flag: only the flag spot.
+ */
+const promptFlagPlacementOnly = (
+  state: ClientState,
+  targets: Tile[],
+  request: { scope: AttackLaunchScope },
+  placement: LaunchFlagPlacement,
+  launch: () => void
+): boolean => {
+  const only = targets.length === 1 ? targets[0] : undefined;
+  const handle = showEffortConfirmSheet({
+    title: only ? `Attack (${only.x}, ${only.y})` : launchTitle(request.scope, targets.length),
+    floor: 1,
+    cap: Math.max(1, state.manpowerCap),
+    mode: "none",
+    flagSpots: placement.sheet,
+    confirmLabel: "Attack",
+    onConfirm: () => {
+      placement.apply();
+      launch();
+    }
+  });
+  return handle !== undefined;
 };
