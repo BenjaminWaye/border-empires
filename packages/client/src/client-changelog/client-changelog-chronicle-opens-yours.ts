@@ -5,7 +5,7 @@ export const CHRONICLE_OPENS_YOURS_ENTRY: Omit<ClientChangelogEntry, "createdAt"
   title: "Chronicle opens on Yours",
   why: "Joining with unread release notes opened the Chronicle on Updates instead of your own timeline.",
   changes: [
-    "The Chronicle that opens when you join now always starts on Yours",
-    "New release notes still show as a badge on the Updates tab"
+    "When new release notes open the Chronicle as you join, it starts on Yours",
+    "The notes show as a badge on the Updates tab, and open the Chronicle only once per batch"
   ]
 };
