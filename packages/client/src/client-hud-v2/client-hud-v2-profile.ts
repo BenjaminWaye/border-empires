@@ -73,7 +73,8 @@ const shareHtml = (share: NonNullable<ProfileInput["share"]>): string => {
     ? `<button type="button" class="v2p-action" data-v2-profile-unshare${busy} title="Take your public House page down. The old link stops working">${share.pending === "stop" ? "Stopping…" : "Stop sharing"}</button>`
     : "";
   const note = share.note ? `<p class="v2p-share-note" role="status">${esc(share.note)}</p>` : "";
-  return `${start}${stop}${note}`;
+  const link = share.link ? `<a class="v2p-share-link" href="${esc(share.link)}" target="_blank" rel="noopener" data-v2-profile-share-link>${esc(share.link)}</a>` : "";
+  return `${start}${stop}${note}${link}`;
 };
 
 const heroHtml = (input: ProfileInput): string => {

@@ -59,6 +59,12 @@ describe("player profile screen", () => {
     expect(render({ ...self, share: { state: "on" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
   });
 
+  it("shows the shared link while sharing is on", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: { state: "on", note: "Link copied", link: "https://play.example/house.html?h=Ab" } });
+    expect(host.querySelector("[data-v2-profile-share-link]")?.getAttribute("href")).toBe("https://play.example/house.html?h=Ab");
+    expect(host.querySelector(".v2p-share-note")?.textContent).toBe("Link copied");
+  });
+
   it("keeps share progress and its outcome on screen across re-renders", () => {
     const self = { ...base, relation: { kind: "self" } as const };
     const stopping = render({ ...self, share: { state: "on", pending: "stop" } });
