@@ -103,3 +103,37 @@ it("fills the entire glass at capacity and above, without a wave-shaped air gap"
   expect(orbHtml({ ...base, manpower: 125, manpowerCap: 100 })).toContain(fullGlass);
   expect(orbHtml({ ...base, manpower: 40, manpowerCap: 100 })).not.toContain(fullGlass);
 });
+
+// Owner request 2026-11-27: a pool fell from 634 to 78 in about 8 minutes, mostly into muster flags
+// quietly refilling, and the orb showed nothing.
+describe("manpower orb flag drain", () => {
+  const state: OrbState = { me: "", manpower: 634, manpowerCap: 1500, manpowerRegenPerMinute: 1, nextManpowerBatchAmount: undefined, nextManpowerBatchAmountAt: undefined };
+
+  it("shows the pool draining into flags and an arc for what they hold", () => {
+    const flags = [
+      { amount: 40, cap: 150, refillPerMin: 60 },
+      { amount: 100, cap: 150, refillPerMin: 60 },
+      { amount: 150, cap: 150, refillPerMin: 0 }
+    ];
+    const input = orbInputForState(state, 0, undefined, flags);
+    expect(input).toMatchObject({ flagDrainPerMin: 120, flagStaged: 290 });
+    const html = orbHtml(input);
+    expect(html).toContain('<span class="hud-v2-orb-drain">−120/min → flags</span>');
+    expect(html).toContain("hud-v2-orb-flag-arc hud-v2-orb-flag-arc-draining");
+    expect(html).toContain("−120/min to flags");
+    expect(html).toContain('data-hud-v2-open="manpower"');
+  });
+
+  it("keeps the arc but drops the drain line once every flag is full", () => {
+    const html = orbHtml(orbInputForState(state, 0, undefined, [{ amount: 150, cap: 150, refillPerMin: 0 }]));
+    expect(html).not.toContain("hud-v2-orb-drain");
+    expect(html).toContain('class="hud-v2-orb-flag-arc"');
+    expect(html).toContain("150 in flags");
+  });
+
+  it("draws nothing extra with no flags", () => {
+    const html = orbHtml(orbInputForState(state, 0, undefined));
+    expect(html).not.toContain("hud-v2-orb-flag-arc");
+    expect(html).not.toContain("hud-v2-orb-drain");
+  });
+});

@@ -1,8 +1,12 @@
 // Bottom-right manpower orb for the new HUD. The fill is the pool, in your empire colour; the line
-// under the number is the next batch: its size and when it lands. Clicking opens the manpower panel.
+// under the number is the next batch: its size and when it lands. While muster flags refill from the pool, a
+// "−N/min → flags" line and an amber arc on the rim (manpower staged in flags) show where it is going
+// (owner request 2026-11-27). Clicking opens the manpower panel.
 
 import type { ClientState } from "../client-state/client-state.js";
 import { MANPOWER_HINT } from "./client-hud-v2-hints.js";
+import { flagDrainLabel, flagDrainPerMin, flagStagedTotal } from "../client-muster-drain/client-muster-drain.js";
+import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import { formatRefillCountdown, freshNextBatchAmount, nextBatchGain, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 
 export type OrbInput = {
@@ -15,6 +19,10 @@ export type OrbInput = {
   regenPerMinute?: number | undefined;
   nowMs: number;
   color?: string | undefined;
+  /** Manpower/min muster flags are drawing from the pool right now (client-muster-drain.ts). */
+  flagDrainPerMin?: number | undefined;
+  /** Manpower staged in muster flags, drawn as an arc on the rim. */
+  flagStaged?: number | undefined;
 };
 
 /** Plain colour values only, since it goes into a style attribute. */
@@ -84,7 +92,15 @@ export type OrbState = Pick<
   "me" | "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "nextManpowerBatchAmountAt"
 >;
 
-export const orbInputForState = (state: OrbState, nowMs: number, color: string | undefined): OrbInput => ({
+export const orbInputForState = (
+  state: OrbState,
+  nowMs: number,
+  color: string | undefined,
+  /** The tracker's latest flag scan; the orb never scans tiles itself. */
+  flags: readonly Pick<ManpowerPanelMusterFlag, "amount" | "cap" | "refillPerMin">[] = []
+): OrbInput => ({
+  flagDrainPerMin: flagDrainPerMin(flags),
+  flagStaged: flagStagedTotal(flags),
   manpower: state.manpower,
   manpowerCap: state.manpowerCap,
   nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs),
@@ -110,6 +126,16 @@ const orbRefillLine = (input: OrbInput): { text: string; label: string; state?: 
   return { text: `+${amount} in ${eta}`, label: `, next batch +${amount} in ${eta}` };
 };
 
+/** Rim arc for manpower staged in flags, as a share of the manpower cap; "" when none is staged. */
+export const orbFlagArcHtml = (input: Pick<OrbInput, "flagStaged" | "manpowerCap" | "flagDrainPerMin">): string => {
+  const staged = input.flagStaged ?? 0;
+  if (!(staged >= 1) || !(input.manpowerCap > 0)) return "";
+  const circumference = 2 * Math.PI * 80;
+  const length = Math.max(2, Math.min(1, staged / input.manpowerCap) * circumference);
+  const draining = (input.flagDrainPerMin ?? 0) >= 0.5 ? " hud-v2-orb-flag-arc-draining" : "";
+  return `<circle cx="90" cy="90" r="80" class="hud-v2-orb-flag-arc${draining}" stroke-dasharray="${length.toFixed(1)} ${circumference.toFixed(1)}" transform="rotate(-90 90 90)"/>`;
+};
+
 export const orbHtml = (input: OrbInput): string => {
   const fill = orbFill(input.manpower, input.manpowerCap);
   const level = Math.round(170 - fill * 150);
@@ -122,7 +148,11 @@ export const orbHtml = (input: OrbInput): string => {
   const excess = Math.floor(Math.max(0, input.manpower - input.manpowerCap)).toLocaleString("en-US");
   const overflow = orbOverflowHtml(input);
   const capPrefix = overCapacity ? "Capacity " : "/ ";
-  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${overCapacity ? `, ${excess} above capacity` : ""}`;
+  const drain = flagDrainLabel(input.flagDrainPerMin ?? 0);
+  const drainHtml = drain ? `<span class="hud-v2-orb-drain">${drain}</span>` : "";
+  const staged = Math.floor(input.flagStaged ?? 0);
+  const flagsLabel = drain ? `, ${drain.replace("→", "to")}` : staged > 0 ? `, ${staged} in flags` : "";
+  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${overCapacity ? `, ${excess} above capacity` : ""}${flagsLabel}`;
   return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}. ${MANPOWER_HINT}">
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <defs>
@@ -131,8 +161,8 @@ export const orbHtml = (input: OrbInput): string => {
       <circle cx="90" cy="90" r="86" class="hud-v2-orb-rim"/>
       <circle cx="90" cy="90" r="74" class="hud-v2-orb-glass"/>
       <g clip-path="url(#hud-v2-orb-clip)"><path class="hud-v2-orb-liquid"${orbLiquidStyle(input.color)} d="${liquidPath}"/></g>
-      <circle cx="90" cy="90" r="74" class="hud-v2-orb-ring"/>${overflow}
+      <circle cx="90" cy="90" r="74" class="hud-v2-orb-ring"/>${orbFlagArcHtml(input)}${overflow}
     </svg>
-    <span class="hud-v2-orb-text"><span class="hud-v2-orb-label">Manpower</span><span class="hud-v2-orb-value">${Math.floor(input.manpower).toLocaleString("en-US")}</span><span class="hud-v2-orb-cap">${capPrefix}${Math.floor(input.manpowerCap).toLocaleString("en-US")}</span>${refill}</span>
+    <span class="hud-v2-orb-text"><span class="hud-v2-orb-label">Manpower</span><span class="hud-v2-orb-value">${Math.floor(input.manpower).toLocaleString("en-US")}</span><span class="hud-v2-orb-cap">${capPrefix}${Math.floor(input.manpowerCap).toLocaleString("en-US")}</span>${refill}${drainHtml}</span>
   </button>`;
 };
