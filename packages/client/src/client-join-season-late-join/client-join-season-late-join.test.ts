@@ -106,6 +106,14 @@ describe("NO_LANDING_SITE", () => {
     expect(overlayEl.querySelector("#join-season-confirm")).toBeNull();
   });
 
+  it("escapes the message (review regression)", () => {
+    const state = { ...makeState(), seasonEndStarting: false, seasonStartError: undefined, seasonWinner: undefined };
+    applySeasonErrorCodes(state as any, "NO_LANDING_SITE", "<img src=x onerror=alert(1)>", () => {});
+    const overlayEl = render(state);
+    expect(overlayEl.querySelector("img")).toBeNull();
+    expect(overlayEl.textContent).toContain("<img src=x");
+  });
+
   it("a fresh INIT clears the closed card", () => {
     const state = makeState({ joinSeasonClosedMessage: "closed" });
     applyInitJoinScreenFields(state as any, { seasonStartedAt: 42, singleContest: true });

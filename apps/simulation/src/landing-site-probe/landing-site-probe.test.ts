@@ -49,17 +49,24 @@ describe("landingSiteAvailable", () => {
 
 describe("handleGetCurrentSeasonSummary", () => {
   const read = (status: string) => async () => ({ seasonId: "season-1", status } as unknown as CurrentSeasonSummary);
-  const parsed = async (status: string, probe?: () => boolean) => {
+  const runtimeAnswering = (answer: () => boolean) => ({ ensurePlayerHasSpawnTerritory: vi.fn(answer) });
+  const parsed = async (status: string, runtime?: { ensurePlayerHasSpawnTerritory: () => boolean }) => {
     const callback = vi.fn();
-    handleGetCurrentSeasonSummary(read(status), { request: {} as never }, callback, probe);
+    handleGetCurrentSeasonSummary(read(status), { request: {} as never }, callback, runtime);
     await vi.waitFor(() => expect(callback).toHaveBeenCalled());
     return JSON.parse(callback.mock.calls[0]![1].summary_json) as Record<string, unknown>;
   };
 
   it("adds landingSiteAvailable only while the season is active", async () => {
-    expect((await parsed("active", () => false)).landingSiteAvailable).toBe(false);
-    const probe = vi.fn(() => false);
-    expect((await parsed("ended", probe)).landingSiteAvailable).toBeUndefined();
-    expect(probe).not.toHaveBeenCalled();
+    expect((await parsed("active", runtimeAnswering(() => false))).landingSiteAvailable).toBe(false);
+    const ended = runtimeAnswering(() => false);
+    expect((await parsed("ended", ended)).landingSiteAvailable).toBeUndefined();
+    expect(ended.ensurePlayerHasSpawnTerritory).not.toHaveBeenCalled();
+  });
+
+  it("leaves the field out, and still answers, when the probe throws (review regression)", async () => {
+    const summary = await parsed("active", runtimeAnswering(() => { throw new Error("probe failed"); }));
+    expect(summary.seasonId).toBe("season-1");
+    expect(summary.landingSiteAvailable).toBeUndefined();
   });
 });

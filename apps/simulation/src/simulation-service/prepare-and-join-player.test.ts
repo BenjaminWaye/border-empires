@@ -7,8 +7,9 @@ const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => 
   const known = new Set<string>();
   return {
     runtime: {
-      ensurePlayerHasSpawnTerritory: vi.fn((playerId: string) => {
-        known.add(playerId);
+      // The landing-site probe (probeOnly) creates nothing, as in the real runtime.
+      ensurePlayerHasSpawnTerritory: vi.fn((playerId: string, _rally?: unknown, _onRally?: unknown, options?: { probeOnly?: boolean }) => {
+        if (!options?.probeOnly) known.add(playerId);
         return true;
       }),
       ensurePlayerHasAfc: vi.fn(() => false),

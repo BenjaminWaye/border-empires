@@ -6,8 +6,8 @@
 // Rows: the public Sector Contest (its board on the main gateway), the hosted
 // sector this page plays on (its own server's board) and the player's other
 // open hosted sectors (from the hosting service). A hosted sector the player
-// belongs to already holds their place, so only its landing-site state can
-// make it full, and that is known only for the sector this page is on.
+// belongs to already holds their place; whether it is full is known only for
+// the sector this page is on (its own board).
 // Hosted sectors are web-only; the apps list the public sector alone and
 // never offer funding (docs/app-store-purchase-rules.md).
 
@@ -22,6 +22,9 @@ export type SectorListRow = {
   detail: string;
   here: boolean;
   full: boolean;
+  /** Full because no viable landing site is left. Only this blocks Land now: a sector at its
+   * House cap still takes a player with a reserved place, and refuses others with the waitlist. */
+  noLandingSite: boolean;
   fullReason: string;
   action: SectorListAction;
   sectorId?: string;
@@ -59,6 +62,7 @@ const boardRow = (key: string, title: string, board: SectorBoard, here: boolean,
   detail: housesDetail(board),
   here,
   full: board.full,
+  noLandingSite: board.noLandingSite,
   fullReason: boardFullReason(board),
   action: board.full ? "none" : action,
   ...(sectorId ? { sectorId } : {})
@@ -78,7 +82,7 @@ export const buildSectorListRows = ({ publicBoard, hosted, hostedSectors = [] }:
   if (publicBoard && publicBoard.status === "active") rows.push(boardRow("public", "Public Sector Contest", publicBoard, !hosted, hosted ? "public" : "land"));
   for (const sector of hostedSectors) {
     if (sector.state !== "open" || sector.sectorId === hosted?.sectorId) continue;
-    rows.push({ key: `hosted:${sector.sectorId}`, title: sector.title, detail: "Your hosted sector", here: false, full: false, fullReason: "", action: "enter-hosted", sectorId: sector.sectorId });
+    rows.push({ key: `hosted:${sector.sectorId}`, title: sector.title, detail: "Your hosted sector", here: false, full: false, noLandingSite: false, fullReason: "", action: "enter-hosted", sectorId: sector.sectorId });
   }
   return rows;
 };

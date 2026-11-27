@@ -3,6 +3,7 @@ import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 import { joinClosedHtml, lateJoinFacts, lateJoinWarningHtml, waitButtonHtml } from "./client-join-season-late-join/client-join-season-late-join.js";
 import { sectorListHtml } from "./client-sector-list/client-sector-list.js";
+import { syncJoinSeasonReopenButton } from "./client-join-season-reopen/client-join-season-reopen.js";
 import { canFundSectors, refreshSectorListIfNeeded } from "./client-sector-list/client-sector-list-loader.js";
 import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
 
@@ -201,6 +202,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // instead of a "Let's go!" prompt that could only ever fail.
   const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired && !state.seasonWinner;
   overlayEl.style.display = visible ? "grid" : "none";
+  syncJoinSeasonReopenButton({ ...state, profileSetupRequired: state.profileSetupRequired === true }, () => {
+    state.joinSeasonOverlayOpen = true;
+    renderHud();
+  });
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
     clearCountdownTimer();
@@ -211,6 +216,8 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   }
 
   setSeasonLobbyFullscreen(true);
+  // Before the render-key check, so the once-a-minute refresh runs while the card sits unchanged.
+  if (!state.seasonPending && deps.wsUrl) refreshSectorListIfNeeded({ state, wsUrl: deps.wsUrl, renderHud });
 
   const renderKey = computeRenderKey(state, visible);
   if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
@@ -270,7 +277,6 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // or wait for the next contest. This replaced sending every player
   // straight in. A NO_LANDING_SITE reply turns the card into the closed one.
   // The running Sector Contests, full ones greyed out, and funding a new one when none has room.
-  if (deps.wsUrl) refreshSectorListIfNeeded({ state, wsUrl: deps.wsUrl, renderHud });
   const sectorRows = state.sectorListRows ?? [];
   const listHtml = sectorListHtml(sectorRows, canFundSectors());
   if (state.joinSeasonClosedMessage) {
@@ -286,7 +292,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     warningHtml: lateJoinWarningHtml(lateJoinFacts(Date.now(), state.seasonStartedAt), state.singleContest),
     waitButtonHtml: waitButtonHtml(state.singleContest),
     sectorListHtml: listHtml,
-    landDisabled: sectorRows.some((row) => row.here && row.full)
+    landDisabled: sectorRows.some((row) => row.here && row.noLandingSite)
   });
   bindDismiss(overlayEl, "#join-season-wait", state, renderHud);
 

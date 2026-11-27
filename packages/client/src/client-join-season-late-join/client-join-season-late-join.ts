@@ -7,6 +7,7 @@ import { LANDING_MANPOWER_RESERVE, landingManpowerReserve } from "@border-empire
 import type { ClientState } from "../client-state/client-state.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 
 export type LateJoinFacts = {
   /** Day of the contest, counting from 1. */
@@ -55,7 +56,7 @@ export const joinClosedHtml = (message: string, sectorListHtml = ""): string => 
       <div class="respawn-modal-scroll">
         <div class="respawn-kicker">Sector Contest</div>
         <h2 id="join-season-title" class="respawn-title">No landing site left</h2>
-        <p class="respawn-summary">${message}</p>
+        <p class="respawn-summary">${escapeHtml(message)}</p>
         ${sectorListHtml}
       </div>
     </div>

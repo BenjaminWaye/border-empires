@@ -1,8 +1,9 @@
 import "./client-sector-list.css";
 
-// Loads the join card's sector list (client-sector-list.ts) once per contest
-// per page, and again after a NO_LANDING_SITE refusal (which clears
-// sectorListLoadedFor). The hosting panel registers where the player's hosted
+// Loads the join card's sector list (client-sector-list.ts) at most once a
+// minute per contest while the card is drawn, so a failed load is retried and
+// a sector that frees up shows open again; and at once after a
+// NO_LANDING_SITE refusal (which clears sectorListLoadedFor). The hosting panel registers where the player's hosted
 // sectors come from (web only); without it there is no funding offer.
 import type { ClientState } from "../client-state/client-state.js";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
@@ -28,7 +29,10 @@ export type SectorListLoaderDeps = {
   wsUrl: string;
   renderHud: () => void;
   fetchImpl?: typeof fetch;
+  now?: () => number;
 };
+
+export const SECTOR_LIST_REFRESH_MS = 60_000;
 
 const fetchBoard = async (origin: string | undefined, fetchImpl: typeof fetch): Promise<SectorBoard | undefined> => {
   if (!origin) return undefined;
@@ -58,7 +62,7 @@ export const loadSectorList = async (deps: Omit<SectorListLoaderDeps, "state" | 
 };
 
 export const refreshSectorListIfNeeded = (deps: SectorListLoaderDeps): void => {
-  const key = deps.state.joinSeasonId || "current";
+  const key = `${deps.state.joinSeasonId || "current"}:${Math.floor((deps.now ?? Date.now)() / SECTOR_LIST_REFRESH_MS)}`;
   if (deps.state.sectorListLoadedFor === key) return;
   deps.state.sectorListLoadedFor = key;
   void loadSectorList(deps).then((rows) => {

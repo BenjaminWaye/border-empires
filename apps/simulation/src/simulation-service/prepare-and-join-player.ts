@@ -2,6 +2,7 @@ import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { hasPlayerJoinedSeason, withPlayerJoinedSeason, isSeasonActive, isSeasonPending, isSeasonEnded } from "../season-lifecycle.js";
 import { seasonIsAtPlayerCap } from "../season-join-capacity.js";
+import { landingSiteAvailable } from "../landing-site-probe/landing-site-probe.js";
 import { guestAllowanceIsFull, isSeasonGuest, resolveMaxSeasonGuests, seasonGuestCount, withSeasonGuest, withoutSeasonGuest } from "../season-guests/season-guests.js";
 import { tryDrainDevQueue } from "../runtime-dev-queue-command-handlers.js";
 import { emitPerConnectHellos } from "./per-connect-hellos.js";
@@ -219,6 +220,13 @@ export const joinSeasonHandler = (
     const isNewPlayer = !deps.runtime.hasPlayer(playerId);
     let spawned = false;
     if (isNewPlayer) {
+      // On a full map every refused join would repeat the whole failing search;
+      // the landing-site probe's cached answer (about a minute old at most) refuses at once.
+      if (!landingSiteAvailable(deps.runtime)) {
+        deps.log.info({ playerId }, "join season rejected: no viable landing site (cached)");
+        callback(null, { ok: true, player_id: playerId, playerId, spawned: false, no_landing_site: true });
+        return;
+      }
       spawned = spawnAndAnnounce(deps, playerId, rallyAnchor, "spawned runtime territory for joined player", true, true);
       if (!deps.runtime.hasPlayer(playerId)) {
         deps.log.info({ playerId }, "join season rejected: no viable landing site");

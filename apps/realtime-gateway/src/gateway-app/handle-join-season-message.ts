@@ -1,5 +1,6 @@
 import { guestSlotsFullErrorPayload, noLandingSiteErrorPayload } from "../season-full-rejection/season-full-rejection.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import { joinWithReservedPlace } from "../season-full-rejection/reserve-next-contest-place.js";
 
 type PrepareLikeFn = (
   playerId: string,
@@ -84,12 +85,12 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
-    // Best-effort and short: a slow lookup only costs the cap bypass, never the join.
-    const reservedPlace = hasReservedPlace
-      ? await withTimeout(hasReservedPlace(playerId), JOIN_SEASON_SPAWN_TILE_TIMEOUT_MS, "reserved place lookup").catch(() => false)
-      : false;
+    // A player holding a reserved place is retried past the cap only after a "full" reply.
     const result = await withTimeout(
-      joinFn(playerId, rallyAnchor, { isGuest: isGuest === true, ...(reservedPlace ? { reservedPlace: true } : {}) }),
+      joinWithReservedPlace(
+        (reservedPlace) => joinFn(playerId, rallyAnchor, { isGuest: isGuest === true, ...(reservedPlace ? { reservedPlace: true } : {}) }),
+        hasReservedPlace ? () => hasReservedPlace(playerId) : undefined
+      ),
       JOIN_SEASON_RPC_TIMEOUT_MS,
       "join season RPC"
     );

@@ -76,6 +76,19 @@ describe("sector list loader", () => {
     expect(rows.find((row) => row.here)).toMatchObject({ title: "Islands, small map", full: true, fullReason: "Full: no landing site left" });
   });
 
+  it("reloads at most once a minute, so a failed load is retried and a freed sector shows open (review regression)", async () => {
+    const state = { joinSeasonId: "season-3", sectorListRows: [] as never[], sectorListLoadedFor: "" };
+    let now = 0;
+    const fetchImpl = vi.fn(async () => ({ json: async () => ({ ok: true, status: "active", houses: 1, maxHouses: 40, full: false }) })) as unknown as typeof fetch;
+    const deps = { state, wsUrl: "wss://api.example.com/ws", renderHud: () => {}, fetchImpl, now: () => now };
+    refreshSectorListIfNeeded(deps);
+    now = 59_000;
+    refreshSectorListIfNeeded(deps);
+    now = 61_000;
+    refreshSectorListIfNeeded(deps);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+  });
+
   it("loads once per contest and redraws when the list arrives", async () => {
     const state = { joinSeasonId: "season-3", sectorListRows: [] as never[], sectorListLoadedFor: "" };
     const renderHud = vi.fn();
@@ -103,5 +116,20 @@ describe("join card with the sector list", () => {
     expect(land.disabled).toBe(true);
     expect(land.textContent).toContain("This sector is full");
     expect(overlayEl.querySelector(".sector-list-row.is-full")).not.toBeNull();
+  });
+});
+
+describe("join card when the sector is at its House cap (review regression)", () => {
+  it("keeps Land now enabled, so a reserved place can get past the cap and others reach the waitlist", () => {
+    const state = {
+      needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-3", joinSeasonPending: false, seasonPending: false,
+      seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [], profileSetupRequired: false,
+      seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "", sectorListLoadedFor: `season-3:${Math.floor(Date.now() / 60_000)}`,
+      sectorListRows: buildSectorListRows({ publicBoard: board({ houses: 40, full: true }) })
+    };
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({ state: state as never, overlayEl, renderHud: () => {}, joinSeason: () => true, wsUrl: "wss://api.example.com/ws" });
+    expect((overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement).disabled).toBe(false);
+    expect(overlayEl.querySelector(".sector-list-row.is-full")?.textContent).toContain("every House place is taken");
   });
 });

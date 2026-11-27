@@ -116,4 +116,23 @@ describe("chooseLegacySpawnPlacement and rival reach", () => {
     expect(viable).toBeDefined();
     expect(clearOfRival(viable!)).toBe(true);
   });
+
+  it("with relaxation off, finds a lone viable site that random sampling would miss (review regression)", () => {
+    // 300x300 open land; rival reach everywhere except a 9x9 square around (290, 290),
+    // which leaves exactly one tile whose clearance disk is free of rival reach.
+    const size = 300;
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    const clear = (x: number, y: number) => Math.abs(x - 290) <= SPAWN_RIVAL_REACH_CLEARANCE && Math.abs(y - 290) <= SPAWN_RIVAL_REACH_CLEARANCE;
+    for (const playerId of ["player-a", "player-b", "player-c"]) {
+      const spawn = chooseLegacySpawnPlacement({
+        playerId,
+        tiles,
+        hasNearbySettled: crowded,
+        reachOwnerAt: (x, y) => (clear(x, y) ? undefined : "rival"),
+        allowRivalReachRelaxation: false
+      });
+      expect(spawn).toEqual({ x: 290, y: 290 });
+    }
+  });
 });

@@ -271,6 +271,14 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     const candidate = spawnCandidates[seed % spawnCandidates.length];
     if (candidate && canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, false)) return accept(candidate, loosestPass.requirements);
   }
+  // With relaxation off, "nothing found" refuses a join or a redeploy and marks
+  // the Sector full, so random sampling must not miss a real site: scan every
+  // candidate once (dry footprint first). Only reached on a nearly full map.
+  if (!relaxationAllowed) {
+    for (const requireDry of [true, false]) {
+      for (const candidate of spawnCandidates) if (canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, requireDry)) return accept(candidate, loosestPass.requirements);
+    }
+  }
 
   return undefined;
 };
