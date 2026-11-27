@@ -103,15 +103,34 @@ describe("joinSeasonHandler with no viable landing site", () => {
     expect(hasPlayerJoinedSeason(deps.getSeasonState(), "newcomer")).toBe(true);
   });
 
-  it("does not block a returning House that already has a record (redeploy/recovery path unchanged)", () => {
+  it("records a returning House but does not land it inside a rival's reach (redeploys need a viable site too, owner 2026-11-27)", () => {
     const deps = buildDeps(crowdedWorld());
-    deps.runtime.ensurePlayerHasSpawnTerritory("returning");
-    expect(ownedBy(deps, "returning").length).toBeGreaterThan(0);
+    // A record with no land, as an eliminated House has.
+    expect(deps.runtime.ensurePlayerHasSpawnTerritory("returning")).toBe(false);
+    expect(deps.runtime.hasPlayer("returning")).toBe(true);
     const callback = vi.fn();
 
     joinSeasonHandler(deps, { request: { player_id: "returning" } }, callback);
 
+    expect(callback).toHaveBeenCalledWith(null, expect.objectContaining({ ok: true, spawned: false }));
     expect(callback.mock.calls[0]![1].no_landing_site).toBeUndefined();
     expect(hasPlayerJoinedSeason(deps.getSeasonState(), "returning")).toBe(true);
+    expect(ownedBy(deps, "returning")).toEqual([]);
+  });
+});
+
+describe("reserved place in the next contest (owner decision 2026-11-27)", () => {
+  it("lets a player with a reserved place past the season player cap", () => {
+    // The seeded "rival" is a human House too, so a cap of 2 leaves room for "first" only.
+    const deps = { ...buildDeps(openWorld()), maxSeasonPlayers: 2 };
+    joinSeasonHandler(deps, { request: { player_id: "first" } }, vi.fn());
+    const refused = vi.fn();
+    joinSeasonHandler(deps, { request: { player_id: "late" } }, refused);
+    expect(refused).toHaveBeenCalledWith(null, expect.objectContaining({ full: true }));
+
+    const reserved = vi.fn();
+    joinSeasonHandler(deps, { request: { player_id: "late", reserved_place: true } }, reserved);
+    expect(reserved).toHaveBeenCalledWith(null, expect.objectContaining({ ok: true, spawned: true }));
+    expect(ownedBy(deps, "late").length).toBeGreaterThan(0);
   });
 });

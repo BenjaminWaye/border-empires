@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleJoinSeasonMessage, type JoinSeasonMessageDeps } from "./handle-join-season-message.js";
-import { reserveNextContestPlace } from "../season-full-rejection/reserve-next-contest-place.js";
+import { hasReservedPlace, reserveNextContestPlace } from "../season-full-rejection/reserve-next-contest-place.js";
 import { InMemorySectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 
 // GDD §6, "No landing site, no join": JoinSeason's no_landing_site closes
@@ -31,7 +31,7 @@ describe("handleJoinSeasonMessage with no viable landing site", () => {
   it("closes joining and reserves the player's place in the next contest", async () => {
     const store = new InMemorySectorWaitlistStore();
     const { deps, sent } = buildDeps({
-      reserveNextContestPlace: (id) => reserveNextContestPlace({ store, getCurrentSeason: async () => ({ seasonId: "season-7" }), now: () => 5 }, id)
+      reserveNextContestPlace: (id) => reserveNextContestPlace({ store, getCurrentSeason: async () => ({ seasonId: "season-7", seasonSequence: 7 }), now: () => 5 }, id)
     });
 
     await handleJoinSeasonMessage(deps);
@@ -60,5 +60,32 @@ describe("reserveNextContestPlace", () => {
   it("resolves false when the season is unavailable", async () => {
     const store = new InMemorySectorWaitlistStore();
     await expect(reserveNextContestPlace({ store, getCurrentSeason: async () => Promise.reject(new Error("down")) }, "p")).resolves.toBe(false);
+  });
+});
+
+describe("reserved place in the next contest (owner decision 2026-11-27)", () => {
+  it("is stored under the next season's id and lets the player past that contest's cap", async () => {
+    const store = new InMemorySectorWaitlistStore();
+    await reserveNextContestPlace({ store, getCurrentSeason: async () => ({ seasonId: "season-7", seasonSequence: 7 }) }, "player-1");
+    const nextSeason = { store, getCurrentSeason: async () => ({ seasonId: "season-8", seasonSequence: 8 }) };
+    expect(await hasReservedPlace(nextSeason, "player-1")).toBe(true);
+    expect(await hasReservedPlace({ store, getCurrentSeason: async () => ({ seasonId: "season-7", seasonSequence: 7 }) }, "player-1")).toBe(false);
+    expect(await hasReservedPlace(nextSeason, "someone-else")).toBe(false);
+
+    const joinSeason = vi.fn(async () => ({ playerId: "player-1", spawned: true }));
+    const { deps, sent } = buildDeps({
+      simulationClient: { preparePlayer: vi.fn(), joinSeason },
+      hasReservedPlace: (id) => hasReservedPlace(nextSeason, id)
+    });
+    await handleJoinSeasonMessage(deps);
+    expect(joinSeason).toHaveBeenCalledWith("player-1", undefined, { isGuest: false, reservedPlace: true });
+    expect(sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
+  });
+
+  it("joins without the bypass when the lookup fails", async () => {
+    const joinSeason = vi.fn(async () => ({ playerId: "player-1", spawned: true }));
+    const { deps } = buildDeps({ simulationClient: { preparePlayer: vi.fn(), joinSeason }, hasReservedPlace: async () => Promise.reject(new Error("down")) });
+    await handleJoinSeasonMessage(deps);
+    expect(joinSeason).toHaveBeenCalledWith("player-1", undefined, { isGuest: false });
   });
 });

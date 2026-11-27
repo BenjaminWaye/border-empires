@@ -4,7 +4,7 @@ import { TimeoutError, withTimeout } from "../promise-timeout.js";
 type PrepareLikeFn = (
   playerId: string,
   rallyAnchor?: { x: number; y: number; island?: string },
-  options?: { isGuest?: boolean }
+  options?: { isGuest?: boolean; reservedPlace?: boolean }
 ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number; noLandingSite?: boolean }>;
 
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
@@ -59,6 +59,9 @@ export type JoinSeasonMessageDeps = {
   // the next contest (reserve-next-contest-place.ts). Omitted on a hosted
   // sector, which has no next contest.
   reserveNextContestPlace?: (playerId: string) => Promise<boolean>;
+  // True when the player reserved a place in this contest; JoinSeason then
+  // skips the player cap (owner decision 2026-11-27). Omitted on a hosted sector.
+  hasReservedPlace?: (playerId: string) => Promise<boolean>;
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
@@ -76,12 +79,17 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     broadcastLobbyUpdate,
     resolveSpawnTile,
     onSpawned,
-    reserveNextContestPlace
+    reserveNextContestPlace,
+    hasReservedPlace
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
+    // Best-effort and short: a slow lookup only costs the cap bypass, never the join.
+    const reservedPlace = hasReservedPlace
+      ? await withTimeout(hasReservedPlace(playerId), JOIN_SEASON_SPAWN_TILE_TIMEOUT_MS, "reserved place lookup").catch(() => false)
+      : false;
     const result = await withTimeout(
-      joinFn(playerId, rallyAnchor, { isGuest: isGuest === true }),
+      joinFn(playerId, rallyAnchor, { isGuest: isGuest === true, ...(reservedPlace ? { reservedPlace: true } : {}) }),
       JOIN_SEASON_RPC_TIMEOUT_MS,
       "join season RPC"
     );

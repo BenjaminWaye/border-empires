@@ -32,7 +32,7 @@ type PrepareOrJoinDeps = {
   maxSeasonGuests?: number;
 };
 
-type PrepareOrJoinRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: string };
+type PrepareOrJoinRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: string; reserved_place?: boolean };
 
 const publishGuestCount = (deps: PrepareOrJoinDeps): void =>
   deps.simulationMetrics.setSimSeasonGuestPlayers(seasonGuestCount(deps.getSeasonState(), (id) => deps.runtime.hasPlayer(id)));
@@ -206,7 +206,8 @@ export const joinSeasonHandler = (
       callback(null, { ok: true, player_id: playerId, playerId, spawned: false, guest_full: true });
       return;
     }
-    if (seasonIsAtPlayerCap(deps.maxSeasonPlayers, deps.runtime, playerId)) {
+    // A reserved place (turned away from the last contest for lack of a landing site) is not held to the cap.
+    if (call.request.reserved_place !== true && seasonIsAtPlayerCap(deps.maxSeasonPlayers, deps.runtime, playerId)) {
       deps.log.info({ playerId, maxSeasonPlayers: deps.maxSeasonPlayers }, "join season rejected: season is full");
       callback(null, { ok: true, player_id: playerId, playerId, spawned: false, full: true });
       return;

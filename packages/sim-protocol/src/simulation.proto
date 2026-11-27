@@ -355,6 +355,10 @@ message JoinSeasonRequest {
   // Same values as PreparePlayerRequest.auth_kind; "guest" is counted
   // against the guest allowance.
   string auth_kind = 3;
+  // The player holds a reserved place in this contest: it was turned away
+  // from the previous one for lack of a landing site (GDD §6), so the season
+  // player cap does not apply to it (owner decision 2026-11-27).
+  bool reserved_place = 4;
 }
 
 message JoinSeasonAck {

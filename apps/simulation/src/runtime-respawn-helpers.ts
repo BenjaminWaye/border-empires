@@ -97,6 +97,15 @@ const legacySpawnSearchInput = (
   ...(rallyAnchor ? { rallyAnchor } : {})
 });
 
+// The search alone, with no log line. claimFairSpawnSite never marks a site
+// used, so this is also a side-effect-free probe (hasViableLandingSite).
+const findStarterSpawn = (
+  ctx: RuntimeRespawnContext, playerId: string, blockedTileKeys: ReadonlySet<string>, rallyAnchor: { x: number; y: number } | undefined, viableOnly: boolean
+): { fair: ReturnType<RuntimeRespawnContext["claimFairSpawnSite"]>; spawn: { x: number; y: number } | undefined } => {
+  const fair = ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor);
+  return { fair, spawn: fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor, viableOnly)) };
+};
+
 // `viableOnly`: accept only a viable landing site -- a qualified fair-spawn
 // roster site, or a legacy-search site whose AFC reach disk (plus one ring) is
 // clear of every rival's reach. Without it a full map still yields a landing
@@ -104,8 +113,7 @@ const legacySpawnSearchInput = (
 const chooseStarterSpawn = (
   ctx: RuntimeRespawnContext, playerId: string, blockedTileKeys: ReadonlySet<string>, rallyAnchor?: { x: number; y: number }, viableOnly = false
 ): { x: number; y: number } | undefined => {
-  const fair = ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor);
-  const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor, viableOnly));
+  const { fair, spawn } = findStarterSpawn(ctx, playerId, blockedTileKeys, rallyAnchor, viableOnly);
   if (spawn) {
     const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !blockedTileKeys.has(simulationTileKey(x, y)) && !ctx.reachOwnerAt(x, y));
     ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", ...(fair?.rosterSource ? { rosterSource: fair.rosterSource } : {}), x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
@@ -185,6 +193,11 @@ export type SpawnTerritoryOptions = {
    * player record either -- so the caller can close joining.
    */
   requireViableSite?: boolean;
+  /**
+   * Changes nothing: returns whether a new House could land on a viable site
+   * now. Backs the Sector board's "full" state (landing-site-probe.ts).
+   */
+  probeOnly?: boolean;
 };
 
 const landingBlockedTileKeys = (ctx: RuntimeRespawnContext): Set<string> =>
@@ -197,6 +210,7 @@ export const ensurePlayerHasSpawnTerritory = (
   onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void,
   options: SpawnTerritoryOptions = {}
 ): boolean => {
+  if (options.probeOnly) return ctx.tiles.size > 0 && Boolean(findStarterSpawn(ctx, playerId, landingBlockedTileKeys(ctx), rallyAnchor, true).spawn);
   let player = ctx.players.get(playerId);
   // Chosen before the player record exists, so a refused first join leaves no trace.
   let viableSite: { x: number; y: number } | undefined;
@@ -245,7 +259,9 @@ export const ensurePlayerHasSpawnTerritory = (
     ctx.incrementAuthRecoveryRespawn();
   }
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-  const spawn = viableSite ?? chooseStarterSpawn(ctx, playerId, landingBlockedTileKeys(ctx), rallyAnchor);
+  // A human House lands only on a viable site, a redeploy too (owner, 2026-11-27); with none it stays
+  // landless, its notice pending, and the next login tries again. AI Houses keep the last-resort pass.
+  const spawn = viableSite ?? chooseStarterSpawn(ctx, playerId, landingBlockedTileKeys(ctx), rallyAnchor, !player.isAi);
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
@@ -308,7 +324,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   if (!actor || ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", commandId, { wasOnline: true });
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys);
+  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys, undefined, !actor.isAi);
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -367,7 +383,8 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   );
 
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys);
+  // Human redeploys need a viable site (see ensurePlayerHasSpawnTerritory); AI Houses keep the last resort.
+  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys, undefined, !actor.isAi);
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);

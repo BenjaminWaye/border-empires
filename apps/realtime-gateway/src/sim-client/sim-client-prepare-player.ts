@@ -14,8 +14,10 @@ export type ProtoPreparePlayerAck = {
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 // isGuest undefined means "unknown": the simulation then leaves a player's
 // guest status alone. Only an explicit false upgrades a recorded guest.
-export type PrepareLikeOptions = { isGuest?: boolean };
-export type PrepareLikeRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: "guest" | "account" };
+// reservedPlace: the player holds a reserved place in this contest
+// (reserve-next-contest-place.ts), so JoinSeason skips the player cap.
+export type PrepareLikeOptions = { isGuest?: boolean; reservedPlace?: boolean };
+export type PrepareLikeRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: "guest" | "account"; reserved_place?: boolean };
 export type PrepareLikeResult = {
   playerId: string;
   spawned: boolean;
@@ -50,7 +52,8 @@ const callPrepareLikeRpc = (
     const request: PrepareLikeRequest = {
       player_id: playerId,
       ...(rallyAnchor ? { rally_anchor_json: JSON.stringify(rallyAnchor) } : {}),
-      ...(options.isGuest === undefined ? {} : { auth_kind: options.isGuest ? "guest" : "account" })
+      ...(options.isGuest === undefined ? {} : { auth_kind: options.isGuest ? "guest" : "account" }),
+      ...(options.reservedPlace === true ? { reserved_place: true } : {})
     };
     rpc(request, (error, response) => {
       if (error) {
