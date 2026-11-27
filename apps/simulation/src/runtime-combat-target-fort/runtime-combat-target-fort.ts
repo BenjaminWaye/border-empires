@@ -53,8 +53,8 @@ export const targetFortPerimeterVariantFor = (
   );
 };
 
-// Siege (town-siege.ts): the defender's town has no garrisoned plot of its
-// own around it and a non-allied House holds one. Read from the live tile map
+// Siege (town-siege.ts): the defender holds no plot around its town in any
+// state (settled or frontier) and a non-allied House holds one. Read from the live tile map
 // and the defender's alliances at roll time, the same rule the gateway preview
 // and client paint apply.
 export const targetTownBesiegedFor = (

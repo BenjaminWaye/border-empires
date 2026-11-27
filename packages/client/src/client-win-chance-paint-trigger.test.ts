@@ -125,7 +125,7 @@ describe("describeMarchWinChance", () => {
 
   it("uses the server's preview odds as the base when passed", () => {
     const state = stateWith([["2,0", settledEnemy(2, 0)]]);
-    expect(percentIn(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 }, 0.71))).toBe(71);
+    expect(percentIn(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 }, { winChance: 0.71 }))).toBe(71);
   });
 
   it("says extra manpower does nothing against plain frontier ground", () => {
