@@ -12,6 +12,7 @@ import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js
 import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-flag-spot.js";
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
+import { ACCOUNT_TEXT_FIXES_ENTRY } from "./client-changelog-account-text-fixes.js";
 import { GUIDE_ATTACK_TRUCE_ENTRY } from "./client-changelog-guide-attack-truce.js";
 import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-playtest-fixes.js";
 import { TOWN_PLOT_GARRISON_ENTRY } from "./client-changelog-town-plot-garrison.js";
@@ -40,5 +41,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
+  { ...ACCOUNT_TEXT_FIXES_ENTRY, createdAt: 1795765537068, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
 ];

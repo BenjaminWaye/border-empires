@@ -197,7 +197,9 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[], panel?:
 const detailLineHtml = (line: TileMenuView["overviewLines"][number]): string => {
   const kind = line.kind ? ` hud-v2-detail-${line.kind}` : "";
   const html = line.html.replace(/<button\b([^>]*)>([\s\S]*?)<\/button>/g,
-    (button: string, attributes: string, label: string) => /\bdata-(?:view-tech|structure-info)=/.test(attributes) ? button : label);
+    // Buttons with a document-level handler survive (relic-capture-dialog.ts listens for data-relic-state);
+    // the rest act only inside the legacy menu, so they drop to their label.
+    (button: string, attributes: string, label: string) => /\bdata-(?:view-tech|structure-info|relic-state)=/.test(attributes) ? button : label);
   return `<div class="hud-v2-detail-line tile-overview-line${line.kind ? ` tile-overview-line-${line.kind}` : ""}${line.nested ? " tile-overview-line-nested" : ""}${kind}">${html}</div>`;
 };
 
@@ -211,7 +213,7 @@ const factsHtml = (facts: readonly TileFact[]): string =>
 
 /** The status explainer on its own: tapping the status chip shows only this, not the whole Details list. */
 const statusHelpHtml = (view: Pick<TileMenuView, "statusText" | "statusHelpText">): string =>
-  `<div class="hud-v2-pop hud-v2-details hud-v2-status-help" role="region" aria-label="Status"><div class="hud-v2-detail-line tile-overview-line"><strong>${esc(plainText(view.statusText ?? ""))}:</strong> ${esc(view.statusHelpText ?? "")}</div></div>`;
+  `<div class="hud-v2-pop hud-v2-details hud-v2-status-help" role="region" aria-label="Status"><div class="hud-v2-detail-line tile-overview-line"><strong>${esc(view.statusText ?? "")}:</strong> ${esc(view.statusHelpText ?? "")}</div></div>`;
 
 /** ownerTagHtml: trusted markup shown before the owner's name (the stance tag). */
 export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = [], ownerTagHtml = ""): string => {
