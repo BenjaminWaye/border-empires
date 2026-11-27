@@ -33,6 +33,9 @@
  * subscribe, so no resend) still gets a report it missed. A report without an
  * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts);
  * everything else, `charges` included, is kept.
+ * WELCOME_BACK (what the empire did while the player was away) is sent once
+ * per live SubscribePlayer, so a tab that reconnects onto an unreaped socket
+ * would never see it; its `at` lets the client ignore a copy it already showed.
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -42,7 +45,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "HOUSE_CHARGES" | "SCOUT_DRONE" | "LONGEST_ROAD";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "HOUSE_CHARGES" | "SCOUT_DRONE" | "LONGEST_ROAD" | "WELCOME_BACK";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -71,7 +74,8 @@ export const isReplayedPlayerMessage = (payload: Record<string, unknown>): paylo
   (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
   (payload.type === "AFC_HIJACKS" && Array.isArray(payload.hijacks)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands)) ||
   (payload.type === "HOUSE_CHARGES" && Array.isArray(payload.charges)) || (payload.type === "LONGEST_ROAD" && "road" in payload) ||
-  (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined)));
+  (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined))) ||
+  (payload.type === "WELCOME_BACK" && typeof payload.elapsedMs === "number");
 
 /** What is kept for replay: SCOUT_DRONE keeps its report only when the client can tell it already showed it (an id). */
 const hasReportId = (report: unknown): boolean => Boolean(report && typeof report === "object" && typeof (report as { id?: unknown }).id === "string");

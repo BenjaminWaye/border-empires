@@ -1,5 +1,6 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { MANPOWER_VISIBILITY_ENTRY } from "./client-changelog-manpower-visibility.js";
 import { INTEGRITY_EXPLAIN_ENTRY } from "./client-changelog-integrity-explain.js";
 import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
@@ -85,5 +86,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TILE_LABELS_R2_ENTRY, createdAt: 1795805295408, },
   { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
   { ...DISTINCT_EMPIRE_COLOURS_ENTRY, createdAt: 1795805465925 },
+  { ...MANPOWER_VISIBILITY_ENTRY, createdAt: 1795816090130 },
   { ...DRONE_EXPLORE_R3_ENTRY, createdAt: 1795816268758 },
 ];

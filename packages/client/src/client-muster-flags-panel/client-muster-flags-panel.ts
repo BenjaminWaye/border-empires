@@ -3,6 +3,7 @@ import { musterFightIsClaim, type ManpowerPanelMusterFlag } from "../client-side
 import type { Tile } from "../client-types.js";
 import { predictedMusterAmount, type MusterRateCache } from "../client-muster-prediction/client-muster-prediction.js";
 import { setManpowerInfoOpen } from "../client-manpower-panel-info/client-manpower-panel-info.js";
+import { forgetMusterDrawsExcept, musterDrawLog, musterDrawnRecently, observeMusterSample, type MusterDrawLog } from "../client-muster-draw-log/client-muster-draw-log.js";
 
 /**
  * Builds the "Active muster flags" list for the manpower detail panel, mirroring
@@ -12,6 +13,9 @@ import { setManpowerInfoOpen } from "../client-manpower-panel-info/client-manpow
  * `amount` is the interpolated (predicted) staged amount, not the raw
  * server value — see client-muster-prediction.ts — so this list animates
  * between sparse server ticks the same way the tile menu does.
+ *
+ * Each call also feeds the draw log (client-muster-draw-log.ts), so every flag
+ * carries what it drew lately and whether it is refilling from the pool now.
  */
 export const buildManpowerPanelMusterFlags = (
   tiles: Iterable<Tile>,
@@ -19,18 +23,28 @@ export const buildManpowerPanelMusterFlags = (
   manpowerCap: number,
   manpower: number,
   musterAmountRateByTile: MusterRateCache,
-  tileAt: (x: number, y: number) => Tile | undefined = () => undefined
+  tileAt: (x: number, y: number) => Tile | undefined = () => undefined,
+  drawLog: MusterDrawLog = musterDrawLog,
+  nowMs: number = Date.now()
 ): ManpowerPanelMusterFlag[] => {
   const flags: ManpowerPanelMusterFlag[] = [];
+  const seen = new Set<string>();
   for (const tile of tiles) {
     if (!tile.muster || tile.muster.ownerId !== me) continue;
+    const key = `${tile.x},${tile.y}`;
     const cap = musterFlagCap(manpowerCap, tile.muster.capLevel);
-    const amount = predictedMusterAmount(musterAmountRateByTile, `${tile.x},${tile.y}`, tile, me, cap, manpower);
+    const amount = predictedMusterAmount(musterAmountRateByTile, key, tile, me, cap, manpower, nowMs);
+    seen.add(key);
+    observeMusterSample(drawLog, key, tile.muster, nowMs);
+    const ratePerMin = tile.muster.ratePerMin ?? 0;
     flags.push({
       x: tile.x,
       y: tile.y,
       amount,
       cap,
+      drawnRecently: musterDrawnRecently(drawLog, key, nowMs),
+      // Inflow stops at the flag's cap and when the pool is empty (runtime-muster-tick.ts).
+      refillPerMin: ratePerMin > 0 && amount < cap - 0.5 && manpower > 0 ? ratePerMin : 0,
       mode: tile.muster.mode,
       ...(tile.muster.targetX !== undefined ? { targetX: tile.muster.targetX } : {}),
       ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {}),
@@ -46,6 +60,7 @@ export const buildManpowerPanelMusterFlags = (
       ...(tile.muster.clearing !== undefined ? { clearing: tile.muster.clearing } : {})
     });
   }
+  forgetMusterDrawsExcept(drawLog, seen);
   return flags;
 };
 
