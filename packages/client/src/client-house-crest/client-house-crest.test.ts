@@ -52,7 +52,7 @@ describe("crest picker", () => {
     expect(availableCrests({ ownedCosmetics: [] })).toEqual([...CREST_COSMETIC_IDS]);
     const host = document.createElement("div");
     host.innerHTML = crestPickerHtml({ color: "#123456", initial: "H", selected: "crest-key", available: availableCrests({ ownedCosmetics: [] }), disabled: false, attr: "data-v2-crest" });
-    const buttons = [...host.querySelectorAll<HTMLButtonElement>("[data-v2-crest]")];
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>("[data-v2-crest]"));
     expect(buttons.map((b) => b.dataset.v2Crest)).toEqual(["", ...CREST_COSMETIC_IDS]);
     expect(host.querySelector('[aria-pressed="true"]')?.getAttribute("data-v2-crest")).toBe("crest-key");
     expect(host.querySelector<HTMLElement>(".crest-pick-emblem")?.style.background).toContain("#123456");

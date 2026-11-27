@@ -63,7 +63,7 @@ describe("House emblems show the crest or the letter", () => {
       rivals: [{ playerId: "anna", tilesTaken: 1, tilesLost: 0, attacksRepelled: 0, attacksFailed: 0 }, { playerId: "bern", tilesTaken: 1, tilesLost: 0, attacksRepelled: 0, attacksFailed: 0 }]
     };
     const el = host(chronicleHtml({ me: "me", timeline, loading: false, error: undefined, rivalFilter: "", selectedId: undefined, nameOf, colorOf, crestOf, techName: () => undefined, nowMs: 1_000 }));
-    const rivals = [...el.querySelectorAll(".v2c-rival .v2c-crest")];
+    const rivals = Array.from(el.querySelectorAll(".v2c-rival .v2c-crest"));
     expect(rivals[0]?.querySelector("svg")).not.toBeNull();
     expect(rivals[1]?.textContent).toBe("B");
   });
