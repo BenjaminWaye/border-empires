@@ -61,7 +61,7 @@ import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/
 import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
-import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld } from "../client-alliance/client-met-players.js";
+import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld, hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -2326,7 +2326,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (applyPlayerAppearanceMessage(msg, { state, authProfileNameEl, authProfileColorEl, syncAuthOverlay, renderHud })) return; // PLAYER_STYLE, COSMETICS_STATE
 
-    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); hydrateMetPlayersFromServer(state, msg.metPlayerIds, msg.metPlayersSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
     if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { pushFeed, renderHud }); return; }
 

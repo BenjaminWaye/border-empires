@@ -26,6 +26,12 @@ TikTok, Discord) can't do Google sign-in at all
    can never lock out real sign-ups. Worst case: "Play now" stops working
    and people sign in instead. The gateway lobby display's own separate
    default (120) still doesn't match; low priority since it's cosmetic.
+   **Update 2026-11-26 (user):** staging is back to a cap of **50**
+   (`deploy/env/staging.env`). Production stays at 100. The cap only
+   refuses new spawns, so Houses already in the season are kept. Every
+   human record ever created this season counts (inactive and eliminated
+   ones too; records are only cleared at rollover), so if staging already
+   has 50 or more humans, no new player can join until the next season.
 2. Guests cannot request or accept alliances or truces until they save
    their empire. Allied players share vision, allied dock crossings, and
    the "diplomatic dominance" victory sums the whole allied bloc's

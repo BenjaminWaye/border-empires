@@ -13,7 +13,9 @@ import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
 import { ACCOUNT_TEXT_FIXES_ENTRY } from "./client-changelog-account-text-fixes.js";
+import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-playtest-fixes.js";
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
+import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -32,5 +34,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
+  { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
+  { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...ACCOUNT_TEXT_FIXES_ENTRY, createdAt: 1795765537068, },
 ];
