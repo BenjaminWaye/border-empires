@@ -165,7 +165,7 @@ switch_to() { # image sha  -> 0 if healthy
 }
 
 fetch_config() { # sha
-  local sha="$1" tmp f
+  local sha="$1" tmp f rc
   tmp="$(mktemp -d)"
   mkdir -p "$tmp/env" "$tmp/bin"
   for f in compose.yml Caddyfile "env/${BE_ENV}.env" bin/backup bin/publish-client; do
@@ -178,6 +178,23 @@ fetch_config() { # sha
   install -m 644 "$tmp/env/${BE_ENV}.env" "env/${BE_ENV}.env"
   install -m 755 "$tmp/bin/backup" backup
   install -m 755 "$tmp/bin/publish-client" publish-client
+  # Backup/restore helpers (deploy/bin/backup needs backup-snapshot.mjs). Optional
+  # so that deploying a sha from before they existed still works; the previous
+  # copies are then kept.
+  # Only an HTTP error (curl exit 22, e.g. 404) means "not in this sha"; a network
+  # failure fails the deploy like the required files do, so a new `backup` is
+  # never paired with a stale helper.
+  for f in backup-snapshot.mjs restore-prepare.mjs restore-backup; do
+    rc=0
+    curl -fsSL --retry 3 -o "$tmp/bin/$f" "${CONFIG_BASE_URL}/${sha}/deploy/bin/${f}" || rc=$?
+    if [ "$rc" = 0 ]; then
+      case "$f" in *.mjs) install -m 644 "$tmp/bin/$f" "$f" ;; *) install -m 755 "$tmp/bin/$f" "$f" ;; esac
+    elif [ "$rc" = 22 ]; then
+      log "deploy/bin/${f} not found at ${sha}; keeping the installed copy, if any"
+    else
+      log "could not fetch deploy/bin/${f} at ${sha} (curl exit ${rc})"; rm -rf "$tmp"; return 1
+    fi
+  done
   rm -rf "$tmp"
 }
 

@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Hourly consistent SQLite snapshot -> zstd -> Backblaze B2 (via rclone).
 # Run by border-empires-backup.timer as `deploy`; installed at
-# /opt/border-empires/backup by `deploy`. Same VACUUM INTO technique as
-# scripts/ops/clone-prod-sqlite-snapshot.mjs (consistent, no WAL coordination).
+# /opt/border-empires/backup by `deploy`, with backup-snapshot.mjs next to it.
+# Restore: docs/agents/deploys.md "Backups" (deploy/bin/restore-backup).
 #
-# /etc/border-empires/host.conf: BE_ENV, optional BACKUP_BUCKET (e.g. be-backups-staging).
+# /etc/border-empires/host.conf: BE_ENV, optional BACKUP_BUCKET (e.g. be-backups-staging),
+# optional BACKUP_RATE_MB (snapshot pace in MB/s, default 16).
 # /etc/border-empires/rclone.conf: a `[b2]` remote scoped to that bucket.
 # Retention: B2 holds 48 hourly + 14 daily; the host keeps the newest 3.
 set -euo pipefail
 
 # One backup at a time: two overlapping VACUUM INTO runs (timer + a manual run)
 # on the live DB coincided with a 30s event-loop stall and a watchdog kill on
-# staging (2026-10-02). A second invocation just exits.
+# staging (2026-10-02). A second invocation just exits. Keep this even with the
+# paced snapshot: two at once would double its disk use.
 exec 9>/tmp/border-empires-backup.lock
 flock -n 9 || { echo "another backup is running; skipping" >&2; exit 0; }
 
@@ -20,22 +22,33 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="be-${BE_ENV}-${STAMP}.db"
 LOCAL_DIR=/srv/border-empires/backups   # deploy-owned; the container dir is uid 10001
 mkdir -p "$LOCAL_DIR"
+trap 'rm -f "${LOCAL_DIR}/${NAME}.zst.part"' EXIT
 
 cd /opt/border-empires
-JS='
-const { DatabaseSync } = require("node:sqlite");
-const out = process.env.BACKUP_OUT;
-new DatabaseSync("/data/border-empires.db").exec(`VACUUM INTO \x27${out}\x27`);
-const row = new DatabaseSync(out).prepare("PRAGMA quick_check").get();
-if (Object.values(row)[0] !== "ok") { console.error("quick_check failed", row); process.exit(1); }
-console.log("snapshot ok " + out);
-'
-# nice: VACUUM INTO holds a read lock and burns CPU next to the live sim.
-docker compose exec -T -e "BACKUP_OUT=/data/backups/${NAME}" app nice -n 19 node -e "$JS"
-# Compress on the host by streaming out of the container (the host `deploy`
-# user cannot read files owned by the container uid), then drop the raw copy.
-docker compose exec -T app cat "/data/backups/${NAME}" | nice -n 19 zstd -q -3 -T1 -o "${LOCAL_DIR}/${NAME}.zst"
-docker compose exec -T app rm -f "/data/backups/${NAME}"
+# Paced, consistent snapshot straight to zstd inside the container
+# (backup-snapshot.mjs, fetched next to this script on each deploy). It replaced
+# a single `VACUUM INTO`, whose 1 GB read+write burst stalled the game for 1-2 s
+# per run in the local reproduction (docs/agents/deploys.md "Backups").
+# nice: the copy is CPU work next to the live sim; the pacing (BACKUP_RATE_MB,
+# MB/s, default 16) is what protects the disk.
+SNAPSHOT_JS=/opt/border-empires/backup-snapshot.mjs
+[ -f "$SNAPSHOT_JS" ] || { echo "missing ${SNAPSHOT_JS}; redeploy, or update bin/deploy first (docs/agents/deploys.md)" >&2; exit 1; }
+docker compose exec -T app sh -c "mkdir -p /data/backups && rm -f /data/backups/be-*.db.zst /data/backups/be-*.db.tmp"
+# The scratch copy is about the live database's size and shares its volume:
+# refuse rather than fill the disk under the game.
+docker compose exec -T app sh -c 'set -e
+  db=$(stat -c %s /data/border-empires.db)
+  need=$(( db / 1024 + 524288 ))
+  avail=$(df -Pk /data | awk "NR==2 {print \$4}")
+  [ "$avail" -ge "$need" ] || { echo "not enough free space on /data for a snapshot: ${avail} KiB free, need ${need} KiB" >&2; exit 1; }'
+docker compose exec -T app nice -n 19 node --input-type=module - \
+  /data/border-empires.db "/data/backups/${NAME}.zst" "--rate-mb=${BACKUP_RATE_MB:-16}" < "$SNAPSHOT_JS"
+# Copy out on the host (the host `deploy` user cannot read files owned by the
+# container uid), then drop the container copy.
+docker compose exec -T app cat "/data/backups/${NAME}.zst" > "${LOCAL_DIR}/${NAME}.zst.part"
+docker compose exec -T app rm -f "/data/backups/${NAME}.zst"
+zstd -q -t "${LOCAL_DIR}/${NAME}.zst.part"
+mv "${LOCAL_DIR}/${NAME}.zst.part" "${LOCAL_DIR}/${NAME}.zst"
 ls -1t "${LOCAL_DIR}"/be-*.db.zst 2>/dev/null | tail -n +4 | xargs -r rm -f
 
 if [ -z "${BACKUP_BUCKET:-}" ]; then
@@ -43,10 +56,19 @@ if [ -z "${BACKUP_BUCKET:-}" ]; then
   exit 0
 fi
 export RCLONE_CONFIG=/etc/border-empires/rclone.conf
+# --b2-hard-delete: without it B2 only hides a deleted file and keeps it as an
+# old version, so the 48 h / 14 d retention the privacy policy states would not
+# hold. The bucket's lifecycle should also be "keep only the last version".
 rclone copyto "${LOCAL_DIR}/${NAME}.zst" "b2:${BACKUP_BUCKET}/hourly/${NAME}.zst"
 if [ "$(date -u +%H)" = "00" ]; then
   rclone copyto "${LOCAL_DIR}/${NAME}.zst" "b2:${BACKUP_BUCKET}/daily/${NAME}.zst"
 fi
-rclone delete --min-age 2d "b2:${BACKUP_BUCKET}/hourly/"
-rclone delete --min-age 14d "b2:${BACKUP_BUCKET}/daily/"
+# The account-deletion ledger (hashes only) must survive the loss of this server
+# too: a restore reapplies it before the game starts (docs/agents/account-deletion.md).
+if docker compose exec -T app test -f /data/account-deletion-ledger.json; then
+  docker compose exec -T app cat /data/account-deletion-ledger.json > "${LOCAL_DIR}/account-deletion-ledger.json"
+  rclone copyto "${LOCAL_DIR}/account-deletion-ledger.json" "b2:${BACKUP_BUCKET}/ledger/account-deletion-ledger.json"
+fi
+rclone delete --b2-hard-delete --min-age 48h "b2:${BACKUP_BUCKET}/hourly/"
+rclone delete --b2-hard-delete --min-age 14d "b2:${BACKUP_BUCKET}/daily/"
 echo "uploaded ${NAME}.zst to b2:${BACKUP_BUCKET}"
