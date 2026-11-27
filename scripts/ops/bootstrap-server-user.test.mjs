@@ -1,7 +1,6 @@
 // The deploy-user step of deploy/bin/bootstrap-server.sh, run against stub
 // commands that behave like a Hetzner server created without an SSH key: root's
-// password is expired, so anything that goes through PAM (adduser runs chfn)
-// fails. The third test sector (2026-11-27) stopped right here; its
+// password is expired, so PAM account checks for root (adduser runs chfn) fail. The third test sector (2026-11-27) stopped right here; its
 // /var/log/cloud-init-output.log ended with "fatal: '/bin/chfn -f  deploy'
 // returned error code 1".
 import test from "node:test";
@@ -42,7 +41,11 @@ test("creates the deploy user without going through PAM while root's password is
     });
     assert.equal(run.status, 0, run.stderr);
     const calls = readFileSync(join(dir, "calls.log"), "utf8");
-    assert.match(calls, /^useradd .*deploy$/m);
+    const useradd = calls.split("\n").find((line) => line.startsWith("useradd "));
+    assert.ok(useradd, "useradd was not called");
+    // The same account adduser made: a home with /etc/skel, bash for the admin key, its own group.
+    for (const flag of ["--create-home", "--shell /bin/bash", "--user-group"]) assert.ok(useradd.includes(flag), `useradd lacks ${flag}`);
+    assert.match(useradd, / deploy$/);
     assert.doesNotMatch(calls, /^(adduser|chfn) /m);
   } finally {
     rmSync(dir, { recursive: true, force: true });

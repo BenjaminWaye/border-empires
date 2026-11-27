@@ -59,9 +59,9 @@ fi
 systemctl enable --now docker
 
 # --- deploy user + keys ---
-# useradd, not adduser: adduser runs chfn, which goes through PAM and fails while
-# root's password is expired. Hetzner expires it on any server created without an
-# SSH key, which is every hosted sector server (third test sector, 2026-11-27).
+# useradd, not adduser: adduser runs chfn, whose PAM account check for root fails
+# while root's password is expired, as it is on a Hetzner server created without an
+# SSH key (every hosted sector server; third test sector, 2026-11-27).
 id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --user-group deploy
 usermod -aG docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh

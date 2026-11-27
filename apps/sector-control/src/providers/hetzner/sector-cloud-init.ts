@@ -53,13 +53,18 @@ export const sectorCloudInit = (input: SectorCloudInitInput): string => {
   const indent = (text: string): string => text.trimEnd().split("\n").map((line) => `      ${line}`).join("\n");
   const script = [
     "set -euo pipefail",
+    // The root password Hetzner sets on a server created without an SSH key (every
+    // sector server) is already expired, so every PAM account check for root fails:
+    // adduser's chfn, sudo, su, root's cron jobs. Clear the expiry first; the
+    // emailed password still works in the Hetzner console (third test sector, 2026-11-27).
+    'chage -d "$(date +%F)" root',
     "mkdir -p /root/deploy/bin /root/deploy/systemd",
     ...DEPLOY_FILES.map((file) => `curl -fsSL --retry 5 -o /root/deploy/${file} ${base}/${file}`),
     `BE_ENV=hosted BE_HOSTNAME=${input.hostname} GITHUB_REPO=${input.githubRepo} bash /root/deploy/bin/bootstrap-server.sh`,
     "install -m 600 -o deploy -g deploy /root/be-sector.env /etc/border-empires/secrets.env",
     "rm -f /root/be-sector.env",
-    // runuser, not sudo: sudo checks root's account through PAM, and Hetzner expires
-    // root's password on a server created without an SSH key.
+    // runuser, not sudo: sudo checks root's account through PAM, so it fails if the
+    // expiry above ever comes back.
     `runuser -u deploy -- env HOME=/home/deploy /opt/border-empires/bin/deploy ${input.releaseSha}`
   ].join("\n");
   return [
