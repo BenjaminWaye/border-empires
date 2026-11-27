@@ -265,7 +265,9 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; openPanel?: "charges" | "integrity"; timeout?: boolean } | undefined,
+  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; openPanel?: "charges" | "integrity"; timeout?: boolean } | undefined,
+  /** Good news (a won fight, a claimed tile): never drawn as a card, kept only so the battle screen can read a win. */
+  goodNewsAlert: undefined as { title: string; detail: string; until: number; tone: "success"; manpowerLoss?: number; focusX?: number; focusY?: number } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
