@@ -168,6 +168,7 @@ export const createFundingService = (deps: {
       if (event.kind === "expired") return { applied: store.transitionContribution(contribution.contributionId, ["awaiting_payment"], { state: "cancelled" }, now) };
       if (event.kind === "refunded" && !event.fullRefund) {
         // A part of one share given back: the share still counts, and the sector keeps running.
+        if (store.getWithdrawal(contribution.contributionId)) return { applied: false };
         deps.alert("partial_refund", { sectorId: contribution.sectorId, contributionId: contribution.contributionId });
         return { applied: false };
       }
