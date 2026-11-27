@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye, for TIDN AB
-Last verified: 2026-11-25
+Last verified: 2026-11-27
 Replaces: on publication, `packages/client/public/privacy.html` is replaced and `purchase-terms.html` is added beside it; this folder is then removed.
 
 These are drafts written by an agent from a template and from what the code
@@ -43,9 +43,29 @@ Publishing is blocked until these markers are filled in.
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
 | `[[PHONE]]` | `purchase-terms.html` | A telephone number for the seller. EU law lists it among the information a consumer must get before buying (Directive 2011/83/EU Art. 6(1)(c); lag (2005:59) 2 kap. 2 §) |
-| `[[BACKBLAZE_REGION]]` | `privacy.html` | Whether the backup bucket is in Backblaze's EU or US region (it decides whether the backups are a transfer outside the EEA). Production currently uses Hetzner's daily server backups and has the hourly Backblaze job turned off (`docs/agents/deploys.md`); if Backblaze is not used, remove that line |
-| `[[HETZNER_BACKUP_DAYS]]` | `privacy.html` | How long Hetzner keeps a daily server backup (check the Hetzner console) |
-| `[[BACKBLAZE_RETENTION]]` | `privacy.html` | How long hourly and daily database backups stay in the bucket (its lifecycle rules) |
+
+**Settled on 2026-11-27** (the owner: "just do it"): Backblaze is not used
+(production's hourly Backblaze job is off and staging keeps no backups), so it
+is removed from the privacy draft. **Before publishing, check the existing
+buckets** (`be-backups-staging`, `be-backups-prod`, from
+`docs/hetzner-migration-plan.md`): expiry was done only by the now-disabled
+job, so old snapshots may still be there. Empty or delete them, or restore
+the Backblaze line with their region. If Backblaze is ever turned on again
+(re-running `bootstrap-server.sh` with `BACKUP_BUCKET` set does that), the
+bucket must be in Backblaze's EU region and the privacy page updated first.
+Hetzner keeps the 7 most recent daily backups of the production server
+(hosted sector servers and staging have none). Logs: the privacy page says
+what is true without a size or a day count, because only the app container's
+log is capped (250 MB); Caddy's log and the host's own logs follow their
+defaults, and operators copy logs with `scripts/ops/backend-logs.sh`. Bug
+reports: the text is published as an issue in the public repository and the
+full report is emailed; the page now says so. ARN: TIDN AB takes part in
+ARN's procedure for the disputes ARN can hear (lag (2015:671) asks the terms
+to say whether it does); the page no longer promises to follow its
+recommendations, and lawyer question 6 covers the value limits. The telephone number cannot be settled
+without the owner: it is required information before a sale (Directive
+2011/83/EU Art. 6(1)(c) as amended by Directive (EU) 2019/2161), so the owner
+gives the number to publish.
 
 ## What the code and settings must do before sales open
 
@@ -109,8 +129,12 @@ acknowledgement (8c) and saving results (8d).
    purchase closes when the withdrawal is received, and a refund that fails is
    retried until it is accepted. The period is counted as 15 times 24 hours
    from payment, which always reaches the end of the 14th day after the day of
-   payment; the lawyer should confirm that for a share it starts when the bar
-   filled and the share was charged, not when it was first held.
+   payment. For a share it starts when the bar filled and the share was
+   charged, not when the card was first held (settled 2026-11-27, owner: "you
+   settle it"), and before that the contributor can withdraw by email and the
+   hold is released; the Terms of Sale section 7 now says both. Releasing a
+   hold on request is done by hand for now (there is no button for it yet).
+   The lawyer should still confirm this reading (lawyer question 3).
 7. **Partial refunds.** The payment provider can only make a full refund
    (`PaymentProvider.refund` in `apps/sector-control/src/providers/providers.ts`),
    and any refund event moves the sector to `refunded`, after which the server
@@ -267,7 +291,8 @@ built in test mode; selling waits for that text.
     Framework enough for analytics, and should fonts be served from our own
     server instead?
 12. **Service providers.** The privacy draft names Firebase, Hetzner, Stripe,
-    Resend, Slack, Backblaze, GitHub and Google Fonts, all found in the code.
+    Resend, Slack, GitHub and Google Fonts, all found in the code (Backblaze
+    too, if its buckets are kept; see "Still to fill in").
     **Question:** for each, is it a processor or an independent controller, and
     is its data processing agreement accepted? Stripe is partly an
     independent controller.
@@ -350,7 +375,8 @@ section.
    published; until then turn analytics off for the web client.
 7. **Google Fonts.** Recommended: serve the fonts from our own server.
 8. **Hetzner fallback location.** Recommended: EU locations only.
-9. **Backblaze region** (`[[BACKBLAZE_REGION]]`). Recommended: EU.
+9. **Backblaze region.** Settled 2026-11-27: Backblaze is not used; if it
+   ever is, an EU bucket.
 10. **United Kingdom at launch.** Recommended: refuse UK buyers until UK VAT
     registration is worth it, as the tax note proposes.
 11. **If Border Empires closes while hosted sectors run.** Recommended: promise

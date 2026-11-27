@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-25
+Last verified: 2026-11-27
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -499,7 +499,7 @@ The Stripe test-mode work does not do these yet.
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | **Refund policy.** (a) If the sector cannot be created after payment, when is the money returned? (b) Can a host ask for a refund once the sector is open? | (a) Automatic full refund if the sector is not open 24 hours after payment; the owner is alerted from the first failure and can fix or refund sooner. (b) No refund once the sector has opened, stated at checkout, with the owner free to make exceptions by hand in Stripe. EU, EEA and UK consumers keep a 14-day right to withdraw from a service even when they ask for it to start at once; the consent at checkout only allows a deduction for the days used. See the note above this table; have this wording checked. **Accepted 2026-11-23. (b) decided 2026-11-25: EU, EEA and UK consumers get the 14-day withdrawal with a deduction for days used, as drafted.** |
-| Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Refund by the owner: the sector is closed and deleted after its results are saved. Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. |
+| Q2 | **A refund or dispute on a running sector.** | **Accepted 2026-11-23.** Full refund by the owner: the sector is closed and deleted after its results are saved (a partial refund keeps it running, 8b). Dispute: the sector keeps running for the other players, the owner is alerted, and the disputing account cannot buy again until it is settled. **Confirmed by the owner 2026-11-27.** |
 | Q3 | **Cap on hosted sectors running at once.** | **Decided 2026-11-23: no cap.** See §11 for the alerts that replace it. (The recommendation was 5 at launch.) |
 | Q4 | **Does a hosted contest count toward rating and the public profile?** | **Accepted 2026-11-23.** Show it on the profile, marked "Hosted", with placement and House Charges. Do not count it toward the rating: a host could farm rating in a sector of AI Houses and friends. |
 | Q5 | **The 30-day limit.** Is it enforced for hosted sectors, and who wins at the limit? Does the same rule apply to the public sector? | **Decided 2026-11-24: no time limit.** A hosted sector is closed after 7 days with no human visit; see §9. No game rule changes. (The recommendation was to end at day 30.) |
