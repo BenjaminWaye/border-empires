@@ -1,0 +1,13 @@
+/* House crest glyph inside any emblem (client-house-crest.ts). Sized from the
+   emblem's font size, so each emblem keeps its own scale; the drop shadows
+   outline the whole glyph so it reads on a light House colour. */
+.house-crest-glyph {
+  display: block;
+  width: 1.4em;
+  height: 1.4em;
+  max-width: 82%;
+  max-height: 82%;
+  overflow: visible;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}

@@ -1,5 +1,6 @@
 import { findKnownShieldAmount, fortPerimeterSourceVariant, isCaptureHoldActive, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
+import { besiegedOddsSuffix, townBesiegedFromKnownTiles } from "./client-town-siege/client-town-siege.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -22,7 +23,7 @@ import type { Tile } from "./client-types.js";
 const WIN_CHANCE_PAINT_DURATION_MS = 6000;
 const MAX_WIN_CHANCE_LABELS = 20;
 
-const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles">): FrontierCombatPreviewTile => ({
+const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles" | "me">): FrontierCombatPreviewTile => ({
   terrain: tile?.terrain,
   ownershipState: tile?.ownershipState ?? undefined,
   dockId: tile?.dockId,
@@ -37,7 +38,9 @@ const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles
         })
       : undefined,
   // A freshly captured FRONTIER tile still holding ground defends (capture-hold).
-  captureHoldUntil: tile?.captureHoldUntil
+  captureHoldUntil: tile?.captureHoldUntil,
+  // Siege (town-siege.ts): same shared rule the sim rolls with.
+  townBesieged: townBesiegedFromKnownTiles(tile, state)
 });
 
 /**
@@ -71,7 +74,7 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
  * base the commit/shield scaling applies to.
  */
 export const estimateTileWinChance = (
-  state: Pick<ClientState, "tiles">,
+  state: Pick<ClientState, "tiles" | "me">,
   tile: Tile,
   commit: { committedManpower: number; baseMusterCost: number },
   serverBaseWinChance?: number
@@ -173,5 +176,5 @@ export const describeMarchWinChance = (
   const effort = isCommitOddsEligibleTarget(tile, Date.now())
     ? `commits ${commit.committedManpower} manpower`
     : "extra manpower doesn't change the odds here";
-  return `Win chance ${winChance}% at (${target.x}, ${target.y}) · ${effort}`;
+  return `Win chance ${winChance}%${besiegedOddsSuffix(townBesiegedFromKnownTiles(tile, state))} at (${target.x}, ${target.y}) · ${effort}`;
 };

@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { fortPerimeterSourceVariant, isCaptureHoldActive, isFortDefending, type FortVariant } from "@border-empires/shared";
+import { fortPerimeterSourceVariant, isCaptureHoldActive, isFortDefending, isTownBesieged, type FortVariant } from "@border-empires/shared";
 
 // Narrow slice of RuntimeCombatSupportContext (runtime-combat-support.ts) the
 // fort check needs; kept structural so this module doesn't import back.
@@ -51,4 +51,18 @@ export const targetFortPerimeterVariantFor = (
       return Boolean(fortTile) && !isCaptureHoldActive(fortTile!, nowMs) && !ctx.isStructureDormant(defenderOwnerId, `${x},${y}`, "fort");
     }
   );
+};
+
+// Siege (town-siege.ts): the defender's town has no garrisoned plot of its
+// own around it and a non-allied House holds one. Read from the live tile map
+// and the defender's alliances at roll time, the same rule the gateway preview
+// and client paint apply.
+export const targetTownBesiegedFor = (
+  ctx: { tiles: ReadonlyMap<string, DomainTileState>; players: ReadonlyMap<string, { allies?: ReadonlySet<string> | undefined }> },
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined
+): boolean => {
+  if (!previousTarget?.town || !defenderOwnerId || previousTarget.ownerId !== defenderOwnerId) return false;
+  const allies = ctx.players.get(defenderOwnerId)?.allies;
+  return isTownBesieged(previousTarget, (x, y) => ctx.tiles.get(`${x},${y}`), (id) => !allies?.has(id));
 };

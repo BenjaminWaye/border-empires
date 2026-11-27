@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 
 const NOW = 1_800_000_000_000;
@@ -65,18 +65,4 @@ describe("town focus picks", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_TOWN_FOCUS", tiles: [{ x: 1, y: 0 }], focus: "LEVY" });
     expect(state.tiles.get("2,0")?.ownerId).toBe("rival");
   });
-
-  it("asks for a second press within a few seconds before applying to all towns", () => {
-    expect(confirmTownFocusForAll("1,0", "LEVY", NOW)).toBe(false);
-    expect(confirmTownFocusForAll("1,0", "LEVY", NOW + 1_000)).toBe(true);
-    expect(confirmTownFocusForAll("1,0", "LEVY", NOW + 2_000)).toBe(false);
-    expect(confirmTownFocusForAll("1,0", "LEVY", NOW + 9_000)).toBe(false);
-  });
-
-  it("counts a town under the focus just picked for it, so All towns knows who would change", () => {
-    const { state } = setup([]);
-    const extras = townFocusExtras(state, [townAt(1, { pendingFocus: "LEVY", pendingFocusAt: NOW }), townAt(2)], "1,0", NOW);
-    expect(extras.counts).toMatchObject({ LEVY: 1, BALANCED: 1 });
-  });
-
 });

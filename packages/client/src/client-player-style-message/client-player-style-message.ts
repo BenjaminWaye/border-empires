@@ -1,5 +1,9 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { EmpireVisualStyle } from "../client-types.js";
+import { settleCrestSaveFromState } from "../client-profile-edit-crest/client-profile-edit-crest.js";
+
+// A crest refusal (COSMETIC_* ERROR) settles the Edit dialog's wait; client-network.ts routes ERRORs here.
+export { settleCrestSaveFromError } from "../client-profile-edit-crest/client-profile-edit-crest.js";
 import { applyCosmeticsStateMessage, applyInitPlayerCosmetics, applyPlayerStyleCosmetics } from "../client-cosmetics/client-cosmetics.js";
 
 export type ApplyPlayerStyleMessageDeps = {
@@ -78,6 +82,7 @@ export const applyPlayerAppearanceMessage = (msg: Record<string, unknown>, deps:
   }
   if (msg.type !== "COSMETICS_STATE") return false;
   applyCosmeticsStateMessage(deps.state, msg);
+  settleCrestSaveFromState(msg);
   try {
     deps.renderHud();
   } catch (error) {

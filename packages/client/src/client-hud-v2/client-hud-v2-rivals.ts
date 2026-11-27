@@ -5,6 +5,8 @@
 import type { ActiveTruceView, SeasonVictoryObjectiveView, SeasonWinnerView } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { seasonWinnerName, seasonWinnerPath } from "./client-hud-v2-season-winner.js";
+import type { CrestCosmeticId } from "@border-empires/shared";
+import { emblemFaceHtml, emblemInitial } from "../client-house-crest/client-house-crest.js";
 
 export type RivalInput = {
   me: string;
@@ -15,10 +17,12 @@ export type RivalInput = {
   warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
   colorOf: (playerId: string) => string | undefined;
+  /** A House's crest (cosmetic); its initial shows when unset. */
+  crestOf?: (playerId: string) => CrestCosmeticId | undefined;
   nowMs: number;
 };
 
-export type RivalToken = { id: string; name: string; initial: string; color: string; stance: "war" | "truce" | "ally" | "met"; label: string };
+export type RivalToken = { id: string; name: string; initial: string; crest?: CrestCosmeticId | undefined; color: string; stance: "war" | "truce" | "ally" | "met"; label: string };
 
 export const RIVAL_STRIP_CAP = 5;
 
@@ -61,7 +65,7 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
 
 const token = (input: RivalInput, id: string, stance: RivalToken["stance"], label: string): RivalToken => {
   const name = input.nameOf(id) || "Empire";
-  return { id, name, initial: (name.trim()[0] ?? "?").toUpperCase(), color: input.colorOf(id) ?? "#5a4828", stance, label };
+  return { id, name, initial: emblemInitial(name), crest: input.crestOf?.(id), color: input.colorOf(id) ?? "#5a4828", stance, label };
 };
 
 /** "TRUCE 22h" → "Truce 22h" for the hover title; the stance line under the name already says it. */
@@ -78,7 +82,7 @@ const stanceLabelHtml = (label: string): string => {
 export const rivalsHtml = (input: RivalInput): string => {
   const { shown, hidden } = rivalTokens(input);
   const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-diplomacy="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}" title="${esc(t.name)} · ${esc(stanceTitle(t.label))}">
-      <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${esc(t.initial)}</span>
+      <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${emblemFaceHtml(t.initial, t.crest)}</span>
       <span class="hud-v2-rival-name">${esc(t.name)}</span><span class="hud-v2-rival-stance">${stanceLabelHtml(t.label)}</span>
     </button>`).join("");
   const more = hidden > 0 ? `<button type="button" class="hud-v2-rival-more" data-hud-v2-open="diplomacy" aria-label="All empires you've met">+${hidden}</button>` : "";

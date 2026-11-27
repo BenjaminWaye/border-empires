@@ -178,6 +178,20 @@ export const authDebugCopyPayload = (
   );
 };
 
+// The panel is on screen (and in screenshots and screen shares), so it shows
+// the email and Firebase UID masked; Copy Debug Info still sends them in full
+// for support (authDebugCopyPayload).
+export const maskDebugEmail = (email: string): string => {
+  if (email === "none") return email;
+  const at = email.indexOf("@");
+  return at > 0 ? `${email[0]}***@…` : "***";
+};
+
+export const maskDebugUid = (uid: string): string => (uid === "none" || uid.length <= 6 ? uid : `${uid.slice(0, 6)}…`);
+
+const escapeDebugText = (value: string): string =>
+  value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+
 export const authDebugHtml = (details: AuthDebugSnapshot): string => {
   return `
       <div class="bridge-debug-status" title="${details.wsLabel}">
@@ -194,10 +208,10 @@ export const authDebugHtml = (details: AuthDebugSnapshot): string => {
         <div><strong>Server build</strong> ${details.serverBuildLabel}${details.buildMismatchLabel}</div>
         <div class="bridge-debug-ws">${details.wsLabel}</div>
         <div><strong>Firebase</strong> ${details.firebaseProjectId}</div>
-        <div><strong>UID</strong> ${details.authUid}</div>
-        <div><strong>Email</strong> ${details.authEmail}</div>
+        <div><strong>UID</strong> ${maskDebugUid(details.authUid)}</div>
+        <div><strong>Email</strong> ${escapeDebugText(maskDebugEmail(details.authEmail))}</div>
         <div><strong>Providers</strong> ${details.providerLabel}</div>
-        <div><strong>Player</strong> ${details.playerId} · ${details.playerName}</div>
+        <div><strong>Player</strong> ${details.playerId} · ${escapeDebugText(details.playerName)}</div>
         <div><strong>Render FPS</strong> <span data-fps-readout>${details.fpsLabel}</span></div>
         <div><strong>Zoom</strong> <span data-zoom-readout>${details.zoomLabel}</span> <span class="bridge-debug-zoom-range">(range ${details.zoomRangeLabel})</span></div>
       </div>

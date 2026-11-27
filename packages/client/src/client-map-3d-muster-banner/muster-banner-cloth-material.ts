@@ -21,6 +21,10 @@
 // ADVANCE cues are the same for every design, and no design covers more of
 // the owner's colour than the standard one does. The High-noble standard's
 // gilded metalwork is separate geometry (muster-banner-regalia-geometry.ts).
+//
+// Per instance, `aBannerCrest` puts the owner's House crest (a free cosmetic)
+// in place of the device, the cog or the sun, stitched in the same thread
+// with the same dark outline (muster-banner-crest-atlas.ts). 0 keeps the device.
 import {
   Color,
   DoubleSide,
@@ -31,6 +35,7 @@ import {
 } from "three";
 import type { MusterFlagDesign } from "../client-cosmetics/client-cosmetics.js";
 import { BANNER_CLOTH } from "./muster-banner-geometry.js";
+import { CREST_ATLAS_COLUMNS, CREST_ATLAS_ROWS, sharedBannerCrestAtlas } from "./muster-banner-crest-atlas.js";
 
 /**
  * `aBannerDesign` value per muster flag design. 0 is the standard livery and
@@ -101,12 +106,16 @@ varying vec2 vBannerUv;
 varying float vBannerFold;
 attribute float aBannerDesign;
 varying float vBannerDesign;
+attribute float aBannerCrest;
+varying float vBannerCrest;
 `;
 
 const FRAGMENT_DECLARATIONS = /* glsl */ `
 varying vec2 vBannerUv;
 varying float vBannerFold;
 varying float vBannerDesign;
+varying float vBannerCrest;
+uniform sampler2D uBannerCrests;
 uniform float uBannerTime;
 uniform vec3 uBannerTrim;
 // How much of this fragment is the High-noble standard's gold thread: it shines as metal.
@@ -139,6 +148,17 @@ float bannerSun(vec2 p) {
   float disc = bannerFill(r - 0.13);
   return clamp(rays - gap + ring - hollow + disc, 0.0, 1.0);
 }
+// House crest from the atlas: x = the crest, y = the crest grown for its outline.
+// p is in half-widths, centred on the device; the crest fills a square 0.9 across.
+vec2 bannerCrest(vec2 p, float crest) {
+  vec2 local = p / 0.9 + 0.5;
+  float inside = step(0.0, local.x) * step(local.x, 1.0) * step(0.0, local.y) * step(local.y, 1.0);
+  float cell = max(crest - 1.0, 0.0);
+  float column = mod(cell, ${CREST_ATLAS_COLUMNS}.0);
+  float row = floor(cell / ${CREST_ATLAS_COLUMNS}.0);
+  vec2 uv = vec2((column + clamp(local.x, 0.0, 1.0)) / ${CREST_ATLAS_COLUMNS}.0, 1.0 - (row + 1.0 - clamp(local.y, 0.0, 1.0)) / ${CREST_ATLAS_ROWS}.0);
+  return texture2D(uBannerCrests, uv).rg * inside;
+}
 `;
 
 const COLOR_PATCH = /* glsl */ `
@@ -160,6 +180,7 @@ const COLOR_PATCH = /* glsl */ `
   // Running stitch where the side bands meet the panel.
   float seam = bannerFill(abs(side - BANNER_WIDTH * 0.15) - 0.0025) * step(0.45, fract(drop * column / 0.016));
   vec2 cogP = vec2((u - 0.5) * BANNER_WIDTH, (0.42 - drop) * column) / (BANNER_WIDTH * 0.5);
+  vec2 deviceP = cogP;
   float device = bannerCog(cogP / 0.8);
   float outline = clamp(bannerCog(cogP / 0.92) - device, 0.0, 1.0);
   float damask = 0.0;
@@ -183,9 +204,15 @@ const COLOR_PATCH = /* glsl */ `
     float scallop = 0.05 + 0.016 * abs(sin(across * 3.14159 / 0.05));
     trim = max(trim, bannerFill(abs(down - scallop) - 0.003));
     vec2 sunP = vec2(across, down - 0.27) / (BANNER_WIDTH * 0.5);
+    deviceP = vec2((u - 0.5) * BANNER_WIDTH, 0.27 - down) / (BANNER_WIDTH * 0.5);
     device = bannerSun(sunP / 0.78);
     outline = clamp(bannerSun(sunP / 0.86) - device, 0.0, 1.0);
   }
+  // Sampled outside any branch so the atlas's mipmaps see smooth derivatives.
+  vec2 crestTexel = bannerCrest(deviceP, vBannerCrest);
+  float hasCrest = step(0.5, vBannerCrest);
+  device = mix(device, crestTexel.x, hasCrest);
+  outline = mix(outline, clamp(crestTexel.y - crestTexel.x, 0.0, 1.0), hasCrest);
   // Folds turned away from the camera sit in their own shade.
   float shade = 0.84 + 0.16 * (vBannerFold * 0.5 + 0.5);
   // On light (yellow, gold) banners the brass thread would vanish: darken it to bronze.
@@ -223,6 +250,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
   const time = { value: 0 };
   const trim = { value: new Color("#d8b066") };
   const band = { value: new Color("#ece3cc") };
+  const crests = { value: sharedBannerCrestAtlas().texture };
 
   const cloth = new MeshPhysicalMaterial({
     color: "#ffffff",
@@ -237,6 +265,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
     shader.uniforms.uBannerTime = time;
     shader.uniforms.uBannerTrim = trim;
     shader.uniforms.uBannerBand = band;
+    shader.uniforms.uBannerCrests = crests;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>\n${POINT_DECLARATIONS}${NORMAL_DECLARATIONS}`)
       .replace(
@@ -245,7 +274,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
       )
       .replace(
         "#include <begin_vertex>",
-        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nvBannerDesign = aBannerDesign;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
+        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nvBannerDesign = aBannerDesign;\nvBannerCrest = aBannerCrest;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
       );
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_DECLARATIONS}`)

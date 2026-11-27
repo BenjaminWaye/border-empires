@@ -76,6 +76,7 @@ export * from "./razed-wreck/razed-wreck.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./fort-perimeter/fort-perimeter.js";
+export * from "./town-siege/town-siege.js";
 export * from "./reach/reach.js";
 export * from "./reach/reach-settle-exemption.js";
 export * from "./reach/reach-action-gate.js";

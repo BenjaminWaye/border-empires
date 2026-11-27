@@ -3,9 +3,10 @@
 Status: **stages 1, 2 and 4 implemented** (server rules, live-season
 conversion, docs and lore; see "Implementation status" below). **Stage 3
 (client) is only started**: soldiers now stand only on camp tiles in both
-renderers (`isPlanetaryDefenseCampTile`), but the client still offers Hunt
-Planetary Defense (now a plain Advance) and has no separate camp marker, tap
-highlight or camp alert.
+renderers (`isPlanetaryDefenseCampTile`) and the client no longer offers Hunt
+Planetary Defense (removed 2026-11-27 after a hunt, run as a plain Advance,
+attacked a human), but there is no separate camp marker, tap highlight or camp
+alert.
 Replaces the barbarian walk/multiply model described in
 [`game-mechanics.md`](game-mechanics.md) (the "Barbarians (rewrite model)"
 bullet) once built. Delete or fold into `game-mechanics.md` when shipped (see
@@ -267,7 +268,8 @@ producer tests in `ai/`):
 Not built:
 - Stage 3 (client): soldiers stand only on camps (not yet on a tracked camp's
   land or while a camp expands); no separate camp marker or tap highlight in
-  either renderer; Hunt is still offered (it is a plain Advance now).
+  either renderer. Hunt was removed from the client on 2026-11-27 (flag
+  action, the attack-to-hunt routing and the hunt labels).
 - The alert and login summary need server work too: an event when a camp
   becomes active in a player's vision, and a record of what a camp took from
   a House while it was offline. Neither exists yet.

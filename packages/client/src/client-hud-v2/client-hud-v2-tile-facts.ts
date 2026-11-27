@@ -5,8 +5,9 @@
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
+import { besiegedOddsSuffix } from "../client-town-siege/client-town-siege.js";
 import { structureModifiersFor } from "@border-empires/game-domain";
-import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
+import { combatSideIsBesieged, DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
@@ -183,7 +184,8 @@ const fightFacts = (view: Pick<TileMenuView, "combatBreakdown" | "overviewLines"
   const facts: TileFact[] = [];
   if (view.combatBreakdown) {
     const pct = Math.round(view.combatBreakdown.winChance * 100);
-    facts.push({ label: "Odds", value: `${pct}%`, ...(pct >= 50 ? { tone: "good" as const } : { tone: "warn" as const }) });
+    // A besieged town says so next to its odds (town-siege.ts), so the better odds explain themselves.
+    facts.push({ label: "Odds", value: `${pct}%${besiegedOddsSuffix(combatSideIsBesieged(view.combatBreakdown.defender))}`, ...(pct >= 50 ? { tone: "good" as const } : { tone: "warn" as const }) });
   }
   for (const line of view.overviewLines) {
     const hit = CAPTURE_LINE.exec(plainText(line.html));
