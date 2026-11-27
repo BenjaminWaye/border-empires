@@ -25,10 +25,9 @@ collects tax but does not file it: registration and filing stay with TIDN AB
 4. **Start with Swedish VAT only**, and add other registrations as the
    thresholds below are reached. Stripe Tax watches the thresholds and warns
    before one is crossed. Countries that need a registration from the first
-   sale (the United Kingdom, below) are either registered before launch or
-   refused at payment until they are. Stripe Checkout cannot limit the billing
-   country itself; the refusal is a Stripe Radar rule on the billing country
-   (see "Stripe settings").
+   sale (the United Kingdom, below) are sold to from launch; the owner
+   registers for UK VAT when the first UK consumer buys (owner decision,
+   2026-11-27). No country is refused at payment.
 
 ## What the rules are
 
@@ -111,7 +110,7 @@ mode first.
 | Default tax behaviour | Inclusive |
 | Product tax category | An electronically supplied service category; the accountant confirms which. Stripe's general one is "General - Electronically Supplied Services" |
 | Checkout | Automatic tax on; full billing address required (`billing_address_collection: required`), which Stripe Tax uses to find the buyer's country; no business tax-ID field |
-| Countries not sold to | Checkout has no setting that limits billing countries (its `allowed_countries` is for shipping addresses only). A Radar rule blocks a payment whose billing address country is in a list. **Owner decision, 2026-11-26: at launch the list is the United Kingdom only** (TIDN AB is not registered for UK VAT, and the UK has no threshold for a non-UK seller); the owner adds the rule in Stripe before sales open, in test mode first, for example `Block if :billing_address_country: = 'GB'`. The accountant can later say whether to register and lift it. The country is what the buyer types, not verified, so the accountant should also say whether this is enough |
+| Countries not sold to | None. **Owner decision, 2026-11-27** (replaces 2026-11-26): the United Kingdom is not blocked. UK VAT is owed from the first sale to a UK consumer, since the UK has no threshold for a non-UK seller; the owner handles the UK VAT registration and returns when the first UK consumer buys. The accountant should confirm how soon after that first sale TIDN AB must register and account for the VAT |
 | EU under the threshold | Stripe's EU documentation describes tracking total EU sales against the EUR 10,000 small-seller limit. Before the first live sale, confirm in test mode that a buyer in another EU country is charged Swedish VAT at 25 % with only the Swedish registration added: Stripe Tax calculates tax only where a registration is added |
 
 In the code (plan PR 5): the Checkout Session is created with automatic tax

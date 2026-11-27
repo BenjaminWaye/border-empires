@@ -477,12 +477,10 @@ recommendations in `legal-drafts/README.md`):
   discoverable through certificate transparency logs, and its standings are
   not secret from anyone who has the address. This is Q9 ("unlisted, not
   secret") said plainly.
-- **Countries not sold to** (item 13): at launch, block payments whose
-  billing country is the United Kingdom, because TIDN AB is not registered
-  for UK VAT and the UK has no threshold for a non-UK seller. It is a Radar
-  rule the owner applies in Stripe (`hosted-sectors-tax.md`, "Stripe
-  settings"); the accountant can later say whether to register and lift it.
-  No other country is blocked unless the tax note lists it.
+- **Countries not sold to** (item 13): none. Revised by the owner on
+  2026-11-27: the United Kingdom is not blocked; the owner handles UK VAT
+  registration when the first UK consumer buys (`hosted-sectors-tax.md`,
+  "Stripe settings"). No Radar country rule.
 - **Analytics consent** (item 11): built after 8d (§15).
 - **Cosmetics on sale with hosted sectors:** the product "Claim the title of
   Count", USD 4.99 (`packages/shared/src/cosmetics/cosmetics.ts`), goes
@@ -575,8 +573,8 @@ each with regression tests and sales off throughout:
 
 Item 12's EU-location check is a hosting-service setting guard; its
 certificate question and item 13 were decided by the owner on 2026-11-26
-(§13): the privacy wording changes, and the United Kingdom is blocked by a
-Radar rule the owner applies.
+(§13): the privacy wording changes; on 2026-11-27 the owner decided not to block
+the United Kingdom after all.
 
 ## 16. Risks and what is not known yet
 

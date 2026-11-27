@@ -1,6 +1,7 @@
 import { CREST_COSMETIC_IDS, type CrestCosmeticId } from "@border-empires/shared";
 
 import { crestSvg } from "./client-house-crest-art.js";
+import { esc } from "./client-crest-escape.js";
 import { crestLabel } from "./client-house-crest.js";
 import "./client-crest-picker.css";
 
@@ -18,9 +19,6 @@ export type CrestPickerInput = {
   disabled: boolean;
   attr: "data-profile-edit-crest";
 };
-
-const esc = (text: string): string =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export const crestPickerHtml = (input: CrestPickerInput): string => {
   const usable = new Set(input.available);
