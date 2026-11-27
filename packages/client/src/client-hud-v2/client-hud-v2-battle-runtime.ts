@@ -30,25 +30,44 @@ type Battle = {
   manpowerLoss?: number | undefined;
   /** Reopened mid-fight: strength and odds follow the capture's snapshot, which the server's locked result can replace. */
   fromSnapshot?: boolean;
-  /** The capture alert on screen when the fight went live; only a newer one is this fight's result. */
+  /** The capture alert (bad news) and the good-news record when the fight went live; only a newer one is this fight's result. */
   alertBefore?: ClientState["captureAlert"];
+  goodNewsBefore?: ClientState["goodNewsAlert"];
 };
 
-type CaptureAlert = NonNullable<ClientState["captureAlert"]>;
+/** A loss shows on the alert card (captureAlert); a win is recorded off-card in goodNewsAlert (showCaptureAlert). */
+type OutcomeAlert = { title: string; detail: string; until: number; tone: string; manpowerLoss?: number; fromFeed?: boolean; focusX?: number; focusY?: number } | undefined;
 
 /**
  * The fight's outcome, from the alert the game shows when a combat resolves -- never guessed from tile
  * ownership: a cancelled attack, a resync or a timeout also clear the capture, and ownership can land late.
  */
 export const battleOutcomeFromAlert = (
-  alert: ClientState["captureAlert"],
-  before: ClientState["captureAlert"],
+  alert: OutcomeAlert,
+  before: OutcomeAlert,
   nowMs: number
 ): { won: boolean; headline: string; detail: string; manpowerLoss: number | undefined } | undefined => {
   // A mirrored feed warning (client-feed-alert-surface.ts) is never a fight's outcome.
   if (!alert || alert === before || alert.until <= nowMs || alert.fromFeed) return undefined;
-  const a: CaptureAlert = alert;
-  return { won: a.tone === "success", headline: a.title, detail: a.detail, manpowerLoss: a.manpowerLoss };
+  return { won: alert.tone === "success", headline: alert.title, detail: alert.detail, manpowerLoss: alert.manpowerLoss };
+};
+
+/**
+ * This fight's outcome from either record. When both are new (a win is off-card, so a warning such as a hostile
+ * flag can land after it), the one about this fight's tile wins; failing that, the later one.
+ */
+export const battleOutcomeFromState = (
+  state: Pick<ClientState, "captureAlert" | "goodNewsAlert">,
+  before: { alert: ClientState["captureAlert"]; goodNews: ClientState["goodNewsAlert"] },
+  at: { x: number; y: number },
+  nowMs: number
+): ReturnType<typeof battleOutcomeFromAlert> => {
+  const loss = battleOutcomeFromAlert(state.captureAlert, before.alert, nowMs);
+  const win = battleOutcomeFromAlert(state.goodNewsAlert, before.goodNews, nowMs);
+  if (!loss || !win) return loss ?? win;
+  const onTile = (a: OutcomeAlert): boolean => a?.focusX === at.x && a?.focusY === at.y;
+  if (onTile(state.goodNewsAlert) !== onTile(state.captureAlert)) return onTile(state.goodNewsAlert) ? win : loss;
+  return (state.goodNewsAlert?.until ?? 0) >= (state.captureAlert?.until ?? 0) ? win : loss;
 };
 
 const flatSide = (effective: number): TileCombatBreakdown["attacker"] =>
@@ -185,7 +204,7 @@ const fightFor = (deps: HudV2Deps, b: Battle): NonNullable<ClientState["capture"
 const captureMatches = (deps: HudV2Deps, b: Battle): boolean => Boolean(fightFor(deps, b));
 
 const settle = (deps: HudV2Deps, b: Battle): void => {
-  const outcome = battleOutcomeFromAlert(deps.state.captureAlert, b.alertBefore, Date.now());
+  const outcome = battleOutcomeFromState(deps.state, { alert: b.alertBefore, goodNews: b.goodNewsBefore }, b.coords, Date.now());
   if (!outcome) return;
   Object.assign(b, outcome, { mode: "result" as const, since: Date.now() });
 };
@@ -198,6 +217,7 @@ export const renderBattle = (deps: HudV2Deps): void => {
     if (captureMatches(deps, b)) {
       b.mode = "live";
       b.alertBefore = deps.state.captureAlert;
+      b.goodNewsBefore = deps.state.goodNewsAlert;
       const fight = fightFor(deps, b);
       b.winPct = fight?.combatSnapshot ? Math.round(fight.combatSnapshot.winChance * 100) : b.winPct;
     } else if (now - b.since > PENDING_TIMEOUT_MS) {
@@ -274,6 +294,7 @@ export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
   battle = {
     mode: "live",
     alertBefore: deps.state.captureAlert,
+    goodNewsBefore: deps.state.goodNewsAlert,
     tileKey: `${x},${y}`,
     coords: { x, y },
     title: tile ? stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title) : "Battle",

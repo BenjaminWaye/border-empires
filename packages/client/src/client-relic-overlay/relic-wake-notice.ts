@@ -6,8 +6,9 @@ import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-
 // A rival's aether wake (docs/relics.md, "Aether wake") reaches every House
 // map-wide, through unexplored ground. The column and the violet minimap box
 // alone did not say what they were (player report 2026-11-23), so the first
-// time this client sees a given House operating a given relic it posts one
-// alert naming it, with Show to centre the map on the site.
+// time this client sees a given House operating a given relic it logs one
+// feed line naming it, with Show. It no longer pops the alert card (owner call
+// 2026-11-27): the site's named plate and edge tab say it on screen.
 
 export type RelicWakeNoticeState = {
   me: string;
@@ -59,7 +60,7 @@ export const relicWakeFeedEntry = (hint: Extract<RelicMapHint, { kind: "WAKE" }>
   actionLabel: "Show"
 });
 
-/** Posts one alert per unseen wake. Returns how many were posted. */
+/** Logs one feed line per unseen wake. Returns how many were posted. */
 export const announceNewRelicWakes = (
   state: RelicWakeNoticeState,
   push: (entry: FeedEntry) => void,

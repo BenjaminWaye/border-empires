@@ -1,6 +1,5 @@
 import { PHOTO_MODE_BODY_CLASS } from "../client-photo-mode/client-photo-mode.js";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
-import { captureAlertShowsCard } from "../client-alerts/client-feed-alert-surface.js";
 import { createHostileMusterAnnouncer, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 import { createPopupBlockedCheck } from "../client-map-unobstructed/client-popup-gate.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
@@ -50,7 +49,7 @@ export const createPersistentAlertsFrame = (
       const announcement = hostileMusterAnnouncer.announce(hostileMusters, nowMs, {
         // Never stomp a toast that is still showing (a combat result, say);
         // pending flags wait until the toast slot frees up.
-        canShow: !state.captureAlert || !captureAlertShowsCard(state.captureAlert, Date.now()),
+        canShow: !state.captureAlert || state.captureAlert.until <= Date.now(),
         silent: warmUpUntil === undefined || nowMs < warmUpUntil
       });
       if (announcement) showCaptureAlert(state, announcement.title, announcement.detail, announcement.tone, undefined, announcement.focus);

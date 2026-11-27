@@ -192,10 +192,9 @@ export const handleScoutDroneMessage = (
 ): boolean => {
   if (handleScoutFindsMessage(msg, state, nowMs)) return true;
   const nameOf = (playerId: string): string => state.playerNames.get(playerId) ?? "another empire";
-  // The Alerts feed is admin-only (client-feed-alert-surface.ts), so launch and report lines set
-  // `alert`: a player who pressed Explore otherwise saw no drone message at all (2026-11-14 playtest).
+  // The Alerts feed is admin-only; these lines are warnings, so they reach the alert card (client-feed-alert-surface.ts).
   const push = (title: string, text: string, severity: FeedEntry["severity"], at: { x: number; y: number }, type: FeedEntry["type"] = "info"): void =>
-    pushEntry({ title, text, type, severity, at: nowMs, alert: true, focusX: at.x, focusY: at.y, actionLabel: "Show" });
+    pushEntry({ title, text, type, severity, at: nowMs, focusX: at.x, focusY: at.y, actionLabel: "Show" });
   if (msg.type === SCOUT_DRONE_MESSAGE_TYPE) {
     const previous = state.scoutDroneFlight;
     const next = msg.flight === null || msg.flight === undefined ? undefined : parseScoutDroneFlight(msg.flight, toLocal);

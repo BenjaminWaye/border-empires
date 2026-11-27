@@ -64,7 +64,7 @@ describe("createPersistentAlertsFrame hostile muster toast", () => {
     const state = stateWithTiles([ownTile]);
     const frame = createPersistentAlertsFrame(state);
     runFrames(frame, 1, HOSTILE_MUSTER_ANNOUNCE_WARMUP_MS + 1_000);
-    const combatToast = { title: "Attack failed", detail: "", until: Date.now() + 60_000, tone: "warn" as const };
+    const combatToast = { title: "Attack won", detail: "", until: Date.now() + 60_000, tone: "success" as const };
     state.captureAlert = combatToast;
     state.tiles.set("12,10", enemyFlag);
     runFrames(frame, HOSTILE_MUSTER_ANNOUNCE_WARMUP_MS + 1_220, HOSTILE_MUSTER_ANNOUNCE_WARMUP_MS + 2_000);

@@ -5,7 +5,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 import { clearCaptureCardGhostTap, noteCaptureCardAutoHidden } from "./client-capture-ghost-tap.js";
-import { captureAlertShowsCard } from "../client-alerts/client-feed-alert-surface.js";
 
 export const renderCaptureProgress = (
   state: Pick<
@@ -40,8 +39,7 @@ export const renderCaptureProgress = (
     captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
-  const alertLive = Boolean(state.captureAlert && state.captureAlert.until > Date.now());
-  if (state.captureAlert && captureAlertShowsCard(state.captureAlert, Date.now())) {
+  if (state.captureAlert && state.captureAlert.until > Date.now()) {
     clearCaptureCardGhostTap();
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
@@ -79,8 +77,7 @@ export const renderCaptureProgress = (
   delete deps.captureCardEl.dataset.state;
   // Closed on its own (the ✕ clears captureAlert first): guard the spot it covered against a late tap.
   if (state.captureAlert && deps.captureCardEl.style.display !== "none") noteCaptureCardAutoHidden(deps.captureCardEl.getBoundingClientRect(), Date.now());
-  // A good-news alert never draws, but stays in state until it expires: the battle screen reads a fight's win from it.
-  if (!alertLive) state.captureAlert = undefined;
+  state.captureAlert = undefined;
 
   deps.captureGotoBtn.style.display = "none";
   delete deps.captureGotoBtn.dataset.feedFocusX;
@@ -90,7 +87,7 @@ export const renderCaptureProgress = (
   // banner with a countdown: several attacks can now resolve at once, and
   // each one already shows its own progress on the map (skirmish, claim
   // plate, marching company) and in its tile menu. The card only appears for
-  // results and errors (captureAlert above).
+  // failed results and errors (captureAlert above); good news never does (showCaptureAlert).
   hideCaptureCard(deps);
   if (state.capture && !state.capture.silent) revealLockedCombatResult(state, deps);
 };
