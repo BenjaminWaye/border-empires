@@ -2,6 +2,8 @@ import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js
 import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
+import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
 
@@ -28,10 +30,14 @@ const termsSuffix = (request: AllianceRequest | TruceRequest): string => {
 const allianceDetail = (request: AllianceRequest): string =>
   `${senderName(request)} sent an alliance request${termsSuffix(request)}.`;
 
-const truceDetail = (request: TruceRequest): string =>
-  request.extendsTruce
-    ? `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`
-    : `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}.`;
+// A new truce runs from the offer (offeredTruceEndsAt), so the line says what is left now: "a 12h
+// truce" read wrong when an unseen offer was replayed at login hours later (playtest run 5).
+const truceDetail = (request: TruceRequest, nowMs: number): string => {
+  if (request.extendsTruce) return `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`;
+  const endsAt = offeredTruceEndsAt(request);
+  const left = endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, nowMs)} left`;
+  return `${senderName(request)} offered a truce${left}${termsSuffix(request)}.`;
+};
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;
@@ -88,7 +94,7 @@ export const notifyIncomingTruceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
-  deps.pushFeed(truceDetail(request), "alliance", "info");
+  deps.pushFeed(truceDetail(request, Date.now()), "alliance", "info");
 };
 
 type TruceUpdateNotificationState = Pick<
@@ -201,7 +207,7 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
   for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "info");
-  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "info");
+  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request, Date.now()), "alliance", "info");
 };
 
 export const notifyActiveAllianceBreaksOnInit = (

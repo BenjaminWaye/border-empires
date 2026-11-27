@@ -25,6 +25,9 @@ export const rejectCounteredOffer = (deps: DiplomacyCounterOfferDeps, message: C
   if (!message.counters) return;
   const { kind, requestId } = message.counters;
   const reject = kind === "truce" ? deps.rejectTruce : deps.rejectAlliance;
-  const result = reject(playerId, requestId, { startCooldown: false, recordDecline: false });
+  // Playtest run 5: an AI refused the player's truce and countered; replying was blocked for 30m by the
+  // cooldown that refusal had started. Answering an offer you received is not spamming its sender.
+  const waiveOwnCooldown = message.type === "TRUCE_REQUEST" ? "truce" : "alliance";
+  const result = reject(playerId, requestId, { startCooldown: false, recordDecline: false, waiveOwnCooldown });
   if (result.ok) deps.fanoutPlayerPayloads(result.payloadsByPlayerId);
 };

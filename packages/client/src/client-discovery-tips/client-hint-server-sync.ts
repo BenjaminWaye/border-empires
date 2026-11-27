@@ -22,6 +22,8 @@ type HintStatePatch = {
   guideStatus?: "active" | "done" | "dismissed";
   guideSteps?: string[];
   guideSeasonId?: string;
+  metPlayerIds?: string[];
+  metPlayersSeasonId?: string;
 };
 
 let sendHintStateMessage: ((patch: HintStatePatch) => void) | undefined;
