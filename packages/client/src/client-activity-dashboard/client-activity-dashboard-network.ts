@@ -1,5 +1,6 @@
 import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
 import { isFirstTimeVisitor, shouldShowClientChangelog } from "../client-changelog/client-changelog.js";
+import { changelogAutoOpenPending, recordChangelogAutoOpened } from "../client-changelog/client-changelog-auto-open.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
 
@@ -124,16 +125,17 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
     !hasUnseenPersonalActivity &&
     !(state.activityDashboard.open && state.activityDashboard.activeView === "YOURS") &&
     !state.activityDashboard.updatesAutoOpenedThisSession &&
-    shouldShowClientChangelog(state)
+    shouldShowClientChangelog(state) &&
+    changelogAutoOpenPending()
   ) {
-    // Release notes are second to a genuine personal briefing. They share the
-    // dashboard, so no competing changelog modal can cover the timeline. A
-    // player coming back to unread events (raids, lost land) lands on Yours,
-    // never on patch notes: Updates waits while anything in the timeline is
-    // unread, and a later timeline response (every Chronicle open refetches)
-    // must not turn a Yours briefing that has not been shown yet into Updates.
+    // Unseen release notes open the Chronicle too, but only once nothing in the
+    // timeline is unread, and always on Yours: the Updates tab's badge points at
+    // the notes, so a login never lands on the patch-notes tab. Opening on Yours
+    // leaves the notes unseen, so a stored watermark stops the same notes from
+    // reopening the Chronicle on every page load.
     state.activityDashboard.updatesAutoOpenedThisSession = true;
-    state.activityDashboard.activeView = "UPDATES";
+    recordChangelogAutoOpened();
+    state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
   }
