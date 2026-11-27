@@ -5,8 +5,8 @@
 // where a leg is cut at the limit is a point on the edge. Both renderers draw these tiles as a dotted
 // ring (2D: client-map-render-2d-scout-range.ts; true 3D: client-map-3d-scout-drone-plan-overlay.ts).
 // The rule itself is unchanged (packages/shared/src/scout-drone/scout-drone-route.ts).
-import { SCOUT_DRONE_MAX_LEG_TILES, scoutDroneLeg, type ScoutDroneWorld } from "@border-empires/shared";
-import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanBlocked, scoutPlanCapacity, scoutPlanLaunch, scoutPlanPreview, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { SCOUT_DRONE_MAX_LEG_TILES, planScoutDroneRoute, scoutDroneLeg, type ScoutDroneWorld } from "@border-empires/shared";
+import { clientScoutWorld, flyingScoutDrone, ownActiveAfcs, scoutPlanCapacity, scoutPlanLaunch, type ScoutPlanState } from "./client-scout-drone-plan.js";
 
 type Point = { x: number; y: number };
 
@@ -38,15 +38,21 @@ export const scoutRangeEdge = (from: Point, world: ScoutDroneWorld, radius: numb
 export const scoutRangeOrigins = (state: ScoutPlanState, nowMs: number): Point[] => {
   const plan = state.scoutDronePicking;
   if (!plan.active || plan.stops.length >= scoutPlanCapacity(state, nowMs)) return [];
-  const preview = scoutPlanPreview(state, plan.stops, nowMs);
-  if (preview && (scoutPlanBlocked(preview) || preview.route.legs.at(-1)?.blocked)) return [];
-  const last = preview?.route.stops.at(-1);
-  if (last) return [last];
+  // The route only, never the whole flight home: this runs every frame while planning.
+  const first = plan.stops[0];
+  const launch = first ? scoutPlanLaunch(state, first, nowMs) : undefined;
+  if (first && launch) {
+    const route = planScoutDroneRoute(launch, plan.stops, clientScoutWorld(state));
+    // A rival border ends the route: no stop past it can be added, so there is no next leg.
+    if (route.legs.at(-1)?.blocked) return [];
+    const last = route.stops.at(-1);
+    if (last) return [last];
+  }
   const afcs = ownActiveAfcs(state);
-  const first = afcs[0];
-  if (!first) return [];
+  const nearest = afcs[0];
+  if (!nearest) return [];
   if (flyingScoutDrone(state, nowMs)) {
-    const anchor = scoutPlanLaunch(state, first, nowMs);
+    const anchor = scoutPlanLaunch(state, nearest, nowMs);
     return anchor ? [anchor] : [];
   }
   return afcs.slice(0, MAX_AFC_RINGS);
