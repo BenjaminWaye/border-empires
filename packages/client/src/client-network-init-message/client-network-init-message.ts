@@ -6,7 +6,7 @@ import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-ma
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
+import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js"; import { markAwaitingFreshPlayer } from "../client-player-freshness/client-player-freshness.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -214,7 +214,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
-  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE);
+  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE); markAwaitingFreshPlayer(state); // INIT has no integrityPct: hold food/Integrity chips until fresh
   state.defensibilityAnimDir = 0;
   state.defensibilityAnimUntil = 0;
   state.availableTechPicks = (player.availableTechPicks as number) ?? 0;

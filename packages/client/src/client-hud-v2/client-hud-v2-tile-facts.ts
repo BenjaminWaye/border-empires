@@ -17,6 +17,8 @@ import { refineryGivesFact, type RefineryStatusOf } from "./client-hud-v2-refine
 import type { DormancyField } from "../client-tile-menu-view/client-tile-menu-dormancy-line.js";
 import type { SlotResource } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
+import { TOWN_UNFED_FIX, townUnfedReason } from "../client-town-food-demand/client-town-unfed-reason.js";
+
 
 export type TileFact = { label: string; value: string; tone?: "good" | "warn" };
 
@@ -150,7 +152,12 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
     const coinWhy = why === "Unfed" ? "" : why ? ` · ${why}` : "";
     facts.push(why ? { label: "Coin", value: `${coinPerDay(goldPerMinute)}${coinWhy}`, tone: "warn" } : { label: "Coin", value: coinPerDay(goldPerMinute) });
   }
-  if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
+  // An unfed town of yours says how much food it needs and the fix (playtest 2026-11-27: no reason was shown).
+  if (typeof town.isFed === "boolean") {
+    if (town.isFed) facts.push({ label: "Food", value: "Fed", tone: "good" });
+    else if (mine) facts.push({ label: "Food", value: townUnfedReason(town), tone: "warn" }, { label: "Fix", value: TOWN_UNFED_FIX, tone: "warn" });
+    else facts.push({ label: "Food", value: "Unfed", tone: "warn" });
+  }
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
   if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
   return facts;

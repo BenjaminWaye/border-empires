@@ -339,7 +339,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   authFlow.bindAuthUi();
 
   bindClientUiControls({
-    state,
+    state, requestViewRefresh,
     techChooseBtn,
     techPickEl,
     captureCancelBtn,

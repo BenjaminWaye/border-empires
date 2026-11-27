@@ -6,6 +6,7 @@
 
 import type { Terrain } from "@border-empires/shared";
 import { exposedSidesForTile, isOwnedLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
+import { isIntegrityHoleAt } from "../client-integrity-drop/client-integrity-shape.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
@@ -60,6 +61,27 @@ const drawWeakDefensibility2D = (ctx: CanvasRenderingContext2D, t: Tile, px: num
   ctx.lineWidth = 1;
 };
 
+// A hole (land you don't own walled in by yours, client-integrity-shape.ts): dashed red outline and a cross, so it
+// reads apart from the weak tiles around it. 3D parity: client-map-3d-tile-intel.ts.
+const drawIntegrityHole2D = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number): void => {
+  ctx.fillStyle = "rgba(255, 84, 84, 0.14)";
+  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+  ctx.strokeStyle = "rgba(255, 84, 84, 0.95)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
+  ctx.setLineDash([]);
+  if (size >= 12) {
+    ctx.beginPath();
+    ctx.moveTo(px + size * 0.35, py + size * 0.35);
+    ctx.lineTo(px + size * 0.65, py + size * 0.65);
+    ctx.moveTo(px + size * 0.65, py + size * 0.35);
+    ctx.lineTo(px + size * 0.35, py + size * 0.65);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+};
+
 /** Both tile passes call this where the weak-defensibility block used to sit. */
 export const drawTileIntelOverlays2D = (
   ctx: CanvasRenderingContext2D,
@@ -70,5 +92,8 @@ export const drawTileIntelOverlays2D = (
   size: number,
   deps: TileIntelDeps2D
 ): void => {
-  if (deps.state.showWeakDefensibility && vis === "visible" && t && isOwnedLandTile(t, deps.state.me)) drawWeakDefensibility2D(ctx, t, px, py, size, deps);
+  if (!deps.state.showWeakDefensibility || vis !== "visible" || !t) return;
+  const ownedLand: boolean = isOwnedLandTile(t, deps.state.me); // a plain boolean: the type guard would narrow `t` to never below
+  if (ownedLand) drawWeakDefensibility2D(ctx, t, px, py, size, deps);
+  else if (t.terrain === "LAND" && isIntegrityHoleAt(t.x, t.y, { tiles: deps.state.tiles, me: deps.state.me, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt })) drawIntegrityHole2D(ctx, px, py, size);
 };

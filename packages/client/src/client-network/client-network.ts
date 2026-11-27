@@ -30,7 +30,7 @@ import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/clien
 import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, takeDetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
-import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
+import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js"; import { observeIntegrityDropFromUpdate } from "../client-integrity-drop/client-integrity-drop-notice.js"; import { notePlayerUpdateFreshness } from "../client-player-freshness/client-player-freshness.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
@@ -1056,7 +1056,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      applyPlayerUpdateIntegrity(state, msg, prevDefensibility); applyPlayerUpdateAchievementsAndCelebrate(state, msg);
+      applyPlayerUpdateIntegrity(state, msg, prevDefensibility); notePlayerUpdateFreshness(state, msg); observeIntegrityDropFromUpdate(state, msg, { keyFor, terrainAt, pushFeedEntry: appendFeedEntry, renderHud }); applyPlayerUpdateAchievementsAndCelebrate(state, msg);
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();

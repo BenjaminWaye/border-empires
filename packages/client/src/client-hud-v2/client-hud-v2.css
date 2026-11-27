@@ -67,9 +67,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-chip-summary { font-weight: 700; }
 .hud-v2-chip-available { color: var(--v2-green-hi); }
 .hud-v2-chip-zero { color: var(--v2-muted); }
-.hud-v2-chip-description {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-}
+.hud-v2-chip-unit { font-size: 10px; font-weight: 600; opacity: 0.8; white-space: nowrap; }
+.hud-v2-chip-pending { color: var(--v2-muted); }
 .hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
 .hud-v2-chip-rate-loss { color: var(--v2-red); }
 .hud-v2-over { font-weight: 700; color: var(--v2-amber); }
