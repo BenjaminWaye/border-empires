@@ -96,4 +96,43 @@ describe("chooseLegacySpawnPlacement and rival reach", () => {
       expect(Math.max(Math.abs(spawn!.x - rallyAnchor.x), Math.abs(spawn!.y - rallyAnchor.y))).toBeLessThanOrEqual(RALLY_SPAWN_RADIUS);
     }
   });
+
+  it("finds nothing when relaxation is off and no ground is clear of rival reach (no viable landing site)", () => {
+    const strict = (reach: (x: number) => string | undefined, rallyAnchor?: { x: number; y: number }) =>
+      chooseLegacySpawnPlacement({
+        playerId: "player-x",
+        tiles: buildWorld(),
+        hasNearbySettled: crowded,
+        reachOwnerAt: (x) => reach(x),
+        allowRivalReachRelaxation: false,
+        onRivalReachRelaxed: () => {
+          throw new Error("strict search must never relax rival reach");
+        },
+        ...(rallyAnchor ? { rallyAnchor } : {})
+      });
+    expect(strict(() => "rival")).toBeUndefined();
+    expect(strict(() => "rival", { x: 5, y: 5 })).toBeUndefined();
+    const viable = strict(rivalReach);
+    expect(viable).toBeDefined();
+    expect(clearOfRival(viable!)).toBe(true);
+  });
+
+  it("with relaxation off, finds a lone viable site that random sampling would miss (review regression)", () => {
+    // 300x300 open land; rival reach everywhere except a 9x9 square around (290, 290),
+    // which leaves exactly one tile whose clearance disk is free of rival reach.
+    const size = 300;
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    const clear = (x: number, y: number) => Math.abs(x - 290) <= SPAWN_RIVAL_REACH_CLEARANCE && Math.abs(y - 290) <= SPAWN_RIVAL_REACH_CLEARANCE;
+    for (const playerId of ["player-a", "player-b", "player-c"]) {
+      const spawn = chooseLegacySpawnPlacement({
+        playerId,
+        tiles,
+        hasNearbySettled: crowded,
+        reachOwnerAt: (x, y) => (clear(x, y) ? undefined : "rival"),
+        allowRivalReachRelaxation: false
+      });
+      expect(spawn).toEqual({ x: 290, y: 290 });
+    }
+  });
 });
