@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { renderManpowerPanelHtml } from "../client-side-panel-html/client-side-panel-html.js";
 import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { patchHtmlInPlace } from "../client-dom-patch/client-dom-patch.js";
 import { freshNextBatchAmount, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 
 export type HudManpowerPanelDeps = {
@@ -36,6 +37,7 @@ export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
       nextRefillAtMs: nextManpowerRefillForPlayer(state.me, nowMs)
     })
   );
-  dom.panelManpowerEl.innerHTML = html;
+  // Patched, not replaced: the panel redraws every second, and a fresh row under the finger swallowed the tap.
+  patchHtmlInPlace(dom.panelManpowerEl, html);
   wireManpowerPanel(dom.hud, state, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: deps.requestViewRefresh, rerender: deps.rerender });
 };

@@ -3,6 +3,7 @@
 // activity dashboard, which never opens while the new HUD is on.
 
 import { crestFor } from "../client-house-crest/client-house-crest.js";
+import { latestWelcomeBack } from "../client-welcome-back/client-welcome-back.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { activityDashboardUnreadCount } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { latestClientChangelogTimestamp, markClientChangelogSeen, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
@@ -75,6 +76,7 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       nowMs: Date.now(),
       awaySince: screen.chronicleAwaySince,
       respawn: state.respawnNotice,
+      welcomeBack: latestWelcomeBack(),
       progress: chronicleProgressForState(state),
       surveys: occupationSurveyController.currentReports(state.techIds ?? [])
     }, tabs));

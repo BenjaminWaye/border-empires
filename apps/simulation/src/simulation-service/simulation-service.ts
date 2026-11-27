@@ -1947,8 +1947,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   })
                 })
               : undefined;
-            // Emit a WELCOME_BACK message showing how much the player earned
-            // since their last active session (capped at 12h of accrual).
+            // Emit a WELCOME_BACK message: what the empire did since the player's
+            // last command or visit (coin stops after 24h away; welcome-back-ledger.ts).
             // Reuse incomePerMinute already computed for this subscribe's
             // snapshot instead of triggering a second, synchronous economy
             // rebuild on the live runtime (see welcomeBackSummary doc comment).
@@ -1963,7 +1963,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
                   playerId: call.request.player_id,
                   messageType: "WELCOME_BACK",
-                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", ...welcomeBack, at: Date.now() })
                 })
               : undefined;
             runtime.updatePlayerLastActive(call.request.player_id, Date.now());
