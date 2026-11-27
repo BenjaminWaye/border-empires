@@ -46,6 +46,8 @@ export type DiplomacyMemoryView = {
   aiAlreadyPaidThisWar: boolean;
   /** When the AI last paid this player for peace (ai-war-outlook.ts limits suing to once a day); absent from older fixtures. */
   aiPaidForPeaceAt?: number;
+  /** This pair has made a truce deal since the memory was kept (truceDeals fades; this doesn't). */
+  everMadeTruce?: boolean;
 };
 
 const decayed = (entry: Decaying, now: number, halfLifeMs: number): number =>
@@ -219,7 +221,8 @@ export const createAiDiplomacyMemory = (deps: {
           goodwillCoin: 0,
           lastPlayerAttackAt: undefined,
           lastCombatAt: undefined,
-          aiAlreadyPaidThisWar: false
+          aiAlreadyPaidThisWar: false,
+          everMadeTruce: false
         };
       }
       return {
@@ -233,6 +236,7 @@ export const createAiDiplomacyMemory = (deps: {
         lastPlayerAttackAt: entry.lastPlayerAttackAt,
         lastCombatAt: entry.lastCombatAt,
         aiAlreadyPaidThisWar: entry.aiPaidForPeaceAt !== undefined && (entry.lastCombatAt === undefined || entry.lastCombatAt <= entry.aiPaidForPeaceAt),
+        everMadeTruce: entry.truceDeals.value > 0,
         ...(entry.aiPaidForPeaceAt !== undefined ? { aiPaidForPeaceAt: entry.aiPaidForPeaceAt } : {})
       };
     },

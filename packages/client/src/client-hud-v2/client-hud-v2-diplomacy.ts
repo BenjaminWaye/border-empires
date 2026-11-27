@@ -58,7 +58,8 @@ const STANCE_ORDER: Record<EmpireStance["kind"], number> = { war: 0, truce: 1, a
 /** Every met empire, wars then truces then allies then the rest, each group by tiles. */
 export const diplomacyEmpires = (input: DiplomacyListInput): Array<{ id: string; name: string; stance: EmpireStance; tiles: number | undefined }> => {
   const tilesOf = new Map(input.leaderboard.map((e) => [e.id, e.tiles]));
-  const ids = new Set([...input.metPlayerIds, ...input.allies, ...input.activeTruces.map((t) => t.otherPlayerId)]);
+  // A rival you are fighting is met even before its land was scanned (the Rivals strip already lists it as WAR).
+  const ids = new Set([...input.metPlayerIds, ...input.allies, ...input.activeTruces.map((t) => t.otherPlayerId), ...[...(input.warPlayerIds ?? [])].filter((id) => !id.startsWith("barbarian"))]);
   for (const row of input.resourceOffers ?? []) { ids.add(row.fromPlayerId); ids.add(row.toPlayerId); }
   for (const row of input.resourceAgreements ?? []) { ids.add(row.proposerId); ids.add(row.targetId); }
   ids.delete(input.me);
@@ -75,6 +76,7 @@ const crest = (name: string, color: string | undefined, size = ""): string =>
 const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest): string =>
   kind === "alliance" ? "Alliance" : (r as TruceRequest).extendsTruce ? `Extend truce ${(r as TruceRequest).durationHours}h` : "Truce";
 
+// Decline is spelt out: an ✕ here read as "close" and declined the offer, which the Chronicle logs with no undo (playtest run 5).
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
   const endsAt = kind === "truce" ? offeredTruceEndsAt(r as TruceRequest) : undefined;
@@ -84,7 +86,7 @@ const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceReques
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
     <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">Accept</button>
     <button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-counter="${kind}" data-request-id="${esc(r.id)}">Counter</button>
-    <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-reject="${kind}" data-request-id="${esc(r.id)}" aria-label="Decline">✕</button>
+    <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-reject="${kind}" data-request-id="${esc(r.id)}">Decline</button>
   </div>`;
 };
 
