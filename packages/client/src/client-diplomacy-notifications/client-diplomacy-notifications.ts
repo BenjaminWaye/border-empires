@@ -137,7 +137,9 @@ export const applyTruceUpdateMessage = (
   const normalizedAnnouncement = announcement.toLocaleLowerCase();
   const declined = normalizedAnnouncement.includes("declined");
   const broken = normalizedAnnouncement.includes("broke the truce");
-  const tone = declined || broken ? "warn" : "success";
+  // "Maren withdrew the truce offer." (the server took it back) is bad news, not a success.
+  const withdrawn = normalizedAnnouncement.includes("withdr");
+  const tone = declined || broken || withdrawn ? "warn" : "success";
   deps.pushFeed(announcement, "alliance", tone);
   // Only the victim's copy interrupts. The breaker's own update adds to their
   // truceBreaksThisSeason; the text alone can't tell them apart, since it
@@ -182,6 +184,7 @@ type AllianceUpdateNotificationState = Pick<
 export const allianceAnnouncementTitle = (announcement: string): { title: string; tone: "info" | "success" | "warn" } => {
   const normalized = announcement.toLocaleLowerCase();
   if (normalized.includes("now broken")) return { title: "Alliance broken", tone: "warn" };
+  if (normalized.includes("withdrew the alliance offer")) return { title: "Offer withdrawn", tone: "warn" };
   if (normalized.includes("declined")) return { title: "Alliance declined", tone: "warn" };
   if (normalized.includes("accepted")) return { title: "Alliance formed", tone: "success" };
   return { title: "Alliance break notice", tone: "info" };

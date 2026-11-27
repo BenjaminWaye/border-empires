@@ -292,7 +292,7 @@ export const createSocialState = (options: {
       const notifyPlayerIds = [playerId, request.fromPlayerId];
       return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId)) };
     },
-    cancelAlliance(playerId, requestId) {
+    cancelAlliance(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.fromPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
@@ -300,7 +300,8 @@ export const createSocialState = (options: {
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
       startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
-      return ok([playerId, request.toPlayerId]);
+      const notifyPlayerIds = [playerId, request.toPlayerId];
+      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, announcementByPlayerId) };
     },
     ...allianceBreaks,
     resetAfcCampaign: () => { resourceTradeOffers.clear(); diplomacyHistory.reset(); return forcedTruces.reset(); },
@@ -421,7 +422,7 @@ export const createSocialState = (options: {
       if (options?.waiveOwnCooldown) startOfferCooldown(options.waiveOwnCooldown, playerId, request.fromPlayerId, 0);
       return ok([playerId, request.fromPlayerId], declinedOfferAnnouncements(request, playersById.get(playerId)?.name ?? playerId, options?.announcementByPlayerId));
     },
-    cancelTruce(playerId, requestId) {
+    cancelTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
       if (!request || request.fromPlayerId !== playerId || request.expiresAt < now()) {
@@ -431,7 +432,7 @@ export const createSocialState = (options: {
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
-      return ok([playerId, request.toPlayerId]);
+      return ok([playerId, request.toPlayerId], announcementByPlayerId);
     },
     breakTruce(playerId, targetPlayerId) {
       sweepExpired();

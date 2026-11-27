@@ -242,7 +242,8 @@ describe("createDiplomacyOfferAcceptance", () => {
       withdrawOffer
     });
 
-    expect(await acceptance.acceptTruce("p2", requestId)).toEqual({ ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: "Beejac withdrew its offer." });
+    // requestId lets the client drop the offer from its bar at once.
+    expect(await acceptance.acceptTruce("p2", requestId)).toEqual({ ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: "Beejac withdrew its offer.", requestId });
     expect(settle).not.toHaveBeenCalled();
     expect(withdrawOffer).toHaveBeenCalledWith("truce", expect.objectContaining({ id: requestId }));
     expect(social.snapshotForPlayer("p1").activeTruces).toEqual([]);

@@ -120,7 +120,8 @@ export type SocialPlayerRecord = {
 
 export type SocialActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
-  | { ok: false; code: string; message: string };
+  /** requestId: the offer a DIPLOMACY_OFFER_WITHDRAWN refers to, so the client drops it at once. */
+  | { ok: false; code: string; message: string; requestId?: string };
 export type SocialSyncResult = Extract<SocialActionResult, { ok: true }>;
 export type SocialExpiredAllianceBreak = SocialAllianceBreak & { playerIds: [string, string] };
 
@@ -214,7 +215,8 @@ export type SocialState = {
   /** announcementByPlayerId replaces the default (none) for an accept. */
   acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectAlliance: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
-  cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
+  /** announcementByPlayerId: a line for the server withdrawing the offer (withdrawnOfferAnnouncements); none for the sender's own withdraw. */
+  cancelAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   /** announcementByPlayerId replaces the default break-notice wording (e.g. an AI explaining why it leaves). */
   breakAlliance: (playerId: string, targetPlayerId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
@@ -240,7 +242,7 @@ export type SocialState = {
   /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
-  cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
+  cancelTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   /** Recent truce/alliance changes for the Chronicle timeline (social-diplomacy-history.ts). */
   diplomacyActivityCards: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
@@ -319,6 +321,18 @@ export const declinedOfferAnnouncements = (
   given: Partial<Record<string, string>> | undefined
 ): Partial<Record<string, string>> =>
   given ?? { [request.fromPlayerId]: `${declinerName} declined your ${request.durationHours ? `${request.durationHours}h truce` : "alliance"} offer.` };
+
+/**
+ * The line the recipient gets when the server takes an offer back on the
+ * sender's behalf (an AI's offer that no longer suits it): "Maren withdrew
+ * the truce offer." Playtest run 5 (pt-predator): the Accept tap only said
+ * "Action failed"; the offer now leaves the bar with this line in the feed.
+ */
+export const withdrawnOfferAnnouncements = (
+  kind: "truce" | "alliance",
+  request: { toPlayerId: string },
+  senderName: string
+): Partial<Record<string, string>> => ({ [request.toPlayerId]: `${senderName} withdrew the ${kind} offer.` });
 
 /** Both Houses hear about a new alliance; before, a human's accept told the proposer nothing (playtest 2026-11-16). */
 export const acceptedAllianceAnnouncements = (

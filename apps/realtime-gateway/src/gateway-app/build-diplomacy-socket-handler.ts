@@ -37,6 +37,7 @@ import { createReturnableTownsRead } from "../ai-diplomacy-stance/returnable-tow
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
+import { withdrawnOfferAnnouncements } from "../social-state/social-state-types.js";
 import { handleTruceSocketMessage, type TruceSocketMessageDeps } from "../truce-socket-messages/truce-socket-messages.js";
 import { createTruceEndingEmailNotifier, type TruceEndingEmailNotifierDeps } from "../truce-ending-email/truce-ending-email.js";
 import { everTrucedAnAi, onGuideTruceStep, type GuideProgressView } from "../ai-diplomacy-stance/ai-guide-truce-welcome.js";
@@ -169,7 +170,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       );
     },
     withdrawOffer: (kind, request) => {
-      const withdrawn = kind === "truce" ? socialState.cancelTruce(request.fromPlayerId, request.id) : socialState.cancelAlliance(request.fromPlayerId, request.id);
+      const line = withdrawnOfferAnnouncements(kind, request, request.fromName ?? socialState.playerNameOf(request.fromPlayerId));
+      const withdrawn = kind === "truce" ? socialState.cancelTruce(request.fromPlayerId, request.id, line) : socialState.cancelAlliance(request.fromPlayerId, request.id, line);
       if (withdrawn.ok) deps.fanoutPlayerPayloads(withdrawn.payloadsByPlayerId);
     }
   });
