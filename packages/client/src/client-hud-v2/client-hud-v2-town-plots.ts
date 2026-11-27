@@ -60,6 +60,10 @@ const PLOT_TITLES: Record<TownPlotState, string> = {
   locked: "Claim and garrison this tile to open it"
 };
 
+const PLOT_ORDER: readonly TownPlotState[] = ["built", "building", "open", "locked"];
+
+const PLOT_LEGEND: Record<TownPlotState, string> = { built: "built", building: "in progress", open: "open", locked: "to garrison" };
+
 const count = (plots: readonly TownPlot[], state: TownPlotState): number => plots.filter((p) => p.state === state).length;
 
 const FRESH_MS = 3_000;
@@ -90,12 +94,13 @@ export const townPlotsStatHtml = (plots: readonly TownPlot[] | undefined, fresh:
     return `<div class="v2t-stat v2t-plots"><span class="v2t-stat-k">BUILD PLOTS</span><span class="v2t-stat-v">—</span><span class="v2t-stat-n">Grow to a Town for a support ring</span></div>`;
   }
   const open = count(plots, "open");
-  const building = count(plots, "building");
-  const built = count(plots, "built");
   const locked = count(plots, "locked");
-  const pips = plots.map((p) => `<span class="v2t-plot v2t-plot-${p.state}${fresh.has(p.key) ? " v2t-plot-new" : ""}" title="${PLOT_TITLES[p.state]}"></span>`).join("");
-  const note = [`${built} built`, building > 0 ? `${building} in progress` : "", locked > 0 ? `${locked} to garrison` : ""].filter(Boolean).join(" · ");
+  // Pips grouped by state (built, in progress, open, to garrison), each group with its count beside the same
+  // swatch, so the row reads as a tally. Ring order meant nothing on screen and the states were hard to tell apart.
+  const groups = PLOT_ORDER.map((state) => ({ state, plots: plots.filter((p) => p.state === state) })).filter((g) => g.plots.length > 0);
+  const pips = groups.map((g) => `<span class="v2t-plot-group" title="${g.plots.length} ${PLOT_LEGEND[g.state]}">${g.plots.map((p) => `<span class="v2t-plot v2t-plot-${p.state}${fresh.has(p.key) ? " v2t-plot-new" : ""}" title="${PLOT_TITLES[p.state]}"></span>`).join("")}</span>`).join("");
+  const legend = groups.map((g) => `<span class="v2t-plot-key"><span class="v2t-plot v2t-plot-${g.state}" aria-hidden="true"></span>${g.plots.length} ${PLOT_LEGEND[g.state]}</span>`).join("");
   // "Full" only once nothing is left to garrison: with plots still to garrison it read as "can never build here".
   const value = open > 0 ? `${open} open` : locked > 0 ? "0 open" : plots.length > 0 ? "Full" : "None";
-  return `<div class="v2t-stat v2t-plots${fresh.size > 0 ? " v2t-plots-changed" : ""}"><span class="v2t-stat-k">BUILD PLOTS</span><span class="v2t-stat-v${open > 0 ? " v2t-gold" : ""}">${value}</span><span class="v2t-plot-row" aria-label="${open} of ${plots.length} plots open">${pips}</span><span class="v2t-stat-n">${note}</span></div>`;
+  return `<div class="v2t-stat v2t-plots${fresh.size > 0 ? " v2t-plots-changed" : ""}"><span class="v2t-stat-k">BUILD PLOTS</span><span class="v2t-stat-v${open > 0 ? " v2t-gold" : ""}">${value}</span><span class="v2t-plot-row" aria-label="${open} of ${plots.length} plots open">${pips}</span><span class="v2t-stat-n v2t-plot-legend">${legend}</span></div>`;
 };

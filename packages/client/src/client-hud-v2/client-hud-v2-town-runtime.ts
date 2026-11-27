@@ -22,7 +22,7 @@ import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-g
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
-import { confirmTownFocusForAll, pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { pickTownFocus, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
 import { townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
 import type { TownFocus } from "@border-empires/shared";
 
@@ -137,22 +137,11 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   watchTownBarHeight(document.getElementById("v2t-bar"));
 };
 
-/** A Town focus press: previews `focus` on the open town (Confirm switches), or with `allTowns` sets every town. */
-export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus, allTowns = false): void => {
+/** A Town focus press: previews `focus` on the open town (Confirm switches). */
+export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus): void => {
   if (!current) return;
-  // "All towns" asks for a second press before it changes every town; the first press only redraws the button.
-  if (allTowns && !confirmTownFocusForAll(current.townKey, focus)) {
-    renderTownScreen(deps);
-    return;
-  }
-  // A confirmed "All towns" always redraws, so its button leaves the "again to confirm" state even if nothing changed.
-  if (allTowns) {
-    pickTownFocusForAll(deps, myTowns(deps), focus);
-    renderTownScreen(deps);
-  } else {
-    selectTownFocus(deps, current.townKey, focus);
-    renderTownScreen(deps);
-  }
+  selectTownFocus(deps, current.townKey, focus);
+  renderTownScreen(deps);
 };
 
 /** Confirm on the open town: switches to the previewed focus, which then locks until the next refill. */

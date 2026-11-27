@@ -3,7 +3,7 @@
 // server's tile update replaces it moments later.
 import { MANPOWER_REFILL_WINDOW_MS, TOWN_FOCUS_MAX_TILES_PER_COMMAND, type TownFocus } from "@border-empires/shared";
 import { pushFeed } from "../client-alerts/client-alerts.js";
-import { optimisticTownFocus, shownTownFocus, townFocusCounts, townFocusEmpireCoinPerDay, townFocusName, townFocusTagline } from "../client-town-focus/client-town-focus.js";
+import { optimisticTownFocus, shownTownFocus, townFocusEmpireCoinPerDay, townFocusName, townFocusTagline } from "../client-town-focus/client-town-focus.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
@@ -32,31 +32,15 @@ export const selectTownFocus = (deps: Pick<HudV2Deps, "state">, townKey: string,
 /** The focus previewed on `townKey`, if any. */
 export const selectedTownFocus = (townKey: string): TownFocus | undefined => (selected?.townKey === townKey ? selected.focus : undefined);
 
-/** How long "All towns" waits for its confirming second press. */
-const CONFIRM_ALL_MS = 4_000;
-let confirmAll: { townKey: string; focus: TownFocus; at: number } | undefined;
-
-/**
- * First press of "All towns" arms it (the button asks to be pressed again); a second press within
- * CONFIRM_ALL_MS on the same town and focus confirms. Returns true when this press confirms.
- */
-export const confirmTownFocusForAll = (townKey: string, focus: TownFocus, nowMs = Date.now()): boolean => {
-  const armed = confirmAll !== undefined && confirmAll.townKey === townKey && confirmAll.focus === focus && nowMs - confirmAll.at < CONFIRM_ALL_MS;
-  confirmAll = armed ? undefined : { townKey, focus, at: nowMs };
-  return armed;
-};
-
 /** The card's empire line and pick flash for the open town. */
 export const townFocusExtras = (state: Pick<ClientState, "manpowerBreakdown">, towns: readonly Tile[], townKey: string, nowMs = Date.now()): TownFocusCardExtras => {
   const line = state.manpowerBreakdown.regen.find((entry) => entry.label === "Town focus");
   return {
-    counts: townFocusCounts(towns, nowMs),
     breakdown: townFocusBreakdown(towns),
     // Read each town at its shown focus: the server's Coin trails a confirmed pick by up to a minute.
     empireCoinPerDay: townFocusEmpireCoinPerDay(towns.map((tile) => townTileAtFocus(tile))),
     ...(line ? { empireManpowerPerRefill: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) } : {}),
     ...(lastPick && lastPick.townKey === townKey && nowMs - lastPick.at < FLASH_MS ? { flash: lastPick.focus } : {}),
-    ...(confirmAll && confirmAll.townKey === townKey && nowMs - confirmAll.at < CONFIRM_ALL_MS ? { confirmAll: true } : {}),
     ...(selectedTownFocus(townKey) ? { selected: selectedTownFocus(townKey)! } : {})
   };
 };

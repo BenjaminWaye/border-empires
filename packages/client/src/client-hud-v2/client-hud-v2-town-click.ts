@@ -49,10 +49,9 @@ export const townClick = (deps: HudV2Deps, target: Element, closeScreen: CloseSc
     runTownFocusConfirm(deps);
     return true;
   }
-  const focusEl = target.closest<HTMLElement>("[data-v2-town-focus]");
-  const focus = TownFocusSchema.safeParse(focusEl?.dataset.v2TownFocus);
+  const focus = TownFocusSchema.safeParse(target.closest<HTMLElement>("[data-v2-town-focus]")?.dataset.v2TownFocus);
   if (focus.success) {
-    runTownFocusPick(deps, focus.data, focusEl?.dataset.v2TownFocusAll === "1");
+    runTownFocusPick(deps, focus.data);
     return true;
   }
   const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");

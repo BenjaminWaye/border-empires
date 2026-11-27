@@ -1,7 +1,19 @@
-/* Town focus card on the town screen (client-hud-v2-town-focus.ts): four focus buttons and one detail strip,
-   sized to fit the town panel without scrolling. */
+/* Town focus card on the town screen (client-hud-v2-town-focus.ts): a one-line summary that opens to four
+   focus buttons and one detail strip. */
 .v2tf { margin: 8px 18px 2px; border: 1px solid var(--v2-line); background: var(--v2-well); }
-.v2tf-top { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px 6px; }
+.v2tf-top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 36px; padding: 7px 10px; cursor: pointer; list-style: none; }
+.v2tf-top::-webkit-details-marker { display: none; }
+.v2tf-top:hover { background: #1f1a12; }
+.v2tf-top:focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: -2px; }
+.v2tf-current { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.v2tf-current .v2tf-ico { width: 15px; height: 15px; }
+.v2tf-current-name { font-family: var(--v2-body); font-size: 13px; font-weight: 600; color: var(--v2-gold-hi); }
+.v2tf-current-lock { flex: none; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); white-space: nowrap; }
+.v2tf-current-rule { order: 4; flex: 1 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-soft); }
+.v2tf-chev { flex: none; width: 7px; height: 7px; margin: 0 2px 3px auto; border: solid var(--v2-gold); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform 120ms ease; }
+.v2tf[open] .v2tf-chev { margin-bottom: -3px; transform: rotate(-135deg); }
+.v2tf[open] .v2tf-top { border-bottom: 1px solid var(--v2-line); margin-bottom: 4px; }
+.v2tf-clock-row { display: flex; justify-content: flex-end; padding: 2px 10px 8px; }
 .v2tf-h { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); text-transform: uppercase; }
 .v2tf-empire { color: var(--v2-soft); }
 .v2tf-empire b { font-family: var(--v2-mono); font-size: 10.5px; font-weight: 700; }
@@ -15,7 +27,7 @@
 .v2tf-k-short { display: none; }
 .v2tf-vs { color: var(--v2-muted); }
 .v2tf-phone-hint, .v2tf-phone-only { display: none; }
-.v2tf-clock { margin-left: auto; font-family: var(--v2-mono); font-size: 10.5px; color: var(--v2-soft); white-space: nowrap; }
+.v2tf-clock { font-family: var(--v2-mono); font-size: 10.5px; color: var(--v2-soft); white-space: nowrap; }
 .v2tf-clock b, .v2tf-status b { color: var(--v2-gold-hi); font-weight: 700; }
 
 .v2tf-f-balanced { --v2tf-accent: #c9bb9c; }
@@ -88,16 +100,13 @@
 .v2tf .v2tf-confirm:focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
 .v2tf-lock { flex: none; color: var(--v2-muted); white-space: nowrap; }
 body.hud-v2-compact .v2tf-phone-hint .v2tf-confirm { width: 100%; min-height: var(--v2c-touch, 44px); }
-.v2tf .v2tf-all { flex: none; min-height: 28px; padding: 3px 8px; font: inherit; font-size: 11px; color: var(--v2-gold-hi); background: transparent; border: 1px solid var(--v2-edge); cursor: pointer; white-space: nowrap; }
-.v2tf .v2tf-all:hover { background: rgba(217, 178, 92, 0.1); border-color: var(--v2-edge-strong); }
-.v2tf .v2tf-all-confirm { background: rgba(217, 178, 92, 0.18); border-color: var(--v2-gold); }
 
 /* Phones: right under the growth bar so it is on screen without scrolling the town panel. */
 body.hud-v2-compact .v2t-name-row { order: -3; }
 body.hud-v2-compact .v2t-growth { order: -2; }
-/* The bottom margin keeps the stat cards below the town panel's visible area, so their edges never peek under the card. */
-body.hud-v2-compact .v2tf { order: -1; margin: 2px 12px 48px; }
-body.hud-v2-compact .v2tf-top { padding: 5px 8px 6px; }
+body.hud-v2-compact .v2tf { order: -1; margin: 2px 12px 6px; }
+body.hud-v2-compact .v2tf-top { min-height: var(--v2c-touch, 44px); padding: 4px 8px; }
+body.hud-v2-compact .v2tf-clock-row { padding: 0 8px 6px; }
 /* Phones: the header carries the countdown and any queued change; the buttons carry gain and cost, and the
    strip shrinks to one line (name, then each figure with its change) so the card clears the Build panel. */
 body.hud-v2-compact .v2tf-status, body.hud-v2-compact .v2tf-empire-row, body.hud-v2-compact .v2tf-rule, body.hud-v2-compact .v2tf-v small { display: none; }

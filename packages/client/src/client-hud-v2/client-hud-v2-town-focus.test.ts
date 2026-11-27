@@ -37,12 +37,27 @@ describe("Town focus card (town screen)", () => {
     expect(html).not.toContain("data-v2-town-focus-confirm");
   });
 
-  it("offers All towns only when some town would change, and asks again before applying", () => {
-    const counts = { BALANCED: 2, GROWTH: 0, LEVY: 1, COMMERCE: 0 };
-    expect(townFocusCardHtml(card(), { counts })).toContain("All towns → Balanced");
-    expect(townFocusCardHtml(card(), { counts, confirmAll: true })).toContain("Again to confirm: 1 town → Balanced");
-    expect(townFocusCardHtml(card(), { counts: { BALANCED: 3, GROWTH: 0, LEVY: 0, COMMERCE: 0 } })).not.toContain("data-v2-town-focus-all");
-    expect(townFocusCardHtml(card(), { empireManpowerPerRefill: 24 })).toContain("All towns vs Balanced <b class=\"v2tf-up\">+24</b> MP/refill");
+  it("has no All towns button: changing every town lives on the Towns list", () => {
+    const html = townFocusCardHtml(card(), { empireManpowerPerRefill: 24 });
+    expect(html).not.toContain("data-v2-town-focus-all");
+    expect(html).not.toContain("All towns →");
+    expect(html).toContain("All towns vs Balanced <b class=\"v2tf-up\">+24</b> MP/refill");
+  });
+
+  it("is a collapsed card whose one-line summary names the active focus and its rule", () => {
+    const c = card();
+    c.options[2] = { ...c.options[2]!, state: "active", rule: "MP +20% · Coin −10% · Growth −10%" };
+    c.options[0] = { ...c.options[0]!, state: "idle" };
+    const html = townFocusCardHtml({ ...c, active: "LEVY" });
+    expect(html).toMatch(/^<details class="v2tf" data-v2-open="town-focus" role="group"/);
+    const summary = html.slice(html.indexOf("<summary"), html.indexOf("</summary>"));
+    expect(summary).toContain('<span class="v2tf-current-name">Levy</span>');
+    expect(summary).toContain("MP +20% · Coin −10% · Growth −10%");
+    expect(summary).not.toContain("v2tf-opt");
+  });
+
+  it("opens itself while a picked focus waits on Confirm, so a key-press preview is never hidden", () => {
+    expect(townFocusCardHtml(card(), { selected: "LEVY" })).toMatch(/^<details class="v2tf" data-v2-open="town-focus" open/);
   });
 });
 
