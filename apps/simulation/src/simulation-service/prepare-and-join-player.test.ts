@@ -2,27 +2,35 @@ import { describe, expect, it, vi } from "vitest";
 import { joinSeasonHandler, preparePlayerHandler } from "./prepare-and-join-player.js";
 import { createInitialSeasonState } from "../season-lifecycle.js";
 
-const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => ({
-  runtime: {
-    ensurePlayerHasSpawnTerritory: vi.fn(() => true),
-    ensurePlayerHasAfc: vi.fn(() => false),
-    hasPlayer: vi.fn(() => false),
-    humanPlayerCount: vi.fn(() => 0)
-  } as unknown as Parameters<typeof joinSeasonHandler>[0]["runtime"],
-  log: { info: vi.fn(), error: vi.fn() },
-  simulationMetrics: {
-    observeSimPreparePlayerLatencyMs: vi.fn(),
-    incrementSimRallySpawn: vi.fn(),
-    incrementSimRallySpawnFallback: vi.fn(),
-    setSimSeasonGuestPlayers: vi.fn(),
-    incrementSimGuestUpgraded: vi.fn(),
-    incrementSimGuestJoinRejectedFull: vi.fn()
-  } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
-  deleteCachedSnapshot: vi.fn(),
-  getSeasonState: () => seasonState,
-  setSeasonState: vi.fn(),
-  maxSeasonPlayers: 120
-});
+const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => {
+  // A landing creates the runtime record, as the real runtime does.
+  const known = new Set<string>();
+  return {
+    runtime: {
+      // The landing-site probe (probeOnly) creates nothing, as in the real runtime.
+      ensurePlayerHasSpawnTerritory: vi.fn((playerId: string, _rally?: unknown, _onRally?: unknown, options?: { probeOnly?: boolean }) => {
+        if (!options?.probeOnly) known.add(playerId);
+        return true;
+      }),
+      ensurePlayerHasAfc: vi.fn(() => false),
+      hasPlayer: vi.fn((playerId: string) => known.has(playerId)),
+      humanPlayerCount: vi.fn(() => 0)
+    } as unknown as Parameters<typeof joinSeasonHandler>[0]["runtime"],
+    log: { info: vi.fn(), error: vi.fn() },
+    simulationMetrics: {
+      observeSimPreparePlayerLatencyMs: vi.fn(),
+      incrementSimRallySpawn: vi.fn(),
+      incrementSimRallySpawnFallback: vi.fn(),
+      setSimSeasonGuestPlayers: vi.fn(),
+      incrementSimGuestUpgraded: vi.fn(),
+      incrementSimGuestJoinRejectedFull: vi.fn()
+    } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
+    deleteCachedSnapshot: vi.fn(),
+    getSeasonState: () => seasonState,
+    setSeasonState: vi.fn(),
+    maxSeasonPlayers: 120
+  };
+};
 
 describe("joinSeasonHandler pending season", () => {
   it("rejects with pending:true and scheduledStartAt, without recording membership or spawning", () => {

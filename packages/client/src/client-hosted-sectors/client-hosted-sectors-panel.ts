@@ -19,6 +19,7 @@ import { fundingRowHtml, readChipInCents } from "./client-hosted-sector-funding.
 import { withdrawalConfirmHtml, withdrawalReceivedNotice, withdrawButtonHtml } from "./client-hosted-sector-withdrawal.js";
 import { CHECKOUT_CONSENT, hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
+import { registerHostedSectorListSource } from "../client-sector-list/client-sector-list-loader.js";
 
 export type HostedSectorsPanelDeps = {
   api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite" | "openFundingBar" | "contribute" | "quoteWithdrawal" | "withdraw">;
@@ -52,8 +53,11 @@ export const hostedSectorFitsThisBuild = (sector: Pick<HostedSectorSummary, "opt
   return size.worldWidth === WORLD_WIDTH && size.worldHeight === WORLD_HEIGHT;
 };
 
+export const hostedSectorTitle = (sector: Pick<HostedSectorSummary, "options">): string =>
+  `${sector.options.mapStyle === "islands" ? "Islands" : "Continents"}, ${sector.options.mapSize} map`;
+
 export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId: string | undefined): string => {
-  const title = `${sector.options.mapStyle === "islands" ? "Islands" : "Continents"}, ${sector.options.mapSize} map`;
+  const title = hostedSectorTitle(sector);
   const status = sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
   const enterable = sector.state === "open" || sector.state === "ended";
   const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open");
@@ -355,6 +359,20 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
       await showList(notice);
     },
 
+    /** "Fund a new sector" on the join card's sector list: straight to the hosting form. */
+    openHostForm(): void {
+      open();
+      stopRefresh();
+      listRequest += 1;
+      setBody(deps.isSignedIn() ? hostSectorFormHtml() : `<p>Sign in to fund a new Sector Contest.</p>`);
+    },
+
+    /** "Enter" on the join card's sector list (client-sector-list/). */
+    enter: (sectorId: string): Promise<void> => {
+      open();
+      return enter(sectorId);
+    },
+
     /** The page an invite link opens: join, then show the list with the new sector in it. */
     async openInvite(code: string): Promise<void> {
       open();
@@ -383,8 +401,25 @@ export const createHostedSectorsPanel = (deps: HostedSectorsPanelDeps) => {
  */
 export const mountHostedSectorsPanel = (deps: HostedSectorsPanelDeps & { whenAuthReady: () => Promise<void> }): void => {
   const panel = createHostedSectorsPanel(deps);
+  // The join card's sector list (client-sector-list/) lists these sectors and uses the buttons below.
+  registerHostedSectorListSource(async () => {
+    if (!deps.isSignedIn()) return [];
+    const listed = await deps.api.listSectors();
+    return listed.ok ? listed.sectors.filter(hostedSectorFitsThisBuild).map((sector) => ({ sectorId: sector.sectorId, state: sector.state, title: hostedSectorTitle(sector) })) : [];
+  });
   document.addEventListener("click", (event) => {
-    if (event.target instanceof Element && event.target.closest("[data-hosted-sectors-open]")) void panel.openList();
+    if (!(event.target instanceof Element)) return;
+    const opener = event.target.closest<HTMLElement>("[data-hosted-sectors-open]");
+    if (opener) {
+      if (opener.dataset.hostedSectorsOpen === "host") panel.openHostForm();
+      else void panel.openList();
+    }
+    const enterId = event.target.closest<HTMLElement>("[data-hosted-sectors-enter]")?.dataset.hostedSectorsEnter;
+    if (enterId) void panel.enter(enterId);
+    if (event.target.closest("[data-hosted-sectors-leave]")) {
+      clearHostedSectorSession(deps.storage);
+      deps.navigate("/");
+    }
   });
   const inviteCode = hostedInviteCodeFromPath(window.location.pathname);
   if (inviteCode) void deps.whenAuthReady().catch(() => undefined).then(() => panel.openInvite(inviteCode));

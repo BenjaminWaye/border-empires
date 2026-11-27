@@ -2077,7 +2077,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       callback(null, { ok: true });
     },
-    GetCurrentSeasonSummary(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void) { handleGetCurrentSeasonSummary(readCurrentSummary, call, callback); },
+    GetCurrentSeasonSummary(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void) { handleGetCurrentSeasonSummary(readCurrentSummary, call, callback, runtime); },
     ListSeasonArchives(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonArchivesResponse) => void) { handleListSeasonArchives(readSeasonArchives, call, callback); },
     GetSeasonParticipationForPlayer(call: { request: ProtoSeasonParticipationRequest }, callback: (error: Error | null, response: ProtoSeasonParticipationResponse) => void) { handleGetSeasonParticipationForPlayer(seasonSummaryStore, call, callback); },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },

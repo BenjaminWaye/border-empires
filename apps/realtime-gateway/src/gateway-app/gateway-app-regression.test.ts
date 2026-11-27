@@ -26,7 +26,7 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain("isAdmin: session.canForceSeasonStart === true, force: message.force === true,");
     // The next-contest wiring (where the start call now lives) moved to gateway-next-contest.ts.
     expect(sourceFor("../next-contest/gateway-next-contest.ts")).toContain("startNextSeason: () => simulationClient.startNextSeason(false),");
-    expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections()\n              );");
+    expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections(), { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }\n              );");
     expect(setProfileSource).toContain("canToggleFog");
     expect(setProfileSource).toContain('for (const targetSocket of socketsForPlayer(playerId))');
     expect(source).toContain('if (options?.includeFogUpdate === true) {');
