@@ -150,6 +150,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
         ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
         ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
+        ...(typeof player.lastActiveAt === "number" ? { lastActiveAt: player.lastActiveAt } : {}),
         autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
