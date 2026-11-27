@@ -13,7 +13,9 @@ export type HudV2ActionFlow = Pick<
   "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile" | "requestTileDetailIfNeeded"
 > &
   /** Shows the build placement bar after the HUD arms a placement (the tracker's Relay Beacon step). */
-  Partial<Pick<ReturnType<typeof createClientActionFlow>, "renderPlacementOverlay">>;
+  Partial<Pick<ReturnType<typeof createClientActionFlow>, "renderPlacementOverlay">> &
+  /** The town screen's Garrison plots queues a Garrison per plot through these. */
+  Partial<Pick<ReturnType<typeof createClientActionFlow>, "requestSettlement" | "processDevelopmentQueue">>;
 
 export type HudV2Deps = {
   state: ClientState;
