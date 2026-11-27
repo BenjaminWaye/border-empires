@@ -19,6 +19,7 @@ import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScre
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions, type TownGarrisonState } from "./client-hud-v2-town.js";
 import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-growth/client-town-growth.js";
+import { garrisonableTownPlotsFor, townPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
 import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
@@ -123,6 +124,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
     garrison: townGarrisonState(deps.state, town),
+    plotGarrison: townPlotGarrison(garrisonableTownPlotsFor(deps.state, town), deps.state),
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
