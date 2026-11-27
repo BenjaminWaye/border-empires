@@ -16,6 +16,7 @@ import {
   type SocialAllianceBreak,
   type SocialAllianceRequest,
   type SocialCompletedAllianceBreak,
+  type SocialFealtyLookup,
   type SocialPlayerRecord,
   type SocialSnapshot,
   type SocialState,
@@ -25,7 +26,8 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
-import { aiNameFromStored, diplomacyTermsAreEmpty, type DiplomacyTerms } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, type AllianceFealty, type DiplomacyTerms } from "@border-empires/shared";
+import { loadSocialStateInitial } from "./social-state-initial.js";
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { extendTruce, formatTruceTimeLeft, offeredTruceEndsAt, STALE_TRUCE_OFFER, truceExtensionRequestError, truceOfferExpiresAt, truceOfferIsStale } from "./social-truce-extension.js";
@@ -74,6 +76,9 @@ export const createSocialState = (options: {
   const sink = options.sink;
   const playersById = new Map<string, SocialPlayerRecord>();
   const allianceRequests = new Map<string, SocialAllianceRequest>();
+  // Each alliance's recorded fealty by pair (alliance-fealty.ts): bounded by the alliances, dropped when one ends.
+  const allianceFealtyByPair = new Map<string, AllianceFealty>();
+  let fealtyLookup: SocialFealtyLookup = () => ({ liegePlayerId: null });
   const allianceBreaksByPair = new Map<string, SocialAllianceBreak>();
   const completedAllianceBreaks = new Map<string, SocialCompletedAllianceBreak>();
   const truceRequests = new Map<string, SocialTruceRequest>();
@@ -88,6 +93,7 @@ export const createSocialState = (options: {
   // takeStaleOfferSync). Holds player ids only and is emptied on every flush.
   const staleOfferPlayerIds = new Set<string>();
   const settlingError: SocialActionResult = { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
+  const fealtyField = (fealty: AllianceFealty | undefined): { fealty?: AllianceFealty } => (fealty ? { fealty } : {});
   const termsField = (terms: DiplomacyTerms | undefined): { terms?: DiplomacyTerms } => (terms && !diplomacyTermsAreEmpty(terms) ? { terms } : {});
   const startOfferCooldown = (kind: SocialOfferKind, fromPlayerId: string, toPlayerId: string, durationMs: number): void => {
     const cooldown = offerCooldowns.start(kind, fromPlayerId, toPlayerId, durationMs);
@@ -155,7 +161,7 @@ export const createSocialState = (options: {
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
     sweepExpired();
     const snapshot = buildSocialSnapshot(
-      { forcedTruceCooldownUntil: forcedTruces.cooldownUntil(playerId), now, playersById, allianceRequests, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
+      { forcedTruceCooldownUntil: forcedTruces.cooldownUntil(playerId), now, playersById, allianceRequests, allianceFealtyByPair, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
       ensurePlayer(playerId)
     );
     const offers = resourceTradeOffers.rows(now()).filter(row => row.fromPlayerId === playerId || row.toPlayerId === playerId);
@@ -175,43 +181,16 @@ export const createSocialState = (options: {
   });
 
   const allianceBreaks = createSocialAllianceBreaks({
-    now, sink, playersById, ensurePlayer, allianceBreaksByPair, completedAllianceBreaks, sweepExpired, updatePayloadsFor
+    now, sink, playersById, ensurePlayer, allianceBreaksByPair, completedAllianceBreaks, allianceFealtyByPair, sweepExpired, updatePayloadsFor
   });
 
   for (const player of options.players ?? []) ensurePlayer(player.id, player.name);
 
   if (options.initial) {
-    for (const player of options.initial.players ?? []) {
-      // A saved "AI 13" predates AIs using their listed names: restore the real one.
-      const name = aiNameFromStored(player.id, player.name) ?? player.name;
-      const record = ensurePlayer(player.id, name);
-      record.name = name;
-      for (const allyId of player.allies ?? []) record.allies.add(allyId);
-    }
-    for (const request of options.initial.allianceRequests ?? []) {
-      allianceRequests.set(request.id, { ...request });
-    }
-    for (const notice of options.initial.activeAllianceBreaks ?? []) {
-      allianceBreaksByPair.set(pairKey(notice.playerAId, notice.playerBId), { ...notice });
-    }
-    for (const notice of options.initial.completedAllianceBreaks ?? []) {
-      completedAllianceBreaks.set(pairKey(notice.playerAId, notice.playerBId), { ...notice });
-    }
-    for (const request of options.initial.truceRequests ?? []) {
-      truceRequests.set(request.id, { ...request });
-    }
-    for (const truce of options.initial.activeTruces ?? []) {
-      trucesByPair.set(pairKey(truce.playerAId, truce.playerBId), { ...truce });
-    }
-    for (const lockout of options.initial.truceLockouts ?? []) {
-      truceLockoutUntilByPlayerId.set(lockout.playerId, lockout.lockoutUntil);
-    }
-    for (const { playerId, ...record } of options.initial.truceBreaks ?? []) {
-      const existing = truceBreaksByPlayerId.get(playerId) ?? [];
-      existing.push(record);
-      if (existing.length > MAX_TRUCE_BREAKS_PER_PLAYER) existing.splice(0, existing.length - MAX_TRUCE_BREAKS_PER_PLAYER);
-      truceBreaksByPlayerId.set(playerId, existing);
-    }
+    loadSocialStateInitial(options.initial, {
+      ensurePlayer, allianceRequests, allianceFealtyByPair, allianceBreaksByPair, completedAllianceBreaks, truceRequests,
+      trucesByPair, truceLockoutUntilByPlayerId, truceBreaksByPlayerId, maxTruceBreaksPerPlayer: MAX_TRUCE_BREAKS_PER_PLAYER
+    });
   }
 
   return {
@@ -264,11 +243,12 @@ export const createSocialState = (options: {
         fromName: actor.name,
         toName: target.name,
         ...termsField(offerOptions?.terms),
-        ...(offerOptions?.note ? { note: offerOptions.note } : {})
+        ...(offerOptions?.note ? { note: offerOptions.note } : {}),
+        fealty: fealtyLookup(actor.id, target.id)
       };
       allianceRequests.set(request.id, request);
       sink?.saveAllianceRequest(request);
-      diplomacyHistory.recordPair(actor.id, target.id, "ALLIANCE_OFFERED", request.createdAt, { byPlayerId: actor.id });
+      diplomacyHistory.recordPair(actor.id, target.id, "ALLIANCE_OFFERED", request.createdAt, { byPlayerId: actor.id, ...fealtyField(request.fealty) });
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "ALLIANCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name });
@@ -285,11 +265,14 @@ export const createSocialState = (options: {
         sink?.deleteAllianceRequest(requestId);
         return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request sender offline/unknown" };
       }
-      if (sink?.commitAcceptedAlliance) sink.commitAcceptedAlliance(requestId, actor.id, from.id, now());
-      else { sink?.addAlliance(actor.id, from.id, now()); sink?.deleteAllianceRequest(requestId); sink?.removeCompletedAllianceBreak(actor.id, from.id); }
+      // The alliance keeps the standing its offer was sent with; an offer from before that was recorded keeps none.
+      if (sink?.commitAcceptedAlliance) sink.commitAcceptedAlliance(requestId, actor.id, from.id, now(), request.fealty);
+      else { sink?.addAlliance(actor.id, from.id, now(), request.fealty); sink?.deleteAllianceRequest(requestId); sink?.removeCompletedAllianceBreak(actor.id, from.id); }
       actor.allies.add(from.id);
       from.allies.add(actor.id);
-      diplomacyHistory.recordPair(actor.id, from.id, "ALLIANCE_FORMED", now());
+      if (request.fealty) allianceFealtyByPair.set(pairKey(actor.id, from.id), { ...request.fealty });
+      else allianceFealtyByPair.delete(pairKey(actor.id, from.id));
+      diplomacyHistory.recordPair(actor.id, from.id, "ALLIANCE_FORMED", now(), fealtyField(request.fealty));
       allianceRequests.delete(requestId);
       completedAllianceBreaks.delete(pairKey(actor.id, from.id));
       settlingRequestIds.delete(requestId);
@@ -303,7 +286,7 @@ export const createSocialState = (options: {
       if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
-      if (options?.recordDecline !== false) diplomacyHistory.recordPair(playerId, request.fromPlayerId, "ALLIANCE_DECLINED", now(), { byPlayerId: playerId });
+      if (options?.recordDecline !== false) diplomacyHistory.recordPair(playerId, request.fromPlayerId, "ALLIANCE_DECLINED", now(), { byPlayerId: playerId, ...fealtyField(request.fealty) });
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       if (options?.waiveOwnCooldown) startOfferCooldown(options.waiveOwnCooldown, playerId, request.fromPlayerId, 0);
       const notifyPlayerIds = [playerId, request.fromPlayerId];
@@ -494,6 +477,7 @@ export const createSocialState = (options: {
     withdrawTruceOffersOnCombat: createCombatOfferWithdrawal({ truceRequests, settlingRequestIds, sink, playersById, ok }),
     activeTruceEndsAt: (playerAId, playerBId) => activeTruceBetween(playerAId, playerBId, trucesByPair, now())?.endsAt,
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId])),
-    activeTruces: () => (sweepExpired(), [...trucesByPair.values()].map((truce) => ({ ...truce })))
+    activeTruces: () => (sweepExpired(), [...trucesByPair.values()].map((truce) => ({ ...truce }))),
+    setFealtyLookup: (lookup) => { fealtyLookup = lookup; }
   };
 };

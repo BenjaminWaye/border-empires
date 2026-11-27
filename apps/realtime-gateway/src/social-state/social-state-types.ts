@@ -5,7 +5,7 @@ import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-s
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
 import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
-import type { DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
+import type { AllianceFealty, DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
 import type { DiplomacyHistoryEntry, StoredDiplomacyHistoryEntry } from "./social-diplomacy-history.js";
@@ -22,6 +22,8 @@ export type SocialAllianceRequest = {
   /** A preset line the proposer attached (diplomacy-offer-notes.ts); not persisted, so lost on a gateway restart. */
   note?: OfferNoteId;
   settlementPhase?: TreatySettlementPhase;
+  /** Who was liege when the offer was sent (alliance-fealty.ts in shared); absent on offers from before it was recorded. */
+  fealty?: AllianceFealty;
 };
 
 export type SocialTruceRequest = {
@@ -76,6 +78,8 @@ export type SocialSnapshot = {
   resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   forcedTruceCooldownUntil?: number;
   allies: string[];
+  /** Each ally's recorded fealty, keyed by ally id; an alliance from before it was recorded has no entry. */
+  allianceFealty: Record<string, AllianceFealty>;
   activeAllianceBreaks: Array<{
     otherPlayerId: string;
     otherPlayerName: string;
@@ -253,17 +257,24 @@ export type SocialState = {
    * forgets them. Undefined when nobody is waiting on one.
    */
   takeStaleOfferSync: () => SocialSyncResult | undefined;
+  /**
+   * How new alliance offers record fealty (sender, target): wired once the
+   * season leaderboard is available. Unset, offers record near-equals.
+   */
+  setFealtyLookup: (lookup: SocialFealtyLookup) => void;
 };
+
+export type SocialFealtyLookup = (fromPlayerId: string, toPlayerId: string) => AllianceFealty;
 
 export type SocialStateSink = {
   upsertPlayer: (playerId: string, name: string) => void;
-  commitAcceptedAlliance?: (requestId: string, playerAId: string, playerBId: string, createdAt: number) => void;
+  commitAcceptedAlliance?: (requestId: string, playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty) => void;
   commitAcceptedTruce?: (requestId: string, truce: SocialActiveTruce) => void;
   saveAllianceRequest: (request: SocialAllianceRequest) => void;
   deleteAllianceRequest: (requestId: string) => void;
   saveTruceRequest: (request: SocialTruceRequest) => void;
   deleteTruceRequest: (requestId: string) => void;
-  addAlliance: (playerAId: string, playerBId: string, createdAt: number) => void;
+  addAlliance: (playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty) => void;
   removeAlliance: (playerAId: string, playerBId: string) => void;
   saveAllianceBreak: (notice: SocialAllianceBreak) => void;
   removeAllianceBreak: (playerAId: string, playerBId: string) => void;
@@ -283,6 +294,8 @@ export type SocialStateSink = {
 export type SocialStateInitial = {
   forcedTruceCooldowns?: Array<{ playerId: string; cooldownUntil: number }>;
   players?: Array<{ id: string; name: string; allies?: string[] }>;
+  /** The alliances' recorded fealty (same pairs as players[].allies). */
+  allianceRecords?: Array<{ playerAId: string; playerBId: string; fealty?: AllianceFealty }>;
   allianceRequests?: SocialAllianceRequest[];
   activeAllianceBreaks?: SocialAllianceBreak[];
   completedAllianceBreaks?: SocialCompletedAllianceBreak[];

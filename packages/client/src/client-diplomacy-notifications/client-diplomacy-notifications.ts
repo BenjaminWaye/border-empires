@@ -6,15 +6,15 @@ import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requ
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
-import { fealtyLookupFor, incomingAllianceHeadline, type FealtyStanding, type FealtyState } from "../client-fealty/client-fealty.js";
+import { incomingAllianceHeadline, type FealtyStanding } from "../client-fealty/client-fealty.js";
 import { allianceAnswerCounterpart, fealtyAnnouncement, fealtyAnswerTitle } from "../client-fealty/client-fealty-announcement.js";
+import { allianceFealtyFromMessage, recordedFealtyLookupFor, recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
 
-// The leaderboard words unequal alliances as fealty (client-fealty.ts); without it they read "alliance".
-type FealtySizes = Partial<Pick<ClientState, "me">> & { leaderboard?: FealtyState["leaderboard"] };
-type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor"> & FealtySizes;
+type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
-const fealtyOf = (state: FealtySizes, otherPlayerId: string | undefined): FealtyStanding =>
-  fealtyLookupFor({ me: state.me ?? "", leaderboard: state.leaderboard })(otherPlayerId);
+// An offer reads as fealty only when the gateway recorded it so when it was sent (client-fealty-recorded.ts).
+const offerStanding = (state: Partial<Pick<ClientState, "me">>, request: AllianceRequest): FealtyStanding =>
+  recordedFealtyStanding(request.fealty, state.me ?? "", request.fromPlayerId);
 
 // Diplomacy no longer takes over the map with the capture popup: offers wait
 // in the offer dock (client-diplomacy-offer-dock) and everything that already
@@ -94,7 +94,7 @@ export const notifyIncomingAllianceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
-  deps.pushFeed(allianceDetail(request, fealtyOf(state, request.fromPlayerId)), "alliance", "info");
+  deps.pushFeed(allianceDetail(request, offerStanding(state, request)), "alliance", "info");
 };
 
 export const notifyIncomingTruceRequest = (
@@ -174,7 +174,7 @@ export const endedTruces = (before: readonly ActiveTruceView[], after: readonly 
 type AllianceUpdateNotificationState = Pick<
   ClientState,
   "allies" | "activeAllianceBreaks" | "recentAllianceBreaks" | "incomingAllianceRequests" | "outgoingAllianceRequests"
-> & FealtySizes;
+> & Partial<Pick<ClientState, "me" | "allianceFealty">>;
 
 // Popup title for an ALLIANCE_UPDATE announcement. Besides break notices,
 // announcements now also carry an (AI) answer to an alliance offer, e.g.
@@ -196,7 +196,10 @@ export const applyAllianceUpdateMessage = (
   deps: DiplomacyNotificationDeps
 ): void => {
   const counterpart = allianceAnswerCounterpart(state, msg);
+  // Read before the update lands: the answered offer is still listed, so its recorded fealty words the answer.
+  const standingBefore = recordedFealtyLookupFor({ ...state, me: state.me })(counterpart);
   state.allies = (msg.allies as string[]) ?? [];
+  state.allianceFealty = allianceFealtyFromMessage(msg.allianceFealty);
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
   state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
@@ -204,7 +207,8 @@ export const applyAllianceUpdateMessage = (
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
   const raw = msg.announcement as string | undefined;
   if (!raw) return;
-  const standing = fealtyOf(state, counterpart);
+  // A new ally whose offer this client never saw (another device) reads the alliance's own record.
+  const standing = standingBefore !== "ALLIANCE" ? standingBefore : recordedFealtyLookupFor({ ...state, me: state.me })(counterpart);
   const announcement = fealtyAnnouncement(raw, standing);
   const plain = allianceAnnouncementTitle(raw);
   const answered = plain.title === "Alliance formed" || plain.title === "Alliance declined";
@@ -222,7 +226,7 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
 ): void => {
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
-  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request, fealtyOf(state, request.fromPlayerId)), "alliance", "info");
+  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request, offerStanding(state, request)), "alliance", "info");
   for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request, Date.now()), "alliance", "info");
 };
 

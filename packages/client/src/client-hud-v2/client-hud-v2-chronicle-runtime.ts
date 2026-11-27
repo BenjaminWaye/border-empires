@@ -21,7 +21,6 @@ import { myTowns } from "./client-hud-v2-town-runtime.js";
 import { chronicleSurveyClick } from "./client-hud-v2-chronicle-surveys.js";
 import { chronicleScoutFindClick } from "./client-hud-v2-chronicle-scout-chips.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
-import { fealtyLookupFor } from "../client-fealty/client-fealty.js";
 
 // The newest release note the Chronicle has been opened past. Opening the Chronicle answers the button's badge:
 // it read 117 after the player had read Yours, because unseen release notes only cleared on the Updates tab
@@ -71,7 +70,6 @@ export const renderChronicle = (deps: HudV2Deps): void => {
       colorOf: (id) => deps.ownerColor(id),
       crestOf: (id) => crestFor(state, id),
       techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
-      fealtyWith: fealtyLookupFor(state),
       nowMs: Date.now(),
       awaySince: screen.chronicleAwaySince,
       respawn: state.respawnNotice,

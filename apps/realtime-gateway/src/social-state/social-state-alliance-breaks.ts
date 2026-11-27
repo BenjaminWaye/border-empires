@@ -22,6 +22,8 @@ export type SocialAllianceBreakDeps = {
   ensurePlayer: (playerId: string) => SocialPlayerRecord;
   allianceBreaksByPair: Map<string, SocialAllianceBreak>;
   completedAllianceBreaks: Map<string, SocialCompletedAllianceBreak>;
+  /** The alliances' recorded fealty (alliance-fealty.ts); an ended alliance's entry goes with it. */
+  allianceFealtyByPair: Map<string, unknown>;
   sweepExpired: () => void;
   updatePayloadsFor: (
     playerIds: string[],
@@ -87,6 +89,7 @@ export const createSocialAllianceBreaks = (
         playerA.allies.delete(playerB.id);
         playerB.allies.delete(playerA.id);
         allianceBreaksByPair.delete(pairKey(playerA.id, playerB.id));
+        deps.allianceFealtyByPair.delete(pairKey(playerA.id, playerB.id));
         sink?.removeAllianceBreak(playerA.id, playerB.id);
         sink?.removeAlliance(playerA.id, playerB.id);
         const completedNotice: SocialCompletedAllianceBreak = {

@@ -9,6 +9,7 @@ import {
   type SocialTruceRequest
 } from "../social-state/social-state.js";
 import type { SocialOfferCooldown } from "../social-state/social-offer-cooldowns.js";
+import type { AllianceFealty } from "@border-empires/shared";
 import {
   DIPLOMACY_HISTORY_PER_PLAYER_CAP,
   DIPLOMACY_HISTORY_TTL_MS,
@@ -25,7 +26,7 @@ import type { DiplomacyMemoryRemoval } from "../ai-diplomacy-memory/ai-diplomacy
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
   // Same pairs as players[].allies, with `createdAt` -- feeds GET /api/activity's `since` (social-activity-views.ts).
-  allianceRecords: Array<{ playerAId: string; playerBId: string; createdAt: number }>;
+  allianceRecords: Array<{ playerAId: string; playerBId: string; createdAt: number; fealty?: AllianceFealty }>;
   allianceRequests: SocialAllianceRequest[];
   activeAllianceBreaks: SocialAllianceBreak[];
   completedAllianceBreaks: SocialCompletedAllianceBreak[];
@@ -44,7 +45,7 @@ export type GatewaySocialStore = {
   resourceTrades?: ResourceTradeOfferStore;
   loadSnapshot(): SocialStoreSnapshot;
   upsertPlayer(playerId: string, name: string): void;
-  commitAcceptedAlliance?(requestId: string, playerAId: string, playerBId: string, createdAt: number): void;
+  commitAcceptedAlliance?(requestId: string, playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty): void;
   commitAcceptedTruce?(requestId: string, truce: SocialActiveTruce): void;
   saveAllianceRequest(request: SocialAllianceRequest): void;
   deleteAllianceRequest(requestId: string): void;
@@ -54,7 +55,7 @@ export type GatewaySocialStore = {
   removeCompletedAllianceBreak(playerAId: string, playerBId: string): void;
   saveTruceRequest(request: SocialTruceRequest): void;
   deleteTruceRequest(requestId: string): void;
-  addAlliance(playerAId: string, playerBId: string, createdAt: number): void;
+  addAlliance(playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty): void;
   removeAlliance(playerAId: string, playerBId: string): void;
   saveActiveTruce(truce: SocialActiveTruce): void;
   saveForcedTruce(truce: SocialActiveTruce, cooldownUntil: number): void;
@@ -79,7 +80,7 @@ export const pairKey = (a: string, b: string): string => {
 export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   readonly resourceTrades = new InMemoryResourceTradeOfferStore();
   private readonly players = new Map<string, { name: string; updatedAt: number }>();
-  private readonly alliances = new Map<string, { aId: string; bId: string; createdAt: number }>();
+  private readonly alliances = new Map<string, { aId: string; bId: string; createdAt: number; fealty?: AllianceFealty }>();
   private readonly allianceRequests = new Map<string, SocialAllianceRequest>();
   private readonly activeAllianceBreaks = new Map<string, SocialAllianceBreak>();
   private readonly completedAllianceBreaks = new Map<string, SocialCompletedAllianceBreak>();
@@ -110,7 +111,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
         name,
         allies: [...(alliesByPlayer.get(id) ?? [])]
       })),
-      allianceRecords: [...this.alliances.values()].map(({ aId, bId, createdAt }) => ({ playerAId: aId, playerBId: bId, createdAt })),
+      allianceRecords: [...this.alliances.values()].map(({ aId, bId, createdAt, fealty }) => ({ playerAId: aId, playerBId: bId, createdAt, ...(fealty ? { fealty: { ...fealty } } : {}) })),
       allianceRequests: [...this.allianceRequests.values()].map((r) => ({ ...r })),
       activeAllianceBreaks: [...this.activeAllianceBreaks.values()].map((notice) => ({ ...notice })),
       completedAllianceBreaks: [...this.completedAllianceBreaks.values()].map((notice) => ({ ...notice })),
@@ -161,9 +162,9 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.truceRequests.delete(requestId);
   }
 
-  addAlliance(playerAId: string, playerBId: string, createdAt: number): void {
+  addAlliance(playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty): void {
     const [aId, bId] = orderedPair(playerAId, playerBId);
-    this.alliances.set(pairKey(aId, bId), { aId, bId, createdAt });
+    this.alliances.set(pairKey(aId, bId), { aId, bId, createdAt, ...(fealty ? { fealty: { ...fealty } } : {}) });
   }
 
   removeAlliance(playerAId: string, playerBId: string): void {

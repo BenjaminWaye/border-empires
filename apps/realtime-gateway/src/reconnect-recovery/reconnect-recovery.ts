@@ -78,6 +78,7 @@ export const buildInitMessage = (
   domainCatalog: unknown[];
   resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   allianceRequests: unknown[];
+  allianceFealty: Record<string, unknown>;
   outgoingAllianceRequests: unknown[];
   activeAllianceBreaks: unknown[];
   recentAllianceBreaks: unknown[];
@@ -201,6 +202,7 @@ export const buildInitMessage = (
       domainCatalog: bootstrap.domainCatalog,
       ...(socialSnapshot?.resourceTradeOffers ? {resourceTradeOffers:socialSnapshot.resourceTradeOffers} : {}),
       allianceRequests: socialSnapshot?.incomingAllianceRequests ?? [],
+      allianceFealty: socialSnapshot?.allianceFealty ?? {},
       outgoingAllianceRequests: socialSnapshot?.outgoingAllianceRequests ?? [],
       activeAllianceBreaks: socialSnapshot?.activeAllianceBreaks ?? [],
       recentAllianceBreaks: socialSnapshot?.recentAllianceBreaks ?? [],

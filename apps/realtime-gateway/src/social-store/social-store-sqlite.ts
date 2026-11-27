@@ -4,6 +4,8 @@ import { applyDiplomacyHistorySchema, loadDiplomacyHistory, saveDiplomacyHistory
 import { applyAiDiplomacyMemorySchema, loadAiDiplomacyMemory, writeAiDiplomacyMemory } from "./social-store-ai-diplomacy-memory.js";
 import { clearSeasonSocialTables, pruneExpiredSocialRows } from "./social-store-sqlite-maintenance.js";
 import type { DiplomacyHistoryEntry } from "../social-state/social-diplomacy-history.js";
+import { addAllianceRow, applyAllianceFealtySchema, fealtyFromJson, saveAllianceRequestRow } from "./social-store-sqlite-alliances.js";
+import type { AllianceFealty } from "@border-empires/shared";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
 // AGENTS.md's file-and-type-discipline rule). This is a clean, self-contained
@@ -146,6 +148,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       const columns = this.db.prepare(`PRAGMA table_info(${table})`).all();
       if (!columns.some(column => column.name === "settlement_phase")) this.db.exec(`ALTER TABLE ${table} ADD COLUMN settlement_phase TEXT`);
     }
+    applyAllianceFealtySchema(this.db);
     applyForcedTruceSchema(this.db);
     applyDiplomacyHistorySchema(this.db);
     applyAiDiplomacyMemorySchema(this.db);
@@ -154,11 +157,11 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   loadSnapshot(): SocialStoreSnapshot {
     const playerRows = this.db.prepare(`SELECT player_id, name, updated_at FROM social_players`).all() as PlayerRow[];
     const allianceRows = this.db
-      .prepare(`SELECT player_a_id, player_b_id, created_at FROM social_alliances`)
+      .prepare(`SELECT player_a_id, player_b_id, created_at, fealty_json FROM social_alliances`)
       .all() as AllianceRow[];
     const allianceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json, settlement_phase FROM social_alliance_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json, settlement_phase, fealty_json FROM social_alliance_requests`
       )
       .all() as AllianceRequestRow[];
     const allianceBreakRows = this.db
@@ -208,7 +211,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         name: row.name,
         allies: [...(alliesByPlayer.get(row.player_id) ?? [])]
       })),
-      allianceRecords: allianceRows.map((row) => ({ playerAId: row.player_a_id, playerBId: row.player_b_id, createdAt: row.created_at })),
+      allianceRecords: allianceRows.map((row) => ({ playerAId: row.player_a_id, playerBId: row.player_b_id, createdAt: row.created_at, ...fealtyFromJson(row.fealty_json) })),
       allianceRequests: allianceRequestRows.flatMap(allianceRequestFromRow),
       activeAllianceBreaks: allianceBreakRows.map(allianceBreakFromRow),
       completedAllianceBreaks: completedAllianceBreakRows.map(completedAllianceBreakFromRow),
@@ -246,9 +249,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     catch (error) { this.db.exec("ROLLBACK"); throw error; }
   }
 
-  commitAcceptedAlliance(requestId: string, a: string, b: string, at: number): void {
+  commitAcceptedAlliance(requestId: string, a: string, b: string, at: number, fealty?: AllianceFealty): void {
     this.atomic(() => {
-      this.addAlliance(a, b, at);
+      this.addAlliance(a, b, at, fealty);
       this.removeCompletedAllianceBreak(a, b);
       this.deleteAllianceRequest(requestId);
     });
@@ -259,29 +262,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   saveAllianceRequest(request: SocialAllianceRequest): void {
-    this.db
-      .prepare(
-        `INSERT INTO social_alliance_requests (id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json, settlement_phase)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           from_player_id = excluded.from_player_id,
-           to_player_id = excluded.to_player_id,
-           created_at = excluded.created_at,
-           from_name = excluded.from_name,
-           to_name = excluded.to_name,
-           terms_json = excluded.terms_json,
-           settlement_phase = excluded.settlement_phase`
-      )
-      .run(
-        request.id,
-        request.fromPlayerId,
-        request.toPlayerId,
-        request.createdAt,
-        request.fromName ?? null,
-        request.toName ?? null,
-        request.terms ? JSON.stringify(request.terms) : null,
-        request.settlementPhase ?? null
-      );
+    saveAllianceRequestRow(this.db, request);
   }
 
   deleteAllianceRequest(requestId: string): void {
@@ -382,15 +363,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.prepare(`DELETE FROM social_truce_requests WHERE id = ?`).run(requestId);
   }
 
-  addAlliance(playerAId: string, playerBId: string, createdAt: number): void {
-    const [aId, bId] = orderedPair(playerAId, playerBId);
-    this.db
-      .prepare(
-        `INSERT INTO social_alliances (player_a_id, player_b_id, created_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(player_a_id, player_b_id) DO UPDATE SET created_at = excluded.created_at`
-      )
-      .run(aId, bId, createdAt);
+  addAlliance(playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty): void {
+    addAllianceRow(this.db, playerAId, playerBId, createdAt, fealty);
   }
 
   removeAlliance(playerAId: string, playerBId: string): void {

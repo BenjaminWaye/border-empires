@@ -1,4 +1,4 @@
-import type { DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
+import type { AllianceFealty, DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
 
 export type AllianceRequest = {
   id: string;
@@ -13,6 +13,8 @@ export type AllianceRequest = {
   /** A preset line the sender attached (diplomacy-offer-notes.ts in shared). */
   note?: OfferNoteId;
   settlementPhase?: "paying" | "refunding";
+  /** Who was liege when the offer was sent (client-fealty-recorded.ts); absent on older offers. */
+  fealty?: AllianceFealty;
 };
 
 export type TruceRequest = {
