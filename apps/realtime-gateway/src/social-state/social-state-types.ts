@@ -179,6 +179,11 @@ export type SocialRejectOptions = {
   startCooldown?: boolean;
   /** Defaults to true; false when it isn't a "no" (a counter-offer, a failed payment), so the Chronicle logs no decline. */
   recordDecline?: boolean;
+  /**
+   * A counter-offer: ends the rejecting player's own re-offer cooldown of this kind toward the
+   * offer's sender, so a cooldown from their earlier refused offer can't block answering this one.
+   */
+  waiveOwnCooldown?: SocialOfferKind;
 };
 
 export type SocialOfferOptions = {

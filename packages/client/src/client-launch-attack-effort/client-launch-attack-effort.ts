@@ -14,6 +14,7 @@ import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type Muster
 import { attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { besiegedOddsSuffix, targetShowsBesieged } from "../client-town-siege/client-town-siege.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
@@ -46,6 +47,12 @@ type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCom
 
 const percent = (chance: number | undefined): string | undefined => (chance == null ? undefined : `${Math.round(chance * 100)}%`);
 
+/** The sheet's only subtitle: "Starts war with House X" when the attack would start a war (client-attack-war-warning.ts). */
+const warSubtitle = (state: ClientState, ownerIds: ReadonlyArray<string | undefined>): { subtitle?: string } => {
+  const warning = attackWarWarning(state, ownerIds, Date.now());
+  return warning ? { subtitle: warning } : {};
+};
+
 /** Records the chosen commitment, or clears a stale one when the player stayed at the floor. */
 const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): void => {
   if (commitManpower > attackEffortFloorForTarget(tile, state)) setAttackCommit(state, tile.x, tile.y, commitManpower);
@@ -67,6 +74,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
+    ...warSubtitle(state, [tile.ownerId]),
     floor,
     cap: Math.max(floor, state.manpowerCap),
     // Presets only: Normal / Extra / Double read at a glance; the cost and
@@ -144,6 +152,7 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
+    ...warSubtitle(state, eligible.map((tile) => tile.ownerId)),
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
