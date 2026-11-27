@@ -9,10 +9,11 @@ import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-me
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type DominanceSizing, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { AT_WAR_WINDOW_MS, atWarFromMemory, computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
-import { aiDiplomacyPricing, goodwillIncomePerHour, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
+import { aiDiplomacyPricing, goodwillIncomePerHour, REPARATION_HOURS_PER_TILE, TRUCE_COOLDOWN_AFTER_ATTACK_MS } from "./ai-diplomacy-pricing.js";
 import { aiToRequesterStrength, computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
 import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 import { aiTemperamentForId, type AiTemperament } from "./ai-diplomacy-temperament.js";
+import { pricedReturnableTowns } from "./ai-town-return-value.js";
 import { aiRetaliationReadiness } from "./ai-retaliation-readiness.js";
 import { aiWarOutlook, type AiWarOutlook } from "./ai-war-outlook.js";
 import { guideTruceWelcomeApplies, welcomeGuideTruce } from "./ai-guide-truce-welcome.js";
@@ -48,6 +49,8 @@ export type AiDiplomacyContext = AiDiplomacyGrudges & {
   dominance?: DominanceSizing;
   /** Towns the requester could hand back (simulation GetPlayerTradeHoldings); the AI prices the ones it lost. */
   returnableTowns?: readonly ReturnableTown[];
+  /** Towns the AI could hand back (simulation GetPlayerTradeHoldings); the requester may ask for the ones taken from it. */
+  aiReturnableTowns?: readonly ReturnableTown[];
   /** Names of the requester's allies the AI is at war with (requesterAlliesAtWarWithAi): it refuses an alliance. */
   requesterAlliesAtWarWithAi: readonly string[];
   /** Whether the AI is at war with a player: counts its fronts before it turns on a weak neighbour (ai-war-fronts.ts). */
@@ -69,6 +72,13 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
 
 const requesterSpareField = (spare: number | undefined): { requesterSpareCoinPerHour?: number } =>
   spare === undefined ? {} : { requesterSpareCoinPerHour: spare };
+
+/** What the AI could give back beyond coin and supply: its own spare Coin per hour and the requester's towns it took. */
+const aiGivesField = (input: { aiSnapshot: AiDiplomacySnapshot | undefined; requesterId: string; aiReturnableTowns?: readonly ReturnableTown[] }, aiIncome: number, temperament: AiTemperament): Pick<AiDiplomacyPricing, "aiSpareCoinPerHour" | "aiTownValues"> => {
+  const spare = spareCoinPerHour(input.aiSnapshot);
+  const towns = pricedReturnableTowns(input.aiReturnableTowns, input.requesterId, aiIncome, temperament, REPARATION_HOURS_PER_TILE);
+  return { ...(spare === undefined ? {} : { aiSpareCoinPerHour: spare }), ...(towns.length > 0 ? { aiTownValues: towns } : {}) };
+};
 
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
@@ -202,7 +212,7 @@ export const evaluateAiDiplomacy = (input: {
   return {
     stance,
     opinion,
-    pricing: { ...priced.pricing, ...requesterSpareField(spareCoinPerHour(input.requesterSnapshot)) },
+    pricing: { ...priced.pricing, ...requesterSpareField(spareCoinPerHour(input.requesterSnapshot)), ...aiGivesField(input, aiIncome, temperament) },
     reason: warReason(input.aiName, opinion, outlook, stance.reason),
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),

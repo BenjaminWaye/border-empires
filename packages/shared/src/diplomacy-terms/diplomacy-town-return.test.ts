@@ -70,8 +70,23 @@ describe("AI valuation of returned towns", () => {
     expect(evaluateAiOffer(retaking, "truce", 24, terms({ gold: 0, towns: [oak] }))).toEqual({ accepts: false, reason: "shortfall", shortfall: 10 });
   });
 
-  it("never gives a town away, and takes none in an alliance", () => {
-    expect(evaluateAiOffer(pricing(), "truce", 12, terms({ gold: 500 }, { gold: 0, towns: [oak] }))).toEqual({ accepts: false, reason: "refuses" });
+  // Owner, 2026-11-27: you may ask an AI for a town back that it took from you in the last day.
+  it("hands back a town it took from you, at its price, only in a truce", () => {
+    const holding = pricing({ aiTownValues: [{ ...elm, value: 200 }] });
+    expect(evaluateAiOffer(holding, "truce", 12, terms({ gold: 300 }, { gold: 0, towns: [elm] }))).toEqual({ accepts: true });
+    expect(evaluateAiOffer(holding, "truce", 12, terms({ gold: 250 }, { gold: 0, towns: [elm] }))).toEqual({ accepts: false, reason: "shortfall", shortfall: 50 });
+    // A town it didn't take from you can't be asked for.
+    expect(evaluateAiOffer(holding, "truce", 12, terms({ gold: 500 }, { gold: 0, towns: [oak] })))
+      .toEqual({ accepts: false, reason: "aiCannotPay", missing: { gold: 0, towns: [oak] } });
+    // Short of its price, a counter drops the town rather than refuse.
+    expect(aiCounterOffer(holding, "truce", 12, terms({ gold: 100 }, { gold: 0, towns: [elm] }), { gold: 100 }))
+      .toEqual({ kind: "counter", terms: { give: { gold: 100 }, ask: { gold: 0 } } });
+    // Review regression: with the coin to pay for it, the counter prices the town instead of dropping it.
+    expect(aiCounterOffer(holding, "truce", 12, terms({ gold: 100 }, { gold: 0, towns: [elm] }), { gold: 10_000 }))
+      .toEqual({ kind: "counter", terms: { give: { gold: 300 }, ask: { gold: 0, towns: [elm] } } });
+    expect(aiCounterOffer(holding, "truce", 12, terms({ gold: 290 }, { gold: 0, towns: [elm] }), { gold: 1_000 }))
+      .toEqual({ kind: "counter", terms: { give: { gold: 300 }, ask: { gold: 0, towns: [elm] } } });
+    expect(evaluateAiOffer(holding, "alliance", 12, terms({ gold: 500 }, { gold: 0, towns: [elm] }))).toEqual({ accepts: false, reason: "refuses" });
     const ally = pricing({ required: { truce12: 0, truce24: 0, alliance: 0 } });
     expect(evaluateAiOffer(ally, "alliance", 12, terms({ gold: 0, towns: [oak] }))).toEqual({ accepts: false, reason: "refuses" });
   });
