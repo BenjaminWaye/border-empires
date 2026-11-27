@@ -1,3 +1,4 @@
+import { applyInitJoinScreenFields } from "../client-join-season-late-join/client-join-season-late-join.js";
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { applyInitPlayerStyles } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
@@ -123,6 +124,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
+  applyInitJoinScreenFields(state, msg);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
   state.joinSeasonOverlayOpen = state.needsSeasonJoin;
   applyInitSeasonPending(state, msg); applyInitNextContest(state, msg as Record<string, unknown>);

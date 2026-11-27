@@ -23,8 +23,9 @@ const buildDeps = (initial: SimulationSeasonState, options: { maxSeasonGuests?: 
   };
   const deps = {
     runtime: {
-      ensurePlayerHasSpawnTerritory: vi.fn((playerId: string) => {
-        players.add(playerId);
+      // The landing-site probe (probeOnly) creates nothing, as in the real runtime.
+      ensurePlayerHasSpawnTerritory: vi.fn((playerId: string, _rally?: unknown, _onRally?: unknown, options?: { probeOnly?: boolean }) => {
+        if (!options?.probeOnly) players.add(playerId);
         return true;
       }),
       ensurePlayerHasAfc: vi.fn(() => false),
@@ -81,7 +82,8 @@ describe("guest season joins", () => {
     expect(result.full).toBeUndefined();
     expect(season().joinedPlayerIds).not.toContain("guest-2");
     expect(season().guestPlayerIds).toEqual(["guest-1"]);
-    expect(deps.runtime.ensurePlayerHasSpawnTerritory).toHaveBeenCalledTimes(1);
+    const landings = deps.runtime.ensurePlayerHasSpawnTerritory.mock.calls.filter((call) => !(call[3] as { probeOnly?: boolean } | undefined)?.probeOnly);
+    expect(landings).toHaveLength(1);
     expect(metrics.incrementSimGuestJoinRejectedFull).toHaveBeenCalledTimes(1);
   });
 
