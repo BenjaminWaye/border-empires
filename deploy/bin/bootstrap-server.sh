@@ -147,7 +147,7 @@ default_timer=off
 if [ "${BACKUP_TIMER:-$default_timer}" = on ]; then
   systemctl enable --now border-empires-backup.timer
 else
-  echo "backup timer installed but not enabled (set BACKUP_TIMER=on, or: systemctl enable --now border-empires-backup.timer)"
+  echo "backup timer installed; left as it was ($(systemctl is-enabled border-empires-backup.timer 2>/dev/null || echo disabled)). To switch it on: BACKUP_TIMER=on, or systemctl enable --now border-empires-backup.timer"
 fi
 
 echo "bootstrap complete for ${BE_ENV} (${BE_HOSTNAME})."

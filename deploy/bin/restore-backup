@@ -17,8 +17,11 @@
 #
 # Nothing is deleted: the previous database stays in /data/pre-restore-<stamp>/
 # and the checked copy in /data/restore-<stamp>/ until an operator removes them
-# (they hold player data: remove them once the restore is confirmed good).
-set -euo pipefail
+# (they hold player data: remove them once the restore is confirmed good). The
+# downloaded .zst is removed when the script exits.
+# Env (tests): HOST_CONF, APP_DIR, STATE_DIR, BACKUP_LOCK, RCLONE_CONFIG,
+# HEALTH_TRIES (180) and HEALTH_SLEEP (5).
+set -Eeuo pipefail
 
 SRC="${1:-}"
 shift || true
@@ -33,20 +36,38 @@ for arg in "$@"; do
 done
 [ -n "$SRC" ] || { sed -n '2,20p' "$0" >&2; exit 2; }
 
-. /etc/border-empires/host.conf
-cd /opt/border-empires
+. "${HOST_CONF:=/etc/border-empires/host.conf}"
+cd "${APP_DIR:-/opt/border-empires}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-WORK="/srv/border-empires/restore/${STAMP}"   # deploy-owned; only the .zst lands here
-mkdir -p "$WORK"
-export RCLONE_CONFIG=/etc/border-empires/rclone.conf
+WORK="${STATE_DIR:-/srv/border-empires}/restore/${STAMP}"   # deploy-owned; only the .zst lands here
+export RCLONE_CONFIG="${RCLONE_CONFIG:-/etc/border-empires/rclone.conf}"
 log() { echo "[restore $(date -u +%H:%M:%S)] $*" >&2; }
+
+# Same lock as deploy/bin/backup: no hourly snapshot while a restore runs.
+exec 9>"${BACKUP_LOCK:-/tmp/border-empires-backup.lock}"
+flock -n 9 || { log "a backup or another restore is running; try again in a few minutes"; exit 1; }
+
+SWAPPING=0
+on_fail() {
+  log "FAILED after the app was stopped. The previous database is in /data/pre-restore-${STAMP}/."
+  log "To put it back (stops the app, removes the restored files and their -wal/-shm, copies the old set back):"
+  log "  docker compose stop app && docker compose run --rm --no-deps --entrypoint sh app -c 'rm -f /data/border-empires.db /data/border-empires.db-wal /data/border-empires.db-shm && cp -a /data/pre-restore-${STAMP}/. /data/' && docker compose up -d app"
+}
+finish() {
+  local rc=$?
+  rm -rf "$WORK"   # the downloaded copy holds player data
+  if [ "$SWAPPING" = 1 ] && [ "$rc" -ne 0 ]; then on_fail; fi
+}
+trap finish EXIT
+mkdir -p "$WORK"
 need_bucket() { [ -n "${BACKUP_BUCKET:-}" ] || { log "BACKUP_BUCKET is not set in host.conf"; exit 1; }; }
 
 # --- 1. fetch ---------------------------------------------------------------
 case "$SRC" in
   latest)
     need_bucket
-    name="$(rclone lsf --files-only "b2:${BACKUP_BUCKET}/hourly/" | grep -E '^be-.*\.db\.zst$' | sort | tail -n 1)"
+    listing="$(rclone lsf --files-only "b2:${BACKUP_BUCKET}/hourly/")"
+    name="$(printf '%s\n' "$listing" | grep -E '^be-.*\.db\.zst$' | sort | tail -n 1 || true)"
     [ -n "$name" ] || { log "no hourly backups in b2:${BACKUP_BUCKET}/hourly/"; exit 1; }
     rclone copyto "b2:${BACKUP_BUCKET}/hourly/${name}" "${WORK}/${name}"
     ;;
@@ -69,6 +90,16 @@ zstd -q -t "${WORK}/${name}"
 # --- 2. decompress and check inside the container (as the data owner) -------
 run_app() { docker compose run --rm --no-deps -T -v "${WORK}:/restore:ro" --entrypoint "$1" app "${@:2}"; }
 RESTORED="/data/restore-${STAMP}/border-empires.db"
+# Free space on the data volume: the unpacked copy (about the live database's
+# size) plus, with --apply, a second full copy. Running out would also fail the
+# live game's own writes.
+need_copies=1
+[ "$APPLY" = 1 ] && need_copies=2
+run_app sh -c 'set -e
+  db=$(stat -c %s /data/border-empires.db 2>/dev/null || echo 0)
+  need=$(( (db * '"$need_copies"' / 1024) + 524288 ))
+  avail=$(df -Pk /data | awk "NR==2 {print \$4}")
+  [ "$avail" -ge "$need" ] || { echo "not enough free space on /data: ${avail} KiB free, need ${need} KiB" >&2; exit 1; }'
 run_app sh -c "mkdir -p /data/restore-${STAMP}"
 run_app node --input-type=module - "/restore/${name}" "$RESTORED" < /opt/border-empires/restore-prepare.mjs
 
@@ -99,12 +130,8 @@ fi
 
 # --- 4. swap in (game is down from here) ------------------------------------
 log "stopping the app (final checkpoint, up to 30s)"
+SWAPPING=1
 docker compose stop app
-on_fail() {
-  log "FAILED after the app was stopped. The previous database is in /data/pre-restore-${STAMP}/."
-  log "To put it back: docker compose run --rm --no-deps --entrypoint sh app -c 'cp -a /data/pre-restore-${STAMP}/. /data/' && docker compose up -d app"
-}
-trap on_fail ERR
 run_app sh -c "set -e; mkdir -p /data/pre-restore-${STAMP}
   for f in border-empires.db border-empires.db-wal border-empires.db-shm; do
     [ ! -e /data/\$f ] || mv /data/\$f /data/pre-restore-${STAMP}/
@@ -116,14 +143,13 @@ if [ -n "$LEDGER" ]; then
 fi
 docker compose up -d app
 log "waiting for /health (up to 15 min: startup replays from the latest snapshot)"
-for _ in $(seq 180); do
+for _ in $(seq "${HEALTH_TRIES:-180}"); do
   if curl -fsS --max-time 5 http://127.0.0.1:8080/health 2>/dev/null | grep -q '"ok":true'; then
-    trap - ERR
+    SWAPPING=0
     log "restored ${name}; app healthy. Previous database: /data/pre-restore-${STAMP}/"
     exit 0
   fi
-  sleep 5
+  sleep "${HEALTH_SLEEP:-5}"
 done
-log "app did not report healthy within 15 min"
-on_fail
+log "app did not report healthy in time"
 exit 1

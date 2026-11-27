@@ -2,7 +2,7 @@
 # Hourly consistent SQLite snapshot -> zstd -> Backblaze B2 (via rclone).
 # Run by border-empires-backup.timer as `deploy`; installed at
 # /opt/border-empires/backup by `deploy`, with backup-snapshot.mjs next to it.
-# Restore: docs/agents/deploys.md "Backups" (scripts/ops/restore-backup.sh).
+# Restore: docs/agents/deploys.md "Backups" (deploy/bin/restore-backup).
 #
 # /etc/border-empires/host.conf: BE_ENV, optional BACKUP_BUCKET (e.g. be-backups-staging),
 # optional BACKUP_RATE_MB (snapshot pace in MB/s, default 16).
@@ -34,6 +34,13 @@ cd /opt/border-empires
 SNAPSHOT_JS=/opt/border-empires/backup-snapshot.mjs
 [ -f "$SNAPSHOT_JS" ] || { echo "missing ${SNAPSHOT_JS}; redeploy, or update bin/deploy first (docs/agents/deploys.md)" >&2; exit 1; }
 docker compose exec -T app sh -c "mkdir -p /data/backups && rm -f /data/backups/be-*.db.zst /data/backups/be-*.db.tmp"
+# The scratch copy is about the live database's size and shares its volume:
+# refuse rather than fill the disk under the game.
+docker compose exec -T app sh -c 'set -e
+  db=$(stat -c %s /data/border-empires.db)
+  need=$(( db / 1024 + 524288 ))
+  avail=$(df -Pk /data | awk "NR==2 {print \$4}")
+  [ "$avail" -ge "$need" ] || { echo "not enough free space on /data for a snapshot: ${avail} KiB free, need ${need} KiB" >&2; exit 1; }'
 docker compose exec -T app nice -n 19 node --input-type=module - \
   /data/border-empires.db "/data/backups/${NAME}.zst" "--rate-mb=${BACKUP_RATE_MB:-16}" < "$SNAPSHOT_JS"
 # Copy out on the host (the host `deploy` user cannot read files owned by the

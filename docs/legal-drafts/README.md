@@ -48,15 +48,16 @@ off-site database backup in Backblaze B2 again, beside Hetzner's daily server
 backups, so paying players lose at most about an hour of play and a copy
 survives the loss of the Hetzner account. The privacy draft names Backblaze
 again: an EU-region bucket (Netherlands), 48 hours of hourly copies and 14 days
-of daily copies, deletions reaching backups within 14 days and reapplied on
-restore, and the hashed deletion ledger stored beside them. The job is still
+of daily copies (the bucket's lifecycle rules delete them at the latest a day
+later, even if the job stops), deletions reaching backups within 15 days and
+reapplied on restore, and the hashed deletion ledger stored beside them. The job is still
 switched off until the owner turns it on (`docs/agents/deploys.md`
 "Backups"), and must not be turned on before this page is published.
 **Before publishing, check the old buckets** (`be-backups-staging`,
 `be-backups-prod`, from `docs/hetzner-migration-plan.md`): expiry was done
 only by the disabled job, and B2 kept "deleted" files as hidden versions, so
 old snapshots may still be there. Empty or delete them; production uses a new
-EU bucket with the lifecycle rule "keep only the last version".
+EU bucket with the age-based lifecycle rules in `docs/agents/deploys.md` "Backups".
 Hetzner keeps the 7 most recent daily backups of the production server
 (hosted sector servers and staging have none). Logs: the privacy page says
 what is true without a size or a day count, because only the app container's

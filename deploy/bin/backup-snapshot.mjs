@@ -36,6 +36,10 @@ import { constants as zlibConstants, createZstdCompress } from "node:zlib";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const quoteIdent = (name) => `"${String(name).replaceAll('"', '""')}"`;
 const quoteString = (value) => `'${String(value).replaceAll("'", "''")}'`;
+// A NaN or zero rate would silently turn the pacing off (setTimeout(NaN) is ~1 ms).
+const assertPositive = (name, value) => {
+  if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be a positive number, got ${value}`);
+};
 
 /**
  * Copies `dbPath` into a fresh SQLite file at `outPath` from one read snapshot,
@@ -45,6 +49,8 @@ const quoteString = (value) => `'${String(value).replaceAll("'", "''")}'`;
 export const pacedSnapshot = async (dbPath, outPath, options = {}) => {
   const rateBytesPerSec = options.rateBytesPerSec ?? 16 * 1048576;
   const chunkBytes = options.chunkBytes ?? 4 * 1048576;
+  assertPositive("rate", rateBytesPerSec);
+  assertPositive("chunk", chunkBytes);
   const startedAt = performance.now();
   rmSync(outPath, { force: true });
   const db = new DatabaseSync(dbPath);
@@ -54,7 +60,12 @@ export const pacedSnapshot = async (dbPath, outPath, options = {}) => {
   try {
     // Small page cache: this connection streams the whole file once and must not
     // hold hundreds of MB next to the game.
-    db.exec("PRAGMA busy_timeout = 5000; PRAGMA cache_size = -8000;");
+    // foreign_keys off: node:sqlite turns them on by default, and the copy
+    // inserts tables in schema order and in rowid chunks, so a child table
+    // created before its parent (SQLite's table-rebuild migration does that) or a
+    // self-reference to a later row would fail the backup. VACUUM INTO never
+    // checked them either; the source already satisfied them.
+    db.exec("PRAGMA busy_timeout = 5000; PRAGMA cache_size = -8000; PRAGMA foreign_keys = OFF;");
     const pageSize = db.prepare("PRAGMA main.page_size").get().page_size;
     const autoVacuum = db.prepare("PRAGMA main.auto_vacuum").get().auto_vacuum;
     db.exec(`ATTACH ${quoteString(outPath)} AS bk`);
@@ -119,15 +130,21 @@ export const pacedSnapshot = async (dbPath, outPath, options = {}) => {
       }
       // Copy in rowid order, a few MB per statement; adapt the row count to the
       // row size so one statement stays near chunkBytes.
-      const copy = db.prepare(
+      // Rowids are read and bound as BigInt (they can exceed 2^53), and the first
+      // chunk has no lower bound, so even rowid -2^63 is copied.
+      const copyFirst = db.prepare(
+        `INSERT INTO bk.${name} (rowid, ${columnList}) SELECT rowid, ${columnList} FROM main.${name} ORDER BY rowid LIMIT ?`
+      );
+      const copyAfter = db.prepare(
         `INSERT INTO bk.${name} (rowid, ${columnList}) SELECT rowid, ${columnList} FROM main.${name} WHERE rowid > ? ORDER BY rowid LIMIT ?`
       );
       const lastRowid = db.prepare(`SELECT max(rowid) AS r FROM bk.${name}`);
-      let after = Number.MIN_SAFE_INTEGER;
+      lastRowid.setReadBigInts(true);
+      let after = null;
       let rows = 64;
       for (;;) {
         const before = written();
-        const changes = Number(step(() => copy.run(after, rows)).changes);
+        const changes = Number(step(() => (after === null ? copyFirst.run(rows) : copyAfter.run(after, rows))).changes);
         if (!changes) break;
         after = lastRowid.get().r;
         const chunk = written() - before;
@@ -185,6 +202,7 @@ export const pacedSnapshot = async (dbPath, outPath, options = {}) => {
 /** Streams `inPath` through zstd into `outPath` at most `rateBytesPerSec` read. */
 export const pacedCompress = async (inPath, outPath, options = {}) => {
   const rateBytesPerSec = options.rateBytesPerSec ?? 16 * 1048576;
+  assertPositive("rate", rateBytesPerSec);
   const startedAt = performance.now();
   let bytes = 0;
   const throttle = new Transform({
@@ -216,7 +234,10 @@ const main = async () => {
   const positional = args.filter((arg) => !arg.startsWith("--"));
   const flag = (name, fallback) => {
     const hit = args.find((arg) => arg.startsWith(`--${name}=`));
-    return hit ? Number(hit.split("=")[1]) : fallback;
+    if (!hit) return fallback;
+    const value = Number(hit.split("=")[1]);
+    assertPositive(name, value);
+    return value;
   };
   const [dbPath, outPath] = positional;
   if (!dbPath || !outPath || !outPath.endsWith(".zst")) {

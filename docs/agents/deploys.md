@@ -200,7 +200,12 @@ runs `/opt/border-empires/backup` as `deploy`:
 3. With `BACKUP_BUCKET` set: upload to `b2:<bucket>/hourly/`, and at 00 UTC also
    `daily/`; `/data/account-deletion-ledger.json` (hashes only) goes to
    `ledger/`. Retention: hourly 48 h, daily 14 d, deleted with `--b2-hard-delete`
-   so nothing lingers as a hidden version.
+   so nothing lingers as a hidden version. The bucket's own lifecycle rules (owner
+   step 1) expire the same prefixes even if the job stops or keeps failing, so
+   no copy outlives 3 days (hourly) or 15 days (daily) either way.
+
+Before the snapshot it checks that `/data` has room for a scratch copy the size
+of the live database (plus 512 MB) and refuses otherwise.
 
 A `flock` keeps it to one run at a time.
 
@@ -225,14 +230,17 @@ restored 1 GB world). On the server, as `deploy`:
    downloads, runs `zstd -t`, decompresses into `/data/restore-<stamp>/`, runs a
    full `integrity_check` and `foreign_key_check`, prints the latest snapshot and
    event ids, and dry-runs the account-deletion ledger (the server's own, else the
-   copy in `b2:<bucket>/ledger/`). The unpack and check are a 1 GB burst, so
+   copy in `b2:<bucket>/ledger/`). It takes the backup lock, refuses if `/data`
+   lacks room for the copy (two copies with `--apply`), and deletes its download
+   from `/srv/border-empires/restore/` on exit. The unpack and check are a 1 GB burst, so
    rehearse on a spare machine or at a quiet time, not routinely on a busy server.
 2. Swap in: rerun with `--apply`. It stops the app (final checkpoint), moves
    `border-empires.db` and `-wal`/`-shm` to `/data/pre-restore-<stamp>/`, copies
    the checked file in, reapplies the deletion ledger offline
    ([`account-deletion.md`](account-deletion.md) "Backups and restoration"), starts the app and waits up to 15 min
-   for `/health`. On failure it prints the command that puts the previous
-   database back. `--no-ledger` is needed only if no ledger exists anywhere.
+   for `/health`. On any failure after the stop it prints the command that puts
+   the previous database back (stop the app, remove the restored files and their
+   `-wal`/`-shm`, copy the old set back, start). `--no-ledger` is needed only if no ledger exists anywhere.
 3. Afterwards check the game, then delete `/data/restore-<stamp>/` and, once
    satisfied, `/data/pre-restore-<stamp>/` (both hold player data).
 
@@ -247,11 +255,14 @@ account is created, so new buckets there are also in the EU):
 
 1. Production: create a new **private** bucket, for example
    `be-backups-prod-eu`, with default encryption on and Object Lock **off**
-   (it would block the retention deletes). Lifecycle: **"Keep only the last
-   version of the file"**. Check that its endpoint reads `s3.eu-central-003…`.
+   (it would block the retention deletes). Lifecycle: **custom rules** — prefix
+   `hourly/`: hide after 2 days, delete 1 day after hiding; prefix `daily/`: hide
+   after 14 days, delete 1 day after hiding; prefix `ledger/`: delete 1 day after
+   hiding (keeps only the last version). These expire copies even if the job
+   stops, which the privacy page relies on. Check that its endpoint reads `s3.eu-central-003…`.
 2. Staging: empty the old `be-backups-staging` bucket first (stale snapshots and
    hidden versions from the old job; see `docs/legal-drafts/README.md`) and give
-   it the same lifecycle rule. Also empty or delete the old `be-backups-prod` bucket.
+   it the same lifecycle rules. Also empty or delete the old `be-backups-prod` bucket.
 3. For each bucket create an **application key restricted to that bucket**,
    read and write. The key is shown once; it goes only into the server file below,
    never into chat, the repository or logs.
@@ -278,6 +289,11 @@ On each server, as root:
 Staging: run steps 2-10 there and leave it for a day or two before production.
 Production: only after the privacy page naming Backblaze
 (`docs/legal-drafts/privacy.html`) is published.
+
+**After an account erasure** (done offline, [`account-deletion.md`](account-deletion.md)),
+run `/opt/border-empires/backup` once the app is back up: until the next hourly
+run, the newest backup still holds the account and the off-site ledger does not
+list it yet, so a restore from B2 after losing the server could bring it back.
 
 **Open points for the owner.** Nothing alerts when a backup fails: the job
 only logs to the journal. An `OnFailure=` unit or a check of the newest object's age
