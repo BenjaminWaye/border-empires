@@ -95,9 +95,6 @@ export const wireMusterCommitCard = (root: ParentNode, wiring: MusterCommitWirin
       mode: tile.muster.mode,
       ...(tile.muster.targetX != null ? { targetX: tile.muster.targetX } : {}),
       ...(tile.muster.targetY != null ? { targetY: tile.muster.targetY } : {}),
-      // A SET_MUSTER without hunt ends a Planetary Defense hunt, so a commitment change must resend it
-      // or the flag turns into a plain ADVANCE that attacks any rival in range.
-      ...(tile.muster.hunt ? { hunt: true } : {}),
       commitManpower: Number(slider.value)
     });
     // Not sent (offline): the pick stays unsaved, so a repaint keeps it for another try.

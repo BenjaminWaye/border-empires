@@ -25,8 +25,6 @@ export type BarButton =
 type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines" | "afcUpgradesReady" | "progress" | "modules">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
-  // Your own tile while Planetary Defense is capturing it: send a flag after them.
-  "muster_hunt_attackers",
   "launch_attack",
   "march_attack_flag",
   "expand_here",
@@ -50,7 +48,6 @@ const SECONDARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "muster_hold",
   "muster_advance",
   "muster_march",
-  "muster_hunt",
   "diplomacy",
   "city_overclock",
   // Outside your reach: a beacon on your land toward this tile (client-relay-beacon-toward.ts).
@@ -123,11 +120,11 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   const buttons: BarButton[] = [];
   const afcReady = (view.afcUpgradesReady ?? 0) > 0;
   const candidate = afcReady ? undefined : primaryAction(view);
-  // A module to call down outranks only the scout drone; an urgent action (e.g. hunting attackers) keeps gold.
+  // A module to call down outranks only the scout drone; an urgent action (e.g. Launch Attack) keeps gold.
   const modulesReady = !afcReady && isOwnAfc(view) && hasModuleToCallDown(view) && (!candidate || SCOUT_AFC_IDS.includes(candidate.id));
   const primary = modulesReady ? undefined : candidate;
   // On your own AFC, a ready AFC upgrade leads in gold, then a module to call down; with neither,
-  // Send scout drone does (PRIMARY_ORDER), unless an urgent action (e.g. hunting attackers) applies.
+  // Send scout drone does (PRIMARY_ORDER), unless an urgent action (e.g. Launch Attack) applies.
   // AFC upgrades and Modules always stay on the bar instead of hiding in the minor row under Build ▸.
   const modules: BarButton | undefined = isOwnAfc(view) && view.tabs.includes("modules") ? { kind: "panel", panel: "modules", label: "Modules ▸", primary: modulesReady } : undefined;
   if (modulesReady && modules) buttons.push(modules);
