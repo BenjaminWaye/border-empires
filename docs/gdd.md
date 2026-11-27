@@ -123,8 +123,10 @@ self-contained and fair.
   needs a viable site; and the join screen is always shown, never skipped.
   *Decided 2026-11-27 (owner):* choosing to wait keeps the player on a
   waiting screen, not an empty map: the Sector Contests running now, the
-  offer to fund a new sector, a way to be emailed when the next contest
-  starts, and the option to land after all. Waiting does not reserve a place.
+  offer to fund a new sector, the running contest's current standings, a
+  way to be emailed when the next contest starts, and the option to land
+  after all. The screen does not close to the map, which is all fog for a
+  player who has not joined. Waiting does not reserve a place.
 - **The sector list** (decided 2026-11-27): the join screen lists the Sector
   Contests running now that the player can play in. A full one (every House
   place taken, or no viable landing site) is greyed out. If none has room,

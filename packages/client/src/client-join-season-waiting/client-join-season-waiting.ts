@@ -2,8 +2,11 @@
 // close the card and leave the player on an empty, fogged map with no word of
 // what happens next. It now switches the card to this view: the Sector
 // Contests running now (with "Fund a new sector" always offered where funding
-// is), a way to be emailed when the next contest starts, and Land now in case
-// the player changes their mind. The close button still leaves for the map.
+// is), the contest's Current Standings (the season-end screen's ledger,
+// client-standings-html.ts) on a second tab, a way to be emailed when the next
+// contest starts, and Land now in case the player changes their mind. It has
+// no close button: an unjoined player's map is all fog, so there is nothing
+// to close to. The join card's × leads here too.
 //
 // The email is the existing New Sector Contest email (season-start-notify.ts
 // on the gateway), sent to every account with an email address and the
@@ -30,12 +33,19 @@ export const waitingEmailHtml = (status: WaitingEmailStatus, authEmail: string):
   return `<p class="respawn-summary" data-join-waiting-email="none">Your sign-in has no email address, so we can't email you.</p>`;
 };
 
-export type JoinWaitingHtmlInput = { emailHtml: string; sectorListHtml: string; landDisabled: boolean };
+export type JoinWaitingTab = "sectors" | "standings";
 
-export const joinWaitingHtml = ({ emailHtml, sectorListHtml, landDisabled }: JoinWaitingHtmlInput): string => `
+export type JoinWaitingHtmlInput = { emailHtml: string; sectorListHtml: string; standingsHtml: string; landDisabled: boolean; tab: JoinWaitingTab };
+
+const tabButton = (tab: JoinWaitingTab, label: string, active: JoinWaitingTab): string =>
+  `<button class="se-tab${tab === active ? " is-active" : ""}" type="button" role="tab" aria-selected="${tab === active}" data-join-waiting-tab="${tab}">${label}</button>`;
+
+const tabPanel = (tab: JoinWaitingTab, html: string, active: JoinWaitingTab): string =>
+  `<div class="se-tab-panel${tab === active ? " is-active" : ""}" role="tabpanel" data-join-waiting-panel="${tab}">${html}</div>`;
+
+export const joinWaitingHtml = ({ emailHtml, sectorListHtml, standingsHtml, landDisabled, tab }: JoinWaitingHtmlInput): string => `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
-    <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
-      <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close">×</button>
+    <div class="respawn-modal card join-waiting" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
       <div class="respawn-modal-scroll">
         <div class="respawn-kicker">Sector Contest</div>
         <h2 id="join-season-title" class="respawn-title">Waiting for the next contest</h2>
@@ -43,7 +53,9 @@ export const joinWaitingHtml = ({ emailHtml, sectorListHtml, landDisabled }: Joi
           ${emailHtml}
           <button id="join-season-confirm" class="panel-btn" type="button" ${landDisabled ? "disabled" : ""}>${landDisabled ? "This sector is full" : "Land now instead"}</button>
         </section>
-        ${sectorListHtml}
+        <nav class="se-tab-bar" role="tablist">${tabButton("sectors", "Sectors", tab)}${tabButton("standings", "Standings", tab)}</nav>
+        ${tabPanel("sectors", sectorListHtml || '<p class="respawn-summary">No other Sector Contests are running.</p>', tab)}
+        ${tabPanel("standings", standingsHtml || '<p class="respawn-summary">No standings yet.</p>', tab)}
       </div>
     </div>
   `;

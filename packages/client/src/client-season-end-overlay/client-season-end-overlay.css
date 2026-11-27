@@ -5,9 +5,12 @@
   /* Above HUD controls and the guest badge (40), below authentication (50). */
   z-index: 45;
 }
-/* Shared with the charge reward overlay (client-charge-reward/), which uses the same se-* pieces. */
+/* Shared with the charge reward overlay (client-charge-reward/), which uses the same se-* pieces.
+   The join card's waiting view (client-join-season-waiting/) draws the standings ledger and tabs
+   with them too, but takes only the colors, not the text styling below. */
 #season-end-overlay,
-#charge-reward-overlay {
+#charge-reward-overlay,
+#join-season-overlay {
   --se-brass: #c9a24b;
   --se-brass-dim: #8c6535;
   --se-brass-hi: #f0d79a;
@@ -17,6 +20,9 @@
   --se-patina: #5fae7d;
   --se-plate-1: #241809;
   --se-plate-2: #160e05;
+}
+#season-end-overlay,
+#charge-reward-overlay {
   color: var(--se-parch);
   font-family: var(--sp-font-body);
 }

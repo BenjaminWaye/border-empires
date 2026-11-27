@@ -15,6 +15,8 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [],
   profileSetupRequired: false, seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "", sectorListRows: [], sectorListLoadedFor: "",
   authIsGuest: false, authEmail: "house@example.com",
+  me: "me-1", playerColors: new Map([["ai-1", "#aa3311"]]),
+  leaderboard: { overall: [] as unknown[], selfOverall: undefined as unknown, byTiles: [], byIncome: [], byTechs: [] },
   ...overrides
 });
 
@@ -84,15 +86,36 @@ describe("waiting for the next contest", () => {
     expect(overlayEl.querySelector("#join-season-confirm")?.classList.contains("is-joining")).toBe(true);
   });
 
-  it("closes to the map, and the reopen button brings back the join card", () => {
-    const state = makeState({ joinSeasonWaiting: true });
+  it("has no close button: the unjoined map is all fog", () => {
+    const { overlayEl } = mount(makeState({ joinSeasonWaiting: true }));
+    expect(overlayEl.querySelector("#join-season-close")).toBeNull();
+  });
+
+  it("the join card's close button leads to the waiting view, not the map", () => {
+    const state = makeState();
     const { overlayEl } = mount(state);
     (overlayEl.querySelector("#join-season-close") as HTMLButtonElement).click();
-    expect(state.joinSeasonOverlayOpen).toBe(false);
+    expect(state.joinSeasonOverlayOpen).toBe(true);
+    expect(state.joinSeasonWaiting).toBe(true);
+    expect(overlayEl.querySelector("#join-season-title")?.textContent).toBe("Waiting for the next contest");
+  });
 
-    (document.getElementById("join-season-reopen") as HTMLButtonElement).click();
-    expect(state.joinSeasonWaiting).toBe(false);
-    expect(overlayEl.querySelector("#join-season-wait")).not.toBeNull();
+  it("shows the running contest's Current Standings on a tab that survives a standings update", () => {
+    const entry = (id: string, name: string, rank: number, score: number) => ({ id, name, rank, score, tiles: 40, incomePerMinute: 1, techs: 3 });
+    const state = makeState({ joinSeasonWaiting: true, leaderboard: { overall: [entry("ai-1", "House Vane", 1, 120)], selfOverall: undefined, byTiles: [], byIncome: [], byTechs: [] } });
+    const { overlayEl, renderHud } = mount(state);
+    const panel = () => overlayEl.querySelector('[data-join-waiting-panel="standings"]') as HTMLElement;
+    expect(panel().classList.contains("is-active")).toBe(false);
+
+    (overlayEl.querySelector('[data-join-waiting-tab="standings"]') as HTMLButtonElement).click();
+    expect(panel().classList.contains("is-active")).toBe(true);
+    expect(panel().textContent).toContain("Current Standings");
+    expect(panel().textContent).toContain("House Vane");
+
+    state.leaderboard = { overall: [entry("ai-2", "House Kell", 1, 150), entry("ai-1", "House Vane", 2, 120)], selfOverall: undefined, byTiles: [], byIncome: [], byTechs: [] };
+    renderHud();
+    expect(panel().classList.contains("is-active")).toBe(true);
+    expect(panel().textContent).toContain("House Kell");
   });
 
   it("a new INIT starts the next contest on the join card, not the waiting view", () => {
