@@ -180,6 +180,7 @@ export const hudMarkup = `
               <span>Custom</span>
               <input id="auth-profile-color" type="color" value="#38b000" />
             </label>
+            <div id="auth-color-clash" class="auth-color-clash" data-color-clash role="status" aria-live="polite" hidden></div>
           </div>
           <button id="auth-profile-save" class="panel-btn auth-email-cta" type="button">Enter the map</button>
         </div>

@@ -13,6 +13,7 @@ import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-b
 import { isRelayBeaconPlacementTarget } from "../client-relay-beacon-placement/client-relay-beacon-placement.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { tileActionAvailability } from "../client-tile-action-logic/client-tile-action-availability.js";
+import { RELAY_BEACON_TOWARD_LABEL } from "./client-relay-beacon-toward-label.js";
 
 type At = { x: number; y: number };
 
@@ -54,7 +55,7 @@ export const relayBeaconTowardAction = (state: ClientState, tile: Tile): TileAct
   const slotsFree = hasFreeResourceSlotsForRelayBeacon(state);
   return {
     id: RELAY_BEACON_TOWARD_ACTION_ID,
-    label: "Relay Beacon toward here",
+    label: RELAY_BEACON_TOWARD_LABEL,
     detail: "Widens your reach toward this tile",
     ...tileActionAvailability(Boolean(site) && slotsFree, !site ? NO_BEACON_SITE_REASON : missingRelayBeaconSlotReason(state) ?? NO_BEACON_SITE_REASON)
   };

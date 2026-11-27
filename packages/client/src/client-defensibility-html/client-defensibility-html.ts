@@ -3,6 +3,9 @@ import type { Tile } from "../client-types.js";
 import "./client-defensibility-html.css";
 import { exposedSidesForTile, isOwnedLandTile } from "../client-defensibility-tile.js";
 import { weakDefensibilityEntries, type WeakDefensibilityEntry } from "../client-defensibility-weak-tiles/client-defensibility-weak-tiles.js";
+import { integrityDropCardHtml } from "../client-integrity-drop/client-integrity-drop-card.js";
+import type { IntegrityDropNotice } from "../client-integrity-drop/client-integrity-drop-cause.js";
+import { scanIntegrityShape, type IntegrityShapeSpot } from "../client-integrity-drop/client-integrity-shape.js";
 
 type DefensibilityBreakdown = {
   exposedEdges: number;
@@ -24,6 +27,8 @@ type DefensibilityArgs = {
   empireIntegrityEnabled: boolean;
   /** The Empire Integrity line of the shared coin breakdown (what accrual actually pays). */
   integrityCoinPerMinute?: number;
+  /** The last Integrity drop explained (client-integrity-drop/), shown as "Why it fell" on top. */
+  dropNotice?: IntegrityDropNotice;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -53,6 +58,15 @@ const weakTileListHtml = (entries: readonly WeakDefensibilityEntry[]): string =>
   const more = entries.length > WEAK_TILE_LIST_LIMIT ? `<p class="defense-copy">+${entries.length - WEAK_TILE_LIST_LIMIT} more highlighted on the map.</p>` : "";
   return `<ul class="defense-weak-tile-list">${rows}</ul>${more}`;
 };
+
+// Holes (land you don't own walled in by yours) are highlighted with the weak tiles; taking one closes several open sides.
+const holeListHtml = (holes: readonly IntegrityShapeSpot[]): string =>
+  holes.length === 0
+    ? ""
+    : `<ul class="defense-weak-tile-list">${holes
+        .slice(0, WEAK_TILE_LIST_LIMIT)
+        .map((hole) => `<li class="defense-weak-tile is-critical"><button class="panel-btn defense-weak-tile-go" type="button" data-weak-def-focus="${hole.x},${hole.y}">(${hole.x}, ${hole.y})</button><span>Hole · take it</span></li>`)
+        .join("")}</ul>`;
 
 const formatDefenseNumber = (value: number): string => (Number.isInteger(value) ? `${value}` : value.toFixed(1));
 
@@ -139,6 +153,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     ? `<span class="defense-rating defense-rating-${heroEconPct >= 0 ? "strong" : "fragile"}">${heroEconPct >= 0 ? "+" : ""}${heroEconPct}% income</span>`
     : "";
   return `<div class="defense-panel">
+    ${integrityDropCardHtml(args.dropNotice)}
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
         <div>
@@ -149,7 +164,7 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
       </div>
       <p class="defense-copy">${scoreCopy}</p>
       <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${args.showWeakDefensibility ? "Hide weak tiles" : "Show weak tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
-      ${args.showWeakDefensibility ? weakTileListHtml(weakEntries) : ""}
+      ${args.showWeakDefensibility ? weakTileListHtml(weakEntries) + holeListHtml(scanIntegrityShape(sharedArgs).holes) : ""}
     </article>
     <article class="card defense-breakdown-card">
       <strong>What is an "open side"?</strong>

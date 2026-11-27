@@ -6,6 +6,8 @@ import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } fro
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
 import { PROFILE_NAME_MAX_LENGTH, readFoundingNameDraft, syncProfileNameCount } from "../client-profile-name-field/client-profile-name-field.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
+import type { EmpireColorEntry } from "@border-empires/shared";
+import { markClashingSwatches, rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -21,18 +23,24 @@ export const setAuthStatus = (
 // Populates a row of colour-swatch buttons from server-suggested colours and
 // marks whichever one matches `activeColor` as selected. Shared by the
 // onboarding profile-setup panel and the Settings "Edit Name & Colour"
-// overlay so both pickers behave identically.
+// overlay so both pickers behave identically. Swatches too close to a
+// rival's colour are greyed out; on a crowded map the server suggests fewer
+// colours than there are buttons, and the spare buttons are hidden.
 export const syncColorSwatchButtons = (
   buttons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[],
   suggestedColors: string[],
-  activeColor: string
+  activeColor: string,
+  rivals: readonly EmpireColorEntry[] = []
 ): void => {
   if (suggestedColors.length) {
     buttons.forEach((btn, i) => {
       const c = suggestedColors[i];
+      btn.hidden = !c;
       if (c) {
         btn.dataset.color = c;
         btn.style.setProperty("--swatch", c);
+      } else {
+        delete btn.dataset.color;
       }
     });
   }
@@ -40,21 +48,26 @@ export const syncColorSwatchButtons = (
   buttons.forEach((btn) => {
     btn.dataset.selected = btn.dataset.color?.toLowerCase() === normalizedActive ? "true" : "false";
   });
+  markClashingSwatches(buttons, rivals);
 };
 
 export const syncAuthPanelState = (
-  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors">,
+  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors" | "me" | "playerColors" | "playerNames">,
   deps: {
     authEmailLinkSentTo: string;
     authPanelEl: HTMLElement;
     authEmailSentAddressEl: HTMLElement;
     authProfileColorEl: HTMLInputElement;
     authColorPresetButtons: NodeListOf<HTMLButtonElement>;
+    /** "Too close to X's colour" note under the custom colour; absent in tests without the panel. */
+    authColorClashEl?: HTMLElement | null;
   }
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
-  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value);
+  const rivals = rivalEmpireColors(state);
+  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value, rivals);
+  syncColorClashNote(deps.authColorClashEl, deps.authProfileColorEl.value, rivals, state.playerColors.get(state.me));
 };
 
 export const syncAuthOverlay = (

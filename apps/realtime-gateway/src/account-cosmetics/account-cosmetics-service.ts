@@ -13,7 +13,13 @@ import {
   type PlayerCosmeticSelection
 } from "@border-empires/shared";
 
-import { MAX_LOADED_COSMETIC_SELECTIONS, type AccountCosmeticsStore } from "./account-cosmetics-store.js";
+import {
+  MAX_LOADED_COSMETIC_SELECTIONS,
+  MAX_LOADED_FREE_COSMETIC_SELECTIONS,
+  shownLookKind,
+  type AccountCosmeticsStore,
+  type ShownLookKind
+} from "./account-cosmetics-store.js";
 
 // Gateway side of account cosmetics: who owns what, what each account shows,
 // and telling every connected player when that changes.
@@ -23,8 +29,10 @@ import { MAX_LOADED_COSMETIC_SELECTIONS, type AccountCosmeticsStore } from "./ac
 // one short id per slot (about 90 bytes as JSON with all three).
 //
 // Memory. `shown` holds one small object per account with a non-default look
-// on this server. It is loaded once at boot with a hard limit and reported as
-// a gauge (see renderMetrics).
+// on this server, in two sets with their own hard limits: looks with a paid
+// cosmetic, and looks with only free ones (House crests), so free crests can
+// never push a paid look out. Loaded once at boot and reported as gauges (see
+// renderMetrics).
 
 export type AccountCosmeticsServiceDeps = {
   store: AccountCosmeticsStore;
@@ -50,8 +58,10 @@ export type CosmeticGrantOutcome =
 export type AccountCosmeticsService = {
   /** Loads the shown looks into memory. Call once before accepting sockets. */
   hydrate: () => Promise<void>;
-  /** Looks every other player must see, for the INIT message. */
+  /** Every look other players must see (tests and diagnostics). */
   shownSelections: () => Record<string, PlayerCosmeticSelection>;
+  /** One account's shown look, for INIT (filtered to the world's players). */
+  shownSelectionFor: (playerId: string) => PlayerCosmeticSelection | undefined;
   /**
    * The one way an account comes to own a cosmetic. Server side only: the
    * admin route calls it today and the payment webhook will call it later.
@@ -75,7 +85,9 @@ export type AccountCosmeticsService = {
 
 export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps): AccountCosmeticsService => {
   const { store } = deps;
-  const shown = new Map<string, PlayerCosmeticSelection>();
+  const shown: Record<ShownLookKind, Map<string, PlayerCosmeticSelection>> = { paid: new Map(), freeOnly: new Map() };
+  const shownLimit: Record<ShownLookKind, number> = { paid: MAX_LOADED_COSMETIC_SELECTIONS, freeOnly: MAX_LOADED_FREE_COSMETIC_SELECTIONS };
+  const shownLookOf = (playerId: string): PlayerCosmeticSelection | undefined => shown.paid.get(playerId) ?? shown.freeOnly.get(playerId);
   let hydrateTruncated = 0;
   let shownCapRejections = 0;
   const now = deps.now ?? (() => Date.now());
@@ -96,17 +108,21 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
 
   const remember = (playerId: string, selection: PlayerCosmeticSelection): void => {
     if (isEmptyCosmeticSelection(selection)) {
-      shown.delete(playerId);
+      shown.paid.delete(playerId);
+      shown.freeOnly.delete(playerId);
       return;
     }
-    if (!shown.has(playerId) && shown.size >= MAX_LOADED_COSMETIC_SELECTIONS) {
-      // The choice is still saved; other players see the default look until
-      // the limit is raised. Counted so it cannot happen silently.
+    const kind = shownLookKind(selection);
+    const set = shown[kind];
+    if (!set.has(playerId) && set.size >= shownLimit[kind]) {
+      // The choice is still saved; other players see the old look until the
+      // limit is raised. Counted so it cannot happen silently.
       shownCapRejections += 1;
-      deps.log?.("account cosmetics shown-look limit reached", { limit: MAX_LOADED_COSMETIC_SELECTIONS });
+      deps.log?.("account cosmetics shown-look limit reached", { kind, limit: shownLimit[kind] });
       return;
     }
-    shown.set(playerId, selection);
+    shown[kind === "paid" ? "freeOnly" : "paid"].delete(playerId);
+    set.set(playerId, selection);
   };
 
   const stateFor = async (playerId: string): Promise<{ type: "COSMETICS_STATE"; owned: CosmeticId[]; selected: PlayerCosmeticSelection }> => ({
@@ -123,22 +139,28 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
 
   const service: AccountCosmeticsService = {
     async hydrate() {
-      const { selections, truncated } = await store.listSelections(MAX_LOADED_COSMETIC_SELECTIONS);
-      shown.clear();
-      for (const [playerId, selection] of selections) shown.set(playerId, selection);
-      if (truncated) {
-        hydrateTruncated += 1;
-        deps.log?.("account cosmetics shown looks truncated at boot", { limit: MAX_LOADED_COSMETIC_SELECTIONS });
+      for (const kind of ["paid", "freeOnly"] as const) {
+        const { selections, truncated } = await store.listSelections(shownLimit[kind], kind);
+        shown[kind].clear();
+        for (const [playerId, selection] of selections) shown[kind].set(playerId, selection);
+        if (truncated) {
+          hydrateTruncated += 1;
+          deps.log?.("account cosmetics shown looks truncated at boot", { kind, limit: shownLimit[kind] });
+        }
       }
     },
 
     shownSelections() {
-      return Object.fromEntries(shown);
+      return Object.fromEntries([...shown.freeOnly, ...shown.paid]);
     },
+
+    shownSelectionFor: shownLookOf,
 
     async grant(playerId, cosmeticId, grantRef) {
       if (typeof playerId !== "string" || playerId.length === 0 || playerId.length > 200) return { ok: false, error: "invalid_player" };
       if (!isCosmeticId(cosmeticId)) return { ok: false, error: "unknown_cosmetic" };
+      // Every account owns a free cosmetic already; it is never stored as a grant.
+      if (isFreeCosmetic(cosmeticId)) return { ok: true, newlyGranted: false, owned: await store.listOwned(playerId) };
       const { newlyGranted } = await store.grant(playerId, cosmeticId, grantRef.slice(0, 200) || "unspecified");
       const state = await stateFor(playerId);
       if (newlyGranted) deps.sendToPlayer(playerId, state);
@@ -165,7 +187,9 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
     async revoke(playerId, cosmeticId) {
       if (typeof playerId !== "string" || playerId.length === 0) return { ok: false, error: "invalid_player" };
       if (!isCosmeticId(cosmeticId)) return { ok: false, error: "unknown_cosmetic" };
-      const before = shown.get(playerId);
+      // A free cosmetic (a House crest) cannot be taken back, so its selection stays.
+      if (isFreeCosmetic(cosmeticId)) return { ok: true, newlyGranted: false, owned: await store.listOwned(playerId) };
+      const before = shownLookOf(playerId);
       const { revoked } = await store.revoke(playerId, cosmeticId);
       const state = await stateFor(playerId);
       if (before && JSON.stringify(before) !== JSON.stringify(state.selected)) publish(playerId, state.selected);
@@ -182,13 +206,14 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         reply(await stateFor(playerId));
         return;
       }
+      // Refusals name the slot, so the client settles only the save it was waiting on.
       const { slot, cosmeticId } = message;
       if (!isCosmeticSlot(slot) || (cosmeticId !== null && !(isCosmeticId(cosmeticId) && cosmeticBelongsToSlot(cosmeticId, slot)))) {
-        reply({ type: "ERROR", code: "COSMETIC_INVALID", message: "That cosmetic does not exist." });
+        reply({ type: "ERROR", code: "COSMETIC_INVALID", message: "That cosmetic does not exist.", slot });
         return;
       }
       if (cosmeticId !== null && !isFreeCosmetic(cosmeticId) && !(await store.listOwned(playerId)).includes(cosmeticId)) {
-        reply({ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic." });
+        reply({ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic.", slot });
         return;
       }
       if (((await store.getSelection(playerId))[slot] ?? null) === cosmeticId) {
@@ -196,7 +221,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         return;
       }
       if (changedTooRecently(playerId, now())) {
-        reply({ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again." });
+        reply({ type: "ERROR", code: "COSMETIC_RATE_LIMITED", message: "Wait a moment before changing your look again.", slot });
         return;
       }
       const selection = await store.setSelection(playerId, slot, cosmeticId);
@@ -208,7 +233,8 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       const counts = await store.counts();
       return `\n# TYPE gateway_account_cosmetics_owned gauge\ngateway_account_cosmetics_owned ${counts.owned}\n` +
         `# TYPE gateway_account_cosmetics_selected gauge\ngateway_account_cosmetics_selected ${counts.selected}\n` +
-        `# TYPE gateway_account_cosmetics_shown_accounts gauge\ngateway_account_cosmetics_shown_accounts ${shown.size}\n` +
+        `# TYPE gateway_account_cosmetics_shown_accounts gauge\ngateway_account_cosmetics_shown_accounts ${shown.paid.size + shown.freeOnly.size}\n` +
+        `# TYPE gateway_account_cosmetics_shown_free_only_accounts gauge\ngateway_account_cosmetics_shown_free_only_accounts ${shown.freeOnly.size}\n` +
         `# TYPE gateway_account_cosmetics_catalog_size gauge\ngateway_account_cosmetics_catalog_size ${COSMETIC_CATALOG.length}\n` +
         `# TYPE gateway_account_cosmetics_shown_cap_rejections_total counter\ngateway_account_cosmetics_shown_cap_rejections_total ${shownCapRejections + hydrateTruncated}\n`;
     }

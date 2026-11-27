@@ -1,4 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { TOWN_UNFED_FIX, townUnfedDetail } from "../client-town-food-demand/client-town-unfed-reason.js";
 import { garrisonPlannedTileKeys, isOwnTownUngarrisoned, shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -122,7 +123,7 @@ export const persistentAlertsForState = (
         kind: "town_unfed",
         title: "Town unfed",
         // Says the fix, not just the state: a playtester stayed Unfed with no idea how to feed the town (2026-11).
-        detail: `${townLabel(tile)}: garrison grain or fish in your reach.`,
+        detail: `${townLabel(tile)}: ${tile.town ? townUnfedDetail(tile.town) : TOWN_UNFED_FIX}`,
         x: tile.x,
         y: tile.y,
         severity: "warn"

@@ -87,7 +87,7 @@ export const renderCaptureProgress = (
   // banner with a countdown: several attacks can now resolve at once, and
   // each one already shows its own progress on the map (skirmish, claim
   // plate, marching company) and in its tile menu. The card only appears for
-  // results and errors (captureAlert above).
+  // failed results and errors (captureAlert above); good news never does (showCaptureAlert).
   hideCaptureCard(deps);
   if (state.capture && !state.capture.silent) revealLockedCombatResult(state, deps);
 };

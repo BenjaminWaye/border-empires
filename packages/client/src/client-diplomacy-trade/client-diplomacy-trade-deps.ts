@@ -3,6 +3,7 @@
 import type { DiplomacyGoods, ResourceSupplyAgreementStatus, ResourceSupplyOffer, ResourceTradeOffer } from "@border-empires/shared";
 import type { ChronicleWarCounts } from "./client-diplomacy-trade-view.js";
 import { fealtyLookupFor, type FealtyLookup, type FealtyState } from "../client-fealty/client-fealty.js";
+import { dropCounteredOffer, type CounteredOfferState } from "./client-countered-offer-drop.js";
 
 export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
@@ -19,7 +20,7 @@ export type DiplomacyTradeDeps = {
   fealtyWith?: FealtyLookup;
 };
 
-type TradeDepsState = {
+type TradeDepsState = CounteredOfferState & {
   resourceTradeOffers?: readonly ResourceTradeOffer[];
   me?: string;
   resourceTradeAgreements?: readonly ResourceSupplyAgreementStatus[];
@@ -37,7 +38,12 @@ type TradeDepsState = {
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (state: TradeDepsState, send: DiplomacyTradeDeps["send"]): DiplomacyTradeDeps => ({
-  send,
+  // A sent counter replaces the offer it answers, so that offer leaves the dock and Diplomacy at once.
+  send: (payload, notSignedInMessage) => {
+    const sent = send(payload, notSignedInMessage);
+    if (sent) dropCounteredOffer(state, payload);
+    return sent;
+  },
   fealtyWith: fealtyLookupFor({ me: state.me ?? "", leaderboard: state.leaderboard }),
   chronicleRival: (targetPlayerId) => state.activityDashboard?.timeline?.rivals?.find((rival) => rival.playerId === targetPlayerId),
   runningTruce: (targetPlayerId, targetName) =>
