@@ -30,6 +30,22 @@ describe("scout drone dock", () => {
     expect((document.getElementById("scout-drone-dock") as HTMLElement).style.display).toBe("none");
   });
 
+  // Playtest Run 5: own land touching a rival's, fog past it. The plan's only stop was pulled back onto
+  // the player's own land, Go sent it and the server said "Explore past your own land".
+  it("shows Blocked and sends nothing when a seen rival border blocks the plan before any open tile", () => {
+    const state = planningState();
+    state.tiles.set("1,2", { x: 1, y: 2, terrain: "LAND", ownerId: "me" } as Tile);
+    state.tiles.set("1,3", { x: 1, y: 3, terrain: "LAND", ownerId: "rival" } as Tile);
+    const deps = { send: vi.fn(() => true), rerender: vi.fn(), now: () => 0 };
+    renderScoutDroneDock(state, deps);
+    const go = document.querySelector("#scout-drone-dock .sd-go") as HTMLButtonElement;
+    expect(go.disabled).toBe(true);
+    expect(go.textContent).toBe("Blocked");
+    go.click();
+    expect(deps.send).not.toHaveBeenCalled();
+    expect(state.scoutDronePicking.stops).toEqual([{ x: 1, y: 6 }]);
+  });
+
   // Owner 2026-11-21: eight charge pips overflowed a 375px phone; one counter replaces them.
   it("shows one count of charges still free to place", () => {
     const state = planningState();

@@ -7,6 +7,7 @@
 // (every production deploy restarts it) and simply carries on.
 import type { HostingStore, SectorRecord } from "../hosting-store/hosting-store.js";
 import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers/providers.js";
+import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
 
@@ -26,6 +27,7 @@ const errorText = (error: unknown): string => (error instanceof Error ? error.me
 export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   const { store, config } = deps;
   const funding = createFundingReconciler(deps);
+  const withdrawals = createWithdrawalService(deps);
   // The highest running-count mark already reported, so each is reported once per process.
   let reportedMark = 0;
 
@@ -153,6 +155,12 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
         } catch (error) {
           store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
         }
+      }
+      // A withdrawal's refund the payment provider did not accept yet is sent again.
+      try {
+        await withdrawals.retryPendingRefunds();
+      } catch {
+        // Each failure is alerted where it happens; the next pass tries again.
       }
       reportRunningCount();
       store.prunePaymentEvents(deps.now() - config.paymentEventRetentionMs);
