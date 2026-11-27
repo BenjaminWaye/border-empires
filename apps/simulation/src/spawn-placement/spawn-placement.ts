@@ -78,6 +78,11 @@ export type LegacySpawnPlacementInput = {
   // avoidRivalReach — the map has no open ground left clear of every empire's
   // reach, which is the signal to size the next season's world up.
   onRivalReachRelaxed?: () => void;
+  // false = only a viable landing site counts: every pass that drops
+  // avoidRivalReach is skipped, so a map with no ground clear of rival reach
+  // yields undefined. A first-time join uses this (GDD §6: no landing site,
+  // no join); recovery and redeploy paths leave it unset and still land.
+  allowRivalReachRelaxation?: boolean;
 };
 
 // The AFC's own TOWN_REACH_RADIUS disk plus one ring, so the new border never
@@ -225,6 +230,9 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     return true;
   };
 
+  const relaxationAllowed = input.allowRivalReachRelaxation !== false || !reachOwnerAt;
+  const passAllowed = (requirements: SpawnRequirements): boolean => relaxationAllowed || requirements.avoidRivalReach === true;
+
   const accept = (tile: { x: number; y: number }, requirements: SpawnRequirements): { x: number; y: number } => {
     if (!requirements.avoidRivalReach && reachOwnerAt) input.onRivalReachRelaxed?.();
     return { x: tile.x, y: tile.y };
@@ -238,7 +246,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
         const rightDistance = chebyshevDistance(right.x, right.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
         return (leftDistance - rightDistance) || (left.y - right.y) || (left.x - right.x);
       }), terrainAt);
-    for (const requirements of RALLY_SPAWN_SEARCH_ORDER) {
+    for (const requirements of RALLY_SPAWN_SEARCH_ORDER.filter(passAllowed)) {
       const qualifyingCandidates = nearbyCandidates.filter((tile) => canSpawnAt(tile.x, tile.y, requirements, false));
       const rallySpawn = qualifyingCandidates[hashString(input.playerId) % Math.max(1, Math.min(qualifyingCandidates.length, 8))];
       if (rallySpawn) return accept(rallySpawn, requirements);
@@ -246,7 +254,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   }
 
   let seed = hashString(input.playerId);
-  for (const pass of LEGACY_SPAWN_SEARCH_ORDER) {
+  for (const pass of LEGACY_SPAWN_SEARCH_ORDER.filter((searchPass) => passAllowed(searchPass.requirements))) {
     for (let attempt = 0; attempt < pass.tries; attempt += 1) {
       seed = nextSeed(seed + attempt);
       const candidate = spawnCandidates[seed % spawnCandidates.length];
@@ -256,11 +264,20 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   }
   // Last resort: the loosest pass again without the dry-footprint rule, so a
   // waterlogged map still yields a spawn rather than none.
-  const loosestPass = LEGACY_SPAWN_SEARCH_ORDER[LEGACY_SPAWN_SEARCH_ORDER.length - 1]!;
+  const allowedPasses = LEGACY_SPAWN_SEARCH_ORDER.filter((searchPass) => passAllowed(searchPass.requirements));
+  const loosestPass = allowedPasses[allowedPasses.length - 1]!;
   for (let attempt = 0; attempt < loosestPass.tries; attempt += 1) {
     seed = nextSeed(seed + attempt);
     const candidate = spawnCandidates[seed % spawnCandidates.length];
     if (candidate && canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, false)) return accept(candidate, loosestPass.requirements);
+  }
+  // With relaxation off, "nothing found" refuses a join or a redeploy and marks
+  // the Sector full, so random sampling must not miss a real site: scan every
+  // candidate once (dry footprint first). Only reached on a nearly full map.
+  if (!relaxationAllowed) {
+    for (const requireDry of [true, false]) {
+      for (const candidate of spawnCandidates) if (canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, requireDry)) return accept(candidate, loosestPass.requirements);
+    }
   }
 
   return undefined;

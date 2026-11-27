@@ -43,6 +43,16 @@ const liveStanding = (pulse: WorldPulse, standings: WorldTabStandings | undefine
   };
 };
 
+/**
+ * The arrow measured against the same live rank it sits next to. The pulse's rankChange is
+ * previous-visit rank minus the fetched rank, so the previous rank is fetched rank + rankChange
+ * (no rankChange: unchanged at fetch time). A stale arrow beside a live rank read e.g. "#23 ▼1".
+ */
+const liveRankChange = (pulse: WorldPulse, liveRank: number | undefined): number | undefined => {
+  if (typeof pulse.rank !== "number" || typeof liveRank !== "number") return undefined;
+  return pulse.rank + (pulse.rankChange ?? 0) - liveRank;
+};
+
 /** As many leading powers as the pulse lists (world-pulse.ts WORLD_PULSE_LEADING_POWER_CAP). */
 const WORLD_LEADING_POWERS = 5;
 
@@ -51,8 +61,9 @@ export const worldTabHtml = (input: WorldTabInput): string => {
   if (!fetched) return `<div class="v2s-empty">${esc(input.error ?? (input.loading ? "Loading…" : "No world news yet"))}</div>`;
   const pulse = fetched;
   const { rank: myRank, leadingPowers } = liveStanding(fetched, input.standings);
-  const change = typeof pulse.rankChange === "number" && pulse.rankChange !== 0
-    ? `<span class="v2c-rank-change ${pulse.rankChange > 0 ? "v2c-up" : "v2c-down"}">${pulse.rankChange > 0 ? "▲" : "▼"}${Math.abs(pulse.rankChange)}</span>`
+  const rankChange = liveRankChange(fetched, myRank);
+  const change = typeof rankChange === "number" && rankChange !== 0
+    ? `<span class="v2c-rank-change ${rankChange > 0 ? "v2c-up" : "v2c-down"}">${rankChange > 0 ? "▲" : "▼"}${Math.abs(rankChange)}</span>`
     : "";
   const rank = `<div class="v2c-world-rank"><span class="v2c-world-label">${esc(pulse.seasonLabel ?? "This Sector Contest")}</span><span class="v2c-world-you">${typeof myRank === "number" ? `You #${myRank}` : "Unranked"}${change}</span></div>`;
   const powers = leadingPowers.length > 0

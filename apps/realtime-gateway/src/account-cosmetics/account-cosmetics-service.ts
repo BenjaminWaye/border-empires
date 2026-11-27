@@ -6,6 +6,8 @@ import {
   isCosmeticId,
   isCosmeticSlot,
   isEmptyCosmeticSelection,
+  isFreeCosmetic,
+  ownedWithFreeCosmetics,
   type AccountTitle,
   type CosmeticId,
   type PlayerCosmeticSelection
@@ -17,8 +19,8 @@ import { MAX_LOADED_COSMETIC_SELECTIONS, type AccountCosmeticsStore } from "./ac
 // and telling every connected player when that changes.
 //
 // Wire cost. Only accounts with a non-default look are ever sent: a player who
-// owns nothing adds no bytes to INIT or to any broadcast. A selection is two
-// short ids at most (about 60 bytes as JSON).
+// shows no cosmetic adds no bytes to INIT or to any broadcast. A selection is
+// one short id per slot (about 90 bytes as JSON with all three).
 //
 // Memory. `shown` holds one small object per account with a non-default look
 // on this server. It is loaded once at boot with a hard limit and reported as
@@ -40,6 +42,7 @@ export const COSMETIC_CHANGE_MIN_INTERVAL_MS = 1_000;
 // Bound on remembered change times; older than the interval are dropped first.
 const MAX_TRACKED_CHANGE_TIMES = 1_000;
 
+// `owned` here is what the account was granted; free cosmetics are left out.
 export type CosmeticGrantOutcome =
   | { ok: true; newlyGranted: boolean; owned: CosmeticId[] }
   | { ok: false; error: "unknown_cosmetic" | "unknown_product" | "invalid_player" };
@@ -108,7 +111,8 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
 
   const stateFor = async (playerId: string): Promise<{ type: "COSMETICS_STATE"; owned: CosmeticId[]; selected: PlayerCosmeticSelection }> => ({
     type: "COSMETICS_STATE",
-    owned: await store.listOwned(playerId),
+    // Free cosmetics (House crests) are owned by everyone without a stored grant.
+    owned: ownedWithFreeCosmetics(await store.listOwned(playerId)),
     selected: await store.getSelection(playerId)
   });
 
@@ -138,7 +142,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       const { newlyGranted } = await store.grant(playerId, cosmeticId, grantRef.slice(0, 200) || "unspecified");
       const state = await stateFor(playerId);
       if (newlyGranted) deps.sendToPlayer(playerId, state);
-      return { ok: true, newlyGranted, owned: state.owned };
+      return { ok: true, newlyGranted, owned: await store.listOwned(playerId) };
     },
 
     async grantProduct(playerId, productId, grantRef) {
@@ -166,7 +170,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       const state = await stateFor(playerId);
       if (before && JSON.stringify(before) !== JSON.stringify(state.selected)) publish(playerId, state.selected);
       if (revoked) deps.sendToPlayer(playerId, state);
-      return { ok: true, newlyGranted: false, owned: state.owned };
+      return { ok: true, newlyGranted: false, owned: await store.listOwned(playerId) };
     },
 
     async handleClientMessage(playerId, message, reply) {
@@ -183,7 +187,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         reply({ type: "ERROR", code: "COSMETIC_INVALID", message: "That cosmetic does not exist." });
         return;
       }
-      if (cosmeticId !== null && !(await store.listOwned(playerId)).includes(cosmeticId)) {
+      if (cosmeticId !== null && !isFreeCosmetic(cosmeticId) && !(await store.listOwned(playerId)).includes(cosmeticId)) {
         reply({ type: "ERROR", code: "COSMETIC_NOT_OWNED", message: "Your account does not own that cosmetic." });
         return;
       }

@@ -18,6 +18,7 @@ import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-rend
 import { incursionBreachSettingsFieldHtml } from "../client-reach-incursion/client-incursion-breach-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
 
 export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
@@ -93,7 +94,7 @@ export const settingsHubHtml = (
   state: Pick<ClientState, "meName" | "authUserLabel" | "authReady" | "mapRevealEligible" | "authSessionReady">
 ): string => `
   <div class="card auth-settings-card settings-hub">
-    <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
+    <p>Signed in as ${escapeHtml(state.meName || state.authUserLabel || "Guest")}.</p>
     ${SETTINGS_NAV_ITEMS.filter((item) => item.id !== "admin" || settingsAdminAvailable(state)).map(
       (item) => `
       <button type="button" class="settings-nav-item" data-settings-nav="${item.id}">
@@ -118,12 +119,12 @@ export const settingsAccountPageHtml = (
   const color = state.playerColors.get(state.me) ?? "#38b000";
   return `
     <div class="card auth-settings-card">
-      <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
+      <p>Signed in as ${escapeHtml(state.meName || state.authUserLabel || "Guest")}.</p>
       <div class="settings-account-summary">
         <span class="settings-account-swatch" style="--swatch: ${color}" aria-hidden="true"></span>
-        <span>${state.meName || "Unnamed empire"}</span>
+        <span>${escapeHtml(state.meName || "Unnamed empire")}</span>
       </div>
-      <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name &amp; Colour</button>
+      <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name, Colour &amp; Crest</button>
       <button type="button" class="panel-btn" data-account-delete ${state.authSessionReady ? "" : "disabled"}>Delete account</button>
       <p>Account deletion is permanent.</p>
       <div class="account-settings-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a><a href="https://play.borderempires.com/support.html" target="_blank" rel="noopener">Support</a></div>

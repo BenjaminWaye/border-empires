@@ -68,6 +68,16 @@ describe("House Charges card styles", () => {
     expect(order.indexOf("hcd-status")).toBeLessThan(order.length - 1);
   });
 
+  // Regression (owner 2026-11-27, staging phone): with one card kept, "Keep these 2" is disabled but looked
+  // exactly like the live button, so tapping it seemed to do nothing. A disabled Keep must look disabled.
+  it("dims the Keep button while it cannot be pressed", () => {
+    const style = source("client-house-charges-style.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = style.match(/\.house-charges-popover \[data-house-charges-save\]:disabled \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/opacity:\s*0?\.\d/);
+    // The steampunk theme's .panel-btn:hover has no :not(:disabled); a tap must not light the greyed button up.
+    expect(rule).toMatch(/pointer-events:\s*none/);
+  });
+
   // Review of #2887: a phone held sideways is wider than 900 px but compact, and must keep the phone panel.
   it("floats the hand only on the desktop HUD, never on a compact one", () => {
     const desktop = motionCss.slice(motionCss.indexOf("@media (min-width: 901px)"), motionCss.indexOf("@keyframes hcd-float"));

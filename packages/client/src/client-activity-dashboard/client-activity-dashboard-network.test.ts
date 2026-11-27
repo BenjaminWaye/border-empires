@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerHintStateSender } from "../client-discovery-tips/client-hint-server-sync.js";
+import { CLIENT_CHANGELOG_AUTO_OPENED_KEY } from "../client-changelog/client-changelog-auto-open.js";
+
+// In-memory localStorage stand-in: these tests run in node, where the real one is absent.
+const storedValues = new Map<string, string>();
+vi.mock("../client-state/client-storage.js", () => ({
+  storageGet: (key: string) => storedValues.get(key) ?? null,
+  storageSet: (key: string, value: string) => void storedValues.set(key, value),
+  storageRemove: (key: string) => void storedValues.delete(key)
+}));
 import {
   ACTIVITY_LOAD_FAILED_MESSAGE,
   ACTIVITY_REQUEST_TIMEOUT_MS,
@@ -16,6 +25,7 @@ import {
 // Server-bound hint-state writes (SET_HINT_STATE) the handler reports.
 const sentHintPatches: unknown[] = [];
 beforeEach(() => {
+  storedValues.clear();
   sentHintPatches.length = 0;
   registerHintStateSender((patch) => sentHintPatches.push(patch));
 });
@@ -182,12 +192,12 @@ describe("the dashboard on the first login of a season", () => {
     expect(state.activityDashboard.autoOpenedThisSession).toBe(false);
   });
 
-  it("opens What's New on the next login in that season (server now holds the season)", () => {
+  it("opens the Chronicle on Yours on the next login in that season (server now holds the season)", () => {
     const state = firstLoginState();
     state.activityDashboard.quietedSeasonId = "season-1"; // INIT.player.dashboardQuietedSeasonId on the next login
     applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
     expect(state.activityDashboard.open).toBe(true);
-    expect(state.activityDashboard.activeView).toBe("UPDATES");
+    expect(state.activityDashboard.activeView).toBe("YOURS");
     expect(sentHintPatches).toEqual([]);
   });
 
@@ -396,11 +406,32 @@ describe("a returning player with unread events and unread release notes", () =>
     expect(state.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
   });
 
-  it("still opens Updates once everything in the timeline has been read", () => {
+  it("unseen release notes open the Chronicle on Yours, not Updates, once the timeline is read", () => {
     const state = returningState();
     state.activitySeen.lastActivitySeenAt = 950;
     applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
     expect(state.activityDashboard.open).toBe(true);
-    expect(state.activityDashboard.activeView).toBe("UPDATES");
+    expect(state.activityDashboard.activeView).toBe("YOURS");
+  });
+
+  it("the same unseen release notes do not reopen the Chronicle on the next page load", () => {
+    const firstLoad = returningState();
+    firstLoad.activitySeen.lastActivitySeenAt = 950;
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, firstLoad, deps());
+    expect(firstLoad.activityDashboard.open).toBe(true);
+    expect(firstLoad.changelog.seenAt).toBe(1); // the notes are still unseen: Updates keeps its badge
+
+    const nextLoad = returningState(); // a fresh page load: per-session flags reset
+    nextLoad.activitySeen.lastActivitySeenAt = 950;
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, nextLoad, deps());
+    expect(nextLoad.activityDashboard.open).toBe(false);
+  });
+
+  it("newer release notes than the last auto-open still open the Chronicle", () => {
+    storedValues.set(CLIENT_CHANGELOG_AUTO_OPENED_KEY, "2");
+    const state = returningState();
+    state.activitySeen.lastActivitySeenAt = 950;
+    applyPersonalActivityTimelineMessage({ timeline: raided() }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
   });
 });

@@ -1,5 +1,4 @@
 import { OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, garrisonBlockedByReach, isCaptureHoldActive } from "@border-empires/shared";
-import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
@@ -74,7 +73,7 @@ export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean 
 const insideReachText = (ownerNames: readonly string[]): string =>
   ownerNames.length === 0 || ownerNames.length > 2
     ? "Inside Enemy Reach"
-    : `Inside ${ownerNames.map(escapeHtml).join(" and ")} Reach`;
+    : `Inside ${ownerNames.join(" and ")} Reach`;
 
 export const tileMenuHeaderStatusForTile = (
   tile: Tile,

@@ -285,6 +285,19 @@ export const commitPreviewWinChanceForTarget = (
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
   }
 ): number | undefined => {
+  const baseWinChance = previewBaseWinChanceForTarget(state, to, deps);
+  return baseWinChance === undefined ? undefined : winChanceAtCommit(state, to, baseWinChance, commitManpower);
+};
+
+/** The fresh server preview's win chance at the attack floor, or undefined when none is cached. */
+export const previewBaseWinChanceForTarget = (
+  state: ClientState,
+  to: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+  }
+): number | undefined => {
   const from = deps.pickOriginForTarget(to.x, to.y);
   const toKey = deps.keyFor(to.x, to.y);
   const preview = resolvedAttackPreviewForTarget(
@@ -293,11 +306,24 @@ export const commitPreviewWinChanceForTarget = (
       ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
-  if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
-  if (!isCommitOddsEligibleTarget(to, Date.now())) return preview.winChance;
-  const base = attackFloorForPlayer(state, to);
-  const multiplier = commitOddsMultiplier(commitManpower, base);
-  return Math.max(0, Math.min(1, applyOddsScale(preview.winChance, multiplier)));
+  return preview?.valid && typeof preview.winChance === "number" ? preview.winChance : undefined;
+};
+
+/**
+ * The server preview's base win chance scaled to `commitManpower` -- the
+ * commit-ladder math commitPreviewWinChanceForTarget applies, split out so
+ * the effort sheet can keep scaling the last base it saw while a fresh
+ * preview is in flight.
+ */
+export const winChanceAtCommit = (
+  state: { domainIds?: readonly string[] },
+  to: Tile,
+  baseWinChance: number,
+  commitManpower: number
+): number => {
+  if (!isCommitOddsEligibleTarget(to, Date.now())) return baseWinChance;
+  const multiplier = commitOddsMultiplier(commitManpower, attackFloorForPlayer(state, to));
+  return Math.max(0, Math.min(1, applyOddsScale(baseWinChance, multiplier)));
 };
 
 // The full base/infrastructure/battle breakdown for the "verify the math"
