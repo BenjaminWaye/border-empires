@@ -71,6 +71,24 @@ describe("hosting HTTP routes", () => {
     expect((await call("DELETE", `/hosting/invites/${invite.invite.code}`, "host")).json()).toEqual({ ok: true, revoked: true });
   });
 
+  it("quotes a withdrawal, and acts only on a confirmed one", async () => {
+    const { h, call } = await start();
+    const sectorId = await h.openSector();
+    h.clock.now += 3_600_000;
+    const quoted = await call("GET", `/hosting/sectors/${sectorId}/withdrawal`, "host");
+    expect(quoted.json()).toMatchObject({ ok: true, quote: { refundCents: 1933 } });
+    const unconfirmed = await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", {});
+    expect(unconfirmed.statusCode).toBe(400);
+    expect(h.store.getSector(sectorId)?.state).toBe("open");
+    expect((await call("GET", `/hosting/sectors/${sectorId}/withdrawal`, "stranger")).statusCode).toBe(404);
+    // Confirmed, but not for the purchase that was quoted: refused.
+    expect((await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", { confirm: true, purchaseKey: "other" })).statusCode).toBe(409);
+    const done = await call("POST", `/hosting/sectors/${sectorId}/withdrawal`, "host", { confirm: true, purchaseKey: (quoted.json() as { quote: { purchaseKey: string } }).quote.purchaseKey });
+    expect(done.json()).toMatchObject({ ok: true, withdrawal: { refundCents: 1933 } });
+    expect(h.store.getSector(sectorId)?.state).toBe("refunded");
+    expect((await call("GET", `/hosting/sectors/${sectorId}/withdrawal`, "host")).statusCode).toBe(409);
+  });
+
   it("never exposes payment or server references to players", async () => {
     const { h, call } = await start();
     const sectorId = await h.openSector();

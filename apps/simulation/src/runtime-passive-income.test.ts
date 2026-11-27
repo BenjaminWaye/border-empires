@@ -71,4 +71,31 @@ describe("applyPassiveIncome AI inactivity-cap exemption", () => {
     const playerAfter = runtime.exportState().players.find((entry) => entry.id === "player-1");
     expect(playerAfter?.points ?? 0).toBe(pointsBefore);
   });
+
+  // Playtest Run 5: new players sat at 0 coin after a day away. The last-activity map lived only
+  // in memory, so after a restart every human who had not acted since read as inactive and
+  // stopped earning, though they had played an hour before it.
+  it("keeps paying a human who was active shortly before a restart", async () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const t0 = 10 * dayMs;
+    const first = new SimulationRuntime({
+      now: () => t0,
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", false)]]),
+      seedTiles: new Map(),
+      initialState: { tiles: [goldTownTile("player-1")], activeLocks: [] }
+    });
+    first.updatePlayerLastActive("player-1", t0);
+    first.applyPassiveIncome(t0 + 60_000, dayMs);
+    const saved = (await first.exportSnapshotSections()).initialState;
+    expect(saved.players?.find((entry) => entry.id === "player-1")?.lastActiveAt).toBe(t0);
+
+    const restarted = new SimulationRuntime({ now: () => t0 + 60_000, seedTiles: new Map(), initialState: saved });
+    const pointsAtBoot = restarted.exportState().players.find((entry) => entry.id === "player-1")?.points ?? 0;
+    restarted.applyPassiveIncome(t0 + 2 * 60 * 60 * 1000, dayMs);
+    expect(restarted.exportState().players.find((entry) => entry.id === "player-1")?.points ?? 0).toBeGreaterThan(pointsAtBoot);
+    // Past 24h from that activity the cap still applies.
+    const pointsAtCap = restarted.exportState().players.find((entry) => entry.id === "player-1")?.points ?? 0;
+    restarted.applyPassiveIncome(t0 + dayMs + 60 * 60 * 1000, dayMs);
+    expect(restarted.exportState().players.find((entry) => entry.id === "player-1")?.points ?? 0).toBe(pointsAtCap);
+  });
 });
