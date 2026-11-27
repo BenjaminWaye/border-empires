@@ -114,7 +114,8 @@ body.hud-v2-compact .v2t-stat-v { font-size: 14px; }
 body.hud-v2-compact .v2t-h { padding: 8px 12px 4px; }
 body.hud-v2-compact .v2t-built-list { flex: none; overflow: visible; }
 body.hud-v2-compact .v2t-built { padding: 4px 12px; }
-body.hud-v2-compact .v2t-grow-wrap { padding: 8px 12px 10px; }
+/* Not pinned on phones: the panel is only 34dvh, and the foot is where a previewed focus pins its Confirm. */
+body.hud-v2-compact .v2t-grow-wrap { position: static; padding: 8px 12px 10px; }
 body.hud-v2-compact .v2t-grow { height: 46px; }
 body.hud-v2-compact .v2t-right {
   left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px)); width: auto; border-width: 1px 0;

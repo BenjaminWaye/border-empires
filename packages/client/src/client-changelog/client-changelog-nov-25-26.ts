@@ -1,5 +1,7 @@
 // Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
+import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { TOWN_PANEL_TIDY_ENTRY } from "./client-changelog-town-panel-tidy.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
 import { DEPLOY_COUNTDOWN_ENTRY } from "./client-changelog-deploy-countdown.js";
@@ -18,9 +20,9 @@ import { TOWN_PLOT_GARRISON_ENTRY } from "./client-changelog-town-plot-garrison.
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
-import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
+  { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
   { ...DEPLOY_COUNTDOWN_ENTRY, createdAt: 1795627725789, },
   { ...TOWN_FOCUS_ENTRY, createdAt: 1795631183370, },
@@ -42,5 +44,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
-  { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
+  { ...TOWN_PANEL_TIDY_ENTRY, createdAt: 1795776197366, },
 ];
