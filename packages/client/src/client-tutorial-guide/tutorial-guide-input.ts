@@ -23,6 +23,7 @@ import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-b
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 import { scoutChargesReady, scoutLaunchAfc } from "../client-scout-drone/client-scout-drone-plan.js";
 import { leadRouteLegs } from "../client-scout-drone/client-scout-drone-lead-route.js";
+import { guideAttackLaunched, guideAttackTargets, guideTruceStage, type GuideAttackCandidate, type GuideContestState } from "./tutorial-guide-contest-input.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -61,7 +62,8 @@ export type GuideInputState = Pick<
   | "guideTownLead"
   | "scoutDroneCharges"
   | "dockPairs"
->;
+> &
+  GuideContestState;
 
 const MAX_BUILD_TARGETS = 6;
 const MAX_MUSTER_TARGETS = 6;
@@ -78,6 +80,8 @@ type TileScan = {
   waystationGiftTechIds: Set<string>;
   buildTargetTiles: Array<{ x: number; y: number }>;
   musterTargetTiles: Array<{ x: number; y: number }>;
+  /** Other owners' land tiles touching the player's land: Planetary Defense or a rival to attack. */
+  attackCandidates: GuideAttackCandidate[];
 };
 
 const NEIGHBOUR_OFFSETS = [
@@ -101,6 +105,9 @@ const touchesOtherOwner = (tiles: ReadonlyMap<string, Tile>, tile: Tile, me: str
     return Boolean(neighbour?.ownerId && neighbour.ownerId !== me);
   });
 
+const touchesMine = (tiles: ReadonlyMap<string, Tile>, tile: Tile, me: string): boolean =>
+  NEIGHBOUR_OFFSETS.some(([dx, dy]) => tiles.get(tileKey(wrap(tile.x + dx, WORLD_WIDTH), wrap(tile.y + dy, WORLD_HEIGHT)))?.ownerId === me);
+
 /** A border tile: a land neighbour isn't the player's (neutral, another owner's, or not yet seen). */
 const touchesLandNotMine = (tiles: ReadonlyMap<string, Tile>, tile: Tile, me: string): boolean =>
   NEIGHBOUR_OFFSETS.some(([dx, dy]) => {
@@ -120,6 +127,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
   const waystationGiftTechIds = new Set<string>();
   const buildCandidates: Array<{ x: number; y: number }> = [];
   const musterCandidates: Array<{ x: number; y: number }> = [];
+  const attackCandidates: GuideAttackCandidate[] = [];
   // When no border tile touches another owner (Planetary Defense or a rival was only seen
   // across neutral land), any border tile can raise a flag: point at the ones facing them.
   const borderCandidates: Array<{ x: number; y: number }> = [];
@@ -131,6 +139,7 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     const waystation = tile.waystation;
     if (waystation?.activated && waystation.activatedByPlayerId === me && waystation.grantedTechId) waystationGiftTechIds.add(waystation.grantedTechId);
     if (tile.ownerId && tile.ownerId !== me && (!nearestOther || byHomeDistance(tile) < byHomeDistance(nearestOther))) nearestOther = tile;
+    if (tile.ownerId && tile.ownerId !== me && tile.terrain === "LAND" && touchesMine(tiles, tile, me)) attackCandidates.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId });
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.economicStructure?.type === "RELAY_BEACON") ownsRelayBeacon = true;
@@ -160,7 +169,8 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
     waystationGiftTechIds,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
     musterTargetTiles:
-      musterCandidates.length > 0 ? nearest(musterCandidates, MAX_MUSTER_TARGETS) : nearest(borderCandidates, MAX_MUSTER_TARGETS, nearestOther ?? home)
+      musterCandidates.length > 0 ? nearest(musterCandidates, MAX_MUSTER_TARGETS) : nearest(borderCandidates, MAX_MUSTER_TARGETS, nearestOther ?? home),
+    attackCandidates
   };
 };
 
@@ -316,6 +326,9 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     musterUnlocked: cached.musterUnlocked,
     ownsMusterFlag: cached.scan.ownsMusterFlag,
     musterTargetTiles: cached.scan.musterTargetTiles,
+    attackLaunched: guideAttackLaunched(state),
+    attackTargetTiles: () => guideAttackTargets(current.scan.attackCandidates, state, distanceFrom(state.homeTile)),
+    truceStage: guideTruceStage(state),
     manpower: { current: state.manpower, cap: state.manpowerCap },
     // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
