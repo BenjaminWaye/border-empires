@@ -12,6 +12,7 @@ export const createAccountCosmeticsGatewayIntegration = async <Socket>(
     socketsForPlayer: (playerId: string) => Iterable<Socket>;
     queueOrSendSessionPayload: (socket: Socket, payload: unknown) => void;
     log?: (message: string, detail: Record<string, unknown>) => void;
+    getCurrentSeasonId?: () => Promise<string | undefined>;
   }
 ): Promise<AccountCosmeticsService> => {
   const service = createAccountCosmeticsService({
@@ -24,7 +25,8 @@ export const createAccountCosmeticsGatewayIntegration = async <Socket>(
     sendToPlayer: (playerId, payload) => {
       for (const socket of deps.socketsForPlayer(playerId)) deps.queueOrSendSessionPayload(socket, payload);
     },
-    ...(deps.log ? { log: deps.log } : {})
+    ...(deps.log ? { log: deps.log } : {}),
+    ...(deps.getCurrentSeasonId ? { getCurrentSeasonId: deps.getCurrentSeasonId } : {})
   });
   await service.hydrate();
   return service;

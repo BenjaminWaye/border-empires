@@ -10,8 +10,11 @@ import {
   ownedWithFreeCosmetics,
   type AccountTitle,
   type CosmeticId,
+  type CosmeticSlot,
   type PlayerCosmeticSelection
 } from "@border-empires/shared";
+
+import { PROFILE_CHANGE_LIMIT_REASON, profileChangeUsed } from "../profile-change-allowance/profile-change-allowance.js";
 
 import {
   MAX_LOADED_COSMETIC_SELECTIONS,
@@ -42,7 +45,14 @@ export type AccountCosmeticsServiceDeps = {
   sendToPlayer: (playerId: string, payload: unknown) => void;
   log?: (message: string, detail: Record<string, unknown>) => void;
   now?: () => number;
+  /** The current Sector Contest's season id: the crest can change once per contest. Undefined when unknown (no limit applied). */
+  getCurrentSeasonId?: () => Promise<string | undefined>;
 };
+
+// The crest is the House's emblem and, like the name and colour, changes once
+// per Sector Contest (profile-change-allowance.ts); the first pick, from the
+// letter to a crest, counts. Paid looks (muster flag, ancillaries) stay free to swap.
+export const ONCE_PER_CONTEST_COSMETIC_SLOTS: ReadonlySet<CosmeticSlot> = new Set<CosmeticSlot>(["crest"]);
 
 // A look change is broadcast to every socket, so one player may change looks
 // at most this often; a request that changes nothing broadcasts nothing.
@@ -132,6 +142,15 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
     selected: await store.getSelection(playerId)
   });
 
+  const crestChangeUsed = async (playerId: string, seasonId: string | undefined): Promise<boolean> =>
+    profileChangeUsed(seasonId ? await store.slotChangedSeasonId(playerId, "crest") : undefined, seasonId);
+
+  /** COSMETICS_STATE for the player's own requests, with whether this contest's crest change is spent. */
+  const replyStateFor = async (playerId: string, seasonId?: string) => {
+    const season = seasonId ?? (await deps.getCurrentSeasonId?.());
+    return { ...(await stateFor(playerId)), crestChangeUsed: await crestChangeUsed(playerId, season) };
+  };
+
   const publish = (playerId: string, selection: PlayerCosmeticSelection): void => {
     remember(playerId, selection);
     deps.broadcastToAll({ type: "PLAYER_STYLE", playerId, cosmetics: selection });
@@ -203,7 +222,7 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         return;
       }
       if (message.type === "REQUEST_COSMETICS") {
-        reply(await stateFor(playerId));
+        reply(await replyStateFor(playerId));
         return;
       }
       // Refusals name the slot, so the client settles only the save it was waiting on.
@@ -217,7 +236,13 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         return;
       }
       if (((await store.getSelection(playerId))[slot] ?? null) === cosmeticId) {
-        reply(await stateFor(playerId));
+        reply(await replyStateFor(playerId));
+        return;
+      }
+      const limited = ONCE_PER_CONTEST_COSMETIC_SLOTS.has(slot);
+      const seasonId = limited ? await deps.getCurrentSeasonId?.() : undefined;
+      if (limited && (await crestChangeUsed(playerId, seasonId))) {
+        reply({ type: "ERROR", code: "COSMETIC_LIMIT", message: PROFILE_CHANGE_LIMIT_REASON.crest, slot });
         return;
       }
       if (changedTooRecently(playerId, now())) {
@@ -225,8 +250,9 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         return;
       }
       const selection = await store.setSelection(playerId, slot, cosmeticId);
+      if (limited && seasonId) await store.recordSlotChange(playerId, slot, seasonId);
       publish(playerId, selection);
-      reply(await stateFor(playerId));
+      reply(await replyStateFor(playerId, seasonId));
     },
 
     async renderMetrics() {

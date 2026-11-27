@@ -20,6 +20,16 @@ const stores: Array<[string, () => AccountCosmeticsStore]> = [
 ];
 
 describe.each(stores)("%s account cosmetics store", (_name, create) => {
+  it("remembers the contest each slot last changed in, per account", async () => {
+    const store = create();
+    expect(await store.slotChangedSeasonId("p1", "crest")).toBeUndefined();
+    await store.recordSlotChange("p1", "crest", "s1");
+    await store.recordSlotChange("p1", "crest", "s2");
+    expect(await store.slotChangedSeasonId("p1", "crest")).toBe("s2");
+    expect(await store.slotChangedSeasonId("p2", "crest")).toBeUndefined();
+    expect(await store.slotChangedSeasonId("p1", "musterFlag")).toBeUndefined();
+  });
+
   it("starts with nothing owned and the default look", async () => {
     const store = create();
     expect(await store.listOwned("p1")).toEqual([]);

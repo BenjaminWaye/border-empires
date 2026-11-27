@@ -47,11 +47,15 @@ export interface AccountCosmeticsStore {
   /** Accounts with a non-default look of the given kind, at most `limit` accounts. */
   listSelections(limit: number, kind: ShownLookKind): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }>;
   counts(): Promise<{ owned: number; selected: number }>;
+  /** The contest (season id) this account last changed `slot` in, for once-per-contest slots (the crest). */
+  slotChangedSeasonId(playerId: string, slot: CosmeticSlot): Promise<string | undefined>;
+  recordSlotChange(playerId: string, slot: CosmeticSlot, seasonId: string): Promise<void>;
 }
 
 export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
   private readonly ownedByPlayerId = new Map<string, Set<CosmeticId>>();
   private readonly selectionByPlayerId = new Map<string, PlayerCosmeticSelection>();
+  private readonly slotChangeSeason = new Map<string, string>();
 
   async listOwned(playerId: string): Promise<CosmeticId[]> {
     return [...(this.ownedByPlayerId.get(playerId) ?? [])];
@@ -98,5 +102,13 @@ export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
     let selected = 0;
     for (const selection of this.selectionByPlayerId.values()) selected += Object.keys(selection).length;
     return { owned, selected };
+  }
+
+  async slotChangedSeasonId(playerId: string, slot: CosmeticSlot): Promise<string | undefined> {
+    return this.slotChangeSeason.get(`${playerId}\u0000${slot}`);
+  }
+
+  async recordSlotChange(playerId: string, slot: CosmeticSlot, seasonId: string): Promise<void> {
+    this.slotChangeSeason.set(`${playerId}\u0000${slot}`, seasonId);
   }
 }
