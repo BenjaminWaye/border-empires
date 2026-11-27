@@ -35,15 +35,16 @@ export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
 // Same gates as the tile menu (shouldShowTownUnfedWarning /
 // shouldShowTownUpgradeReadyBadge), so a plate never claims a status the
 // town's own menu doesn't. Not garrisoned outranks everything: the town makes nothing at all.
-// Plots you hold but haven't garrisoned come next: the town screen's Garrison plots button fixes them.
-// Unfed comes next: it costs coin now. Unruly (a large town short of biota) then: it costs manpower now.
+// Unfed comes next: it costs coin now. Plots you hold but haven't garrisoned then (the town screen's
+// Garrison plots button fixes them), then unruly (a large town short of biota): it costs manpower now.
+// War and capture pauses still show as the paused growth mark when a badge above them wins.
 const ownStatus = (
   tile: Tile, me: string, nowMs: number, unrulyTownKeys?: ReadonlySet<string>, garrisoning?: { has(key: string): boolean },
   hasPlotsToGarrison?: (town: Tile) => boolean
 ): TownNameplateStatus | undefined => {
   if (isOwnTownUngarrisoned(tile, me, garrisoning)) return "ungarrisoned";
-  if (hasPlotsToGarrison?.(tile)) return "plots";
   if (shouldShowTownUnfedWarning(tile, me)) return "unfed";
+  if (hasPlotsToGarrison?.(tile)) return "plots";
   if (unrulyTownKeys?.has(`${tile.x},${tile.y}`)) return "unruly";
   const blocker = tile.town ? townGrowthBlocker(tile.town, nowMs) : undefined;
   if (blocker === "Nearby war") return "war";
@@ -74,7 +75,8 @@ export const townNameplateFor = (
   // rounded near-zero rate at the cap doesn't read as growth.
   const growth: TownNameplateGrowth | undefined = population === undefined
     ? undefined
-    : status === "ungarrisoned" || status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false
+    : status === "ungarrisoned" || status === "unfed" || status === "war" || status === "captured" || tile.town?.isFed === false ||
+        (own && tile.town !== undefined && ["Nearby war", "Recently captured"].includes(townGrowthBlocker(tile.town, nowMs) ?? ""))
       ? "paused"
       : (tile.town?.populationGrowthPerMinute ?? 0) > GROWTH_EPSILON ? "growing" : undefined;
   return {

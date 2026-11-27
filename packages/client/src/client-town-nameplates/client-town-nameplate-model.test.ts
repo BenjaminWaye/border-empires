@@ -38,6 +38,14 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(city, "rival", 0, undefined, undefined, () => true)?.status).toBeUndefined();
   });
 
+  // Review of PR #3025: plots must not hide a starving town, and must not hide a war pause.
+  it("keeps unfed ahead of plots, and keeps growth paused under a nearby war when plots win the badge", () => {
+    const unfedCity = tile({ town: town({ populationTier: "CITY", isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(unfedCity, "me", 0, undefined, undefined, () => true)?.status).toBe("unfed");
+    const atWar = tile({ town: town({ populationTier: "CITY", nearbyWarPausedUntil: 10_000 } as Partial<NonNullable<Tile["town"]>>) });
+    expect(townNameplateFor(atWar, "me", 0, undefined, undefined, () => true)).toMatchObject({ status: "plots", growth: "paused" });
+  });
+
   it("flags an own large town short of biota as unruly, below unfed", () => {
     const city = tile({ town: town({ populationTier: "CITY" }) });
     expect(townNameplateFor(city, "me", 0, new Set(["4,5"]))?.status).toBe("unruly");
