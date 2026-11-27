@@ -16,7 +16,7 @@ import { createInsurgentInsigniaOverlay } from "./client-map-3d-insurgent-insign
 // each camp tile ("barbarian" / "Planetary Defense" are still the internal
 // names; players see "Insurgents" — garrisons of the planet's own defense
 // force that survived the Court's purge). The camp's frontier instead gets
-// the flat cracked-shield insignia (client-map-3d-insurgent-insignia-overlay.ts),
+// the faint raised-fist mark (client-map-3d-insurgent-insignia-overlay.ts),
 // which this overlay owns so both share one clear/commit/dispose lifecycle.
 // Replaces the earlier Voidcrystal Colossus monster.
 //

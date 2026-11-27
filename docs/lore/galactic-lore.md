@@ -107,9 +107,9 @@ Court calls **Insurgents**: what is left of the planetary defense force, still
 under arms, with no government left to answer to. (Code and older documents
 call them "Planetary Defense", their name before 2026-11-27.)
 
-They still wear the old defense-force badge, a garrison shield with a rank
-chevron, cracked across since the purge. They mark the ground they picket
-with it.
+They have taken up the raised fist as their mark, painted faintly on the
+ground they picket: the sign of a force that was ordered to disband and
+refused.
 
 It holds out in fortified **camps**: old barracks, depots and strongpoints. A
 camp does not move. It holds the ground around it with pickets, and that ground

@@ -53,7 +53,7 @@ type Story = StoryObj<Args>;
 export const Default: Story = {};
 export const Single: Story = { args: { gridRadius: 0, cameraDistance: 2 } };
 
-// A camp (soldiers) with its frontier (cracked-shield insignia) on grass, the
+// A camp (soldiers) with its frontier (raised-fist mark) on grass, the
 // Insurgent land tinted like the map's ash-grey owner fill (client-owner-colors.ts).
 const INSURGENT_TINT = "#c8c1b6";
 const renderCampWithFrontier = (args: Args): HTMLElement => {

@@ -77,16 +77,13 @@ export const drawSoldierGlyph2D = (
   ctx.stroke();
 };
 
-// Insurgent frontier tiles get the cracked-shield insignia; a tile whose
+// Insurgent frontier tiles get the raised-fist mark; a tile whose
 // ownership state is unknown (reveal-only update) gets nothing. Same rule
 // and same drawing as the 3D ground decal (client-map-3d-insurgent-insignia-overlay.ts).
 export const INSURGENT_INSIGNIA_2D_MIN_TILE_PX = 8;
 const drawFrontierInsignia2D = (ctx: CanvasRenderingContext2D, tile: Tile, px: number, py: number, size: number): void => {
   if (size < INSURGENT_INSIGNIA_2D_MIN_TILE_PX || !tile.ownershipState) return;
-  ctx.save();
-  ctx.globalAlpha = 0.85;
-  drawInsurgentInsignia(ctx, px + size / 2, py + size / 2, size * 0.5);
-  ctx.restore();
+  drawInsurgentInsignia(ctx, px + size / 2, py + size / 2, size * 0.6);
 };
 
 // Soldiers stand only on a camp; the frontier it holds shows the insignia (same rule as the 3D map).
