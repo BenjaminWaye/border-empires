@@ -10,7 +10,8 @@ export const GUIDE_ALERT_YIELD_CLASS = "tg-yield-alert";
 /** True while the capture card shows an alert (client-capture-effects.ts sets data-state only for alerts, not progress). */
 export const alertCardShowing = (doc: Document): boolean => {
   const card = doc.getElementById("capture-card");
-  return Boolean(card?.dataset.state) && card!.style.display !== "" && card!.style.display !== "none";
+  if (!card?.dataset.state) return false;
+  return card.style.display !== "" && card.style.display !== "none";
 };
 
 /** Called every frame; a class toggle is cheap. */
