@@ -35,6 +35,7 @@ import { SIEGE_CUT_OFF_ENTRY } from "./client-changelog-siege-cut-off.js";
 import { AI_DEAL_ASKS_ENTRY } from "./client-changelog-ai-deal-asks.js";
 
 import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
+import { TRUCE_LENGTH_SHOWN_ENTRY } from "./client-changelog-truce-length-shown.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -75,5 +76,6 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...AI_DEAL_ASKS_ENTRY, createdAt: 1795779130551, },
   { ...SIEGE_CUT_OFF_ENTRY, createdAt: 1795791221185, },
   { ...HOUSE_CREST_FIXES_ENTRY, createdAt: 1795791560569, },
+  { ...TRUCE_LENGTH_SHOWN_ENTRY, createdAt: 1795805060735, },
   { ...INTEGRITY_EXPLAIN_ENTRY, createdAt: 1795805430461, },
 ];

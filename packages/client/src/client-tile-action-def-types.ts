@@ -130,6 +130,8 @@ export type TileActionDef = {
   techLinkId?: string;
   targetKey?: string;
   originKey?: string;
+  /** An attack on a House you have a truce with: pressing it asks to break the truce first (client-pact-attack-gate.ts). */
+  breaksTruce?: true;
   /** Floats to the top of the list and is highlighted (Settle Land on a tile that has something to gain). */
   recommended?: boolean;
   /** Settle Land on a frontier tile: the "auto-settle these from now on" checkbox rendered under the button. */

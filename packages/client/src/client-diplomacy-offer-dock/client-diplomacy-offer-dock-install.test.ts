@@ -44,11 +44,11 @@ describe("installed offer dock", () => {
     const { sendGameMessage, button } = mount([truce("t1", { gold: 60 })]);
     button("accept", "t1").click();
     expect(sendGameMessage).not.toHaveBeenCalled();
-    expect(button("accept", "t1").textContent).toBe("Confirm");
+    expect(button("accept", "t1").textContent).toBe("Confirm 5m truce");
     expect(button("accept", "t1").title).toContain("you pay 60 coin");
 
     vi.advanceTimersByTime(OFFER_DOCK_CONFIRM_MS + 1_000);
-    expect(button("accept", "t1").textContent).toBe("Accept");
+    expect(button("accept", "t1").textContent).toBe("Accept 5m truce");
 
     button("accept", "t1").click();
     button("accept", "t1").click();
@@ -60,7 +60,7 @@ describe("installed offer dock", () => {
     const { sendGameMessage, button } = mount([truce("t1", { gold: 0, towns: [{ x: 7, y: 8 }] } as { gold: number })]);
     button("accept", "t1").click();
     expect(sendGameMessage).not.toHaveBeenCalled();
-    expect(button("accept", "t1").textContent).toBe("Confirm");
+    expect(button("accept", "t1").textContent).toBe("Confirm 5m truce");
   });
 
   // Playtest 2026-11-12: on an AI counter-offer the Confirm tap sent the accept, but the
@@ -69,7 +69,7 @@ describe("installed offer dock", () => {
     const { sendGameMessage, button } = mount([truce("t1", { gold: 16 })]);
     button("accept", "t1").click();
     vi.advanceTimersByTime(5_000); // a phone player reads the terms before confirming
-    expect(button("accept", "t1").textContent).toBe("Confirm");
+    expect(button("accept", "t1").textContent).toBe("Confirm 5m truce");
     button("accept", "t1").click();
     expect(sendGameMessage).toHaveBeenCalledTimes(1);
     expect(button("accept", "t1").textContent).toBe("Sending…");
