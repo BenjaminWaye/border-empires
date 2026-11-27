@@ -11,7 +11,8 @@
 // where to raise it (docs/launch-attack-flag-placement-plan.md), with no
 // effort controls when no target benefits from extra manpower.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
-import { previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
+import { attackPreviewBreakdownForTarget, previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
+import { besiegedOddsSuffix, targetShowsBesieged } from "../client-town-siege/client-town-siege.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
@@ -114,7 +115,8 @@ export const promptAttackEffortForTarget = (
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
       const winChance = percent(winChanceAt(commitManpower));
-      return `${winChance ? `Win ${winChance} · ` : ""}${commitManpower} MP`;
+      const siege = winChance ? besiegedOddsSuffix(targetShowsBesieged(tile, state, attackPreviewBreakdownForTarget(state, tile, deps))) : "";
+      return `${winChance ? `Win ${winChance}${siege} · ` : ""}${commitManpower} MP`;
     },
     onConfirm: (commitManpower) => {
       sheetTargetKey = undefined;

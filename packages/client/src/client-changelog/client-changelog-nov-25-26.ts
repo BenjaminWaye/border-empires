@@ -25,6 +25,7 @@ import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
 import { TOWN_GROWTH_GARRISON_ENTRY } from "./client-changelog-town-growth-garrison.js";
 import { HONEST_JOIN_ENTRY } from "./client-changelog-honest-join.js";
 import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
+import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -53,6 +54,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
   { ...ACCOUNT_TEXT_FIXES_ENTRY, createdAt: 1795765537068, },
+  { ...SIEGE_ODDS_ENTRY, createdAt: 1795769624813, },
   { ...BATTLE_WARNINGS_ENTRY, createdAt: 1795769680653, },
   { ...FEALTY_WORDING_ENTRY, createdAt: 1795769738870, },
   { ...TOWN_PLOT_GARRISON_ENTRY, createdAt: 1795776814454, },
