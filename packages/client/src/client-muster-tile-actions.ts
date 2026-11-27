@@ -11,7 +11,6 @@ import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
 import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
 import { promptMusterAdvanceEffort } from "./client-muster-advance-effort/client-muster-advance-effort.js";
-import { huntAttackersAction, huntOrderMessage, sendHuntAttackersOrder } from "./client-muster-hunt/client-muster-hunt.js";
 import { confirmFirstMusterStage } from "./client-muster-stage-confirm/client-muster-stage-confirm.js";
 import type { BreakPactSheetOptions } from "./client-break-pact-sheet/client-break-pact-sheet.js";
 
@@ -49,14 +48,10 @@ export const buildMusterActions = (
   nowMs = Date.now()
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
-  // Planetary Defense is capturing this tile: send a nearby flag after them
-  // (offered even before mustering is unlocked -- they have plainly been met).
-  const huntAttackers = huntAttackersAction(tile, state, nowMs);
-  if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return huntAttackers && !huntAttackers.disabled ? [huntAttackers] : [];
+  if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
 
   const out: TileActionDef[] = [];
   const muster = tile.muster;
-  if (huntAttackers) out.push(huntAttackers);
 
   if (!muster) {
     // No muster flag — offer to set one in HOLD mode.
@@ -88,8 +83,7 @@ export const buildMusterActions = (
       noTargetInRange: muster.noTargetInRange,
       insufficientManpower: muster.insufficientManpower,
       unfundableTarget: muster.unfundableTarget,
-      clearing: muster.clearing,
-      hunt: muster.hunt
+      clearing: muster.clearing
     });
     // An enemy attack on this flag's tile pins its troops until the fight
     // resolves (the server refuses these with MUSTER_UNDER_SIEGE): no
@@ -99,12 +93,6 @@ export const buildMusterActions = (
     const siege = ownTileSiegeAt(state, tile.x, tile.y, nowMs);
     const siegeLock = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
       siege ? { disabled: true, disabledReason: musterSiegeReason(siege, nowMs) } : avail();
-    const huntAction = (prefix: string): TileActionDef => ({
-      id: "muster_hunt",
-      label: "Hunt Planetary Defense",
-      detail: `${prefix} · chase down Planetary Defense within ${MUSTER_ADVANCE_RANGE_STEPS} steps, leaving other empires alone, then report back.`,
-      ...siegeLock()
-    });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
@@ -113,7 +101,6 @@ export const buildMusterActions = (
         detail: `Mustering… ${staged}/${cap} manpower staged · clears Planetary Defense and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
         ...siegeLock()
       });
-      out.push(huntAction(`Mustering… ${staged}/${cap} manpower staged`));
       out.push({
         id: "muster_march",
         label: "March To…",
@@ -127,16 +114,6 @@ export const buildMusterActions = (
         detail: `${status} (${staged}/${cap} staged) · switch to HOLD to pause auto-fire.`,
         ...avail()
       });
-      if (muster.hunt) {
-        out.push({
-          id: "muster_advance",
-          label: "Set Advance",
-          detail: `${status} (${staged}/${cap} staged) · attack every enemy in range, not only Planetary Defense.`,
-          ...siegeLock()
-        });
-      } else {
-        out.push(huntAction(`${status} (${staged}/${cap} staged)`));
-      }
       out.push({
         id: "muster_march",
         label: "March To…",
@@ -243,23 +220,6 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
     const warning = advanceSupplyTradeWarning(deps.state, x, y);
     confirmSupplyTradeEnd(warning, "Advance", () =>
       promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster, note: warning ? undefined : advanceSupplyTradeNote(deps.state) }), deps.showSupplyTradeSheet);
-    return true;
-  }
-  if (actionId === "muster_hunt") {
-    deps.sendGameMessage(huntOrderMessage(x, y));
-    deps.pushFeed(`Flag at (${x}, ${y}) is hunting Planetary Defense`, "combat", "info");
-    announceFirstMuster();
-    return true;
-  }
-  if (actionId === "muster_hunt_attackers") {
-    const flag = sendHuntAttackersOrder(tile, deps.state, deps.sendGameMessage, Date.now());
-    deps.pushFeed(
-      flag
-        ? `Flag at (${flag.x}, ${flag.y}) is hunting the Planetary Defense taking (${x}, ${y}) — it strikes when they land`
-        : `No holding muster flag nearby to hunt Planetary Defense`,
-      "combat",
-      flag ? "info" : "warn"
-    );
     return true;
   }
   if (actionId === "muster_march") {

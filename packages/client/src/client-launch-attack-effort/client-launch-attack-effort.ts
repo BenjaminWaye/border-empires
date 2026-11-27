@@ -11,7 +11,7 @@
 // where to raise it (docs/launch-attack-flag-placement-plan.md), with no
 // effort controls when no target benefits from extra manpower.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
-import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
+import { previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
@@ -46,6 +46,36 @@ type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCom
 
 const percent = (chance: number | undefined): string | undefined => (chance == null ? undefined : `${Math.round(chance * 100)}%`);
 
+type PreviewDeps = Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget">;
+
+// The tile whose odds the open effort sheet shows. The tile menu closes when
+// the sheet opens, and the attack preview's keepalive (client-attack-preview-
+// keepalive-ticker.ts) only refreshed the open menu's tile -- so the cached
+// preview aged out (5s TTL) under the sheet and every effort read the same
+// stale or missing odds (2026-11-26 playtest: "Normal / Extra / Double all
+// showed 37%"; the region sheet's win chance vanished after Double).
+let sheetTargetKey: string | undefined;
+
+/** The tile the open Launch Attack effort sheet shows odds for, if any. */
+export const attackEffortSheetTargetKey = (): string | undefined => sheetTargetKey;
+
+/**
+ * Win chance at a commitment from the server preview, scaled per effort. Keeps
+ * the last base it saw, so a preview refresh in flight doesn't blank the odds
+ * or freeze them at another effort's value.
+ */
+const stickyCommitWinChance = (state: ClientState, tile: Tile, deps: PreviewDeps): ((commitManpower: number) => number | undefined) => {
+  let lastBase: number | undefined;
+  return (commitManpower) => {
+    lastBase = previewBaseWinChanceForTarget(state, tile, deps) ?? lastBase;
+    return lastBase === undefined ? undefined : winChanceAtCommit(state, tile, lastBase, commitManpower);
+  };
+};
+
+const trackSheetTarget = (shown: boolean, deps: PreviewDeps, tile: Tile | undefined): void => {
+  sheetTargetKey = shown && tile ? deps.keyFor(tile.x, tile.y) : undefined;
+};
+
 /** The sheet's only subtitle: "Starts war with House X" when the attack would start a war (client-attack-war-warning.ts). */
 const warSubtitle = (state: ClientState, ownerIds: ReadonlyArray<string | undefined>): { subtitle?: string } => {
   const warning = attackWarWarning(state, ownerIds, Date.now());
@@ -67,10 +97,11 @@ export const promptAttackEffortForTarget = (
   state: ClientState,
   tile: Tile | undefined,
   options: { title: string; confirmLabel: string; onConfirm: (commitManpower: number | undefined) => void; placement?: LaunchFlagPlacement | undefined },
-  deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget">
+  deps: PreviewDeps
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
   const floor = attackEffortFloorForTarget(tile, state);
+  const winChanceAt = stickyCommitWinChance(state, tile, deps);
   const handle = showEffortConfirmSheet({
     title: options.title,
     ...warSubtitle(state, [tile.ownerId]),
@@ -82,14 +113,19 @@ export const promptAttackEffortForTarget = (
     ...(options.placement ? { flagSpots: options.placement.sheet } : {}),
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
-      const winChance = percent(commitPreviewWinChanceForTarget(state, tile, commitManpower, deps));
+      const winChance = percent(winChanceAt(commitManpower));
       return `${winChance ? `Win ${winChance} · ` : ""}${commitManpower} MP`;
     },
     onConfirm: (commitManpower) => {
+      sheetTargetKey = undefined;
       options.placement?.apply();
       options.onConfirm(commitManpower > floor ? commitManpower : undefined);
+    },
+    onCancel: () => {
+      sheetTargetKey = undefined;
     }
   });
+  trackSheetTarget(handle !== undefined, deps, tile);
   return handle !== undefined;
 };
 
@@ -135,14 +171,15 @@ const promptBulkEffort = (
   eligible: Tile[],
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void,
-  focus?: { tile: Tile | undefined; deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget"> },
+  focus?: { tile: Tile | undefined; deps: PreviewDeps },
   placement?: LaunchFlagPlacement
 ): boolean => {
   const focusTile = focus?.tile && eligible.includes(focus.tile) ? focus.tile : undefined;
+  const winChanceAt = focusTile && focus ? stickyCommitWinChance(state, focusTile, focus.deps) : undefined;
   const focusOdds = (preset: MusterCommitPreset): string => {
-    if (!focusTile || !focus) return "";
+    if (!focusTile || !winChanceAt) return "";
     const commit = musterCommitPresetAmount(preset, attackEffortFloorForTarget(focusTile, state));
-    const chance = percent(commitPreviewWinChanceForTarget(state, focusTile, commit, focus.deps));
+    const chance = percent(winChanceAt(commit));
     return chance ? `Win ${chance} · ` : "";
   };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
@@ -158,10 +195,15 @@ const promptBulkEffort = (
     confirmLabel: "Attack",
     describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}${totalFor(preset ?? "normal")} MP total`,
     onConfirm: (_commit, preset) => {
+      sheetTargetKey = undefined;
       placement?.apply();
       onConfirm(preset ?? "normal");
+    },
+    onCancel: () => {
+      sheetTargetKey = undefined;
     }
   });
+  if (focus) trackSheetTarget(handle !== undefined, focus.deps, focusTile);
   return handle !== undefined;
 };
 

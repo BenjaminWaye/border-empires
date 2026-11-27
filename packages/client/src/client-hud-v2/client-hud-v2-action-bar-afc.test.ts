@@ -30,8 +30,8 @@ describe("action bar on your own AFC", () => {
   });
 
   it("lets an urgent action keep gold, with AFC upgrades beside it", () => {
-    const buttons = selectBarButtons(ownAfc({ actions: [act("muster_hunt_attackers")] }));
-    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
+    const buttons = selectBarButtons(ownAfc({ actions: [act("launch_attack")] }));
+    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
     expect(buttons[1]).toEqual({ kind: "afc", primary: false });
   });
 
@@ -78,15 +78,15 @@ describe("action bar on your own AFC", () => {
     });
 
     it("gives way to an urgent action", () => {
-      const v = ownAfc({ actions: [act("muster_hunt_attackers"), send] });
-      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
+      const v = ownAfc({ actions: [act("launch_attack"), send] });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
     });
 
-    // Regression (PR #2858 review): a callable module took gold from hunting attackers, which then
+    // Regression (PR #2858 review): a callable module took gold from an urgent action, which then
     // dropped off the bar entirely.
     it("lets an urgent action keep gold over a module to call down", () => {
-      const v = ownAfc({ actions: [act("muster_hunt_attackers"), send], modules: modules([callDown]) });
-      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
+      const v = ownAfc({ actions: [act("launch_attack"), send], modules: modules([callDown]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
       expect(selectBarButtons(v)).toContainEqual({ kind: "panel", panel: "modules", label: "Modules ▸", primary: false });
     });
   });
