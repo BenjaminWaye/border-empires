@@ -28,6 +28,7 @@ const VERDICTS: Record<string, Verdict> = {
   "client-effort-confirm-sheet/client-effort-confirm-sheet-style.css :: .effort-confirm-overlay": { kind: "above" },
   "client-garrison-many/client-garrison-many.css :: .garrison-many-sheet": { kind: "above" },
   "client-guest-save-style.css :: .guest-save-badge": { kind: "lifted", token: ".guest-save-badge" },
+  "client-join-season-reopen/client-join-season-reopen.css :: .join-season-reopen": { kind: "lifted", token: ".join-season-reopen" },
   "client-scout-drone/client-scout-drone-dock.css :: #scout-drone-dock": { kind: "lifted", token: "#scout-drone-dock" },
   "client-scout-drone/client-scout-drone-hud.css :: #scout-drone-pill": { kind: "lifted", token: "#scout-drone-pill" },
   "client-scout-drone/client-scout-drone-hud.css :: #scout-report-card": { kind: "lifted", token: "#scout-report-card" },

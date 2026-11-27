@@ -158,6 +158,12 @@ export type CurrentSeasonSummary = {
   byTechs: LeaderboardMetricEntry[];
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
   onlinePlayers: number;
+  /**
+   * Active seasons only: whether a new House could land on a viable site now
+   * (landing-site-probe.ts, cached about a minute). False makes the Sector
+   * board show the sector as full. Absent = unknown.
+   */
+  landingSiteAvailable?: boolean;
   totalPlayers: number;
   townCount: number;
   /** LAND tiles in the world (the Diplomatic Dominance denominator); absent from summaries saved before it existed. */

@@ -7,7 +7,10 @@ import type { FastifyInstance } from "fastify";
 
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 
-export type SectorOccupancy = { seasonId: string; status: string; playerIds: readonly string[] };
+// landingSiteAvailable: from the simulation's landing-site probe (active
+// seasons only). false = no viable landing site, so the sector is full even
+// with House places left (GDD §6, owner decision 2026-11-27).
+export type SectorOccupancy = { seasonId: string; status: string; playerIds: readonly string[]; landingSiteAvailable?: boolean };
 
 export type SectorBoardRouteDeps = {
   store: Pick<SectorWaitlistStore, "count">;
@@ -17,7 +20,7 @@ export type SectorBoardRouteDeps = {
 };
 
 export type SectorBoardReply =
-  | { ok: true; seasonId: string; status: string; houses: number; maxHouses: number; full: boolean; waitingCount: number }
+  | { ok: true; seasonId: string; status: string; houses: number; maxHouses: number; full: boolean; noLandingSite: boolean; waitingCount: number }
   | { ok: false; error: string };
 
 // The join cap counts human players only (season-join-capacity.ts), so AI
@@ -46,13 +49,15 @@ export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoard
     }
     const houses = countHumanHouses(occupancy.playerIds);
     const maxHouses = Math.max(0, deps.maxHouses());
+    const noLandingSite = occupancy.landingSiteAvailable === false;
     return {
       ok: true,
       seasonId: occupancy.seasonId,
       status: occupancy.status,
       houses,
       maxHouses,
-      full: maxHouses > 0 && houses >= maxHouses,
+      full: (maxHouses > 0 && houses >= maxHouses) || noLandingSite,
+      noLandingSite,
       waitingCount
     };
   });

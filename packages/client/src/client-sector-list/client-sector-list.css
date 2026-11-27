@@ -1,0 +1,42 @@
+/* The join card's sector list (client-sector-list.ts). A full sector is greyed out. */
+.sector-list-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.sector-list-rows {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.sector-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+  background: var(--sp-iron-850);
+  text-align: left;
+}
+
+.sector-list-row.is-full {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.sector-list-meta {
+  display: block;
+  color: var(--sp-parchment-muted);
+  font-size: 13px;
+}
+
+.sector-list-here {
+  color: var(--sp-verdigris-300);
+  font-size: 13px;
+  white-space: nowrap;
+}
