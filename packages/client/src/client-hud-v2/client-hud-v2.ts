@@ -5,6 +5,7 @@
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { crestFor } from "../client-house-crest/client-house-crest.js";
 import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
@@ -285,6 +286,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",
     color: ownerColor(state.me),
+    crest: crestFor(state, state.me),
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
@@ -299,6 +301,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     warPlayerIds: warOpponentIds(state, nowMs),
     nameOf: (id) => state.playerNames.get(id) ?? "",
     colorOf: ownerColor,
+    crestOf: (id) => crestFor(state, id),
     nowMs
   }));
   renderLens(state);

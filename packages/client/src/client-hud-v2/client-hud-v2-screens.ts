@@ -3,6 +3,8 @@
 // over the live map; town and battle have their own runtimes. Opening one
 // hides the map HUD (CSS, keyed off body classes set in the context module).
 
+import { crestFor } from "../client-house-crest/client-house-crest.js";
+import { profileCrestClick, profileCrestFields } from "./client-hud-v2-profile-crest.js";
 import { counterOfferScreenInput } from "../client-alliance/client-alliance-counter-offer.js";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
@@ -172,6 +174,7 @@ const renderRanks = (deps: HudV2Deps): void => {
     selfOverall: lb.selfOverall,
     nameOf: (id: string) => nameOf(deps, id),
     colorOf: (id: string) => deps.ownerColor(id),
+    crestOf: (id: string) => crestFor(deps.state, id),
     longestRoad: deps.state.liveLongestRoad
   };
   writeHtml("v2s-head-right", ranksBannerHtml(input));
@@ -201,6 +204,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       warPlayerIds: warOpponentIds(state, Date.now()),
       nameOf: (id) => nameOf(deps, id),
       colorOf: (id) => deps.ownerColor(id),
+      crestOf: (id) => crestFor(state, id),
       nowMs: Date.now()
     }));
     const list = fromDeal ? document.querySelector<HTMLElement>("[data-v2-scroll='diplomacy']") : null;
@@ -292,6 +296,7 @@ const renderProfile = (deps: HudV2Deps): void => {
     id,
     name,
     color: deps.ownerColor(id),
+    ...profileCrestFields(state, id, self),
     relation: profileRelation(state, id),
     entry: state.leaderboard.overall.find((e) => e.id === id),
     career: state.careerStatsByPlayerId.get(id),
@@ -347,6 +352,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     closeScreen(deps);
     return true;
   }
+  if (profileCrestClick(deps.sendGameMessage, target)) return true;
   if (target.closest("[data-v2-open-charges]")) {
     if (deps.state.activePanel !== "charges") deps.setActivePanel("charges");
     deps.renderHud();

@@ -6,6 +6,8 @@ import { bindCosmeticsCard, cosmeticsCardHtml } from "./client-cosmetics-card.js
 
 const createState = (owned: CosmeticId[] = [], selection?: PlayerCosmeticSelection) => ({
   me: "me",
+  meName: "Harrow",
+  playerColors: new Map([["me", "#3366aa"]]),
   authSessionReady: true,
   cosmeticsRequested: false,
   ownedCosmetics: owned,
@@ -14,8 +16,18 @@ const createState = (owned: CosmeticId[] = [], selection?: PlayerCosmeticSelecti
 });
 
 describe("cosmeticsCardHtml", () => {
-  it("renders nothing for an account that owns no cosmetic", () => {
-    expect(cosmeticsCardHtml(createState())).toBe("");
+  it("offers every account the free House crests, with its letter as the default", () => {
+    const html = cosmeticsCardHtml(createState());
+    expect(html).toContain('data-cosmetic-crest="" aria-pressed="true"');
+    expect(html).toContain('data-cosmetic-crest="crest-anchor" aria-pressed="false"');
+    expect(html).toContain(">H</span>");
+    expect(html).not.toContain("data-cosmetic-slot=");
+  });
+
+  it("marks the crest the account shows", () => {
+    const html = cosmeticsCardHtml(createState([], { crest: "crest-kraken" }));
+    expect(html).toContain('data-cosmetic-crest="crest-kraken" aria-pressed="true"');
+    expect(html).toContain('data-cosmetic-crest="" aria-pressed="false"');
   });
 
   it("offers the standard look and each owned cosmetic", () => {
@@ -56,6 +68,18 @@ describe("bindCosmeticsCard", () => {
     expect(sendGameMessage.mock.calls.map(([payload]) => payload)).toEqual([
       { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" },
       { type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null }
+    ]);
+  });
+
+  it("sends the chosen crest, and null for the letter", () => {
+    const state = createState();
+    state.cosmeticsRequested = true;
+    const { hud, sendGameMessage } = mount(state);
+    hud.querySelector<HTMLButtonElement>('[data-cosmetic-crest="crest-stag"]')?.click();
+    hud.querySelector<HTMLButtonElement>('[data-cosmetic-crest=""]')?.click();
+    expect(sendGameMessage.mock.calls.map(([payload]) => payload)).toEqual([
+      { type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-stag" },
+      { type: "SET_COSMETIC", slot: "crest", cosmeticId: null }
     ]);
   });
 });

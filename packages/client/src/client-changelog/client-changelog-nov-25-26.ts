@@ -1,4 +1,4 @@
-// Entries from 25-26 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
+// Entries from 25-27 Nov 2026, split out of client-changelog-data.ts (500-line limit, AGENTS.md).
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { GUEST_BADGE_DRONE_ENTRY } from "./client-changelog-guest-badge-drone.js";
 import { DEPLOY_SAFE_JOIN_ENTRY } from "./client-changelog-deploy-safe-join.js";
@@ -11,6 +11,7 @@ import { PROGRESS_COUNTERS_ENTRY } from "./client-changelog-progress-counters.js
 import { LAUNCH_ATTACK_FLAG_SPOT_ENTRY } from "./client-changelog-launch-attack-flag-spot.js";
 import { BEACON_RELAY_WORDING_ENTRY } from "./client-changelog-beacon-relay-wording.js";
 import { REGION_CHARGE_PROGRESS_ENTRY } from "./client-changelog-region-charge-progress.js";
+import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -27,4 +28,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
+  { ...HOUSE_CRESTS_ENTRY, createdAt: 1795769381841, },
 ];
