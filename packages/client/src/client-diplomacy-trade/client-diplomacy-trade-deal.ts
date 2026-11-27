@@ -10,6 +10,7 @@ import { dealTownItemsHtml } from "./client-diplomacy-town-return.js";
 import type { DiplomacyTownRef } from "@border-empires/shared";
 import { TRADE_GOODS, tradeAmount, tradeDisplayScale, type TradeSide } from "./client-diplomacy-trade-goods.js";
 import type { TradeKind, TradeSelection, TradeVerdict } from "./client-diplomacy-trade-view.js";
+import { allianceTreatyLabel, type FealtyStanding } from "../client-fealty/client-fealty.js";
 
 /** A truce or alliance picked from the left column, or none. */
 export type DealTreaty = DiplomacyOfferKind | undefined;
@@ -43,8 +44,8 @@ export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: 
   return undefined;
 };
 
-export const treatyLabel = (selection: TradeSelection): string =>
-  selection.kind === "alliance" ? "Alliance" : `${selection.extendsTruce ? "Extend truce" : "Truce"} · ${selection.durationHours}h`;
+export const treatyLabel = (selection: TradeSelection, fealty: FealtyStanding = "ALLIANCE"): string =>
+  selection.kind === "alliance" ? allianceTreatyLabel(fealty) : `${selection.extendsTruce ? "Extend truce" : "Truce"} · ${selection.durationHours}h`;
 
 const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number): string =>
   TRADE_GOODS.filter((spec) => spec.side === side)
@@ -67,11 +68,11 @@ const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number
 
 /** The "In this deal" list: the treaty, then each side's goods. */
 /** `locked`: a counter-offer keeps its treaty (it may switch truce/alliance, not drop it). */
-export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean; townName?: (town: DiplomacyTownRef) => string | undefined }): string => {
+export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean; townName?: (town: DiplomacyTownRef) => string | undefined; fealty?: FealtyStanding }): string => {
   const { selection, treaty, targetName } = input;
   const { terms } = selection;
   const treatyHtml = treaty
-    ? `<div class="diplomacy-deal-treaty" data-deal-treaty="${treaty}"><span>${escapeHtml(treatyLabel(selection))}</span>
+    ? `<div class="diplomacy-deal-treaty" data-deal-treaty="${treaty}"><span>${escapeHtml(treatyLabel(selection, input.fealty))}</span>
         ${input.locked ? "" : `<button type="button" class="diplomacy-deal-remove" data-deal-remove="treaty" aria-label="Remove the ${treaty} from the deal">✕</button>`}</div>`
     : "";
   if (!treaty && diplomacyTermsAreEmpty(terms)) {

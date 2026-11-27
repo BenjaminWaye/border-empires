@@ -24,6 +24,7 @@ import {
 } from "@border-empires/shared";
 
 import { diplomacyTradeDepsFor, treatyButtonsHtml, type DiplomacyTradeDeps } from "./client-diplomacy-trade-deps.js";
+import { allianceTreatyLabel } from "../client-fealty/client-fealty.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
 import {
@@ -146,6 +147,7 @@ const render = (screen: OpenScreen): void => {
   const own = screen.deps.ownHoldings();
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
   const otherId = reply?.found ? reply.targetPlayerId : screen.targetPlayerId;
+  const fealty = screen.deps.fealtyWith?.(otherId) ?? "ALLIANCE"; // unequal sizes: Swear / Demand fealty (client-fealty.ts)
   const ownSupplyAgreements = active ? ownSupplyAgreementCount(active.agreements, active.ownId) : undefined;
   if (agreementsEl && active) agreementsEl.innerHTML = (ownSupplyAgreements ? supplyAgreementUsageHtml(ownSupplyAgreements) : "") + resourceOfferCardsHtml(active.offers ?? [], active.ownId, otherId, ownSupplyLimitReason(ownSupplyAgreements ?? 0)) + activeResourceDealsHtml(active.agreements, active.ownId, otherId);
   screen.shownHoldings = own;
@@ -156,6 +158,7 @@ const render = (screen: OpenScreen): void => {
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === screen.treaty && (kind !== "truce" || Number(hours) === selection.durationHours)));
+    if (kind === "alliance") button.textContent = allianceTreatyLabel(fealty);
   }
   const theirs = theirHoldings(reply);
   screen.expanded = renderTradeGoods(overlay, {
@@ -169,8 +172,8 @@ const render = (screen: OpenScreen): void => {
   const towns = replyReturnableTowns(reply);
   renderTownReturn(overlay, { towns, terms: selection.terms, kind: selection.kind });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
-  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup(towns) });
-  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
+  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup(towns), fealty });
+  const shared = tradeVerdict({ targetName, reply, selection, own, fealty, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
