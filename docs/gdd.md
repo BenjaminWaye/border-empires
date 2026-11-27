@@ -191,8 +191,14 @@ product, including paid Houses.
   sold as one bundle, not as separate items. The title confers nothing in a
   contest; Duke is still only earned. Details: [`cosmetics.md`](cosmetics.md).
 - **Cosmetics not in the launch set:** an AFC skin, because rivals rarely see
-  the AFC; and a House crest, until it can be shown without cluttering the
-  diplomacy screen.
+  the AFC.
+- **House crests, free for now** (owner decision, 2026-11-27, after two
+  playtesters found the letter-in-a-square emblem generic and looked for a
+  way to personalise it). A House picks one of 12 crests, drawn in place of
+  its initial inside the same emblem, so the diplomacy screen gains no extra
+  marks, and stitched on its muster flags in place of the cog. Name, colour
+  and crest are chosen together in one dialog. The catalogue flags each crest `free`, so paid crests can be added
+  later without new plumbing. Details: [`cosmetics.md`](cosmetics.md#house-crests).
 - **Purchases belong to the account, not the device.** The web is the main
   shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
   the money but does not file sales tax or VAT for the owner; registration and

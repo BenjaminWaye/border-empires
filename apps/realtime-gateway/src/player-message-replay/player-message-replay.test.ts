@@ -97,6 +97,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null }]);
   });
 
+  // Player report 2026-11-26: the stripped copy also dropped `charges`, so a reconnected tab showed Explore 8 with none left.
+  it("keeps a docked drone's charges when it strips an id-less report", () => {
+    const { replay, sent, send } = createHarness();
+    const charges = { max: 8, refillMs: 1000, usedAt: [1, 2, 3] };
+    replay.observe("p1", { type: "SCOUT_DRONE", flight: null, charges, report: { towns: 1, targetX: 5, targetY: 5 } }, [{ id: "tab-1" }]);
+    replay.replayTo("p1", { id: "tab-2" }, send);
+    expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null, charges }]);
+  });
+
   // Player report 2026-11-21: a report that landed into a socket not yet known dead was lost on the reconnect.
   it("replays a landed drone's report when it carries an id (the client shows each id once)", () => {
     const { replay, sent, send } = createHarness();

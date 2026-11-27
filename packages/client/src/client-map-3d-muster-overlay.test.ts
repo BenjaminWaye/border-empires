@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { BANNER_CLOTH, bannerRestPoint, MUSTER_PLINTH_RADIUS, MUSTER_PLINTH_TOP_Y } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { createMusterOverlay } from "./client-map-3d-muster-overlay.js";
+import { bannerCrestIndex } from "./client-map-3d-muster-banner/muster-banner-crest-atlas.js";
 
 const meshNamed = (scene: Scene, name: string): InstancedMesh => {
   const mesh = scene.getObjectByName(name);
@@ -153,6 +154,19 @@ describe("3d muster banner overlay", () => {
     expect(soldiers.count).toBe(standardSoldiers * 2);
     expect(cloth.geometry.getAttribute("aBannerDesign").getX(0)).toBe(1);
     expect(cloth.geometry.getAttribute("aBannerDesign").getX(1)).toBe(0);
+    overlay.dispose();
+  });
+
+  it("stitches each owner's House crest on its banner, and keeps the cog where there is none", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene);
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, 0, "default", "crest-anchor");
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5, 0, "flag-high-noble", "crest-kraken");
+    overlay.addMuster(7, 8, 0.1, 0.5, "#0000ff", false, 7, 8);
+    overlay.commit();
+    const crests = meshNamed(scene, "muster-banner-cloth").geometry.getAttribute("aBannerCrest");
+    expect([crests.getX(0), crests.getX(1), crests.getX(2)]).toEqual([bannerCrestIndex("crest-anchor"), bannerCrestIndex("crest-kraken"), 0]);
+    expect(crests.getX(0)).toBeGreaterThan(0);
     overlay.dispose();
   });
 });

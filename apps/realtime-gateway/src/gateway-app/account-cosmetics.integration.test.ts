@@ -1,3 +1,4 @@
+import { FREE_COSMETIC_IDS } from "@border-empires/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
@@ -55,14 +56,18 @@ describe("account cosmetics integration", () => {
     expect(refused.status).toBe(401);
     const granted = await fetch(grantUrl, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer secret" }, body: grantBody });
     expect(await granted.json()).toEqual({ ok: true, newlyGranted: true, owned: ["flag-high-noble"] });
-    expect((await nextTypedMessage(owner.sock, "grant push", "COSMETICS_STATE")).owned).toEqual(["flag-high-noble"]);
+    expect((await nextTypedMessage(owner.sock, "grant push", "COSMETICS_STATE")).owned).toEqual(["flag-high-noble", ...FREE_COSMETIC_IDS]);
 
     owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }));
     const seenByRival = await nextTypedMessage(rival.sock, "rival sees look", "PLAYER_STYLE");
     expect(seenByRival).toMatchObject({ playerId: "player-1", cosmetics: { musterFlag: "flag-high-noble" } });
     expect((await nextTypedMessage(owner.sock, "own state", "COSMETICS_STATE")).selected).toEqual({ musterFlag: "flag-high-noble" });
 
+    // A free House crest needs no grant, and the owner sees it too.
+    rival.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "crest", cosmeticId: "crest-kraken" }));
+    expect(await nextTypedMessage(owner.sock, "owner sees crest", "PLAYER_STYLE")).toMatchObject({ playerId: "player-2", cosmetics: { crest: "crest-kraken" } });
+
     const late = await connect("player-2"); // a fresh login
-    expect(late.init.playerCosmetics).toEqual({ "player-1": { musterFlag: "flag-high-noble" } });
+    expect(late.init.playerCosmetics).toEqual({ "player-1": { musterFlag: "flag-high-noble" }, "player-2": { crest: "crest-kraken" } });
   }, 30_000);
 });

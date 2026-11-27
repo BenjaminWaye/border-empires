@@ -5,6 +5,7 @@
 // capture, then shows whether the tile fell. Frontier attacks never get here:
 // the sheet only opens for garrisoned targets.
 
+import { crestFor } from "../client-house-crest/client-house-crest.js";
 import { latestOwnFight, ownFightAt } from "../client-detached-attacks/client-detached-attacks.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
@@ -125,6 +126,7 @@ const sideFor = (deps: HudV2Deps, id: string, role: string, sub: string): Battle
   id,
   name: id === deps.state.me ? deps.state.playerNames.get(id) ?? "You" : deps.state.playerNames.get(id) ?? "Empire",
   color: deps.ownerColor(id),
+  crest: crestFor(deps.state, id),
   role,
   sub
 });

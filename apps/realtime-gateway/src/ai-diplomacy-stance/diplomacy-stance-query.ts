@@ -18,6 +18,8 @@ export type DiplomacyStancePayload = {
   supplyAgreementsFull?: true;
   /** The requester's towns it took from this target lately and could hand back (the trade screen's "Return a town"). */
   returnableTowns?: ReturnableTown[];
+  /** The target's towns it took from the requester lately and could hand back (the trade screen's "Ask for a town back"). */
+  askableTowns?: ReturnableTown[];
 } & (
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: false }
   | {
@@ -109,12 +111,16 @@ export const answerDiplomacyStanceQuery = async (
   const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
   const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
   // Started now, bounded like the human lookup: a slow read only drops the list.
-  const townsRead = deps.returnableTowns
-    ? withinTimeout(Promise.resolve().then(() => deps.returnableTowns!(requesterId)), HUMAN_TRADE_STATE_TIMEOUT_MS)
+  const readTowns = (holderId: string) => deps.returnableTowns
+    ? withinTimeout(Promise.resolve().then(() => deps.returnableTowns!(holderId)), HUMAN_TRADE_STATE_TIMEOUT_MS)
     : Promise.resolve(undefined);
-  const townsField = async (): Promise<{ returnableTowns?: ReturnableTown[] }> => {
-    const towns = (await townsRead)?.filter((town) => town.toPlayerId === target.id) ?? [];
-    return towns.length > 0 ? { returnableTowns: towns } : {};
+  const townsRead = readTowns(requesterId);
+  const askableRead = readTowns(target.id);
+  const townsField = async (): Promise<{ returnableTowns?: ReturnableTown[]; askableTowns?: ReturnableTown[] }> => {
+    const [held, theirs] = await Promise.all([townsRead, askableRead]);
+    const towns = held?.filter((town) => town.toPlayerId === target.id) ?? [];
+    const askable = theirs?.filter((town) => town.toPlayerId === requesterId) ?? [];
+    return { ...(towns.length > 0 ? { returnableTowns: towns } : {}), ...(askable.length > 0 ? { askableTowns: askable } : {}) };
   };
   const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) {

@@ -11,7 +11,8 @@
 // where to raise it (docs/launch-attack-flag-placement-plan.md), with no
 // effort controls when no target benefits from extra manpower.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
-import { previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
+import { attackPreviewBreakdownForTarget, previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
+import { besiegedOddsSuffix, targetShowsBesieged } from "../client-town-siege/client-town-siege.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
@@ -25,6 +26,7 @@ import {
 import { launchFlagPlacement, type LaunchFlagPlacement } from "./client-launch-attack-flag-placement.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { hasOwnAttackEnRoute, type AttackEnRouteState } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
 
 export type AttackLaunchScope = "single" | "bulk" | "region";
 
@@ -114,7 +116,8 @@ export const promptAttackEffortForTarget = (
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
       const winChance = percent(winChanceAt(commitManpower));
-      return `${winChance ? `Win ${winChance} · ` : ""}${commitManpower} MP`;
+      const siege = winChance ? besiegedOddsSuffix(targetShowsBesieged(tile, state, attackPreviewBreakdownForTarget(state, tile, deps))) : "";
+      return `${winChance ? `Win ${winChance}${siege} · ` : ""}${commitManpower} MP`;
     },
     onConfirm: (commitManpower) => {
       sheetTargetKey = undefined;
@@ -131,10 +134,12 @@ export const promptAttackEffortForTarget = (
 
 const launchTitle = (scope: AttackLaunchScope, count: number): string => (scope === "region" ? `Attack region · ${count} tiles` : `Attack ${count} tiles`);
 
-const enemyTargetKeys = (state: EffortState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
+// Skips tiles an own attack is already heading for: a connected-region or
+// bulk launch would otherwise re-send them and be refused LOCKED.
+const enemyTargetKeys = (state: EffortState & AttackEnRouteState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
   targetKeys.filter((k) => {
     const t = state.tiles.get(k);
-    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t));
+    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t) && !hasOwnAttackEnRoute(state, t.x, t.y));
   });
 
 const queueAndReport = (

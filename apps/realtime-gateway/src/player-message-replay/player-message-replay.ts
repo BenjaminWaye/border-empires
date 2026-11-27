@@ -31,7 +31,8 @@
  * report is kept when it carries an `id`: the client shows each report id once,
  * so a socket that reconnects before the old one is reaped (no fresh
  * subscribe, so no resend) still gets a report it missed. A report without an
- * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
+ * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts);
+ * everything else, `charges` included, is kept.
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -74,8 +75,13 @@ export const isReplayedPlayerMessage = (payload: Record<string, unknown>): paylo
 
 /** What is kept for replay: SCOUT_DRONE keeps its report only when the client can tell it already showed it (an id). */
 const hasReportId = (report: unknown): boolean => Boolean(report && typeof report === "object" && typeof (report as { id?: unknown }).id === "string");
-const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage =>
-  payload.type === "SCOUT_DRONE" && !hasReportId(payload.report) ? { type: payload.type, flight: payload.flight } : payload;
+// Everything but an id-less report is kept: `charges` above all, or a reconnected tab showed every charge
+// ready (the client's default with none) while the server had none left (player report 2026-11-26).
+const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage => {
+  if (payload.type !== "SCOUT_DRONE" || hasReportId(payload.report)) return payload;
+  const { report: _report, ...kept } = payload;
+  return kept as ReplayedPlayerMessage;
+};
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));

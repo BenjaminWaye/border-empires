@@ -57,9 +57,8 @@
               <li><strong>Stripe Payments Europe, Limited</strong> (Ireland) for payments. Stripe collects your payment details directly and uses them to process the payment, prevent fraud and meet its own legal duties, under its own privacy policy.</li>
               <li><strong>Resend</strong> (United States) for sending email.</li>
               <li><strong>Slack</strong> (United States) for operational alerts to our team, which can include a player or sector identifier.</li>
-              <li><strong>Hetzner</strong> also keeps daily backups of the game servers, which contain all the game data described above.</li>
-              <li><strong>Backblaze</strong> (Backblaze B2 cloud storage, [[BACKBLAZE_REGION]]) for backups of the game database, where they are used, which contain all the game data described above.</li>
-              <li><strong>GitHub</strong> (United States) for tracking bug reports. The text of a bug report you send from the game is stored there.</li>
+              <li><strong>Hetzner</strong> also keeps daily backups of the main game server, which contain all the game data described above.</li>
+              <li><strong>GitHub</strong> (United States) for tracking bug reports. The text you write in a bug report sent from the game is published there as an issue in our public code repository, where anyone can read it, so do not put personal details in it. The full report, with technical details of your game session and your player name, is also emailed to us.</li>
               <li><strong>Google Fonts</strong> (Google) for the fonts the game displays. Your browser fetches them from Google, which sees your network address.</li>
             </ul>
             <p>Some of these providers process data outside the European Economic Area, including in the United States. Where they do, the transfer is covered by the EU–US Data Privacy Framework or by standard contractual clauses approved by the European Commission. You can ask us for a copy of the safeguards that apply.</p>
@@ -71,8 +70,9 @@
               <li>Purchase records, including what you agreed to at checkout and records of a withdrawal, refund, complaint or payment dispute: until the end of the seventh year after the end of the calendar year in which the financial year of the purchase ended, as the Swedish Bookkeeping Act requires. Records of sales reported under the EU One Stop Shop for VAT are kept for 10 years from the end of the year of the sale, as EU VAT law requires. This applies even if you delete your account.</li>
               <li>The live world of a hosted sector is deleted when the sector is closed. A backup copy of that world is kept for up to 30 days. The final results and the list of the sector's members are kept for the profile history until a member deletes their account; their entries are then removed.</li>
               <li>Records of the payment notices Stripe sends us: 90 days.</li>
-              <li>Backups: Hetzner's daily server backups are replaced after [[HETZNER_BACKUP_DAYS]] days; database backups at Backblaze are kept for [[BACKBLAZE_RETENTION]]. An account deletion reaches a backup when it is replaced or expires, and is applied again if a backup is ever restored.</li>
-              <li>Diagnostic logs: for a limited time needed to find and fix problems.</li>
+              <li>Backups: Hetzner keeps the 7 most recent daily backups of the main game server, so such a backup is replaced after 7 days. Copies of the game database made to maintain or troubleshoot the game are deleted when they are no longer needed. An account deletion reaches a backup when it is replaced or deleted, and is applied again if a backup is ever restored.</li>
+              <li>Diagnostic logs: kept on our servers, where older entries are removed as new ones are written, and in copies we make to investigate a problem, which we delete once it is solved.</li>
+              <li>Bug reports: the emailed report is kept while it helps us fix the game. The public issue stays in our repository; when you ask, we delete it or remove the personal details in it, but we cannot reach copies others may already have made of a public page.</li>
             </ul>
           </section>
           <section>
