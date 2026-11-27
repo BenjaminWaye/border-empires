@@ -5,6 +5,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featuresPart } from "./client-activity-dashboard-features.js";
 import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
+import type { FealtyStanding } from "../client-fealty/client-fealty.js";
 import { supplyEndedCardText } from "./client-activity-dashboard-supply-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 import { scoutFindingsText } from "../client-scout-drone/client-scout-drone-state.js";
@@ -103,7 +104,7 @@ const scoutReportCardText = (card: Extract<PersonalActivityCard, { kind: "SCOUT_
 };
 
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
-export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined, nowMs: number = Date.now()): string => {
+export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined, nowMs: number = Date.now(), fealtyWith?: (playerId: string) => FealtyStanding): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
   if (card.kind === "COMBAT_GROUP") return combatGroupCardText(card, playerNames);
   if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
@@ -115,7 +116,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   if (card.kind === "SCOUT_REPORT") return scoutReportCardText(card, playerNames);
   if (card.kind === "SCOUT_SIGHTED") return `Foreign scouts sighted at your border: ${nameOf(card.scoutPlayerId, playerNames)}`;
-  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames, nowMs);
+  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames, nowMs, fealtyWith);
   if (card.kind === "SUPPLY_ENDED") return supplyEndedCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true

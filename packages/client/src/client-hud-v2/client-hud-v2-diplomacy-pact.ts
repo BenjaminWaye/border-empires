@@ -17,6 +17,8 @@ export type DealPactInput = {
   activeTruces: readonly ActiveTruceView[];
   activeAllianceBreaks: readonly ActiveAllianceBreakView[];
   nowMs: number;
+  /** The ally's status when it isn't plain "Allied": "Your liege" / "Sworn to you" (client-fealty.ts). */
+  allyLabel?: string;
 };
 
 const esc = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -29,7 +31,7 @@ export const dealPactHtml = (input: DealPactInput): string => {
     const control = breaking
       ? `<span class="v2d-pact-note">Alliance ends in ${esc(socialRemainingLabel(breaking.endsAt, input.nowMs))}</span>`
       : `<button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-break="alliance" data-player-id="${id}">Break Alliance</button>`;
-    return `<div class="v2d-pact"><span class="v2d-pact-state">Allied</span>${control}</div>`;
+    return `<div class="v2d-pact"><span class="v2d-pact-state">${esc(input.allyLabel ?? "Allied")}</span>${control}</div>`;
   }
   const truce = input.activeTruces.find((t) => t.otherPlayerId === input.targetId && t.endsAt > input.nowMs);
   if (!truce) return "";
