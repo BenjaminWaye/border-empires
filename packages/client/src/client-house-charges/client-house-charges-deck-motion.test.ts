@@ -48,21 +48,24 @@ describe("House Charges card styles", () => {
 
   // Regression (owner 2026-11-26): on a long charge the House's letter was its own scroll box inside the scrolling
   // card text, sized to 2.8em, so it showed half-cut lines and the scout hint was clipped at the card's foot.
-  it("keeps one scroll box on the desktop card: the letter is cut to whole lines, not scrolled", () => {
+  it("keeps one scroll box on the desktop card: the letter is never its own scroller or clamp", () => {
     const flavour = motionCss.match(/\.hcd-card \.hc-text > \.hc-flavour \{([^}]*)\}/)?.[1] ?? "";
-    expect(flavour).toContain("line-clamp: 2");
-    expect(flavour).not.toMatch(/overflow-y: auto|min-height/);
-    expect(motionCss).toMatch(/\.hcd-card:is\(:hover, :focus-within\) \.hc-text > \.hc-flavour \{[^}]*line-clamp: none/);
-    expect(motionCss).toMatch(/animation-timeline: scroll\(self\)/);
+    expect(flavour).not.toBe("");
+    expect(flavour).not.toMatch(/overflow|min-height|line-clamp|display/);
+    // Review of #3011: a hover rule for the letter out-specified the short-screen rule that hides it.
+    expect(motionCss).not.toMatch(/:hover[^{]*\.hc-flavour|:focus-within[^{]*\.hc-flavour/);
+    expect(motionCss).toMatch(/\.hcd-card \.hc-text \{[^}]*animation-name: hcd-text-fade;[^}]*animation-timeline: scroll\(self\)/);
     expect(motionCss).toMatch(/@property --hcd-text-fade \{[^}]*initial-value: 0px/);
   });
 
   // Owner 2026-11-26: when text is cut, it is the letter, not the objective, progress, scout hint or status.
-  it("puts the House's letter last on the card, after progress, scout hint and status", () => {
+  it("puts the House's letter last on the card, after the objective and status", () => {
     document.body.innerHTML = houseChargesPanelHtml({ activePanel: "charges", houseCharges: { ...payload, charges: [charge("a", "CHARTER")] }, houseChargesDraftKeep: undefined }, 5);
-    const text = document.querySelector(".hcd-card .hc-text")!;
-    expect(text.lastElementChild?.classList.contains("hc-flavour")).toBe(true);
-    expect(text.querySelector(".hcd-status")).not.toBeNull();
+    const order = Array.from(document.querySelector(".hcd-card .hc-text")!.children).map((child) => child.className);
+    expect(order[0]).toBe("hcd-objective");
+    expect(order.at(-1)).toBe("hc-flavour");
+    expect(order.indexOf("hcd-status")).toBeGreaterThan(0);
+    expect(order.indexOf("hcd-status")).toBeLessThan(order.length - 1);
   });
 
   // Review of #2887: a phone held sideways is wider than 900 px but compact, and must keep the phone panel.

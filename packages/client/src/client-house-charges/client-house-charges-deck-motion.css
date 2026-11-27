@@ -89,10 +89,10 @@
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { max-height: max(320px, calc(100vh - 270px)); max-height: max(320px, calc(100dvh - 270px)); }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card > .hc-frame { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: 3 / 1; }
-  /* One scroll box only. The House's letter sits last and is cut to two whole lines with an ellipsis, so the
-     objective, progress and whether it is held show first; hovering or focusing the card shows the whole letter.
-     If the text still runs long (a House named by its account id) the text box scrolls, its bottom edge fading
-     while there is more below. (A second, nested scroll box for the letter showed half-cut lines.) */
+  /* One scroll box only. The House's letter sits last, so the objective, progress and whether it is held show
+     first; when the text runs long the whole text box scrolls, its bottom edge fading while there is more below.
+     (A second, nested scroll box for the letter showed half-cut lines; a hover-only unclamp hid it from touch and
+     beat the short-screen rule that hides it.) */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
     display: flex;
     flex-direction: column;
@@ -103,20 +103,7 @@
     font-size: 14px;
   }
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > p { flex: none; }
-  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    font-size: 13px;
-  }
-  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:is(:hover, :focus-within) .hc-text > .hc-flavour {
-    display: block;
-    -webkit-line-clamp: none;
-    line-clamp: none;
-    overflow: visible;
-  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour { font-size: 13px; }
   /* The Keep bar and the profile tip float in the title row, between the title and Close, over the hand. The
      panel's centring transform makes it the box `fixed` is placed in, so the popover stays put as the cards scroll. */
   body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover {
@@ -167,7 +154,9 @@
     body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
       -webkit-mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
       mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
-      animation: hcd-text-fade linear both;
+      animation-name: hcd-text-fade;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
       animation-timeline: scroll(self);
     }
   }
