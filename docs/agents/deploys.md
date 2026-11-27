@@ -177,7 +177,7 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 - **Servers:** staging `178.105.133.33`, production `188.245.240.42` (Nuremberg, Ubuntu 26.04). Staging has no backups (disposable state, backup timer disabled). Production has Hetzner daily server backups enabled; there is **no hourly SQLite snapshot job on prod** (the timer is disabled): two staging watchdog kills coincided with hourly `VACUUM INTO` backups (hypothesis: SQLite lock contention with the synchronous app), so do not re-enable it on prod without measuring first.
 - **Metrics/debug port:** `ssh -L 50052:127.0.0.1:50052 deploy@host`, then `curl 127.0.0.1:50052/metrics`.
 - **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command).
-- **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
+- **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer), where the timer is on: it is off on production and staging (see above), so B2 holds no current production backup. The privacy draft no longer names Backblaze; turning the job on again needs an EU bucket and a privacy update first (`docs/legal-drafts/README.md`). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
 
 ## Vercel (historical rollback only)
 
