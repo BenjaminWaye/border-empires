@@ -1,0 +1,41 @@
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
+import type { Tile } from "../client-types.js";
+import { relayBeaconStartTile, startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
+import type { HudV2Deps } from "./client-hud-v2-context.js";
+
+const tile = (x: number, y: number, extra: Record<string, unknown> = {}): Tile =>
+  ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...extra }) as unknown as Tile;
+const tiles = (...list: Tile[]) => new Map(list.map((t) => [`${t.x},${t.y}`, t]));
+
+// UX review of #2845: the "Build a Relay Beacon" next step looked tappable but did nothing.
+describe("tracker Relay Beacon step", () => {
+  it("starts on a tile the build path accepts, never a blocked one", () => {
+    const state = { tiles: tiles(tile(5, 5, { ownershipState: "FRONTIER" }), tile(20, 20)), me: "me", serverReach: undefined, serverReachRevision: 0 };
+    expect(relayBeaconStartTile(state as never)).toEqual({ x: 20, y: 20 });
+    expect(relayBeaconStartTile({ ...state, tiles: tiles(tile(5, 5, { ownershipState: "FRONTIER" })) } as never)).toBeUndefined();
+  });
+
+  // Owner call 2026-11-20: a food row's beacon starts on your land nearest the grain or fish it names.
+  it("starts nearest a target when given one", () => {
+    const state = { tiles: tiles(tile(0, 0), tile(10, 10), tile(5, 5, { ownershipState: "FRONTIER" })), me: "me", serverReach: undefined, serverReachRevision: 0 };
+    expect(relayBeaconStartTile(state as never, { x: 12, y: 11 })).toEqual({ x: 10, y: 10 });
+    expect(relayBeaconStartTile(state as never, { x: 1, y: 0 })).toEqual({ x: 0, y: 0 });
+  });
+
+  // Review of #2903: the nearest site must be found across the world seam, not ~a world away.
+  it("finds the site nearest a target across the world seam", () => {
+    const state = { tiles: tiles(tile(1, 0), tile(40, 0)), me: "me", serverReach: undefined, serverReachRevision: 0 };
+    expect(relayBeaconStartTile(state as never, { x: WORLD_WIDTH - 2, y: 0 })).toEqual({ x: 1, y: 0 });
+  });
+
+  it("arms Relay Beacon placement, centres on it and shows the placement bar", () => {
+    const state = { tiles: tiles(tile(20, 20)), me: "me", serverReach: undefined, serverReachRevision: 0, buildingPlacement: { active: false, structureType: "", x: 0, y: 0 }, camX: 0, camY: 0, camSubX: 0, camSubY: 0 };
+    const renderPlacementOverlay = vi.fn();
+    const deps = { state, renderHud: vi.fn(), requestViewRefresh: vi.fn(), wrapX: (x: number) => x, wrapY: (y: number) => y, actionFlow: { renderPlacementOverlay } } as unknown as HudV2Deps;
+    expect(startRelayBeaconPlacement(deps)).toBe(true);
+    expect(state.buildingPlacement).toEqual({ active: true, structureType: "RELAY_BEACON", x: 20, y: 20 });
+    expect(renderPlacementOverlay).toHaveBeenCalled();
+  });
+});

@@ -1,14 +1,18 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type ResourceType, type SlotResource, type WaystationGrantedEffect } from "@border-empires/shared";
+import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_VISION_REVEAL_TTL_MS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type ResourceType, type SlotResource, type WaystationGrantedEffect } from "@border-empires/shared";
 import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { grantFreeTech, type TechGrantContext } from "./tech-grant-side-effects/tech-grant-side-effects.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
+import type { PendingWatchtowerReveal } from "./runtime-watchtower-reveal-tick.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
 import { grantWaystationGold, grantWaystationManpower, waystationResultDetailFields } from "./runtime-waystation-rewards.js";
 
-export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTileVisionBonus" | "isVisible">;
+export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTemporaryRevealCells" | "isVisible">;
+
+/** A VISION look to expire later: the runtime queues it with the watchtower pulses (runtime-watchtower-reveal-tick.ts). */
+export type WaystationVisionReveal = Omit<PendingWatchtowerReveal, "kind"> & { kind: "waystation-vision" };
 
 export type WaystationActivationInput = {
   now: () => number;
@@ -16,6 +20,8 @@ export type WaystationActivationInput = {
   players: Map<string, DomainPlayer>;
   visibilityCoverage: WaystationVisibilityCoverage;
   visionTransitionCallbacks: VisibilityTransitionCallbacks;
+  /** Removes the VISION effect's temporary reveal once `expiresAt` passes. */
+  scheduleRevealExpiry: (reveal: WaystationVisionReveal) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -46,41 +52,6 @@ const WAYSTATION_TILE_RESOURCES = {
 } as const satisfies Record<SlotResource, ResourceType>;
 
 const WAYSTATION_SLOT_RESOURCES: readonly SlotResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
-
-/** The fixed reason tag for a waystation's permanent vision footprint -- see addTileVisionBonus/removeTileVisionBonus in visibility-coverage-cache.ts. */
-const WAYSTATION_VISION_REASON = "waystation";
-
-/**
- * Applies (or re-applies at boot) a waystation's permanent vision footprint
- * for the player who activated it. Idempotent per (playerId, x, y, radius,
- * reason) at the coverage-cache layer, so this is safe to call once per
- * already-activated waystation tile during boot's tile-scan pass (mirroring
- * seedOutpostVisionBonus/seedObservatoryVisionBonus in runtime.ts) to
- * reconstruct the bonus after every restart -- the coverage cache itself is
- * rebuilt from scratch on boot and has no persistence of its own, so without
- * this call every activated waystation's vision silently and permanently
- * vanishes on the next restart even though the tile stays `activated`
- * forever (its one-shot guard means the effect can never re-fire).
- *
- * Reads the revealed location from tile.waystation.revealedAtX/Y (recorded
- * at activation time) rather than recomputing "nearest town" from the
- * waystation's own x/y -- recomputing at boot could disagree with the
- * original activation-time computation if world state around it changed in
- * the interim (e.g. the town that grounded the reveal was later captured or
- * destroyed). Only fires for a waystation whose granted effect was actually
- * VISION; every other effect leaves no vision footprint to reseed.
- */
-export const seedWaystationVisionBonus = (
-  coverage: WaystationVisibilityCoverage,
-  callbacks: VisibilityTransitionCallbacks,
-  tile: Pick<DomainTileState, "x" | "y" | "waystation">
-): void => {
-  const waystation = tile.waystation;
-  if (!waystation?.activated || !waystation.activatedByPlayerId || waystation.grantedEffect !== "VISION") return;
-  const x = waystation.revealedAtX ?? tile.x;
-  const y = waystation.revealedAtY ?? tile.y;
-  coverage.addTileVisionBonus(waystation.activatedByPlayerId, x, y, WAYSTATION_REVEAL_RADIUS, callbacks, WAYSTATION_VISION_REASON);
-};
 
 /**
  * Finds the nearest tile owned by `playerId` that carries a town, measured
@@ -159,21 +130,24 @@ const nearestTownKeyWithinRadius = (
 };
 
 /**
- * Grants the VISION effect: reveals WAYSTATION_REVEAL_RADIUS around the
- * nearest not-already-visible town (any owner) within
- * WAYSTATION_VISION_TOWN_SEARCH_RADIUS of the waystation's own (x, y) -- a
- * scouting reward pointing at a real settlement rather than just the
- * outpost's own empty frontier tile, and one the player doesn't already have
- * eyes on (see nearestTownKeyWithinRadius). Falls back to revealing around
- * the waystation's own (x, y) when no such town is in range; this is a
- * deliberate, signed-off fallback (not a TODO), since the effect must still
- * do *something* even on a town-sparse frontier. Returns the (x, y) actually
- * revealed so the caller can record it on the tile for
- * seedWaystationVisionBonus to read back verbatim at boot.
+ * Grants the VISION effect: a one-time look (WAYSTATION_VISION_REVEAL_TTL_MS)
+ * of WAYSTATION_REVEAL_RADIUS around the nearest not-already-visible town (any
+ * owner) within WAYSTATION_VISION_TOWN_SEARCH_RADIUS of the waystation's own
+ * (x, y) -- a scouting reward pointing at a real settlement the player doesn't
+ * already have eyes on (see nearestTownKeyWithinRadius). Falls back to the
+ * waystation's own (x, y) when no such town is in range; this is a deliberate,
+ * signed-off fallback (not a TODO). Once the look expires the tiles drop to
+ * remembered fog: they entered coverage, so explored memory keeps them.
+ *
+ * It was a permanent footprint, reseeded at every boot, until 2026-11-23: a
+ * player kept live sight of a rival town for the rest of the season (player
+ * report). A restart before expiry ends the look early, as it does a scout
+ * drone's flight. Returns the (x, y) revealed for the tile record and popup.
  */
 const grantWaystationVision = (
   input: WaystationActivationInput,
   playerId: string,
+  waystationKey: string,
   x: number,
   y: number
 ): { revealedAtX: number; revealedAtY: number } => {
@@ -181,7 +155,8 @@ const grantWaystationVision = (
   const townTile = townKey ? input.tiles.get(townKey) : undefined;
   const revealedAtX = townTile?.x ?? x;
   const revealedAtY = townTile?.y ?? y;
-  input.visibilityCoverage.addTileVisionBonus(playerId, revealedAtX, revealedAtY, WAYSTATION_REVEAL_RADIUS, input.visionTransitionCallbacks, WAYSTATION_VISION_REASON);
+  const cellKeys = input.visibilityCoverage.addTemporaryRevealCells(playerId, revealedAtX, revealedAtY, WAYSTATION_REVEAL_RADIUS, input.visionTransitionCallbacks);
+  input.scheduleRevealExpiry({ kind: "waystation-vision", tileKey: waystationKey, playerId, expiresAt: input.now() + WAYSTATION_VISION_REVEAL_TTL_MS, cellKeys });
   return { revealedAtX, revealedAtY };
 };
 
@@ -250,13 +225,13 @@ const lowestBalanceWaystationResource = (player: DomainPlayer): SlotResource => 
 };
 
 /**
- * Activates a dormant waystation the first time a player expands onto its
- * tile: flips it to activated and grants exactly ONE of six possible
+ * Activates a dormant waystation on explicit collection (or AI capture).
+ * Flips it to activated and grants exactly ONE of six possible
  * effects, chosen uniformly at random via the injected `random`
  * (defaults to Math.random) --
- *  0. VISION: a permanent map-vision reveal (same coverage-tracker plumbing
- *     as a watchtower's pulse, but never removed) centered on the nearest
- *     town within range, or the waystation's own tile as a fallback;
+ *  0. VISION: a one-time look (a temporary reveal that expires after
+ *     WAYSTATION_VISION_REVEAL_TTL_MS, like a watchtower's pulse) centered on
+ *     the nearest unseen town within range, or the waystation's own tile;
  *  1. POPULATION: a population burst to the player's nearest owned town;
  *  2. TECH: a random unowned tier-1 tech, granted outright -- or GOLD if the
  *     player already owns every tier-1 tech;
@@ -264,9 +239,8 @@ const lowestBalanceWaystationResource = (player: DomainPlayer): SlotResource => 
  *  4. GOLD: a flat-tier treasury payout (WAYSTATION_GOLD_TIERS);
  *  5. MANPOWER: WAYSTATION_MANPOWER_GRANT, allowed to overflow the cap.
  * No-op if the tile has no waystation or it was already activated (one-time
- * only, never re-fires). Unlike watchtowers there is no expiry/tick-cleanup
- * step. The consumed record travels with the tile for event replay, live
- * reward notifications, and restoring permanent vision on restart. Clients
+ * only, never re-fires). The consumed record travels with the tile for event
+ * replay and live reward notifications. Clients
  * clear the map feature when they receive an activated record.
  */
 export const activateWaystationAt = (
@@ -275,7 +249,8 @@ export const activateWaystationAt = (
   x: number,
   y: number,
   playerId: string,
-  commandId: string
+  commandId: string,
+  automatic = false
 ): void => {
   const tile = input.tiles.get(targetKey);
   if (!tile?.waystation || tile.waystation.activated) return;
@@ -286,13 +261,15 @@ export const activateWaystationAt = (
   // waystation would burn its one activation with no effect applied at all,
   // permanently.
   const player = input.players.get(playerId);
-  if (!player) return;
+  if (!player || (automatic && !player.isAi)) return;
 
   const random = input.random ?? Math.random;
   const effectIndex = Math.floor(random() * WAYSTATION_EFFECTS.length) % WAYSTATION_EFFECTS.length;
   const rolledEffect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
 
-  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: rolledEffect };
+  // One timestamp for the tile stamp and the eventLog/Chronicle entry below.
+  const occurredAt = input.now();
+  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, activatedAt: occurredAt, grantedEffect: rolledEffect };
   let populationBurst: number | undefined;
   let resource: ResourceType | undefined;
 
@@ -301,14 +278,8 @@ export const activateWaystationAt = (
   // emitted below already carries the full, final result -- no second write
   // or re-emit needed.
   if (rolledEffect === "VISION") {
-    // Same permanent-bonus API a Relay Beacon uses (addTileVisionBonus)
-    // rather than the watchtower's addTemporaryReveal -- that API is
-    // explicitly contracted as temporary ("the caller is responsible for
-    // calling removeTemporaryReveal... once the effect expires",
-    // visibility-coverage-cache.ts) and mislabels its footprint
-    // "temporary-reveal", which is wrong for an effect that must never
-    // expire and also survive a restart (see seedWaystationVisionBonus).
-    const { revealedAtX, revealedAtY } = grantWaystationVision(input, playerId, x, y);
+    // A one-time look that expires (see grantWaystationVision), never a permanent footprint.
+    const { revealedAtX, revealedAtY } = grantWaystationVision(input, playerId, targetKey, x, y);
     waystationResult.revealedAtX = revealedAtX;
     waystationResult.revealedAtY = revealedAtY;
   } else if (rolledEffect === "TECH") {
@@ -355,7 +326,6 @@ export const activateWaystationAt = (
   // TILE_DELTA_BATCH just emitted only reaches an already-subscribed client.
   // This is what lets the client show the activation popup on the player's
   // *next* connection, from any device, instead of only live.
-  const occurredAt = input.now();
   const effect = waystationResult.grantedEffect ?? rolledEffect;
   const detailFields = waystationResultDetailFields(waystationResult);
   appendPlayerEventLogEntry(player, {

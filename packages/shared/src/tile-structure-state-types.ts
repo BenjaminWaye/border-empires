@@ -74,6 +74,10 @@ export type TileAfcState = {
   // Set when the AFC changed hands by capture. A captured AFC was never
   // dropped from orbit, so the client skips its landing animation.
   capturedAt?: number;
+  // The House that landed or built this AFC. Never changes on capture; read
+  // through afcFoundedBy (afc-founder.ts), which covers AFCs saved before
+  // the field existed.
+  foundedBy?: PlayerId;
   // Tech ids of AFC_MODULE-category Manifests installed here. Modules without
   // a matching houseModules entry are captured copies (including legacy
   // saves created before provenance was added).
@@ -81,6 +85,11 @@ export type TileAfcState = {
   // The researched, House-owned copy of each module. A player may redeploy
   // this one between their AFCs; captured copies deliberately stay put.
   houseModules?: string[];
+  // Captured copies only: module tech id -> the House whose copy it was when
+  // this AFC was taken. Bounded by the installed module ids (at most
+  // AFC_MODULE_SLOTS keys); two copies of one module share the latest entry.
+  // Copies captured before this field existed have no entry.
+  capturedModuleHouses?: Record<string, PlayerId>;
   // House modules called down to this AFC and still in transit; each moves
   // into modules/houseModules once arrivesAt passes (AFC_MODULE_CALL_DOWN_MS).
   incomingModules?: Array<{ techId: string; arrivesAt: number }>;

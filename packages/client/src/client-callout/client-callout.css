@@ -1,0 +1,41 @@
+/* Shared map callout: the dark leather box with a brass edge and a rotated-square pointer that map
+   notices use (AFC upgrades ready, the House Charges bubble's note). New map notices should use these
+   classes rather than restating the colours, so they stay one style. Each user sets its own
+   position (absolute or relative: the pointer needs one), padding and size; .sp-callout sets none of
+   them, so it never fights a user's rule. Users import this file before their own stylesheet. */
+.sp-callout {
+  border: 1px solid var(--sp-brass-300, #d9ad52);
+  border-radius: 5px;
+  color: var(--sp-brass-100, #f4dfa6);
+  background: #241812f5;
+  box-shadow: 0 3px 8px #0008;
+  font: 600 12px/1.3 var(--sp-font-body, Georgia, serif);
+  touch-action: manipulation;
+}
+.sp-callout:focus-visible {
+  outline: 2px solid var(--sp-parchment-100, #f2e8d3);
+  outline-offset: 3px;
+}
+.sp-callout-tail-down::after,
+.sp-callout-tail-left::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--sp-leather-900, #241812);
+  transform: rotate(45deg);
+}
+/* Pointer under the box, centred (a notice anchored above a map point). */
+.sp-callout-tail-down::after {
+  left: calc(50% - 4px);
+  bottom: -5px;
+  border-right: 1px solid var(--sp-brass-300, #d9ad52);
+  border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
+}
+/* Pointer on the left edge, centred (a note beside an icon). */
+.sp-callout-tail-left::after {
+  left: -5px;
+  top: calc(50% - 4px);
+  border-left: 1px solid var(--sp-brass-300, #d9ad52);
+  border-bottom: 1px solid var(--sp-brass-300, #d9ad52);
+}

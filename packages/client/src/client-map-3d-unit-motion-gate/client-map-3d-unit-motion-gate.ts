@@ -41,6 +41,8 @@ export type UnitMotionGate = {
   readonly recordFrame: (nowMs: number) => void;
   /** True when units should animate this frame. */
   readonly shouldAnimate: () => boolean;
+  /** True while the OS asks for reduced motion (unlike shouldAnimate, ignores the slow-device latch). */
+  readonly prefersReducedMotion: () => boolean;
 };
 
 export type UnitMotionGateDeps = {
@@ -91,5 +93,5 @@ export const createUnitMotionGate = (deps: UnitMotionGateDeps = browserGateDeps(
 
   const shouldAnimate = (): boolean => !slowDeviceLatched && !deps.prefersReducedMotion();
 
-  return { recordFrame, shouldAnimate };
+  return { recordFrame, shouldAnimate, prefersReducedMotion: deps.prefersReducedMotion };
 };

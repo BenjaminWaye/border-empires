@@ -29,6 +29,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "SET_CONVERTER_STRUCTURE_ENABLED":
     case "SET_CONVERTER_STRUCTURE_MODE":
     case "ASSIGN_REFINERY_FIELD":
+    case "SET_TOWN_FOCUS":
     case "SET_OBSERVATORY_ENABLED":
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":
@@ -39,6 +40,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "HIJACK_AETHER_TOWER":
     case "RECRUIT_ANCILLARIES":
     case "SHIP_SALVAGE_TO_COURT":
+    case "ACTIVATE_WAYSTATION":
     case "FORCED_ANCILLARIFICATION":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
@@ -63,6 +65,8 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "NAME_ISLAND":
     case "CHOOSE_HOUSE_CHARGES":
     case "EXPLORE":
+    case "RECALL_SCOUT":
+    case "SCOUT_REPORT_SEEN":
     case "UPGRADE_TOWN_TIER":
     case "WATCH_MUSTER":
     case "UNWATCH_MUSTER":

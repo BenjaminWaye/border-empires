@@ -19,7 +19,9 @@ remain authoritative for runtime behavior.
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Hetzner/Vercel | [`agents/deploys.md`](agents/deploys.md) |
 | Android/iOS wrappers, signing and store readiness | [`agents/mobile-apps.md`](agents/mobile-apps.md) |
+| Apple/Google rules on web purchases used in the apps | [`app-store-purchase-rules.md`](app-store-purchase-rules.md) |
 | Account deletion, data erasure and backup restoration | [`agents/account-deletion.md`](agents/account-deletion.md) |
+| Account cosmetics: rules, catalogue, ownership, granting, wire cost | [`cosmetics.md`](cosmetics.md) |
 | Fly → Hetzner migration plan (historical) | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
 | Sync-delay exports, timing interpretation and player-scoped server traces | [`agents/topics/sync-delay-diagnostics.md`](agents/topics/sync-delay-diagnostics.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
@@ -30,7 +32,9 @@ remain authoritative for runtime behavior.
 | AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
 | AI economic synergy: stacking Manufactory/Depot, Clearing House, Trade Nexus, Neural Works, Reserve Lattice (implemented) | [`ai-economic-synergy-plan.md`](ai-economic-synergy-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
+| Game design north star (audience, priorities, scope, business model) | [`gdd.md`](gdd.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
+| Launch Attack flag placement step (phase 1 implemented; map picking and March Attack planned) | [`launch-attack-flag-placement-plan.md`](launch-attack-flag-placement-plan.md) |
 | AFC loss, replacement deliveries and withdrawal | [`afc-recovery-plan.md`](afc-recovery-plan.md) |
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
@@ -38,12 +42,18 @@ remain authoritative for runtime behavior.
 | Historical relic anchor proposal (superseded) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
-| Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
+| Tutorial guide (every player, every season): research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
 | HUD v2 on mobile: 4X UI research, phone layout and phased rollout (built; the default on phones) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
 | Explore: AFC scout drones replace Expand To on unexplored tiles (implemented) | [`explore-scout-plan.md`](explore-scout-plan.md) |
+| Farm Plot: manpower-built food on town support tiles, so tall players can start without exploring (proposal) | [`farm-plot-plan.md`](farm-plot-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Planetary Defense camps: Civ-style camps replace barbarian walk/multiply (proposal) | [`planetary-defense-camps-plan.md`](planetary-defense-camps-plan.md) |
 | House Charges: secret map objectives held to game end, cards and galaxy rewards (proposed) | [`house-charges-plan.md`](house-charges-plan.md) |
+| Hosted sectors with payment: Stripe purchase, automatic Hetzner servers, teardown, owner decisions (proposal, awaiting approval) | [`hosted-sectors-plan.md`](hosted-sectors-plan.md) |
+| Hosted sectors: tax setup for TIDN AB (proposal, needs the accountant) | [`hosted-sectors-tax.md`](hosted-sectors-tax.md) |
+| Hosted sectors: draft Terms of Sale and privacy policy for TIDN AB (drafts, not published) | [`legal-drafts/README.md`](legal-drafts/README.md) |
 | Territory development: cut frontier materials, refineries in towns (proposed) | [`territory-development-plan.md`](territory-development-plan.md) |
+| Town focus: free per-town shift between growth, manpower and Coin, applied within a minute | [`town-focus-plan.md`](town-focus-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |

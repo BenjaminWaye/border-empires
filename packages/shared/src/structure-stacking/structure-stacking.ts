@@ -10,14 +10,20 @@ import type { BuildableStructureType } from "../structure-costs/structure-costs.
 
 // Placement mode "same_tile" types that stack with no per-town limit
 // (Manufactory: each active copy adds to town coin; Ancillary Depot: each copy
-// adds manpower cap; the two Weapons Factories: no per-town limit). When the
+// adds manpower cap; the two Weapons Factories: no per-town limit; Farm Plots:
+// each adds FOOD). When the
 // build target is the town tile itself, the runtime redirects them to an open
 // support tile with no uniqueness gate.
 export const STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES: ReadonlySet<BuildableStructureType> = new Set<BuildableStructureType>([
   "MANUFACTORY",
   "ANCILLARY_DEPOT",
+  // Vivarium: each copy covers one luxury biota slot for its town.
+  "VIVARIUM",
   "TITANIUM_WEAPONS_FACTORY",
   "UMBRITE_WEAPONS_FACTORY",
+  // Farm Plots (and their Hydrogarden Plot upgrade): one per open support tile.
+  "FARM_PLOT",
+  "HYDROGARDEN_PLOT",
   // Refineries: several per town, one per deposit field (refineries/).
   "TITANIUM_REFINERY",
   "UMBRITE_REFINERY",

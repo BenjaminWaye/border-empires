@@ -25,7 +25,7 @@
 // and a fog-shadow model this client doesn't have, so this is a deliberately
 // small client mirror rather than a shared import.
 
-import { chebyshevWithWrap, landGatedTileKeysInDisk, RELAY_BEACON_VISION_BONUS, tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { chebyshevWithWrap, landGatedTileKeysInDisk, landmarkConstructionBlocker, RELAY_BEACON_VISION_BONUS, tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
 import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
@@ -71,6 +71,20 @@ export const isRelayBeaconPlacementTile = (tile: Tile | undefined, playerId: str
       !tile.siegeBattery &&
       !tile.observatory
   );
+
+/**
+ * A settled tile where a beacon builds straight away (no expand/garrison first): a placement tile not on or
+ * beside an AFC or relic center. A strict subset of what placement accepts (isRelayBeaconPlacementTarget),
+ * so a suggestion built on it never leads to a placement that fails.
+ */
+export const isRelayBeaconBuildTile = (tiles: ReadonlyMap<string, Tile>, tile: Tile | undefined, playerId: string): boolean =>
+  isRelayBeaconPlacementTile(tile, playerId) && !landmarkConstructionBlocker(tiles, tile!.x, tile!.y);
+
+/** Whether the player has any tile a Relay Beacon could go on right now. */
+export const hasRelayBeaconBuildTile = (tiles: ReadonlyMap<string, Tile>, playerId: string): boolean => {
+  for (const tile of tiles.values()) if (isRelayBeaconBuildTile(tiles, tile, playerId)) return true;
+  return false;
+};
 
 const hasNoBlockingStructure = (tile: Tile): boolean =>
   tile.terrain === "LAND" && !tile.optimisticPending && !tile.economicStructure && !tile.siegeBattery && !tile.observatory;

@@ -49,6 +49,20 @@
   }
 }
 
+/* The scout drone's planner, flight pill and report card take this bottom-centre slot; the pill's
+   countdown covered the badge in flight. scout-focus (client-scout-drone-hud.ts) is on for exactly
+   those phases and off for the "Explore" offer, which shows for a new player's first days: the badge
+   hides only while the drone is in use. */
+body.scout-focus .guest-save-badge { display: none; }
+
+/* The offer pill shares the slot on a desktop (on a phone it sits left, raised): the badge rises
+   above it (pill: 44px tall, same bottom) rather than covering it. */
+@media (min-width: 901px) {
+  body:has(#scout-drone-pill.is-offer[style*="flex"]) .guest-save-badge {
+    bottom: calc(max(18px, env(safe-area-inset-bottom)) + 54px);
+  }
+}
+
 .guest-save-badge:hover {
   filter: brightness(1.07);
 }

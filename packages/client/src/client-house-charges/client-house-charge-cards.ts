@@ -2,8 +2,9 @@
 // fulfilled charge becomes a collectible trading card. Data comes from the
 // public GET /hq/house-charges/cards/by-player/:playerId route; the art is the
 // real shape the House held (shared house-charge-art.ts), drawn as an SVG grid.
-import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
+import { HOUSE_CHARGE_KINDS, RELIC_DEFINITIONS, decodeChargeArt, houseStyledName, type HouseChargeKind, type HouseChargeRarity, type NaturalWonderType } from "@border-empires/shared";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import { houseChargeEmblemSvg } from "./client-house-charge-emblems.js";
 import { HOUSE_CHARGE_KIND_LABEL } from "./client-house-charges-labels.js";
 
 export type HouseChargeCardView = {
@@ -50,6 +51,10 @@ export const houseChargeCardRule = (card: Pick<HouseChargeCardView, "kind" | "pl
     case "DESERT":
     case "TUNDRA":
       return `Garrisoned ${first} and held it to the end of the contest.`;
+    case "CORRECTION":
+      return `Pressed a grievance against ${houseStyledName(first)}, took an AFC it founded and held it to the end of the contest.`;
+    case "METROPOLIS":
+      return `Raised three towns on ${first} to Metropolises and held them to the end of the contest.`;
     case "RELIC":
       return `Kept ${card.relicType && card.relicType in RELIC_DEFINITIONS ? `the ${RELIC_DEFINITIONS[card.relicType as NaturalWonderType].name}` : "a Concordance installation"} in service to the end of the contest.`;
   }
@@ -61,7 +66,9 @@ const FLAVOUR: Readonly<Record<HouseChargeKind, readonly string[]>> = {
   SURVEY: ["The cartographers allowed a day. The House needed less.", "A name in the charts outlasts the hand that wrote it.", "Every acre garrisoned, every coastline charted."],
   DESERT: ["Salvage crews said the sand ate their tracks by noon. The garrisons stayed anyway.", "Nothing grows here but resolve.", "The waste was named on the charts long before anyone held it."],
   TUNDRA: ["The frost took the banners. The garrisons kept the ground.", "A hardship posting, held to the last day.", "Ice remembers who stood on it."],
-  RELIC: ["The machinery was ready long before anyone came to wake it.", "The Wardens noticed. The House held anyway.", "Old aether, new masters."]
+  RELIC: ["The machinery was ready long before anyone came to wake it.", "The Wardens noticed. The House held anyway.", "Old aether, new masters."],
+  CORRECTION: ["The heralds read the grievance aloud. Then they read who answered it.", "Their machines still bear their crest. They work for us now.", "A wrong answered is a debt paid."],
+  METROPOLIS: ["Three cadet lines. Three seats. One House.", "The elders asked for cities. The House built a province.", "A Metropolis is not taken. It is kept."]
 };
 
 const flavourFor = (card: Pick<HouseChargeCardView, "kind" | "id" | "seasonId">): string => {
@@ -69,7 +76,7 @@ const flavourFor = (card: Pick<HouseChargeCardView, "kind" | "id" | "seasonId">)
   return lines[hash(`${card.seasonId}:${card.id}`) % lines.length]!;
 };
 
-/** The card's art: the held shape as an SVG grid, or an emblem when there is no shape (Seat, relic). */
+/** The card's art: the held shape as an SVG grid, or the kind's emblem when there is no shape (client-house-charge-emblems.ts). */
 export const houseChargeCardArtSvg = (card: Pick<HouseChargeCardView, "kind" | "art">): string => {
   const bitmap = decodeChargeArt(card.art);
   if (bitmap) {
@@ -78,10 +85,7 @@ export const houseChargeCardArtSvg = (card: Pick<HouseChargeCardView, "kind" | "
       .join("");
     return `<svg class="hc-art-svg" viewBox="-1 -1 ${bitmap.width + 2} ${bitmap.height + 2}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="hc-art-cells">${cells}</g></svg>`;
   }
-  if (card.kind === "RELIC") {
-    return `<svg class="hc-art-svg" viewBox="0 0 24 16" aria-hidden="true"><rect class="hc-art-beam" x="11.3" y="0" width="1.4" height="9"/><g class="hc-art-cells"><rect x="7" y="13" width="10" height="2"/><rect x="8.5" y="11" width="7" height="2"/><rect x="10" y="9" width="4" height="2"/></g></svg>`;
-  }
-  return `<svg class="hc-art-svg" viewBox="0 0 24 16" aria-hidden="true"><g class="hc-art-cells"><rect x="6" y="7" width="12" height="7"/><polygon points="5,7 12,2 19,7"/><rect class="hc-art-gate" x="10.5" y="10" width="3" height="4"/></g></svg>`;
+  return houseChargeEmblemSvg(card.kind);
 };
 
 /** One trading card. */
@@ -100,6 +104,10 @@ export const houseChargeCardHtml = (card: HouseChargeCardView): string => {
     <div class="hc-stats" title="Size / hours held">${esc(size)} / ${card.hoursHeld}</div>
   </article>`;
 };
+
+/** The shared card back (brass cog seal on ribbed blue, gold-leaf frame); `mini` is the icon size. */
+export const houseChargeCardBackHtml = (options: { mini?: boolean } = {}): string =>
+  `<div class="hc-card is-back${options.mini ? " is-mini" : ""}" aria-hidden="true"><div class="hc-frame"><div class="hc-back-face"><span class="sp-cog"></span><span class="hc-back-title">House Charge</span></div></div></div>`;
 
 /** A player's card collection for their profile; `undefined`/"loading" while fetching. */
 export const houseChargeCollectionHtml = (cards: HouseChargeCardView[] | "loading" | undefined, isSelf: boolean): string => {
@@ -133,6 +141,7 @@ export const parseHouseChargeCard = (value: unknown): HouseChargeCardView | unde
     ...(places ? { places } : {}),
     ...(typeof raw.art === "string" ? { art: raw.art } : {}),
     ...(typeof raw.relicType === "string" ? { relicType: raw.relicType } : {}),
+    ...(raw.difficultyScored === true ? { difficultyScored: true as const } : {}),
     seasonId: raw.seasonId,
     seasonSequence: finite(raw.seasonSequence),
     endedAt: typeof raw.endedAt === "number" ? raw.endedAt : null,

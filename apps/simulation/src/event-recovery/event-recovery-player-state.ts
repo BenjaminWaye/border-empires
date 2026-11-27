@@ -37,8 +37,14 @@ export type RecoveredPlayerState = {
   chosenTrickleResource?: ChosenTrickleResource;
   // Lifetime garrisons started (DomainPlayer.lifetimeGarrisons); SETTLEMENT_STARTED replays bump it.
   lifetimeGarrisons?: number;
+  achievements?: import("@border-empires/game-domain").PlayerAchievementState;
+  // Redeploys after a knock-out (DomainPlayer.redeploys); a TILE_DELTA_BATCH's `redeployPlayerIds` bump it on replay.
+  redeploys?: number;
   islandNames?: IslandNameClaim[];
   houseCharges?: import("@border-empires/shared").HouseChargesState;
+  scoutChargeSpends?: number[];
+  scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
+  lastActiveAt?: number;
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see
   // runtime-waystation-activation.ts. Must round-trip here or a restart
@@ -88,5 +94,8 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
     : {}),
   ...(player.devQueue ? { devQueue: player.devQueue.map((entry) => ({ ...entry })) } : {}),
   ...(player.islandNames ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
-  ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {})
+  ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+  ...(player.scoutChargeSpends ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+  ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
+  ...(typeof player.lastActiveAt === "number" ? { lastActiveAt: player.lastActiveAt } : {})
 });

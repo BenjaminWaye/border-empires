@@ -43,7 +43,24 @@ describe("isReplayTrackedCommandId", () => {
       "auto-fill:": "auto-fill:10,10:123",
       "reach-update:": "reach-update:cmd-1",
       "island-names:": "island-names:player-1",
-      "house-charges:": "house-charges:player-1"
+      "house-charges:": "house-charges:player-1",
+      "scout-drone-vision:": "scout-drone-vision:5f0c1d2e-uuid",
+      "scout-drone-landed:": "scout-drone-landed:5f0c1d2e-uuid",
+      "scout-drone-sped-up:": "scout-drone-sped-up:5f0c1d2e-uuid",
+      "scout-drone-turned:": "scout-drone-turned:5f0c1d2e-uuid",
+      "scout-drone-rerouted:": "scout-drone-rerouted:5f0c1d2e-uuid",
+      "scout-drone:": "scout-drone:player-1",
+      "scout-report:": "scout-report:5f0c1d2e-uuid",
+      "scout-sighted:": "scout-sighted:5f0c1d2e-uuid",
+      // Review 2026-11-21: SCOUT_FINDS (an event per find tick) leaked into the replay cache and every checkpoint.
+      "scout-finds:": "scout-finds:5f0c1d2e-uuid",
+      "waystation-vision-expire:": "waystation-vision-expire:14,20:301000",
+      // Load run 2026-11-23, 60 AI Houses: these four were the whole replay cache (33 MB after 40 minutes).
+      // The reach ones wrap their cause's id, which can itself be a client UUID.
+      "reach-contested:": "reach-contested:00278e11-369b-4760-8f54-f1887b3467c0",
+      "reach-auto-claim:": "reach-auto-claim:tile-owner-change:82,222",
+      "muster-tick:": "muster-tick:ai-7:1795440011299",
+      "muster-status:": "muster-status:ai-7:12,40:1795440011299"
     } as const;
     // every prefix in the constant must have a sample, and all must be excluded
     for (const prefix of SERVER_GENERATED_COMMAND_ID_PREFIXES) {

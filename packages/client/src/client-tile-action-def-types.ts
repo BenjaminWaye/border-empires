@@ -8,6 +8,7 @@ export type TileActionDef = {
     | import("./client-refineries/refinery-action-ids.js").RefineryPickerActionId
     | "settle_land"
     | "settle_many"
+    | "garrison_town_plots"
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"
@@ -18,6 +19,8 @@ export type TileActionDef = {
     | "build_observatory"
     | "build_hydrogarden"
     | "build_hydroworks"
+    | "build_farm_plot"
+    | "build_hydrogarden_plot"
     | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
@@ -34,6 +37,7 @@ export type TileActionDef = {
     | "build_fuel_plant"
     | "build_trade_nexus"
     | "build_ancillary_depot"
+    | "build_vivarium"
     | "build_harbor_exchange"
     | "build_lockworks_port"
     | "build_neural_works"
@@ -79,10 +83,11 @@ export type TileActionDef = {
     | "build_siege_camp"
     | "build_relay_beacon"
     | "build_relay_beacon_frontier"
+    | "relay_beacon_toward"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
-    | "muster_clear" | "muster_expand_cap" | "muster_cancel_queued_attack" | "muster_hunt" | "muster_hunt_attackers"
+    | "muster_clear" | "muster_expand_cap" | "muster_cancel_queued_attack"
     | "diplomacy"
     | "break_truce"
     | "aether_lance"
@@ -90,6 +95,7 @@ export type TileActionDef = {
     | "hijack_aether_tower"
     | "forced_ancillarification"
     | "ship_salvage_to_court"
+    | "activate_waystation"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
@@ -112,7 +118,7 @@ export type TileActionDef = {
     | "expand_here"
     | "march_attack_flag" | "march_attack_flag_2" | "march_attack_flag_3" | "march_attack_new_flag"
     | "march_to_pick_origin"
-    | "explore_scout"
+    | "explore_scout" | "afc_scout_drone" | "recall_scout" | "dock_cross_sea"
     | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;
@@ -124,6 +130,8 @@ export type TileActionDef = {
   techLinkId?: string;
   targetKey?: string;
   originKey?: string;
+  /** An attack on a House you have a truce with: pressing it asks to break the truce first (client-pact-attack-gate.ts). */
+  breaksTruce?: true;
   /** Floats to the top of the list and is highlighted (Settle Land on a tile that has something to gain). */
   recommended?: boolean;
   /** Settle Land on a frontier tile: the "auto-settle these from now on" checkbox rendered under the button. */

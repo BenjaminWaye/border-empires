@@ -4,6 +4,7 @@ import { buildMsWithSpeedForState } from "../client-build-speed/client-build-spe
 import { hasFreeResourceSlots } from "../client-tile-action-logic/client-resource-slot-gate.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
 import { debugTileTimeline, tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
@@ -166,7 +167,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const completesAt = startedAt + adjustBuildMs(kind, structureBuildDurationMs(kind, ownedBeacons));
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant), chosenTier);
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => hasBuildTech(state, id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant), chosenTier);
     });
   };
 

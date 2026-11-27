@@ -1,11 +1,12 @@
 // Coverage for the Planetary Defense patrol overlay's tile diffing, combat
 // hand-off and tint — the real marine glb is mocked out with a minimal
 // skinned rig so these run instantly without network/glb parsing.
-import { AnimationClip, Bone, BufferGeometry, Group, MeshStandardMaterial, Object3D, Scene, Skeleton, SkinnedMesh } from "three";
+import { AnimationClip, Bone, BufferGeometry, Group, InstancedMesh, Matrix4, MeshStandardMaterial, Object3D, Scene, Skeleton, SkinnedMesh, Vector3 } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { createPlanetaryDefenseOverlay } from "./client-map-3d-planetary-defense-overlay.js";
 import { PATROL_RADIUS, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import type { UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
 vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOriginal) => {
@@ -20,6 +21,10 @@ vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOrigi
   const clips = new Map(["PistolWalk", "PistolIdle", "PistolRun", "PistolKneelingIdle"].map((name) => [name, new AnimationClip(name, 1, [])]));
   return { ...actual, loadPopupMarineTemplate: () => Promise.resolve({ root, clips }) };
 });
+
+// Node has no DOM canvas: hand the overlay a stand-in mark sprite (null = a blocked 2D context).
+const markSprite: { current: { width: number; height: number } | null } = vi.hoisted(() => ({ current: { width: 128, height: 128 } }));
+vi.mock("./client-insurgent-insignia.js", () => ({ insurgentMarkSprite: () => markSprite.current }));
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const visibleSoldiers = (scene: Scene): Object3D[] => scene.children.filter((c) => c.visible);
@@ -147,7 +152,7 @@ describe("createPlanetaryDefenseOverlay", () => {
   });
 
   describe("standing still (slow device / reduced motion)", () => {
-    const gate = (animate: { value: boolean }): UnitMotionGate => ({ recordFrame: () => {}, shouldAnimate: () => animate.value });
+    const gate = (animate: { value: boolean }): UnitMotionGate => ({ recordFrame: () => {}, shouldAnimate: () => animate.value, prefersReducedMotion: () => false });
     const spots = (scene: Scene): string[] => visibleSoldiers(scene).map((s) => `${s.position.x.toFixed(4)},${s.position.z.toFixed(4)}`);
 
     it("keeps the soldiers in one spot inside the tile over time", async () => {
@@ -207,5 +212,75 @@ describe("createPlanetaryDefenseOverlay", () => {
       expect(positions.size).toBeGreaterThan(5);
       overlay.dispose();
     });
+  });
+});
+
+// Regression: Insurgent frontier tiles had no 3D marker at all and read as empty terrain.
+describe("Insurgent frontier insignia (3D)", () => {
+  const insigniaMesh = (scene: Scene): InstancedMesh =>
+    scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === "insurgent-insignia-overlay")!;
+
+  it("stamps one flat insignia per frontier tile and hides it when none are left", async () => {
+    const scene = new Scene();
+    const overlay = createPlanetaryDefenseOverlay(scene);
+    await flush();
+    overlay.clear();
+    overlay.addFrontierInsignia(3.5, 4.5, 0.2);
+    overlay.addFrontierInsignia(4.5, 4.5, 0.2);
+    overlay.commit();
+    const mesh = insigniaMesh(scene);
+    expect(mesh.visible).toBe(true);
+    expect(mesh.count).toBe(2);
+    const m = new Matrix4();
+    mesh.getMatrixAt(0, m);
+    const pos = new Vector3().setFromMatrixPosition(m);
+    expect(pos.x).toBeCloseTo(3.5);
+    expect(pos.z).toBeCloseTo(4.5);
+    expect(pos.y).toBeGreaterThan(0.2);
+
+    overlay.clear();
+    overlay.commit();
+    expect(mesh.visible).toBe(false);
+    overlay.dispose();
+    expect(scene.children.includes(mesh)).toBe(false);
+  });
+
+  it("draws over the owner tint but under the fog layers", () => {
+    expect(RENDER_ORDER.insurgentInsignia).toBeGreaterThan(RENDER_ORDER.ownershipFrontier);
+    expect(RENDER_ORDER.insurgentInsignia).toBeLessThan(RENDER_ORDER.fogDarkenSettled);
+  });
+
+  // Review: the camp-or-mark choice lived inline in client-map-3d.ts, untested.
+  it("puts soldiers on a camp, the mark on its frontier, and nothing on a tile of unknown state", async () => {
+    const scene = new Scene();
+    const overlay = createPlanetaryDefenseOverlay(scene);
+    await flush();
+    const at = { worldX: 1.5, worldZ: 1.5, surfaceY: 0, flatOverlayY: 0, wx: 1, wy: 1 };
+    overlay.clear();
+    expect(overlay.addTile({ ownerId: "barbarian-1", ownershipState: "SETTLED" }, "1,1", at)).toBe("camp");
+    expect(overlay.addTile({ ownerId: "barbarian-1", ownershipState: "FRONTIER" }, "2,1", { ...at, worldX: 2.5, wx: 2 })).toBe("mark");
+    expect(overlay.addTile({ ownerId: "barbarian-1" }, "3,1", { ...at, worldX: 3.5, wx: 3 })).toBeUndefined();
+    overlay.commit();
+    overlay.tick(1000);
+    expect(insigniaMesh(scene).count).toBe(1);
+    expect(scene.children.filter((c) => c.visible && c.name !== "insurgent-insignia-overlay")).toHaveLength(SOLDIERS_PER_TILE);
+    overlay.dispose();
+  });
+
+  // Review: with no texture an unmapped plane renders as a solid white square on every frontier tile.
+  it("stays hidden when the mark sprite could not be painted", async () => {
+    markSprite.current = null;
+    try {
+      const scene = new Scene();
+      const overlay = createPlanetaryDefenseOverlay(scene);
+      await flush();
+      overlay.clear();
+      overlay.addFrontierInsignia(3.5, 4.5, 0.2);
+      overlay.commit();
+      expect(insigniaMesh(scene).visible).toBe(false);
+      overlay.dispose();
+    } finally {
+      markSprite.current = { width: 128, height: 128 };
+    }
   });
 });

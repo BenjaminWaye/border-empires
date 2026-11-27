@@ -73,6 +73,21 @@ defines what these systems mean in the fiction; follow the
 - The HUD shows manpower as a gauge (spendable now, manpower staged in muster
   flags, countdown to the next refill; ember below an ordinary attack, green at
   the cap; below 1440px wide the gauge is a strip along the chip's bottom edge) and the Development chip as one gear per slot (busy slots spin).
+- Muster flags refill from the pool at `MUSTER_BASE_RATE_PER_MIN` (180/min,
+  split evenly across the player's flags) until full or the pool is empty;
+  there is no per-flag pause or auto-refill switch, only clearing the flag. The
+  HUD v2 orb shows "−N/min → flags" while any flag refills and an amber rim arc
+  for manpower held in flags; the Manpower panel lists each flag's draw over the
+  last 10 minutes (seen by this client, `client-muster-draw-log/`) and its fill
+  target. The Launch Attack sheet says how long the attack's flag takes to fill
+  at the current rate (`client-muster-fill-eta/`).
+- On each visit the simulation sends `WELCOME_BACK`: time since the player's
+  last command, coin credited, manpower paid by refills and manpower drawn into
+  flags in that absence (`apps/simulation/src/welcome-back/welcome-back-ledger.ts`,
+  in memory only; after a restart coin is estimated at the current rate), and
+  whether coin stopped at the 24h inactivity limit. The gateway replays the
+  latest one to a tab that attaches without a fresh subscribe; the Chronicle's
+  "Since you last looked" card leads with it.
 - Taking a tile that holds another player's muster flag in combat credits
   the captor with the flag's staged manpower (minus any amount reserved by the
   owner's in-flight attacks), clamped to the captor's manpower ceiling; the
@@ -95,11 +110,20 @@ defines what these systems mean in the fiction; follow the
 
 ### Incubation Engine and Census Hall
 
-Incubation Engine grants **+10,000 population once on completion** and **+10%
+Incubation Engine grants **+50,000 population once on completion** and **+10%
 ongoing population growth** to its supported town. It does not boost Hydrogarden
 output or reduce FOOD demand; it consumes a FOOD slot. Census Hall adds
 **20,000 population capacity per connected town with an active Incubation Engine**
 and reduces its own town's tier-upgrade Coin cost by **25%**.
+
+The burst is paid **once per owner per town** (`incubation-burst-guard.ts`):
+removing and rebuilding the engine, or a Colonial Charter grant after a
+self-built engine, pays nothing more; a House that captures the town earns its
+own. It was raised from 10,000 to 50,000 (2026-11-21) to make the engine a
+serious strategic build. Base growth is proportional to population (about
+1.9%/h), so a 10k town needs about a day and a half to add 10k on its own; +50k
+skips days of growth and also raises the town's future growth rate. It does not
+skip the Coin tier upgrade.
 
 Sources: `packages/shared/src/config.ts` (population constants),
 `apps/simulation/src/runtime-structure-build-completion.ts`
@@ -155,6 +179,19 @@ demand is across its consumers. Gold does not use this system.
 
 - Hydrogarden adds 2 FOOD slots to its FARM tile. Hydroworks adds 2 FOOD slots
   to Hydrogardens in range.
+- **Farm Plot** ([plan](../farm-plot-plan.md)): 150 manpower, no tech, no slot
+  or coin upkeep. Built on an owned, garrisoned support-ring tile of an owned
+  town (never a resource tile, never around the AFC); stacks one per open plot.
+  An active plot supplies 1 FOOD slot, the same as a FARM tile, without
+  changing `tile.resource`. With Hyperfeed Seedstock (`agriculture`) a plot
+  upgrades in place to a **Hydrogarden Plot** for the full 80 manpower: 3 FOOD
+  slots (a FARM tile with a Hydrogarden), plus Hydroworks' +2 in range. The
+  plot keeps its 1 FOOD while the upgrade builds; cancelling the upgrade leaves
+  the Farm Plot. Slot sources report both as `STRUCTURE` rows. Constants:
+  `FARM_PLOT_FOOD_SLOT_SUPPLY` (`structure-slots.ts`); supply:
+  `apps/simulation/src/farm-plot/`. The per-resource auto-improve switch does
+  not build plots (it improves resource tiles only). AI players do not build
+  plots yet.
 - Strategic deposits (Titanium, Umbrite, Gems) take no on-tile building; the
   Mine, Umbrite Rig and Ore Refinery were removed (recovery drops their saved
   records; the bare deposit keeps its base slot). Instead a **town refinery**
@@ -212,6 +249,9 @@ slot until removal completes.
 
 ## Gold and town support
 
+- A town's focus (`docs/game-mechanics.md`, "Town focus") multiplies its own
+  Coin, manpower regen and population growth by 0.9 to 1.2. Balanced is ×1.
+
 - Manufactories are repeatable town-industry buildings, replacing Mintworks.
   Each occupies 1 FOOD slot and retains the same income: +10 Coin on
   completion, +1 Coin/day, and an additive +10% town income per copy
@@ -223,7 +263,10 @@ slot until removal completes.
 - Gold is passive per-minute income, rescaled by `GOLD_RESCALE_DIVISOR = 288`.
   Baseline town income is `2 / 288` gold/minute and a dock is `0.5 / 288`;
   other modifiers and network effects are calculated in the economy module.
-- Gold has a town-linked cap; overage is lost rather than stored indefinitely.
+- Gold has no storage cap. A human's passive income stops 24h after their
+  last command or subscribe (`PASSIVE_INCOME_INACTIVITY_CAP_MS`, AI exempt);
+  the last activity is saved on the player record (`lastActiveAt`), so a
+  restart does not stop income early.
 - Town support is a separate settled-territory calculation. An unfed town does
   not produce gold until support recovers. Support and FOOD slots are separate
   systems.
@@ -257,10 +300,26 @@ buildings and no per-building slot caps. Formulas live in
 `packages/shared/src/resource-networks/frontier-resource-effects.ts`.
 
 **Luxury biota (large towns' manpower).** Each developed biota site supplies 2
-biota slots. A City needs 1 slot, a Great City 2, a Metropolis 3; Settlements
-and Towns need none. A town above Town tier gives Town-level manpower with no
-biota, and each slot it receives raises its manpower by one tier, up to its
-real tier (so a Metropolis with 1 slot gives City manpower). The town keeps its
+biota slots. Each tier needs more than the one before (`BIOTA_SLOTS_BY_TIER`):
+a City needs 1 slot, a Great City 3, a Metropolis 6; Settlements and Towns need
+none. A town above Town tier gives a Town's manpower cap, manpower regen and
+Coin with no biota, its own tier's with all of it, and in between in proportion
+to the share of its need met (`biotaShareMet`, `biotaAdjustedTownManpower` and
+`biotaBlend` in `biota-town-output.ts`): a Metropolis with 3 of 6 slots gives
+half-way from a Town's figures to a Metropolis's. Every slot counts, so a slot
+is never wasted between tiers. Town Coin blends the tier's population
+multiplier (`townGoldPerMinuteForPlayer`'s `biotaShare`; the login snapshot
+reads the exported `manpowerBreakdown.biotaTowns`). A town's own
+Vivaria cover slots before biota sites do: each active Vivarium on the town
+tile or its support ring (`countSupportedStructures`) covers
+`VIVARIUM_BIOTA_SLOTS` (1) slot, so the town draws only the rest from biota
+sites and the freed slots go to other towns. The Vivarium is a Manpower-branch
+building unlocked by Census Office (`census-records`): 200 manpower, 1 FOOD
+slot upkeep, `same_tile` placement with no per-town limit, and it goes dormant
+like any building whose upkeep slot is missing. `BiotaTownSupply.received`
+counts Vivarium slots too, and `local` reports how many came from Vivaria. The
+economy panel's "biota sites in use" counts only what towns still need after
+their Vivaria (`biotaDemandTowns`). The town keeps its
 real tier, population, Coin and growth. Ancillary Depot capacity bonuses scale
 with the tier the town is working as. Slots go to towns in the order they were
 acquired, oldest first (`Runtime.tileSettledAtByKey`, which resets on capture),

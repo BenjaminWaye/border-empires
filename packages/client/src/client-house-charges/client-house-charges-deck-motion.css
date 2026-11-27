@@ -1,0 +1,180 @@
+/* House Charges cards in motion (client-house-charges-deck.ts, -fold.ts), owner 2026-11-19:
+   - drawn from a deck and turned over: on a first deal (.is-dealing, slower) and each time the panel opens (.is-drawing);
+   - on desktop, floating freely over the dimmed map instead of sitting in a side panel;
+   - Show on map folds copies of the cards into the dock at the edge of the map (.hcd-fold-layer). */
+
+/* Card back for the turn: the shared card back, on the card's reverse side. */
+.hcd-card { position: relative; }
+.hcd-back {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+  backface-visibility: hidden;
+  transform: rotateY(180deg) translateZ(1px);
+}
+.hcd-back .hc-card { max-width: none; width: 100%; height: 100%; aspect-ratio: auto; box-sizing: border-box; }
+/* The full-width card's own frame rules (.hcd-card .hc-frame) would reach the back too; keep the shared back's own. */
+.hcd-card .hcd-back .hc-frame { gap: 4px; padding: 5px; }
+/* isolation (set on every .hc-card) would flatten the turn, so it is lifted while the card turns over. Clipping
+   keeps the cards rising from below from growing the scrolling panel for a moment. */
+.hcd-deck { perspective: 1400px; }
+.hcd-deck.is-dealing,
+.hcd-deck.is-drawing { overflow: clip; overflow-clip-margin: 24px; }
+.hcd-deck.is-dealing .hcd-card,
+.hcd-deck.is-drawing .hcd-card { transform-style: preserve-3d; isolation: auto; }
+.hcd-deck.is-dealing .hcd-card > .hc-frame,
+.hcd-deck.is-drawing .hcd-card > .hc-frame { backface-visibility: hidden; }
+.hcd-deck.is-dealing .hcd-back,
+.hcd-deck.is-drawing .hcd-back { visibility: visible; }
+
+/* Drawn from a deck below the middle card, face down, then turned over in place. */
+.hcd-deck.is-dealing .hcd-card { animation: hcd-draw 1s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+.hcd-deck.is-drawing .hcd-card { animation: hcd-draw 0.7s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+.hcd-deck.is-dealing .hcd-card:nth-child(2) { animation-delay: 0.3s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(3) { animation-delay: 0.6s; }
+.hcd-deck.is-dealing .hcd-card:nth-child(4) { animation-delay: 0.9s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(2) { animation-delay: 0.15s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(3) { animation-delay: 0.3s; }
+.hcd-deck.is-drawing .hcd-card:nth-child(4) { animation-delay: 0.45s; }
+/* No opacity here: an animated opacity flattens the card, and the turn would show the face mirrored. */
+@keyframes hcd-draw {
+  0% { transform: translate(var(--hcd-deck-x, 0px), 60vh) rotateY(180deg) scale(0.55); }
+  55% { transform: translate(0, 0) rotateY(180deg) scale(1); }
+  100% { transform: none; }
+}
+
+/* The folding copies: fixed over everything while they fly into the dock. */
+.hcd-fold-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.hcd-fold-layer .hcd-card { position: fixed; margin: 0; max-width: none; animation: none; transform-origin: 50% 50%; }
+
+/* Desktop ("show the cards hovering freely"): no panel frame. The map dims and the cards float side by side in
+   the middle of the screen, bobbing gently and lifting under the pointer. Keyed off the HUD's own compact flag as
+   well as the width, so a phone held sideways (compact, but wider than 900 px) keeps the phone panel. #hud raises
+   specificity over the side panel's own placement rules (#hud.desktop-side-panel-open #side-panel); z-index 45
+   puts the hand (and its dim) over the tracker column (z 38). */
+@media (min-width: 901px) {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active {
+    left: 50%;
+    right: auto;
+    z-index: 45;
+    width: min(1040px, calc(100vw - 40px));
+    /* The hand covers the dimmed map, so it does not keep the bottom HUD's reserve (client-hud-v2.css):
+       that reserve cut the bottom of the cards off (owner 2026-11-20). */
+    bottom: 16px;
+    transform: translateX(-50%);
+    border: 0;
+    border-radius: 0;
+    /* The same dim inside and around the panel, so no frame shows. */
+    background: rgba(4, 3, 2, 0.62);
+    backdrop-filter: none;
+    box-shadow: 0 0 0 100vmax rgba(4, 3, 2, 0.62);
+  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active #side-panel-head { border-bottom: 0; background: transparent; text-shadow: 0 2px 6px #000; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-card { border: 0; background: transparent; box-shadow: none; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-intro,
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-more { max-width: 640px; text-shadow: 0 1px 4px #000; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 28px;
+    padding: 18px 8px 24px;
+  }
+  /* Trading-card proportions (owner 2026-11-21: the cards had grown so tall they no longer read as cards). The
+     card keeps its shape and its text scrolls inside it when a House's letter runs long, instead of the whole
+     hand stretching to the longest card. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { align-items: start; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { height: auto; min-height: 0; aspect-ratio: 2 / 3; max-width: 340px; }
+  /* Never taller than the screen leaves room for (panel top, title row, padding, the hover lift): on a short laptop
+     the card gets shorter and its letter scrolls, instead of the card bottoms falling below the fold. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.hc-card { max-height: max(320px, calc(100vh - 270px)); max-height: max(320px, calc(100dvh - 270px)); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card > .hc-frame { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: 3 / 1; }
+  /* One scroll box only. The House's letter sits last, so the objective, progress and whether it is held show
+     first; when the text runs long the whole text box scrolls, its bottom edge fading while there is more below.
+     (A second, nested scroll box for the letter showed half-cut lines; a hover-only unclamp hid it from touch and
+     beat the short-screen rule that hides it.) */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(90, 70, 40, 0.5) transparent;
+    font-size: 14px;
+  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > p { flex: none; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text > .hc-flavour { font-size: 13px; }
+  /* The Keep bar and the profile tip float in the title row, between the title and Close, over the hand. The
+     panel's centring transform makes it the box `fixed` is placed in, so the popover stays put as the cards scroll. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: max(420px, calc(100% - 560px));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+  }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .house-charges-popover > .panel-btn { flex: none; }
+  /* A hand of three: the outer cards are drawn from the deck under the middle one. */
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(1):nth-last-child(3) { --hcd-deck-x: calc(100% + 28px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card:nth-child(3):nth-last-child(1) { --hcd-deck-x: calc(-100% - 28px); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card { box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.85); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card.is-kept { box-shadow: 0 0 0 2px var(--sp-brass-300, #d9ad52), 0 24px 44px -14px rgba(217, 173, 82, 0.55); }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: hcd-float 5s ease-in-out infinite; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n + 2) { animation-delay: 0.6s; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:nth-child(3n) { animation-delay: 1.2s; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card:is(:hover, :focus-within) {
+    animation: none;
+    transform: translateY(-12px) scale(1.02);
+    transition: transform 0.2s ease-out;
+  }
+  body:not(.hud-v2-compact) #hud:has(#side-panel.charges-panel-active) #mini-map-wrap { visibility: hidden; }
+}
+@keyframes hcd-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+/* The text box's bottom fade, driven by its own scroll: full while there is text below, gone at the end. A box that
+   does not scroll has no active timeline, so the property stays at its initial 0px and nothing fades. */
+@property --hcd-text-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes hcd-text-fade {
+  0%, 85% { --hcd-text-fade: 28px; }
+  100% { --hcd-text-fade: 0px; }
+}
+@media (min-width: 901px) {
+  @supports (animation-timeline: scroll()) {
+    body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text {
+      -webkit-mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
+      mask-image: linear-gradient(#000 calc(100% - var(--hcd-text-fade)), transparent);
+      animation-name: hcd-text-fade;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(self);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hcd-deck.is-dealing .hcd-card,
+  .hcd-deck.is-drawing .hcd-card { animation: none; }
+  .hcd-deck.is-dealing .hcd-back,
+  .hcd-deck.is-drawing .hcd-back { visibility: hidden; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck:not(.is-dealing):not(.is-drawing) .hcd-card { animation: none; }
+}
+/* Short desktop screens: the hand shrinks to fit instead of scrolling (owner 2026-11-20). The art gives up height
+   first; on the shortest screens the italic quote goes too. */
+@media (min-width: 901px) and (max-height: 900px) {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-deck { padding: 8px 8px 12px; }
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-art { aspect-ratio: auto; height: clamp(40px, calc(100vh - 720px), 96px); height: clamp(40px, calc(100dvh - 720px), 96px); }
+}
+@media (min-width: 901px) and (max-height: 760px) {
+  body:not(.hud-v2-compact) #hud #side-panel.charges-panel-active .hcd-card .hc-text .hc-flavour { display: none; }
+}

@@ -17,10 +17,11 @@ const setup = () => {
 
 describe("truce offers and fighting", () => {
   // Offline players get an email about an offer; it must still be there when they log in.
+  // The offer lasts as long as the truce it offers, whose clock starts at the offer.
   it("keeps an unanswered truce offer for an offline player well past the old 5 minutes", () => {
     const { social, advance } = setup();
     expect(social.requestTruce("p1", "Valka", 12)).toEqual(expect.objectContaining({ ok: true }));
-    advance(20 * HOUR);
+    advance(11 * HOUR);
     const offer = social.snapshotForPlayer("p2").incomingTruceRequests[0];
     expect(offer).toBeDefined();
     expect(social.acceptTruce("p2", offer!.id)).toEqual(expect.objectContaining({ ok: true }));
@@ -44,7 +45,7 @@ describe("truce offers and fighting", () => {
     expect(social.snapshotForPlayer("p1").outgoingTruceRequests).toEqual([expect.objectContaining({ toPlayerId: "p3" })]);
     const p1Payloads = JSON.stringify(result?.payloadsByPlayerId.get("p1"));
     expect(p1Payloads).toContain("Your truce offer to Valka was withdrawn because your empires fought.");
-    expect(JSON.stringify(result?.payloadsByPlayerId.get("p2"))).toContain("Nauticus's truce offer was withdrawn because your empires fought.");
+    expect(JSON.stringify(result?.payloadsByPlayerId.get("p2"))).toContain("Nauticus withdrew the truce offer: your empires fought.");
   });
 
   it("tells a player about every offer withdrawn, not just the last", () => {
@@ -55,7 +56,7 @@ describe("truce offers and fighting", () => {
       { id: "a", fromPlayerId: "p1", toPlayerId: "p2" },
       { id: "b", fromPlayerId: "p2", toPlayerId: "p1" }
     ] as SocialTruceRequest[], new Map([["p1", { name: "Nauticus" }], ["p2", { name: "Valka" }]]));
-    expect(notices.p1).toBe("Your truce offer to Valka was withdrawn because your empires fought. Valka's truce offer was withdrawn because your empires fought.");
+    expect(notices.p1).toBe("Your truce offer to Valka was withdrawn because your empires fought. Valka withdrew the truce offer: your empires fought.");
     expect(social.withdrawTruceOffersOnCombat("p1", "p2")?.ok).toBe(true);
   });
 

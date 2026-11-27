@@ -5,6 +5,13 @@ export type SubscribeOptions = {
   fullVisibility: boolean;
   trigger?: string;
   omitTiles?: boolean;
+  // Admin reveal ("spectate"): when present, turns the extra unfiltered tile
+  // delta stream on or off for this player (tile-delta-fanout-filter.ts).
+  // Absent leaves the current setting alone.
+  spectate?: boolean;
+  // The call only carries the spectate switch: no subscription is registered
+  // and no snapshot is built (live-subscribe-reach-push.ts).
+  spectateOnly?: boolean;
 };
 
 export const parseSubscribeOptions = (subscriptionJson: string | undefined): SubscribeOptions => {
@@ -17,6 +24,8 @@ export const parseSubscribeOptions = (subscriptionJson: string | undefined): Sub
       fullVisibility?: unknown;
       trigger?: unknown;
       omitTiles?: unknown;
+      spectate?: unknown;
+      spectateOnly?: unknown;
     };
     return {
       mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
@@ -24,7 +33,9 @@ export const parseSubscribeOptions = (subscriptionJson: string | undefined): Sub
       ...(typeof parsed.subscriptionKey === "string" && parsed.subscriptionKey.length > 0 ? { subscriptionKey: parsed.subscriptionKey } : {}),
       fullVisibility: parsed.fullVisibility === true,
       ...(typeof parsed.trigger === "string" && parsed.trigger.length > 0 ? { trigger: parsed.trigger } : {}),
-      omitTiles: parsed.omitTiles === true
+      omitTiles: parsed.omitTiles === true,
+      ...(typeof parsed.spectate === "boolean" ? { spectate: parsed.spectate } : {}),
+      ...(parsed.spectateOnly === true ? { spectateOnly: true } : {})
     };
   } catch {
     return { mode: "live", emitBootstrapEvent: true, fullVisibility: false, omitTiles: false };

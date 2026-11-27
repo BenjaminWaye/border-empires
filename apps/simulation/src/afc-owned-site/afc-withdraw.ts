@@ -1,7 +1,7 @@
 import { STARTING_GOLD, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { RuntimeRespawnContext } from "../runtime-respawn-helpers.js";
-import { preparePlayerRespawnNotice, respawnIfEliminated } from "../runtime-respawn-helpers.js";
+import { ensurePlayerHasSpawnTerritory, preparePlayerRespawnNotice, respawnIfEliminated } from "../runtime-respawn-helpers.js";
 import { abandonedStructureFields } from "../capture-structures/capture-structures.js";
 import { emitRecoveryState } from "./afc-recovery.js";
 
@@ -13,6 +13,9 @@ export function withdrawAndRedeploy(context: RuntimeRespawnContext, command: Com
   const reject = (message: string): void => context.emitEvent({ eventType: "COMMAND_REJECTED", playerId: command.playerId, commandId: command.commandId, code: "WITHDRAW_INVALID", message });
   if (!actor || summary.controlledAfcCount > 0) return reject("Withdrawal requires losing your last AFC");
   if ([...summary.territoryTileKeys].some(key => context.locksByTile.has(key) || context.pendingSettlementsByTile.has(key))) return reject("Finish combat and cancel pending garrisons before withdrawing");
+  // A human House redeploys only onto a viable landing site (owner, 2026-11-27), so it keeps its land
+  // rather than withdraw into nothing on a full map. (AI Houses still land in the last-resort pass.)
+  if (!actor.isAi && !ensurePlayerHasSpawnTerritory(context, actor.id, undefined, undefined, { probeOnly: true })) return reject("No landing site is free right now. Keep your land and try again later");
   const deltas = [];
   for (const key of [...summary.territoryTileKeys]) {
     const tile = context.tiles.get(key);
@@ -34,7 +37,7 @@ export function withdrawAndRedeploy(context: RuntimeRespawnContext, command: Com
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: effectId, playerId: actor.id, tileDeltas: deltas });
   // Marks the redeploy notice as a withdrawal (respawnIfEliminated keeps a pending notice).
   if (!actor.isAi) preparePlayerRespawnNotice(context, actor.id, "eliminated", effectId, { wasOnline: true, withdrawn: true });
-  respawnIfEliminated(context, actor.id, effectId);
+  respawnIfEliminated(context, actor.id, effectId, { voluntary: true });
   if (context.summaryForPlayer(actor.id).ownedAfcTileKeys.size === 0) {
     actor.afcRecovery.requiredSince = context.now();
     actor.afcRecovery.cancellation = "Redeployment is waiting for a clear landing site. Try withdrawing and redeploying again.";

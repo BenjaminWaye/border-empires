@@ -2,7 +2,7 @@ import type { LockRecord } from "./runtime-types.js";
 
 /** The subset of {@link RuntimeLockResolutionContext} applyCombatEncirclement needs. */
 export type RuntimeLockResolutionEncirclementContext = {
-  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string }) => void;
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number; skipCutOff?: boolean; claimantId?: string; deferEliminationCheck?: boolean }) => void;
   applyEncirclementForExpand: (targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
 };
 
@@ -23,6 +23,10 @@ export function applyCombatEncirclement(
     if (originLost) affectedPlayerIds.add(lock.playerId);
     if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
     for (const pid of affectedPlayerIds) {
+      // Planetary Defense land is supplied per camp (planetary-defense-camps/camp-supply.ts):
+      // whatever this fight cut off from its camp collapses to neutral there. The
+      // House-wide pass would walk every touching camp's land (bfsCap) for nothing.
+      if (pid.startsWith("barbarian-")) continue;
       // Frontier cut off by this fight goes to the side that made the cut:
       // the attacker when the defender lost the target, the defender when
       // the attacker lost their origin (see encirclement-pocket-capture.ts).
@@ -33,6 +37,7 @@ export function applyCombatEncirclement(
         : undefined;
       context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, {
         bfsCap: 2000,
+        deferEliminationCheck: true, // resolveLock calls respawnIfEliminated itself
         ...(claimantId ? { claimantId } : {})
       });
     }

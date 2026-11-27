@@ -2,11 +2,13 @@ import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
 import { computeMiniMapViewBox, unwrapIntoBox } from "./client-minimap-view-box.js";
+import { miniMapEdgeArrowPoint } from "./client-minimap-relic-hit.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { drawMiniMapTileLayer, drawWrappedWorldImage, miniMapBoxPoint, miniMapTileRect } from "./client-minimap-tile-layer.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 import { resourceLensTileColor } from "../client-resource-lens/client-resource-lens.js";
+import { isMiniMapAlliedTile, miniMapTintsOwner } from "./client-minimap-known-territory.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
 
@@ -43,26 +45,8 @@ const wrapCoordNearBoxCenter = (coord: number, boxMin: number, boxSize: number, 
   return unwrapIntoBox(coord, center - worldSize / 2, worldSize);
 };
 
-export type MiniMapEdgeArrow = { x: number; y: number; angle: number };
-
-// Clamps a pixel point that falls outside the [0,w]x[0,h] minimap canvas onto
-// its border, along the ray from the canvas center through that point,
-// inset by `margin` px — used to draw a direction indicator for things (like
-// a distant relic hint) that fell outside the minimap's current view
-// box rather than just omitting them.
-export const miniMapEdgeArrowPoint = (targetX: number, targetY: number, w: number, h: number, margin = 8): MiniMapEdgeArrow => {
-  const cx = w / 2;
-  const cy = h / 2;
-  const dx = targetX - cx;
-  const dy = targetY - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy, angle: 0 };
-  const halfW = Math.max(1, w / 2 - margin);
-  const halfH = Math.max(1, h / 2 - margin);
-  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
-  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
-  const scale = Math.min(scaleX, scaleY);
-  return { x: cx + dx * scale, y: cy + dy * scale, angle: Math.atan2(dy, dx) };
-};
+// Kept exported here for existing callers; it lives beside the relic hit-test that must match it.
+export { miniMapEdgeArrowPoint, type MiniMapEdgeArrow } from "./client-minimap-relic-hit.js";
 
 export const drawMiniMap = (options: {
   nowMs: number;
@@ -110,6 +94,8 @@ export const drawMiniMap = (options: {
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
   /** Terrain colour of a known tile; when given, fog is on and no replay runs, the content is drawn tile by tile (client-minimap-tile-layer.ts). */
   terrainColorAt?: (x: number, y: number, terrain: Tile["terrain"]) => string;
+  /** The viewer's allies: their known land is drawn in their colour even under fog. Include them in colorKey so a new ally repaints. */
+  alliedOwnerIds?: ReadonlySet<string>;
 }): boolean => {
   // Camera/zoom moves need an immediate redraw of the viewport indicator for input
   // responsiveness, but they must NOT force a recompute of the expensive content layer below —
@@ -189,7 +175,8 @@ export const drawMiniMap = (options: {
         overlayColor: options.effectiveOverlayColor,
         tileVisibilityStateAt: options.tileVisibilityStateAt,
         withAlpha: hexWithAlpha,
-        lensTileColor: (tile) => resourceLensTileColor(options.state, tile)
+        lensTileColor: (tile) => resourceLensTileColor(options.state, tile),
+        ...(options.alliedOwnerIds ? { alliedOwnerIds: options.alliedOwnerIds } : {})
       });
     } else {
       const prevSmoothing = cctx.imageSmoothingEnabled;
@@ -210,7 +197,7 @@ export const drawMiniMap = (options: {
         for (const tile of options.state.tiles.values()) {
           const lensColor = resourceLensTileColor(options.state, tile); // Resources lens: resource tiles only
           if (lensColor === null || (!lensColor && !tile.ownerId)) continue;
-          if (!effectiveFogDisabled(options.state) && tile.fogged) continue;
+          if (!effectiveFogDisabled(options.state) && (lensColor ? tile.fogged : !miniMapTintsOwner(tile, options.alliedOwnerIds))) continue;
           const at = miniMapBoxPoint(tile.x, tile.y, box);
           if (!at) continue;
           const r = miniMapTileRect(at.x, at.y, box, w, h);
@@ -239,7 +226,7 @@ export const drawMiniMap = (options: {
             const wx = unwrapIntoBox(Math.floor(box.x0 + (px / w) * box.w), 0, WORLD_WIDTH);
             const tile = options.state.tiles.get(options.keyFor(wx, wy));
             const vis = options.tileVisibilityStateAt(wx, wy, tile);
-            const cellVis = vis === "visible" ? undefined : vis;
+            const cellVis = vis === "visible" || isMiniMapAlliedTile(tile, options.alliedOwnerIds) ? undefined : vis;
             if (cellVis !== runVis) {
               flushRun(px);
               runVis = cellVis;
@@ -308,15 +295,26 @@ export const drawMiniMap = (options: {
     const drawRelicHint = (hint: import("@border-empires/shared").RelicMapHint): void => {
       const wrappedX = wrapCoordNearBoxCenter(hint.x, box.x0, box.w, WORLD_WIDTH);
       const wrappedY = wrapCoordNearBoxCenter(hint.y, box.y0, box.h, WORLD_HEIGHT);
-      if (!inBox(wrappedX, wrappedY) && hint.kind !== "RELIC") return;
+      if (!inBox(wrappedX, wrappedY) && hint.kind === "RESOURCE") return;
       const edge = !inBox(wrappedX, wrappedY) ? miniMapEdgeArrowPoint(wxToPx(wrappedX), wyToPy(wrappedY), w, h) : undefined;
       const x = edge?.x ?? wxToPx(wrappedX + 0.5), y = edge?.y ?? wyToPy(wrappedY + 0.5);
       const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
       const depleted = known && relicRemainingUses(known) === 0;
-      cctx.strokeStyle = depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
-      const k = markerScale; cctx.lineWidth = 1.5 * uiScale; cctx.strokeRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k);
-      if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
-      if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
+      // The badge of the map's relic plates (relic-site-plates.ts): an ink disc, brass ring and a diamond in the
+      // operating House's colour. Pinned to the frame edge, a brass point on the ring faces the site.
+      const r = 4.4 * markerScale, d = r * 0.48; // a little larger than a town dot
+      const mark = hint.kind === "WAKE" && hint.ownerId ? options.effectiveOverlayColor(hint.ownerId) : depleted ? "#aba89c" : "#e7d69c";
+      const cx = edge ? x - Math.cos(edge.angle) * (r + 1) : x, cy = edge ? y - Math.sin(edge.angle) * (r + 1) : y;
+      cctx.lineWidth = Math.max(1, 0.6 * markerScale);
+      if (edge) {
+        cctx.save(); cctx.translate(cx, cy); cctx.rotate(edge.angle); cctx.fillStyle = "#8a6f35";
+        cctx.beginPath(); cctx.moveTo(r * 1.75, 0); cctx.lineTo(r * 0.55, -r * 0.7); cctx.lineTo(r * 0.55, r * 0.7); cctx.closePath(); cctx.fill(); cctx.restore();
+      }
+      cctx.fillStyle = "#16130e"; cctx.strokeStyle = "#8a6f35";
+      cctx.beginPath(); cctx.arc(cx, cy, r, 0, Math.PI * 2); cctx.fill(); cctx.stroke();
+      cctx.fillStyle = mark; cctx.strokeStyle = mark;
+      cctx.beginPath(); cctx.moveTo(cx, cy - d); cctx.lineTo(cx + d, cy); cctx.lineTo(cx, cy + d); cctx.lineTo(cx - d, cy); cctx.closePath(); cctx.fill();
+      if (depleted) { cctx.strokeStyle = "#aba89c"; cctx.beginPath(); cctx.moveTo(cx - r * 0.7, cy + r * 0.7); cctx.lineTo(cx + r * 0.7, cy - r * 0.7); cctx.stroke(); }
     };
     for (const hint of options.state.relicMapHints?.values() ?? []) drawRelicHint(hint);
 
@@ -325,7 +323,7 @@ export const drawMiniMap = (options: {
     // revealed 10x10-ish area (matches the 3D flicker; see
     // client-map-3d-watchtower-overlay.ts).
     for (const tile of options.state.tiles.values()) {
-      if (tile.naturalWonder?.relicVersion === 1 && options.state.relicMapHints?.get(`${tile.x},${tile.y}`)?.kind !== "RELIC") drawRelicHint({ x: tile.x, y: tile.y, kind: "RELIC" });
+      if (tile.naturalWonder?.relicVersion === 1 && (options.state.relicMapHints?.get(`${tile.x},${tile.y}`)?.kind ?? "RESOURCE") === "RESOURCE") drawRelicHint({ x: tile.x, y: tile.y, kind: "RELIC" });
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;

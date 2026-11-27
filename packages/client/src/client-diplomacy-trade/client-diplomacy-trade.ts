@@ -1,4 +1,5 @@
 import { resourceCounterTerms, resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
+import { OFFER_NOTE_ROW_HTML, handleOfferNoteTap, offerNoteField, syncOfferNoteRow } from "./client-diplomacy-offer-note.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
 import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
@@ -8,7 +9,7 @@ import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_M
 // It shows live whether an AI would accept, then sends. With no treaty, giving
 // an AI only coin is a gift that raises its opinion of you (the screen
 // stays open and shows the new opinion).
-// Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
+// Opened from "Offer Truce" on an enemy tile, an empire's Diplomacy deal and the Economy panel's Review trade.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
 // removes itself on close, keeps only the one open screen's state.
 import {
@@ -23,6 +24,7 @@ import {
 } from "@border-empires/shared";
 
 import { diplomacyTradeDepsFor, treatyButtonsHtml, type DiplomacyTradeDeps } from "./client-diplomacy-trade-deps.js";
+import { allianceTreatyLabel } from "../client-fealty/client-fealty.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
 import {
@@ -40,12 +42,11 @@ import {
 import { balancingAmount, suggestedTradeDeal } from "./client-diplomacy-trade-balance.js";
 import { haveText } from "./client-diplomacy-trade-have-text.js";
 import { dealKind, dealSummaryHtml, dealVerdictOverride, type DealTreaty } from "./client-diplomacy-trade-deal.js";
+import { renderTradeHeader } from "./client-diplomacy-trade-header.js";
+import { bindTownReturn, replyAskableTowns, replyReturnableTowns, renderTownReturn, townNameLookup, townReturnHtml, townsAllowedFor, withoutAskedTowns, withTownToggled, withoutTowns } from "./client-diplomacy-town-return.js";
 import {
   activeTruceLockoutReason,
-  attitudeSummary,
-  temperamentLine,
   tradeVerdict,
-  warTallyHtml,
   type DiplomacyStanceReply,
   type TradeSelection,
   type TradeVerdict
@@ -120,8 +121,9 @@ const ensureStyles = (): void => {
   document.head.appendChild(style);
 };
 
+// A counter answers their live offer: the gateway waives your own re-offer cooldown for it (diplomacy-counter-offer.ts).
 const cooldownRemainingMs = (screen: OpenScreen): number => {
-  if (!screen.reply?.found) return 0;
+  if (!screen.reply?.found || screen.counters) return 0;
   const targetId = screen.reply.targetPlayerId;
   const entry = offerCooldowns.find((cooldown) => cooldown.kind === screen.selection.kind && cooldown.targetPlayerId === targetId);
   return entry ? Math.max(0, entry.until - Date.now()) : 0;
@@ -131,10 +133,20 @@ const cooldownRemainingMs = (screen: OpenScreen): number => {
 /** Until the stance reply says otherwise, assume an AI: the gift path is the one only an AI's reply can confirm. */
 const targetIsAi = (reply: DiplomacyStanceReply | undefined): boolean => !reply?.found || reply.ai;
 
+/** An AI pledges Coin per day only in a truce: outside one its row is hidden, so the amount comes out too. */
+const withoutHiddenAskedPledge = (terms: DiplomacyTerms, kind: TradeSelection["kind"], ai: boolean): DiplomacyTerms => {
+  if (!ai || kind === "truce" || terms.ask.coinPerHour === undefined) return terms;
+  const { coinPerHour: _pledge, ...ask } = terms.ask;
+  return { ...terms, ask };
+};
+
 /** Sets the treaty and terms, deriving the offer kind from them. */
 const setDeal = (screen: OpenScreen, treaty: DealTreaty, terms: DiplomacyTerms): void => {
   screen.treaty = treaty;
-  screen.selection = { ...screen.selection, terms, kind: dealKind(treaty, terms, targetIsAi(screen.reply)) };
+  const kind = dealKind(treaty, terms, targetIsAi(screen.reply));
+  // Only a truce or a gift carries towns (only a truce asks for one): switching to anything else takes them out.
+  const kept = withoutHiddenAskedPledge(!townsAllowedFor(kind) ? withoutTowns(terms) : townsAllowedFor(kind, "ask") ? terms : withoutAskedTowns(terms), kind, targetIsAi(screen.reply));
+  screen.selection = { ...screen.selection, terms: kept, kind: kept === terms ? kind : dealKind(treaty, kept, targetIsAi(screen.reply)) };
   if (!screen.giftPending) screen.notice = undefined;
 };
 
@@ -143,41 +155,18 @@ const render = (screen: OpenScreen): void => {
   const own = screen.deps.ownHoldings();
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
   const otherId = reply?.found ? reply.targetPlayerId : screen.targetPlayerId;
+  const fealty = screen.deps.fealtyWith?.(otherId) ?? "ALLIANCE"; // unequal sizes: Swear / Demand fealty (client-fealty.ts)
   const ownSupplyAgreements = active ? ownSupplyAgreementCount(active.agreements, active.ownId) : undefined;
   if (agreementsEl && active) agreementsEl.innerHTML = (ownSupplyAgreements ? supplyAgreementUsageHtml(ownSupplyAgreements) : "") + resourceOfferCardsHtml(active.offers ?? [], active.ownId, otherId, ownSupplyLimitReason(ownSupplyAgreements ?? 0)) + activeResourceDealsHtml(active.agreements, active.ownId, otherId);
   screen.shownHoldings = own;
+  syncOfferNoteRow(overlay, selection.kind, !(reply?.found && !reply.ai)); // messages go to human rulers only
   screen.shownTruceLockoutReason = activeTruceLockoutReason(reply);
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
-  const stanceEl = overlay.querySelector<HTMLElement>("[data-trade-stance]");
-  if (stanceEl) {
-    stanceEl.textContent =
-      reply?.found && reply.ai && reply.stance
-        ? [attitudeSummary(reply), reply.stance.reason].filter(Boolean).join(". ")
-        : reply?.found && !reply.ai ? "Another player." : "";
-  }
-  const temperamentEl = overlay.querySelector<HTMLElement>("[data-trade-temperament]");
-  if (temperamentEl) {
-    temperamentEl.textContent = temperamentLine(reply);
-    temperamentEl.hidden = !temperamentEl.textContent;
-  }
-  // Civ-style breakdown of the attitude: what pleases or angers this empire.
-  const modifiersEl = overlay.querySelector<HTMLElement>("[data-trade-modifiers]");
-  if (modifiersEl) {
-    const modifiers = reply?.found && reply.ai ? (reply.attitude?.modifiers ?? []) : [];
-    modifiersEl.hidden = modifiers.length === 0;
-    modifiersEl.innerHTML = modifiers
-      .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
-      .join("");
-  }
-  // The war's tiles: as the Chronicle counts them when it has this empire, and as the AI weighs them.
-  const warEl = overlay.querySelector<HTMLElement>("[data-trade-war]");
-  if (warEl) {
-    warEl.innerHTML = warTallyHtml(reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
-    warEl.hidden = !warEl.innerHTML;
-  }
+  renderTradeHeader(overlay, reply, targetName, reply?.found ? screen.deps.chronicleRival?.(reply.targetPlayerId) : undefined);
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === screen.treaty && (kind !== "truce" || Number(hours) === selection.durationHours)));
+    if (kind === "alliance") button.textContent = allianceTreatyLabel(fealty);
   }
   const theirs = theirHoldings(reply);
   screen.expanded = renderTradeGoods(overlay, {
@@ -185,12 +174,15 @@ const render = (screen: OpenScreen): void => {
     limits: tradeGoodsLimits(own, reply, screen.reach),
     expanded: screen.expanded,
     haveText: (spec) => haveText(own, theirs, spec),
-    hideEmptySupply: { give: true, ask: Boolean(theirs?.resources) },
-    hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: true } : {}
+    hideEmptySupply: { give: true, ask: false },
+    hideCoinPerHour: reply?.found && reply.ai ? { give: screen.treaty !== "truce", ask: screen.treaty !== "truce" } : {}
   });
+  const towns = replyReturnableTowns(reply), askable = replyAskableTowns(reply);
+  renderTownReturn(overlay, { towns, terms: selection.terms, kind: selection.kind });
+  renderTownReturn(overlay, { towns: askable, terms: selection.terms, kind: selection.kind, side: "ask" });
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
-  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined });
-  const shared = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
+  if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup([...towns, ...askable]), fealty });
+  const shared = tradeVerdict({ targetName, reply, selection, own, fealty, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
   const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
   const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
@@ -240,8 +232,8 @@ const sendGift = (screen: OpenScreen): void => {
       type: "DIPLOMACY_GIFT",
       targetPlayerName: screen.targetName,
       ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
-      // Coin only: resource supply is a standing deal, not a gift.
-      gift: { gold: screen.selection.terms.give.gold }
+      // Coin and towns handed back only: resource supply is a standing deal, not a gift.
+      gift: { gold: screen.selection.terms.give.gold, ...(screen.selection.terms.give.towns?.length ? { towns: screen.selection.terms.give.towns } : {}) }
     },
     "Finish sign-in before offering gifts."
   );
@@ -266,7 +258,8 @@ const sendOffer = (screen: OpenScreen): void => {
   const termsField = {
     ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
     ...(!diplomacyTermsAreEmpty(terms) ? { terms } : {}),
-    ...(screen.counters ? { counters: screen.counters } : {})
+    ...(screen.counters ? { counters: screen.counters } : {}),
+    ...offerNoteField(screen.overlay)
   };
   const sent = screen.selection.kind === "trade"
     ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms,...(screen.resourceCounters?{countersOfferId:screen.resourceCounters}:{})},"Finish sign-in before trading resources.")
@@ -336,17 +329,19 @@ export const openDiplomacyTradeScreen = (
         </div>
         <h4 class="diplomacy-trade-subhead">Goods</h4>
         ${tradeGoodsHtml("give", withSupply)}
+        ${townReturnHtml()}
       </section>
       <section class="diplomacy-trade-deal" aria-label="In this deal">
         <h3>In this deal</h3>
         <div class="diplomacy-trade-deal-items" data-trade-deal aria-live="polite"></div>
         <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
-        <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>
+        <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>${OFFER_NOTE_ROW_HTML}
         <div class="diplomacy-trade-actions"><button type="button" data-trade-send></button><button type="button" data-trade-cancel>Cancel</button></div>
       </section>
       <section class="diplomacy-trade-side" data-trade-side="ask" aria-label="Theirs">
         <h3>${name}'s</h3>
         ${tradeGoodsHtml("ask", withSupply)}
+        ${townReturnHtml("ask")}
       </section>
     </div>
     <div class="diplomacy-resource-terms" data-resource-agreements></div>
@@ -406,6 +401,10 @@ export const openDiplomacyTradeScreen = (
       render(screen);
     }
   });
+  bindTownReturn(overlay, (town, side) => {
+    setDeal(screen, screen.treaty, withTownToggled(screen.selection.terms, town, side));
+    render(screen);
+  });
   // The middle column: ✕ takes an item out of the deal; pressing an item opens its slider.
   overlay.querySelector<HTMLElement>("[data-trade-deal]")?.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-deal-remove], [data-deal-edit]") : null;
@@ -427,6 +426,7 @@ export const openDiplomacyTradeScreen = (
     render(screen);
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
+  overlay.addEventListener("click", (event) => handleOfferNoteTap(overlay, event.target));
   overlay.querySelector<HTMLButtonElement>("[data-trade-cancel]")?.addEventListener("click", closeDiplomacyTradeScreen);
   overlay.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject], [data-resource-offer-counter]") : null;

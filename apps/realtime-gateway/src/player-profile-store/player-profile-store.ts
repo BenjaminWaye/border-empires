@@ -1,3 +1,5 @@
+import { metPlayersFields } from "./met-players-profile.js";
+
 export type StoredPlayerProfile = {
   playerId: string;
   name?: string;
@@ -35,11 +37,16 @@ export type StoredPlayerProfile = {
   // same season open it normally. Per-season, like musterUnlockedSeasonId;
   // server-side so it survives a browser data clear / different device.
   dashboardQuietedSeasonId?: string;
-  // New-account tutorial guide state (client-tutorial-guide/): unset for
-  // accounts that never got the guide (every account older than it), then
-  // "active" -> "done" | "dismissed". guideSteps is the completed step ids.
+  // Tutorial guide state (client-tutorial-guide/): "active" -> "done" |
+  // "dismissed", plus the completed step ids. Per season: guideSeasonId is the
+  // season this state belongs to, and the client restarts the guide when it
+  // differs from the current season (unset on rows written before it existed).
   guideStatus?: GuideStatus;
   guideSteps?: string[];
+  guideSeasonId?: string;
+  // "Empires you've met" this season (met-players-profile.ts).
+  metPlayerIds?: string[];
+  metPlayersSeasonId?: string;
   // Per-category opt-out for gameplay email alerts (email-alerts.ts). Every
   // category defaults to on (undefined/missing == enabled) so existing
   // players see no behavior change until they visit the Email Notifications
@@ -84,13 +91,18 @@ export type HintStatePatch = {
   dashboardQuietedSeasonId?: string;
   guideStatus?: GuideStatus;
   guideSteps?: string[];
+  guideSeasonId?: string;
+  /** The client's whole met set for metPlayersSeasonId; merged, never shrunk (met-players-profile.ts). */
+  metPlayerIds?: string[];
+  metPlayersSeasonId?: string;
 };
 
 /** Carries the guide fields of `existing` forward (patch values win) -- shared by every in-memory profile write. */
-const guideFields = (existing: StoredPlayerProfile | undefined, patch: HintStatePatch = {}): Pick<StoredPlayerProfile, "guideStatus" | "guideSteps"> => {
+const guideFields = (existing: StoredPlayerProfile | undefined, patch: HintStatePatch = {}): Pick<StoredPlayerProfile, "guideStatus" | "guideSteps" | "guideSeasonId"> => {
   const guideStatus = patch.guideStatus ?? existing?.guideStatus;
   const guideSteps = patch.guideSteps ?? existing?.guideSteps;
-  return { ...(guideStatus ? { guideStatus } : {}), ...(guideSteps ? { guideSteps } : {}) };
+  const guideSeasonId = patch.guideSeasonId ?? existing?.guideSeasonId;
+  return { ...(guideStatus ? { guideStatus } : {}), ...(guideSteps ? { guideSteps } : {}), ...(guideSeasonId ? { guideSeasonId } : {}) };
 };
 
 export type GatewayPlayerProfileStore = {
@@ -163,6 +175,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedSeasonId ? { colorChangedSeasonId: resolvedSeasonId } : {}),
       ...guideFields(existing),
+      ...metPlayersFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -184,6 +197,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedColorSeasonId ? { colorChangedSeasonId: resolvedColorSeasonId } : {}),
       ...guideFields(existing),
+      ...metPlayersFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -203,6 +217,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...guideFields(existing),
+      ...metPlayersFields(existing),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -233,6 +248,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
         ? { dashboardQuietedSeasonId: patch.dashboardQuietedSeasonId }
         : existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...guideFields(existing, patch),
+      ...metPlayersFields(existing, patch),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       updatedAt: Date.now()
@@ -258,6 +274,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
       ...(existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...guideFields(existing),
+      ...metPlayersFields(existing),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       emailNotificationPrefs: mergedPrefs,
@@ -285,6 +302,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
       ...(existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...guideFields(existing),
+      ...metPlayersFields(existing),
       ...(existing?.emailNotificationPrefs ? { emailNotificationPrefs: existing.emailNotificationPrefs } : {}),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),

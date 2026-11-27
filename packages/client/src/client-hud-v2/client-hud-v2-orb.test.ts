@@ -11,7 +11,16 @@ describe("manpower orb next batch", () => {
     expect(orbHtml({ ...base, manpower: 5000, nextBatchAmount: 1200 })).toContain(">+622 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: 1200.9 })).toContain(">+1,200 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: -50 })).toContain(">next batch 45m<");
-    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toContain("hud-v2-orb-refill");
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toContain(">+");
+  });
+
+  // Playtest 2026-11-18: over the cap the orb's refill line vanished, with no countdown and no reason why.
+  it("says why there is no countdown at or over the cap", () => {
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).toContain('<span class="hud-v2-orb-refill hud-v2-orb-refill-state">over cap</span>');
+    expect(orbHtml({ ...base, manpower: 6000 })).toContain("over capacity: no batch until you spend below it");
+    expect(orbHtml({ ...base, manpower: 5622 })).toContain('<span class="hud-v2-orb-refill hud-v2-orb-refill-state">full</span>');
+    // A countdown is not a state line, so phones keep hiding it.
+    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).not.toContain("hud-v2-orb-refill-state");
   });
 
   it("explains overflow without presenting the cap as a maximum holding", () => {
@@ -27,8 +36,8 @@ describe("manpower orb next batch", () => {
   });
 
   it("formats the tooltip like the visible text", () => {
-    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m"');
-    expect(orbHtml({ ...base })).toContain('title="Manpower 1975 of 5622, next batch in 45m"');
+    expect(orbHtml({ ...base, nextBatchAmount: 1200 })).toContain('title="Manpower 1975 of 5622, next batch +1,200 in 45m. Expand, garrison, build, attack');
+    expect(orbHtml({ ...base })).toContain('title="Manpower 1975 of 5622, next batch in 45m. ');
   });
 
   it("says paused when regen is zero and no batch is coming, instead of counting down to nothing", () => {
@@ -93,4 +102,38 @@ it("fills the entire glass at capacity and above, without a wave-shaped air gap"
   expect(orbHtml({ ...base, manpower: 100, manpowerCap: 100 })).toContain(fullGlass);
   expect(orbHtml({ ...base, manpower: 125, manpowerCap: 100 })).toContain(fullGlass);
   expect(orbHtml({ ...base, manpower: 40, manpowerCap: 100 })).not.toContain(fullGlass);
+});
+
+// Owner request 2026-11-27: a pool fell from 634 to 78 in about 8 minutes, mostly into muster flags
+// quietly refilling, and the orb showed nothing.
+describe("manpower orb flag drain", () => {
+  const state: OrbState = { me: "", manpower: 634, manpowerCap: 1500, manpowerRegenPerMinute: 1, nextManpowerBatchAmount: undefined, nextManpowerBatchAmountAt: undefined };
+
+  it("shows the pool draining into flags and an arc for what they hold", () => {
+    const flags = [
+      { amount: 40, cap: 150, refillPerMin: 60 },
+      { amount: 100, cap: 150, refillPerMin: 60 },
+      { amount: 150, cap: 150, refillPerMin: 0 }
+    ];
+    const input = orbInputForState(state, 0, undefined, flags);
+    expect(input).toMatchObject({ flagDrainPerMin: 120, flagStaged: 290 });
+    const html = orbHtml(input);
+    expect(html).toContain('<span class="hud-v2-orb-drain">−120/min → flags</span>');
+    expect(html).toContain("hud-v2-orb-flag-arc hud-v2-orb-flag-arc-draining");
+    expect(html).toContain("−120/min to flags");
+    expect(html).toContain('data-hud-v2-open="manpower"');
+  });
+
+  it("keeps the arc but drops the drain line once every flag is full", () => {
+    const html = orbHtml(orbInputForState(state, 0, undefined, [{ amount: 150, cap: 150, refillPerMin: 0 }]));
+    expect(html).not.toContain("hud-v2-orb-drain");
+    expect(html).toContain('class="hud-v2-orb-flag-arc"');
+    expect(html).toContain("150 in flags");
+  });
+
+  it("draws nothing extra with no flags", () => {
+    const html = orbHtml(orbInputForState(state, 0, undefined));
+    expect(html).not.toContain("hud-v2-orb-flag-arc");
+    expect(html).not.toContain("hud-v2-orb-drain");
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Scene, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
-import { planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
+import { Scene, ShaderLib, type BufferGeometry, type Mesh, type MeshBasicMaterial } from "three";
+import { SCOUT_DRONE_STEP_MS, planScoutDroneFlight, type ScoutDroneFlight } from "@border-empires/shared";
 import {
   SCOUT_DRONE_CRUISE_HEIGHT,
   SCOUT_DRONE_DOCK_HEIGHT,
@@ -9,6 +9,7 @@ import {
 } from "./client-map-3d-scout-drone-overlay.js";
 import { SCOUT_LAND_MS, SCOUT_LAUNCH_MS, SCOUT_SPOOL_MS, createScoutDronePose, scoutDronePoseAt } from "./client-map-3d-scout-drone-pose.js";
 import { drawScoutDrone2D } from "../client-map-render-2d-scout-drone/client-map-render-2d-scout-drone.js";
+import { SCOUT_RING_DEPTH_PULL_GLSL } from "./client-map-3d-scout-drone-depth-pull.js";
 import type { UnitMotionGate } from "../client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
 const world = { width: 100, height: 60 };
@@ -23,7 +24,7 @@ const sceneFor = (x: number, y: number, out: ScoutDroneScenePoint): void => {
   out.surfaceY = 0;
 };
 const midFlight = (flight.steps[2]!.at + flight.steps[3]!.at) / 2;
-const gate = (animate: boolean): UnitMotionGate => ({ recordFrame: () => undefined, shouldAnimate: () => animate });
+const gate = (animate: boolean): UnitMotionGate => ({ recordFrame: () => undefined, shouldAnimate: () => animate, prefersReducedMotion: () => false });
 
 describe("scoutDronePoseAt", () => {
   const pose = createScoutDronePose();
@@ -33,13 +34,13 @@ describe("scoutDronePoseAt", () => {
     expect(pose).toMatchObject({ x: 3, y: 5, lift: 0, rotor: 0, returning: false });
   });
 
-  it("cruises along the route once launched, heading east at Expand To pace", () => {
+  it("cruises along the route once launched, heading east at open-ground pace", () => {
     scoutDronePoseAt(flight, midFlight, world.width, world.height, pose);
     expect(pose.x).toBeCloseTo(5.5);
     expect(pose.lift).toBe(1);
     expect(pose.rotor).toBe(1);
     expect(pose.dirX).toBeCloseTo(1);
-    expect(pose.speed).toBeCloseTo(1000 / 7500);
+    expect(pose.speed).toBeCloseTo(1000 / SCOUT_DRONE_STEP_MS);
   });
 
   it("spools its props up on the crown before it lifts", () => {
@@ -127,6 +128,15 @@ describe("createScoutDroneOverlay", () => {
     overlay.dispose();
   });
 
+  // Player review 2026-11-21: the label over the drone was unreadably small; the bottom pill carries the time.
+  it("draws no \"Back in …\" label over the drone", () => {
+    const scene = new Scene();
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
+    overlay.sync(flight, midFlight);
+    expect(scene.getObjectByName("scout-drone-eta-label")).toBeUndefined();
+    overlay.dispose();
+  });
+
   it("removes everything it added on dispose", () => {
     const scene = new Scene();
     const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
@@ -160,9 +170,62 @@ describe("drawScoutDrone2D", () => {
     expect(calls.filter((c) => c.startsWith("arc:")).length).toBeGreaterThanOrEqual(12); // rotor discs, sphere, eye, footprint
   });
 
+  it("writes the time until the drone is back over it", () => {
+    const texts: string[] = [];
+    const ctx = new Proxy({ measureText: () => ({ width: 40 }), fillText: (text: string) => texts.push(text) } as Record<string, unknown>, {
+      get: (target, key) => (key in target ? target[key as string] : () => undefined),
+      set: (target, key, value) => {
+        target[key as string] = value;
+        return true;
+      }
+    }) as unknown as CanvasRenderingContext2D;
+    drawScoutDrone2D(ctx, flight, flight.landsAt - 30_000, world, toScreen, 10);
+    expect(texts).toEqual(["Back in 30s"]);
+  });
+
   it("draws nothing once the drone has landed", () => {
     const { ctx, calls } = recordingContext();
     drawScoutDrone2D(ctx, flight, flight.landsAt, world, toScreen, 10);
     expect(calls).toHaveLength(0);
+  });
+
+});
+
+describe("scout drone radar ring", () => {
+  // Regression: the radar sweep froze for the rest of the session once the slow-device latch
+  // tripped, so the ring read as a static line instead of a radar.
+  it("keeps the radar sweep turning when the slow-device latch stands the drone still", () => {
+    const scene = new Scene();
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(false) });
+    const sweep = scene.getObjectByName("scout-drone-sweep")!;
+    overlay.sync(flight, midFlight);
+    const start = sweep.rotation.y;
+    overlay.sync(flight, midFlight + 50);
+    expect(sweep.rotation.y).not.toBeCloseTo(start);
+  });
+
+  it("holds the radar sweep still under Reduce Motion", () => {
+    const scene = new Scene();
+    const reduced: UnitMotionGate = { recordFrame: () => undefined, shouldAnimate: () => false, prefersReducedMotion: () => true };
+    const overlay = createScoutDroneOverlay(scene, { world, sceneFor, motionGate: reduced });
+    const sweep = scene.getObjectByName("scout-drone-sweep")!;
+    overlay.sync(flight, midFlight);
+    const start = sweep.rotation.y;
+    overlay.sync(flight, midFlight + 50);
+    expect(sweep.rotation.y).toBeCloseTo(start);
+  });
+
+  // Regression: the vision ring and sweep were plain depth-tested discs, so terrain and the coast
+  // inside the circle cut chunks out of them.
+  it("pulls the vision ring and sweep depth toward the camera so terrain does not cut them off", () => {
+    const scene = new Scene();
+    createScoutDroneOverlay(scene, { world, sceneFor, motionGate: gate(true) });
+    for (const name of ["scout-drone-vision", "scout-drone-sweep"]) {
+      const material = (scene.getObjectByName(name) as Mesh<BufferGeometry, MeshBasicMaterial>).material;
+      // three's real basic-material vertex shader, so a renamed or inlined chunk fails here.
+      const shader = { vertexShader: ShaderLib.basic.vertexShader, fragmentShader: "", uniforms: {} };
+      material.onBeforeCompile(shader as never, undefined as never);
+      expect(shader.vertexShader).toContain(SCOUT_RING_DEPTH_PULL_GLSL);
+    }
   });
 });

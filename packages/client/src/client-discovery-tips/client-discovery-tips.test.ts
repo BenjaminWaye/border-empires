@@ -68,7 +68,7 @@ describe("discoveryTipIdForNewlySeenTile", () => {
   it("returns WAYSTATION over barbarian/resource, but under town and dock", () => {
     expect(
       discoveryTipIdForNewlySeenTile({
-        waystation: { activated: true, activatedByPlayerId: "p1" } as never,
+        waystation: { activated: false } as never,
         ownerId: "barbarian",
         resource: "TITANIUM"
       })
@@ -295,5 +295,13 @@ describe("First Contact tip", () => {
     expect(body.toLowerCase()).not.toContain("enemy");
     expect(body).toContain("Diplomacy");
     expect(body).toContain("Muster");
+  });
+});
+
+// Playtest 2026-11-18: "Waystation Discovered" popped up after "Waystation Activated".
+describe("Waystation discovery tip order", () => {
+  it("offers no Discovered tip for a Waystation first seen already activated", () => {
+    expect(discoveryTipIdForNewlySeenTile({ waystation: { activated: false } as never })).toBe("WAYSTATION");
+    expect(discoveryTipIdForNewlySeenTile({ waystation: { activated: true } as never })).toBeUndefined();
   });
 });

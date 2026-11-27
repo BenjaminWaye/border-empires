@@ -1,8 +1,9 @@
 // Whether a House currently holds one of its charges (docs/house-charges-plan.md,
-// "Charge types"), and the charge's size for the card's stats corner. Only
+// "Charge types"), and the charge's size for the card's stats corner. A
+// Writ of Correction counts AFCs by founder (afcFoundedBy), not by tile. Only
 // garrisoned (SETTLED) land counts, as for Longest Road and island naming.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { HOUSE_CHARGE_REGION_GARRISON_SHARE, type HouseCharge } from "@border-empires/shared";
+import { HOUSE_CHARGE_METROPOLIS_COUNT, HOUSE_CHARGE_REGION_GARRISON_SHARE, afcFoundedBy, type HouseCharge } from "@border-empires/shared";
 import { currentIslandClaims, islandStandingFor } from "../island-names/island-names-world.js";
 import type { HouseChargesWorld } from "./house-charges-world.js";
 
@@ -104,6 +105,8 @@ export const houseChargeStanding = (
     readonly tiles: ReadonlyMap<string, DomainTileState>;
     readonly players: ReadonlyMap<string, DomainPlayer>;
     readonly playerId: string;
+    /** The House's own AFC tiles (Writ of Correction); found by scanning `tiles` when absent. */
+    readonly ownAfcTiles?: () => readonly DomainTileState[];
   }
 ): HouseChargeStanding => {
   const { world, tiles, playerId } = context;
@@ -143,6 +146,22 @@ export const houseChargeStanding = (
       }
       const complete = land > 0 && garrisoned / land >= HOUSE_CHARGE_REGION_GARRISON_SHARE;
       return { complete, size: garrisoned, ...(complete ? { shape: garrisonedPoints(region.cells, world.regions.width, tiles, playerId) } : {}) };
+    }
+    case "CORRECTION": {
+      // Any AFC the named House founded, wherever it stands, owned and garrisoned by this House.
+      const rivalId = targetTileKey(first.key);
+      const afcs = context.ownAfcTiles ? context.ownAfcTiles() : [...tiles.values()].filter((tile) => tile.afc?.ownerId === playerId);
+      const held = afcs.filter((tile) => tile.afc?.ownerId === playerId && isGarrisonedBy(tile, playerId) && afcFoundedBy(tile.afc) === rivalId);
+      return held.length > 0 ? { complete: true, size: held.length, shape: held.map(({ x, y }) => ({ x, y })) } : { complete: false, size: 0 };
+    }
+    case "METROPOLIS": {
+      const islandId = targetTileKey(first.key);
+      const metropolises = world.towns
+        .filter((town) => town.islandId === islandId)
+        .map((town) => tiles.get(town.key))
+        .filter((tile): tile is DomainTileState => isGarrisonedBy(tile, playerId) && tile?.town?.populationTier === "METROPOLIS");
+      const complete = metropolises.length >= HOUSE_CHARGE_METROPOLIS_COUNT;
+      return { complete, size: metropolises.length, ...(complete ? { shape: metropolises.map(({ x, y }) => ({ x, y })) } : {}) };
     }
     case "RELIC": {
       const owned = isGarrisonedBy(tiles.get(targetTileKey(first.key)), playerId);

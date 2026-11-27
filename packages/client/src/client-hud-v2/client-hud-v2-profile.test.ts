@@ -44,6 +44,53 @@ describe("player profile screen", () => {
     }
   });
 
+  it("offers Share profile on your own profile only", () => {
+    expect(render({ ...base, relation: { kind: "self" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
+    expect(render(base).querySelector("[data-v2-profile-share], [data-v2-profile-unshare], [data-v2-profile-save-to-share]")).toBeNull();
+  });
+
+  it("shows Stop sharing only while a public link exists", () => {
+    const self = { ...base, relation: { kind: "self" } as const };
+    for (const share of [undefined, { state: "unknown" }, { state: "off" }] as const) {
+      const host = render(share ? { ...self, share } : self);
+      expect(host.querySelector("[data-v2-profile-share]")?.textContent).toBe("Share profile");
+      expect(host.querySelector("[data-v2-profile-unshare]")).toBeNull();
+    }
+    expect(render({ ...self, share: { state: "on" } }).querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stop sharing");
+  });
+
+  // Playtest 2026-11-27: score 25 -> 24 after capturing 19 tiles, with nothing saying why.
+  it("breaks the score into garrisoned tiles, coin and Manifests", () => {
+    const host = render({ ...base, entry: { ...base.entry!, tiles: 12, incomePerMinute: 0.005, techs: 1, score: 24.3 } });
+    const card = host.querySelector("[data-v2-profile-score]");
+    expect(card?.querySelector("b")?.textContent).toBe("24");
+    expect(card?.textContent).toContain("Tiles 12 · Coin 4.3 · Manifests 8");
+    expect(card?.textContent).toContain("Frontier scores once garrisoned");
+  });
+
+  it("shows the shared link while sharing is on", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: { state: "on", note: "Link copied", link: "https://play.example/house.html?h=Ab" } });
+    expect(host.querySelector("[data-v2-profile-share-link]")?.getAttribute("href")).toBe("https://play.example/house.html?h=Ab");
+    expect(host.querySelector(".v2p-share-note")?.textContent).toBe("Link copied");
+  });
+
+  it("keeps share progress and its outcome on screen across re-renders", () => {
+    const self = { ...base, relation: { kind: "self" } as const };
+    const stopping = render({ ...self, share: { state: "on", pending: "stop" } });
+    expect(stopping.querySelector("[data-v2-profile-unshare]")?.textContent).toBe("Stopping…");
+    expect(stopping.querySelector<HTMLButtonElement>("[data-v2-profile-share]")?.disabled).toBe(true);
+    const stopped = render({ ...self, share: { state: "off", note: "Sharing stopped" } });
+    expect(stopped.querySelector("[data-v2-profile-unshare]")).toBeNull();
+    expect(stopped.querySelector(".v2p-share-note")?.textContent).toBe("Sharing stopped");
+    expect(render({ ...self, share: { state: "unknown", pending: "share" } }).querySelector("[data-v2-profile-share]")?.textContent).toBe("Making link…");
+  });
+
+  it("sends a guest to save their empire instead of offering share or stop", () => {
+    const host = render({ ...base, relation: { kind: "self" }, share: "guest" });
+    expect(host.querySelector("[data-v2-profile-save-to-share]")?.textContent).toBe("Save your empire to share");
+    expect(host.querySelector("[data-v2-profile-share], [data-v2-profile-unshare]")).toBeNull();
+  });
+
   it("offers Show on map only for an empire you have seen", () => {
     const seen = render({ ...base, mapFocus: "seen" }).querySelector<HTMLButtonElement>("[data-v2-profile-show-map]");
     expect(seen?.textContent).toBe("Show on map");

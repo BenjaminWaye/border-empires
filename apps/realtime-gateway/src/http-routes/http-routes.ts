@@ -1,4 +1,6 @@
 import type { CommandDiagnosticSnapshot } from "../player-sync-diagnostics/command-diagnostic-journal.js";
+import { registerAccountCosmeticsAdminRoutes } from "../account-cosmetics/account-cosmetics-admin-routes.js";
+import type { AccountCosmeticsService } from "../account-cosmetics/account-cosmetics-service.js";
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
@@ -7,6 +9,7 @@ import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth
 import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
 import { ADMIN_AGENT_TOKEN_MAX_SIGN_IN_AGE_MS, createAdminAgentTokens } from "../admin-auth/admin-agent-token.js";
 import { registerAdminAgentTokenRoute } from "./register-admin-agent-token-route.js";
+import { registerHostedStatusRoute } from "./register-hosted-status-route.js";
 import { registerAdminTileRoute, type RegisterAdminTileRouteDeps } from "./register-admin-tile-route.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
@@ -15,6 +18,7 @@ import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerAdminWorldRoute } from "./register-admin-world-route.js";
 import { registerAdminTileVisibilityRoute, type TileVisibilityQuery } from "./register-admin-tile-visibility-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
+import { registerPublicHouseProfileRoutes, type PublicHouseProfileRouteDeps } from "../public-house-profile/public-house-profile-routes.js";
 import { registerHouseChargeRoutes } from "../house-charge-routes/house-charge-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
@@ -101,6 +105,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
+  accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "grantProduct" | "revoke" | "renderMetrics" | "titleOf">;
   adminApiToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
   // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
@@ -111,6 +116,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   rallyLinkStore?: RallyLinkStore;
   // /sector/waitlist (register-sector-waitlist-routes.ts); omitted in tests that do not exercise it.
   sectorWaitlist?: SectorWaitlistRouteDeps;
+  publicHouseProfile?: PublicHouseProfileRouteDeps;
   // /sector/board (register-sector-board-route.ts): the join screen's Sector board.
   sectorBoard?: SectorBoardRouteDeps;
   preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
@@ -126,6 +132,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   sovereignSiegeEngineStrikeStore?: SovereignSiegeEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
   playerInsights?: PlayerInsightsRouteDeps;
+  /** Set only on a hosted sector: what the hosting service asks it (register-hosted-status-route.ts). */
+  hostedStatus?: { lastHumanVisitAt: () => Promise<number | undefined> };
 };
 
 
@@ -213,7 +221,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");
-    return deps.metrics() + (await deps.authBindingStore?.accountDeletion?.metrics() ?? "");
+    return deps.metrics() + (await deps.authBindingStore?.accountDeletion?.metrics() ?? "") + (await deps.accountCosmetics?.renderMetrics() ?? "");
   });
 
   registerAdminPageRoutes(app, {
@@ -354,7 +362,9 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   registerRallyLinkRoutes(app, deps, playOrigin);
   if (deps.sectorWaitlist) registerSectorWaitlistRoutes(app, deps.sectorWaitlist);
+  if (deps.publicHouseProfile) registerPublicHouseProfileRoutes(app, deps.publicHouseProfile);
   if (deps.sectorBoard) registerSectorBoardRoute(app, deps.sectorBoard);
+  if (deps.hostedStatus) registerHostedStatusRoute(app, { adminAuthorized, lastHumanVisitAt: deps.hostedStatus.lastHumanVisitAt });
   if (deps.emailUnsubscribe) registerEmailUnsubscribeRoutes(app, deps.emailUnsubscribe);
   if (deps.authBindingStore?.accountDeletion) registerAccountDeletionRoutes(app, {
     ...(deps.disconnectDeletedPlayer ? { disconnectPlayer: deps.disconnectDeletedPlayer } : {}),
@@ -416,6 +426,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
   });
 
+  if (deps.accountCosmetics) registerAccountCosmeticsAdminRoutes(app, { adminAuthorized, cosmetics: deps.accountCosmetics });
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
   registerHouseChargeRoutes(app, { getCurrentSeasonSummary: deps.getCurrentSeasonSummary, listSeasonArchives: deps.listSeasonArchives });

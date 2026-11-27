@@ -7,9 +7,11 @@
 // product (factors multiply; empire-wide income multipliers aren't listed);
 // terrain and coastal modifiers are rendered separately by townStatGridHtml.
 import { townPopulationMultiplier } from "@border-empires/game-domain";
-import type { TownTerrainProfileId } from "@border-empires/shared";
+import { biotaBlend, biotaShareMet, type TownTerrainProfileId } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townSupportCoinLines } from "../client-town-support-coin/client-town-support-coin.js";
+import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
 
 export type TownStatBonus = {
   label: string;
@@ -55,23 +57,24 @@ const buildingBonuses = (town: Town, matches: RegExp): TownStatBonus[] =>
 
 // includeBuildings: false leaves out per-building lines for surfaces that
 // already list the town's buildings separately (HUD v2 "In this town").
-export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolean } = {}): TownStatBonus[] => {
+// biota: the town's luxury biota supply (ManpowerBreakdown.biotaTowns); a short
+// City+ earns between a Town's coin and its tier's (biota-town-output.ts).
+export const townGoldBonuses = (town: Town, options: { includeBuildings?: boolean; biota?: { received: number; needed: number } | undefined } = {}): TownStatBonus[] => {
   if (town.populationTier === "SETTLEMENT") return [];
-  if (!town.isFed) return [{ label: "Unfed", effect: "coin production stopped", tone: "negative" }];
+  if (!town.isFed) return [{ label: "Unfed", effect: "no coin · garrison grain or fish in reach", tone: "negative" }];
   const bonuses: TownStatBonus[] = [];
   const tierMult = townPopulationMultiplier(town.populationTier);
   if (tierMult !== 1) {
     bonuses.push({ label: TIER_LABELS[town.populationTier] ?? "Town tier", effect: percent((tierMult - 1) * 100), tone: toneFor(tierMult - 1) });
   }
+  const biotaShare = biotaShareMet(options.biota);
+  if (options.biota && biotaShare < 1) {
+    const earned = biotaBlend(townPopulationMultiplier("TOWN"), tierMult, biotaShare);
+    bonuses.push({ label: `Short of biota ${options.biota.received}/${options.biota.needed}`, effect: percent((earned / tierMult - 1) * 100), tone: "negative" });
+  }
   const connected = connectedTownBonus(town);
   if (connected) bonuses.push(connected);
-  if (Number.isFinite(town.supportMax) && town.supportMax > 0 && Number.isFinite(town.supportCurrent) && town.supportCurrent < town.supportMax) {
-    bonuses.push({
-      label: `Support ${town.supportCurrent}/${town.supportMax}`,
-      effect: percent((town.supportCurrent / town.supportMax - 1) * 100),
-      tone: "negative"
-    });
-  }
+  for (const line of townSupportCoinLines(town)) bonuses.push({ label: line.label, effect: percent(line.effectPct), tone: "negative" });
   if (town.firstThreeTownGoldMult && town.firstThreeTownGoldMult !== 1) {
     bonuses.push({ label: "Mercantile Charter", effect: percent((town.firstThreeTownGoldMult - 1) * 100), tone: toneFor(town.firstThreeTownGoldMult - 1) });
   }
@@ -91,6 +94,25 @@ export const townStatGridModifiers = (town: Town, terrainProfile: TownTerrainPro
   goldBonuses: townGoldBonuses(town),
   manpowerBonuses: townManpowerBonuses(town)
 });
+
+/**
+ * The same, plus why a town earning nothing earns nothing (townZeroCoinReason, shared with HUD v2's tile facts and
+ * town screen) when the bonus lines don't already say it, e.g. a sabotaged town.
+ */
+export const townStatGridModifiersWithZeroCoinReason = (
+  tile: Pick<Tile, "ownershipState" | "sabotage" | "town">,
+  town: Town,
+  goldPerDay: number,
+  terrainProfile: TownTerrainProfileId,
+  coastal: boolean
+): ReturnType<typeof townStatGridModifiers> => {
+  const modifiers = townStatGridModifiers(town, terrainProfile, coastal);
+  const why = goldPerDay < 0.0001 ? townZeroCoinReason(tile) : undefined;
+  // A "Support x/y" line already explains ungarrisoned plots, but not sabotage: only the plots note defers to it.
+  const plotsNote = why?.endsWith("plots garrisoned") ?? false;
+  if (!why || modifiers.goldBonuses.some((bonus) => bonus.label === why || (plotsNote && bonus.label.startsWith("Support ")))) return modifiers;
+  return { ...modifiers, goldBonuses: [{ label: why, effect: "no coin", tone: "negative" }, ...modifiers.goldBonuses] };
+};
 
 // Building groups still worth their own "<count> <Building>" heading below
 // the stat grid: coin/manpower lines already appear inside the cards, so

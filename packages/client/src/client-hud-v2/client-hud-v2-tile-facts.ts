@@ -4,8 +4,10 @@
 // Details ▾, which shows the full overview inside the panel.
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
+import { townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
+import { besiegedOddsSuffix } from "../client-town-siege/client-town-siege.js";
 import { structureModifiersFor } from "@border-empires/game-domain";
-import { DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
+import { combatSideIsBesieged, DEPLETED_RECLAMATION_WORKS_NAME, isDepletedReclamationWorks, isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
@@ -15,6 +17,8 @@ import { refineryGivesFact, type RefineryStatusOf } from "./client-hud-v2-refine
 import type { DormancyField } from "../client-tile-menu-view/client-tile-menu-dormancy-line.js";
 import type { SlotResource } from "@border-empires/shared";
 import type { Tile, TileMenuView } from "../client-types.js";
+import { TOWN_UNFED_FIX, townUnfedReason } from "../client-town-food-demand/client-town-unfed-reason.js";
+
 
 export type TileFact = { label: string; value: string; tone?: "good" | "warn" };
 
@@ -140,8 +144,20 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
   if (!town) return [];
   const facts: TileFact[] = [{ label: "Town", value: displayTownPopulationTierLabel(town.populationTier) }];
   // Only your own towns carry their yield; a rival's would read 0.0/day.
-  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tileCoinPerMinute(tile)) });
-  if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
+  if (mine && tile.ownershipState === "SETTLED") {
+    const goldPerMinute = tileCoinPerMinute(tile);
+    // A town earning nothing says why (unfed, no plots garrisoned, sabotaged) instead of a bare 0.0/day.
+    const why = goldPerMinute < 0.0001 ? townZeroCoinReason(tile, nowMs) : undefined;
+    // Unfed is the Food row's own fact, right below; repeating it on the Coin row read "Unfed" twice.
+    const coinWhy = why === "Unfed" ? "" : why ? ` · ${why}` : "";
+    facts.push(why ? { label: "Coin", value: `${coinPerDay(goldPerMinute)}${coinWhy}`, tone: "warn" } : { label: "Coin", value: coinPerDay(goldPerMinute) });
+  }
+  // An unfed town of yours says how much food it needs and the fix (playtest 2026-11-27: no reason was shown).
+  if (typeof town.isFed === "boolean") {
+    if (town.isFed) facts.push({ label: "Food", value: "Fed", tone: "good" });
+    else if (mine) facts.push({ label: "Food", value: townUnfedReason(town), tone: "warn" }, { label: "Fix", value: TOWN_UNFED_FIX, tone: "warn" });
+    else facts.push({ label: "Food", value: "Unfed", tone: "warn" });
+  }
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
   if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
   return facts;
@@ -175,7 +191,8 @@ const fightFacts = (view: Pick<TileMenuView, "combatBreakdown" | "overviewLines"
   const facts: TileFact[] = [];
   if (view.combatBreakdown) {
     const pct = Math.round(view.combatBreakdown.winChance * 100);
-    facts.push({ label: "Odds", value: `${pct}%`, ...(pct >= 50 ? { tone: "good" as const } : { tone: "warn" as const }) });
+    // A besieged town says so next to its odds (town-siege.ts), so the better odds explain themselves.
+    facts.push({ label: "Odds", value: `${pct}%${besiegedOddsSuffix(combatSideIsBesieged(view.combatBreakdown.defender))}`, ...(pct >= 50 ? { tone: "good" as const } : { tone: "warn" as const }) });
   }
   for (const line of view.overviewLines) {
     const hit = CAPTURE_LINE.exec(plainText(line.html));

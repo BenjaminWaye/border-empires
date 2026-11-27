@@ -5,7 +5,7 @@ import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-s
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
 import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
-import type { DiplomacyTerms } from "@border-empires/shared";
+import type { AllianceFealty, DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
 import type { DiplomacyHistoryEntry, StoredDiplomacyHistoryEntry } from "./social-diplomacy-history.js";
@@ -19,7 +19,11 @@ export type SocialAllianceRequest = {
   toName?: string;
   /** Coin the deal moves, from the proposer's side; settled in the simulation on accept. */
   terms?: DiplomacyTerms;
+  /** A preset line the proposer attached (diplomacy-offer-notes.ts); not persisted, so lost on a gateway restart. */
+  note?: OfferNoteId;
   settlementPhase?: TreatySettlementPhase;
+  /** Who was liege when the offer was sent (alliance-fealty.ts in shared); absent on offers from before it was recorded. */
+  fealty?: AllianceFealty;
 };
 
 export type SocialTruceRequest = {
@@ -34,6 +38,8 @@ export type SocialTruceRequest = {
   terms?: DiplomacyTerms;
   /** Sent while a truce was already running: accepting adds durationHours to its end. */
   extendsTruce?: true;
+  /** A preset line the proposer attached (diplomacy-offer-notes.ts); not persisted, so lost on a gateway restart. */
+  note?: OfferNoteId;
   settlementPhase?: TreatySettlementPhase;
 };
 
@@ -72,6 +78,8 @@ export type SocialSnapshot = {
   resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   forcedTruceCooldownUntil?: number;
   allies: string[];
+  /** Each ally's recorded fealty, keyed by ally id; an alliance from before it was recorded has no entry. */
+  allianceFealty: Record<string, AllianceFealty>;
   activeAllianceBreaks: Array<{
     otherPlayerId: string;
     otherPlayerName: string;
@@ -112,7 +120,8 @@ export type SocialPlayerRecord = {
 
 export type SocialActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
-  | { ok: false; code: string; message: string };
+  /** requestId: the offer a DIPLOMACY_OFFER_WITHDRAWN refers to, so the client drops it at once. */
+  | { ok: false; code: string; message: string; requestId?: string };
 export type SocialSyncResult = Extract<SocialActionResult, { ok: true }>;
 export type SocialExpiredAllianceBreak = SocialAllianceBreak & { playerIds: [string, string] };
 
@@ -175,10 +184,16 @@ export type SocialRejectOptions = {
   startCooldown?: boolean;
   /** Defaults to true; false when it isn't a "no" (a counter-offer, a failed payment), so the Chronicle logs no decline. */
   recordDecline?: boolean;
+  /**
+   * A counter-offer: ends the rejecting player's own re-offer cooldown of this kind toward the
+   * offer's sender, so a cooldown from their earlier refused offer can't block answering this one.
+   */
+  waiveOwnCooldown?: SocialOfferKind;
 };
 
 export type SocialOfferOptions = {
   terms?: DiplomacyTerms;
+  note?: OfferNoteId;
   /** Address the target by id instead of display name (e.g. an AI's counter-offer back to the requester). */
   targetPlayerId?: string;
 };
@@ -200,7 +215,8 @@ export type SocialState = {
   /** announcementByPlayerId replaces the default (none) for an accept. */
   acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectAlliance: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
-  cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
+  /** announcementByPlayerId: a line for the server withdrawing the offer (withdrawnOfferAnnouncements); none for the sender's own withdraw. */
+  cancelAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   /** announcementByPlayerId replaces the default break-notice wording (e.g. an AI explaining why it leaves). */
   breakAlliance: (playerId: string, targetPlayerId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
@@ -226,7 +242,7 @@ export type SocialState = {
   /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
-  cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
+  cancelTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   /** Recent truce/alliance changes for the Chronicle timeline (social-diplomacy-history.ts). */
   diplomacyActivityCards: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
@@ -243,17 +259,24 @@ export type SocialState = {
    * forgets them. Undefined when nobody is waiting on one.
    */
   takeStaleOfferSync: () => SocialSyncResult | undefined;
+  /**
+   * How new alliance offers record fealty (sender, target): wired once the
+   * season leaderboard is available. Unset, offers record near-equals.
+   */
+  setFealtyLookup: (lookup: SocialFealtyLookup) => void;
 };
+
+export type SocialFealtyLookup = (fromPlayerId: string, toPlayerId: string) => AllianceFealty;
 
 export type SocialStateSink = {
   upsertPlayer: (playerId: string, name: string) => void;
-  commitAcceptedAlliance?: (requestId: string, playerAId: string, playerBId: string, createdAt: number) => void;
+  commitAcceptedAlliance?: (requestId: string, playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty) => void;
   commitAcceptedTruce?: (requestId: string, truce: SocialActiveTruce) => void;
   saveAllianceRequest: (request: SocialAllianceRequest) => void;
   deleteAllianceRequest: (requestId: string) => void;
   saveTruceRequest: (request: SocialTruceRequest) => void;
   deleteTruceRequest: (requestId: string) => void;
-  addAlliance: (playerAId: string, playerBId: string, createdAt: number) => void;
+  addAlliance: (playerAId: string, playerBId: string, createdAt: number, fealty?: AllianceFealty) => void;
   removeAlliance: (playerAId: string, playerBId: string) => void;
   saveAllianceBreak: (notice: SocialAllianceBreak) => void;
   removeAllianceBreak: (playerAId: string, playerBId: string) => void;
@@ -273,6 +296,8 @@ export type SocialStateSink = {
 export type SocialStateInitial = {
   forcedTruceCooldowns?: Array<{ playerId: string; cooldownUntil: number }>;
   players?: Array<{ id: string; name: string; allies?: string[] }>;
+  /** The alliances' recorded fealty (same pairs as players[].allies). */
+  allianceRecords?: Array<{ playerAId: string; playerBId: string; fealty?: AllianceFealty }>;
   allianceRequests?: SocialAllianceRequest[];
   activeAllianceBreaks?: SocialAllianceBreak[];
   completedAllianceBreaks?: SocialCompletedAllianceBreak[];
@@ -296,6 +321,18 @@ export const declinedOfferAnnouncements = (
   given: Partial<Record<string, string>> | undefined
 ): Partial<Record<string, string>> =>
   given ?? { [request.fromPlayerId]: `${declinerName} declined your ${request.durationHours ? `${request.durationHours}h truce` : "alliance"} offer.` };
+
+/**
+ * The line the recipient gets when the server takes an offer back on the
+ * sender's behalf (an AI's offer that no longer suits it): "Maren withdrew
+ * the truce offer." Playtest run 5 (pt-predator): the Accept tap only said
+ * "Action failed"; the offer now leaves the bar with this line in the feed.
+ */
+export const withdrawnOfferAnnouncements = (
+  kind: "truce" | "alliance",
+  request: { toPlayerId: string },
+  senderName: string
+): Partial<Record<string, string>> => ({ [request.toPlayerId]: `${senderName} withdrew the ${kind} offer.` });
 
 /** Both Houses hear about a new alliance; before, a human's accept told the proposer nothing (playtest 2026-11-16). */
 export const acceptedAllianceAnnouncements = (

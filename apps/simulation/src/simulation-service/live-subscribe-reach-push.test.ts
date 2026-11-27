@@ -11,7 +11,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     const order: string[] = [];
 
     registerSubscribeAndMaybePushReach(
-      { subscribe: () => order.push("subscribe") },
+      { setSpectator: () => true, subscribe: () => order.push("subscribe") },
       { resendReachForPlayer: () => order.push("reach"), resendSideTickersForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether"), resendScoutDroneForPlayer: () => order.push("scout") },
       "player-1",
       liveOptions,
@@ -25,7 +25,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     const seen: Array<[string, string | undefined]> = [];
 
     registerSubscribeAndMaybePushReach(
-      { subscribe: (playerId, key) => seen.push([playerId, key]) },
+      { setSpectator: () => true, subscribe: (playerId, key) => seen.push([playerId, key]) },
       { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} },
       "player-1",
       liveOptions,
@@ -42,7 +42,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     expect(() =>
       registerSubscribeAndMaybePushReach(
-        { subscribe: () => { subscribed = true; } },
+        { setSpectator: () => true, subscribe: () => { subscribed = true; } },
         { resendReachForPlayer: () => { throw new Error("boom"); }, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
@@ -59,7 +59,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     const errors: Array<Record<string, unknown>> = [];
     expect(() =>
       registerSubscribeAndMaybePushReach(
-        { subscribe: () => {} },
+        { setSpectator: () => true, subscribe: () => {} },
         { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); }, resendScoutDroneForPlayer: () => {} },
         "player-1",
         { trigger: "gateway_live_subscribe" },
@@ -73,7 +73,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     const calls: string[] = [];
 
     registerSubscribeAndMaybePushReach(
-      { subscribe: () => calls.push("subscribe") },
+      { setSpectator: () => true, subscribe: () => calls.push("subscribe") },
       { resendReachForPlayer: () => calls.push("reach"), resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { mode: "bootstrap-only", trigger: "gateway_live_subscribe" },
@@ -95,7 +95,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     const calls: string[] = [];
 
     registerSubscribeAndMaybePushReach(
-      { subscribe: () => calls.push("subscribe") },
+      { setSpectator: () => true, subscribe: () => calls.push("subscribe") },
       { resendReachForPlayer: () => calls.push("reach"), resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { trigger: "gateway_fog_refresh", subscriptionKey: "key-2" },
@@ -145,7 +145,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     // The live-subscribe push forces it through.
     registerSubscribeAndMaybePushReach(
-      { subscribe: () => {} },
+      { setSpectator: () => true, subscribe: () => {} },
       { resendReachForPlayer: (playerId) => {
         markReachForResend(state, playerId);
         flushReachUpdates(state, context, "cmd-live-subscribe");
@@ -157,5 +157,35 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     expect(emitted).toHaveLength(1);
     expect(emitted[0]!.tileKeys).toEqual(["1,1", "1,2", "2,1"]);
+  });
+
+  const idleRuntime = { resendReachForPlayer: () => {}, resendSideTickersForPlayer: () => {}, resendAetherShieldsForPlayer: () => {}, resendScoutDroneForPlayer: () => {} };
+
+  it("registers before switching spectating on, since only a subscribed player may spectate", () => {
+    const order: string[] = [];
+    const registry = { setSpectator: (_playerId: string, on: boolean) => { order.push(`spectate:${on}`); return true; }, subscribe: () => { order.push("subscribe"); } };
+
+    expect(registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { spectate: true }, noopLog)).toBe(true);
+    expect(registerSubscribeAndMaybePushReach(registry, idleRuntime, "player-1", { mode: "bootstrap-only", spectate: false }, noopLog)).toBe(true);
+
+    expect(order).toEqual(["subscribe", "spectate:true", "spectate:false"]);
+  });
+
+  it("a spectate-only call flips the switch without registering, and reports a refusal", () => {
+    const order: string[] = [];
+    const errors: Array<Record<string, unknown>> = [];
+    const accepted = registerSubscribeAndMaybePushReach(
+      { setSpectator: () => { order.push("spectate"); return false; }, subscribe: () => { order.push("subscribe"); } },
+      idleRuntime, "player-1", { spectate: true, spectateOnly: true, trigger: "gateway_live_subscribe" }, { error: (payload) => errors.push(payload) }
+    );
+    expect(accepted).toBe(false);
+    expect(order).toEqual(["spectate"]);
+    expect(errors).toEqual([{ playerId: "player-1" }]);
+  });
+
+  it("leaves spectating alone when the call does not mention it", () => {
+    let touched = false;
+    expect(registerSubscribeAndMaybePushReach({ setSpectator: () => { touched = true; return true; }, subscribe: () => {} }, idleRuntime, "player-1", liveOptions, noopLog)).toBe(true);
+    expect(touched).toBe(false);
   });
 });

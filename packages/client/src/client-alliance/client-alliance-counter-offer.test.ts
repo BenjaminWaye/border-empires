@@ -1,10 +1,9 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AllianceRequest, TruceRequest } from "../client-types.js";
 import { closeDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
-import { allianceRequestsHtml, truceRequestsHtml } from "../client-panel-html/client-panel-html.js";
-import { bindCounterOfferButtons, counterOfferScreenInput } from "./client-alliance-counter-offer.js";
+import { counterOfferScreenInput, openCounterOfferScreen } from "./client-alliance-counter-offer.js";
 
 const names: Record<string, string> = { "ai-10": "Tove" };
 const playerNameForOwner = (id?: string | null): string | undefined => (id ? names[id] : undefined);
@@ -18,30 +17,25 @@ const truce: TruceRequest = {
   terms: { give: { gold: 10 }, ask: { gold: 0 } }
 };
 const alliance: AllianceRequest = { id: "alliance-1", fromPlayerId: "ai-10", toPlayerId: "me", createdAt: 1_000 };
-const state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
+// Fresh per test: sending a counter drops the offer it answers from the state.
+let state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
 
-const mountCards = () => {
-  const root = document.createElement("div");
-  root.innerHTML = `${truceRequestsHtml([truce], playerNameForOwner, "incoming", 1_500)}${allianceRequestsHtml([alliance], playerNameForOwner, "incoming", 1_500)}`;
+const openCounter = (kind: "truce" | "alliance", requestId: string) => {
   const sendGameMessage = vi.fn(() => true);
-  bindCounterOfferButtons(root, { playerNameForOwner, sendGameMessage, state });
-  return { root, sendGameMessage };
+  openCounterOfferScreen(kind, requestId, { playerNameForOwner, sendGameMessage, state });
+  return { sendGameMessage };
 };
 const overlay = (): HTMLElement => document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
 const field = (attr: string): HTMLInputElement => overlay().querySelector<HTMLInputElement>(`[${attr}]`)!;
 
 describe("counter-offers", () => {
+  beforeEach(() => {
+    state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
+  });
   afterEach(() => closeDiplomacyTradeScreen());
 
-  it("puts a Counter button on incoming offers only", () => {
-    expect(truceRequestsHtml([truce], playerNameForOwner, "incoming")).toContain('data-counter-request-id="truce-1"');
-    expect(truceRequestsHtml([truce], playerNameForOwner, "outgoing")).not.toContain("counter-offer");
-    expect(allianceRequestsHtml([alliance], playerNameForOwner, "outgoing")).not.toContain("counter-offer");
-  });
-
   it("opens the trade screen with the offer's terms seen from the player's side", () => {
-    const { root } = mountCards();
-    root.querySelector<HTMLButtonElement>('[data-counter-request-id="truce-1"]')!.click();
+    openCounter("truce", "truce-1");
 
     expect(overlay().querySelector("h2")?.textContent).toBe("Counter Tove's offer");
     expect(overlay().querySelector("[data-trade-kind][aria-pressed='true']")?.getAttribute("data-trade-kind")).toBe("truce:12");
@@ -52,8 +46,7 @@ describe("counter-offers", () => {
 
   // "I'll take the truce if you pay 24 coin."
   it("sends the edited terms as a counter that replaces their offer", () => {
-    const { root, sendGameMessage } = mountCards();
-    root.querySelector<HTMLButtonElement>('[data-counter-request-id="alliance-1"]')!.click();
+    const { sendGameMessage } = openCounter("alliance", "alliance-1");
     overlay().querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.click();
     field("data-trade-ask-gold").value = "24";
     field("data-trade-ask-gold").dispatchEvent(new Event("input"));
@@ -70,6 +63,8 @@ describe("counter-offers", () => {
       },
       expect.any(String)
     );
+    // The countered offer leaves the dock and Diplomacy at once (playtest 2026-11-27).
+    expect(state.incomingAllianceRequests).toEqual([]);
   });
 
   it("does nothing for an offer that has already gone", () => {

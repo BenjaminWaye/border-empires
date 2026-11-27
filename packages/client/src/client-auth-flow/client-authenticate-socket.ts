@@ -12,7 +12,9 @@ export const createSocketAuthenticator = (
   firebaseAuth: Auth | undefined,
   ws: RealtimeSocket,
   authSession: AuthSession,
-  devAuthPlayerId?: string
+  devAuthPlayerId?: string,
+  // Hosted sectors only: the membership ticket to send with AUTH (client-hosted-sector-session.ts).
+  getSectorTicket?: (forceRefresh: boolean) => Promise<string | undefined>
 ): SocketAuthenticator => {
   let authInFlight = false;
   const clearAuthInFlight = (): void => { authInFlight = false; };
@@ -28,10 +30,12 @@ export const createSocketAuthenticator = (
       // when its own DEFAULT_HUMAN_PLAYER_ID env var is set, so this branch
       // is inert against staging/prod even if devAuthPlayerId were ever set
       // there by mistake.
+      const sectorTicket = getSectorTicket ? await getSectorTicket(forceRefresh) : undefined;
+      const sectorFields = sectorTicket ? { sectorTicket } : {};
       if (devAuthPlayerId) {
         authSession.token = devAuthPlayerId;
         authSession.uid = devAuthPlayerId;
-        ws.send(JSON.stringify({ type: "AUTH", token: devAuthPlayerId, initChunking: true, ...(rallyCode ? { rallyCode } : {}) }));
+        ws.send(JSON.stringify({ type: "AUTH", token: devAuthPlayerId, initChunking: true, ...(rallyCode ? { rallyCode } : {}), ...sectorFields }));
         return;
       }
       if (!firebaseAuth?.currentUser) {
@@ -43,7 +47,7 @@ export const createSocketAuthenticator = (
       }
       authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
       authSession.uid = firebaseAuth.currentUser.uid;
-      ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, initChunking: true, ...(rallyCode ? { rallyCode } : {}) }));
+      ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, initChunking: true, ...(rallyCode ? { rallyCode } : {}), ...sectorFields }));
     } catch {
       authInFlight = false;
     }

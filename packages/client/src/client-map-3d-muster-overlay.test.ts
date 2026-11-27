@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { BANNER_CLOTH, bannerRestPoint, MUSTER_PLINTH_RADIUS, MUSTER_PLINTH_TOP_Y } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { createMusterOverlay } from "./client-map-3d-muster-overlay.js";
+import { bannerCrestIndex } from "./client-map-3d-muster-banner/muster-banner-crest-atlas.js";
 
 const meshNamed = (scene: Scene, name: string): InstancedMesh => {
   const mesh = scene.getObjectByName(name);
@@ -113,5 +114,59 @@ describe("3d muster banner overlay", () => {
     expect(badges[0]!.position.y).toBeGreaterThan(0.3 + 1);
     overlay.dispose();
   });
-});
 
+  it("adds the High-noble standard's regalia only to flags whose owner shows it, and nothing else differs", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene);
+    const gold = meshNamed(scene, "muster-banner-regalia-gold");
+    const regaliaEnamel = meshNamed(scene, "muster-banner-regalia-enamel");
+    const body = meshNamed(scene, "muster-banner-body");
+    const cloth = meshNamed(scene, "muster-banner-cloth");
+    const soldiers = scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && !c.name)!;
+
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2);
+    overlay.commit();
+    overlay.tick(1_000);
+    expect(gold.count).toBe(0);
+    expect(meshNamed(scene, "muster-banner-regalia-sparkles").count).toBe(0);
+    const standardSoldiers = soldiers.count;
+    const standardCloth = new Color();
+    cloth.getColorAt(0, standardCloth);
+
+    overlay.clear();
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, 0, "flag-high-noble");
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5);
+    overlay.commit();
+    overlay.tick(1_000);
+    expect(gold.count).toBe(1);
+    expect(regaliaEnamel.count).toBe(1);
+    for (const part of ["streamers", "aureole", "halo"]) expect(meshNamed(scene, `muster-banner-regalia-${part}`).count).toBe(1);
+    expect(meshNamed(scene, "muster-banner-regalia-sparkles").count).toBeGreaterThan(0);
+    expect(body.count).toBe(2);
+    // The regalia's gems and streamers take the owner's colour.
+    const tint = new Color();
+    regaliaEnamel.getColorAt(0, tint);
+    expect(tint.getHexString()).toBe("ff0000");
+    // Same cloth colour and the same number of soldiers as the standard flag: owner and strength read the same.
+    const nobleCloth = new Color();
+    cloth.getColorAt(0, nobleCloth);
+    expect(nobleCloth.getHexString()).toBe(standardCloth.getHexString());
+    expect(soldiers.count).toBe(standardSoldiers * 2);
+    expect(cloth.geometry.getAttribute("aBannerDesign").getX(0)).toBe(1);
+    expect(cloth.geometry.getAttribute("aBannerDesign").getX(1)).toBe(0);
+    overlay.dispose();
+  });
+
+  it("stitches each owner's House crest on its banner, and keeps the cog where there is none", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene);
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, 0, "default", "crest-anchor");
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5, 0, "flag-high-noble", "crest-kraken");
+    overlay.addMuster(7, 8, 0.1, 0.5, "#0000ff", false, 7, 8);
+    overlay.commit();
+    const crests = meshNamed(scene, "muster-banner-cloth").geometry.getAttribute("aBannerCrest");
+    expect([crests.getX(0), crests.getX(1), crests.getX(2)]).toEqual([bannerCrestIndex("crest-anchor"), bannerCrestIndex("crest-kraken"), 0]);
+    expect(crests.getX(0)).toBeGreaterThan(0);
+    overlay.dispose();
+  });
+});

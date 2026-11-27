@@ -1,9 +1,10 @@
 /*
  * The "commit manpower" effort sheet (client-effort-confirm-sheet.ts) shown by
- * March To, March Attack and Launch Attack. Reuses the steampunk
- * --sp-* tokens (client-steampunk-theme-style.css) and the tile menu's
- * semantic mapping: brass for chrome and the selected preset, ember for the
- * attack confirm, parchment for text, mono for the numeric readout.
+ * March To, March Attack and Launch Attack, in the HUD v2 look
+ * (client-hud-v2.css): a flat ink panel with a brass edge, Cinzel labels,
+ * Space Mono numbers, segmented switches lit gold when chosen, and the gold
+ * primary button. The --v2-* tokens live on body.hud-v2; fallbacks keep the
+ * sheet readable without it (tests, Storybook).
  */
 
 .effort-confirm-overlay {
@@ -18,235 +19,175 @@
 }
 
 .effort-confirm-card {
-  position: relative;
   width: 300px;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 14px 16px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--sp-brass-700);
-  background: var(--sp-glass-sheen), var(--sp-panel-bg);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.6),
-    inset 0 0 0 1px rgba(217, 173, 82, 0.12);
-  color: var(--sp-parchment-100);
-  font-family: var(--sp-font-body);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--v2-edge-strong, #8a6f35);
+  background: var(--v2-ink, rgba(15, 13, 10, 0.94));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  color: var(--v2-text, #ece2cc);
+  font-family: var(--v2-body, "Spectral", Georgia, serif);
+  font-variant-numeric: tabular-nums;
 }
-
-/* Corner rivets, same brass dots as the riveted auth panel. */
-.effort-confirm-card::before,
-.effort-confirm-card::after {
-  content: "";
-  position: absolute;
-  top: 7px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--sp-rivet-color);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
-}
-.effort-confirm-card::before { left: 7px; }
-.effort-confirm-card::after { right: 7px; }
+/* Zero-specificity reset, so the component classes below set each button's font. */
+:where(.effort-confirm-card) button { font: inherit; color: inherit; cursor: pointer; }
 
 .effort-confirm-title {
-  margin: 0 0 4px;
-  color: var(--sp-brass-100);
-  font-family: var(--sp-font-display);
+  margin: 0;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
   font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  color: var(--v2-gold-hi, #f0cf82);
 }
-
 .effort-confirm-subtitle {
-  margin: 0 0 12px;
-  color: var(--sp-parchment-muted);
-  font-size: 12px;
-  line-height: 1.4;
+  margin: -8px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--v2-muted, #a8997c);
 }
 
-.effort-confirm-dial {
-  margin-bottom: 12px;
-  padding: 10px 12px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--sp-walnut-600);
-  background: rgba(12, 9, 6, 0.55);
-  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.55);
-}
-
-.effort-confirm-readout {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.effort-confirm-readout-value {
-  color: var(--sp-brass-100);
-  font-family: var(--sp-font-mono);
-  font-size: 22px;
+/* ---- Sections: a small gold label, then a segmented switch ---- */
+.effort-section { display: grid; gap: 6px; }
+.effort-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.effort-section-label {
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-size: 10.5px;
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(217, 173, 82, 0.35);
-}
-.effort-confirm-readout-unit {
-  color: var(--sp-parchment-muted);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: var(--v2-gold, #d9b25c);
 }
+.effort-confirm-readout { font-family: var(--v2-mono, "Space Mono", monospace); font-size: 11px; color: var(--v2-soft, #bda880); }
+.effort-confirm-readout b { font-size: 13px; color: var(--v2-text, #ece2cc); }
 
-/* Brass gauge slider: engraved track, brass fill up to the thumb
-   (--effort-fill, set from JS), domed brass knob. */
+.effort-seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--v2-line, #3a3125);
+  background: var(--v2-well, #16130e);
+}
+.effort-seg-item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: 44px;
+  padding: 5px 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--v2-soft, #bda880);
+}
+.effort-seg-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.effort-seg-item small { font-family: var(--v2-mono, "Space Mono", monospace); font-size: 10px; color: var(--v2-muted, #a8997c); }
+.effort-seg-item:hover { color: var(--v2-text, #ece2cc); }
+.effort-seg-item.is-active {
+  background: linear-gradient(180deg, #3a2e18, #2a2216);
+  border-color: var(--v2-gold, #d9b25c);
+  color: var(--v2-gold-hi, #f0cf82);
+}
+.effort-seg-item.is-active small { color: var(--v2-soft, #bda880); }
+
+/* Flag risk: a dot per spot, plus a short amber warning in the header. */
+.effort-flag-warn { font-size: 12px; color: var(--v2-amber, #e0a845); cursor: help; }
+.effort-flag-warn::before { content: "\26A0\FE0E  "; }
+.effort-flag-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--v2-muted, #a8997c); }
+.effort-flag-spot[data-tone="safe"] .effort-flag-dot { background: var(--v2-green, #6fbf73); }
+.effort-flag-spot[data-tone="close"] .effort-flag-dot { background: var(--v2-amber, #e0a845); }
+.effort-flag-spot[data-tone="border"] .effort-flag-dot { background: var(--v2-red, #d06a5a); }
+
+/* Fine-tune slider (March sheets): flat track, gold fill (--effort-fill, set from JS), square knob. */
 .effort-confirm-range {
   --effort-fill: 0%;
   -webkit-appearance: none;
   appearance: none;
   display: block;
   width: 100%;
-  height: 22px;
+  height: 20px;
   margin: 0;
   background: transparent;
   cursor: pointer;
 }
-.effort-confirm-range:focus-visible {
-  outline: none;
-}
+.effort-confirm-range:focus-visible { outline: none; }
 .effort-confirm-range::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.6);
+  height: 4px;
   background:
-    linear-gradient(90deg, var(--sp-brass-700), var(--sp-brass-300)) 0 / var(--effort-fill) 100% no-repeat,
-    linear-gradient(180deg, #0b0805, #2a2016);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(244, 223, 166, 0.08);
+    linear-gradient(90deg, var(--v2-gold, #d9b25c), var(--v2-gold, #d9b25c)) 0 / var(--effort-fill) 100% no-repeat,
+    var(--v2-line, #3a3125);
 }
-.effort-confirm-range::-moz-range-track {
-  height: 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.6);
-  background: linear-gradient(180deg, #0b0805, #2a2016);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
-}
-.effort-confirm-range::-moz-range-progress {
-  height: 8px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--sp-brass-700), var(--sp-brass-300));
-}
+.effort-confirm-range::-moz-range-track { height: 4px; background: var(--v2-line, #3a3125); }
+.effort-confirm-range::-moz-range-progress { height: 4px; background: var(--v2-gold, #d9b25c); }
 .effort-confirm-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  margin-top: -7px;
-  border-radius: 50%;
-  border: 1px solid var(--sp-brass-700);
-  background: radial-gradient(circle at 35% 30%, var(--sp-brass-100), var(--sp-brass-500) 55%, var(--sp-brass-700));
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6), inset 0 0 0 3px rgba(36, 24, 18, 0.35);
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 1px solid var(--v2-ink-solid, #0f0d0a);
+  background: var(--v2-gold-hi, #f0cf82);
 }
 .effort-confirm-range::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--sp-brass-700);
-  background: radial-gradient(circle at 35% 30%, var(--sp-brass-100), var(--sp-brass-500) 55%, var(--sp-brass-700));
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6), inset 0 0 0 3px rgba(36, 24, 18, 0.35);
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--v2-ink-solid, #0f0d0a);
+  border-radius: 0;
+  background: var(--v2-gold-hi, #f0cf82);
 }
-.effort-confirm-range:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(217, 173, 82, 0.35), 0 2px 5px rgba(0, 0, 0, 0.6);
-}
-.effort-confirm-range:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 3px rgba(217, 173, 82, 0.35), 0 2px 5px rgba(0, 0, 0, 0.6);
-}
-
-.effort-confirm-scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2px;
-  color: var(--sp-parchment-muted);
-  font-family: var(--sp-font-mono);
-  font-size: 10px;
-}
-
-/* Presets read as the tile menu's tabs: dim until chosen, brass when active. */
-.effort-confirm-presets {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.effort-confirm-preset {
-  flex: 1;
-  display: grid;
-  gap: 1px;
-  padding: 6px 0 5px;
-  border-radius: 4px;
-  border: 1px solid var(--sp-brass-700);
-  background: rgba(20, 16, 10, 0.55);
-  color: var(--sp-parchment-muted);
-  font-family: var(--sp-font-body);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.effort-confirm-preset small {
-  font-family: var(--sp-font-mono);
-  font-size: 10px;
-  opacity: 0.8;
-}
-.effort-confirm-preset:hover {
-  border-color: var(--sp-brass-500);
-  color: var(--sp-parchment-100);
-}
-.effort-confirm-preset.is-active {
-  border-color: var(--sp-brass-300);
-  background: rgba(217, 173, 82, 0.2);
-  color: var(--sp-brass-100);
-}
+.effort-confirm-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--v2-gold-hi, #f0cf82); }
+.effort-confirm-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--v2-gold-hi, #f0cf82); }
 
 .effort-confirm-info {
-  min-height: 16px;
-  margin: 0 0 12px;
-  color: var(--sp-parchment-300);
+  margin: 0;
+  font-family: var(--v2-mono, "Space Mono", monospace);
   font-size: 12px;
-  line-height: 1.4;
+  color: var(--v2-text, #ece2cc);
 }
+.effort-confirm-info:empty { display: none; }
+/* How long the attack's muster flag takes to fill, and that it can be taken meanwhile. */
+.effort-confirm-fill { margin: 0; font-family: var(--v2-mono, "Space Mono", monospace); font-size: 11px; color: #f0a447; }
+.effort-confirm-fill[hidden] { display: none; }
 
-.effort-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
+/* ---- Actions: ghost Cancel, gold primary ---- */
+.effort-confirm-actions { display: flex; gap: 8px; }
 .effort-confirm-cancel,
 .effort-confirm-go {
-  min-height: 34px;
-  padding: 0 16px;
-  border-radius: 4px;
-  font-family: var(--sp-font-display);
+  height: 44px;
+  padding: 0 18px;
+  font-family: var(--v2-display, "Cinzel", Georgia, serif);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  cursor: pointer;
+  letter-spacing: 0.06em;
 }
 .effort-confirm-cancel {
-  border: 1px solid var(--sp-walnut-600);
-  background: rgba(20, 16, 10, 0.55);
-  color: var(--sp-parchment-muted);
+  border: 1px solid var(--v2-line, #3a3125);
+  background: var(--v2-well, #16130e);
+  color: var(--v2-soft, #bda880);
 }
-.effort-confirm-cancel:hover {
-  border-color: var(--sp-brass-700);
-  color: var(--sp-parchment-100);
+.effort-confirm-cancel:hover { border-color: var(--v2-edge-strong, #8a6f35); color: var(--v2-text, #ece2cc); }
+.effort-confirm-card .effort-confirm-go {
+  flex: 1;
+  border: 1px solid var(--v2-gold, #d9b25c);
+  background: var(--v2-gold, #d9b25c);
+  color: #120f0b;
 }
-.effort-confirm-go {
-  border: 1px solid var(--sp-ember-600);
-  background: linear-gradient(180deg, rgba(226, 121, 58, 0.5), rgba(156, 82, 40, 0.55));
-  color: var(--sp-parchment-100);
-  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.25), 0 2px 6px rgba(0, 0, 0, 0.45);
-}
-.effort-confirm-go:hover {
-  background: linear-gradient(180deg, rgba(226, 121, 58, 0.65), rgba(156, 82, 40, 0.7));
-}
+.effort-confirm-card .effort-confirm-go:hover { background: var(--v2-gold-hi, #f0cf82); border-color: var(--v2-gold-hi, #f0cf82); }
 .effort-confirm-go:focus-visible,
 .effort-confirm-cancel:focus-visible,
-.effort-confirm-preset:focus-visible {
-  outline: 2px solid var(--sp-brass-300);
+.effort-seg-item:focus-visible {
+  outline: 2px solid var(--v2-gold-hi, #f0cf82);
   outline-offset: 2px;
 }
 
@@ -257,7 +198,5 @@
     bottom: 12px;
     max-width: none;
   }
-  .effort-confirm-card {
-    width: 100%;
-  }
+  .effort-confirm-card { width: 100%; }
 }

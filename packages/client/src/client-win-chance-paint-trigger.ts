@@ -1,6 +1,8 @@
-import { findKnownShieldAmount, fortPerimeterSourceVariant, isCaptureHoldActive, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { combatSideIsBesieged, findKnownShieldAmount, fortPerimeterSourceVariant, isCaptureHoldActive, hillsDefenseModifiersAt, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
+import { besiegedOddsSuffix, townBesiegedFromKnownTiles } from "./client-town-siege/client-town-siege.js";
 import type { ClientState } from "./client-state/client-state.js";
+import type { MarchServerOdds } from "./client-march-win-chance-preview/client-march-win-chance-preview.js";
 import type { Tile } from "./client-types.js";
 
 // Workstream F0 (docs/replenishment-update-plan.md): trigger for the
@@ -22,7 +24,7 @@ import type { Tile } from "./client-types.js";
 const WIN_CHANCE_PAINT_DURATION_MS = 6000;
 const MAX_WIN_CHANCE_LABELS = 20;
 
-const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles">): FrontierCombatPreviewTile => ({
+const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles" | "me">): FrontierCombatPreviewTile => ({
   terrain: tile?.terrain,
   ownershipState: tile?.ownershipState ?? undefined,
   dockId: tile?.dockId,
@@ -37,7 +39,9 @@ const previewTileFor = (tile: Tile | undefined, state?: Pick<ClientState, "tiles
         })
       : undefined,
   // A freshly captured FRONTIER tile still holding ground defends (capture-hold).
-  captureHoldUntil: tile?.captureHoldUntil
+  captureHoldUntil: tile?.captureHoldUntil,
+  // Siege (town-siege.ts): same shared rule the sim rolls with.
+  townBesieged: townBesiegedFromKnownTiles(tile, state)
 });
 
 /**
@@ -71,7 +75,7 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
  * base the commit/shield scaling applies to.
  */
 export const estimateTileWinChance = (
-  state: Pick<ClientState, "tiles">,
+  state: Pick<ClientState, "tiles" | "me">,
   tile: Tile,
   commit: { committedManpower: number; baseMusterCost: number },
   serverBaseWinChance?: number
@@ -159,19 +163,23 @@ export const triggerWinChancePaintOnMarchArm = (
  * the chosen commitment. Only the target is scored -- the route the march
  * actually walks isn't known here, and tiles on the way get the flag's
  * commitment scaled to their own floors, so the arrow's labels cover those.
+ * `serverOdds` is the cached march ATTACK_PREVIEW (marchPreviewServerOdds).
  */
 export const describeMarchWinChance = (
   state: Pick<ClientState, "tiles" | "me">,
   target: { x: number; y: number },
   keyFor: (x: number, y: number) => string,
   commit: { committedManpower: number; baseMusterCost: number },
-  serverBaseWinChance?: number
+  serverOdds?: MarchServerOdds
 ): string => {
   const tile = state.tiles.get(keyFor(target.x, target.y));
   if (!tile?.ownerId || tile.ownerId === state.me) return "The target isn't enemy-held — win chances show on enemy tiles along the arrow";
-  const winChance = Math.round(estimateTileWinChance(state, tile, commit, serverBaseWinChance) * 100);
+  const winChance = Math.round(estimateTileWinChance(state, tile, commit, serverOdds?.winChance) * 100);
+  // The "Besieged" tag follows whichever odds are shown: the server's breakdown
+  // when its odds are used, else the shared rule over the known tiles.
+  const besieged = serverOdds ? combatSideIsBesieged(serverOdds.defender) : townBesiegedFromKnownTiles(tile, state);
   const effort = isCommitOddsEligibleTarget(tile, Date.now())
     ? `commits ${commit.committedManpower} manpower`
     : "extra manpower doesn't change the odds here";
-  return `Win chance ${winChance}% at (${target.x}, ${target.y}) · ${effort}`;
+  return `Win chance ${winChance}%${besiegedOddsSuffix(besieged)} at (${target.x}, ${target.y}) · ${effort}`;
 };

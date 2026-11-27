@@ -62,7 +62,7 @@ describe("syncAuthOverlay", () => {
         authProfileSaveBtn: makeButton(),
         authBusyTitleEl,
         authBusyCopyEl,
-        authBusyDiagnosticsBtn: makeButton(),
+        authBusyReportBugBtn: makeButton(),
         authBusySeasonFullNotifyBtn: makeButton(),
         authStatusEl,
         authDebugRouteEl,
@@ -128,9 +128,9 @@ describe("syncAuthOverlay", () => {
 
   it("hides the diagnostics button before the 8s threshold (regression: this overlay used to never show it at all)", () => {
     vi.spyOn(Date, "now").mockReturnValue(7_000);
-    const authBusyDiagnosticsBtn = makeButton();
-    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyDiagnosticsBtn });
-    expect(authBusyDiagnosticsBtn.style.display).toBe("none");
+    const authBusyReportBugBtn = makeButton();
+    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyReportBugBtn });
+    expect(authBusyReportBugBtn.style.display).toBe("none");
   });
 
   it("shows the diagnostics button once the busy wait crosses the 8s threshold", () => {
@@ -138,33 +138,33 @@ describe("syncAuthOverlay", () => {
     // session data for a large empire (18s)... (27s elapsed)" with no way
     // to grab logs, because this overlay had zero escalation of any kind.
     vi.spyOn(Date, "now").mockReturnValue(27_000);
-    const authBusyDiagnosticsBtn = makeButton();
-    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyDiagnosticsBtn });
-    expect(authBusyDiagnosticsBtn.style.display).toBe("");
+    const authBusyReportBugBtn = makeButton();
+    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyReportBugBtn });
+    expect(authBusyReportBugBtn.style.display).toBe("");
   });
 
   it("hides the diagnostics button once auth is no longer busy, even past the threshold", () => {
     vi.spyOn(Date, "now").mockReturnValue(27_000);
-    const authBusyDiagnosticsBtn = makeButton();
-    syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyDiagnosticsBtn });
-    expect(authBusyDiagnosticsBtn.style.display).toBe("none");
+    const authBusyReportBugBtn = makeButton();
+    syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyReportBugBtn });
+    expect(authBusyReportBugBtn.style.display).toBe("none");
   });
 
   it("scrolls the overlay back to the top when it goes busy so the busy card is not left below the fold", () => {
     const authOverlayEl = Object.assign(makeElement(), { scrollTop: 640 });
-    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authOverlayEl });
+    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyReportBugBtn: makeButton(), authOverlayEl });
     expect(authOverlayEl.scrollTop).toBe(0);
   });
 
   it("leaves the overlay scroll position alone while not busy", () => {
     const authOverlayEl = Object.assign(makeElement(), { scrollTop: 640 });
-    syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authOverlayEl });
+    syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyReportBugBtn: makeButton(), authOverlayEl });
     expect(authOverlayEl.scrollTop).toBe(640);
   });
 
   it("disables Play now together with the other sign-in buttons while busy or unconfigured", () => {
     const authPlayNowBtn = makeButton();
-    const deps = { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authPlayNowBtn };
+    const deps = { ...baseDeps(), authBusyReportBugBtn: makeButton(), authPlayNowBtn };
 
     syncAuthOverlay({ ...baseState(), authBusy: true, authConfigured: true }, deps);
     expect(authPlayNowBtn.disabled).toBe(true);

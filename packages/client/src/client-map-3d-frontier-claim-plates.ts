@@ -4,92 +4,34 @@ import { HEIGHTFIELD_HILLS_ELEVATION_BONUS, type Heightfield } from "./client-ma
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
-import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
-import { fallbackOwnerColor, resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import type { ClientState } from "./client-state/client-state.js";
-import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
+import { collectFrontierClaims, type FrontierClaim } from "./client-frontier-claim-collect/client-frontier-claim-collect.js";
+import { expandCrewAnchor, expandCrewPlateProgress } from "./client-expand-crew/client-expand-crew.js";
+
+// Moved to client-frontier-claim-collect.ts (shared with the 2D crew); re-exported for existing callers.
+export { activeFrontierAttackClaimTargetKeys } from "./client-frontier-claim-collect/client-frontier-claim-collect.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
-// First-observed timestamp per ADVANCE/MARCH auto-fired EXPAND's (or, as of
-// the FRONTIER-attack instant-capture change below, ATTACK-on-FRONTIER's)
-// claim phase (keyed by target tile key), for the same reason
-// advanceTransitSeenAt (client-map-3d-capture-overlays.ts) tracks the travel
-// phase: the server tells us only resolvesAt (and, separately, transitEndsAt
-// for the travel leg), never when the claim itself actually started, so a
-// claim that already has transitEndsAt in the past uses that as its
-// authoritative start; only a claim this client observes mid-flight with no
-// transit leg at all (transitEndsAt never set) falls back to "the first
-// frame this client saw it".
-const advanceClaimSeenAt = new Map<string, number>();
+// One claim as placed in the scene, handed on to the expand crew layer
+// (client-map-3d-expand-crew/): the target tile's top-left corner in scene
+// coordinates, its surface height, and the surface height of the tile the
+// crew walks out of.
+export type PlacedFrontierClaim = {
+  readonly claim: FrontierClaim;
+  readonly sceneX: number;
+  readonly sceneZ: number;
+  readonly surfaceY: number;
+  readonly fromSurfaceY: number;
+};
 
-// Target tile keys of every ATTACK this client currently knows is resolving
-// against undefended FRONTIER ground (this client's own claim plus muster
-// auto-fire) -- i.e. exactly the ATTACK-side half of the plate eligibility
-// below, shared out so the base ownership tint (client-map-3d.ts) can hide
-// the target's still-there enemy-color frontier fill while this plate
-// sweeps in on top of it. Without this, an ATTACK on an enemy's FRONTIER
-// tile shows the "becoming mine" sweep over ground that never visually goes
-// neutral first, unlike a real EXPAND target, which has no owner tint to
-// begin with. EXPAND targets are deliberately excluded: they're already
-// unowned, so there's no enemy tint to hide. Also covers an enemy's ATTACK on
-// this player's own FRONTIER tile (activeIncomingFrontierClaims): the
-// defender's own frontier fill hides the same way, so the tile visibly goes
-// neutral while the attacker's colour sweeps in.
-export function activeFrontierAttackClaimTargetKeys(
-  state: Pick<ClientState, "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me">,
-  keyFor: (x: number, y: number) => string,
-  nowEpochMs: number
-): Set<string> {
-  // Undefended FRONTIER only: a freshly captured tile still holding ground
-  // (capture-hold) is a real fight and gets the skirmish/battle FX instead.
-  const isKnownFrontierAttack = (targetX: number, targetY: number, lockedWinChance: number | undefined): boolean =>
-    frontierAttackIsUndefended(state.tiles.get(keyFor(targetX, targetY)), lockedWinChance, nowEpochMs);
-  const keys = new Set<string>();
-
-  const capture = state.capture;
-  if (
-    capture &&
-    !capture.fromMusterAdvance &&
-    capture.resolvesAt > nowEpochMs &&
-    capture.actionType === "ATTACK" &&
-    isKnownFrontierAttack(capture.target.x, capture.target.y, capture.combatSnapshot?.winChance)
-  ) {
-    keys.add(keyFor(capture.target.x, capture.target.y));
-  }
-
-  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs) continue;
-    // Still marching: the transit overlay owns the tint during this leg.
-    if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-    if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY, outgoing.winChance)) continue;
-    keys.add(key);
-  }
-
-  for (const claim of activeIncomingFrontierClaims(state, nowEpochMs)) keys.add(claim.key);
-
-  return keys;
-}
-
-// Drives the frontier-claim plate pool from every currently-claiming EXPAND,
-// plus every currently-resolving ATTACK on a tile this client already knows
-// is undefended FRONTIER ground: this client's own manually-dispatched claim
-// (the single state.capture slot) plus any number of this player's muster
-// flags auto-firing an EXPAND or FRONTIER-targeted ATTACK via ADVANCE/MARCH
-// (state.outgoingMusterAttacksByTile -- populated by
-// handleMusterAdvanceExpandAccepted/handleMusterAdvanceCombatStart in
-// client-siege-tracking.ts, the same source syncMusterTransitOverlay/
-// syncBattleOverlayFx in client-map-3d-capture-overlays.ts already read for
-// the travel and skirmish legs of the very same auto-fired action).
-//
-// An ATTACK on FRONTIER ground has no defending force (see
-// runtime-lock-resolution.ts's hasDefendingForce) -- the simulation resolves
-// it as a guaranteed capture with no combat roll or combat broadcast, so it
-// gets this same "becoming mine" plate sweep instead of the skirmish/clash
-// overlay a real fight would use. A target this client hasn't seen tile data
-// for yet is left to the skirmish path's own fallback (see
-// client-map-3d-capture-overlays.ts) since only the server knows for certain
-// whether it's undefended.
+// Drives the frontier-claim plate pool from every claim
+// collectFrontierClaims finds (see there for which claims count). A claim
+// with an expand crew grows its plate outward from where the soldiers first
+// set foot on the tile once they've walked in (client-expand-crew.ts); one
+// without (an ATTACK on frontier ground) keeps the sweep in from the left
+// over the whole claim. `animate` is the unit motion gate's verdict: with
+// motion off the crew stands where it would have arrived, on the same clock.
 export function syncFrontierClaimPlates(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -104,53 +46,27 @@ export function syncFrontierClaimPlates(
   // never renders one even when the raw hills flag is set (see its
   // top-of-loop skip and isHillNeighbor), so a bare isHillsTile predicate
   // here would bump-raise a claim plate over a mountain with no dome at all.
-  isHillsAt: (x: number, y: number) => boolean
-): void {
-  const nowEpochMs = Date.now();
-  const empireColor = state.playerColors.get(state.me) ?? "#7dd3fc";
-  type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number; color: string };
-  const claims: ClaimEntry[] = [];
-  const coveredTargetKeys = new Set<string>();
-  const activeFrontierAttackKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
+  isHillsAt: (x: number, y: number) => boolean,
+  animate = true,
+  // One clock for the plates and the crew layer that reads `placed`.
+  nowEpochMs: number = Date.now()
+): PlacedFrontierClaim[] {
+  const claims = collectFrontierClaims(state, keyFor, nowEpochMs);
+  const placed: PlacedFrontierClaim[] = [];
 
-  // This client's own claim first -- authoritative startAt from the moment
-  // it was actually dispatched, and takes priority over a muster entry that
-  // happens to share the same target tile.
-  const capture = state.capture;
-  if (
-    capture &&
-    !capture.fromMusterAdvance &&
-    capture.resolvesAt > nowEpochMs &&
-    (capture.actionType === "EXPAND" || activeFrontierAttackKeys.has(keyFor(capture.target.x, capture.target.y)))
-  ) {
-    const key = keyFor(capture.target.x, capture.target.y);
-    claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt, color: empireColor });
-    coveredTargetKeys.add(key);
-  }
-
-  const liveClaimKeys = new Set<string>();
-  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (outgoing.resolvesAt <= nowEpochMs || coveredTargetKeys.has(key)) continue;
-    if (!outgoing.isExpand && !activeFrontierAttackKeys.has(key)) continue;
-    // While the flag's company is still marching, the transit overlay shows
-    // that leg, not this one -- same phase split syncBattleOverlayFx's
-    // skirmish loop uses for an auto-fired ATTACK.
-    if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-    liveClaimKeys.add(key);
-    const startAt = outgoing.transitEndsAt ?? advanceClaimSeenAt.get(key) ?? nowEpochMs;
-    if (!advanceClaimSeenAt.has(key)) advanceClaimSeenAt.set(key, startAt);
-    claims.push({ targetX: outgoing.targetX, targetY: outgoing.targetY, startAt, resolvesAt: outgoing.resolvesAt, color: empireColor });
-  }
-  // An enemy taking this player's own FRONTIER tile: same sweep, in the
-  // attacker's colour (the key set above already hid this player's tint).
-  for (const incoming of activeIncomingFrontierClaims(state, nowEpochMs)) {
-    if (coveredTargetKeys.has(incoming.key)) continue;
-    const color = incoming.attackerId ? resolveOwnerColor(incoming.attackerId, state.playerColors, fallbackOwnerColor) : "#8a8f98";
-    claims.push({ targetX: incoming.targetX, targetY: incoming.targetY, startAt: incoming.startAt, resolvesAt: incoming.resolvesAt, color });
-  }
-  for (const key of advanceClaimSeenAt.keys()) {
-    if (!liveClaimKeys.has(key)) advanceClaimSeenAt.delete(key);
-  }
+  const tileSurfaceY = (x: number, y: number): number => {
+    const wxNext = wrapX(x + 1);
+    const wyNext = wrapY(y + 1);
+    const groundY = (heightfield.cornerYAt(x, y) + heightfield.cornerYAt(wxNext, y) + heightfield.cornerYAt(x, wyNext) + heightfield.cornerYAt(wxNext, wyNext)) / 4;
+    // This plate is one flat quad (not subdivided like the dome-draped
+    // ownership/settle meshes), so it can't contour every bump -- but it
+    // must at least clear the dome's own height at the tile's center
+    // instead of sitting on the flat corner average, which used to bury it
+    // inside (or leave it floating below) a hill's peak entirely.
+    if (!isHillsAt(x, y)) return groundY;
+    const bumps = hillBumpsWithCorridorAt(x, y, hillNeighborFlagsAt(x, y, isHillsAt, wrapX, wrapY));
+    return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, x, y);
+  };
 
   const TILE_WIDTH = 0.94;
   const HALF_TILE = TILE_WIDTH * 0.5;
@@ -162,43 +78,36 @@ export function syncFrontierClaimPlates(
     const material = plate.material as MeshBasicMaterial;
     material.color.set(claim.color);
     material.opacity = FRONTIER_OPACITY;
-    const total = Math.max(1, claim.resolvesAt - claim.startAt);
-    const elapsed = nowEpochMs - claim.startAt;
-    const t = Math.max(0, Math.min(1, elapsed / total));
     const dxw = toroidDelta(originX, claim.targetX, WORLD_WIDTH);
     const dyw = toroidDelta(originY, claim.targetY, WORLD_HEIGHT);
-    const wxNext = wrapX(claim.targetX + 1);
-    const wyNext = wrapY(claim.targetY + 1);
-    const groundY =
-      (heightfield.cornerYAt(claim.targetX, claim.targetY) +
-        heightfield.cornerYAt(wxNext, claim.targetY) +
-        heightfield.cornerYAt(claim.targetX, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    // This plate is one flat quad (not subdivided like the dome-draped
-    // ownership/settle meshes), so it can't contour every bump -- but it
-    // must at least clear the dome's own height at the tile's center
-    // instead of sitting on the flat corner average, which used to bury it
-    // inside (or leave it floating below) a hill's peak entirely.
-    const isHill = isHillsAt(claim.targetX, claim.targetY);
-    const bumps = isHill
-      ? hillBumpsWithCorridorAt(claim.targetX, claim.targetY, hillNeighborFlagsAt(claim.targetX, claim.targetY, isHillsAt, wrapX, wrapY))
-      : [];
-    const surfaceY = isHill
-      ? groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, claim.targetX, claim.targetY)
-      : groundY;
-    // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
-    // t grows the plate rightward from there — same sweep-in-from-the-left
-    // presentation the single-plate version used.
+    const surfaceY = tileSurfaceY(claim.targetX, claim.targetY);
     const tileCenterX = dxw + TILE_CENTER_OFFSET;
     const tileCenterZ = dyw + TILE_CENTER_OFFSET;
-    const leftEdgeX = tileCenterX - HALF_TILE;
-    plate.scale.set(Math.max(0.001, t), 1, 1);
-    plate.position.set(leftEdgeX + (TILE_WIDTH * t) * 0.5, surfaceY + markerRise, tileCenterZ);
+    if (claim.crew > 0) {
+      // Grows outward from the crew's arrival point toward the full tile. The
+      // anchor sits inside the patrol disc (radius PATROL_RADIUS around the
+      // centre), well inside HALF_TILE, so the growing plate never leaves
+      // the tile.
+      const t = expandCrewPlateProgress(claim, nowEpochMs);
+      const anchor = expandCrewAnchor(claim);
+      plate.scale.set(Math.max(0.001, t), 1, Math.max(0.001, t));
+      plate.position.set(dxw + anchor.x + (TILE_CENTER_OFFSET - anchor.x) * t, surfaceY + markerRise, dyw + anchor.y + (TILE_CENTER_OFFSET - anchor.y) * t);
+      const from = claim.fromStep;
+      const fromSurfaceY = from ? tileSurfaceY(wrapX(claim.targetX + from.dx), wrapY(claim.targetY + from.dy)) : surfaceY;
+      placed.push({ claim, sceneX: dxw, sceneZ: dyw, surfaceY, fromSurfaceY });
+    } else {
+      // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
+      // t grows the plate rightward from there.
+      const total = Math.max(1, claim.resolvesAt - claim.startAt);
+      const t = Math.max(0, Math.min(1, (nowEpochMs - claim.startAt) / total));
+      plate.scale.set(Math.max(0.001, t), 1, 1);
+      plate.position.set(tileCenterX - HALF_TILE + (TILE_WIDTH * t) * 0.5, surfaceY + markerRise, tileCenterZ);
+    }
     plate.visible = true;
   }
   for (; i < plates.length; i += 1) {
     const plate = plates[i];
     if (plate) plate.visible = false;
   }
+  return placed;
 }

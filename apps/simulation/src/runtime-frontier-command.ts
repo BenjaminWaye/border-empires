@@ -1,6 +1,6 @@
 import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import type { DockLandingIndex } from "@border-empires/shared";
+import { PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
@@ -26,7 +26,6 @@ import { isAetherBridgeCrossingTarget, isDockCrossingTarget, type DockCrossingOr
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
-import { launchBarbarianAttack, type BarbarianLaunchContext } from "./runtime-barbarian-walk.js";
 
 // Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
 // can never make an ATTACK resolve instantly or negatively.
@@ -40,6 +39,9 @@ export type MusterSourceResult = { sourceKey: string; available: number };
  * opaque player IDs (e.g. raw Firebase UIDs) instead of leaking the ID.
  */
 export const attackAlertDisplayName = (playerId: string, actorName?: string): string => {
+  // The barbarian system player keeps whatever name its season saved ("Planetary
+  // Defense", "Barbarians"); players always see the current faction name.
+  if (playerId.startsWith("barbarian")) return PLANETARY_DEFENSE_DISPLAY_NAME;
   if (actorName && actorName !== playerId) return actorName;
   return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
 };
@@ -50,7 +52,7 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
 // tile's coordinates rather than needing to store it on LockRecord.
 export const frontierClaimDurationMsForCoords = frontierClaimDurationMsAt;
 
-export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
+export type RuntimeFrontierCommandContext = {
   relicContext?: RelicMutationContext;
   now: () => number;
   players: Map<string, RuntimePlayer>;
@@ -309,7 +311,7 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
+    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, allies: actor.allies, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
@@ -386,11 +388,10 @@ export const handleFrontierCommandImpl = (
     ...baseLock,
     ...(combatResolution ? { combatResolution } : {})
   };
-  // A barbarian leaves its origin tile as its attack starts, so a player who
-  // takes the launch tile mid-fight can't leave the barbarian alive on theirs.
-  const lock: LockRecord = actor.id === "barbarian-1" && actionType === "ATTACK"
-    ? { ...resolvedLock, barbarianLaunch: launchBarbarianAttack(ctx, resolvedLock) }
-    : resolvedLock;
+  // A Planetary Defense action remembers its camp, so a win joins that camp
+  // even if the origin is lost mid-fight (planetary-defense-camps/camp-rules.ts).
+  const originCampId = actor.id.startsWith("barbarian-") ? ctx.tiles.get(resolvedLock.originKey)?.campId : undefined;
+  const lock: LockRecord = originCampId ? { ...resolvedLock, campId: originCampId } : resolvedLock;
   ctx.locksByTile.addLock(lock);
   ctx.locksByCommandId.set(lock.commandId, lock);
   if (actionType === "ATTACK") ctx.holdDevelopmentForAttack(lock);

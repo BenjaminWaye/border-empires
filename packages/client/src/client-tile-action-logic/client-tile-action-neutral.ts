@@ -12,6 +12,7 @@ import { settleDurationMsForState } from "../client-queue-logic/client-queue-log
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { relayBeaconTowardAction } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -108,7 +109,9 @@ export const expandToAction = (
 export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId) return [];
   const action = expandToAction(state, tile, deps);
-  return action ? [action] : [];
+  // Only beside Expand To: a fogged tile with no path from your land offers nothing.
+  const toward = action ? relayBeaconTowardAction(state, tile) : undefined;
+  return [...(action ? [action] : []), ...(toward ? [toward] : [])];
 };
 
 export const neutralTileActions = (
@@ -157,6 +160,9 @@ export const neutralTileActions = (
         `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. (${state.expandManpowerCost} expand + ${state.settleManpowerCost} garrison + ${relayBeaconManpowerCostForState(state)} build) • ${buildTimeLabel(totalExploreMs)} total`
       )
     });
+  } else {
+    const toward = relayBeaconTowardAction(state, tile);
+    if (toward) out.push(toward);
   }
   out.push(...helpers.retortRecastActions());
   out.push(...helpers.crystalCoreActions());

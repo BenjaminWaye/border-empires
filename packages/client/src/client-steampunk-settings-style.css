@@ -98,6 +98,24 @@
   background: rgba(12, 9, 6, 0.85);
 }
 
+/* Too close to a rival's colour (client-color-clash.ts): greyed and struck through. */
+.auth-color-swatch[data-too-close="true"] {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+  background-image: linear-gradient(135deg, transparent 46%, rgba(12, 9, 6, 0.9) 46%, rgba(12, 9, 6, 0.9) 54%, transparent 54%);
+}
+
+.auth-color-clash {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--sp-ember-400);
+}
+
+.auth-color-clash[hidden] {
+  display: none;
+}
+
 /* ---- Debug overlay (bridge/ws diagnostics) ---- */
 
 .bridge-debug-status {

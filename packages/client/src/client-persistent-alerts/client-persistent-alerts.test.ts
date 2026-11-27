@@ -31,6 +31,7 @@ const unfedTownTile = (overrides: TileOverrides = {}): Tile => {
     goldPerMinute: 0,
     cap: 0,
     isFed: false,
+    foodSlotDemand: 2,
     population: 25_000,
     maxPopulation: 100_000,
     populationGrowthPerMinute: 0,
@@ -95,11 +96,47 @@ describe("persistent alerts", () => {
         id: "town_unfed:12,18",
         kind: "town_unfed",
         title: "Town unfed",
-        detail: "Ravenhold needs FOOD upkeep.",
+        // Playtest 2026-11-27 ("Aelharbor" starved with no reason): the alert names the need and the fix.
+        detail: "Ravenhold: Unfed · needs 2 food · build Farm Plot / garrison grain or fish",
         x: 12,
         y: 18
       })
     ]);
+  });
+
+  // Playtest 2026-11-19: a player's only town sat ungarrisoned for a day, making 0 coin and not growing,
+  // and no alert said so (the unfed alert only covers garrisoned towns).
+  it("alerts on an owned town that isn't garrisoned, unless a garrison is under way", () => {
+    const ungarrisoned = (x: number, extra: TileOverrides = {}): Tile =>
+      unfedTownTile({ x, y: 5, ownershipState: "FRONTIER", town: { isFed: true }, ...extra });
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      settleProgressByTile: new Map([["3,5", { startAt: 0, resolvesAt: 1, target: { x: 3, y: 5 } }]]),
+      tiles: new Map<string, Tile>([
+        ["1,5", ungarrisoned(1)],
+        ["2,5", ungarrisoned(2, { optimisticPending: "settle" })],
+        ["3,5", ungarrisoned(3)],
+        ["4,5", ungarrisoned(4, { ownerId: "enemy" })],
+        ["6,5", unfedTownTile({ x: 6, y: 5, town: { isFed: true } })]
+      ])
+    };
+
+    expect(persistentAlertsForState(state)).toEqual([
+      expect.objectContaining({ id: "town_ungarrisoned:1,5", kind: "town_ungarrisoned", title: "Town not garrisoned", x: 1, y: 5 })
+    ]);
+  });
+
+  it("stays quiet for a town whose garrison is queued or planned by auto-settle", () => {
+    const frontier = (x: number): Tile => unfedTownTile({ x, y: 5, ownershipState: "FRONTIER", town: { isFed: true } });
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      developmentQueue: [{ kind: "SETTLE" as const, x: 1, y: 5, tileKey: "1,5", label: "Garrison" }],
+      autoSettleTargets: new Set(["2,5"]),
+      tiles: new Map<string, Tile>([["1,5", frontier(1)], ["2,5", frontier(2)], ["3,5", frontier(3)]])
+    };
+    expect(persistentAlertsForState(state).map((alert) => alert.id)).toEqual(["town_ungarrisoned:3,5"]);
   });
 
   it("creates a persistent alert for an owned active muster flag", () => {

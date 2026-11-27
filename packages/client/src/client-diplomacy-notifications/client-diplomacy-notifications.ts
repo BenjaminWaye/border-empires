@@ -2,10 +2,19 @@ import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js
 import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
+import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
+import { incomingAllianceHeadline, type FealtyStanding } from "../client-fealty/client-fealty.js";
+import { allianceAnswerCounterpart, fealtyAnnouncement, fealtyAnswerTitle } from "../client-fealty/client-fealty-announcement.js";
+import { allianceFealtyFromMessage, recordedFealtyLookupFor, recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
+
+// An offer reads as fealty only when the gateway recorded it so when it was sent (client-fealty-recorded.ts).
+const offerStanding = (state: Partial<Pick<ClientState, "me">>, request: AllianceRequest): FealtyStanding =>
+  recordedFealtyStanding(request.fealty, state.me ?? "", request.fromPlayerId);
 
 // Diplomacy no longer takes over the map with the capture popup: offers wait
 // in the offer dock (client-diplomacy-offer-dock) and everything that already
@@ -25,13 +34,19 @@ const termsSuffix = (request: AllianceRequest | TruceRequest): string => {
   return terms ? ` (${terms})` : "";
 };
 
-const allianceDetail = (request: AllianceRequest): string =>
-  `${senderName(request)} sent an alliance request${termsSuffix(request)}.`;
+const allianceDetail = (request: AllianceRequest, standing: FealtyStanding = "ALLIANCE"): string =>
+  standing === "ALLIANCE"
+    ? `${senderName(request)} sent an alliance request${termsSuffix(request)}.`
+    : `${senderName(request)} ${incomingAllianceHeadline(standing)}${termsSuffix(request)}.`;
 
-const truceDetail = (request: TruceRequest): string =>
-  request.extendsTruce
-    ? `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`
-    : `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}.`;
+// A new truce runs from the offer (offeredTruceEndsAt), so the line says what is left now: "a 12h
+// truce" read wrong when an unseen offer was replayed at login hours later (playtest run 5).
+const truceDetail = (request: TruceRequest, nowMs: number): string => {
+  if (request.extendsTruce) return `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`;
+  const endsAt = offeredTruceEndsAt(request);
+  const left = endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, nowMs)} left`;
+  return `${senderName(request)} offered a truce${left}${termsSuffix(request)}.`;
+};
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;
@@ -79,7 +94,7 @@ export const notifyIncomingAllianceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
-  deps.pushFeed(allianceDetail(request), "alliance", "info");
+  deps.pushFeed(allianceDetail(request, offerStanding(state, request)), "alliance", "info");
 };
 
 export const notifyIncomingTruceRequest = (
@@ -88,7 +103,7 @@ export const notifyIncomingTruceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
-  deps.pushFeed(truceDetail(request), "alliance", "info");
+  deps.pushFeed(truceDetail(request, Date.now()), "alliance", "info");
 };
 
 type TruceUpdateNotificationState = Pick<
@@ -122,7 +137,9 @@ export const applyTruceUpdateMessage = (
   const normalizedAnnouncement = announcement.toLocaleLowerCase();
   const declined = normalizedAnnouncement.includes("declined");
   const broken = normalizedAnnouncement.includes("broke the truce");
-  const tone = declined || broken ? "warn" : "success";
+  // "Maren withdrew the truce offer." (the server took it back) is bad news, not a success.
+  const withdrawn = normalizedAnnouncement.includes("withdr");
+  const tone = declined || broken || withdrawn ? "warn" : "success";
   deps.pushFeed(announcement, "alliance", tone);
   // Only the victim's copy interrupts. The breaker's own update adds to their
   // truceBreaksThisSeason; the text alone can't tell them apart, since it
@@ -130,7 +147,8 @@ export const applyTruceUpdateMessage = (
   // (Compared by the newest break, not the count: the server caps that list.)
   const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
-  else if (answeredOutgoing) deps.showCaptureAlert(declined ? "Truce declined" : "Truce agreed", announcement, declined ? "warn" : "success");
+  // An agreed truce shows in the Diplomacy list; only a refusal interrupts.
+  else if (answeredOutgoing && declined) deps.showCaptureAlert("Truce declined", announcement, "warn");
 };
 
 /**
@@ -158,7 +176,7 @@ export const endedTruces = (before: readonly ActiveTruceView[], after: readonly 
 type AllianceUpdateNotificationState = Pick<
   ClientState,
   "allies" | "activeAllianceBreaks" | "recentAllianceBreaks" | "incomingAllianceRequests" | "outgoingAllianceRequests"
->;
+> & Partial<Pick<ClientState, "me" | "allianceFealty">>;
 
 // Popup title for an ALLIANCE_UPDATE announcement. Besides break notices,
 // announcements now also carry an (AI) answer to an alliance offer, e.g.
@@ -166,6 +184,7 @@ type AllianceUpdateNotificationState = Pick<
 export const allianceAnnouncementTitle = (announcement: string): { title: string; tone: "info" | "success" | "warn" } => {
   const normalized = announcement.toLocaleLowerCase();
   if (normalized.includes("now broken")) return { title: "Alliance broken", tone: "warn" };
+  if (normalized.includes("withdrew the alliance offer")) return { title: "Offer withdrawn", tone: "warn" };
   if (normalized.includes("declined")) return { title: "Alliance declined", tone: "warn" };
   if (normalized.includes("accepted")) return { title: "Alliance formed", tone: "success" };
   return { title: "Alliance break notice", tone: "info" };
@@ -179,17 +198,27 @@ export const applyAllianceUpdateMessage = (
   msg: Record<string, unknown>,
   deps: DiplomacyNotificationDeps
 ): void => {
+  const counterpart = allianceAnswerCounterpart(state, msg);
+  // Read before the update lands: the answered offer is still listed, so its recorded fealty words the answer.
+  const standingBefore = recordedFealtyLookupFor({ ...state, me: state.me })(counterpart);
   state.allies = (msg.allies as string[]) ?? [];
+  state.allianceFealty = allianceFealtyFromMessage(msg.allianceFealty);
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
   state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
   const answeredOutgoing = answeredOutgoingOffer(state.outgoingAllianceRequests, msg.outgoingAllianceRequests);
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-  const announcement = msg.announcement as string | undefined;
-  if (!announcement) return;
-  const { title, tone } = allianceAnnouncementTitle(announcement);
+  const raw = msg.announcement as string | undefined;
+  if (!raw) return;
+  // A new ally whose offer this client never saw (another device) reads the alliance's own record.
+  const standing = standingBefore !== "ALLIANCE" ? standingBefore : recordedFealtyLookupFor({ ...state, me: state.me })(counterpart);
+  const announcement = fealtyAnnouncement(raw, standing);
+  const plain = allianceAnnouncementTitle(raw);
+  const answered = plain.title === "Alliance formed" || plain.title === "Alliance declined";
+  const title = (answered ? fealtyAnswerTitle(plain.title === "Alliance formed", standing) : undefined) ?? plain.title;
+  const tone = plain.tone;
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
-  if (answeredOutgoing) deps.showCaptureAlert(title, announcement, tone);
+  if (answeredOutgoing && tone !== "success") deps.showCaptureAlert(title, announcement, tone);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
@@ -200,8 +229,8 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
 ): void => {
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
-  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "info");
-  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "info");
+  for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request, offerStanding(state, request)), "alliance", "info");
+  for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request, Date.now()), "alliance", "info");
 };
 
 export const notifyActiveAllianceBreaksOnInit = (

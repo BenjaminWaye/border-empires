@@ -39,7 +39,7 @@ export const combatWithdrawalNotices = (
   };
   for (const request of withdrawn) {
     add(request.fromPlayerId, `Your truce offer to ${nameOf(request.toPlayerId)} was withdrawn because your empires fought.`);
-    add(request.toPlayerId, `${nameOf(request.fromPlayerId)}'s truce offer was withdrawn because your empires fought.`);
+    add(request.toPlayerId, `${nameOf(request.fromPlayerId)} withdrew the truce offer: your empires fought.`);
   }
   return notices;
 };

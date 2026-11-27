@@ -7,11 +7,19 @@
 #     BE_ENV=staging BE_HOSTNAME=api-staging.borderempires.com \
 #     ADMIN_PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" \
 #     CI_PUBKEY="$(cat ~/.ssh/be_hetzner_deploy.pub)" \
-#     BACKUP_BUCKET=be-backups-staging \
 #     bash /root/deploy/bin/bootstrap-server.sh
 #
-# Required: BE_ENV (staging|production), BE_HOSTNAME, ADMIN_PUBKEY, CI_PUBKEY.
+# Required: BE_ENV (staging|production|hosted), BE_HOSTNAME, and for staging
+# and production ADMIN_PUBKEY and CI_PUBKEY.
+#
+# BE_ENV=hosted is a hosted sector server (docs/hosted-sectors-plan.md). The
+# hosting service creates it with cloud-init, which runs this script. It gets
+# no SSH key at all, SSH is switched off and port 22 is closed in the
+# firewall: nobody logs in, the server is replaced rather than repaired, and it
+# is deleted when its contest is over. It does not get fail2ban either (there
+# is no SSH to protect).
 # Optional: BACKUP_BUCKET (enables B2 upload; also place rclone.conf, see below),
+#           BACKUP_TIMER=on|off (hourly backup timer; default off, on for hosted),
 #           GITHUB_REPO (default BenjaminWaye/border-empires),
 #           IMAGE_REPO (default ghcr.io/benjaminwaye/border-empires-combined),
 #           LOGS_PUBKEY (read-only key for scripts/ops/backend-logs.sh).
@@ -23,15 +31,20 @@
 set -euo pipefail
 
 [ "$(id -u)" = "0" ] || { echo "run as root" >&2; exit 1; }
-: "${BE_ENV:?}" "${BE_HOSTNAME:?}" "${ADMIN_PUBKEY:?}" "${CI_PUBKEY:?}"
-case "$BE_ENV" in staging|production) ;; *) echo "BE_ENV must be staging|production" >&2; exit 1 ;; esac
+: "${BE_ENV:?}" "${BE_HOSTNAME:?}"
+case "$BE_ENV" in
+  staging|production) : "${ADMIN_PUBKEY:?}" "${CI_PUBKEY:?}" ;;
+  hosted) ;;
+  *) echo "BE_ENV must be staging|production|hosted" >&2; exit 1 ;;
+esac
 GITHUB_REPO="${GITHUB_REPO:-BenjaminWaye/border-empires}"
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/benjaminwaye/border-empires-combined}"
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -y
-apt-get install -y ca-certificates curl gnupg ufw fail2ban unattended-upgrades rsync zstd rclone
+apt-get install -y ca-certificates curl gnupg ufw unattended-upgrades rsync zstd rclone
+[ "$BE_ENV" = hosted ] || apt-get install -y fail2ban
 
 # --- Docker (official apt repo) ---
 if ! command -v docker >/dev/null 2>&1; then
@@ -46,13 +59,20 @@ fi
 systemctl enable --now docker
 
 # --- deploy user + keys ---
-id deploy >/dev/null 2>&1 || adduser --disabled-password --gecos "" deploy
+# useradd, not adduser: adduser runs chfn, whose PAM account check for root fails
+# while root's password is expired, as it is on a Hetzner server created without an
+# SSH key (every hosted sector server; third test sector, 2026-11-27).
+id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --user-group deploy
 usermod -aG docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-cat > /home/deploy/.ssh/authorized_keys <<KEYEOF
+if [ "$BE_ENV" = hosted ]; then
+  : > /home/deploy/.ssh/authorized_keys
+else
+  cat > /home/deploy/.ssh/authorized_keys <<KEYEOF
 ${ADMIN_PUBKEY}
 command="/opt/border-empires/bin/deploy",restrict ${CI_PUBKEY}
 KEYEOF
+fi
 [ -z "${LOGS_PUBKEY:-}" ] || echo "command=\"/opt/border-empires/bin/deploy --logs-only\",restrict ${LOGS_PUBKEY}" >> /home/deploy/.ssh/authorized_keys
 chown deploy:deploy /home/deploy/.ssh/authorized_keys
 chmod 600 /home/deploy/.ssh/authorized_keys
@@ -63,17 +83,33 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 SSHEOF
-systemctl reload ssh || systemctl reload sshd
+# On Ubuntu 24.04 ssh.service is socket-activated and stays inactive until the
+# first connection, so a plain `reload` fails there (and `set -e` would stop
+# this script). try-reload-or-restart does nothing for an inactive unit.
+if [ "$BE_ENV" = hosted ]; then
+  # Nobody logs in to a hosted sector (and cloud-init never connects): switch
+  # SSH off, not just firewall it. Each unit on its own, since one missing unit
+  # makes a combined `disable` do nothing; then make sure, and stop otherwise.
+  for unit in ssh.socket ssh.service; do systemctl disable --now "$unit" 2>/dev/null || true; done
+  if systemctl is-active --quiet ssh.socket || systemctl is-active --quiet ssh.service; then
+    echo "SSH is still running on a hosted sector server" >&2
+    exit 1
+  fi
+else
+  # Check the config first: with an inactive unit nothing else would.
+  sshd -t
+  systemctl try-reload-or-restart ssh
+fi
 
-# --- firewall (also attach a Hetzner Cloud Firewall: 22, 80, 443) ---
+# --- firewall (also attach a Hetzner Cloud Firewall: 22, 80, 443; hosted: 80, 443) ---
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 22/tcp
+[ "$BE_ENV" = hosted ] || ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw allow 443/udp
 ufw --force enable
-systemctl enable --now fail2ban
+[ "$BE_ENV" = hosted ] || systemctl enable --now fail2ban
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
 # --- directories + host config ---
@@ -106,7 +142,16 @@ chown deploy:deploy /etc/border-empires/host.conf
 install -m 644 "${SRC_DIR}/systemd/border-empires-backup.service" /etc/systemd/system/
 install -m 644 "${SRC_DIR}/systemd/border-empires-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now border-empires-backup.timer
+# The timer is only switched on when asked (BACKUP_TIMER=on), so re-running this
+# script never turns backups on by accident. Switch-on steps: docs/agents/deploys.md "Backups".
+# Hosted sector servers keep their earlier default (on, local copies only).
+default_timer=off
+[ "$BE_ENV" = hosted ] && default_timer=on
+if [ "${BACKUP_TIMER:-$default_timer}" = on ]; then
+  systemctl enable --now border-empires-backup.timer
+else
+  echo "backup timer installed; left as it was ($(systemctl is-enabled border-empires-backup.timer 2>/dev/null || echo disabled)). To switch it on: BACKUP_TIMER=on, or systemctl enable --now border-empires-backup.timer"
+fi
 
 echo "bootstrap complete for ${BE_ENV} (${BE_HOSTNAME})."
 echo "Next: place /etc/border-empires/rclone.conf (B2 remote 'b2', chmod 600, owner deploy) if BACKUP_BUCKET is set;"

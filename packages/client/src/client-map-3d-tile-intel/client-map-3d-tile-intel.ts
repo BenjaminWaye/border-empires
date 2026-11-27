@@ -6,8 +6,9 @@
 
 import type { Scene } from "three";
 import type { Terrain } from "@border-empires/shared";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
+import { exposedSidesForTile, isOwnedLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
+import { isIntegrityHoleAt } from "../client-integrity-drop/client-integrity-shape.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
@@ -39,10 +40,15 @@ export const createTileIntelOverlays3D = (scene: Scene, maxTiles: number, deps: 
 
   const addTile = (tile: Tile | undefined, visibility: TileVisibilityState, x: number, z: number, surfaceY: number): void => {
     if (!state || !tile) return;
-    if (state.showWeakDefensibility && isOwnedSettledLandTile(tile, state.me)) {
-      const exposedSides = exposedSidesForTile(tile, { tiles: state.tiles, me: state.me, ...deps });
-      const severity = weakDefensibilitySeverity(exposedSides.length);
+    if (!state.showWeakDefensibility) return;
+    const args = { tiles: state.tiles, me: state.me, ...deps };
+    const ownedLand: boolean = isOwnedLandTile(tile, state.me); // a plain boolean: the type guard would narrow `tile` to never below
+    if (ownedLand) {
+      const severity = weakDefensibilitySeverity(exposedSidesForTile(tile, args).length);
       if (severity) defensibility.addInstance(x, z, surfaceY, severity);
+    } else if (visibility === "visible" && tile.terrain === "LAND" && isIntegrityHoleAt(tile.x, tile.y, args)) {
+      // A hole (client-integrity-shape.ts) shows as critical, as 2D outlines it in red.
+      defensibility.addInstance(x, z, surfaceY, "critical");
     }
   };
 

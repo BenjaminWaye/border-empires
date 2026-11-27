@@ -93,6 +93,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
   manifestGoldDiscount: numberField("manifestGoldDiscount"),
   relicMapHints: presentField("relicMapHints"),
+  guideTownLead: presentField("guideTownLead"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state
   // (granted once at spawn to the previous season's Planet winner, read
@@ -108,7 +109,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   resourceTradeAgreements: presentField("resourceTradeAgreements"),
   autoSettle: presentField("autoSettle"),
   // Server-held fog memory (explored-tiles-runs.ts); the client unions it into discoveredTiles on INIT.
-  exploredTiles: presentField("exploredTiles")
+  exploredTiles: presentField("exploredTiles"),
+  lostTiles: presentField("lostTiles")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 
 export type ReconnectPassthroughFields = Partial<PlayerStateSnapshot>;

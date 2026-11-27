@@ -84,6 +84,8 @@ message PlayerTradeHoldingsResponse {
   double gold = 3;
   string resource_trade_holdings_json = 4;
   int32 active_supply_agreements = 5;
+  // JSON ReturnableTown[] (shared diplomacy-town-return.ts): towns this player could hand back in a deal.
+  string returnable_towns_json = 6;
 }
 
 message ActivityDashboardRequest {}
@@ -262,6 +264,10 @@ message TileDelta {
   // (shared razed-wreck.ts): its kind ("" = none) and when it clears.
   optional string razed_wreck = 37;
   optional uint64 razed_wreck_until = 38;
+  // Planetary Defense camp a barbarian tile belongs to (its camp tile key,
+  // docs/planetary-defense-camps-plan.md); "" = none. optional for the same
+  // reason as capture_hold_until.
+  optional string camp_id = 39;
 }
 
 message DockRouteWaypoint {
@@ -337,6 +343,10 @@ message PreparePlayerAck {
   // scheduled_start_at for the start time. Mirrors JoinSeasonAck.pending.
   bool pending = 6;
   double scheduled_start_at = 7;
+  // When the active season started (Unix ms), sent only to a player who has
+  // not joined it yet: the join screen shows the contest day and the
+  // late-join manpower bonus (landingManpowerReserve) from it. 0 = unset.
+  double season_started_at = 8;
 }
 
 message JoinSeasonRequest {
@@ -345,6 +355,10 @@ message JoinSeasonRequest {
   // Same values as PreparePlayerRequest.auth_kind; "guest" is counted
   // against the guest allowance.
   string auth_kind = 3;
+  // The player holds a reserved place in this contest: it was turned away
+  // from the previous one for lack of a landing site (GDD §6), so the season
+  // player cap does not apply to it (owner decision 2026-11-27).
+  bool reserved_place = 4;
 }
 
 message JoinSeasonAck {
@@ -364,6 +378,9 @@ message JoinSeasonAck {
   // (SIMULATION_MAX_SEASON_GUESTS) is used up. The overall cap may still
   // have room for a player who signs in with a real account.
   bool guest_full = 7;
+  // True when a new player was turned away because the map has no viable
+  // landing site left (GDD §6). Membership is not recorded.
+  bool no_landing_site = 8;
 }
 
 message SimulationEvent {

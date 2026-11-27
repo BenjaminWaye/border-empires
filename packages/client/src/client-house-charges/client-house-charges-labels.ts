@@ -1,6 +1,13 @@
 // Player-facing words for House Charges (docs/house-charges-plan.md), shared
 // by the Charges panel and, later, the season-end reveal and cards.
-import { HOUSE_CHARGE_REGION_GARRISON_SHARE, type HouseChargeKind, type HouseChargeRarity, type HouseChargeView } from "@border-empires/shared";
+import {
+  HOUSE_CHARGE_METROPOLIS_COUNT,
+  HOUSE_CHARGE_REGION_GARRISON_SHARE,
+  houseStyledName,
+  type HouseChargeKind,
+  type HouseChargeRarity,
+  type HouseChargeView
+} from "@border-empires/shared";
 
 export const HOUSE_CHARGE_KIND_LABEL: Readonly<Record<HouseChargeKind, string>> = {
   CHARTER: "Charter of Passage",
@@ -8,7 +15,9 @@ export const HOUSE_CHARGE_KIND_LABEL: Readonly<Record<HouseChargeKind, string>> 
   SURVEY: "Survey Claim",
   DESERT: "Garrison the Desert",
   TUNDRA: "Garrison the Tundra",
-  RELIC: "Reawakening"
+  RELIC: "Reawakening",
+  CORRECTION: "Writ of Correction",
+  METROPOLIS: "Founding of the Three Seats"
 };
 
 export const HOUSE_CHARGE_RARITY_LABEL: Readonly<Record<HouseChargeRarity, string>> = {
@@ -41,8 +50,14 @@ export const houseChargeObjective = (charge: HouseChargeView): string => {
       return `Garrison ${Math.round(HOUSE_CHARGE_REGION_GARRISON_SHARE * 100)}% of ${first?.name ?? "the region"}.`;
     case "RELIC":
       return first ? "Garrison the Concordance installation." : "Find the Concordance installation's beacon in the marked area, then garrison it.";
+    case "CORRECTION":
+      return `Capture and garrison an AFC founded by ${houseStyledName(first?.name ?? "the rival")}, and hold it to the end of the contest.`;
+    case "METROPOLIS":
+      return `Hold ${HOUSE_CHARGE_METROPOLIS_COUNT} towns on ${first?.name ?? "the landmass"} and grow each one to a Metropolis.`;
   }
 };
+
+export { CORRECTION_OFFENCES, houseChargeLetter } from "./client-house-charges-letters.js";
 
 /** Current progress, or undefined when there is nothing to count yet. */
 export const houseChargeProgress = (charge: HouseChargeView): string | undefined => {
@@ -56,10 +71,24 @@ export const houseChargeProgress = (charge: HouseChargeView): string | undefined
       return `${charge.size} of ${charge.areaTiles ?? "?"} land tiles garrisoned`;
     case "DESERT":
     case "TUNDRA": {
-      const needed = charge.areaTiles ? Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE) : undefined;
-      return `${charge.size} of ${needed ?? "?"} tiles garrisoned`;
+      // Show the region's whole size and the 75% target apart: "61 of 81" read as 75% of the region when 81 was the target (playtest 2026-11-26).
+      if (!charge.areaTiles) return `${charge.size} tiles garrisoned`;
+      const needed = Math.ceil(charge.areaTiles * HOUSE_CHARGE_REGION_GARRISON_SHARE);
+      return `${charge.size} of ${charge.areaTiles} tiles garrisoned · ${needed} needed`;
     }
     case "RELIC":
       return charge.held ? "Garrisoned" : charge.targets.length > 0 ? "Beacon found" : "Beacon not found yet";
+    case "CORRECTION": {
+      const house = houseStyledName(charge.targets[0]?.name ?? "the rival");
+      return charge.held ? `${house}'s AFC garrisoned` : charge.lostAt !== undefined ? `${house}'s AFC lost` : `${house}'s AFC: not garrisoned`;
+    }
+    case "METROPOLIS":
+      return `${charge.size} of ${HOUSE_CHARGE_METROPOLIS_COUNT} Metropolises held`;
   }
 };
+
+/** One terse how-to line on a kept, unfinished charge whose goal is garrisoning many tiles, else undefined. */
+export const houseChargeGarrisonTip = (charge: HouseChargeView): string | undefined =>
+  charge.kept && !charge.held && (charge.kind === "DESERT" || charge.kind === "TUNDRA" || charge.kind === "SURVEY")
+    ? "Garrison Many works inside your reach; Relay Beacons extend it."
+    : undefined;

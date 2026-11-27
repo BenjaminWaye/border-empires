@@ -69,6 +69,7 @@ export const diplomacyTradeStyles = `
     font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
   }
   .diplomacy-trade-subhead:first-of-type { margin-top: 0; }
+  .diplomacy-trade-towns { margin-top: 12px; }
   .diplomacy-trade-kinds { display: grid; gap: 6px; }
   .diplomacy-trade-allied-note { margin: 0; font-size: 13px; color: var(--sp-parchment-muted, #bda880); }
   .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-suggest {
@@ -86,6 +87,14 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-kinds button[aria-pressed="true"]::after { content: " ✓"; color: var(--sp-brass-100, #f4dfa6); }
   .diplomacy-trade-kinds button:disabled { opacity: .45; cursor: not-allowed; }
   .diplomacy-trade-actions [data-trade-send]:disabled, .diplomacy-trade-suggest:disabled { opacity: .55; cursor: not-allowed; }
+  .diplomacy-trade-note { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .diplomacy-trade-note[hidden] { display: none; }
+  .diplomacy-trade-note-label { flex-basis: 100%; font-size: 12px; color: var(--sp-parchment-muted, #bda880); }
+  .diplomacy-trade-note-chip {
+    min-height: 36px; padding: 6px 10px; border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 16px;
+    background: rgba(60, 41, 25, .5); color: var(--sp-parchment-100, #f2e8d3); font: 500 13px/1.3 var(--sp-font-body, "Spectral", Georgia, serif); cursor: pointer;
+  }
+  .diplomacy-trade-note-chip[aria-pressed="true"] { background: rgba(217, 173, 82, .18); border-color: var(--sp-brass-300, #d9ad52); }
   .diplomacy-trade-goods { display: grid; gap: 6px; }
   .diplomacy-trade-good-row[hidden], .diplomacy-trade-subhead[hidden] { display: none; }
   .diplomacy-trade-good {

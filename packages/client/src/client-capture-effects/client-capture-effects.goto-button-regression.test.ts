@@ -54,10 +54,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"
@@ -82,10 +82,10 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     renderCaptureProgress(
       {
         captureAlert: {
-          title: "Victory",
-          detail: "Tundra (12, 34) was conquered from Enemy Empire.",
+          title: "Attack failed",
+          detail: "Tundra (12, 34) held against you.",
           until: 5_000,
-          tone: "success",
+          tone: "warn",
           focusX: 12,
           focusY: 34,
           actionLabel: "Center"
@@ -102,5 +102,59 @@ describe("renderCaptureProgress capture-goto-btn", () => {
 
     expect(captureGotoBtn.style.display).toBe("none");
     expect((captureGotoBtn.dataset as Record<string, string>).feedFocusX).toBeUndefined();
+  });
+});
+
+// Playtest 2026-11-18: "House charges arrived" told players to find Manage charges via the crest; the card's
+// own button now opens the Charges panel.
+describe("renderCaptureProgress panel action", () => {
+  const deps = () => ({
+    keyFor: (x: number, y: number) => `${x},${y}`,
+    formatCooldownShort: () => "0s",
+    showCaptureAlert: vi.fn(),
+    pushFeed: vi.fn(),
+    finalizePredictedCombat: vi.fn(),
+    captureCardEl: makeElement(),
+    captureWrapEl: makeElement(),
+    captureCancelBtn: makeElement(),
+    captureDismissBtn: makeElement(),
+    captureCloseBtn: makeElement(),
+    captureReportBugBtn: makeElement(),
+    captureBarEl: makeElement(),
+    captureTitleEl: makeElement(),
+    captureTimeEl: makeElement(),
+    captureTargetEl: makeElement(),
+    captureGotoBtn: makeElement() as unknown as HTMLButtonElement
+  });
+  const state = (alert: Record<string, unknown>) =>
+    ({ captureAlert: { title: "House charges arrived", detail: "Keep 2 of 3.", until: 5_000, tone: "warn", ...alert }, activeBattles: new Map(), capture: undefined, me: "p", tiles: new Map(), pendingCombatReveal: undefined, pendingMusterAttacks: [] }) as any;
+
+  it("shows a Manage charges button that carries the panel, not map coordinates", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const d = deps();
+    renderCaptureProgress(state({ openPanel: "charges", actionLabel: "Manage charges" }), d);
+    const data = d.captureGotoBtn.dataset as Record<string, string>;
+    expect(d.captureGotoBtn.style.display).toBe("inline-flex");
+    expect(d.captureGotoBtn.textContent).toBe("Manage charges");
+    expect(data.captureOpenPanel).toBe("charges");
+    expect(data.feedFocusX).toBeUndefined();
+
+    renderCaptureProgress(state({ focusX: 1, focusY: 2, actionLabel: "Center" }), d);
+    expect(data.captureOpenPanel).toBeUndefined();
+  });
+
+  it("opens the Charges panel without toggling it shut, and clears the card", async () => {
+    const { openPanelFromCaptureAlert } = await import("../client-ui-controls/client-ui-controls.js");
+    const setActivePanel = vi.fn();
+    const s = { activePanel: null, captureAlert: { title: "x", detail: "", until: 1, tone: "warn" } } as any;
+    const handlers = { setActivePanel, renderCaptureProgress: vi.fn(), renderHud: vi.fn() };
+    expect(openPanelFromCaptureAlert(s, "charges", handlers)).toBe(true);
+    expect(setActivePanel).toHaveBeenCalledWith("charges");
+    expect(s.captureAlert).toBeUndefined();
+    s.activePanel = "charges";
+    setActivePanel.mockClear();
+    openPanelFromCaptureAlert(s, "charges", handlers);
+    expect(setActivePanel).not.toHaveBeenCalled();
+    expect(openPanelFromCaptureAlert(s, undefined, handlers)).toBe(false);
   });
 });

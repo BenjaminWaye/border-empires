@@ -23,6 +23,7 @@ export * from "../structure-modifier-catalog/structure-modifier-catalog.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
 export * from "../victory-resource-tally.js";
+export * from "../leaderboard-score/leaderboard-score.js";
 
 import {
   ATTACK_MANPOWER_COST,
@@ -126,11 +127,24 @@ export type DomainPlayer = {
   // INSTANT_GARRISON_COUNT are instant (shared garrison-duration.ts).
   // Persisted with the player and never reset on respawn; missing = 0.
   lifetimeGarrisons?: number;
+  // Achievement counters and earned times for this contest (shared achievements.ts).
+  // Persisted with the player; missing = nothing counted yet.
+  achievements?: PlayerAchievementState;
+  // Times this House landed again after being knocked out (lost its last land)
+  // in the current season; a voluntary Withdraw and redeploy is not counted.
+  // Persisted with the player; decides the season awards (shared season-awards.ts).
+  redeploys?: number;
   // Islands this player renamed (shared island-names.ts). Persisted with the
   // player; the sim drops a claim when its fade runs out or a rival renames.
   islandNames?: IslandNameClaim[];
   // House Charges dealt at landing (shared house-charges.ts); persisted with the player.
   houseCharges?: import("@border-empires/shared").HouseChargesState;
+  /** When each scout drone charge still refilling was spent (apps/simulation scout-drone-charge-ledger.ts). */
+  scoutChargeSpends?: number[];
+  /** The last scout drone landing report, until the player has seen it on some device (SCOUT_REPORT_SEEN); scout-drone-held-report.ts. */
+  scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
+  /** A human's last command or subscribe (Unix ms): the 24h passive-income inactivity window counts from it, across restarts (runtime-passive-income.ts). */
+  lastActiveAt?: number;
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into
@@ -153,10 +167,10 @@ export type DomainPlayer = {
   autoSettle: AutoSettlePrefs;
 };
 
-export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
+export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry, PlayerAchievementState } from "./player-event-log.js";
 export { PLAYER_EVENT_LOG_MAX_ENTRIES, appendPlayerEventLogEntry } from "./player-event-log.js";
 export { appendOccupationSurveyReports } from "./occupation-survey.js";
-import type { PlayerEventLogEntry } from "./player-event-log.js";
+import type { PlayerEventLogEntry, PlayerAchievementState } from "./player-event-log.js";
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
 
@@ -188,6 +202,9 @@ export type DomainTileState = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  // Planetary Defense camp this barbarian tile belongs to: the camp's own tile
+  // key (docs/planetary-defense-camps-plan.md). Only set on barbarian-owned tiles.
+  campId?: string | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
@@ -223,12 +240,17 @@ export type DomainTileState = {
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"
             | "colonialIncubationGrantedTo"
+            | "incubationBurstGrantedTo"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
             | "censusHallAppliedBonus"
             | "terrainProfile"
             | "coastal"
+            | "focus"
+            | "pendingFocus"
+            | "pendingFocusAt"
+            | "focusLockedUntil"
           >
         >)
     | undefined;

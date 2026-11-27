@@ -1,12 +1,17 @@
 import { z } from "zod";
+import { EXTENSION_CLIENT_MESSAGE_SCHEMAS } from "./client-message-extensions.js";
+import { SetHintStateMessageSchema } from "./hint-state-message.js";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
 import { AUTO_SETTLE_RESOURCES } from "../auto-settle-prefs/auto-settle-prefs.js";
 import { AUTO_IMPROVE_RESOURCES } from "../auto-settle-prefs/auto-improve-prefs.js";
 import type { ResourceType } from "../types.js";
-import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, recurringCoinHasSlot } from "../diplomacy-terms/diplomacy-terms.js";
+import { OfferNoteIdSchema } from "../diplomacy-offer-notes/diplomacy-offer-notes.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema, RECURRING_COIN_NEEDS_SLOT_MESSAGE, TOWNS_ONLY_IN_TRUCES_MESSAGE, recurringCoinHasSlot, termsReturnTowns } from "../diplomacy-terms/diplomacy-terms.js";
 
 /** Alliance and independent trade terms: Coin per hour rides on a supply contract there. */
-const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE });
+// Alliances and resource trades: towns are handed back only in a truce or as a gift.
+const SlottedTermsSchema = DiplomacyTermsSchema.refine(recurringCoinHasSlot, { message: RECURRING_COIN_NEEDS_SLOT_MESSAGE })
+  .refine((terms) => !termsReturnTowns(terms), { message: TOWNS_ONLY_IN_TRUCES_MESSAGE });
 
 const AUTO_SETTLE_RESOURCE_SWITCHES = Object.fromEntries(
   AUTO_SETTLE_RESOURCES.map((resource) => [resource, z.boolean().optional()])
@@ -29,6 +34,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("AUTH"),
     token: z.string().min(1),
     rallyCode: z.string().min(1).optional(),
+    // Hosted sectors only: the membership ticket from the hosting service.
+    sectorTicket: z.string().min(1).max(4096).optional(),
     // Client can reassemble a chunked INIT (see init-transfer.ts).
     initChunking: z.boolean().optional()
   }),
@@ -73,12 +80,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
-  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: SlottedTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
+  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: SlottedTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional(), note: OfferNoteIdSchema.optional() }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
+  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional(), note: OfferNoteIdSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
   // countersOfferId: the incoming resource offer this one answers; the gateway withdraws it once this one is made.
   z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:SlottedTermsSchema,countersOfferId:z.string().min(1).max(128).optional() }),
@@ -98,30 +105,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // to the player's name in the season lobby roster (see
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
-  // Server-persisted hint/tutorial state (see player-profile-store.ts's
-  // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
-  // update -- omitted fields leave the stored value unchanged.
-  z.object({
-    type: z.literal("SET_HINT_STATE"),
-    dismissedHints: z.array(z.string()).optional(),
-    hintsMuted: z.boolean().optional(),
-    onboardingChecklistCompleted: z.boolean().optional(),
-    // Season id (CurrentSeasonSummary.seasonId) mustering was last unlocked in
-    // -- see player-profile-store.ts's musterUnlockedSeasonId. Per-season:
-    // meeting an enemy in an earlier season does not carry the unlock into a
-    // new one, since a new season is a fresh map with no enemies met yet.
-    musterUnlockedSeasonId: z.string().optional(),
-    // Season id (CurrentSeasonSummary.seasonId) whose first login already got
-    // the quiet pass -- the Activity dashboard (What's New / Yours) is not
-    // auto-opened on a season's first login. See player-profile-store.ts's
-    // dashboardQuietedSeasonId.
-    dashboardQuietedSeasonId: z.string().optional(),
-    // New-account tutorial guide (client-tutorial-guide/): whether it is
-    // running, finished or dismissed, plus the bounded list of completed
-    // step ids. See player-profile-store.ts's guideStatus/guideSteps.
-    guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
-    guideSteps: z.array(z.string().max(48)).max(64).optional()
-  }),
+  ...EXTENSION_CLIENT_MESSAGE_SCHEMAS,
+  SetHintStateMessageSchema,
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
   // per-send prefs check). A partial update -- omitted categories leave the
@@ -157,6 +142,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
+      "FARM_PLOT",
+      "HYDROGARDEN_PLOT",
       "TITANIUM_REFINERY",
       "UMBRITE_REFINERY",
       "CRYSTAL_REFINERY",
@@ -179,6 +166,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "HIGH_YIELD_AETHER_CONDENSER",
       "TRADE_NEXUS",
       "ANCILLARY_DEPOT",
+      "VIVARIUM",
       "HARBOR_EXCHANGE",
       "NEURAL_WORKS",
       "MINISTRY_HALL",
@@ -272,7 +260,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
     // whatever attack its auto-fire launches (see MusterState.commitManpower).
     commitManpower: z.number().positive().optional(),
-    // ADVANCE only: hunt Planetary Defense (see MusterState.hunt).
+    // Legacy: Hunt Planetary Defense, removed with Planetary Defense camps. Still
+    // accepted so older clients aren't rejected; the gateway never forwards it.
     hunt: z.boolean().optional(),
     ...FrontierCommandMetadataSchema
   }),
@@ -335,6 +324,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("ACTIVATE_WAYSTATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SHIP_SALVAGE_TO_COURT"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -468,12 +458,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Which offered House Charges to keep (shared house-charges.ts); the sim checks the choice window and ids.
   z.object({ type: z.literal("CHOOSE_HOUSE_CHARGES"), keptIds: z.array(z.string().max(160)).max(3) }),
-  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts).
+  // Explore: launch the scout drone toward (x, y) (shared scout-drone.ts), or through
+  // `waypoints` in order when given ((x, y) is then the first stop; scout-drone-route.ts).
   z.object({
     type: z.literal("EXPLORE"),
     x: z.number().int(),
-    y: z.number().int()
-  })
+    y: z.number().int(),
+    waypoints: z.array(z.object({ x: z.number().int(), y: z.number().int() })).min(1).max(8).optional()
+  }),
+  // Call the scout drone home early: it turns back over the tile it is over now.
+  z.object({ type: z.literal("RECALL_SCOUT") }),
+  // The player has seen this scout report on some device: the server stops resending it (scout-drone-held-report.ts).
+  z.object({ type: z.literal("SCOUT_REPORT_SEEN"), id: z.string().min(1).max(200) })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

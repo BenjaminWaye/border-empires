@@ -17,6 +17,7 @@ import {
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
 import { hillBumpsWithCorridorAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { createFlatCornerResolver } from "./client-map-3d-hills-corner.js";
+import type { HeightfieldCornerAttributes } from "./client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { createSkirtMaterial } from "./client-map-3d-heightfield/client-map-3d-heightfield-skirt.js";
 
@@ -80,6 +81,9 @@ export type HillTerrainRebuildInputs = {
   // (see hillRoadCutMask). Absent/undefined-returning ⇒ no cut, same as
   // before this existed.
   readonly roadDirsAt?: (wx: number, wy: number) => RoadCutDirections | undefined;
+  // The main grid's forest-floor halo at a (wrapped) world corner, see
+  // forestZoneFromHeightfield. Absent ⇒ 0 (no halo on the dome).
+  readonly forestZoneAt?: (cornerWorldX: number, cornerWorldZ: number) => number;
 };
 
 export type HillTerrain = {
@@ -173,7 +177,8 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   scene.add(skirtMesh);
 
   const rebuild = (inputs: HillTerrainRebuildInputs): void => {
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt, roadDirsAt } = inputs;
+    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt, roadDirsAt, forestZoneAt } = inputs;
+    const forestAt = (cx: number, cz: number): number => forestZoneAt?.(wrap(cx, worldWidth), wrap(cz, worldHeight)) ?? 0;
     const exploredAt = isExploredAt ?? ((): boolean => true);
 
     let vertCount = 0;
@@ -289,6 +294,13 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const cTR = flatCorner(wx + 1, wy, ownFallback);
         const cBL = flatCorner(wx, wy + 1, ownFallback);
         const cBR = flatCorner(wx + 1, wy + 1, ownFallback);
+        // Forest-floor halo at the same corners as the main grid: without it a
+        // hill beside a wood stayed bright inside darkened grass, a square
+        // outline of straight lines round every such hill tile.
+        const fTL = forestAt(wx, wy);
+        const fTR = forestAt(wx + 1, wy);
+        const fBL = forestAt(wx, wy + 1);
+        const fBR = forestAt(wx + 1, wy + 1);
 
         // Same 4-cardinal-neighbour pattern as the main grid's own skirt
         // pass (client-map-3d-heightfield.ts): a wall wherever this tile's
@@ -334,6 +346,8 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             colors[p + 1] = cg;
             colors[p + 2] = cb;
             tundraZones[vi] = ct;
+            const fTop = fTL + (fTR - fTL) * fx;
+            forestZones[vi] = fTop + (fBL + (fBR - fBL) * fx - fTop) * fz;
             rockZones[vi] = bumpHeight; // biome colour above is untouched
             // World-tile-coordinate UV (matches the main heightfield's
             // convention) so the shared material's painted texture blend
@@ -388,6 +402,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     commitRange(geometry.getAttribute("uv") as BufferAttribute | undefined, vertCount * 2);
     commitRange(geometry.getAttribute("normal") as BufferAttribute | undefined, vertCount * 3);
     commitRange(geometry.getAttribute("tundraZone") as BufferAttribute | undefined, vertCount);
+    commitRange(geometry.getAttribute("forestZone") as BufferAttribute | undefined, vertCount);
     commitRange(geometry.getAttribute("rockZone") as BufferAttribute | undefined, vertCount);
     const indexAttr = geometry.index;
     if (indexAttr) {
@@ -421,4 +436,15 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   };
 
   return { mesh, rebuild, dispose };
+};
+
+/**
+ * HillTerrainRebuildInputs.forestZoneAt read from the main heightfield's
+ * rendered corners (rebuilt first), so a dome's halo matches the grid's exactly.
+ */
+export const forestZoneFromHeightfield = (
+  cornerAttributesAt: (cornerX: number, cornerZ: number, out: HeightfieldCornerAttributes) => boolean
+): ((cornerWorldX: number, cornerWorldZ: number) => number) => {
+  const scratch: HeightfieldCornerAttributes = { y: 0, r: 0, g: 0, b: 0, forestZone: 0, tundraZone: 0 };
+  return (cornerWorldX, cornerWorldZ) => (cornerAttributesAt(cornerWorldX, cornerWorldZ, scratch) ? scratch.forestZone : 0);
 };

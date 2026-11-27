@@ -2,8 +2,12 @@ import type { User } from "firebase/auth";
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
+import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } from "../client-login-lore-quotes/client-login-lore-quotes.js";
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
+import { PROFILE_NAME_MAX_LENGTH, readFoundingNameDraft, syncProfileNameCount } from "../client-profile-name-field/client-profile-name-field.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
+import type { EmpireColorEntry } from "@border-empires/shared";
+import { markClashingSwatches, rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -19,18 +23,24 @@ export const setAuthStatus = (
 // Populates a row of colour-swatch buttons from server-suggested colours and
 // marks whichever one matches `activeColor` as selected. Shared by the
 // onboarding profile-setup panel and the Settings "Edit Name & Colour"
-// overlay so both pickers behave identically.
+// overlay so both pickers behave identically. Swatches too close to a
+// rival's colour are greyed out; on a crowded map the server suggests fewer
+// colours than there are buttons, and the spare buttons are hidden.
 export const syncColorSwatchButtons = (
   buttons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[],
   suggestedColors: string[],
-  activeColor: string
+  activeColor: string,
+  rivals: readonly EmpireColorEntry[] = []
 ): void => {
   if (suggestedColors.length) {
     buttons.forEach((btn, i) => {
       const c = suggestedColors[i];
+      btn.hidden = !c;
       if (c) {
         btn.dataset.color = c;
         btn.style.setProperty("--swatch", c);
+      } else {
+        delete btn.dataset.color;
       }
     });
   }
@@ -38,21 +48,26 @@ export const syncColorSwatchButtons = (
   buttons.forEach((btn) => {
     btn.dataset.selected = btn.dataset.color?.toLowerCase() === normalizedActive ? "true" : "false";
   });
+  markClashingSwatches(buttons, rivals);
 };
 
 export const syncAuthPanelState = (
-  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors">,
+  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors" | "me" | "playerColors" | "playerNames">,
   deps: {
     authEmailLinkSentTo: string;
     authPanelEl: HTMLElement;
     authEmailSentAddressEl: HTMLElement;
     authProfileColorEl: HTMLInputElement;
     authColorPresetButtons: NodeListOf<HTMLButtonElement>;
+    /** "Too close to X's colour" note under the custom colour; absent in tests without the panel. */
+    authColorClashEl?: HTMLElement | null;
   }
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
-  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value);
+  const rivals = rivalEmpireColors(state);
+  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value, rivals);
+  syncColorClashNote(deps.authColorClashEl, deps.authProfileColorEl.value, rivals, state.playerColors.get(state.me));
 };
 
 export const syncAuthOverlay = (
@@ -99,7 +114,8 @@ export const syncAuthOverlay = (
     authBusyCopyEl: HTMLElement;
     /** World-download bar for the chunked INIT transfer; optional so partial test doms still render. */
     authBusyProgressEl?: HTMLElement;
-    authBusyDiagnosticsBtn: HTMLButtonElement;
+    authBusyQuoteEl?: HTMLElement;
+    authBusyReportBugBtn: HTMLButtonElement;
     authBusySeasonFullNotifyBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
     authDebugRouteEl: HTMLElement;
@@ -118,7 +134,7 @@ export const syncAuthOverlay = (
   // shown (during raw Firebase auth / initial LOGIN_PHASE), so unlike the
   // map-loading overlay there's no later "action affordance" stage; this is
   // the only chance to offer help before auth resolves or the user gives up.
-  deps.authBusyDiagnosticsBtn.style.display =
+  deps.authBusyReportBugBtn.style.display =
     state.authBusy && !state.seasonFull && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.style.display = state.authBusy && state.seasonFull ? "" : "none";
   deps.authBusySeasonFullNotifyBtn.disabled = state.seasonFullNotifyAcknowledged;
@@ -145,6 +161,12 @@ export const syncAuthOverlay = (
   // The busy modal is centered in a viewport-tall card; scroll back so it is not left below the fold.
   if (busy) deps.authOverlayEl.scrollTop = 0;
   deps.authBusyModalEl.setAttribute("aria-hidden", busy ? "false" : "true");
+  // The quote stays for the whole load, slow-login diagnostics included.
+  // Only an error or a full Sector, which end the wait, take its place.
+  if (deps.authBusyQuoteEl) {
+    const waiting = busy && !state.authError && !state.seasonFull;
+    renderLoreQuoteFigure(deps.authBusyQuoteEl, waiting ? pickLoginLoreQuote(pageLoginLoreQuoteSeed()) : null);
+  }
   deps.authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -158,6 +180,7 @@ export const syncAuthOverlay = (
   deps.authDisplayNameEl.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailResetBtn.disabled = state.authBusy;
   deps.authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
+  syncProfileNameCount(deps.authProfileNameEl);
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
   // Chunked INIT download (client-init-transfer): real progress replaces the
@@ -210,8 +233,11 @@ export const seedProfileSetupFields = (
   name?: string,
   color?: string
 ): void => {
-  const cleanedName = (name ?? "").trim();
-  if (cleanedName) deps.authProfileNameEl.value = cleanedName.slice(0, 24);
+  // A name the player already typed this tab session beats the suggestion,
+  // so a reconnect or reload before "Enter the map" keeps it.
+  const cleanedName = readFoundingNameDraft() || (name ?? "").trim();
+  if (cleanedName) deps.authProfileNameEl.value = cleanedName.slice(0, PROFILE_NAME_MAX_LENGTH);
+  syncProfileNameCount(deps.authProfileNameEl);
   if (color && /^#[0-9a-fA-F]{6}$/.test(color)) deps.authProfileColorEl.value = color;
   deps.syncAuthPanelState();
 };

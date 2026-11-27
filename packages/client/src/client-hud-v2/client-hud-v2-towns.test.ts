@@ -5,7 +5,7 @@ import type { TownListRow } from "../client-town-list/client-town-list.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
 
-const row = (x: number, name: string, goldPerMinute: number, isFed = true): TownListRow => ({
+const row = (x: number, name: string, goldPerMinute: number, isFed = true, garrisoned = true): TownListRow => ({
   x,
   y: 2,
   name,
@@ -15,7 +15,9 @@ const row = (x: number, name: string, goldPerMinute: number, isFed = true): Town
   population: 4200,
   maxPopulation: 8000,
   growthPerMinute: 1.25,
+  manpowerPerRefill: 60,
   isFed,
+  garrisoned,
   openSlots: 3
 });
 
@@ -45,11 +47,18 @@ describe("HUD v2 towns screen", () => {
     const host = document.createElement("div");
     host.innerHTML = townsBodyHtml([row(1, "A", 1)], { key: "gold", descending: true });
     const headers = Array.from(host.querySelectorAll<HTMLElement>("[data-v2-towns-sort]"));
-    expect(headers.map((h) => h.textContent)).toEqual(["Coin/day ▼", "Pop", "Growth", "Slots"]);
+    expect(headers.map((h) => h.textContent)).toEqual(["Coin/day ▼", "MP", "Pop", "Growth", "Slots"]);
     for (const h of headers) expect((h.textContent ?? "").replace(/\s[▼▲]$/u, "").length).toBeLessThanOrEqual(8);
     expect(headers.every((h) => (h.title ?? "").length > 0)).toBe(true);
     // The short "Growth" header keeps its unit visible in the cell.
-    expect(host.querySelectorAll(".v2l-row .v2l-num")[2]?.textContent).toMatch(/\/min$/);
+    expect(host.querySelectorAll(".v2l-row .v2l-num")[3]?.textContent).toMatch(/\/min$/);
+  });
+
+  it("flags a town that isn't garrisoned, ahead of unfed", () => {
+    const html = townsBodyHtml([row(1, "Brimvale", 0, false, false)], { key: "gold", descending: true });
+    expect(html).toContain("v2l-unfed");
+    expect(html).toContain("Town · Not garrisoned");
+    expect(html).not.toContain("Unfed");
   });
 
   it("flags unfed towns and escapes names", () => {
@@ -67,5 +76,14 @@ describe("HUD v2 towns screen", () => {
   it("shows an empty state and the town count", () => {
     expect(townsBodyHtml([], { key: "gold", descending: true })).toContain("No towns yet");
     expect(townsBannerHtml([row(1, "A", 1), row(2, "B", 1)])).toContain("<b>2</b> towns");
+  });
+});
+
+describe("HUD v2 towns screen manpower column", () => {
+  it("shows each town's manpower per refill, and a dash for an ungarrisoned town", () => {
+    const host = document.createElement("div");
+    host.innerHTML = townsBodyHtml([row(1, "A", 1), { ...row(2, "B", 1), garrisoned: false }], { key: "gold", descending: true });
+    const mp = Array.from(host.querySelectorAll(".v2l-row")).map((r) => r.querySelectorAll(".v2l-num")[1]?.textContent);
+    expect(mp).toEqual(["60/refill", "—"]);
   });
 });

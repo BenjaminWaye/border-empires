@@ -1,4 +1,4 @@
-// The new-account tutorial guide's controller. Runs every frame (from
+// The tutorial guide's controller. Runs every frame (from
 // client-onboarding-ui-overlays.ts's frame tick) for an account enrolled in
 // the guide (tutorial-guide-storage.ts): evaluates the steps against the
 // current state, persists newly completed steps, keeps the corner card and
@@ -9,14 +9,16 @@
 // highlight the guide shows is in both renderers by construction.
 //
 // For an enrolled account the guide replaces the New empire checklist bubble
-// (its four goals are the guide's "A foothold" chapter). Accounts that are
-// not enrolled -- every account older than the guide -- keep the checklist.
+// (its four goals are the guide's "A foothold" chapter). Every player is
+// enrolled at the start of each season (tutorial-guide-storage.ts); only a
+// session with no known season and an existing account keeps the checklist.
 
 import { buildGuideInput, type GuideInputState } from "./tutorial-guide-input.js";
 import { evaluateGuide, GUIDE_STEPS, guideBeaconSite, needsTownForBuild, guideRecommendsAfcUpgrade, guideRecommendsManifest, RECOMMENDED_FIRST_AFC_UPGRADE_ID, RECOMMENDED_FIRST_MANIFEST_ID, type GuideView } from "./tutorial-guide-steps.js";
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
 import {
   guideCardCoversScreenCentre,
+  openGuideCardOverScoutFold,
   removeGuideCard,
   renderGuideCard,
   renderGuideCompleteCard,
@@ -28,10 +30,12 @@ import { setGuideManufactoryTargets } from "./tutorial-guide-manufactory-recomme
 import { syncGuideAfcPick } from "./tutorial-guide-afc-pick.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
 import { resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
+import { syncGuideCardPlacement, type GuideTileProjector } from "./tutorial-guide-placement.js";
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { setOnboardingRelayBeaconSite } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
+import { syncGuideCardAlertYield } from "./tutorial-guide-alert-yield.js";
 
 type StepView = Extract<GuideView, { kind: "step" }>;
 
@@ -45,6 +49,65 @@ let lastIdentityKey: string | undefined;
 let lastState: GuideInputState | undefined;
 let showMeIndex = 0;
 let checklistFlagSynced = false;
+// After Finish: the last step id shown ("" while waiting; undefined before
+// Finish or after the guide restarts), the steps already unfolded for once,
+// and whether this page has shown the guide since Finish (so the Guide
+// complete card is earned even if a dialog hid the launcher meanwhile).
+let postFinishKey: string | undefined;
+const postFinishOpened = new Set<string>();
+let postFinishShown = false;
+// An alert hid the card (tutorial-guide-alert-yield.ts): whether one was up last frame, and the step the
+// card was folded on when it closed. Playtest 2026-11-27: the card stuck on "Drag the map" popped back
+// over the map after every alert. It now folds to its launcher and unfolds on the next step.
+let alertYielding = false;
+let alertFoldedStepId: string | undefined;
+
+const resetPostFinish = (): void => {
+  postFinishKey = undefined;
+  postFinishOpened.clear();
+  postFinishShown = false;
+};
+
+const FINISH_STEP_ID = "turn-finish";
+
+/** Ends the guide with the Guide complete card. */
+const completeGuide = (): void => {
+  resetPostFinish();
+  setGuideStatus("done", lastAuthEmail);
+  setOnboardingRelayBeaconSite(undefined);
+  removeTutorialGuideUi();
+  renderGuideCompleteCard(GUIDE_STEPS.length);
+};
+
+/**
+ * After Finish the guide only holds steps that are waiting: fold while they
+ * wait, unfold the first time each becomes doable. Availability can flicker
+ * (a rival's only tile leaves the map), so a step unfolds once, and the card
+ * folds again only after Finish, a reload, or a step being done -- never over
+ * the player's own fold or unfold. A guide restarted without Finish (new
+ * season, Restart on another device) starts unfolded.
+ */
+const syncPostFinishFold = (view: StepView, completed: ReadonlySet<string>): void => {
+  if (!completed.has(FINISH_STEP_ID)) {
+    if (postFinishKey !== undefined) {
+      resetPostFinish();
+      expanded = true;
+    }
+    return;
+  }
+  postFinishShown = true;
+  const key = view.waiting ? "" : view.step.id;
+  if (key === postFinishKey) return;
+  if (!view.waiting) {
+    if (!postFinishOpened.has(key)) {
+      postFinishOpened.add(key);
+      expanded = true;
+    }
+  } else if (postFinishKey === undefined || completed.has(postFinishKey)) {
+    expanded = false;
+  }
+  postFinishKey = key;
+};
 
 const forceRerender = (): void => {
   lastSignature = "";
@@ -68,15 +131,21 @@ const handlers: GuideCardHandlers = {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
     forceRerender();
   },
-  // Finish ends the guide even when Contest / Diplomacy are still waiting for a
-  // first contact: the First Contact discovery tip covers muster flags later.
+  // Finish never drops steps: with Contest / Diplomacy still waiting for a
+  // first contact, the guide stays running, folded to its launcher, and
+  // reopens on its own when one of them can be done (renderTutorialGuide).
+  // Playtest 2026-11: pressing Finish at 13/16 felt like losing three steps.
   onFinish: () => {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
-    setGuideStatus("done", lastAuthEmail);
-    setOnboardingRelayBeaconSite(undefined);
-    removeTutorialGuideUi();
     const doneIds = new Set(readGuideProgress(lastAuthEmail).steps);
-    renderGuideCompleteCard(GUIDE_STEPS.filter((s) => doneIds.has(s.id)).length, GUIDE_STEPS.length);
+    if (GUIDE_STEPS.some((s) => !doneIds.has(s.id))) {
+      expanded = false;
+      postFinishKey = "";
+      postFinishShown = true;
+      forceRerender();
+      return;
+    }
+    completeGuide();
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);
@@ -84,7 +153,9 @@ const handlers: GuideCardHandlers = {
     removeTutorialGuideUi();
   },
   onToggle: () => {
-    expanded = !expanded;
+    alertFoldedStepId = undefined;
+    // Over a scout fold the card was hidden whatever `expanded` said: "?" opens it.
+    expanded = openGuideCardOverScoutFold() ? true : !expanded;
     forceRerender();
   }
 };
@@ -114,7 +185,7 @@ export const isTutorialGuideRunning = (authEmail: string | null | undefined): bo
 /**
  * True for any account that was enrolled in the guide, running or not. Such an
  * account never falls back to the New empire checklist bubble: after Finish or
- * Hide guide the corner stays empty instead of showing a different UI.
+ * Skip guide the corner stays empty instead of showing a different UI.
  */
 export const isEnrolledInTutorialGuide = (authEmail: string | null | undefined): boolean => readGuideProgress(authEmail).status !== "";
 
@@ -156,13 +227,27 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     checklistFlagSynced = true;
     if (!isOnboardingChecklistCompleted(state.authEmail)) markOnboardingChecklistCompleted(state.authEmail);
   }
-  const view = evaluateGuide(input, new Set(readGuideProgress(state.authEmail).steps));
+  const completed = new Set(readGuideProgress(state.authEmail).steps);
+  const view = evaluateGuide(input, completed);
   if (view.kind === "step" && view.newlyCompleted.length > 0) markGuideStepsCompleted(view.newlyCompleted, state.authEmail);
   if (view.kind === "done") {
-    setGuideStatus("done", state.authEmail);
-    setOnboardingRelayBeaconSite(undefined);
-    removeTutorialGuideUi();
+    // The last waiting step done after Finish: acknowledge it, once no dialog covers the corner.
+    if (lastView || postFinishShown) {
+      if (deferred) {
+        if (lastView) removeTutorialGuideUi();
+        return [];
+      }
+      completeGuide();
+    } else {
+      setGuideStatus("done", state.authEmail);
+      setOnboardingRelayBeaconSite(undefined);
+    }
     return [];
+  }
+  syncPostFinishFold(view, completed);
+  if (alertFoldedStepId !== undefined && alertFoldedStepId !== view.step.id) {
+    alertFoldedStepId = undefined;
+    if (!completed.has(FINISH_STEP_ID)) expanded = true;
   }
   setOnboardingRelayBeaconSite(!deferred && !view.waiting ? guideBeaconSite(view.step.id, input) : undefined);
   if (deferred) {
@@ -188,9 +273,26 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
   return [...view.highlightTiles];
 };
 
+/** Every frame, after renderTutorialGuide: moves the card off the step's ringed tiles and off notifications (tutorial-guide-placement.ts). */
+export const syncTutorialGuidePlacement = (project: GuideTileProjector | undefined, nowMs: number): void => {
+  if (!lastView) return;
+  const yielding = syncGuideCardAlertYield();
+  const alertClosed = alertYielding && !yielding;
+  alertYielding = yielding;
+  if (alertClosed && expanded) {
+    expanded = false;
+    alertFoldedStepId = lastView.step.id;
+    forceRerender();
+    if (!lastView) return;
+  }
+  syncGuideCardPlacement(lastView.highlightTiles, project, nowMs);
+};
+
 /** Settings "Restart guide": reopen the card on the first unfinished step. */
 export const reopenTutorialGuideCard = (): void => {
   expanded = true;
+  alertFoldedStepId = undefined;
+  resetPostFinish();
   lastSignature = "";
 };
 
@@ -204,4 +306,7 @@ export const resetTutorialGuideForTests = (): void => {
   lastState = undefined;
   showMeIndex = 0;
   checklistFlagSynced = false;
+  alertYielding = false;
+  alertFoldedStepId = undefined;
+  resetPostFinish();
 };

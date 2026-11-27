@@ -67,8 +67,10 @@ export type BiotaTownStatus = {
   tileKey: string;
   received: number;
   needed: number;
-  /** The tier whose manpower the town gives right now. */
+  /** Highest tier whose biota need is fully met (label only; output scales with received/needed, biota-town-output.ts). */
   manpowerTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  /** Slots of `received` covered by the town's own Vivaria (omitted when none). */
+  local?: number;
 };
 
 export type FrontierCombatResultChange = {
@@ -148,6 +150,7 @@ export type CurrentSeasonSummary = {
   seasonWinner?: SeasonWinnerSnapshot;
   seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];
   seasonHouseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
+  seasonAwards?: import("@border-empires/shared").SeasonAward[];
   leaderboard: WorldStatusSnapshot["leaderboard"];
   overall: LeaderboardOverallEntry[];
   byTiles: LeaderboardMetricEntry[];
@@ -155,6 +158,12 @@ export type CurrentSeasonSummary = {
   byTechs: LeaderboardMetricEntry[];
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
   onlinePlayers: number;
+  /**
+   * Active seasons only: whether a new House could land on a viable site now
+   * (landing-site-probe.ts, cached about a minute). False makes the Sector
+   * board show the sector as full. Absent = unknown.
+   */
+  landingSiteAvailable?: boolean;
   totalPlayers: number;
   townCount: number;
   /** LAND tiles in the world (the Diplomatic Dominance denominator); absent from summaries saved before it existed. */
@@ -183,6 +192,8 @@ export type SeasonArchiveRow = {
   winner?: SeasonWinnerSnapshot;
   galaxyTiers?: SeasonGalaxyTierSnapshot[];
   houseCharges?: import("@border-empires/shared").SeasonHouseChargesSnapshot[];
+  /** Never Gave Up / Comeback Kid; absent for seasons crowned before awards existed and for seasons with no crowned winner. */
+  awards?: import("@border-empires/shared").SeasonAward[];
   mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;

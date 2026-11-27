@@ -13,13 +13,15 @@ import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { WeaponsFactoryBreakdownCounts } from "./tech-domain-bridge/weapons-factory-mod-breakdown.js";
+import { achievementStatsFor, updateAchievements } from "./achievements/achievement-view.js";
 import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
   supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
-  relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
+  /** Map pointers for this player: relic hints, and the guide's town lead while they hold no town (guide-town-lead.ts). */
+  mapHintsForPlayer?: (id: string) => { relicMapHints: import("@border-empires/shared").RelicMapHint[]; guideTownLead: import("./guide-town-lead/guide-town-lead.js").GuideTownLead | undefined };
   hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
@@ -40,6 +42,15 @@ export type RuntimePlayerStateUpdateContext = {
   autoSettlementQueueForPlayer: (playerId: string) => Array<{ x: number; y: number }>;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
   weaponsFactoryCountsForPlayer: (playerId: string) => WeaponsFactoryBreakdownCounts;
+  /** Tiles this player has explored (explored-tiles-store.ts), for the Cartographer achievement. */
+  exploredCountForPlayer?: (playerId: string) => number;
+  now?: () => number;
+};
+
+/** relicMapHints, and guideTownLead (null once the player holds a town, so the client drops its old one). */
+const mapHintFields = (context: RuntimePlayerStateUpdateContext, playerId: string): Record<string, unknown> => {
+  const hints = context.mapHintsForPlayer?.(playerId);
+  return hints ? { relicMapHints: hints.relicMapHints, guideTownLead: hints.guideTownLead ?? null } : {};
 };
 
 /**
@@ -70,6 +81,8 @@ export function emitPlayerStateUpdate(
     lastCap.FOOD !== storageCap.FOOD;
   if (capChanged) context.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
   const supplyState = context.supplyStateForPlayer?.(playerId);
+  const integrityPct = Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.T, metrics.Es, metrics.Ts))) * 100);
+  const achievements = updateAchievements(player, achievementStatsFor(player, { townTiers: summary.ownedTownTierByTile.values(), tilesExplored: context.exploredCountForPlayer?.(playerId) ?? 0, ownedTiles: metrics.T, integrityPct }), context.now?.() ?? Date.now());
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId },
     {
@@ -77,7 +90,7 @@ export function emitPlayerStateUpdate(
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
-      ...(context.relicMapHintsForPlayer ? { relicMapHints: context.relicMapHintsForPlayer(playerId) } : {}),
+      ...mapHintFields(context, playerId),
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),
       modBreakdown: buildModBreakdownForPlayer(player, context.weaponsFactoryCountsForPlayer(playerId)),
@@ -129,7 +142,8 @@ export function emitPlayerStateUpdate(
       // (still used by client breakdown/tips UI) so the client can display the
       // real mechanic instead of recomputing an approximation client-side from
       // just two aggregate numbers.
-      integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.Ts, metrics.Es))) * 100),
+      integrityPct,
+      achievements,
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
       devQueue: summary.devQueue.map((entry) => ({

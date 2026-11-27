@@ -8,6 +8,11 @@
 import { pushBackEntry, type BackHandle } from "./client-hud-v2-back.js";
 import { createHudV2Sheet, type HudV2Sheet } from "./client-hud-v2-sheet.js";
 import { buildSlotsHtml, formatRemaining, trackerHtml, trackerNeeds, type TrackerInput } from "./client-hud-v2-tracker.js";
+import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
+import { foodShortageSteps, foodStepActionAttrs } from "./client-hud-v2-food-shortage.js";
+import { nextStepActionAttrs } from "./client-hud-v2-next-step.js";
+
+const esc = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // ---- Treasury: every resource with its breakdown, from one tap on the bar ----
 
@@ -64,21 +69,42 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
   const needs = trackerNeeds(input).length;
   const limit = Math.max(0, input.buildSlots.limit);
   const busy = Math.min(limit, Math.max(0, input.buildSlots.busy));
+  // A FOOD shortage leads Next step (client-hud-v2-food-shortage.ts).
+  const next = input.food ? `Short ${input.food.short} FOOD` : input.nextSteps?.[0]?.title;
+  const nextAction = topNextStepAction(input);
   const parts = [
     needs > 0 ? `<b class="v2c-track-needs">${needs} need${needs === 1 ? "s" : ""} you</b>` : "",
-    `Dev ${busy}/${limit}`,
+    // Idle: "Next" takes Dev's place on the one folded line (shorter than "Dev 0/3", so the phone HUD never
+    // grows); the steps themselves are behind the tap that unfolds the tracker. Busy slots keep their count,
+    // and "Next" follows it only while manpower or coin is low (the only busy-slot next steps).
+    needs === 0 && busy === 0 && next ? "" : `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
+    // With an action, "Next ›" is its own button beside this line (below), not a part of the fold toggle.
+    needs === 0 && next && !nextAction ? `<b class="v2c-track-next" title="${esc(next)}">Next ›</b>` : "",
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",
     input.waypoints.length > 0 ? `→ ${input.waypoints.length} queued` : "",
     input.capture ? `${input.capture.battle ? "Battle" : "Expanding"} ${formatRemaining(input.capture.resolvesAt - input.nowMs)}` : ""
   ].filter(Boolean);
-  return `<button type="button" class="v2c-track-line${input.slotsPulse ? " v2c-track-pulse" : ""}" data-v2c-tracker-toggle aria-expanded="false" aria-label="Tracker: ${parts.length} items, tap to unfold"><span class="v2c-track-caret" aria-hidden="true">▸</span>${parts.join(" · ")}</button>`;
+  const line = `<button type="button" class="v2c-track-line${input.slotsPulse ? " v2c-track-pulse" : ""}" data-v2c-tracker-toggle aria-expanded="false" aria-label="Tracker: ${parts.length} items, tap to unfold"><span class="v2c-track-caret" aria-hidden="true">▸</span>${parts.join(" · ")}</button>`;
+  // Playtest Run 4 ("what do I do next?"): one tap runs the top next step, the same action as its Tracker row.
+  const nextButton = needs === 0 && next && nextAction ? `<button type="button" class="v2c-track-next v2c-track-next-go"${nextAction} title="${esc(next)}">Next ›</button>` : "";
+  return line + nextButton;
+};
+
+/** The top next step's tap action: the first FOOD fix while FOOD is short, else the first next step; "" for none. */
+export const topNextStepAction = (input: TrackerInput): string => {
+  if (input.food) {
+    const step = foodShortageSteps(input.food).find((s) => foodStepActionAttrs(s));
+    return step ? foodStepActionAttrs(step) : "";
+  }
+  const step = input.nextSteps?.[0];
+  return step ? nextStepActionAttrs(step) : "";
 };
 
 export const compactTrackerHtml = (input: TrackerInput): string => {
   if (!compactTracker.open) return trackerSummaryHtml(input);
   const fold = `<button type="button" class="v2c-track-line v2c-track-line-open" data-v2c-tracker-toggle aria-expanded="true" aria-label="Fold the tracker"><span class="v2c-track-caret" aria-hidden="true">▾</span>Tracker</button>`;
   // The full tracker repeats the slot pips; keep them, they fold the slot list.
-  return `${fold}${trackerHtml(input) || buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse)}`;
+  return `${fold}${trackerHtml(input, true) || buildSlotsHtml(input.buildSlots, input.slotsOpen, input.slotsPulse)}`;
 };
 
 // ---- Taps ----
@@ -116,7 +142,7 @@ export const compactLayerClick = (target: Element, ctx: CompactClickContext): bo
     return true;
   }
   // Jumping to a tracker row folds the tracker so the map shows.
-  if (compactTracker.open && target.closest("#hud-v2-tracker [data-hud-v2-focus-x], #hud-v2-tracker [data-hud-v2-open]")) {
+  if (compactTracker.open && target.closest("#hud-v2-tracker [data-hud-v2-focus-x], #hud-v2-tracker [data-hud-v2-open], #hud-v2-tracker [data-hud-v2-beacon], #hud-v2-tracker [data-hud-v2-food-plots]")) {
     compactTracker.open = false;
     ctx.repaintTracker();
   }

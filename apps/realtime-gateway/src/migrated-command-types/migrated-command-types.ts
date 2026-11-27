@@ -34,6 +34,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "SET_CONVERTER_STRUCTURE_ENABLED",
   "SET_CONVERTER_STRUCTURE_MODE",
   "ASSIGN_REFINERY_FIELD",
+  "SET_TOWN_FOCUS",
   "SET_OBSERVATORY_ENABLED",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",
@@ -43,6 +44,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "HIJACK_AETHER_TOWER",
   "RECRUIT_ANCILLARIES",
   "SHIP_SALVAGE_TO_COURT",
+  "ACTIVATE_WAYSTATION",
   "FORCED_ANCILLARIFICATION",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",
@@ -77,7 +79,9 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "SET_AUTO_SETTLE_PREFS",
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
-  "EXPLORE"
+  "EXPLORE",
+  "RECALL_SCOUT",
+  "SCOUT_REPORT_SEEN"
 ];
 
 export const migratedDurableCommandTypes: ReadonlySet<string> = new Set(migratedDurableCommandTypesList);

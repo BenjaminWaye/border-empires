@@ -6,7 +6,7 @@ import {
   TOWN_BASE_GOLD_PER_MIN,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { resolvedTownCoastal, resolvedTownTerrainProfileId, type ChosenStructureTier, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
+import { activeTownFocus, resolvedTownCoastal, resolvedTownTerrainProfileId, type ChosenStructureTier, type TownFocus, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -133,6 +133,8 @@ export type PlayerRuntimeSummary = {
   ownedTownProfileByTile?: Map<string, NonNullable<DomainTileState["town"]>["terrainProfile"]>;
   // Same fixed cardinality as ownedTownTierByTile: one flag per owned town.
   ownedTownCoastalByTile?: Map<string, boolean>;
+  // Active town focus per owned town; absent = Balanced (docs/town-focus-plan.md). Scales that town's manpower regen.
+  ownedTownFocusByTile?: Map<string, TownFocus>;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
   // deliberately tracked separately from ownedTownTierByTile -- an AFC tile is
   // NOT a town, so it must not participate in manpowerRegenWeightForSettlementIndex
@@ -248,6 +250,7 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   ownedTownTierByTile: new Map<string, TownPopulationTier>(),
   ownedTownProfileByTile: new Map(),
   ownedTownCoastalByTile: new Map(),
+  ownedTownFocusByTile: new Map(),
   controlledAfcCount: 0,
   ownedAfcTileKeys: new Set<string>(),
   goldIncomePerMinute: 0,
@@ -361,6 +364,8 @@ export const applyTileToPlayerSummary = (
     summary.ownedTownTierByTile.set(tileKey, tier);
     summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
     summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
+    const focus = activeTownFocus(tile.town);
+    if (focus !== "BALANCED") summary.ownedTownFocusByTile?.set(tileKey, focus);
   }
   if (tile.afc?.ownerId === tile.ownerId) summary.controlledAfcCount++;
   if (tile.ownershipState === "SETTLED" && tile.afc?.ownerId === tile.ownerId && tile.afc.status === "active") {
@@ -397,6 +402,7 @@ export const removeTileFromPlayerSummary = (
     summary.ownedTownTierByTile.delete(tileKey);
     summary.ownedTownProfileByTile?.delete(tileKey);
     summary.ownedTownCoastalByTile?.delete(tileKey);
+    summary.ownedTownFocusByTile?.delete(tileKey);
   }
   if (tile.afc?.ownerId === tile.ownerId) summary.controlledAfcCount = Math.max(0, summary.controlledAfcCount - 1);
   summary.ownedAfcTileKeys.delete(tileKey);

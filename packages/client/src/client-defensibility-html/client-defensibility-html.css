@@ -1,0 +1,5 @@
+/* Empire Integrity hero: the score reads as the headline, not body text. */
+.defense-score { display: block; margin-top: 2px; font-size: 30px; line-height: 1.1; }
+/* Integrity drop notice's "Why it fell" card (client-integrity-drop-card.ts). */
+.defense-drop-card { border-color: rgba(255, 84, 84, 0.55); }
+.defense-drop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

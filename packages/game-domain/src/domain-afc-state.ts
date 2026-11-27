@@ -12,7 +12,11 @@ export type DomainAfcState = {
   landedAt?: number | undefined;
   /** Set whenever an existing AFC gets a new owner via capturedAfc (combat capture or reclaiming an abandoned tile); the client skips the landing drop for it. */
   capturedAt?: number | undefined;
+  /** The House that landed or built this AFC; kept through captures. Read through afcFoundedBy (@border-empires/shared). */
+  foundedBy?: string | undefined;
   modules?: string[] | undefined;
   houseModules?: string[] | undefined;
+  /** Captured copies only: module tech id -> the House whose copy it was when this AFC was taken (capturedAfc). */
+  capturedModuleHouses?: Record<string, string> | undefined;
   incomingModules?: Array<{ techId: string; arrivesAt: number }> | undefined;
 };

@@ -335,6 +335,8 @@ type SeasonVictoryComputation = {
    *  instead — this map only covers the non-leader case, same as the labels
    *  map above. Used by the galactic meta-layer's Outpost/Stipend tiering. */
   selfProgressByPlayerId: Map<string, Map<SeasonVictoryPathId, number>>;
+  /** Towns Town Control needs; the broadcast re-labels it from live town counts (season-victory-live-towns.ts). */
+  townTarget: number;
 };
 
 // Computes base objectives AND every player's self-progress label from one
@@ -467,7 +469,7 @@ export const computeSeasonVictory = (
   }
 
   const nameOf = (playerId: string): string => ctx.metricsByPlayerId.get(playerId)?.name ?? playerId;
-  return { objectives: withContenders(objectives, selfProgressByPlayerId, nameOf), selfProgressLabelsByPlayerId, selfProgressByPlayerId };
+  return { objectives: withContenders(objectives, selfProgressByPlayerId, nameOf), selfProgressLabelsByPlayerId, selfProgressByPlayerId, townTarget: ctx.townTarget };
 };
 
 // `values` is the numeric 0..1 companion (computeSeasonVictory's selfProgressByPlayerId);

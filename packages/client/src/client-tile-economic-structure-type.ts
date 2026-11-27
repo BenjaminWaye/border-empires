@@ -7,6 +7,8 @@ export type ClientTileEconomicStructure = {
     | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
+    | "FARM_PLOT"
+    | "HYDROGARDEN_PLOT"
     | "TITANIUM_REFINERY"
     | "UMBRITE_REFINERY"
     | "CRYSTAL_REFINERY"
@@ -29,6 +31,7 @@ export type ClientTileEconomicStructure = {
     | "HIGH_YIELD_AETHER_CONDENSER"
     | "TRADE_NEXUS"
     | "ANCILLARY_DEPOT"
+    | "VIVARIUM"
     | "HARBOR_EXCHANGE"
     | "NEURAL_WORKS"
     | "MINISTRY_HALL"

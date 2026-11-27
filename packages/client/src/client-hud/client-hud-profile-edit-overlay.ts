@@ -1,4 +1,5 @@
-// "Edit Name & Colour" overlay, opened from Settings > Account. Genuinely
+// "Edit Name, Colour & Crest" overlay, opened from Settings > Account or by
+// tapping the emblem on your own profile. Genuinely
 // reuses the onboarding profile-setup screen's design: the same colour-swatch
 // picker (client-auth-ui.ts's syncColorSwatchButtons, shared with the actual
 // onboarding panel) and the same CSS classes (.auth-color-block,
@@ -9,7 +10,14 @@
 // focus-preserving re-render guard: this HTML is only (re)built on the
 // closed -> open transition, never while the fields are being edited.
 import type { Auth } from "firebase/auth";
+import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
+import { bindCrestEditor, cancelCrestSave, crestEditorHtml, saveCrest } from "../client-profile-edit-crest/client-profile-edit-crest.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
+import { rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
+import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
+import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
+import { awaitProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
+import { profileChangeAllowanceLabel, profileChangeUsed, type ProfileChangeField } from "../client-profile-change-allowance/client-profile-change-allowance.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
 import { updateFirebaseDisplayNameBestEffort, updateSettingsColor, updateSettingsDisplayName } from "./client-hud-settings.js";
@@ -26,31 +34,54 @@ export const setProfileEditOpen = (open: boolean): void => { profileEditOpen = o
 // Modal HTML
 // ---------------------------------------------------------------------------
 
-export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | "playerColors">): string => {
+const escapeAttr = (value: string): string =>
+  value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+
+type CrestFields = "playerCosmetics" | "ownedCosmetics" | "authSessionReady";
+
+/** "Name · 1 change left" / "Colour · used" (client-profile-change-allowance.ts); nothing while unknown. */
+const allowanceHtml = (field: ProfileChangeField): string => {
+  const label = profileChangeAllowanceLabel(field);
+  return label ? `<div class="profile-edit-allowance" data-profile-allowance="${field}">${escapeAttr(label)}</div>` : "";
+};
+const usedAttr = (field: ProfileChangeField): string => (profileChangeUsed(field) === true ? " disabled" : "");
+
+/** Shown under an empty name box instead of "0/24": saving a blank box keeps the current name. */
+export const PROFILE_EDIT_NAME_EMPTY_HINT = "Blank keeps name";
+
+export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | "playerColors" | CrestFields>): string => {
   const currentColor = state.playerColors.get(state.me) ?? "#38b000";
   return `
   <div class="profile-edit-backdrop" data-profile-edit-backdrop></div>
   <div class="profile-edit-modal card" role="dialog" aria-modal="true" aria-labelledby="profile-edit-title">
     <div class="auth-onboarding-head">
       <div id="profile-edit-title" class="auth-panel-title">Update your empire</div>
-      <div class="auth-panel-subtitle">Change the name and colour other empires see. Limited to once per Sector Contest.</div>
+      <div class="auth-panel-subtitle">Once per Sector Contest.</div>
     </div>
-    <input class="auth-style-input" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" value="${state.meName || ""}" data-profile-edit-name />
+    ${allowanceHtml("name")}
+    <div class="profile-name-field">
+      <input class="auth-style-input" type="text" placeholder="${escapeAttr(state.meName || "Display name")}" autocomplete="nickname" maxlength="24" value="" data-profile-edit-name${usedAttr("name")} />
+      ${profileNameCountHtml()}
+    </div>
     <div class="auth-color-block">
       <div class="auth-color-label">Nation color</div>
+      ${allowanceHtml("color")}
       <div class="auth-color-presets">
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
-        <button type="button" class="auth-color-swatch" data-profile-edit-swatch></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
+        <button type="button" class="auth-color-swatch" data-profile-edit-swatch${usedAttr("color")}></button>
       </div>
       <label class="auth-color-custom">
         <span>Custom</span>
-        <input type="color" value="${currentColor}" data-profile-edit-color />
+        <input type="color" value="${currentColor}" data-profile-edit-color${usedAttr("color")} />
       </label>
+      <div class="auth-color-clash" data-color-clash role="status" aria-live="polite" hidden></div>
     </div>
+    ${crestEditorHtml(state)}
+    <div class="profile-edit-status" data-profile-edit-status role="status" aria-live="polite"></div>
     <div class="profile-edit-actions">
       <button type="button" class="panel-btn" data-profile-edit-cancel>Cancel</button>
       <button type="button" class="panel-btn" data-profile-edit-save>Save Changes</button>
@@ -64,7 +95,7 @@ export const profileEditModalHtml = (state: Pick<ClientState, "meName" | "me" | 
 // ---------------------------------------------------------------------------
 
 export const bindProfileEditModal = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors">;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "playerNames" | "suggestedColors" | CrestFields>;
   overlayEl: HTMLElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
@@ -72,6 +103,9 @@ export const bindProfileEditModal = (args: {
   setPendingDisplayNameChange: (name: string) => void;
   setPendingColorChange: (color: string) => void;
   onClose: () => void;
+  /** In-game confirm sheet (never the native browser confirm dialog, which webviews block). Returns false when it can't be shown. */
+  showConfirm?: (options: BreakPactSheetOptions) => boolean;
+  hideConfirm?: () => void;
 }): void => {
   const {
     state,
@@ -81,7 +115,9 @@ export const bindProfileEditModal = (args: {
     updateFirebaseDisplayName,
     setPendingDisplayNameChange,
     setPendingColorChange,
-    onClose
+    onClose,
+    showConfirm = showBreakPactSheet,
+    hideConfirm = hideBreakPactSheet
   } = args;
 
   const nameInput = overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]");
@@ -90,9 +126,23 @@ export const bindProfileEditModal = (args: {
   const backdrop = overlayEl.querySelector<HTMLDivElement>("[data-profile-edit-backdrop]");
   const cancelBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-cancel]");
   const saveBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]");
+  const statusEl = overlayEl.querySelector<HTMLElement>("[data-profile-edit-status]");
   if (!nameInput || !colorInput || !saveBtn) return;
+  const setStatus = (text: string): void => {
+    if (statusEl) statusEl.textContent = text;
+  };
+  const crestEditor = bindCrestEditor(overlayEl, state, () => setStatus(""));
+  const refreshPreview = (): void => crestEditor.refresh(colorInput.value, nameInput.value.trim());
+  bindProfileNameField(nameInput, { onUserInput: () => { setStatus(""); refreshPreview(); }, emptyHint: PROFILE_EDIT_NAME_EMPTY_HINT });
 
-  const syncSwatches = (): void => syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value);
+  const syncSwatches = (): void => {
+    const rivals = rivalEmpireColors(state);
+    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value, rivals);
+    syncColorClashNote(overlayEl.querySelector<HTMLElement>("[data-color-clash]"), colorInput.value, rivals, state.playerColors.get(state.me));
+    // The clash check re-enables swatches; a spent colour change keeps them all off.
+    if (profileChangeUsed("color") === true) swatchButtons.forEach((btn) => { btn.disabled = true; });
+    refreshPreview();
+  };
   syncSwatches();
 
   swatchButtons.forEach((btn) => {
@@ -105,7 +155,12 @@ export const bindProfileEditModal = (args: {
   });
   colorInput.oninput = syncSwatches;
 
+  let cancelWait: (() => void) | undefined;
   const close = (): void => {
+    cancelWait?.();
+    cancelWait = undefined;
+    cancelCrestSave();
+    hideConfirm();
     setProfileEditOpen(false);
     overlayEl.innerHTML = "";
     onClose();
@@ -113,25 +168,36 @@ export const bindProfileEditModal = (args: {
   if (backdrop) backdrop.onclick = close;
   if (cancelBtn) cancelBtn.onclick = close;
 
-  saveBtn.onclick = async (): Promise<void> => {
+  const save = async (newName: string, newColor: string, nameChanged: boolean, colorChanged: boolean, crestChanged: boolean): Promise<void> => {
     const currentColor = state.playerColors.get(state.me) ?? "#38b000";
-    const newName = nameInput.value.trim();
-    const newColor = colorInput.value.trim();
-    if (newName.length < 2) {
-      pushFeed("Display name must be at least 2 characters.", "error", "warn");
-      return;
-    }
-    const nameChanged = newName !== state.meName;
-    const colorChanged = newColor !== currentColor;
-    if (!nameChanged && !colorChanged) {
-      pushFeed("No changes to save.", "info", "info");
-      return;
-    }
-    if (typeof window !== "undefined" && typeof window.confirm === "function") {
-      const confirmed = window.confirm(
-        "Change your empire's name and/or colour? You can only change your name and colour once per Sector Contest."
-      );
-      if (!confirmed) return;
+    // Stay open until the server answers: name and colour are confirmed by
+    // PLAYER_UPDATE (client-profile-edit-outcome.ts), then the crest by
+    // COSMETICS_STATE (client-profile-edit-crest.ts). A refusal of either shows here.
+    saveBtn.disabled = true;
+    setStatus("Saving…");
+    const fail = (reason: string): void => {
+      saveBtn.disabled = false;
+      setStatus(reason);
+    };
+    const saveCrestThenClose = async (): Promise<void> => {
+      const crest = await saveCrest(crestEditor.chosen(), sendGameMessage);
+      if (crest.ok) close();
+      else fail(crest.reason);
+    };
+    // The player confirmed the crest with the rest; a refused name or colour
+    // does not stop it: save the crest anyway and stay open to show the refusal.
+    const saveCrestThenFail = async (reason: string): Promise<void> => {
+      const crest = await saveCrest(crestEditor.chosen(), sendGameMessage);
+      fail(crest.ok ? `${reason} · Crest saved` : `${reason} · ${crest.reason}`);
+    };
+    if (nameChanged || colorChanged) {
+      cancelWait = awaitProfileEditOutcome((outcome) => {
+        cancelWait = undefined;
+        if (!outcome.ok && crestChanged) void saveCrestThenFail(outcome.reason);
+        else if (!outcome.ok) fail(outcome.reason);
+        else if (crestChanged) void saveCrestThenClose();
+        else close();
+      });
     }
     // Neither update function reports success/failure back to its caller
     // (the server confirms asynchronously via PLAYER_UPDATE), so track
@@ -166,7 +232,55 @@ export const bindProfileEditModal = (args: {
         setPendingColorChange
       });
     }
-    if (!sendFailed) close();
+    if (sendFailed) {
+      cancelWait?.();
+      cancelWait = undefined;
+      fail("Not sent");
+      return;
+    }
+    if (!nameChanged && !colorChanged) await saveCrestThenClose();
+  };
+
+  saveBtn.onclick = (): void => {
+    const currentColor = state.playerColors.get(state.me) ?? "#38b000";
+    // The box starts empty (current name as placeholder): a pre-filled box let a
+    // tap put the caret at the end, so typing appended to the old name and
+    // maxlength cut it ("House DovetailHouse Dove", 2026-11 playtest).
+    const newName = nameInput.value.trim() || state.meName;
+    const newColor = colorInput.value.trim();
+    if (newName.length < 2) {
+      setStatus("Name too short");
+      pushFeed("Display name must be at least 2 characters.", "error", "warn");
+      return;
+    }
+    const nameChanged = newName !== state.meName;
+    const colorChanged = newColor !== currentColor;
+    const crestChanged = crestEditor.changed();
+    if (!nameChanged && !colorChanged && !crestChanged) {
+      setStatus("No changes");
+      pushFeed("No changes to save.", "info", "info");
+      return;
+    }
+    setStatus("");
+    // Name, colour and crest each change once per Sector Contest (gateway
+    // profile-change-allowance.ts), so the confirm lists every one being spent.
+    const consequences = [
+      ...(nameChanged ? [`Name: ${newName}`] : []),
+      ...(colorChanged ? [`Colour: ${newColor}`] : []),
+      ...(crestChanged ? ["Crest"] : [])
+    ];
+    const shown = showConfirm({
+      title: "Change empire?",
+      subtitle: "Once per Sector Contest.",
+      consequences,
+      confirmLabel: "Change",
+      sheetId: "profile-edit-confirm",
+      onConfirm: () => void save(newName, newColor, nameChanged, colorChanged, crestChanged),
+      onCancel: () => setStatus("Not saved")
+    });
+    // No DOM to show the sheet in: the modal's own subtitle already carries
+    // the once-per-contest note, so save rather than silently doing nothing.
+    if (!shown) void save(newName, newColor, nameChanged, colorChanged, crestChanged);
   };
 };
 
@@ -177,7 +291,7 @@ export const bindProfileEditModal = (args: {
 const OVERLAY_ID = "profile-edit-overlay";
 
 export const renderProfileEditOverlay = (args: {
-  state: Pick<ClientState, "meName" | "me" | "playerColors" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange">;
+  state: Pick<ClientState, "meName" | "me" | "playerColors" | "playerNames" | "suggestedColors" | "pendingDisplayNameChange" | "pendingColorChange" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested" | "authSessionReady" | "serverSupportedMessageTypes">;
   dom: { hud: HTMLElement };
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
@@ -186,6 +300,7 @@ export const renderProfileEditOverlay = (args: {
 }): void => {
   const { state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud } = args;
 
+  bindCosmeticsCard({ state, dom, sendGameMessage }); // the Account page's other card
   const triggerButtons = dom.hud.querySelectorAll<HTMLButtonElement>("[data-settings-edit-profile]");
   triggerButtons.forEach((btn) => {
     btn.onclick = (): void => {

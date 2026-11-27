@@ -4,12 +4,16 @@
 // simulation (authority: dealing, held state, crowning results), the gateway
 // and the client.
 
-export type HouseChargeKind = "CHARTER" | "SEAT" | "SURVEY" | "DESERT" | "TUNDRA" | "RELIC";
+/**
+ * SEAT (grow one town to City) is no longer dealt; it stays so charges already
+ * dealt this season keep their meaning until the season ends.
+ */
+export type HouseChargeKind = "CHARTER" | "SEAT" | "SURVEY" | "DESERT" | "TUNDRA" | "RELIC" | "CORRECTION" | "METROPOLIS";
 
 /** Card rarity (docs/house-charges-plan.md "Card design"). */
 export type HouseChargeRarity = "COMMON" | "RARE" | "MYTHIC";
 
-export const HOUSE_CHARGE_KINDS: readonly HouseChargeKind[] = ["CHARTER", "SEAT", "SURVEY", "DESERT", "TUNDRA", "RELIC"];
+export const HOUSE_CHARGE_KINDS: readonly HouseChargeKind[] = ["CHARTER", "SEAT", "SURVEY", "DESERT", "TUNDRA", "RELIC", "CORRECTION", "METROPOLIS"];
 
 /** Charges offered at landing, and how many of them the House keeps. */
 export const HOUSE_CHARGES_OFFERED = 3;
@@ -20,6 +24,8 @@ export const HOUSE_CHARGES_CHOICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** At most this many Houses may be dealt the same town; other targets allow HOUSE_CHARGE_TARGET_CAP. */
 export const HOUSE_CHARGE_TOWN_CAP = 5;
 export const HOUSE_CHARGE_TARGET_CAP = 3;
+/** At most this many Houses may be dealt a Writ of Correction against the same rival House (like a town). */
+export const HOUSE_CHARGE_HOUSE_CAP = 5;
 
 // Distance bands from the House's landing site, in tiles (wrapped Manhattan
 // distance). Validated by the 2026-11-12 simulation on real season worldgen.
@@ -27,9 +33,13 @@ export const HOUSE_CHARGE_CHARTER_TOWN_MIN_DISTANCE = 8;
 export const HOUSE_CHARGE_CHARTER_TOWN_MAX_DISTANCE = 50;
 export const HOUSE_CHARGE_CHARTER_PAIR_MIN_DISTANCE = 12;
 export const HOUSE_CHARGE_CHARTER_PAIR_MAX_DISTANCE = 35;
-export const HOUSE_CHARGE_SEAT_MIN_DISTANCE = 6;
-export const HOUSE_CHARGE_SEAT_MAX_DISTANCE = 45;
 export const HOUSE_CHARGE_REGION_MAX_DISTANCE = 35;
+/** Writ of Correction: the named rival's landing site lies in this band. */
+export const HOUSE_CHARGE_CORRECTION_MIN_DISTANCE = 12;
+export const HOUSE_CHARGE_CORRECTION_MAX_DISTANCE = 45;
+/** Three Metropolises: how many Metropolises on the named landmass, and the landmass's nearest tile within this distance. */
+export const HOUSE_CHARGE_METROPOLIS_COUNT = 3;
+export const HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE = 35;
 export const HOUSE_CHARGE_RELIC_MAX_DISTANCE = 45;
 
 /** Survey Claim: landmasses with this many LAND tiles are eligible. */
@@ -68,6 +78,10 @@ export type HouseCharge = {
   areaTiles?: number;
   /** CHARTER: the two towns are on different landmasses, joined by sea through two of the House's docks. */
   crossWater?: boolean;
+  /** METROPOLIS: towns on the landmass when dealt. */
+  areaTowns?: number;
+  /** Dealt on or after 2026-11-20: `renown` is the one-scale difficulty score's pips, and a held charge banks one Domain per pip. Absent on older charges, which keep pay by rarity. */
+  difficultyScored?: true;
 };
 
 /** A House's charges, stored on its player record. */
@@ -97,7 +111,7 @@ export type HouseChargeResult = {
   held: boolean;
   /** Whole hours the charge had been continuously complete at the crowning; 0 when not held. */
   hoursHeld: number;
-  /** Kind-specific size: road length, town tier index, tiles garrisoned, or 1 for a relic. */
+  /** Kind-specific size: road length, town tier index, tiles garrisoned, 1 for a relic, the rival's AFCs held (Correction) or Metropolises held (Metropolis). */
   size: number;
   /** Place names the charge pointed at (towns, region or landmass); absent for an unrevealed relic. */
   places?: string[];
@@ -105,6 +119,8 @@ export type HouseChargeResult = {
   art?: string;
   /** RELIC: installation family, recorded once the House held it. */
   relicType?: string;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Every House's kept charges and their outcome, recorded on the season at crowning. */
@@ -113,6 +129,9 @@ export type SeasonHouseChargesSnapshot = {
   playerName: string;
   charges: HouseChargeResult[];
 };
+
+/** A House's name as its heralds write it: "Varn" becomes "House Varn"; a name already styled "House …" is kept. */
+export const houseStyledName = (name: string): string => (/^house\s/i.test(name) ? name : `House ${name}`);
 
 /** Human-readable title of a charge, e.g. "Road of Vell and Harrowmere". */
 export const houseChargeTitle = (charge: Pick<HouseCharge, "kind" | "targets">): string => {
@@ -123,6 +142,10 @@ export const houseChargeTitle = (charge: Pick<HouseCharge, "kind" | "targets">):
       return `Road of ${name} and ${second?.name ?? "Unknown"}`;
     case "SEAT":
       return `Seat of ${name}`;
+    case "CORRECTION":
+      return `The Correction of ${houseStyledName(name)}`;
+    case "METROPOLIS":
+      return `Three Metropolises of ${name}`;
     case "RELIC":
       return "A Concordance installation";
     default:
@@ -166,6 +189,10 @@ export type HouseChargeView = {
   areaTileKeys?: string[];
   /** CHARTER on two landmasses: the road crosses the sea through two of the House's docks. */
   crossWater?: boolean;
+  /** METROPOLIS: towns on the landmass when dealt. */
+  areaTowns?: number;
+  /** See HouseCharge.difficultyScored. */
+  difficultyScored?: true;
 };
 
 /** Pushed to a House when its charges are dealt or change, and on connect. */
@@ -190,17 +217,41 @@ export const houseChargeChoiceError = (
   return undefined;
 };
 
-/** Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain Weight per fulfilled charge, for empires that hold territory. */
-export const HOUSE_CHARGE_DOMAIN_WEIGHT = 1;
-/** Extra Stipend Influence per charge held at the crowning, for players paid a Stipend (no territory). */
-export const HOUSE_CHARGE_STIPEND_INFLUENCE = 3;
+/** Highest difficulty: pips run 1..HOUSE_CHARGE_MAX_PIPS. */
+export const HOUSE_CHARGE_MAX_PIPS = 4;
 
-/** How many charges each House held at the crowning. */
-export const heldHouseChargeCounts = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
-  const counts: Record<string, number> = {};
+/** A charge's difficulty pips (its `renown`), clamped to 1..HOUSE_CHARGE_MAX_PIPS. */
+export const houseChargePips = (renown: number): number => Math.max(1, Math.min(HOUSE_CHARGE_MAX_PIPS, Math.round(renown) || 1));
+
+/** Card rarity follows difficulty: 1-2 pips Common, 3 Rare, 4 Mythic. */
+export const houseChargeRarityForPips = (renown: number): HouseChargeRarity => {
+  const pips = houseChargePips(renown);
+  return pips >= 4 ? "MYTHIC" : pips === 3 ? "RARE" : "COMMON";
+};
+
+/** Pay for charges dealt before difficulty scoring (no `difficultyScored`): by stored rarity, as they were promised. */
+export const HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY: Readonly<Record<HouseChargeRarity, number>> = { COMMON: 1, RARE: 2, MYTHIC: 4 };
+
+/**
+ * Galaxy reward (docs/house-charges-plan.md, "Rewards"): Domain score banked on
+ * the account for a charge held at a crowning: one per difficulty pip (+1..+4)
+ * for a difficulty-scored charge, else by its stored rarity (legacy). Every
+ * account banks it, with or without territory in space; it is the charge's
+ * only galaxy reward (no Stipend Influence).
+ */
+export const houseChargeDomain = (charge: Pick<HouseChargeResult, "rarity" | "renown" | "difficultyScored">): number =>
+  charge.difficultyScored ? houseChargePips(charge.renown) : (HOUSE_CHARGE_LEGACY_DOMAIN_BY_RARITY[charge.rarity] ?? 0);
+
+/** Domain score one charge result banks when held at the crowning, otherwise 0. */
+export const houseChargeDomainWeight = (charge: Pick<HouseChargeResult, "held" | "rarity" | "renown" | "difficultyScored">): number =>
+  charge.held ? houseChargeDomain(charge) : 0;
+
+/** Domain score each House banked from the charges it held at one crowning (Houses with none are omitted). */
+export const heldHouseChargeDomainWeights = (houses: readonly SeasonHouseChargesSnapshot[] | undefined): Record<string, number> => {
+  const weights: Record<string, number> = {};
   for (const house of houses ?? []) {
-    const held = house.charges.filter((charge) => charge.held).length;
-    if (held > 0) counts[house.playerId] = held;
+    const weight = house.charges.reduce((sum, charge) => sum + houseChargeDomainWeight(charge), 0);
+    if (weight > 0) weights[house.playerId] = weight;
   }
-  return counts;
+  return weights;
 };

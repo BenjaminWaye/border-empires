@@ -1,5 +1,6 @@
-import { networkSupplyStatus } from "../resource-networks/resource-network-status.js";
+import { biotaDemandTowns, networkSupplyStatus } from "../resource-networks/resource-network-status.js";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
+import { installedAfcModuleTechIds } from "../afc-module-build-access/afc-module-build-access.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -12,7 +13,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { EMPIRE_INTEGRITY_INCOME_LABEL, converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
+import { EMPIRE_INTEGRITY_INCOME_LABEL, townFocusMultipliers, biotaBlend, biotaShareMet, converterModeOf, isInnerSupportRing, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townSupportCoinMultiplier, townTerrainModifiers, type TownSupportCounts } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -122,18 +123,22 @@ export const supportSummaryForTown = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
-): { supportCurrent: number; supportMax: number } => {
-  if (tile.ownershipState !== "SETTLED") return { supportCurrent: 0, supportMax: 0 };
-  let supportCurrent = 0;
-  let supportMax = 0;
+): TownSupportCounts => {
+  const counts: TownSupportCounts = { supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 };
+  if (tile.ownershipState !== "SETTLED") return counts;
   const radius = supportRingRadiusForTier(tile.town?.populationTier);
-  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+  for (const { tile: neighbor, dx, dy } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
     if (neighbor.terrain !== "LAND") continue;
     if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-    supportMax += 1;
-    if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
+    const held = neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED";
+    counts.supportMax += 1;
+    if (held) counts.supportCurrent += 1;
+    if (isInnerSupportRing(dx, dy)) {
+      counts.innerMax += 1;
+      if (held) counts.innerCurrent += 1;
+    }
   }
-  return { supportCurrent, supportMax };
+  return counts;
 };
 
 export const buildStrategicProductionForSettledTiles = (
@@ -174,7 +179,10 @@ export const townGoldPerMinuteForPlayer = (
   // town's support ring — see supportedConverterGoldPerMinuteForTown.
   // Excluded for SETTLEMENT-tier towns via the early return below, same gate
   // MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN already uses.
-  converterGoldPerMinute: number = 0
+  converterGoldPerMinute: number = 0,
+  // Share of the town's luxury biota need that is met (biota-town-output.ts): a
+  // short City+ earns between a Town's coin and its own tier's.
+  biotaShare: number = 1
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -183,10 +191,11 @@ export const townGoldPerMinuteForPlayer = (
     resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome),
     resolvedTownCoastal(town.terrainProfile, tile.landBiome, town.coastal)
   ).goldMultiplier;
-  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT;
+  // Town focus (docs/town-focus-plan.md): Commerce raises, Growth and Levy lower the town's whole Coin.
+  const focusCoinMult = townFocusMultipliers(town).coin;
+  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT * focusCoinMult;
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
-  const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   // manufactory-stacking task: MANUFACTORY's gold bonus stacks additively per active
   // Manufactory in the support ring (manufactoryGoldProductionMultiplier), not a
   // boolean "any Manufactory" gate — see countSupportedStructures.
@@ -204,17 +213,16 @@ export const townGoldPerMinuteForPlayer = (
         : false;
     });
   const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
-  return (
+  return focusCoinMult * ((
     TOWN_BASE_GOLD_PER_MIN *
     terrainGoldMultiplier *
-    supportRatio *
-    townPopulationMultiplier(town.populationTier) *
+    townSupportCoinMultiplier(support, townPopulationMultiplier("TOWN"), biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(town.populationTier), biotaShare)) *
     (1 + (town.connectedTownBonus ?? 0)) *
     manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, multiplicativeEffectForPlayer(player, "clearingHouseUpliftMult")) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute;
+  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute);
 };
 
 export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";
@@ -240,7 +248,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   // no separate captureShockUntil field) — EXCHANGE payout is suppressed
   // while mode is locked, from a build, flip, or capture reset alike.
   now: number = Date.now(),
-  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts
+  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts,
+  biotaTownSupply?: ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply>
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   let countedAfcBaseline = false;
@@ -262,7 +271,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
-  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds, installedAfcModuleTechIds(player.id, tiles, summary.ownedAfcTileKeys));
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -346,7 +355,8 @@ export const buildPlayerUpdateEconomySnapshot = (
         firstThreeTownKeys,
         connectedClearingHouseKeys,
         dormantEconomicStructureKeys,
-        converterTownBonusByTileKey.get(tileKey) ?? 0
+        converterTownBonusByTileKey.get(tileKey) ?? 0,
+        biotaShareMet(biotaTownSupply?.get(tileKey))
       );
       // townGoldOutputMult excludes SETTLEMENT-tier towns, same exclusion
       // townGoldCapMult used before it — a fresh settlement's flat base rate
@@ -423,7 +433,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   return {
     incomePerMinute,
     integrityEconMult,
-    networkSupply: networkSupplyStatus(sites, summary.ownedTownTierByTile.values()),
+    networkSupply: networkSupplyStatus(sites, biotaDemandTowns(player.id, orderedTownTiles, tiles, dormantEconomicStructureKeys)),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),

@@ -11,7 +11,8 @@
 import { SETTLE_COST, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-export type TownRingGarrison = { ringKeys: string[]; startedAt: number; townSettledAt?: number };
+/** awaitTier: registered by growing the town; nothing is sent until the town shows that tier. */
+export type TownRingGarrison = { ringKeys: string[]; startedAt: number; townSettledAt?: number; awaitTier?: string };
 
 type RingState = { tiles: ReadonlyMap<string, Tile>; me: string; townRingGarrisons: Map<string, TownRingGarrison> };
 
@@ -45,16 +46,20 @@ export const townRingGarrisonTiles = (
     });
 };
 
-/** "N coin, M manpower" for garrisoning `tile` -- for a town, the town plus every tile around it. */
+/**
+ * "N coin, M manpower" for garrisoning `tile`. For a town it is a range: the town alone, up to the town plus
+ * every tile around it. Ring tiles are garrisoned (and paid) only once the town's reach has claimed them, so
+ * some may never be; a single total quoted 180 and charged 100 (Playtest Run 4).
+ */
 export const garrisonCostText = (
   state: Pick<RingState, "tiles" | "me"> & { settleManpowerCost: number },
   tile: Tile,
   isSettling?: (tileKey: string) => boolean
 ): string => {
   const ring = townRingGarrisonTiles(state, tile, isSettling).length;
-  const count = 1 + ring;
-  const base = `${count * SETTLE_COST} coin, ${count * state.settleManpowerCost} manpower`;
-  return ring > 0 ? `${base} (town + ${ring} around)` : base;
+  if (ring === 0) return `${SETTLE_COST} coin, ${state.settleManpowerCost} manpower`;
+  const range = (perTile: number): string => (perTile === 0 ? "0" : `${perTile}–${(1 + ring) * perTile}`);
+  return `${range(SETTLE_COST)} coin, ${range(state.settleManpowerCost)} manpower (town + up to ${ring} around)`;
 };
 
 /** Remember to garrison the ring once `town` lands SETTLED. Returns how many ring tiles were queued. */
@@ -104,6 +109,15 @@ export const processTownRingGarrisons = (state: RingState, deps: TownRingGarriso
     if (town.ownershipState !== "SETTLED" || town.optimisticPending) {
       if (entry.townSettledAt === undefined && deps.now - entry.startedAt > TOWN_RING_GARRISON_TTL_MS) state.townRingGarrisons.delete(townKey);
       continue;
+    }
+    if (entry.awaitTier !== undefined) {
+      // Growth: wait for the upgrade to land; a rejected one (coin, FOOD slot) is dropped after the window.
+      if (town.town?.populationTier !== entry.awaitTier) {
+        if (deps.now - entry.startedAt > TOWN_RING_AFTER_SETTLE_WINDOW_MS) state.townRingGarrisons.delete(townKey);
+        continue;
+      }
+      delete entry.awaitTier;
+      entry.townSettledAt = deps.now;
     }
     entry.townSettledAt ??= deps.now;
     if (deps.now - entry.townSettledAt > TOWN_RING_AFTER_SETTLE_WINDOW_MS) {

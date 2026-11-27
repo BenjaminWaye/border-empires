@@ -1,3 +1,4 @@
+import { MIN_EMPIRE_COLOR_DELTA_E, ciede2000Lab, hexToLab, type Lab } from "@border-empires/shared";
 import { BASE_PALETTE, RESERVED_COLORS } from "./player-color-allocation.js";
 import { colorBlindSafeDistance, hexToOkLab } from "./perceptual-color-distance.js";
 
@@ -14,6 +15,13 @@ import { colorBlindSafeDistance, hexToOkLab } from "./perceptual-color-distance.
 // names start with the same letter share a crest letter on Ranks, so for
 // them the distance must be twice as large to win. Deterministic: same ids
 // and names, same colours, on every boot.
+//
+// Owner rule (2026-11-27): only candidates at least MIN_EMPIRE_COLOR_DELTA_E
+// (CIEDE2000) from every colour already handed out, and from the `taken`
+// colours of active human empires, may win. When the palette has none left,
+// generated hue-wheel colours are tried; when nothing at all is far enough
+// (more empires than the colour space holds, e.g. a 60-AI sector) the
+// candidate furthest from the rest wins.
 
 /** Below this HSL saturation a colour reads as grey (barbarian/neutral territory); never hand it to an AI. */
 const MIN_SATURATION = 0.3;
@@ -22,6 +30,12 @@ const MIN_LIGHTNESS = 0.42;
 const MAX_LIGHTNESS = 0.88;
 /** Same crest letter: the distance has to be this many times larger to count as far enough. */
 const SAME_INITIAL_WEIGHT = 0.5;
+
+const isTintable = (hex: string): boolean => {
+  if (RESERVED_COLORS.has(hex)) return false;
+  const l = hexToOkLab(hex).l;
+  return saturation(hex) >= MIN_SATURATION && l >= MIN_LIGHTNESS && l <= MAX_LIGHTNESS;
+};
 
 const saturation = (hex: string): number => {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -36,11 +50,34 @@ const saturation = (hex: string): number => {
 };
 
 /** BASE_PALETTE entries an AI may be given: saturated, mid-light, not reserved. */
-export const AI_COLOR_CANDIDATES: readonly string[] = BASE_PALETTE.filter((hex) => {
-  if (RESERVED_COLORS.has(hex)) return false;
-  const l = hexToOkLab(hex).l;
-  return saturation(hex) >= MIN_SATURATION && l >= MIN_LIGHTNESS && l <= MAX_LIGHTNESS;
-});
+export const AI_COLOR_CANDIDATES: readonly string[] = BASE_PALETTE.filter((hex) => isTintable(hex));
+
+const hslHex = (h: number, s: number, l: number): string => {
+  const k = (n: number): number => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number): string =>
+    Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))).toString(16).padStart(2, "0");
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
+};
+
+/** colorBlindSafeDistance below which two colours read as one to a colour-blind viewer. */
+const COLOR_BLIND_MIN_DISTANCE = 0.05;
+
+/** Hue-wheel colours tried once no palette candidate is far enough. */
+export const AI_EXTRA_COLOR_CANDIDATES: readonly string[] = (() => {
+  const extras = new Set<string>();
+  for (const l of [0.5, 0.62, 0.42, 0.74]) {
+    for (const s of [0.85, 0.6]) {
+      for (let h = 0; h < 360; h += 8) {
+        const hex = hslHex(h, s, l);
+        if (isTintable(hex) && !AI_COLOR_CANDIDATES.includes(hex)) extras.add(hex);
+      }
+    }
+  }
+  return [...extras];
+})();
+
+const ALL_AI_CANDIDATES: readonly string[] = [...AI_COLOR_CANDIDATES, ...AI_EXTRA_COLOR_CANDIDATES];
 
 const initialOf = (name: string | undefined): string => (name?.trim()[0] ?? "").toUpperCase();
 
@@ -54,27 +91,62 @@ export const assignAiColors = (
   nameFor: (id: string) => string | undefined = () => undefined,
   taken: ReadonlySet<string> = new Set()
 ): Map<string, string> => {
+  const labs = new Map<string, Lab>();
+  const labOf = (hex: string): Lab => {
+    let lab = labs.get(hex);
+    if (!lab) labs.set(hex, (lab = hexToLab(hex)));
+    return lab;
+  };
   const assigned: Array<{ color: string; initial: string }> = [...taken].map((color) => ({ color, initial: "" }));
   const used = new Set<string>([...taken, ...RESERVED_COLORS]);
   const result = new Map<string, string>();
-  for (const id of [...ids].sort()) {
-    const initial = initialOf(nameFor(id));
+  const minDeltaE = (candidate: string): number => {
+    let min = Number.POSITIVE_INFINITY;
+    for (const other of assigned) min = Math.min(min, ciede2000Lab(labOf(candidate), labOf(other.color)));
+    return min;
+  };
+  // Of the candidates far enough from every assigned colour, the one furthest
+  // apart for colour-blind viewers (same-initial empires weighted closer).
+  const bestFarEnough = (candidates: readonly string[], initial: string, minScore: number): string | undefined => {
     let best: string | undefined;
-    let bestScore = -1;
-    for (const candidate of AI_COLOR_CANDIDATES) {
-      if (used.has(candidate)) continue;
+    let bestScore = minScore;
+    for (const candidate of candidates) {
+      if (used.has(candidate) || minDeltaE(candidate) < MIN_EMPIRE_COLOR_DELTA_E) continue;
       let score = Number.POSITIVE_INFINITY;
       for (const other of assigned) {
         const weight = initial !== "" && other.initial === initial ? SAME_INITIAL_WEIGHT : 1;
         score = Math.min(score, colorBlindSafeDistance(candidate, other.color) * weight);
       }
-      if (score > bestScore) {
+      if (score > bestScore || (best === undefined && score >= bestScore)) {
         bestScore = score;
         best = candidate;
       }
     }
-    // More AIs than candidates: fall back to any free palette entry.
-    const color = best ?? BASE_PALETTE.find((hex) => !used.has(hex)) ?? "#ff00ff";
+    return best;
+  };
+  // Nothing far enough: the free candidate furthest (CIEDE2000) from the rest.
+  const leastClose = (): string | undefined => {
+    let best: string | undefined;
+    let bestDistance = -1;
+    for (const candidate of ALL_AI_CANDIDATES) {
+      if (used.has(candidate)) continue;
+      const distance = minDeltaE(candidate);
+      if (distance > bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    return best;
+  };
+  for (const id of [...ids].sort()) {
+    const initial = initialOf(nameFor(id));
+    const color =
+      bestFarEnough(AI_COLOR_CANDIDATES, initial, COLOR_BLIND_MIN_DISTANCE) ??
+      bestFarEnough(AI_EXTRA_COLOR_CANDIDATES, initial, COLOR_BLIND_MIN_DISTANCE) ??
+      bestFarEnough(ALL_AI_CANDIDATES, initial, -1) ??
+      leastClose() ??
+      BASE_PALETTE.find((hex) => !used.has(hex)) ??
+      "#ff00ff";
     used.add(color);
     assigned.push({ color, initial });
     result.set(id, color);

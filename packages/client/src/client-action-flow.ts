@@ -1,14 +1,10 @@
-import { processAutoBuilds } from "./client-structure-build-trigger/client-process-auto-builds.js";
+import { processAutoBuilds } from "./client-structure-build-trigger/client-process-auto-builds.js"; import { blockOfflineGameCommand } from "./client-offline-command-guard/client-offline-command-guard.js";
 import { dispatchTileAetherAction } from "./client-afc-upgrades/client-afc-tower-action.js";
 import { createGarrisonManyFlow } from "./client-garrison-many/client-garrison-many.js";
 import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type ChosenStructureTier, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
-import {
-  enqueueAdjacentExpandWaypoint,
-  enqueueRelayBeaconFrontierWaypoint,
-  relayBeaconFrontierBlockMessage,
-  waypointBlockReasonMessage
-} from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { isRelayBeaconPlacementRetap, startRelayBeaconChain } from "./client-relay-beacon-placement/client-relay-beacon-placement.js";
 import { persistedFoggedTileFallback } from "./client-action-flow-fogged-tile-fallback.js";
 import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion-target.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
@@ -29,6 +25,8 @@ import { ensureClientCommandEnvelope } from "./client-command-envelope/client-co
 import { pacedSocketSend } from "./client-command-pacer/client-command-pacer.js";
 import { clearMusterTransitForAttack } from "./client-muster-transit/client-muster-transit.js";
 import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
+import { handleScoutDronePickClick } from "./client-scout-drone/client-scout-drone-picking.js"; import { openRelicSiteCardAt } from "./client-relic-overlay/relic-site-plates.js"; // a tap on a relic site opens its card, not a scout plan
+import { handleCrystalTargetingClick } from "./client-tile-action-logic/client-crystal-targeting.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { dispatchSimpleTileCommand } from "./client-abandon-territory-confirm/client-abandon-territory-confirm.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
@@ -76,7 +74,7 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
-import { requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-ring-garrison.js";
+import { handleTownPlotAction, requestGarrisonWithTownRing } from "./client-town-ring-garrison/client-town-plot-garrison.js";
 import { processAutoSettleTargetsForState } from "./client-auto-settle-targets/client-process-auto-settle-targets.js";
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
@@ -128,7 +126,7 @@ import {
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { handleGenericBuildAction } from "./client-generic-build-action.js";
-import { handleAfcTileAction } from "./client-afc-tile-action.js";
+import { afcArmTapMenuOptions, handleAfcTileAction, ownAfcFootprintTapTarget } from "./client-afc-tile-action.js";
 import {
   areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
@@ -150,7 +148,9 @@ import {
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
-import { neutralTileClickOutcome, tapClaimsAdjacentTile, type TileTapInput } from "./client-tile-interaction/client-tile-interaction.js";
+import { confirmPromptOffer, confirmTapAction, confirmTapActionForTile, confirmTapReady, createTapConfirm, neutralTileClickOutcome, offerBesideTileSheet } from "./client-tile-interaction/client-tile-interaction.js";
+import { createSheetDismissDisarm } from "./client-tile-interaction/client-tap-confirm-dismiss.js";
+import { createTapConfirmButton } from "./client-tap-confirm-button/client-tap-confirm-button.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
@@ -253,7 +253,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
-    if (!requireAuthedSession(message)) {
+    if (blockOfflineGameCommand(state, showCaptureAlert) || !requireAuthedSession(message)) {
       return false;
     }
     if (
@@ -466,12 +466,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   // Owned-tile build entry point: settles-then-builds on a FRONTIER tile (mirroring the Relay Beacon frontier chain) or
   // builds immediately on SETTLED -- or, for the siege ladder (structureSkipsSettledRequirement), on FRONTIER too, no settle. A 2nd build click on a tile already queued is blocked, not overwritten.
-  const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile, tier?: ChosenStructureTier): void => {
+  const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile, tier?: ChosenStructureTier, placementConfirmed = false): void => {
     const targetKey = keyFor(selected.x, selected.y);
     const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);
     const skipsSettle = structureSkipsSettledRequirement(structureType);
     if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
-    if (selected.ownershipState === "SETTLED" || (selected.ownerId === state.me && skipsSettle)) {
+    // A Relay Beacon on own FRONTIER land also opens placement (reach preview + Confirm) before the garrison spends.
+    if (selected.ownershipState === "SETTLED" || (selected.ownerId === state.me && (skipsSettle || (structureType === "RELAY_BEACON" && !placementConfirmed)))) {
       hideTileActionMenu();
       triggerBuildForStructureType(structureType, selected, tier);
       return;
@@ -687,7 +688,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (musterWatchGuard.shouldSendUnwatch()) sendGameMessage({ type: "UNWATCH_MUSTER" });
   };
 
+  const tapConfirm = createTapConfirm(() => `${state.camX},${state.camY},${state.zoom}`); // a pan or zoom lapses the arm
+  const confirmButton = createTapConfirmButton(); // the big confirm prompt at the tapped tile
+  const sheetDismiss = createSheetDismissDisarm({ win: typeof window === "undefined" ? undefined : window, disarm: tapConfirm.disarm });
   const hideTileActionMenu = (): void => {
+    sheetDismiss.sheetHidden(); // a dismissed selection never spends on a later tap
     sendUnwatchMusterIfWatching();
     if (typeof hideTileActionMenuFromDeps === "function") {
       hideTileActionMenuFromDeps();
@@ -1079,7 +1084,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab }): void => {
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab; afcArmSocket?: number }): void => {
     if (tile.muster?.ownerId === state.me) {
       musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
@@ -1101,6 +1106,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   });
 
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
+    tapConfirm.disarm(); // an action button ran: the next map tap selects again, never re-fires it
     if (state.garrisonMany.active) garrisonMany.cancel();
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
@@ -1115,7 +1121,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage, originKey: _originKeyOverride })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage, originKey: _originKeyOverride, openTileMenu: (tile) => openSingleTileActionMenu(tile, window.innerWidth / 2, window.innerHeight / 2) })) return;
 
     if (actionId === "settle_many" && selected) {
       clearCrystalTargeting();
@@ -1203,20 +1209,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
-    if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
-    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, viewForTile: tileMenuViewForTile, queueDevelopmentAction })) return;
+    if (handleTownPlotAction(actionId, selected, { state, sendGameMessage, requestSettlement, now: Date.now() })) return hideTileActionMenu(); // growth + "Garrison N plots"
+    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu, state, viewForTile: tileMenuViewForTile, queueDevelopmentAction, renderPlacementOverlay: () => { renderPlacementOverlay(); renderHud(); } })) return;
     if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_relay_beacon_frontier") {
-      if (selected && !selected.ownerId) {
-        const blockReason = enqueueRelayBeaconFrontierWaypoint(state, selected.x, selected.y, keyFor, sendGameMessage, processActionQueue);
-        if (blockReason) {
-          const { title, detail } = relayBeaconFrontierBlockMessage(blockReason);
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, title, detail);
-        }
-      }
       hideTileActionMenu();
+      if (selected && !selected.ownerId) triggerBuildForStructureType("RELAY_BEACON", selected); // reach preview + Confirm before anything is spent
       return;
     }
     if (actionId === "remove_structure") {
@@ -1310,6 +1310,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
     createBuildingPlacementFlow(state, {
       keyFor, pushFeed, renderHud, sendDevelopmentBuild, applyOptimisticStructureBuild, sendGameMessage,
+      confirmPrompt: confirmButton,
+      startRelayBeaconChain: (tile) => startRelayBeaconChain(state, tile, {
+        keyFor, sendGameMessage, processActionQueue, warn: (title, detail) => showVisibleActionWarning({ pushFeed, showCaptureAlert }, title, detail),
+        garrisonThenBuild: (t) => handleBuildAction("build_relay_beacon", "RELAY_BEACON", t, undefined, true)
+      }),
       placementOverlayEl: deps.placementOverlayEl,
       placementLabelEl: deps.placementLabelEl
     });
@@ -1318,12 +1323,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     suppressNextClick: false
   };
 
-  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number, tapInput: TileTapInput = "mouse"): void => {
+  const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
     if (mapInteractionFlags.suppressNextClick) {
       mapInteractionFlags.suppressNextClick = false;
       return;
     }
+    const confirmTap = tapConfirm.take(wx, wy); // select first, then confirm (client-tile-interaction.ts)
     hideTileActionMenu();
+    confirmButton.notePoint(clientX, clientY);
+    const reTap = (): void => { mapInteractionFlags.suppressNextClick = false; handleTileSelection(wx, wy, clientX, clientY); }; // the prompt confirms exactly like a second tap
 
     if (garrisonMany.select(wx, wy)) return;
 
@@ -1386,42 +1394,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (state.crystalTargeting.active) {
-      if (vis === "unexplored") {
-        renderHud();
-        return;
-      }
-      if (clicked) state.selected = { x: wx, y: wy };
-      if (clicked && executeCrystalTargeting(clicked)) {
-        renderHud();
-        return;
-      }
-      if (clicked && vis === "visible") {
-        pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
-      }
+      handleCrystalTargetingClick(state, clicked, wx, wy, vis, executeCrystalTargeting, pushFeed);
       renderHud();
       return;
     }
-    if (handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
-    if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
-    // True when (x,y) falls inside the local player's fixed-border reach --
-    // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
-    // client-local approximation of the server's authoritative reach, not
-    // fog/vision-gated (a tile can be in reach long before it's ever been
-    // seen). Used below to decide whether an adjacent-neutral click should
-    // still auto-queue a bare EXPAND, or instead open the tile menu so the
-    // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
-    // ever appears inside that menu -- actually has a chance to be seen.
+    if (openRelicSiteCardAt(state, wx, wy) || handleScoutDronePickClick(state, wx, wy, { pushFeed, sendGameMessage, renderHud }) || handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
+    if (isRelayBeaconPlacementRetap(state, wx, wy) && isPlacementValidForTile(clicked)) return confirmBuildingPlacement(); // re-tapping a valid previewed tile confirms
+    if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderPlacementOverlay(); renderHud(); return; }
+    // Local reach approximation (client-reach-overlay.ts MOCK-DATA SEAM); only logged by the tile-sync debug below.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
       resolveMyReachCached(state).has(keyFor(x, y));
-    // Shared with the "visible" neutral-adjacent click path below: a mouse click
-    // claims an adjacent-reachable tile immediately instead of opening a menu
-    // (a touch tap only inspects -- tapClaimsAdjacentTile). Lifted
-    // out so fogged tiles adjacent to owned territory can also
-    // start a frontier expand directly, rather than only ever showing a
-    // description popup (or, for unexplored tiles, nothing at all) just
-    // because their true terrain/ownership isn't confirmed yet -- the queue
-    // already tolerates a claim against a stale/wrong guess via
-    // frontierSyncWaitUntilByTarget, the same as any other rejected attempt.
+    // Claims an adjacent tile on the confirming tap (visible or fogged); a stale fogged guess is
+    // tolerated via frontierSyncWaitUntilByTarget like any other rejected attempt.
     const queueAdjacentExpandClaim = (x: number, y: number): void => {
       const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;
       const isActiveCapture = Boolean(state.capture && state.capture.target.x === x && state.capture.target.y === y);
@@ -1453,12 +1437,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral && tapClaimsAdjacentTile(tapInput) ? pickOriginForTarget(wx, wy, false) : undefined;
+      const frontierOrigin = isLand && isNeutral && confirmTap ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
       }
-      openSingleTileActionMenu(persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor), clientX, clientY);
+      tapConfirm.arm(wx, wy);
+      const foggedTile = persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor);
+      const adjacentClaim = isLand && isNeutral && Boolean(pickOriginForTarget(wx, wy, false)); // only an adjacent claim confirms on a re-tap here
+      confirmButton.offer(offerBesideTileSheet(adjacentClaim ? confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(foggedTile))) : undefined), reTap);
+      openSingleTileActionMenu(foggedTile, clientX, clientY);
       renderHud();
       return;
     }
@@ -1474,16 +1462,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    const to = clicked;
+    const to = ownAfcFootprintTapTarget(state.tiles, state.me, wx, wy) ?? clicked; // an own AFC's support tile opens the AFC
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
-    state.selected = { x: wx, y: wy };
+    state.selected = { x: to.x, y: to.y };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
       hasFrontierOrigin: Boolean(frontierOrigin),
       isNeutral: !to.ownerId,
-      tapInput
+      confirmTap
     });
     // Enable via localStorage.setItem("tile-sync-debug", "1") in the
     // browser console, then click a tile -- prints what the click decided.
@@ -1500,18 +1488,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       });
     }
     if (clickOutcome === "queue-adjacent-neutral") {
-      // Re-clicking a tile that's already sitting in the action queue
-      // behind the active capture, or a tile that's ALREADY the active
-      // capture, must open its progress/cancel/rush-buy/jump-to-front
-      // detail, not re-run the afford/enqueue gate below — gold for an
-      // active claim was already spent (a since-drained wallet must never
-      // block re-viewing it), and enqueueTarget silently no-ops on an
-      // already-queued target, which would otherwise leave the click with
-      // no menu and no feedback. (queueAdjacentExpandClaim handles this.)
+      // An already-queued or active-capture tile opens its progress detail instead (queueAdjacentExpandClaim).
       queueAdjacentExpandClaim(to.x, to.y);
       return;
     }
-    openSingleTileActionMenu(to, clientX, clientY);
+    // A second tap fires the sheet's claim/attack: not on own land (Garrison), not against an ally or truce partner.
+    const pactHolder = isTileOwnedByAlly(to) || Boolean(to.ownerId && activeTruceWithPlayer(to.ownerId));
+    const confirmAction = confirmTapActionForTile(menuActionsForSingleTile(to), { ownTile: to.ownerId === state.me, pactHolder });
+    if (confirmTap && confirmAction && confirmTapReady(confirmAction)) {
+      handleTileAction(confirmAction.id);
+      renderHud();
+      return;
+    }
+    tapConfirm.arm(wx, wy);
+    confirmButton.offer(offerBesideTileSheet(confirmAction && (() => confirmPromptOffer(confirmTapAction(menuActionsForSingleTile(state.tiles.get(keyFor(to.x, to.y)) ?? to))))), reTap); // live: an attack's cost lands with its preview
+    openSingleTileActionMenu(to, clientX, clientY, to === clicked ? undefined : afcArmTapMenuOptions(to, wx, wy)); // an arm tap spotlights that arm's module
     requestAttackPreviewForHover();
     renderHud();
   };

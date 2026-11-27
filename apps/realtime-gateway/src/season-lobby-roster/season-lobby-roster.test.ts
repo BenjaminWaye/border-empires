@@ -57,4 +57,14 @@ describe("season lobby roster", () => {
     roster.checkIn("p1", "Alice");
     expect(roster.size()).toBe(2);
   });
+
+  it("carries a title and reports a change when it is gained or lost", () => {
+    const roster = createSeasonLobbyRoster();
+    roster.checkIn("p1", "Varn");
+    expect(roster.checkIn("p1", "Varn", undefined, "Count")).toBe(true);
+    expect(roster.entries()).toEqual([{ playerId: "p1", name: "Varn", title: "Count" }]);
+    expect(roster.checkIn("p1", "Varn", undefined, "Count")).toBe(false);
+    expect(roster.checkIn("p1", "Varn")).toBe(true);
+    expect(roster.entries()).toEqual([{ playerId: "p1", name: "Varn" }]);
+  });
 });

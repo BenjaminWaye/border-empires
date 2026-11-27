@@ -9,6 +9,8 @@ body.hud-v2-compact .v2s-head {
   top: var(--v2c-top); left: calc(var(--v2c-safe-left) + 8px); right: calc(var(--v2c-safe-right) + 8px); gap: 10px; flex-wrap: wrap;
 }
 body.hud-v2-compact .v2s-title { font-size: 17px; letter-spacing: 0.08em; }
+/* Keep the line on the title row so the screen body below never moves. */
+body.hud-v2-compact .v2s-hint { flex: 1 1 0; font-size: 11px; }
 body.hud-v2-compact .v2s-back { height: var(--v2c-touch); }
 /* No Esc key on a phone: back is the button or the back gesture. */
 body.hud-v2-compact .v2s-back kbd,
@@ -57,6 +59,8 @@ body.hud-v2-compact .v2p-grid { grid-template-columns: minmax(0, 1fr); }
 /* Towns: name plus four short-labelled numbers fit at 360px. */
 body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
 body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* Six number columns overlap at 375px: phones drop Slots (the town screen still shows it) to make room for MP. */
+body.hud-v2-compact .v2l-head > :nth-child(6), body.hud-v2-compact .v2l-row > :nth-child(6) { display: none; }
 body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
 body.hud-v2-compact .v2l-sort { white-space: normal; text-align: right; line-height: 1.2; }
 
@@ -70,10 +74,15 @@ body.hud-v2-compact .v2c-drawer {
 }
 body.hud-v2-compact .v2c-close { height: 36px; }
 body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-body.hud-v2-compact .v2c-tab { height: var(--v2c-touch); }
+/* Four tabs on a 375px sheet: tighter gutters so Updates and its badge stay on the row. */
+body.hud-v2-compact .v2c-tabs { padding: 0 6px; }
+body.hud-v2-compact .v2c-tab { height: var(--v2c-touch); padding: 0 8px; letter-spacing: 0.06em; }
+body.hud-v2-compact .v2c-agenda-row { padding: 8px 10px; }
+body.hud-v2-compact .v2c-ahead-row { min-height: var(--v2c-touch); padding: 6px 10px; }
 body.hud-v2-compact .v2c-filter { height: 34px; }
 body.hud-v2-compact .v2c-row { grid-template-columns: 36px 22px minmax(0, 1fr) auto; min-height: var(--v2c-touch); padding: 6px 10px; }
 body.hud-v2-compact .v2c-show { height: 34px; }
+body.hud-v2-compact .v2c-find { padding: 6px 0; }
 body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
 /* Short phones (667px): a half sheet left the list ~2 rows tall under the summary; open to the ribbon instead. */
 @media (orientation: portrait) and (max-height: 760px) {
@@ -84,7 +93,10 @@ body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
      guide docked): the tree keeps a floor and the card shrinks and scrolls. */
   body.hud-v2-compact .v2m-scroll { flex: 1 1 0; min-height: max(96px, 34%); }
   body.hud-v2-compact .v2m-detail { flex: 0 1 auto; min-height: 0; max-height: 30dvh; }
-  body.hud-v2-compact .v2m-detail > .v2s-btn { position: sticky; bottom: 0; box-shadow: 0 10px 0 rgb(15, 13, 10); }
+  /* Pinned over the scrolling text, so it must be opaque: a disabled button's 0.55 opacity let the lines scrolling
+     under it show through its label. A strip of the card colour above it keeps text from touching its edge. */
+  body.hud-v2-compact .v2m-detail > .v2s-btn { position: sticky; bottom: 0; box-shadow: 0 10px 0 rgb(15, 13, 10), 0 -8px 0 rgb(15, 13, 10); }
+  body.hud-v2-compact .v2m-detail > .v2s-btn:disabled { opacity: 1; background: rgb(45, 39, 29); border-color: rgb(74, 63, 44); color: rgb(150, 138, 112); }
 }
 
 /* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
@@ -102,10 +114,11 @@ body.hud-v2-compact .v2t-stat-v { font-size: 14px; }
 body.hud-v2-compact .v2t-h { padding: 8px 12px 4px; }
 body.hud-v2-compact .v2t-built-list { flex: none; overflow: visible; }
 body.hud-v2-compact .v2t-built { padding: 4px 12px; }
-body.hud-v2-compact .v2t-grow-wrap { padding: 8px 12px 10px; }
+/* Not pinned on phones: the panel is only 34dvh, and the foot is where a previewed focus pins its Confirm. */
+body.hud-v2-compact .v2t-grow-wrap { position: static; padding: 8px 12px 10px; }
 body.hud-v2-compact .v2t-grow { height: 46px; }
 body.hud-v2-compact .v2t-right {
-  left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); width: auto; border-width: 1px 0;
+  left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px)); width: auto; border-width: 1px 0;
 }
 body.hud-v2-compact .v2t-build-head { padding: 8px 12px 6px; }
 body.hud-v2-compact .v2t-build-close { width: var(--v2c-touch); height: var(--v2c-touch); }
@@ -122,8 +135,10 @@ body.hud-v2-compact #v2t-build > * { flex-shrink: 0; }
 body.hud-v2-compact #v2t-build .v2t-build-list,
 body.hud-v2-compact #v2t-build .v2t-work { flex: none; max-height: none; min-height: 0; overflow: visible; }
 body.hud-v2-compact #v2t-build .v2t-place-docked { position: sticky; bottom: 0; z-index: 1; margin-top: auto; }
+/* Sized to its content (a wrapped link row used to push Garrison / Raise flag / ◁ Map out of a fixed 118px);
+   the panels above end at its measured height, --v2c-town-bar-h (client-hud-v2-town-bar-height.ts). */
 body.hud-v2-compact #v2t-bar.v2t-bar {
-  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: calc(var(--v2c-town-bar, 118px) + var(--v2c-safe-bottom)); overflow-y: auto;
+  box-sizing: border-box; left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: 50dvh; overflow-y: auto;
   padding: 8px calc(var(--v2c-safe-right) + 8px) calc(var(--v2c-safe-bottom) + 8px) calc(var(--v2c-safe-left) + 8px); border-width: 1px 0 0;
 }
 body.hud-v2-compact .v2t-act { min-height: 48px; height: auto; }
@@ -172,7 +187,7 @@ body.hud-v2-compact .v2b-panel-actions .v2s-btn:last-child { width: auto; flex: 
   /* Docked to the side at full height: no detents to drag between, so no grabber (a drag could only close it unseen). */
   body.hud-v2-compact .hud-v2-sheet-grabber { display: none; }
   body.hud-v2-compact .v2c-drawer { bottom: var(--v2c-bottom); }
-  body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); max-height: none; }
+  body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: var(--v2c-town-bar-h, calc(var(--v2c-safe-bottom) + 118px)); max-height: none; }
   body.hud-v2-compact .v2t-right { left: auto; width: 56vw; top: var(--v2c-top); }
   body.hud-v2-compact .v2b-side { max-height: calc(100dvh - var(--v2c-safe-top) - 84px - 150px); }
   body.hud-v2-compact .v2b-panel { left: 25vw; right: 25vw; max-height: 150px; }

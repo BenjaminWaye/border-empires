@@ -9,6 +9,7 @@ import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
 import { formatRoughMinutes } from "../client-town-growth/client-town-growth.js";
+import { townSupportCoinLines } from "../client-town-support-coin/client-town-support-coin.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -166,23 +167,12 @@ export const tileOverviewModifiersForTile = (tile: Tile, options: { omitTownCoin
             }
       );
     }
-    // Support ring below full strength directly scales down town gold
-    // production (supportRatio multiplier, apps/simulation/src/
-    // live-town-summary.ts) — real and worth naming, not cosmetic.
-    if (
-      withCoinLines &&
-      tile.town.populationTier !== "SETTLEMENT" &&
-      Number.isFinite(tile.town.supportMax) &&
-      tile.town.supportMax > 0 &&
-      Number.isFinite(tile.town.supportCurrent) &&
-      tile.town.supportCurrent < tile.town.supportMax
-    ) {
-      const supportRatio = tile.town.supportCurrent / tile.town.supportMax;
-      modifiers.push({
-        reason: `Support ${tile.town.supportCurrent}/${tile.town.supportMax}`,
-        effect: `${percentLabel((supportRatio - 1) * 100)} coin production`,
-        tone: "negative"
-      });
+    // Ungarrisoned support plots scale down town coin (inner ring: the base; outer ring: the tier bonus;
+    // town-support-coin.ts) — real and worth naming, not cosmetic.
+    if (withCoinLines && tile.town.populationTier !== "SETTLEMENT") {
+      for (const line of townSupportCoinLines(tile.town)) {
+        modifiers.push({ reason: line.label, effect: `${percentLabel(line.effectPct)} coin production`, tone: "negative" });
+      }
     }
     for (const growth of tile.town.growthModifiers ?? []) {
       if (inCaptureShock || (inWarPause && growth.label === "Nearby war")) continue;
@@ -283,8 +273,8 @@ export const waystationOverviewLines = (
   if (!waystation) return [];
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
-    lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free Manifest, +1 resource slot, Coin, or manpower." });
+    lines.push(effectLine("Status", tile.ownerId === deps.me ? "Reward available · press Activate" : "Dormant", "neutral"));
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile, then press Activate to collect its reward. It grants one random bonus: vision, a population burst in a nearby town, a free Manifest, +1 resource slot, Coin, or manpower." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));
@@ -347,7 +337,7 @@ export const tileFeatureLeadLines = (
   }));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
-  if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
+  if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" class="inline-info-link" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
   const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
   if (clueLine && tile.prospectSignature) {
     const resource = resourceRevealCategory(prospectSignatureResource(tile.prospectSignature));

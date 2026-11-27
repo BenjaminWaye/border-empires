@@ -39,10 +39,12 @@ export type DiplomacySettlementInput = {
   refundIfLate?: boolean;
   /** Original settlement whose supply commitment must be released by this refund. */
   refundOf?: string;
+  /** Pays back a deal that fell through: returned towns go back without the "taken from them" check. */
+  refund?: true;
   commandId?: string;
   issuedAt?: number;
   /** A truce's length: how long Coin per hour without resource slots is paid. */
-  coinTermHours?: 12 | 24;
+  coinTermHours?: number;
 };
 
 export type DiplomacySettlementDeps = {
@@ -92,7 +94,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
   };
 
   const refundLatePayment = (commandId: string, deal: Abandoned): void => {
-    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false, ...(termsCreateAgreement(deal.terms) ? { refundOf: commandId } : {}) }).then((refund) => {
+    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false, refund: true, ...(termsCreateAgreement(deal.terms) ? { refundOf: commandId } : {}) }).then((refund) => {
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_late_refund", {
         commandId,
         proposerId: deal.proposerId,
@@ -102,7 +104,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
     });
   };
 
-  const settle = async ({ proposerId, targetId, terms, refundIfLate = true, refundOf, commandId: suppliedCommandId, issuedAt, cancelAgreementId, coinTermHours }: DiplomacySettlementInput & { cancelAgreementId?: string }): Promise<DiplomacySettlementResult> => {
+  const settle = async ({ proposerId, targetId, terms, refundIfLate = true, refundOf, refund, commandId: suppliedCommandId, issuedAt, cancelAgreementId, coinTermHours }: DiplomacySettlementInput & { cancelAgreementId?: string }): Promise<DiplomacySettlementResult> => {
     if (!cancelAgreementId && diplomacyTermsAreEmpty(terms)) return { ok: true };
     if (!deps.isSimulationConnected()) return { ok: false, message: "The world is unavailable right now. Try again shortly." };
     if (pending.size >= MAX_PENDING_DIPLOMACY_SETTLEMENTS) {
@@ -128,7 +130,8 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
         issuedAt: issuedAt ?? deps.now(),
         type: cancelAgreementId ? "CANCEL_RESOURCE_SUPPLY" : "SETTLE_DIPLOMACY_TERMS",
         payloadJson: cancelAgreementId ? JSON.stringify({agreementId:cancelAgreementId}) : JSON.stringify({ proposerId, targetId, proposerPays: terms.give, targetPays: terms.ask,
-          ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {}), ...(coinTermHours ? { coinTermHours } : {}), ...(refundOf ? { refundOf } : {}) })
+          ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {}), ...(coinTermHours ? { coinTermHours } : {}), ...(refundOf ? { refundOf } : {}),
+          ...(refund ? { refund: true } : {}) })
       });
     } catch (error) {
       deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_submit_failed", {

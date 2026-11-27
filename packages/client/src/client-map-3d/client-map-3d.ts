@@ -6,7 +6,6 @@ import { createCornerSurfaceSampler } from "../client-map-3d-heightfield/client-
 import { createDeferredBuildingOverlay } from "../client-town-district/deferred-building-overlay.js";
 import { addTownForTile } from "./client-map-3d-town-placement.js";
 import { createAfcPadSurfaceSampler } from "../client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
-import { createTownSupportMarkerSync } from "../client-town-district/town-support-marker-sync.js";
 import { createDistrictMap3D } from "../client-town-district/district-map-3d.js";
 import { singleTileSelectionForMap } from "../client-garrison-many/client-garrison-many-model.js";
 import { createGarrisonSelection3D } from "../client-garrison-many/client-garrison-many-3d.js";
@@ -21,7 +20,7 @@ import {
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { forestTreeKeepSlot, shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { addMusterFlagForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowContainsPoint, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createRebuildThrottle } from "./client-map-3d-rebuild-throttle.js";
@@ -31,17 +30,17 @@ import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-o
 import { createOwnershipDebugEmitter } from "../client-map-3d-ownership-debug/client-map-3d-ownership-debug.js";
 import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js";
 import { createFortPerimeterWallOverlay3D } from "../client-map-3d-fort-perimeter-wall.js";
-import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
+import { createFrontierClaimVisuals } from "../client-map-3d-expand-crew/client-map-3d-expand-crew.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { addFoggedOverlayTile, foggedOverlayTileAt } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
-import { addRememberedBuildingsForTile } from "./client-map-3d-remembered-buildings.js";
+import { addRememberedBuildingsForTile, rememberedForestKeepSlot } from "./client-map-3d-remembered-buildings.js";
 import { createFogOverlays } from "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
-import { createHillTerrain } from "../client-map-3d-hills.js";
+import { createHillTerrain, forestZoneFromHeightfield } from "../client-map-3d-hills.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
 import { hasLiveNeighbour, isShallowSeaTile, terrainVisibilityLookups } from "./client-map-3d-terrain-tile-rules.js";
 import { FOGGED_FEATURE_TINT, FOGGED_WASH } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
@@ -64,6 +63,9 @@ import {
 import { logOwnershipRenderChange } from "../client-debug/client-debug.js";
 import { createTownOverlay } from "../client-map-3d-town-overlay.js";
 import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
+import { createQueuedTileMarkerPool } from "./client-map-3d-queued-marker-pool.js";
+import { createBattleFlashOverlay3D } from "../client-battle-warnings/client-battle-flash-3d.js";
+import { activeBattleFlashes, battleWarnings } from "../client-battle-warnings/client-battle-warnings.js";
 import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
 import { createSlotResourceBadgeOverlays } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
@@ -71,7 +73,7 @@ import { createNameDecalForMap } from "../client-map-3d-name-decal/client-map-3d
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import { createWinChancePaintOverlay } from "../client-map-3d-win-chance-paint-overlay.js"; import { createArrowOverlay, syncArrowOverlayFrame } from "../client-map-3d-arrow-overlay.js"; import { createShieldAreaOverlay } from "../client-map-3d-shield-area-overlay.js"; import { collectKnownShieldFlags, isShieldCoverageShownOn, tileShieldCoverage } from "../client-known-shield-flags.js";
 import { createScoutDroneOverlay } from "../client-map-3d-scout-drone/client-map-3d-scout-drone-overlay.js";
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js"; import { syncMusterTransitOverlay } from "../client-map-3d-muster-transit-sync.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { siegeTowerBattleTargetFor } from "../client-battle-overlay/client-siege-battle-targets.js";
+import { syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js"; import { syncMusterTransitOverlay } from "../client-map-3d-muster-transit-sync.js"; import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { siegeTowerBattleTargetFor } from "../client-battle-overlay/client-siege-battle-targets.js";
 import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonSync } from "../client-map-3d-aether-bridge-pylon-sync.js";
 import { createFrontierSupplyOverlay } from "../client-map-3d-frontier-supply-overlay.js";
@@ -84,6 +86,7 @@ import { createCaptureAftermathFx3D } from "../client-capture-aftermath/client-m
 import { addHarbourPieceAt, buildHarbourFrame, type HarbourPieceDeps } from "../client-map-3d-harbour/client-map-3d-harbour-placement.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { createDockRouteSync } from "../client-map-3d-dock-route-sync.js";
 import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defense-overlay.js"; import { planetaryDefenseEngagedTileKeys } from "../client-map-3d-planetary-defense-engagement.js";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js"; import { createAfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js"; import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
@@ -194,7 +197,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const allBadgeOverlays = Object.values(resourceBadgeOverlays); // shares the clear/commit/tick/dispose loops below
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene, atmosphere.buildingEnvironmentTexture, () => musterBadgeLookup(deps.state, deps.keyFor)); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
-  const scoutDroneOverlay = createScoutDroneOverlay(scene, { world: { width: WORLD_WIDTH, height: WORLD_HEIGHT }, envMap: atmosphere.buildingEnvironmentTexture, camera, homeSource: deps.state, sceneFor: (x, y, out) => { out.sceneX = toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET; out.sceneZ = toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET; out.surfaceY = aetherBridgeTileSurfaceY(Math.round(x), Math.round(y)); } }); // Explore: the scout drone, its vision ring and route (docs/explore-scout-plan.md)
+  const scoutDroneOverlay = createScoutDroneOverlay(scene, { world: { width: WORLD_WIDTH, height: WORLD_HEIGHT }, envMap: atmosphere.buildingEnvironmentTexture, camera, homeSource: deps.state, planSource: deps.state, sceneFor: (x, y, out) => { out.sceneX = toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET; out.sceneZ = toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET; out.surfaceY = aetherBridgeTileSurfaceY(Math.round(x), Math.round(y)); } }); // Explore: the scout drone, its vision ring and route (docs/explore-scout-plan.md)
   const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const fortPerimeterWallOverlay = createFortPerimeterWallOverlay3D(scene, MAX_VISIBLE_TILES); // fort perimeter wall, client-fort-perimeter.ts
   const battleOverlayFx = createPopupMarineOverlayFx(scene, atmosphere.buildingEnvironmentTexture);
@@ -204,18 +207,19 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
   const { floatingText, aetherLanceFx, surveySweepFx, siphonFx, retortRecastFx, revealEmpireFx, revealEmpireStatsFx, bombardFx, siegeBombardFx } = anchoredFx;
-  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx } = anchoredFx;
+  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, salvageDeliveryFx, waystationOpenFx } = anchoredFx;
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const mapGuideOverlay = createMapGuideOverlay(scene);
   const sovereignSiegeEngineShakeFx = createCameraShakeFx(camera);
   const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const dockRouteOverlay = createDockRouteOverlay(scene); const syncDockRoutes = createDockRouteSync(dockRouteOverlay);
-  const barbarianOverlay = createPlanetaryDefenseOverlay(scene); // Planetary Defense patrols on barbarian-owned tiles
+  const barbarianOverlay = createPlanetaryDefenseOverlay(scene, undefined, MAX_VISIBLE_TILES); // Insurgent patrols on camps + insignia on their frontier
   const relicHintOverlay = createRelicHintOverlay(scene);
   const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const waystationOverlay = createWaystationOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt); const afcOverlayGroup = createAfcOverlayGroup(scene, AFC_MAX_INSTANCES, atmosphere.buildingEnvironmentTexture);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const relayBeaconOverlay = createDeferredBuildingOverlay(() => createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture)); const tradeNexusOverlay = createDeferredBuildingOverlay(() => createTradeNexusOverlay(scene, MAX_VISIBLE_TILES)); const siegeTowerOverlay = createSiegeTowerOverlay(scene, MAX_VISIBLE_TILES, siegeTowerRotationMode, atmosphere.buildingEnvironmentTexture);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const farmlandOverlay = createFarmlandOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const fishingOverlay = createFishingOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture, (wx, wy) => heightfield.cornerYAt(deps.wrapX(wx), deps.wrapY(wy))); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteWeaponsFactoryOverlay = createDeferredBuildingOverlay(() => createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture)); const rawResourceOverlays: RawResourceOverlays = { farmland: farmlandOverlay, fishing: fishingOverlay, titaniumDeposit: titaniumDepositOverlay, umbriteDeposit: umbriteDepositOverlay, generic: resourceOverlay, refined: { addInstance: (x, z, y, resource, wx, wy) => resource === "UMBRITE" ? umbriteExtractionRigOverlay.addInstance(x, z, y, wx, wy) : structureOverlay.addInstance(x, z, y, "MINE", resource) } };
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
+  const battleFlashOverlay = createBattleFlashOverlay3D(scene); // lost-tile flash; 2D path: client-battle-flash-2d.ts
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   // Shared across every ground occupant below (structures, towns,
   // watchtowers, resources, deposits) rather than one per overlay module —
@@ -239,30 +243,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
-  const townSupportMarkers = Array.from({ length: (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1 }, () => { // sized for a wide-ring anchor, matching townSupportTiles below
-    const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
-  const queuedActionMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#a78bfa", transparent: true, opacity: 0.93, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
-  const queuedSettlementMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#fbbf24", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
-  const queuedBuildMarkers = Array.from({ length: 64 }, () => {
-    const material = new LineBasicMaterial({ color: "#7dd3fc", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
-    const marker = new LineSegments(createBendingMarkerGeometry(), material);
-    marker.visible = false;
-    return { marker, material };
-  });
+  // Queued action / settlement / build tile outlines (client-map-3d-queued-marker-pool.ts).
+  const queuedActionMarkers = createQueuedTileMarkerPool("#a78bfa", 0.93);
+  const queuedSettlementMarkers = createQueuedTileMarkerPool("#fbbf24", 0.95);
+  const queuedBuildMarkers = createQueuedTileMarkerPool("#7dd3fc", 0.95);
   // The waypoint flag is a full steampunk tower — anchored to the
   // destination tile and tinted by the player's empire color. Geometry
   // lives in its own factory (client-map-3d-waypoint-flag.ts) so the
@@ -274,8 +258,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   for (const flag of waypointFlags) flag.group.visible = false;
   // March-To target markers -- see client-map-3d-march-target-markers.ts.
   const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
-  // Frontier-claim fill pool -- see client-map-3d-frontier-claim-plate.ts.
-  const frontierClaimPlates = createFrontierClaimPlatePool();
+  // Frontier-claim fill pool + expand crew soldiers -- see client-map-3d-expand-crew.ts.
+  const frontierClaimVisuals = createFrontierClaimVisuals(scene, atmosphere.buildingEnvironmentTexture);
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -292,14 +276,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const selectionRangeOverlays = createSelectionRangeOverlays(scene);
   selectedMarker.renderOrder = RENDER_ORDER.selectedMarker;
   hoverMarker.renderOrder = RENDER_ORDER.hoverMarker;
-  for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
-  for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
@@ -311,14 +293,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   scene.add(
     selectedMarker,
     hoverMarker,
-    ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
     ...waypointFlags.map((flag) => flag.group),
     ...marchTargetFlagGroups,
-    ...frontierClaimPlates
+    ...frontierClaimVisuals.objects
   );
 
   // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
@@ -376,21 +357,18 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const garrisonSelection = createGarrisonSelection3D(scene);
   // Shared with the 2D renderer -- see client-town-support-plot-lookup.ts.
   const townSupportLookupDeps: TownSupportLookupDeps = {
-    tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
+    get tiles() { return deps.state.tiles; }, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, get me() { return deps.state.me; }
   };
-  const syncTownSupportMarkers = createTownSupportMarkerSync({ state: deps.state, markers: townSupportMarkers, lookup: townSupportLookupDeps,
-    keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, origin: sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
-    cornerYAt: (x, y) => heightfield.cornerYAt(x, y), toroidDelta, rise: MARKER_RISE_ABOVE_HEIGHTFIELD });
-  let latestHillCutAt: (x: number, y: number) => RoadCutDirections | undefined = () => undefined; // set by each terrain rebuild; read by the per-frame hatch sync
+  let latestHillCutAt: (x: number, y: number) => RoadCutDirections | undefined = () => undefined; // set by each terrain rebuild; read by the per-frame corner-marker sync
   const syncTownSupportTiles = createTownSupportTileSync({
-    overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
+    overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, hover: () => deps.state.hover, visibleAt: (x, y) => deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) === "visible", sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
     cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD
   });
   const district = createDistrictMap3D(scene, MAX_VISIBLE_TILES, { state: deps.state, origin: sceneOrigin,
     visibilityAt: deps.tileVisibilityStateAt, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile,
     hillCutAt: (x, y) => latestHillCutAt(x, y), rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, qualityTier }, atmosphere.buildingEnvironmentTexture);
   const buildingInstanceOverlays = { structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, tradeNexusOverlay, ambaricTransformerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay, district };
-  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, afcOverlay: afcOverlayGroup, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays }; // fogged tiles: last-seen buildings, standing still
+  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, afcOverlay: afcOverlayGroup, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays, rawResources: rawResourceOverlays }; // fogged tiles: last-seen buildings, standing still
   const nameDecal = createNameDecalForMap({ scene, state: deps.state, isExploredAt: (x, y) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "unexplored", heightfield, isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, wrapX: deps.wrapX, wrapY: deps.wrapY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }); // map names inked on the ground
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
@@ -530,7 +508,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       imperialExchangeLevyFx,
       astralDockLaunchFx,
       aegisLockFx,
-      unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, floatingText
+      unsettleFx, afcModuleDeliveryFx, afcDropFx, townTierUpgradeFx, salvageDeliveryFx, waystationOpenFx, floatingText
     }
   });
   const syncAetherBridgePylons = createAetherBridgePylonSync(aetherBridgePylonOverlay, { tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, tileSurfaceY: aetherBridgeTileSurfaceY, sceneOrigin });
@@ -621,7 +599,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const roadNetworkMs = performance.now() - roadNetworkStartAt;
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
-    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt: hillCutAt });
+    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt: hillCutAt, forestZoneAt: forestZoneFromHeightfield(heightfield.cornerAttributesAt) });
     riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield, isFoggedAt: riverFoggedAt(revealWholeMapInTrue3DMode, visibilityAt) });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
@@ -752,7 +730,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // darkened + last-known-owner tint and the last-seen buildings (standing
         // still) before its own `continue`, so fogged tiles never reach the live
         // overlay code (roads, live structures, units, FX) further down this loop.
-        relicHintOverlay.addHint(deps.state.relicMapHints.get(tileKey), tile, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET);
+        relicHintOverlay.addHint(deps.state.relicMapHints.get(tileKey), tile, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET, deps.effectiveOverlayColor);
         if (visibility === "unexplored" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
@@ -809,7 +787,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // Natural terrain is not live data, so it stays -- fogged like its ground.
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);
-          else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
+          else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint, rememberedForestKeepSlot(tile, wx, wy)); // clears room for a remembered Umbrite deposit, as in sight
           continue;
         }
         if (terrain === "LAND") {
@@ -832,8 +810,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;
         }
+        // Resolve the underlying resource once per tile — used by the resource overlay (for the icon), the structure
+        // overlay (a MINE on GEMS loads blue crystals, not grey ore) and the forest (which clears a space for an Umbrite deposit).
+        const tileResource = terrain === "LAND"
+          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
+          : undefined;
         if (shouldDrawForestInstance(forestTile, tile)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, standingTreeFilter(tile, wx, wy));
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, forestTreeKeepSlot(tile, tileResource, wx, wy));
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "LAND") addTownForTile({ tile, tileKey, x, z, surfaceY, wx, wy }, townPlacement);
@@ -844,10 +827,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         }
         // Rubble of a razed/wrecked structure and smoke over a captured resource, until the hold ends (both renderers).
         if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, x, z, surfaceY, wx, wy, shouldDrawForestInstance(forestTile, tile) ? (tropicalForestTile ? "TROPICAL" : "TEMPERATE") : undefined);
-        if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
-          barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy);
-          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-        }
+        // Insurgents: soldiers on camps, the raised-fist mark on their frontier (remembered land too, like its owner tint).
+        if (tile && isPlanetaryDefenseOwnerId(ownerId) && terrain === "LAND" && barbarianOverlay.addTile(tile, tileKey, { worldX: x, worldZ: z, surfaceY, flatOverlayY, wx, wy }) === "camp") contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy, { state: tile.naturalWonder, ownerId: tile.ownerId ?? undefined, garrisoned: Boolean(tile.ownerId && tile.ownershipState === "SETTLED"), ownerColor: normalizeColorForThree(deps.state.playerColors.get(tile.ownerId ?? "") ?? "#a8b69d") }); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         if (tile?.afc && terrain === "LAND" && visibility === "visible" && !isAfcHiddenForJoinDrop(deps.state.afcJoinDrop, wx, wy)) {
           contactShadowOverlay.addShadow(x, z, flatOverlayY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
@@ -855,13 +836,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             afcOverlayGroup.addAfc(x, z, afcPadSurfaceY(wx, wy), wx, wy, tile.afc.modules ?? []);
           }
         }
-        // Resolve the underlying resource once per tile — used by the
-        // resource overlay (for the icon) AND by the structure overlay
-        // (so a MINE on a GEMS tile loads its cart with blue crystals
-        // instead of grey iron ore, keeping the resource readable).
-        const tileResource = terrain === "LAND"
-          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
-          : undefined;
         if (tileResource) {
           addRawResourceInstance(rawResourceOverlays, tileResource, tile, { sceneX: x, sceneZ: z, surfaceY, flatOverlayY, worldTileX: wx, worldTileY: wy }, () => fishingWaterDirection((nx, ny) => isSeaTerrain(terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny))), wx, wy));
           contactShadowOverlay.addShadow(x, z, tileResource === "FISH" ? flatOverlayY : surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); // FISH sits on its levelled hill pad
@@ -876,12 +850,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // set, so it's harmless in production. The MINE entry passes a
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
-        if (tile?.muster && terrain === "LAND") {
-          const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
-          const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
-          const advance = tile.muster.mode === "ADVANCE";
-          musterOverlay.addMuster(x, z, surfaceY + farmlandOverlay.standLiftAt(wx, wy), fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
-        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
+        if (tile?.muster && terrain === "LAND") addMusterFlagForTile(musterOverlay, tile, { sceneX: x, sceneZ: z, surfaceY: surfaceY + farmlandOverlay.standLiftAt(wx, wy), wx, wy, tileKey: deps.keyFor(wx, wy), siegeResolvesAt: incomingAttack?.resolvesAt ?? 0 }, deps);
+        /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
         if (terrain === "LAND") fortPerimeterWallOverlay.addTile(tile, x, z, surfaceY);
         if (terrain === "LAND") addDemoInstancesForTile({ structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, relayBeaconOverlay, fortOverlay }, { x, z, surfaceY, wx, wy }, window.camX, window.camY);
@@ -1127,13 +1097,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReachCached(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
     syncHighlightMarker(selectedMarker, singleTileSelectionForMap(deps.state), MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    syncTownSupportMarkers();
     syncTownSupportTiles();
     syncQueueMarkers();
     garrisonSelection.sync(deps.state.garrisonMany, tileHighlightDeps);
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
+    frontierClaimVisuals.sync(deps.state, deps.keyFor, heightfield, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN", deps.effectiveOverlayColor(deps.state.me));
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
@@ -1164,8 +1133,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); borderDustFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); townTierUpgradeFx.update(nowMs); salvageDeliveryFx.update(nowMs); waystationOpenFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs); nameDecal.tick(nowMs);
+    battleFlashOverlay.sync(activeBattleFlashes(battleWarnings, Date.now()), (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }), Date.now()); // epoch ms, matches the loss stamps
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
@@ -1207,10 +1177,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     garrisonSelection.dispose();
     crystalTargetingOverlay.dispose();
     frontierSupplyOverlay.dispose();
-    for (const { marker, material } of townSupportMarkers) {
-      marker.geometry.dispose();
-      material.dispose();
-    }
     for (const { marker, material } of queuedActionMarkers) {
       marker.geometry.dispose();
       material.dispose();
@@ -1229,7 +1195,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
     for (const flag of waypointFlags) flag.dispose();
     disposeMarchTargetMarkerPool(marchTargetFlags);
-    disposeFrontierClaimPlatePool(frontierClaimPlates);
+    frontierClaimVisuals.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
     reachOverlay3D.dispose();
@@ -1253,7 +1219,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     sovereignSiegeEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); townTierUpgradeFx.dispose(); borderDustFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); townTierUpgradeFx.dispose(); salvageDeliveryFx.dispose(); waystationOpenFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose(); afcOverlayGroup.dispose();
@@ -1261,6 +1227,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose(); siegeTowerOverlay.dispose();
     resourceOverlay.dispose(); farmlandOverlay.dispose(); fishingOverlay.dispose(); titaniumDepositOverlay.dispose(); umbriteDepositOverlay.dispose(); umbriteExtractionRigOverlay.dispose(); umbriteWeaponsFactoryOverlay.dispose();
     attackOverlay.dispose();
+    battleFlashOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
     ambaricTransformerOverlay.dispose();

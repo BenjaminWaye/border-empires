@@ -11,6 +11,11 @@
 
 .tile-auto-settle-option input { margin-top: 2px; }
 
+/* The whole label is the tap target: 44px tall on phones. */
+body.hud-v2-compact .tile-auto-settle-option,
+body.hud-v2-compact .v2t-build-all { min-height: 44px; align-items: center; }
+body.hud-v2-compact .tile-auto-settle-option input { margin-top: 0; }
+
 /* Until a category is answered, a Yes/No question takes the checkbox's place (new players missed the tiny box). */
 .tile-auto-settle-ask {
   display: flex;
@@ -32,22 +37,8 @@
 
 .tile-auto-settle-ask-buttons { display: flex; gap: 8px; flex: 0 0 auto; }
 
-.tile-auto-settle-ask-btn {
-  min-width: 64px;
-  min-height: 34px;
-  padding: 4px 14px;
-  border: 1px solid rgba(255, 209, 102, 0.7);
-  border-radius: 4px;
-  background: transparent;
-  color: #f3e6c4;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.tile-auto-settle-ask-btn.is-yes { background: rgba(255, 209, 102, 0.95); color: #2a1d00; }
-
-.tile-auto-settle-ask-btn:hover { filter: brightness(1.12); }
+/* Yes / No are the shared .v2s-btn-primary / .v2s-btn (44px tall). */
+.tile-auto-settle-ask-btn { min-width: 64px; }
 
 /* After "No": the checkbox lights up so the player sees where to change their mind. */
 .tile-auto-settle-option.is-highlighted {
@@ -61,7 +52,7 @@
   animation: tile-auto-settle-pulse 1.2s ease-in-out 3;
 }
 
-.tile-auto-settle-option.is-highlighted input { width: 18px; height: 18px; margin-top: 0; accent-color: #ffd166; }
+.tile-auto-settle-option.is-highlighted input { margin-top: 0; }
 
 .tile-auto-settle-hint {
   margin-left: auto;

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { screen, type HudV2Deps } from "./client-hud-v2-context.js";
-import { chronicleBadgeCount, chronicleTabClick, renderChronicle, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
+import { chronicleBadgeCount, chronicleTabClick, renderChronicle, resetChronicleBadgeSeenForTests, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { chronicleTabForDashboardView, worldTabHtml } from "./client-hud-v2-chronicle-tabs.js";
 
 const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
@@ -15,6 +15,8 @@ describe("merged Chronicle", () => {
     screen.chronicleUpdatesBaseline = undefined;
     screen.chronicleOpenUpdate = undefined;
     document.body.innerHTML = "";
+    window.localStorage.clear();
+    resetChronicleBadgeSeenForTests();
   });
 
   it("maps the old dashboard's views onto Chronicle tabs", () => {
@@ -77,5 +79,44 @@ describe("merged Chronicle", () => {
     expect(html).toContain("Vasker");
     expect(html).toContain("Border war");
     expect(worldTabHtml({ pulse: undefined, loading: true, error: undefined })).toContain("Loading");
+  });
+
+  // Playtest 2026-11-26: the profile said #23 while World said #24. The pulse is fetched once (and cached by
+  // the gateway); the profile reads the live leaderboard. World now reads the same live leaderboard.
+  it("ranks you and the leading powers from the live leaderboard the profile reads", () => {
+    const pulse = { generatedAt: "", seasonId: "s", rank: 24, leadingPowers: [{ playerId: "old", name: "Stale", score: 1, rank: 1 }], stories: [] };
+    const overall = [{ id: "lead", name: "Vasker", score: 900, rank: 1 }, { id: "me", name: "Me", score: 40, rank: 23 }];
+    const html = worldTabHtml({ pulse, loading: false, error: undefined, standings: { overall, me: "me" } });
+    expect(html).toContain("You #23");
+    expect(html).not.toContain("#24");
+    expect(html).toContain("Vasker");
+    expect(html).not.toContain("Stale");
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: { overall, me: "nobody" } })).toContain("Unranked");
+  });
+
+  // Playtest 2026-11 (staging): the rank went live in #2999 but its ▲/▼ still came from the fetched rank.
+  it("measures the rank arrow against the live rank", () => {
+    // Last visit #25, fetched #24 (rankChange 1), live #23: up 2 since the last visit.
+    const pulse = { generatedAt: "", seasonId: "s", rank: 24, rankChange: 1, leadingPowers: [], stories: [] };
+    const live = (rank: number) => ({ overall: [{ id: "me", name: "Me", score: 40, rank }], me: "me" });
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: live(23) })).toContain("You #23<span class=\"v2c-rank-change v2c-up\">▲2</span>");
+    // Fell back to where the last visit left it: no arrow.
+    expect(worldTabHtml({ pulse, loading: false, error: undefined, standings: live(25) })).not.toContain("v2c-rank-change");
+    // No change at fetch time, then slipped one place live.
+    expect(worldTabHtml({ pulse: { generatedAt: "", seasonId: "s", rank: 24, leadingPowers: [], stories: [] }, loading: false, error: undefined, standings: live(25) })).toContain("▼1");
+  });
+
+  // Playtest 2026-11-18: the button's badge stayed at 117 after reading Yours (unseen release notes only cleared on Updates).
+  it("clears the button badge when the Chronicle is read on Yours, and keeps the Updates tab's own count", () => {
+    const state = createInitialState();
+    state.changelog.seenAt = 1;
+    expect(chronicleBadgeCount(state)).toBeGreaterThan(0);
+    document.body.innerHTML = `<aside id="v2c-drawer"></aside>`;
+    screen.chronicleTab = "yours";
+    renderChronicle(depsFor(state));
+    expect(chronicleBadgeCount(state)).toBe(0);
+    expect(document.querySelector('[data-v2-chronicle-tab="updates"] .v2c-tab-badge')).not.toBeNull();
+    resetChronicleBadgeSeenForTests();
+    expect(chronicleBadgeCount(state)).toBe(0);
   });
 });

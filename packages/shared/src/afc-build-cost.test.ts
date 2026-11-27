@@ -9,8 +9,8 @@ describe("afcBuildCost", () => {
   });
 });
 
-describe("global AFC replacement supply", () => {
-  it("starts at 20 and adds 10 for each global loss after the first", () => {
-    expect([0, 1, 2, 5, 10, 20].map(afcReplacementCost)).toEqual([20, 20, 30, 60, 110, 210]);
+describe("AFC replacement price", () => {
+  it("is one flat 20 Coin, however many AFCs have been lost on the planet", () => {
+    expect(afcReplacementCost()).toBe(20);
   });
 });

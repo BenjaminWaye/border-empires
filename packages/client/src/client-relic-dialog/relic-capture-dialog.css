@@ -26,6 +26,7 @@
 .relic-description { margin:0 0 14px; }
 .relic-effect { border:1px solid var(--relic-edge); background:var(--relic-chip); padding:10px 14px; }
 .relic-effect p { margin:6px 0 0; }
+.relic-effect--status-only { border:0; background:none; padding:0; }
 .relic-benefit:empty,.relic-allocation:empty,.relic-reserve:empty { display:none; }
 .relic-reserve { color:var(--relic-gold-hi); font:12px/1.5 var(--relic-mono); }
 .relic-footnote { font-size:13px; color:var(--relic-muted); }

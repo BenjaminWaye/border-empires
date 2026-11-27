@@ -17,7 +17,7 @@ import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-sup
 import { findMarchOriginsForTarget } from "../client-muster-march-targeting.js";
 import { musterSiegeReason, ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
-type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile"> &
+type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "scoutDronePicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile"> &
   SupplyWarningState;
 type Point = { x: number; y: number };
 
@@ -69,8 +69,8 @@ const hintEl = (): HTMLElement | null => {
   el.style.cssText =
     "position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:12px;" +
     "padding:10px 14px;border-radius:10px;background:rgba(20,18,12,0.92);border:1px solid #ffd54a;color:#fff3c4;" +
-    "font:600 14px/1.3 system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
-  el.innerHTML = `<span data-march-hint-text></span><button type="button" data-march-hint-cancel style="font:inherit;padding:4px 10px;border-radius:6px;border:1px solid #ffd54a;background:transparent;color:inherit;cursor:pointer">Cancel</button>`;
+    "font:600 14px/1.3 var(--sp-font-body);box-shadow:0 6px 18px rgba(0,0,0,0.45);max-width:calc(100vw - 32px)";
+  el.innerHTML = `<span data-march-hint-text></span><button type="button" data-march-hint-cancel class="v2s-btn">Cancel</button>`;
   el.querySelector("[data-march-hint-cancel]")?.addEventListener("click", cancelMarchTargeting);
   document.body.appendChild(el);
   return el;
@@ -127,7 +127,8 @@ export const syncMarchInteraction = (nowMs: number): void => {
 const beginDrag = (x: number, y: number, clientX: number, clientY: number): boolean => {
   if (!deps) return false;
   const { state } = deps;
-  if (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.pendingArrowGestureConfirm) return false;
+  // A press while picking where to send the scout drone is a pan or a pick, never a march re-target.
+  if (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.scoutDronePicking.active || state.pendingArrowGestureConfirm) return false;
   const origin = findMarchOriginsForTarget(state, x, y)[0];
   if (!origin) return false;
   drag = { origin: { x: origin.originX, y: origin.originY }, from: { x, y }, current: { x, y }, pressAt: { x: clientX, y: clientY }, dragging: false };

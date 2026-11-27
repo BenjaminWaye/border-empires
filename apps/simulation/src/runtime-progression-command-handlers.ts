@@ -153,7 +153,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   actor.points -= goldCost;
   const updatedTile = { ...tile, town: { ...town, populationTier: nextTier } };
   context.setTileState(tileKey, updatedTile);
-  // GREAT_CITY widens the town's support ring from radius 1 to 2
+  // CITY widens the town's support ring from radius 1 to 2
   // (supportRingRadiusForTier) -- the reach-anchor pipeline's own auto-claim
   // (applyReachAnchorActivationToBorder -> autoClaimFrontier) never fires
   // here because this tier bump goes through setTileState, not

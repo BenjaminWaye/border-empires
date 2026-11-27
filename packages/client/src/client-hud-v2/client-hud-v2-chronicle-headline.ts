@@ -1,11 +1,15 @@
 // The top of the Chronicle's Yours view for a returning player: what changed
-// since they last looked, in up to three short statements. Playtesters had to
-// piece "lost 129 tiles, all 4 towns, respawned" together from ~15 rows.
+// since they last looked, in up to four short statements. What the player's own
+// orders produced comes first, then what was taken from them (visit loop report,
+// docs/visit-as-a-turn.md §2.1). Labelled "Since you
+// last looked": "Since you left" read wrong mid-session (Playtest Run 4).
+// Playtesters had to piece "lost 129 tiles, all 4 towns, respawned" together from ~15 rows.
 // Built only from the timeline the rows already use, plus the respawn notice
 // the client already holds (state.respawnNotice).
 
 import type { PersonalActivityCard, PersonalActivityTileFeatureCount, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { listNames, plural, roundedAmount, type PlayerNameLookup } from "../client-activity-dashboard/client-activity-dashboard-names.js";
+import { welcomeBackLines, type WelcomeBackSummary } from "../client-welcome-back/client-welcome-back.js";
 
 /** The parts of a respawn notice the headline reads (client-types.ts PlayerRespawnNotice). */
 export type ChronicleRespawn = { at: number; reasonCode: string; spawnTileKey?: string | undefined };
@@ -17,6 +21,8 @@ export type ChronicleHeadlineInput = {
   awaySince: number;
   respawn?: ChronicleRespawn | undefined;
   nameOf: PlayerNameLookup;
+  /** The server's WELCOME_BACK summary; shown when it arrived after the watermark. */
+  welcomeBack?: WelcomeBackSummary | undefined;
 };
 
 export type ChronicleHeadlineTally = {
@@ -25,6 +31,9 @@ export type ChronicleHeadlineTally = {
   townsLost: number;
   townsTaken: number;
   afcsLost: number;
+  /** The player's own builds that finished and waystations they activated. */
+  buildingsCompleted: number;
+  waystationsActivated: number;
   /** Set when the empire was wiped out and given a new start since; coordinates when known. */
   newStart?: { x: number; y: number } | "unknown";
   /** Who each truce that ended was with, once each. */
@@ -95,6 +104,8 @@ export const chronicleHeadlineTally = (input: ChronicleHeadlineInput): Chronicle
   }, { tilesLost: 0, tilesGained: 0, afcsLost: 0 });
   const townsLostCards = recent.filter((card) => card.kind === "TOWN_LOST").length;
   const townsTakenCards = recent.filter((card) => card.kind === "TOWN_CAPTURED").length;
+  const builtCards = recent.filter((card) => card.kind === "BUILDING_COMPLETED").length;
+  const waystationCards = recent.filter((card) => card.kind === "WAYSTATION_ACTIVATED").length;
   const truces = new Set<string>();
   for (const card of recent) {
     if (card.kind !== "DIPLOMACY") continue;
@@ -112,6 +123,8 @@ export const chronicleHeadlineTally = (input: ChronicleHeadlineInput): Chronicle
     townsLost: wholeWindow ? Math.max(s.townsLost, townsLostCards) : townsLostCards,
     townsTaken: wholeWindow ? Math.max(s.townsCaptured, townsTakenCards) : townsTakenCards,
     afcsLost: wholeWindow ? Math.max(afcCount(s.featuresLost), ground.afcsLost) : ground.afcsLost,
+    buildingsCompleted: wholeWindow ? Math.max(s.buildingsCompleted, builtCards) : builtCards,
+    waystationsActivated: wholeWindow ? Math.max(s.waystationsActivated, waystationCards) : waystationCards,
     ...(wiped ? { newStart: parseTileKey(respawn.spawnTileKey) ?? "unknown" } : {}),
     trucesEnded: [...truces],
     coinRaided: roundedAmount(wholeWindow ? timeline.goldRaidedFromYou : recent.reduce((sum, card) => sum + cardCoinRaided(card, me), 0))
@@ -121,22 +134,23 @@ export const chronicleHeadlineTally = (input: ChronicleHeadlineInput): Chronicle
 const count = (n: number): string => n.toLocaleString("en-US");
 const tiles = (n: number): string => `${count(n)} tile${n === 1 ? "" : "s"}`;
 
-/** Up to three short statements, or none when nothing headline-worthy happened. */
+/** Up to four short statements, the player's own results first; none when nothing headline-worthy happened. */
 export const chronicleHeadlineLines = (tally: ChronicleHeadlineTally): string[] => {
   const lines: string[] = [];
+  const results: string[] = [];
+  if (tally.buildingsCompleted > 0) results.push(`Built ${plural(tally.buildingsCompleted, "structure")}`);
+  if (tally.waystationsActivated > 0) results.push(`${results.length > 0 ? "activated" : "Activated"} ${plural(tally.waystationsActivated, "waystation")}`);
+  const gained: string[] = [];
+  if (tally.tilesGained > 0) gained.push(tiles(tally.tilesGained));
+  if (tally.townsTaken > 0) gained.push(plural(tally.townsTaken, "town"));
+  if (gained.length > 0) results.push(`${results.length > 0 ? "gained" : "Gained"} ${listNames(gained)}`);
+  if (results.length > 0) lines.push(`${results.join(" · ")}.`);
   const lost: string[] = [];
   if (tally.tilesLost > 0) lost.push(tiles(tally.tilesLost));
   if (tally.townsLost > 0) lost.push(plural(tally.townsLost, "town"));
   // Named as the AFC: playtesters read an AFC loss as a town's.
   if (tally.afcsLost > 0) lost.push(tally.afcsLost === 1 ? "your AFC" : `${tally.afcsLost} AFCs`);
-  const gained: string[] = [];
-  if (tally.tilesGained > 0) gained.push(tiles(tally.tilesGained));
-  if (tally.townsTaken > 0) gained.push(plural(tally.townsTaken, "town"));
-  const ground = [
-    ...(lost.length > 0 ? [`Lost ${listNames(lost)}`] : []),
-    ...(gained.length > 0 ? [`${lost.length > 0 ? "gained" : "Gained"} ${listNames(gained)}`] : [])
-  ];
-  if (ground.length > 0) lines.push(`${ground.join(" · ")}.`);
+  if (lost.length > 0) lines.push(`Lost ${listNames(lost)}.`);
   if (tally.newStart) {
     lines.push(tally.newStart === "unknown" ? "Wiped out · new start given." : `Wiped out · new start at (${tally.newStart.x}, ${tally.newStart.y}).`);
   }
@@ -152,7 +166,12 @@ const esc = (text: string): string =>
 
 /** The headline block, or "" when there is nothing to say. */
 export const chronicleHeadlineHtml = (input: ChronicleHeadlineInput): string => {
-  const lines = chronicleHeadlineLines(chronicleHeadlineTally(input));
+  const events = chronicleHeadlineLines(chronicleHeadlineTally(input));
+  // What came in while away goes first: it explains a treasury that jumped past the listed rate.
+  const away = input.welcomeBack && input.welcomeBack.at > input.awaySince ? welcomeBackLines(input.welcomeBack) : [];
+  const lines = [...away, ...events];
   if (lines.length === 0) return "";
-  return `<div class="v2c-headline" role="status"><span class="v2c-headline-h">Since you left</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
+  // Nothing gained to open with: the block keeps its alarm colour.
+  const lossOnly = /^(Lost|Wiped)/.test(events[0] ?? "");
+  return `<div class="v2c-headline${lossOnly ? " v2c-headline-loss" : ""}" role="status"><span class="v2c-headline-h">Since you last looked</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
 };

@@ -109,7 +109,14 @@ production merely to test it; rehearse on an isolated database first.
 6. Check the completed receipt, foreign keys and retained neighbours. Restart the
    service, verify health/login and confirm the old account cannot return.
 
-The tool deletes profiles, bindings, telemetry, queued commands, invitations and
+A public House profile (`/house.html?h=<public id>`, see
+[game mechanics](../game-mechanics.md#public-house-profile)) stops being served
+as soon as the request is accepted: `GET /public/house/:publicId` answers 404
+for a pending or completed deletion. Erasure then deletes the account's
+`public_profile_links` row.
+
+The tool deletes profiles, bindings, telemetry, queued commands, invitations,
+owned and selected cosmetics ([`../cosmetics.md`](../cosmetics.md)) and
 private per-account rows. Shared world checkpoints, event logs, season summaries,
 social relationships and galaxy history retain consistent **random replacement
 identifiers**, with account names removed. This preserves other players' world
@@ -125,6 +132,11 @@ actual services: **no account-bearing backup may remain beyond 30 days after
 completion**. Keep backups isolated from normal use, and remove stale manual
 exports rather than treating them as permanent archives. This setting cannot be
 proved by unit tests or by a successful app upload.
+
+Where the hourly B2 backup runs ([`deploys.md`](deploys.md) "Backups"), it also
+copies `/data/account-deletion-ledger.json` off-site each hour. After an erasure,
+run `/opt/border-empires/backup` once the app is back up, so the newest backup
+and the off-site ledger both reflect it at once instead of up to an hour later.
 
 Keep a current deletion ledger separately from the old backup. Before either
 process accepts traffic after restoring a database:

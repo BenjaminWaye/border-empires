@@ -111,3 +111,14 @@ GATEWAY_METRICS_URL=http://127.0.0.1:13101/metrics \
 SIMULATION_METRICS_URL=http://127.0.0.1:50052/metrics \
 node scripts/rewrite-load-harness.mjs
 ```
+
+## Full-map reveal probe
+
+`scripts/full-reveal-probe/` measures one question the nightly harness does
+not: what a revealed map costs, and how many Houses the combined stack holds.
+`launch-stack.mjs` starts the simulation worker and gateway in one process (the
+production shape) with a throwaway token-signing key; `probe.mjs` logs in a fog
+admin and N humans and compares a fogged baseline with a revealed phase. It is
+local-only and run by hand. Method, results and the exact commands are in
+`docs/load-results/full-reveal-2026-11-23.md`.
+

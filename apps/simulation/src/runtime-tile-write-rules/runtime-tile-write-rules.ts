@@ -1,7 +1,7 @@
 // Per-write tile bookkeeping applied by Runtime.replaceTileState, split out
 // of runtime.ts (over the 500-line cap) so each rule is unit-testable.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isCaptureHoldActive, liveRazedWreck, liveWarScarLevel } from "@border-empires/shared";
+import { isCaptureHoldActive, liveRazedWreck, liveWarScarLevel, withoutTownFocus } from "@border-empires/shared";
 
 /**
  * Drops a capture hold (shared capture-hold.ts) that no longer applies, so
@@ -40,6 +40,18 @@ export const withoutClearedRazedWreck = (next: DomainTileState, nowMs: number): 
 };
 
 /**
+ * Drops a Planetary Defense camp id from a tile Planetary Defense no longer
+ * owns, so every route that takes or releases a barbarian tile (capture,
+ * collapse, AFC landing clear, ...) clears it without having to remember to.
+ */
+export const withoutStrayCampId = (next: DomainTileState): DomainTileState => {
+  if (next.campId === undefined) return next;
+  if (next.ownerId?.startsWith("barbarian-")) return next;
+  const { campId: _campId, ...rest } = next;
+  return rest;
+};
+
+/**
  * Maintains the settledAt stamp resource-slot dormancy and reach anchors read:
  *   - newly SETTLED (previously not, or new owner) → stamp `now`
  *   - leaves SETTLED → clear
@@ -61,4 +73,16 @@ export const updateTileSettledAt = (
     settledAtByKey.delete(tileKey);
   }
   return wasSettledForSameOwner;
+};
+
+/**
+ * A town's focus belongs to the House that set it (docs/town-focus-plan.md):
+ * when the town changes hands by any route (capture, diplomatic return,
+ * abandonment) it starts Balanced with nothing queued.
+ */
+export const withoutForeignTownFocus = (previous: DomainTileState | undefined, next: DomainTileState): DomainTileState => {
+  const town = next.town;
+  if (!town || previous?.ownerId === next.ownerId) return next;
+  if (town.focus === undefined && town.pendingFocus === undefined && town.pendingFocusAt === undefined && town.focusLockedUntil === undefined) return next;
+  return { ...next, town: withoutTownFocus(town) };
 };

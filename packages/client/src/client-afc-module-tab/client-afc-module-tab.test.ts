@@ -67,7 +67,8 @@ describe("graphical AFC modules tab", () => {
     expect(view.tabs).toContain("modules");
     // The Modules tab replaces Overview for AFCs, like a town's stat grid.
     expect(view.tabs).not.toContain("overview");
-    expect(view.actions).toEqual([]);
+    // Only Send scout drone: every researched module is already docked here.
+    expect(view.actions.map((action) => action.id)).toEqual(["afc_scout_drone"]);
     expect(view.modules?.slots[0]?.name).toBe("Titanium Forge");
   });
 
@@ -217,5 +218,52 @@ describe("graphical AFC modules tab", () => {
     expect(html).toContain("tile-overview-dormant");
     expect(html).toContain("inactive until this AFC is reclaimed");
     expect(tileActionMenuHtml(viewFor(), "modules")).not.toContain("tile-overview-dormant");
+  });
+
+  it("spotlights the module on the arm the player tapped, with what it does", () => {
+    const described = catalog.map((entry) => entry.id === "masonry" ? { ...entry, description: "Forges titanium <fast>." } : entry);
+    const view = afcModuleTabForTile(target, described, [], "me", 1000, 0)!;
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: view }, "modules");
+    const focus = root.querySelector(".afc-arm-focus")!;
+    expect(focus.textContent).toContain("Socket 1 · east arm");
+    expect(focus.textContent).toContain("Titanium Forge");
+    expect(focus.innerHTML).toContain("Forges titanium &lt;fast&gt;.");
+    expect(root.querySelectorAll(".afc-socket-cell.is-arm-focus")).toHaveLength(1);
+    expect(root.querySelector(".afc-socket-cell.is-arm-focus")?.textContent).toContain("Titanium Forge");
+  });
+
+  it("says an arm with no module docked is an empty socket", () => {
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: afcModuleTabForTile(target, catalog, [], "me", 1000, 6)! }, "modules");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Socket 7 · north arm");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Empty socket");
+  });
+
+  it("shows no spotlight when the AFC was opened directly", () => {
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules");
+    expect(root.querySelector(".afc-arm-focus")).toBeNull();
+    expect(root.querySelector(".is-arm-focus")).toBeNull();
+  });
+
+  it("names the House a captured module came from and leaves your own modules unlabelled", () => {
+    const tile = { ...target, afc: { ownerId: "me", status: "active", modules: ["masonry", "workshops", "radar", "legacy"], houseModules: ["masonry"], capturedModuleHouses: { workshops: "varn", radar: "me" } } } as Tile;
+    const names = (id?: string | null): string | undefined => (id === "varn" ? "Varn" : undefined);
+    const view = afcModuleTabForTile(tile, catalog, [], "me", 1000, 1, names)!;
+    expect(view.slots.map((slot) => slot.detail).slice(0, 4)).toEqual(["", "Captured from House Varn", "", "Captured"]); // radar: yours, won back; legacy: House unknown
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: view }, "modules");
+    expect(root.textContent).not.toContain("movable");
+    expect(root.querySelector(".afc-arm-focus")?.textContent).toContain("Captured from House Varn");
+    const own = afcModuleTabForTile(tile, catalog, [], "me", 1000, 0, names)!;
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), modules: own }, "modules");
+    expect(root.querySelector(".afc-arm-focus-state")).toBeNull();
+  });
+
+  it("tells a viewer when another House's AFC holds a module captured from them", () => {
+    const theirs = { ...target, ownerId: "sigrid", afc: { ownerId: "sigrid", status: "active", modules: ["masonry", "workshops"], houseModules: [], capturedModuleHouses: { masonry: "me", workshops: "sigrid" } } } as Tile;
+    const view = afcModuleTabForTile(theirs, catalog, [], "me", 1000, undefined, () => "Varn")!;
+    expect(view.slots.map((slot) => slot.detail).slice(0, 2)).toEqual(["Captured from your House", ""]);
   });
 });

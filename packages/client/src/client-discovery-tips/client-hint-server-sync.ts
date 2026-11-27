@@ -21,6 +21,9 @@ type HintStatePatch = {
   dashboardQuietedSeasonId?: string;
   guideStatus?: "active" | "done" | "dismissed";
   guideSteps?: string[];
+  guideSeasonId?: string;
+  metPlayerIds?: string[];
+  metPlayersSeasonId?: string;
 };
 
 let sendHintStateMessage: ((patch: HintStatePatch) => void) | undefined;
@@ -46,5 +49,5 @@ export const applyHintStateSetMessage = (
   hydrateDiscoveryTipsFromServer((msg.dismissedHints as string[] | undefined) ?? [], Boolean(msg.hintsMuted), authEmail);
   hydrateOnboardingChecklistFromServer(Boolean(msg.onboardingChecklistCompleted), authEmail);
   hydrateMusterUnlockFromServer((msg.musterUnlockedSeasonId as string | undefined) ?? "", currentSeasonId, authEmail);
-  hydrateGuideFromServer(msg.guideStatus, msg.guideSteps, authEmail);
+  hydrateGuideFromServer(msg.guideStatus, msg.guideSteps, authEmail, msg.guideSeasonId);
 };

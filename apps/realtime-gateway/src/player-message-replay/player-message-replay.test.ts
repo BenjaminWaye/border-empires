@@ -54,6 +54,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("replays the welcome-back summary to a tab that joined without a fresh subscribe", () => {
+    const { replay, sent, send } = createHarness();
+    const welcome = { type: "WELCOME_BACK", elapsedMs: 7_200_000, goldEarned: 540, manpowerRefilled: 300, flagsDrawn: 120, incomeCapped: false, at: 10 };
+    replay.observe("p1", welcome, [{ id: "tab-1" }]);
+    const joining = { id: "tab-2" };
+    expect(replay.replayTo("p1", joining, send)).toBe(true);
+    expect(sent).toEqual([{ socket: joining, payload: welcome }]);
+  });
+
   it("does nothing for a player it never saw a REACH_UPDATE for", () => {
     const { replay, sent, send } = createHarness();
     expect(replay.replayTo("p1", { id: "tab-1" }, send)).toBe(false);
@@ -71,6 +80,15 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toEqual([{ socket: joining, payload: { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "New" }] } }]);
   });
 
+  it("replays the latest LONGEST_ROAD holder, including none, to a socket that joined after it", () => {
+    const { replay, sent, send } = createHarness();
+    replay.observe("p1", { type: "LONGEST_ROAD", road: { playerId: "p2", playerName: "Rival", tileCount: 9, fromTown: "A", toTown: "B" } }, [{ id: "tab-1" }]);
+    replay.observe("p1", { type: "LONGEST_ROAD", road: null }, [{ id: "tab-1" }]);
+    replay.observe("p1", { type: "LONGEST_ROAD" }, [{ id: "tab-1" }]);
+    expect(replay.replayTo("p1", { id: "tab-2" }, send)).toBe(true);
+    expect(sent).toEqual([{ socket: { id: "tab-2" }, payload: { type: "LONGEST_ROAD", road: null } }]);
+  });
+
   it("replays the scout drone in the air to a socket that joined after its launch", () => {
     const { replay, sent, send } = createHarness();
     const existing = { id: "tab-1" };
@@ -86,6 +104,24 @@ describe("createPlayerMessageReplay", () => {
     replay.observe("p1", { type: "SCOUT_DRONE", flight: null, report: { towns: 1, targetX: 5, targetY: 5 } }, [{ id: "tab-1" }]);
     replay.replayTo("p1", { id: "tab-2" }, send);
     expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null }]);
+  });
+
+  // Player report 2026-11-26: the stripped copy also dropped `charges`, so a reconnected tab showed Explore 8 with none left.
+  it("keeps a docked drone's charges when it strips an id-less report", () => {
+    const { replay, sent, send } = createHarness();
+    const charges = { max: 8, refillMs: 1000, usedAt: [1, 2, 3] };
+    replay.observe("p1", { type: "SCOUT_DRONE", flight: null, charges, report: { towns: 1, targetX: 5, targetY: 5 } }, [{ id: "tab-1" }]);
+    replay.replayTo("p1", { id: "tab-2" }, send);
+    expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null, charges }]);
+  });
+
+  // Player report 2026-11-21: a report that landed into a socket not yet known dead was lost on the reconnect.
+  it("replays a landed drone's report when it carries an id (the client shows each id once)", () => {
+    const { replay, sent, send } = createHarness();
+    const report = { towns: 1, targetX: 5, targetY: 5, id: "explore-1", landedAt: 9 };
+    replay.observe("p1", { type: "SCOUT_DRONE", flight: null, report }, [{ id: "tab-1" }]);
+    replay.replayTo("p1", { id: "tab-2" }, send);
+    expect(sent.map((entry) => entry.payload)).toEqual([{ type: "SCOUT_DRONE", flight: null, report }]);
   });
 
   it("ignores payloads of other types and malformed replayed ones", () => {

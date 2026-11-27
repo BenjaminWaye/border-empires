@@ -12,6 +12,14 @@ export type WaystationGrantedEffect = "VISION" | "POPULATION" | "TECH" | "RESOUR
 export type WaystationTileState = {
   activated: boolean;
   activatedByPlayerId?: string;
+  /**
+   * Server time (ms) the waystation was collected. The tile keeps its consumed
+   * record forever and re-sends it in later TILE_DELTA_BATCHes (released on a
+   * withdrawal, captured, ...); the client's live popup only fires for a fresh
+   * stamp, so those re-sends never replay an old reward. Absent on records
+   * written before this field existed -- the client treats those as stale.
+   */
+  activatedAt?: number;
   /** Which of the six possible effects fired. Absent on a dormant (not-yet-activated) waystation. A TECH roll with no unowned tier-1 tech left is recorded as GOLD. */
   grantedEffect?: WaystationGrantedEffect;
   /** VISION only: the (x, y) actually revealed -- a nearby town's tile, or the waystation's own tile as a fallback. */

@@ -83,6 +83,11 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // model is §5 (Step 5), out of scope for this pass.
   HYDROGARDEN: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   HYDROWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
+  // Farm Plot (docs/farm-plot-plan.md): manpower-only food on a town's support
+  // ring, priced like a Manufactory. Its Hydrogarden Plot upgrade charges the
+  // full Hydrogarden price, the way fort upgrades charge the new tier's price.
+  FARM_PLOT: { baseGoldCost: 0, manpowerCost: 150 },
+  HYDROGARDEN_PLOT: { baseGoldCost: 0, manpowerCost: 80 },
   // Refineries (territory-development-plan.md Phase 2) take a support-ring
   // tile and process one deposit field; boosters add +1 slot per processed
   // tile for their resource's refineries in the same town.
@@ -130,6 +135,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   HIGH_YIELD_AETHER_CONDENSER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
   TRADE_NEXUS: { baseGoldCost: 0, manpowerCost: 150 },
   ANCILLARY_DEPOT: { baseGoldCost: 0, manpowerCost: 150 },
+  VIVARIUM: { baseGoldCost: 0, manpowerCost: 200 },
   HARBOR_EXCHANGE: { baseGoldCost: 0, manpowerCost: 100 },
   NEURAL_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
   MINISTRY_HALL: { baseGoldCost: 0, manpowerCost: 150 },

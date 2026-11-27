@@ -31,6 +31,8 @@ export {
 
 export interface RuntimeEconomyCacheContext {
   networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
+  /** The player's luxury biota allocation (cachedManpowerStructureBonusForPlayer); short towns earn less coin. */
+  biotaTownSupplyForPlayer?: (id: string) => ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply> | undefined;
   now: () => number;
   tiles: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -69,7 +71,7 @@ function integrityEconMultForPlayer(ctx: RuntimeEconomyCacheContext, player: Run
   // Barbarians earn nothing anyone reads, and with isAi false they would rebuild defensibility on every export.
   if (!EMPIRE_INTEGRITY_ENABLED || player.id.startsWith("barbarian-")) return 1;
   const metrics = cachedDefensibilityMetrics(ctx, player.id, ctx.summaryForPlayer(player.id));
-  return integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
+  return integrityEconomyMult(empireIntegrity(metrics.T, metrics.Es, metrics.Ts));
 }
 
 /**
@@ -112,7 +114,7 @@ function cachedBaseEconomySnapshot(
       townNetwork,
       ctx.foodDormantTownKeysForPlayer(player.id),
       ctx.dormantEconomicStructureKeysForPlayer(player.id),
-      ctx.now(), ctx.networkSitesForPlayer?.(player.id)
+      ctx.now(), ctx.networkSitesForPlayer?.(player.id), ctx.biotaTownSupplyForPlayer?.(player.id)
     );
     ctx.economySnapshotCacheByPlayer.set(player.id, snapshot);
     ctx.economySnapshotDirtyPlayerIds.delete(player.id);
@@ -188,12 +190,9 @@ export function cachedDefensibilityMetrics(
   // "details" field gets truncated to "[Object]" in the pretty-printed fly
   // logs) whenever this is suspiciously slow.
   const rebuildStartedAt = ctx.now();
-  // Skip the T/E all-owned pass for AI: nothing ever reads T/E for a
-  // player nobody is subscribed to (see buildPlayerDefensibilityMetrics'
-  // doc comment) — only Ts/Es (settled-only) feeds real gameplay math.
-  const skipAllOwnedStats = ctx.players.get(playerId)?.isAi === true;
+  // Integrity reads every owned tile (the shape of all owned land), so AIs pay the whole pass too.
   const rebuild = (): PlayerDefensibilityMetrics =>
-    buildPlayerDefensibilityMetrics(playerId, ctx.tiles, summary.territoryTileKeys, skipAllOwnedStats);
+    buildPlayerDefensibilityMetrics(playerId, ctx.tiles, summary.territoryTileKeys);
   const metrics = ctx.trackSyncMainThreadTask
     ? ctx.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
     : rebuild();

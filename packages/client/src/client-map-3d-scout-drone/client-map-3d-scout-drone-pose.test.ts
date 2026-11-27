@@ -13,7 +13,8 @@ describe("scout drone launch pose", () => {
   it("sits on the crown while the rotors spool up", () => {
     const pose = createScoutDronePose();
     scoutDronePoseAt(flight, SCOUT_SPOOL_MS * 0.9, 100, 100, pose);
-    expect(pose.x).toBeCloseTo(0, 1);
+    // The drawn route clock creeps a little during the spool (see routeLag); at 1s per home tile that is ~0.05 tile.
+    expect(pose.x).toBeLessThan(0.1);
     expect(pose.lift).toBe(0);
   });
 

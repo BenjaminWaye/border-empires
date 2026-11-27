@@ -45,9 +45,9 @@ describe("extending a truce from the trade screen", () => {
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     const wary: DiplomacyStanceReply = { ...aiReply, pricing: { required: { truce12: 300, truce24: 600, alliance: 900 }, aiHoldings: { gold: 500 }, requesterSpareCoinPerHour: 100 } };
     receiveDiplomacyStance(wary);
-    // You can pledge your income; an AI never pledges its own.
+    // In a truce either side can pledge its income.
     expect(overlay.querySelector<HTMLElement>('[data-trade-row="give-coinPerHour"]')?.hidden).toBe(false);
-    expect(overlay.querySelector<HTMLElement>('[data-trade-row="ask-coinPerHour"]')?.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLElement>('[data-trade-row="ask-coinPerHour"]')?.hidden).toBe(false);
     const verdictFor = (kind: "truce" | "alliance", coinPerHour: number) => tradeVerdict({
       targetName: "Elin", reply: wary, own: { gold: 100 }, cooldownRemainingMs: 0,
       selection: { kind, durationHours: 12, terms: { give: { gold: 0, coinPerHour }, ask: { gold: 0 } } }
@@ -55,7 +55,16 @@ describe("extending a truce from the trade screen", () => {
     // 64/h for 12h, at half its upfront value: 384 against a 300 price.
     expect(verdictFor("truce", 64)).toMatchObject({ tone: "good", canSend: true });
     expect(verdictFor("truce", 40).text).toBe("Elin would refuse: wants about 60 more coin.");
-    expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses accept Coin per hour only from you, and only for a truce." });
+    expect(verdictFor("alliance", 64)).toMatchObject({ canSend: false, text: "AI Houses trade Coin per day only for a truce." });
+  });
+
+  // Review regression: an AI's pledge set in a truce stayed in the deal, hidden, after switching to an alliance.
+  it("takes the AI's Coin per day out when the deal stops being a truce", () => {
+    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12, terms: { give: { gold: 0 }, ask: { gold: 0, coinPerHour: 2 } } }, { send: vi.fn(() => true), ownHoldings: () => ({ gold: 100 }) });
+    receiveDiplomacyStance({ ...aiReply, pricing: { ...pricing, required: { ...pricing.required, alliance: 0 }, aiSpareCoinPerHour: 10 } });
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent).toContain("Coin per day");
+    document.querySelector<HTMLButtonElement>('[data-trade-kind^="alliance"]')!.click();
+    expect(document.querySelector('[data-deal-side="ask"]')?.textContent ?? "").not.toContain("Coin per day");
   });
 
   it("disables an extension past the 48h cap and falls back to one that fits", () => {

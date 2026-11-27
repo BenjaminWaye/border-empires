@@ -1,0 +1,218 @@
+/* Scout drone dock (client-scout-drone-dock.ts): bottom-centre bar while planning a flight. */
+#scout-drone-dock {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 40;
+  display: none;
+  pointer-events: auto;
+  max-width: calc(100vw - 32px);
+}
+
+#scout-drone-dock .sd-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(34, 27, 19, 0.94), rgba(20, 15, 10, 0.96));
+  border: 1px solid rgba(216, 178, 90, 0.55);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 230, 170, 0.12);
+}
+
+#scout-drone-dock .sd-bar.is-shaking .sd-count {
+  animation: sd-shake 0.45s ease;
+}
+
+#scout-drone-dock .sd-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  color: #f4d58c;
+  font: 700 17px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+#scout-drone-dock .sd-count svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* "/8": the charges the bar counts down from (review 2026-11-21: a bare "5" was a guess). */
+#scout-drone-dock .sd-count small {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: -2px;
+  align-self: flex-end;
+  padding-bottom: 9px;
+}
+
+#scout-drone-dock .sd-count.is-next {
+  animation: sd-pulse 1.1s ease-in-out infinite;
+}
+
+#scout-drone-dock .sd-count.is-empty {
+  color: rgba(216, 178, 90, 0.4);
+}
+
+#scout-drone-dock .sd-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(216, 178, 90, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9d6a8;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+}
+
+#scout-drone-dock .sd-icon:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#scout-drone-dock .sd-go {
+  min-width: 84px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 700 15px/1 var(--sp-font-display);
+  letter-spacing: 0.06em;
+  color: #e8fbff;
+  background: linear-gradient(180deg, #33b6e0, #1679a0);
+  box-shadow: 0 0 0 1px rgba(191, 244, 255, 0.6);
+  cursor: pointer;
+  flex: none;
+}
+
+#scout-drone-dock .sd-go:disabled {
+  color: rgba(233, 214, 168, 0.55);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(216, 178, 90, 0.3);
+  cursor: default;
+}
+
+/* No stops yet: "Tap fog" is a prompt, not a disabled button (player review 2026-11-21). */
+#scout-drone-dock .sd-go.is-prompt:disabled {
+  background: transparent;
+  box-shadow: none;
+  color: #f4d58c;
+  font-style: italic;
+  animation: sd-prompt 1.6s ease-in-out infinite;
+}
+
+@keyframes sd-prompt {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+#scout-drone-dock .sd-go.is-armed {
+  animation: sd-glow 1.4s ease-in-out infinite;
+}
+
+#scout-drone-dock .sd-go svg {
+  width: 16px;
+  height: 16px;
+}
+
+#scout-drone-dock .sd-time {
+  font: 600 13px/1 var(--sp-font-mono, "Space Mono", monospace);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  opacity: 0.9;
+}
+
+@keyframes sd-pulse {
+  0%, 100% { transform: scale(1); text-shadow: none; }
+  50% { transform: scale(1.12); text-shadow: 0 0 10px rgba(255, 210, 120, 0.9); }
+}
+
+@keyframes sd-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(191, 244, 255, 0.6); }
+  50% { box-shadow: 0 0 16px rgba(79, 216, 255, 0.9), 0 0 0 1px rgba(191, 244, 255, 0.9); }
+}
+
+@keyframes sd-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@media (max-width: 520px) {
+  #scout-drone-dock .sd-bar { gap: 4px; padding: 5px 6px; }
+  #scout-drone-dock .sd-icon { width: 36px; height: 36px; }
+  #scout-drone-dock .sd-count { padding: 0 6px; }
+  #scout-drone-dock .sd-go { min-width: 0; padding: 0 10px; gap: 6px; }
+}
+
+/* Very narrow phones: the flight time alone says Go. */
+@media (max-width: 359px) {
+  #scout-drone-dock .sd-go:has(.sd-time) .sd-go-word { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #scout-drone-dock .sd-count.is-next,
+  #scout-drone-dock .sd-go.is-armed,
+  #scout-drone-dock .sd-go.is-prompt:disabled,
+  #scout-drone-dock .sd-bar.is-shaking .sd-count { animation: none; }
+}
+
+/* Phone: the dock, flight pill or report card takes the search lens's corner (client-scout-drone-hud.ts). */
+body.hud-v2-compact.scout-focus .hud-v2-lens-btn,
+body.hud-v2-compact.scout-flying .hud-v2-lens-btn {
+  visibility: hidden;
+}
+
+/* Phone: sit above the tab bar (client-hud-v2-compact-bottom-reserve.test.ts), left-aligned so
+   the manpower gauge in the right corner stays visible beside it. The gauge is 84px wide and 8px
+   in from the right safe area; 116px keeps 8px clear of it plus the 8px left gutter and 8px spare
+   (client-scout-drone-dock-layout.test.ts). */
+body.hud-v2-compact #scout-drone-dock {
+  bottom: calc(var(--v2c-bottom) + 10px);
+  left: calc(var(--v2c-safe-left) + 8px);
+  transform: none;
+  max-width: calc(100vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 116px);
+}
+
+/* Taps always land on the button itself, even while its time text refreshes. */
+#scout-drone-dock button * {
+  pointer-events: none;
+}
+
+/* Why the route differs from the taps: "Blocked · Rosa's Garden II border", "Stop moved · range limit". */
+#scout-drone-dock {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+#scout-drone-dock .sd-note {
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(20, 15, 10, 0.92);
+  border: 1px solid rgba(255, 138, 92, 0.6);
+  color: #ffd2bf;
+  font: 600 12px/1.2 var(--sp-font-sans, system-ui, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.hud-v2-compact #scout-drone-dock {
+  align-items: flex-start;
+}

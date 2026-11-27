@@ -1,17 +1,18 @@
-import { TOWN_BAR_STRUCTURE_TOGGLE_ENTRY } from "./client-changelog-town-bar-structure-toggle.js";
+import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
+import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
+import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
+import { NOV_25_26_CHANGELOG } from "./client-changelog-nov-25-26.js";
+import { QUIET_GOOD_NEWS_ENTRY } from "./client-changelog-quiet-good-news.js";
+import { CHRONICLE_OPENS_YOURS_ENTRY } from "./client-changelog-chronicle-opens-yours.js";
+import { GUIDE_ISLAND_DOCK_ENTRY } from "./client-changelog-guide-island-dock.js";
+import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
+import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
+import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
-import { TRUCE_EMAIL_EMPIRE_FELL_ENTRY } from "./client-changelog-truce-email-empire-fell.js";
-import { CHRONICLE_LOADING_STUCK_ENTRY } from "./client-changelog-chronicle-loading-stuck.js";
-import { MANPOWER_COPY_ENTRY } from "./client-changelog-manpower-copy.js";
-import { GUIDE_EXPLORE_ENTRY } from "./client-changelog-guide-explore.js";
-import { MUSTER_CAPTURE_ENTRY } from "./client-changelog-muster-capture.js";
-import { CHRONICLE_HEADLINE_ENTRY } from "./client-changelog-chronicle-headline.js";
-import { HYDROWORKS_PLACEMENT_TEXT_ENTRY } from "./client-changelog-hydroworks-placement-text.js";
-import { WHOLE_COIN_BALANCE_ENTRY } from "./client-changelog-whole-coin.js";
-import { RESOURCE_COUNTER_ENTRY } from "./client-changelog-resource-counter.js";
-import { HUMAN_TRADE_HOLDINGS_ENTRY } from "./client-changelog-human-trade-holdings.js";
-import { REFINERY_GIVES_ENTRY } from "./client-changelog-refinery-gives.js";
-import { TOWN_SCREEN_BIOTA_ENTRY } from "./client-changelog-town-screen-biota.js";
+import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
+import { NOV_18_CHANGELOG } from "./client-changelog-nov-18.js";
+import { DEAL_PROFILE_LINK_ENTRY } from "./client-changelog-deal-profile-link.js";
+import { CHARGE_REWARD_ENTRY } from "./client-changelog-charge-reward.js";
 import { NOV_14_CHANGELOG } from "./client-changelog-nov-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_114 } from "./client-changelog-data-earlier-114.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_115 } from "./client-changelog-data-earlier-115.js";
@@ -28,6 +29,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_121 } from "./client-changelog-data-ea
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_122 } from "./client-changelog-data-earlier-122.js";
 import { FORT_PERIMETER_ENTRY } from "./client-changelog-fort-perimeter.js";
 import { recentClientChangelogEntries } from "./client-changelog-recent.js";
+import { SETTINGS_MENU_TIDY_ENTRY } from "./client-changelog-settings-menu-tidy.js";
 import { SEASON_SUMMARY_FIXES_CHANGELOG, MISSING_HISTORY_REPORT_CHANGELOG, SEASON_RECORD_DETAILS_CHANGELOG } from "./client-changelog-season-summary-fixes.js";
 import { COMMAND_NAVIGATION_ENTRY } from "./client-changelog-command-navigation.js";
 import { CONNECTED_DISTRICTS_CHANGELOG } from "./client-changelog-connected-districts.js";
@@ -202,9 +204,7 @@ import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-cha
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_110 } from "./client-changelog-data-earlier-110.js";
-import { RETURNING_LOGIN_ENTRY } from "./client-changelog-returning-login.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_112 } from "./client-changelog-data-earlier-112.js";
-import { DESKTOP_FREE_SLOTS_ENTRY } from "./client-changelog-desktop-free-slots.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -480,21 +480,21 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { ...SCOUT_DRONE_REDESIGN_ENTRY, createdAt: 1794695503609, },
   ...NOV_16_CHANGELOG,
   { ...FORT_PERIMETER_ENTRY, createdAt: 1794853579662, },
-  { ...RETURNING_LOGIN_ENTRY, createdAt: 1794928114737, },
-  { ...CHRONICLE_LOADING_STUCK_ENTRY, createdAt: 1794909056601, },
-  { ...MANPOWER_COPY_ENTRY, createdAt: 1794931550726, },
-  { ...TRUCE_EMAIL_EMPIRE_FELL_ENTRY, createdAt: 1794931727558, },
-  { ...CHRONICLE_HEADLINE_ENTRY, createdAt: 1794931506698, },
-  { ...HYDROWORKS_PLACEMENT_TEXT_ENTRY, createdAt: 1794944287299, },
-  { ...WHOLE_COIN_BALANCE_ENTRY, createdAt: 1794944457814, },
-  { ...RESOURCE_COUNTER_ENTRY, createdAt: 1794944628430, },
-  { ...HUMAN_TRADE_HOLDINGS_ENTRY, createdAt: 1794951963573, },
-  { ...DESKTOP_FREE_SLOTS_ENTRY, createdAt: 1794951821171, },
-  { ...REFINERY_GIVES_ENTRY, createdAt: 1794950469519, },
-  { ...MUSTER_CAPTURE_ENTRY, createdAt: 1794949929394, },
-  { ...TOWN_SCREEN_BIOTA_ENTRY, createdAt: 1794950085487, },
-  { ...TOWN_BAR_STRUCTURE_TOGGLE_ENTRY, createdAt: 1794950483222, },
-  { ...GUIDE_EXPLORE_ENTRY, createdAt: 1794951057397, },
+  ...NOV_17_CHANGELOG,
+  ...NOV_18_CHANGELOG,
+  { ...DEAL_PROFILE_LINK_ENTRY, createdAt: 1795003247009, },
+  { ...CHRONICLE_WORLD_HEADLINES_ENTRY, createdAt: 1795038531377, },
+  { ...CHARGE_REWARD_ENTRY, createdAt: 1795041648654, },
+  ...NOV_19_20_CHANGELOG,
+  ...NOV_21_CHANGELOG,
+  ...NOV_23_CHANGELOG,
+  ...NOV_25_26_CHANGELOG,
+  { ...QUIET_GOOD_NEWS_ENTRY, createdAt: 1795724321729, },
+  { ...CHRONICLE_OPENS_YOURS_ENTRY, createdAt: 1795724340365, },
+  { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
+  { ...ATTACK_EN_ROUTE_ENTRY, createdAt: 1795779638841, },
+  { ...INSURGENTS_ENTRY, createdAt: 1795780690085, },
+  { ...SETTINGS_MENU_TIDY_ENTRY, createdAt: 1795792563517, },
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

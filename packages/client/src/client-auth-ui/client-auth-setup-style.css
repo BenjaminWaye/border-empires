@@ -8,3 +8,34 @@
 .auth-panel[data-mode="setup"] #auth-debug-route {
   display: none;
 }
+
+/* Empire-name box + its n/24 count (client-profile-name-field.ts), shared by
+   the founding screen and Edit Name & Colour. */
+.profile-name-field {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-name-count {
+  justify-self: end;
+  font-size: 12px;
+  color: #8c95a6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Edit Name & Colour: each field's once-per-contest state ("Name · 1 change left", "Crest · used"). */
+.profile-edit-allowance {
+  font-size: 12px;
+  color: #8c95a6;
+}
+
+/* Edit Name & Colour: one-word result line (Not saved / No changes). */
+.profile-edit-status {
+  min-height: 1em;
+  font-size: 12px;
+  color: #e9b15a;
+}
+
+.profile-edit-status:empty {
+  display: none;
+}

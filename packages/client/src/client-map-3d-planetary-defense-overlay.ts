@@ -10,11 +10,15 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 import { createUnitMotionGate, type UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
+import { createInsurgentInsigniaOverlay } from "./client-map-3d-insurgent-insignia-overlay.js";
+import { isPlanetaryDefenseCampTile } from "./client-planetary-defense-style.js";
 
-// Planetary Defense tile marker: a pair of dark-grey-armored soldiers
-// patrolling every barbarian-owned tile ("barbarian" is still the internal
-// owner id; players see "Planetary Defense" — what is left of the planet's
-// own defense force after the world was prepared for the planetary games).
+// Insurgent camp marker: a pair of dark-grey-armored soldiers patrolling
+// each camp tile ("barbarian" / "Planetary Defense" are still the internal
+// names; players see "Insurgents" — garrisons of the planet's own defense
+// force that survived the Court's purge). The camp's frontier instead gets
+// the faint raised-fist mark (client-map-3d-insurgent-insignia-overlay.ts),
+// which this overlay owns so both share one clear/commit/dispose lifecycle.
 // Replaces the earlier Voidcrystal Colossus monster.
 //
 // The soldiers are the same skinned marine model the battle overlay uses
@@ -79,9 +83,22 @@ type Slot = {
 export type PlanetaryDefenseOverlay = {
   readonly clear: () => void;
   readonly addInstance: (tileKey: TileKey, worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number) => void;
+  /** An Insurgent FRONTIER tile: the flat insignia, no soldiers. */
+  readonly addFrontierInsignia: (worldX: number, worldZ: number, flatOverlayY: number) => void;
+  /**
+   * One Insurgent-owned land tile: a camp (SETTLED) gets the patrol, any other
+   * known ownership state the frontier mark, an unknown state nothing. Returns
+   * what was placed so the caller can add a camp's contact shadow.
+   */
+  readonly addTile: (tile: InsurgentTileState, tileKey: TileKey, at: InsurgentTilePlacement) => "camp" | "mark" | undefined;
   readonly commit: () => void;
   readonly tick: (nowMs: number, engagedTileKeys?: ReadonlySet<string>) => void;
   readonly dispose: () => void;
+};
+
+export type InsurgentTileState = { readonly ownerId?: string | null; readonly ownershipState?: string | null };
+export type InsurgentTilePlacement = {
+  readonly worldX: number; readonly worldZ: number; readonly surfaceY: number; readonly flatOverlayY: number; readonly wx: number; readonly wy: number;
 };
 
 const isAdjacent = (aWx: number, aWy: number, bWx: number, bWy: number): boolean =>
@@ -94,7 +111,12 @@ const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 const buildMaterial = (): MeshStandardMaterial =>
   new MeshStandardMaterial({ color: PLANETARY_DEFENSE_ARMOR_COLOR, vertexColors: true, roughness: 0.55, metalness: 0.5 });
 
-export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMotionGate = createUnitMotionGate()): PlanetaryDefenseOverlay => {
+export const createPlanetaryDefenseOverlay = (
+  scene: Scene,
+  motionGate: UnitMotionGate = createUnitMotionGate(),
+  maxInsigniaTiles = 4096
+): PlanetaryDefenseOverlay => {
+  const insignia = createInsurgentInsigniaOverlay(scene, maxInsigniaTiles);
   let disposed = false;
   let pool: Slot[] = [];
   const byTileKey = new Map<TileKey, Slot>();
@@ -148,7 +170,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
     })
     .catch((err: unknown) => {
       // Nothing renders rather than crashing the 3D map.
-      console.error("popup-marine model failed to load; Planetary Defense tiles will not render soldiers", err);
+      console.error("popup-marine model failed to load; Insurgent camps will not render soldiers", err);
     });
 
   type Pending = { tileKey: TileKey; worldX: number; worldZ: number; surfaceY: number; wx: number; wy: number };
@@ -156,6 +178,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
 
   const clear = (): void => {
     pendingTiles = [];
+    insignia.clear();
   };
 
   const addInstance = (tileKey: TileKey, worldX: number, worldZ: number, surfaceY: number, wx: number, wy: number): void => {
@@ -184,6 +207,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
   };
 
   const commit = (): void => {
+    insignia.commit();
     if (pool.length === 0) {
       pendingTiles = [];
       return;
@@ -333,6 +357,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
 
   const dispose = (): void => {
     disposed = true;
+    insignia.dispose();
     for (const slot of pool) {
       for (const soldier of slot.soldiers) {
         soldier.mixer.stopAllAction();
@@ -348,5 +373,15 @@ export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMoti
     byTileKey.clear();
   };
 
-  return { clear, addInstance, commit, tick, dispose };
+  const addTile = (tile: InsurgentTileState, tileKey: TileKey, at: InsurgentTilePlacement): "camp" | "mark" | undefined => {
+    if (isPlanetaryDefenseCampTile(tile)) {
+      addInstance(tileKey, at.worldX, at.worldZ, at.surfaceY, at.wx, at.wy);
+      return "camp";
+    }
+    if (!tile.ownershipState) return undefined;
+    insignia.addInstance(at.worldX, at.worldZ, at.flatOverlayY);
+    return "mark";
+  };
+
+  return { clear, addInstance, addFrontierInsignia: insignia.addInstance, addTile, commit, tick, dispose };
 };

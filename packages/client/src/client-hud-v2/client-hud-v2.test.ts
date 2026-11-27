@@ -21,8 +21,8 @@ describe("resource bar", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
     const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, integrityPct: 62 });
     // Playtest 2026-11-12: the phone chip showed "4" for both a shortfall (orange) and free slots (green); a shortfall now reads "−1".
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-description"> slots short</span>');
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-description"> free slots</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-over">−1<span class="hud-v2-chip-unit"> short</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-zero">0<span class="hud-v2-chip-unit"> free</span>');
     // Regression: the coin chip said /h while Economy and the tile panel say /day.
     expect(html).toContain("+2880.0/day");
     // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
@@ -40,7 +40,7 @@ describe("resource bar", () => {
     // Review: a bare green number didn't say what it counts; hover names it and keeps the totals.
     expect(html).toContain('data-hud-v2-chip="food" title="Food: 59 free slots (378 / 437 used)"');
     expect(html).not.toContain('class="hud-v2-chip-status"');
-    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-description"> free slots</span>');
+    expect(html).toContain('<span class="hud-v2-chip-summary hud-v2-chip-available">59<span class="hud-v2-chip-unit"> free</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">1,250,000</span><span class="hud-v2-chip-short" aria-hidden="true">1.25M</span>');
     expect(html).toContain('<span class="hud-v2-chip-exact">12,981,234</span><span class="hud-v2-chip-short" aria-hidden="true">12.9M</span>');
   });
@@ -329,7 +329,7 @@ describe("action bar", () => {
 
   it("keeps attack and march actions ahead of Cancel Waypoint, and Cancel ahead of fallback suggestions", () => {
     const cancel = act("cancel_waypoint", { label: "Cancel Waypoint" });
-    for (const id of ["launch_attack", "march_attack_flag", "march_to_pick_origin", "muster_hunt_attackers"] as const) {
+    for (const id of ["launch_attack", "march_attack_flag", "march_to_pick_origin"] as const) {
       expect(selectBarButtons(view({ actions: [cancel, act(id)] }))[0]).toMatchObject({ primary: true, action: { id } });
     }
     const beacon = act("build_relay_beacon_frontier", { label: "Relay Beacon" });
@@ -354,11 +354,11 @@ describe("action bar", () => {
 });
 
 describe("manpower orb", () => {
-  it("clamps the fill and shows the next batch only while below cap", () => {
+  it("clamps the fill and counts down to the next batch only while below cap", () => {
     expect(orbFill(150, 100)).toBe(1);
     expect(orbFill(-5, 100)).toBe(0);
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain(">next batch 30m<");
-    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("hud-v2-orb-refill");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain(">next batch");
   });
 
   it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {

@@ -30,6 +30,9 @@
 .v2p-action + .v2p-action { margin-top: 8px; }
 .v2p-action:disabled { cursor: default; color: var(--v2-muted); border-color: var(--v2-line); }
 .v2p-action:disabled:hover { border-color: var(--v2-line); color: var(--v2-muted); }
+.v2p-share-note { margin: 8px 0 0; font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--v2-muted); text-align: center; }
+.v2p-score-parts { display: block; margin-top: 2px; font-size: 10px; line-height: 1.3; color: var(--v2-muted); }
+.v2p-share-link { display: block; margin: 6px 0 0; font-family: var(--v2-mono); font-size: 11px; color: var(--v2-gold); text-align: center; overflow-wrap: anywhere; user-select: all; }
 .v2p-main { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .v2p-h, .v2p-panel h3 { margin: 0; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-gold); }
 /* One strip with dividers rather than a framed box per number. */
@@ -69,3 +72,16 @@
 .v2p-help-body { margin-top: 8px; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
 .v2p-help-body p { margin: 0 0 6px; }
 .v2p-help-body p:last-child { margin-bottom: 0; }
+/* Achievement badges (client-achievements/client-achievements-html.ts). */
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ach-badge { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--v2-edge); opacity: 0.72; }
+.ach-badge.is-earned { opacity: 1; border-color: var(--v2-gold); box-shadow: inset 0 0 12px rgba(214, 170, 80, 0.25); }
+.ach-seal { font-size: 22px; line-height: 1; color: var(--v2-gold); }
+.ach-name { font-weight: 700; }
+.ach-goal, .ach-state { font-size: 12px; opacity: 0.85; }
+.ach-bar { display: block; height: 4px; background: rgba(255, 255, 255, 0.12); }
+.ach-bar > span { display: block; height: 100%; background: var(--v2-gold); }
+/* Your own emblem opens the Edit Name, Colour & Crest dialog (client-hud-v2-profile-crest.ts). */
+.v2p-crest-edit { display: grid; justify-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.v2p-crest-edit:hover .v2p-crest, .v2p-crest-edit:focus-visible .v2p-crest { box-shadow: 0 0 0 6px rgba(240, 207, 130, 0.3), 0 16px 36px rgba(0, 0, 0, 0.55); }
+.v2p-crest-change { font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-gold); }

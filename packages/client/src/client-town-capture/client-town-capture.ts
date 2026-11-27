@@ -3,6 +3,7 @@ import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMul
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { enqueueFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+import { garrisonCapturedTown, townCaptureGarrisonStatus, type TownCaptureGarrisonStatus } from "./client-town-capture-garrison.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -74,7 +75,8 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
 
   const overlay = document.createElement("div");
   overlay.id = "town-capture-overlay";
-  overlay.innerHTML = overlayHtml(info);
+  // Read live: the card may show minutes after the capture, by when the town may be garrisoned or lost.
+  overlay.innerHTML = overlayHtml(info, info.destroyed ? undefined : townCaptureGarrisonStatus(info.x, info.y));
   occupationSurveyController.beginCapture();
 
   injectStyles();
@@ -100,6 +102,12 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
 
   overlay.querySelector("#town-capture-close")?.addEventListener("click", dismiss);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dismiss(); });
+  overlay.querySelector("#town-capture-garrison")?.addEventListener("click", () => {
+    // Selecting the town is the jump; off to the town either way, where its screen shows the Garrison
+    // button's state (cost, or why it was refused).
+    if (!garrisonCapturedTown(info.x, info.y, info.onJumpToTown)) info.onJumpToTown();
+    dismiss();
+  });
   overlay.querySelector("#town-capture-jump")?.addEventListener("click", () => {
     info.onJumpToTown();
     dismiss();
@@ -107,7 +115,7 @@ const mountTownCaptureOverlay = (info: TownCaptureInfo, close: () => void): HTML
   return overlay;
 };
 
-const overlayHtml = (info: TownCaptureInfo): string => {
+const overlayHtml = (info: TownCaptureInfo, garrison: TownCaptureGarrisonStatus | undefined): string => {
   const surveyReports = info.surveyReports ?? [];
   const tier = tierLabel(info.populationTier);
   const townName = info.townName || tier;
@@ -162,7 +170,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is garrisoned; support tiles and structures can then improve the coin rate further.</div>`;
+        ${garrisonNoteHtml(garrison)}`;
       })();
   const surveyHtml = !info.destroyed && surveyReports.length > 0
     ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`
@@ -188,9 +196,24 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         ${surveyHtml}
       </div>
       <div id="town-capture-footer">
-        <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
+        ${garrison?.status === "ungarrisoned" ? `<button id="town-capture-garrison" class="v2s-btn v2s-btn-primary town-capture-garrison-btn" type="button">Garrison now</button>` : ""}
+        <button id="town-capture-jump" class="v2s-btn town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
+};
+
+const OUTPUT_NOTE = "These are the town's terrain-adjusted base outputs. Support tiles and structures can improve the coin rate further.";
+const BASE_OUTPUT_NOTE = "These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is garrisoned; support tiles and structures can then improve the coin rate further.";
+
+/** Ungarrisoned is the state that costs the player: it gets a warning, not the closing footnote. */
+const garrisonNoteHtml = (garrison: TownCaptureGarrisonStatus | undefined): string => {
+  if (garrison?.status === "ungarrisoned") {
+    // Auto-garrison still waits on coin and manpower, so the warning and button stay; the line says it's on.
+    const detail = garrison.auto ? "Auto-garrison picks it up once you can afford it." : "No coin or manpower until you garrison it.";
+    return `<div id="town-capture-garrison-warning" role="status"><strong>Not garrisoned</strong><span>${detail}</span></div>`;
+  }
+  if (garrison?.status === "on_its_way") return `<div id="town-capture-note">Garrison on its way: coin and manpower start once it lands.</div>`;
+  return `<div id="town-capture-note">${garrison?.status === "garrisoned" ? OUTPUT_NOTE : BASE_OUTPUT_NOTE}</div>`;
 };
 
 const escapeHtml = (value: string): string =>
@@ -255,7 +278,7 @@ const styles = `
   -webkit-overflow-scrolling: touch;
 }
 #town-capture-footer {
-  display: flex; padding: 10px 22px 18px;
+  display: flex; gap: 10px; padding: 10px 22px 18px;
   border-top: 1px solid rgba(230, 178, 106, 0.16);
 }
 #town-capture-owner {
@@ -290,24 +313,33 @@ const styles = `
 #town-capture-note {
   font-size: 12.5px; line-height: 1.5; color: rgba(230, 214, 195, 0.7);
 }
+#town-capture-garrison-warning {
+  display: grid; gap: 2px; padding: 10px 13px; border-radius: 12px;
+  border: 1px solid rgba(240, 168, 69, 0.6); background: rgba(160, 92, 20, 0.22);
+  font-size: 12.5px; line-height: 1.4; color: rgba(255, 228, 190, 0.86);
+}
+#town-capture-garrison-warning strong {
+  color: #f0b04f; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+}
+/* Garrison now / Jump to Town are the shared .v2s-btn-primary / .v2s-btn; the pulse is the only extra. */
+.town-capture-garrison-btn { animation: townCaptureGarrisonPulse 1.8s ease-in-out infinite; }
+@keyframes townCaptureGarrisonPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 176, 79, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(240, 176, 79, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .town-capture-garrison-btn { animation: none; } }
 #town-capture-survey {
   display: grid; gap: 7px; padding: 12px 13px; border: 1px solid rgba(123,205,255,0.28);
   border-radius: 10px; background: linear-gradient(145deg, rgba(19,42,57,0.55), rgba(28,17,43,0.5));
 }
-.town-capture-survey-kicker { color: #9be3ff; font: 800 10px/1.2 'Space Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
+.town-capture-survey-kicker { color: #9be3ff; font: 700 10px/1.2 var(--sp-font-display); letter-spacing: .1em; text-transform: uppercase; }
 #town-capture-survey p { margin: 0; color: rgba(232,247,255,0.72); font-size: 12px; line-height: 1.4; }
 .town-capture-survey-report { padding-top: 5px; color: #e8f7ff; font-size: 12px; line-height: 1.35; }
-.town-capture-jump-btn {
-  padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
-  background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));
-  color: #ffe6b8; font-size: 13.5px; font-weight: 800; cursor: pointer;
-}
-.town-capture-jump-btn:hover { background: linear-gradient(180deg, rgba(255,214,148,0.32), rgba(214,150,68,0.22)); }
 @media (max-width: 520px) {
   #town-capture-hero { height: 140px; }
   #town-capture-body { padding: 14px 16px 12px; }
   #town-capture-footer { padding: 10px 16px 14px; }
-  .town-capture-jump-btn { flex: 1; }
+  .town-capture-jump-btn, .town-capture-garrison-btn { flex: 1; }
   #town-capture-name { font-size: 20px; }
   #town-capture-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
   .town-capture-stat { padding: 8px 8px; }

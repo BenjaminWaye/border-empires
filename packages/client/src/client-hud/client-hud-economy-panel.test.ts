@@ -57,5 +57,6 @@ it("shows a live import, its deadline and the shortage it would leave", () => {
   expect(commitments?.textContent).toContain("+2 Titanium");
   expect(commitments?.textContent).toContain("1 slot short when this deal ends");
   expect(commitments?.textContent).toContain("−1 FOOD");
-  expect(commitments?.textContent).toContain("Up to −50 Coin/hour");
+  // Per day like every other income figure (review of PR #2933): 50/hour pledged is 1200/day.
+  expect(commitments?.textContent).toContain("Up to −1200 Coin/day");
 });

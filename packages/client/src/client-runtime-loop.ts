@@ -13,7 +13,7 @@ import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
-import { drawLoopMinFrameGapMs, isPhoneViewport } from "./client-runtime-loop-frame-gap.js";
+import { drawLoopMinFrameGapMs, isPhoneViewport, renderTileSize, startGuardedDrawLoop } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
@@ -122,7 +122,7 @@ type StartClientRuntimeLoopDeps = {
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;
   formatCountdownClock: (ms: number) => string;
   drawStartingExpansionArrow: (px: number, py: number, size: number, dx: number, dy: number) => void;
-  drawPlanetaryDefenseOverlay: (px: number, py: number, size: number, wx: number, wy: number) => void;
+  drawPlanetaryDefenseOverlay: (tile: Tile, px: number, py: number, size: number, wx: number, wy: number) => void;
   shouldDrawOwnershipBorder: (tile: Tile) => boolean;
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
@@ -183,7 +183,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   const syncRoadNetwork = createCanvasRoadNetwork({ tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
   const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
-  });
+  }, { renderHud: deps.renderHud, requestViewRefresh: () => deps.requestViewRefresh(), wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
   const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });
   // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
@@ -196,18 +196,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(frame); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), isPhoneViewport());
     if (nowMs - lastDrawAt < minFrameGap) {
-      requestAnimationFrame(draw);
+      requestAnimationFrame(frame);
       return;
     }
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
-    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
+    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud, { canvas: deps.canvas, worldToScreen: deps.worldToScreen }); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
       paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);
@@ -235,7 +235,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
     }
 
-    const size = state.zoom;
+    const size = renderTileSize(state.zoom); // never negative or NaN, whatever state.zoom holds mid-glide (client-render-frame-guard.ts)
     const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
     const dockEndpointKeys = dockEndpointKeySet(state.dockPairs, deps.keyFor);
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
@@ -253,7 +253,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       afcJoinDrop: state.afcJoinDrop,
       resourceInstallations: deps
     };
-    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D, townTierUpgradeFxByKey: state.townTierUpgradeFxByKey, waystationOpenFxByKey: state.waystationOpenFxByKey, tiles: state.tiles }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const verboseTileDebug = verboseTileDebugEnabled(nowMs); // read once per frame: renderOverlayTile runs for every visible tile
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
@@ -368,7 +368,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
       }
 
-      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(px, py, size, wx, wy);
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(t, px, py, size, wx, wy);
 
       drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
         ctx: deps.ctx,
@@ -591,7 +591,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(px, py, size, wx, wy);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawPlanetaryDefenseOverlay(t, px, py, size, wx, wy);
 
         drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
           ctx: deps.ctx,
@@ -857,11 +857,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       cameraRefreshMs
     });
     recordDrawFrame(previousDrawAt, frameStartAt);
-    requestAnimationFrame(draw);
+    requestAnimationFrame(frame);
   };
 
   deps.initTerrainTextures();
-  draw();
+  const frame = startGuardedDrawLoop(draw, deps.ctx); // one throwing frame is skipped, not fatal
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
   setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);

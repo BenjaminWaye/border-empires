@@ -18,8 +18,11 @@ import {
   HOUSE_CHARGE_REGION_MAX_DISTANCE,
   HOUSE_CHARGE_RELIC_MAX_DISTANCE,
   HOUSE_CHARGE_SEARCH_RADIUS,
-  HOUSE_CHARGE_SEAT_MAX_DISTANCE,
-  HOUSE_CHARGE_SEAT_MIN_DISTANCE,
+  HOUSE_CHARGE_CORRECTION_MAX_DISTANCE,
+  HOUSE_CHARGE_HOUSE_CAP,
+  HOUSE_CHARGE_CORRECTION_MIN_DISTANCE,
+  HOUSE_CHARGE_METROPOLIS_COUNT,
+  HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE,
   HOUSE_CHARGE_SURVEY_MAX_LAND_TILES,
   HOUSE_CHARGE_SURVEY_MIN_LAND_TILES,
   HOUSE_CHARGE_TARGET_CAP,
@@ -30,6 +33,9 @@ import {
   type HouseChargesState
 } from "@border-empires/shared";
 import { chargeDistance, nearestCell, type ChargeTownSite, type HouseChargesWorld } from "./house-charges-world.js";
+import { houseChargeDifficulty, rivalsNearTarget } from "./house-charge-difficulty.js";
+
+export type RivalLanding = HouseChargePoint & { readonly playerId: string; readonly name: string };
 
 export type DealHouseChargesInput = {
   readonly world: HouseChargesWorld;
@@ -42,6 +48,8 @@ export type DealHouseChargesInput = {
   readonly now: number;
   /** Other Houses' landing sites; towns right beside them (a House's seat of power) are never targets. */
   readonly rivalLandingSites?: readonly HouseChargePoint[];
+  /** Other Houses with their landing site and name: the possible targets of a Writ of Correction. */
+  readonly rivalLandings?: readonly RivalLanding[];
   /** Multiplies every maximum distance band; dealHouseCharges widens it when too little qualifies nearby. */
   readonly reachScale?: number;
 };
@@ -49,6 +57,13 @@ export type DealHouseChargesInput = {
 /** Wider searches tried, in order, while fewer than HOUSE_CHARGES_KEPT charges qualify (crowded maps). */
 const REACH_SCALES = [1, 1.6, 2.2, 3] as const;
 const reach = (input: DealHouseChargesInput): number => input.reachScale ?? 1;
+
+/** Rival landing sites near a target point, for the difficulty score. */
+const rivalsNear = (input: DealHouseChargesInput, target: HouseChargePoint, exclude?: HouseChargePoint): number =>
+  rivalsNearTarget(input.world, input.rivalLandingSites ?? [], target, exclude);
+
+/** The landmass of the House's landing site. */
+const homeIslandOf = (input: DealHouseChargesInput): string | undefined => input.world.islands.islandAt(input.home.x, input.home.y)?.id;
 
 /** Towns within this distance of a rival's landing site are never charge targets. */
 const RIVAL_SEAT_EXCLUSION = 4;
@@ -149,46 +164,121 @@ const charterCandidate = (input: DealHouseChargesInput, random: () => number): H
   const chosen = pick(random, openPairs.length > 0 ? openPairs : pairsOf(tiers[1]));
   if (!chosen) return undefined;
   const [a, b, pairDistance] = chosen;
-  const route = pairDistance + Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b));
-  const renown = route <= 30 ? 1 : route <= 45 ? 2 : 3;
   const targets = [townTarget(a, tiles), townTarget(b, tiles)];
   const midpoint = { x: Math.round((a.x + b.x) / 2), y: Math.round((a.y + b.y) / 2) };
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "CHARTER",
+    roadTiles: pairDistance,
+    reach: Math.min(chargeDistance(world, home, a), chargeDistance(world, home, b)),
+    crossesWater: a.islandId !== homeIsland || b.islandId !== homeIsland,
+    rivalsNear: rivalsNear(input, midpoint)
+  });
   return {
     id: chargeIdFor(input.playerId, "CHARTER", targets),
     kind: "CHARTER",
     targets,
     searchCircle: searchCircleAround(random, midpoint, Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(pairDistance / 2) + 3), input.world),
-    rarity: renown >= 3 ? "RARE" : "COMMON",
+    rarity,
     renown,
     ...(a.islandId !== b.islandId ? { crossWater: true } : {})
   };
 };
 
-const seatCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
-  const { world, tiles, home } = input;
-  const [openSeats, allSeats] = townTiers(input, (town) => {
-    const distance = chargeDistance(world, home, town);
-    const tier = tiles.get(town.key)?.town?.populationTier;
-    return (tier === "SETTLEMENT" || tier === "TOWN") && distance >= HOUSE_CHARGE_SEAT_MIN_DISTANCE && distance <= HOUSE_CHARGE_SEAT_MAX_DISTANCE * reach(input);
+/**
+ * Writ of Correction: a rival House whose landing site lies in the band. Held
+ * by owning any AFC that House founded (house-charge-held.ts); the target
+ * point is its landing site, where the map circle and AI pursuit aim.
+ */
+const correctionCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
+  const { world, home } = input;
+  const rivals = (input.rivalLandings ?? []).filter((rival) => {
+    const distance = chargeDistance(world, home, rival);
+    return distance >= HOUSE_CHARGE_CORRECTION_MIN_DISTANCE && distance <= HOUSE_CHARGE_CORRECTION_MAX_DISTANCE * reach(input) && input.holders(`house:${rival.playerId}`) < HOUSE_CHARGE_HOUSE_CAP;
   });
-  const town = pick(random, openSeats.length > 0 ? openSeats : allSeats);
-  if (!town) return undefined;
-  const startTier = tiles.get(town.key)?.town?.populationTier ?? "TOWN";
-  const renown = (startTier === "SETTLEMENT" ? 2 : 1) + (chargeDistance(world, home, town) > 30 ? 1 : 0);
-  const target = townTarget(town, tiles);
+  const rival = pick(random, rivals);
+  if (!rival) return undefined;
+  const key = `house:${rival.playerId}`;
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "CORRECTION",
+    reach: chargeDistance(world, home, rival),
+    crossesWater: world.islands.islandAt(rival.x, rival.y)?.id !== homeIslandOf(input),
+    rivalsNear: rivalsNear(input, rival, rival)
+  });
   return {
-    id: chargeIdFor(input.playerId, "SEAT", [target]),
-    kind: "SEAT",
-    targets: [target],
-    searchCircle: searchCircleAround(random, town, HOUSE_CHARGE_SEARCH_RADIUS, world),
-    rarity: renown >= 3 ? "RARE" : "COMMON",
-    renown,
-    startTier
+    id: chargeIdFor(input.playerId, "CORRECTION", [{ key }]),
+    kind: "CORRECTION",
+    targets: [{ key, name: rival.name, x: rival.x, y: rival.y }],
+    searchCircle: searchCircleAround(random, rival, HOUSE_CHARGE_SEARCH_RADIUS, world),
+    rarity,
+    renown
   };
+};
+
+/**
+ * Three Metropolises: a landmass with at least HOUSE_CHARGE_METROPOLIS_COUNT
+ * towns. Any of its towns count, rivals' landing towns included (they can be
+ * taken, and on crowded island maps most towns are one), so many Houses may
+ * share a large landmass: the holder cap is metropolisHolderCap. The target
+ * point is the middle of the three towns nearest the House.
+ */
+/** The middle of some points, the short way round the wrapped world (towns either side of the seam stay together). */
+const wrappedCentre = (world: Pick<HouseChargesWorld, "width" | "height">, points: readonly HouseChargePoint[]): HouseChargePoint => {
+  const [first] = points;
+  if (!first) return { x: 0, y: 0 };
+  const delta = (from: number, to: number, size: number): number => {
+    const raw = (((to - from) % size) + size) % size;
+    return raw > size / 2 ? raw - size : raw;
+  };
+  const dx = points.reduce((sum, point) => sum + delta(first.x, point.x, world.width), 0) / points.length;
+  const dy = points.reduce((sum, point) => sum + delta(first.y, point.y, world.height), 0) / points.length;
+  return { x: (((Math.round(first.x + dx)) % world.width) + world.width) % world.width, y: (((Math.round(first.y + dy)) % world.height) + world.height) % world.height };
+};
+
+/** Houses that may share one landmass's Three Metropolises charge: one per three of its towns. */
+export const metropolisHolderCap = (townCount: number): number => Math.max(1, Math.floor(townCount / HOUSE_CHARGE_METROPOLIS_COUNT));
+
+const metropolisCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
+  const { world, home } = input;
+  const townsByIsland = new Map<string, ChargeTownSite[]>();
+  for (const town of world.towns) {
+    if (!town.islandId) continue;
+    const list = townsByIsland.get(town.islandId) ?? [];
+    list.push(town);
+    townsByIsland.set(town.islandId, list);
+  }
+  const homeIsland = world.islands.islandAt(home.x, home.y)?.id;
+  const options: HouseCharge[] = [];
+  for (const island of world.islands.islands) {
+    const towns = townsByIsland.get(island.id) ?? [];
+    if (towns.length < HOUSE_CHARGE_METROPOLIS_COUNT) continue;
+    const key = `metropolis:${island.id}`;
+    if (input.holders(key) >= metropolisHolderCap(towns.length)) continue;
+    // Distance to the landmass's towns, not every cell: a continent has tens of thousands of cells and dealing runs for every House.
+    const nearest = [...towns].sort((a, b) => chargeDistance(world, home, a) - chargeDistance(world, home, b)).slice(0, HOUSE_CHARGE_METROPOLIS_COUNT);
+    if (chargeDistance(world, home, nearest[0]!) > HOUSE_CHARGE_METROPOLIS_MAX_DISTANCE * reach(input)) continue;
+    const centre = wrappedCentre(world, nearest);
+    const { renown, rarity } = houseChargeDifficulty({
+      kind: "METROPOLIS",
+      reach: chargeDistance(world, home, nearest[0]!),
+      crossesWater: island.id !== homeIsland,
+      rivalsNear: rivalsNear(input, centre)
+    });
+    options.push({
+      id: chargeIdFor(input.playerId, "METROPOLIS", [{ key }]),
+      kind: "METROPOLIS",
+      targets: [{ key, name: world.islandNames.defaultNameFor(island), ...centre }],
+      searchCircle: searchCircleAround(random, centre, HOUSE_CHARGE_SEARCH_RADIUS, world),
+      rarity,
+      renown,
+      areaTowns: towns.length
+    });
+  }
+  return pick(random, options);
 };
 
 const surveyCandidate = (input: DealHouseChargesInput, random: () => number): HouseCharge | undefined => {
   const { world, home } = input;
+  const homeIsland = homeIslandOf(input);
   const options: HouseCharge[] = [];
   for (const island of world.islands.islands) {
     if (island.landTilesAtBuild < HOUSE_CHARGE_SURVEY_MIN_LAND_TILES || island.landTilesAtBuild > HOUSE_CHARGE_SURVEY_MAX_LAND_TILES) continue;
@@ -196,14 +286,20 @@ const surveyCandidate = (input: DealHouseChargesInput, random: () => number): Ho
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
     const nearest = nearestCell(world, island.cells, home);
     if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
-    const renown = island.landTilesAtBuild <= 150 ? 1 : island.landTilesAtBuild <= 350 ? 2 : 3;
     const centre = { x: Math.round(island.geometry.x), y: Math.round(island.geometry.y) };
+    const { renown, rarity } = houseChargeDifficulty({
+      kind: "SURVEY",
+      areaTiles: island.landTilesAtBuild,
+      reach: nearest.distance,
+      crossesWater: island.id !== homeIsland,
+      rivalsNear: rivalsNear(input, centre)
+    });
     options.push({
       id: chargeIdFor(input.playerId, "SURVEY", [{ key }]),
       kind: "SURVEY",
       targets: [{ key, name: world.islandNames.defaultNameFor(island), ...centre }],
       searchCircle: { x: centre.x, y: centre.y, radius: Math.max(HOUSE_CHARGE_SEARCH_RADIUS, Math.ceil(island.geometry.span / 2) + 2) },
-      rarity: renown >= 3 ? "RARE" : "COMMON",
+      rarity,
       renown,
       areaTiles: island.landTilesAtBuild
     });
@@ -218,14 +314,21 @@ const regionCandidate = (input: DealHouseChargesInput, random: () => number, kin
     if (region.kind !== kind) continue;
     const key = `region:${region.id}`;
     if (input.holders(key) >= HOUSE_CHARGE_TARGET_CAP) continue;
-    if (nearestCell(world, region.cells, home).distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
-    const renown = kind === "TUNDRA" ? 3 : region.cells.length <= 120 ? 1 : region.cells.length <= 250 ? 2 : 3;
+    const nearest = nearestCell(world, region.cells, home);
+    if (nearest.distance > HOUSE_CHARGE_REGION_MAX_DISTANCE * reach(input)) continue;
+    const { renown, rarity } = houseChargeDifficulty({
+      kind,
+      areaTiles: region.cells.length,
+      reach: nearest.distance,
+      crossesWater: world.islands.islandAt(nearest.x, nearest.y)?.id !== homeIslandOf(input),
+      rivalsNear: rivalsNear(input, region.centre)
+    });
     options.push({
       id: chargeIdFor(input.playerId, kind, [{ key }]),
       kind,
       targets: [{ key, name: world.regionName(region), ...region.centre }],
       searchCircle: searchCircleAround(random, region.centre, HOUSE_CHARGE_SEARCH_RADIUS + 2, world),
-      rarity: kind === "TUNDRA" || renown >= 3 ? "RARE" : "COMMON",
+      rarity,
       renown,
       areaTiles: region.cells.length
     });
@@ -243,13 +346,19 @@ const relicCandidate = (input: DealHouseChargesInput, random: () => number): Hou
   const site = pick(random, sites);
   if (!site) return undefined;
   const key = `relic:${site.key}`;
+  const { renown, rarity } = houseChargeDifficulty({
+    kind: "RELIC",
+    reach: chargeDistance(world, home, site),
+    crossesWater: world.islands.islandAt(site.x, site.y)?.id !== homeIslandOf(input),
+    rivalsNear: rivalsNear(input, site)
+  });
   return {
     id: chargeIdFor(input.playerId, "RELIC", [{ key }]),
     kind: "RELIC",
     targets: [{ key, name: "A Concordance installation", x: site.x, y: site.y }],
     searchCircle: searchCircleAround(random, site, HOUSE_CHARGE_SEARCH_RADIUS, world),
-    rarity: "MYTHIC",
-    renown: 4,
+    rarity,
+    renown,
     ...(tiles.get(site.key)?.naturalWonder?.type ? { relicType: tiles.get(site.key)!.naturalWonder!.type } : {})
   };
 };
@@ -273,12 +382,10 @@ const dealWithinReach = (input: DealHouseChargesInput): HouseChargesState | unde
   const random = seededRandom(hashString(`house-charges:${input.worldSeed}:${input.playerId}`));
   const relic = relicCandidate(input, random);
   const charter = charterCandidate(input, random);
-  // A Seat must not reuse one of this deal's Charter towns past the holder cap: count them as already held.
-  const charterKeys = new Set(charter?.targets.map((target) => target.key) ?? []);
-  const seatInput = { ...input, holders: (key: string) => input.holders(key) + (charterKeys.has(key) ? 1 : 0) };
   const others = [
     charter,
-    seatCandidate(seatInput, random),
+    metropolisCandidate(input, random),
+    correctionCandidate(input, random),
     surveyCandidate(input, random),
     regionCandidate(input, random, "DESERT"),
     regionCandidate(input, random, "TUNDRA")
@@ -288,7 +395,7 @@ const dealWithinReach = (input: DealHouseChargesInput): HouseChargesState | unde
     const swap = Math.floor(random() * (index + 1));
     [others[index], others[swap]] = [others[swap]!, others[index]!];
   }
-  const offered = [...(relic ? [relic] : []), ...others].slice(0, HOUSE_CHARGES_OFFERED);
+  const offered = [...(relic ? [relic] : []), ...others].slice(0, HOUSE_CHARGES_OFFERED).map((charge): HouseCharge => ({ ...charge, difficultyScored: true }));
   if (offered.length === 0) return undefined;
   return { dealtAt: input.now, offered, keptIds: offered.slice(0, HOUSE_CHARGES_KEPT).map((charge) => charge.id) };
 };

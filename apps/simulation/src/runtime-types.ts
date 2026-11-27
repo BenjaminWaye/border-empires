@@ -22,6 +22,8 @@ export type RuntimeTileYieldEconomyContext = {
   dormantEconomicStructureKeys: ReadonlySet<string>;
   // Each own town's FOOD slot demand after waivers (townFoodSlotDemandByTileKey), stamped as town.foodSlotDemand.
   townFoodSlotDemandByKey?: ReadonlyMap<string, number>;
+  // Each large town's luxury biota allocation; a short town earns part of its tier's coin.
+  biotaTownSupply?: ReadonlyMap<string, import("@border-empires/shared").BiotaTownSupply>;
 };
 
 export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
@@ -73,13 +75,12 @@ export type LockRecord = {
   /** Key of the muster tile that funded this attack (may differ from originKey for remote musters). */
   musterSourceKey?: string;
   /**
-   * Set on a barbarian ATTACK: the barbarian left its origin tile when the
-   * attack started (the tile was released to neutral at launch), so there is
-   * nothing left on the origin for a player to capture. `progress` is the
-   * origin's multiply progress at launch, which releasing the tile discards.
-   * Not persisted in snapshots: a recovered lock simply resolves without it.
+   * Set on a Planetary Defense action: the camp it came from (the origin's
+   * campId at launch). A win puts the target in this camp even if the origin
+   * was lost mid-fight. Not persisted in snapshots: a recovered lock falls
+   * back to the origin's current campId.
    */
-  barbarianLaunch?: { progress: number };
+  campId?: string;
 };
 
 export type LockedCombatResolution = {
@@ -318,6 +319,7 @@ export type SimulationTileWireDelta = {
   warScarUntil?: number | undefined;
   razedWreckUntil?: number | undefined;
   razedWreck?: string | undefined;
+  campId?: string | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

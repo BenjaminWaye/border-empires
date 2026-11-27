@@ -7,6 +7,8 @@ import { createScoutDronePose, scoutDronePoseAt, smoothstep01 } from "./client-m
 import { createScoutGroundFx } from "./client-map-3d-scout-drone-ground-fx.js";
 import { createScoutTrails } from "./client-map-3d-scout-drone-trails.js";
 import { applyScoutDroneLights } from "./client-map-3d-scout-drone-lights.js";
+import { createScoutPlanOverlay } from "./client-map-3d-scout-drone-plan-overlay.js";
+import type { ClientState } from "../client-state/client-state.js";
 import { createScoutRunningLights, resetScoutRunningLights, updateScoutRunningLights, type ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
 
 export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights.js";
@@ -18,13 +20,15 @@ export type { ScoutHomeSource } from "./client-map-3d-scout-drone-running-lights
 // flares nose-up as it comes in and settles gently back into the crown. Under it: the vision
 // footprint with a radar sweep, its silhouette shadow and the route ahead
 // (client-map-3d-scout-drone-ground-fx.ts); behind
-// it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The 2D renderer draws the same
-// story flat (client-map-render-2d-scout-drone/).
+// it, short nav-light trails (client-map-3d-scout-drone-trails.ts). The time until it is back is on
+// the bottom pill (client-scout-drone-hud.ts): a "Back in …" label over the drone was unreadably
+// small (player review 2026-11-21). The 2D renderer draws the story flat (client-map-render-2d-scout-drone/).
 //
 // client-map-3d/client-map-3d.ts creates this once and calls sync() every frame. Nothing is
 // allocated per frame. On Reduce Motion or a slow device (client-map-3d-unit-motion-gate.ts)
-// the rotors, sweep, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
-// along its route, since that is information, not decoration.
+// the rotors, bob, strobe, trails, lean, flare and settle hold still; the drone still moves
+// along its route, since that is information, not decoration. The radar sweep keeps turning on a
+// slow device (one rotating disc costs nothing) and stops only for Reduce Motion.
 
 export type ScoutDroneScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
 
@@ -41,6 +45,8 @@ export type ScoutDroneOverlayDeps = {
    * Absent (stories, tests): lights stay on.
    */
   readonly homeSource?: ScoutHomeSource | undefined;
+  /** The client state, for the flight being planned (client-map-3d-scout-drone-plan-overlay.ts). Absent in stories and tests. */
+  readonly planSource?: ClientState | undefined;
 };
 
 export type ScoutDroneOverlay = {
@@ -109,7 +115,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     resetScoutRunningLights(runningLights);
   };
 
+  const plan = deps.planSource ? createScoutPlanOverlay(scene, { state: deps.planSource, sceneFor: deps.sceneFor }) : undefined;
   const sync: ScoutDroneOverlay["sync"] = (flight, nowMs) => {
+    plan?.sync(nowMs);
     gate.recordFrame(nowMs);
     if (!scoutDronePoseAt(flight, nowMs, deps.world.width, deps.world.height, pose) || !flight) {
       hide();
@@ -195,7 +203,9 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     if (animate) trails.update(nowMs, navLeft, navRight, at.sceneX - pose.x, at.sceneZ - pose.y, deps.camera, pose.lift * level * (0.15 + 0.85 * speedNorm));
 
     // Ground: footprint, sweep and shadow under the drone, then the route still ahead.
-    if (animate) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
+    // The sweep is one rotating disc -- nothing a slow device needs to save -- so it keeps turning
+    // when the slow-device latch stands the drone still; only Reduce Motion stops it.
+    if (!gate.prefersReducedMotion()) sweepAngle = (sweepAngle + dt * SWEEP_PER_MS) % (Math.PI * 2);
     ground.place(at.sceneX, groundY, at.sceneZ, altitude, yaw, pose.lift, sweepAngle, pulse);
     // Rotor wash: faint ripples on the ground under each prop while it is low (launch and landing).
     const wash = animate ? pose.rotor * (1 - smoothstep01((pose.lift - 0.15) / 0.6)) : 0;
@@ -228,6 +238,7 @@ export const createScoutDroneOverlay = (scene: Scene, deps: ScoutDroneOverlayDep
     sync,
     dispose: () => {
       scene.remove(model.root);
+      plan?.dispose();
       model.dispose();
       ground.dispose();
       trails.dispose();

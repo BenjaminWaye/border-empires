@@ -1,4 +1,4 @@
-import { HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE } from "@border-empires/shared";
+import { FARM_PLOT_FOOD_SLOT_SUPPLY, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS, REFINERY_BOOSTER_SLOTS_PER_TILE, REFINERY_SLOTS_PER_TILE, VIVARIUM_BIOTA_SLOTS } from "@border-empires/shared";
 import { AMBARIC_TRANSFORMER_RADIUS } from "@border-empires/game-domain";
 import { populationStructureDescription } from "../client-population-structure-info/client-population-structure-info.js";
 import type { DistrictBuildingKind } from "./district-catalog.js";
@@ -15,6 +15,7 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   CLEARING_HOUSE: brief("Amplifies Manufactory income in its town and directly connected towns.", "Circular financial rotunda and colonnade."),
   TRADE_NEXUS: brief("Enables the road network's connected-town income bonus.", "Freight-transfer portal between paired exchange warehouses."),
   ANCILLARY_DEPOT: brief("Holds ancillary reserves and increases manpower capacity; amplified by Reserve Lattice.", "Sealed custody drum with radial reserve compartments."),
+  VIVARIUM: brief(`Cultures luxury biota for its own town: each copy covers ${VIVARIUM_BIOTA_SLOTS} of the town's biota slots, so it draws fewer from biota sites.`, "Tall ribbed glass dome over cultured biota, fed by a side nutrient tank."),
   NEURAL_WORKS: brief(`Amplifies Ancillary Factory manpower regeneration across its connected network and accelerates outpost muster within ${NEURAL_WORKS_MUSTER_RADIUS} tiles.`, "Mustering command bridge, dispatch lanes and network antennas."),
   ANCILLARY_FACTORY: brief("Remakes local people into controlled ancillary bodies; regenerates manpower and supports Forced Ancillarification.", "Distinct processing cells and overhead precision manipulators."),
   RESERVE_LATTICE: brief("Amplifies the capacity supplied by Ancillary Depots in its connected-town network.", "Open reserve-coordination lattice and linked control nodes."),
@@ -26,6 +27,8 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   HIGH_YIELD_AETHER_CONDENSER: brief("Upgraded Crystal converter with a higher Sell Off return and refining upkeep.", "Three vessels under an elevated condenser bridge."),
   TITANIUM_WEAPONS_FACTORY: brief("Forges Titanium armour plating; emphasizes empire-wide defense with an attack benefit.", "Open rectangular forging press, armour dies and plate output."),
   UMBRITE_WEAPONS_FACTORY: brief("Outfits Umbrite-equipped raiders; emphasizes empire-wide attack with a defense benefit.", "Forked containment crucible and charged blade racks."),
+  FARM_PLOT: brief(`Town-worked kitchen beds on a plain support tile; supplies ${FARM_PLOT_FOOD_SLOT_SUPPLY.FARM_PLOT} FOOD slot with no tech or upkeep.`, "Three planted beds, a windpump over a cistern and a tool shed."),
+  HYDROGARDEN_PLOT: brief(`Farm Plot upgraded with Hyperfeed Seedstock; supplies ${FARM_PLOT_FOOD_SLOT_SUPPLY.HYDROGARDEN_PLOT} FOOD slots, +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} near Hydroworks.`, "Lit, ribbed glass vaults over the beds, beside the windpump and a nutrient tank."),
   HYDROWORKS: brief(`Irrigation infrastructure that supplies +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots to nearby active Hydrogardens.`, "Open water basin, pumping manifold and distribution channels."),
   TITANIUM_REFINERY: brief(`Town refinery: processes one linked Titanium field, +${REFINERY_SLOTS_PER_TILE} slots per garrisoned field tile.`, "Blast furnace with a diagonal skip incline and an ore intake."),
   UMBRITE_REFINERY: brief(`Town refinery: processes one linked Umbrite field, +${REFINERY_SLOTS_PER_TILE} slots per garrisoned field tile.`, "Distillation column with catwalks, flanked by sealed vats."),

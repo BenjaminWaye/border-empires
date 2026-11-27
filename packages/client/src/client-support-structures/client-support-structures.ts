@@ -1,4 +1,4 @@
-import { MAX_SUPPORT_RING_RADIUS, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, isPreferredSupportTown, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type SupportTownStructureKey =
@@ -87,8 +87,8 @@ export const assignedTownForSupportTile = (tiles: ReadonlyMap<string, Tile>, sup
         candidate.ownershipState === "SETTLED" &&
         Math.max(Math.abs(dx), Math.abs(dy)) <= supportRingRadiusForTier(candidate.town.populationTier)
     )
-    .map(({ tile: candidate }) => candidate)
-    .sort((a, b) => a.x - b.x || a.y - b.y)[0];
+    .map(({ tile: candidate, dx, dy }) => ({ tile: candidate, x: candidate.x, y: candidate.y, distance: Math.max(Math.abs(dx), Math.abs(dy)) }))
+    .reduce<{ tile: Tile; x: number; y: number; distance: number } | undefined>((chosen, town) => (isPreferredSupportTown(town, chosen) ? town : chosen), undefined)?.tile;
 
 export const townHasSupportStructureType = (
   tiles: ReadonlyMap<string, Tile>,

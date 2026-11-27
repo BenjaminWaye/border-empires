@@ -27,6 +27,7 @@ const structureName = (id: string): string => STRUCTURE_DISPLAY_NAMES[id as keyo
 export const slotSourceLabel = (row: ResourceSlotSourceRow, names?: SlotSourceNames): string => {
   switch (row.kind) {
     case "TILE": return `${TILE_NAMES[row.id] ?? prettyId(row.id)} ${row.count === 1 ? "site" : "sites"}`;
+    case "STRUCTURE":
     case "STRUCTURE_BOOST":
     case "CONVERTER": return structureName(row.id);
     case "TECH": return TECH_NAMES[row.id] ?? prettyId(row.id);
@@ -45,7 +46,9 @@ export const slotSourcesForResource = (args: EconomyPanelArgs, resource: SlotRes
   const rows = args.resourceSlots.sources?.[resource];
   const supply = args.resourceSlots.supply[resource];
   // A server too old to send rows: show the total rather than an empty column.
-  if (!rows) return supply > 0 ? [{ label: "Slots", amountPerMinute: supply, count: 1 }] : [];
+  // Rows missing, or none for a resource that has supply (a stale breakdown): show the total rather than an empty
+  // column, which read "No tiles yet" beside a non-zero Food supply.
+  if (!rows || (rows.length === 0 && supply > 0)) return supply > 0 ? [{ label: "Slots", amountPerMinute: supply, count: 1 }] : [];
   return rows
     .map((row) => ({ label: slotSourceLabel(row, args.slotSourceNames), amountPerMinute: row.slots, count: row.count }))
     .sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));

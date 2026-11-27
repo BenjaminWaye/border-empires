@@ -24,6 +24,7 @@ export type RuntimeExportState = {
     warScarUntil?: number;
     razedWreckUntil?: number;
     razedWreck?: string;
+    campId?: string;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -63,8 +64,13 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     lifetimeGarrisons?: number;
+    achievements?: import("@border-empires/game-domain").PlayerAchievementState;
+    redeploys?: number;
     islandNames?: IslandNameClaim[];
     houseCharges?: import("@border-empires/shared").HouseChargesState;
+    scoutChargeSpends?: number[];
+    scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
+    lastActiveAt?: number;
     autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see
     // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.

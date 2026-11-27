@@ -1,5 +1,6 @@
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { buildExploreAction } from "../client-scout-drone/client-scout-drone-explore-action.js";
+import { scoutChargeRefillIn } from "../client-scout-drone/client-scout-drone-charge-status.js";
 import { expandToAction } from "../client-tile-action-logic/client-tile-action-neutral.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
@@ -19,13 +20,17 @@ export type UnexploredTileMenuDeps = {
 // reveals land around itself and claims nothing. Expand To and March To are
 // not offered here; once the drone has shown the ground, those work on the
 // now-seen tiles as usual. injectWaypointActions afterward adds Cancel
-// Waypoint when this exact tile is already an older waypoint target.
+// Waypoint when this exact tile is already an older waypoint target. With an active
+// AFC a tap on fog opens a flight plan instead (client-scout-drone-plan.ts), so this
+// menu is mostly seen by a House with no AFC.
 //
 // A House with no AFC (lost, awaiting a replacement: afcRecovery.requiredSince)
 // has no drone to send, so Explore is shown disabled and Expand To comes back
 // as the way into the unknown until an AFC lands again.
 const unexploredActions = (state: ClientState, placeholder: Tile, deps: UnexploredTileMenuDeps): TileActionDef[] => {
-  const explore = buildExploreAction(state.scoutDroneFlight);
+  // No charges left (e.g. the drone is out and spent them): greyed out with the refill time, as on the AFC (player report 2026-11-26).
+  const refill = scoutChargeRefillIn(state, Date.now());
+  const explore = refill === undefined ? buildExploreAction() : { ...buildExploreAction(), disabled: true, disabledReason: `+1 in ${refill}` };
   if (state.afcRecovery?.requiredSince === undefined) return [explore];
   const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
   const noDrone: TileActionDef = { ...explore, disabled: true, disabledReason: "Scout drones launch from an AFC, and you have none right now" };

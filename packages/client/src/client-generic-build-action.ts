@@ -1,3 +1,4 @@
+import { RELAY_BEACON_TOWARD_ACTION_ID, startRelayBeaconTowardPlacement } from "./client-relay-beacon-toward/client-relay-beacon-toward.js";
 import { structureRequiresTownOrSupportTile, type ChosenStructureTier } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { TileMenuView } from "./client-types.js";
@@ -5,6 +6,8 @@ import type { OptimisticStructureKind, Tile, TileActionDef } from "./client-type
 import { structureTypeForTileAction, unmappedBuildActionWarning } from "./client-tile-action-support/client-tile-action-support.js";
 import { showStructureTierSheet } from "./client-structure-tier-sheet/client-structure-tier-sheet.js";
 import { handleRefineryTileAction } from "./client-refineries/refinery-action-handler.js";
+import { announceBuildPlaced } from "./client-queue-logic/client-build-placed-feedback.js";
+import type { VisibleActionWarningDeps } from "./client-visible-action-warning.js";
 
 export const handleGenericBuildAction = (input: {
   actionId: string;
@@ -15,10 +18,19 @@ export const handleGenericBuildAction = (input: {
   handleBuildAction: (actionId: string, structureType: NonNullable<ReturnType<typeof structureTypeForTileAction>>, tile: Tile, tier?: ChosenStructureTier) => void;
   /** Opens the Fortify / Siege tier picker; defaults to the DOM sheet (tests pass a stub). */
   showTierSheet?: typeof showStructureTierSheet;
-  pushFeed: (message: string, type?: "info", severity?: "error") => void;
+  pushFeed: VisibleActionWarningDeps["pushFeed"];
   hideMenu: () => void;
+  /** Draws beacon placement started here (Relay Beacon toward here) and the HUD. */
+  renderPlacementOverlay?: () => void;
 }): boolean => {
   const actionId = input.actionId as TileActionDef["id"];
+  // Relay Beacon toward here: placement on your land, toward this tile. The new HUD has already opened it and
+  // centred the camera (client-hud-v2.ts), so this only opens it when nothing did (client-relay-beacon-toward.ts).
+  if (actionId === RELAY_BEACON_TOWARD_ACTION_ID) {
+    input.hideMenu();
+    if (input.state && !input.state.buildingPlacement.active && startRelayBeaconTowardPlacement(input.state, input.selected)) input.renderPlacementOverlay?.();
+    return true;
+  }
   // Refinery rows open a field / town picker first (client-refineries/refinery-action-handler.ts).
   const view = input.viewForTile?.(input.selected);
   const row = view ? [...(view.buildings ?? []), ...(view.actions ?? [])].find((candidate) => candidate.id === actionId) : undefined;
@@ -48,7 +60,12 @@ export const handleGenericBuildAction = (input: {
     if (input.queueDevelopmentAction && input.state && input.selected.ownerId === input.state.me &&
         input.selected.ownershipState === "SETTLED" && !input.selected.town && structureRequiresTownOrSupportTile(type)) {
       const action = input.viewForTile?.(input.selected).buildings.find((candidate) => candidate.id === input.actionId);
-      if (!action?.disabled) enqueue(input.selected, action?.label ?? type);
+      // Count it as a Place press like any queued build, so the town screen's Place shows "✓ Queued" then
+      // "Place another" (client-build-placed-feedback.ts); this path skips the dispatcher that announces.
+      const label = action?.label ?? type;
+      if (!action?.disabled && enqueue(input.selected, label)) {
+        announceBuildPlaced({ pushFeed: input.pushFeed }, "BUILD_STRUCTURE", `${label} at (${input.selected.x}, ${input.selected.y})`, "queued", {});
+      }
       input.hideMenu();
       return true;
     }

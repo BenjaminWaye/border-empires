@@ -5,7 +5,7 @@
 // predict, but the answer carries the human's coin and spare supply so the
 // deal screen can show what they could give, as it does for an AI. Read-only:
 // no offer is created.
-import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
+import { supplyAgreementsFull, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods, type ReturnableTown } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -16,6 +16,10 @@ export type DiplomacyStancePayload = {
   truceLockout?: { until: number; reason: string };
   /** The target is at its supply agreement limit: a deal adding resource supply would be refused. */
   supplyAgreementsFull?: true;
+  /** The requester's towns it took from this target lately and could hand back (the trade screen's "Return a town"). */
+  returnableTowns?: ReturnableTown[];
+  /** The target's towns it took from the requester lately and could hand back (the trade screen's "Ask for a town back"). */
+  askableTowns?: ReturnableTown[];
 } & (
   | { type: "DIPLOMACY_STANCE"; targetPlayerName: string; found: false }
   | {
@@ -67,6 +71,8 @@ export type DiplomacyStanceQueryDeps = {
    * When given, it replaces supplyAgreementCount for human targets.
    */
   humanTradeState?: (playerId: string) => Promise<HumanTradeState | undefined>;
+  /** Towns a player could hand back in a deal, to anyone (simulation GetPlayerTradeHoldings). */
+  returnableTowns?: (playerId: string) => Promise<readonly ReturnableTown[]>;
 };
 
 export type HumanTradeState = { holdings: DiplomacyGoods; supplyAgreements: number };
@@ -104,9 +110,21 @@ export const answerDiplomacyStanceQuery = async (
   const readSupplyCount = () => Promise.resolve().then(() => deps.supplyAgreementCount?.(target.id)).catch(() => undefined);
   const fullFlag = (count: number | undefined) => (count !== undefined && supplyAgreementsFull(count) ? { supplyAgreementsFull: true as const } : {});
   const lockout = until > 0 ? { truceLockout: { until, reason } } : {};
+  // Started now, bounded like the human lookup: a slow read only drops the list.
+  const readTowns = (holderId: string) => deps.returnableTowns
+    ? withinTimeout(Promise.resolve().then(() => deps.returnableTowns!(holderId)), HUMAN_TRADE_STATE_TIMEOUT_MS)
+    : Promise.resolve(undefined);
+  const townsRead = readTowns(requesterId);
+  const askableRead = readTowns(target.id);
+  const townsField = async (): Promise<{ returnableTowns?: ReturnableTown[]; askableTowns?: ReturnableTown[] }> => {
+    const [held, theirs] = await Promise.all([townsRead, askableRead]);
+    const towns = held?.filter((town) => town.toPlayerId === target.id) ?? [];
+    const askable = theirs?.filter((town) => town.toPlayerId === requesterId) ?? [];
+    return { ...(towns.length > 0 ? { returnableTowns: towns } : {}), ...(askable.length > 0 ? { askableTowns: askable } : {}) };
+  };
   const ids = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) {
-    const human = { ...ids, ...lockout, ai: false as const };
+    const human = { ...ids, ...lockout, ...(await townsField()), ai: false as const };
     const tradeState = deps.humanTradeState;
     if (!tradeState) return { ...human, ...fullFlag(await readSupplyCount()) };
     const state = await withinTimeout(Promise.resolve().then(() => tradeState(target.id)), HUMAN_TRADE_STATE_TIMEOUT_MS);
@@ -118,7 +136,7 @@ export const answerDiplomacyStanceQuery = async (
     deps.requesterSnapshot(requesterId).catch(() => undefined),
     supplyCount
   ]);
-  const base = { ...ids, ...lockout, ...fullFlag(targetSupplyAgreements) };
+  const base = { ...ids, ...lockout, ...fullFlag(targetSupplyAgreements), ...(await townsField()) };
   const evaluation = evaluateAiDiplomacy({
     aiPlayerId: target.id,
     aiName: target.name,

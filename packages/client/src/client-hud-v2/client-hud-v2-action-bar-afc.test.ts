@@ -30,13 +30,74 @@ describe("action bar on your own AFC", () => {
   });
 
   it("lets an urgent action keep gold, with AFC upgrades beside it", () => {
-    const buttons = selectBarButtons(ownAfc({ actions: [act("muster_hunt_attackers")] }));
-    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "muster_hunt_attackers" } });
+    const buttons = selectBarButtons(ownAfc({ actions: [act("launch_attack")] }));
+    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
     expect(buttons[1]).toEqual({ kind: "afc", primary: false });
   });
 
   it("leaves other tiles unchanged", () => {
     const { afcUpgradesReady: _ready, ...plain } = ownAfc({ tabs: ["actions"] });
     expect(kinds(plain as TileMenuView)).toEqual([]);
+  });
+
+  describe("Send scout drone", () => {
+    const send = act("afc_scout_drone", { label: "Send scout drone" });
+    const callDown = act("redeploy_afc_module:masonry" as TileActionDef["id"], { label: "Call down Masonry" });
+    const modules = (actions: TileActionDef[]): NonNullable<TileMenuView["modules"]> => ({ owned: true, active: true, slots: [], actions });
+
+    it("leads in gold when there is no upgrade ready and nothing to call down", () => {
+      const v = ownAfc({ actions: [send], modules: modules([]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "afc_scout_drone" } });
+      expect(kinds(v)).toEqual(["afc_scout_drone", "afc", "modules"]);
+      expect(selectBarButtons(v)[1]).toEqual({ kind: "afc", primary: false });
+    });
+
+    it("gives way to a ready AFC upgrade", () => {
+      const v = ownAfc({ actions: [send], afcUpgradesReady: 1 });
+      expect(selectBarButtons(v)[0]).toEqual({ kind: "afc", primary: true });
+      expect(kinds(v)).not.toContain("afc_scout_drone");
+    });
+
+    it("gives way to a module to call down, which leads the bar in gold", () => {
+      const v = ownAfc({ actions: [send], modules: modules([callDown]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "panel", panel: "modules", primary: true });
+      expect(kinds(v)).toEqual(["modules", "afc"]);
+      expect(actionBarHtml(v)).toContain('class="hud-v2-act hud-v2-act-primary hud-v2-act-modules"');
+    });
+
+    it("still leads when the only module rows can't be called down (AFC full)", () => {
+      const v = ownAfc({ actions: [send], modules: modules([{ ...callDown, disabled: true, disabledReason: "AFC full" }]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "afc_scout_drone" } });
+    });
+
+    it("leads with Recall drone while the drone flies out, and falls back to AFC upgrades while it heads home", () => {
+      const out = ownAfc({ actions: [act("recall_scout", { label: "Recall drone" }), { ...send, disabled: true, disabledReason: "Scout drone is out" }] });
+      expect(selectBarButtons(out)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "recall_scout" } });
+      const home = ownAfc({ actions: [{ ...send, disabled: true, disabledReason: "Scout drone is out" }] });
+      expect(selectBarButtons(home)[0]).toEqual({ kind: "afc", primary: true });
+    });
+
+    // Player report 2026-11-26: out of charges, the button vanished into the minor row instead of greying out.
+    it("stays on the bar greyed out with its refill time when out of charges", () => {
+      const v = ownAfc({ actions: [{ ...send, cost: "0/8", disabled: true, disabledReason: "+1 in 3h 58m" }] });
+      expect(selectBarButtons(v)[0]).toEqual({ kind: "afc", primary: true });
+      expect(kinds(v)).toEqual(["afc", "afc_scout_drone", "modules"]);
+      const html = actionBarHtml(v);
+      expect(html).toContain('class="hud-v2-act hud-v2-act-disabled" data-hud-v2-action="afc_scout_drone" disabled');
+      expect(html).toContain('<span class="hud-v2-act-cost">+1 in 3h 58m</span>');
+    });
+
+    it("gives way to an urgent action", () => {
+      const v = ownAfc({ actions: [act("launch_attack"), send] });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
+    });
+
+    // Regression (PR #2858 review): a callable module took gold from an urgent action, which then
+    // dropped off the bar entirely.
+    it("lets an urgent action keep gold over a module to call down", () => {
+      const v = ownAfc({ actions: [act("launch_attack"), send], modules: modules([callDown]) });
+      expect(selectBarButtons(v)[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
+      expect(selectBarButtons(v)).toContainEqual({ kind: "panel", panel: "modules", label: "Modules ▸", primary: false });
+    });
   });
 });

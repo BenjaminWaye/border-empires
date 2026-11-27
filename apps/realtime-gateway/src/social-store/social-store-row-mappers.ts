@@ -10,6 +10,8 @@ import type {
   SocialCompletedAllianceBreak,
   SocialTruceRequest
 } from "../social-state/social-state.js";
+import { truceOfferExpiresAt } from "../social-state/social-truce-extension.js";
+import { fealtyFromJson } from "./social-store-sqlite-alliances.js";
 import { DiplomacyTermsSchema, diplomacyTermsCarryRetiredShards, type DiplomacyTerms } from "@border-empires/shared";
 
 // undefined = a corrupt terms blob. The whole offer is then dropped: keeping
@@ -29,7 +31,7 @@ const termsFromJson = (json: string | null | undefined): { terms?: DiplomacyTerm
 };
 
 export type PlayerRow = { player_id: string; name: string; updated_at: number };
-export type AllianceRow = { player_a_id: string; player_b_id: string; created_at: number };
+export type AllianceRow = { player_a_id: string; player_b_id: string; created_at: number; fealty_json?: string | null };
 export type AllianceBreakRow = {
   pair_key: string;
   player_a_id: string;
@@ -51,6 +53,7 @@ export type AllianceRequestRow = {
   to_name: string | null;
   terms_json?: string | null;
   settlement_phase?: string | null;
+  fealty_json?: string | null;
 };
 export type TruceRequestRow = {
   id: string;
@@ -89,6 +92,7 @@ export const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceR
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),
       ...(row.settlement_phase === "paying" || row.settlement_phase === "refunding" ? { settlementPhase: row.settlement_phase } : {}),
+      ...fealtyFromJson(row.fealty_json),
       ...terms
     }
   ];
@@ -117,7 +121,8 @@ export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] 
       fromPlayerId: row.from_player_id,
       toPlayerId: row.to_player_id,
       createdAt: row.created_at,
-      expiresAt: row.expires_at,
+      // Offers saved before truces were clocked from the offer had a 7-day expiry.
+      expiresAt: truceOfferExpiresAt({ createdAt: row.created_at, durationHours: row.duration_hours as 12 | 24, extendsTruce: Boolean(row.extends_truce) }, row.expires_at),
       durationHours: row.duration_hours as 12 | 24,
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),

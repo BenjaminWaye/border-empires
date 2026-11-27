@@ -1,4 +1,4 @@
-// The new-account tutorial guide's chapters and steps, as data. Every step is
+// The tutorial guide's chapters and steps, as data. Every step is
 // taught by doing: it completes when the game state (or a player input
 // signal) shows the player did it, never by clicking "Next". Steps complete
 // out of order too -- a player who commissions a Manifest before opening the
@@ -19,14 +19,20 @@
 //
 // Copy is deliberately short (about 10 words to do, one line of why) and
 // uses canon terms from docs/lore/galactic-lore.md: Manifests are
-// *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
+// *commissioned*, barbarians are *Insurgents*, empires are *Houses*.
 
+import type { GuideIslandDock } from "./tutorial-guide-island-dock.js";
+import type { GuideDockLead } from "./tutorial-guide-dock-lead.js";
 import { turnFinishTitle, turnFinishWhy } from "./tutorial-guide-turn-finish.js";
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
-import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
-import { GUIDE_EXPLORE_MAX_FLIGHTS, type GuideScoutStatus } from "./tutorial-guide-explore-target.js";
+import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
+import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
+import type { GuideTruceStage } from "./tutorial-guide-contest-input.js";
+import { exploreHighlight, foodCopy, foodTitle, needsTownForBuild, targetHighlights, TOWN_STEP, townAction, townBeforeBeacon, townTitle, townWhy } from "./tutorial-guide-foothold-copy.js";
 
-export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "activity" | "diplomacy";
+export { guideBeaconSite, needsTownForBuild } from "./tutorial-guide-foothold-copy.js";
+
+export type GuideAnchorId = "manpower" | "manifest" | "afc" | "manufactory" | "muster" | "attack" | "activity" | "diplomacy" | "truce" | "truceAccept";
 
 /** The Manifest the guide recommends first: Industrial Tooling Module, which unlocks the Manufactory (tech id "trade"). */
 export const RECOMMENDED_FIRST_MANIFEST_ID = "trade";
@@ -85,6 +91,12 @@ export type GuideInput = {
   musterUnlocked: boolean;
   ownsMusterFlag: boolean;
   musterTargetTiles: ReadonlyArray<{ x: number; y: number }>;
+  /** An attack the player ordered is under way (parked on a flag, in flight or resolving). */
+  attackLaunched: boolean;
+  /** Planetary Defense or rival tiles touching the player's land, allies and truce partners left out. A function: computed only when a step asks. */
+  attackTargetTiles: () => ReadonlyArray<{ x: number; y: number }>;
+  /** How far the first truce has got (tutorial-guide-contest-input.ts). */
+  truceStage: GuideTruceStage;
   /** The player's manpower and cap: the last step tells a player at or over the cap to spend, not to wait. */
   manpower?: { current: number; cap: number };
   /** The scout drone: ready to launch, in the air, or no AFC to launch from (tutorial-guide-explore-target.ts). */
@@ -93,6 +105,18 @@ export type GuideInput = {
   exploreTarget: () => { x: number; y: number } | undefined;
   /** Distinct drone flights this session (capped at GUIDE_EXPLORE_MAX_FLIGHTS). */
   scoutFlights: number;
+  /** The nearest unowned town while the player holds none and it is still in fog (state.guideTownLead). */
+  townLead?: { x: number; y: number };
+  /** Drone charges still missing to fly the whole way to townLead (0 when enough are ready). */
+  townLeadChargesShort?: number;
+  /** The nearest unowned town is more than one drone leg away: no lead to fly to, the player is probably on an island. */
+  townLeadFar?: boolean;
+  /** With townLeadFar and no dock on the player's land: the nearest dock that may be on it (tutorial-guide-dock-lead.ts). */
+  dockLead?: GuideDockLead;
+  /** The player's land is a fully seen island (not just a far town lead): the copy may say so. */
+  islandSealed?: boolean;
+  /** The dock to steer to on an island (tutorial-guide-island-dock.ts). */
+  islandDock?: GuideIslandDock;
   /** Home is known and every tile within the search radius has been seen: nothing left for Explore to point at. */
   nothingToExplore: () => boolean;
 };
@@ -112,7 +136,7 @@ export type GuideStepDef = {
   /** While this step waits, Finish isn't offered: the wait ends by itself (e.g. saving up Coin), unlike meeting a rival. */
   waitBlocksFinish?: boolean;
   highlight?: (input: GuideInput) => ReadonlyArray<{ x: number; y: number }>;
-  anchor?: GuideAnchorId;
+  anchor?: GuideAnchorId | ((input: GuideInput) => GuideAnchorId);
   /** Resource icons the card shows as "Look for", so the player knows what the target looks like on the map. */
   lookFor?: ReadonlyArray<GuideLookForIcon>;
   /** Completed by pressing the card's Finish button instead of by game state. */
@@ -138,97 +162,12 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   turn: "Your turn"
 };
 
-const EXPLORE_TITLE = "tap the marked unexplored ground and Explore";
 
-const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
-  explore: { title: `No town in sight: ${EXPLORE_TITLE}`, why: "Your scout drone is free and reports the towns it flies over." },
-  scouting: { title: "Your scout drone is out: wait for its report", why: "Towns it finds stay on your map. Then Expand To one." },
-  pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
-  // Not "your reach claimed it": a town Expand To claimed can sit outside reach (towns may be garrisoned there anyway).
-  garrison: { title: "Tap the marked town and Garrison it", why: "It's your frontier now; a garrison makes it count and grow." },
-  expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No town in sight: build a Relay Beacon", why: "Its reach and vision push outward until a town comes into view." }
+const truceTitle = (i: GuideInput): string => {
+  if (i.truceStage === "incoming") return "A rival offers a truce: tap Accept";
+  if (i.truceStage === "offered") return "Truce offered: waiting for their answer";
+  return "Tap a rival House, pick Truce 12h, then send it";
 };
-
-const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
-  explore: { title: `No food in sight: ${EXPLORE_TITLE}`, why: "Your scout drone is free and reports the grain and fish it flies over." },
-  scouting: { title: "Your scout drone is out: wait for its report", why: "Grain and fish it finds stay on your map." },
-  pending: { title: "Your claim on the marked food tile is underway", why: "Once your claim lands, it garrisons itself." },
-  garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
-  expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No food in sight: build a Relay Beacon", why: "Its reach and vision push outward to more grain and fish." }
-};
-
-/** The town and food steps ask for Explore only for the first few flights: past that, a target the drone can't reach would loop, so they fall back to a beacon. */
-const canExplore = (input: GuideInput): boolean =>
-  input.scout === "ready" && input.scoutFlights < GUIDE_EXPLORE_MAX_FLIGHTS && input.exploreTarget() !== undefined;
-/** The beacon ask when grain or fish is known but only outside reach, where Garrison is refused. */
-const FOOD_OUT_OF_REACH = { title: "No food in your reach: build a Relay Beacon", why: "Garrison only works inside your reach. A beacon pushes it out to the grain and fish you've found." };
-
-const foodCopy = (input: GuideInput): { title: string; why: string } => {
-  const action = foodAction(input);
-  return action === "beacon" && input.footholdTargets.food.outOfReach > 0 ? FOOD_OUT_OF_REACH : FOOD_STEP[action];
-};
-
-const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town, input.scout, canExplore(input));
-const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food, input.scout, canExplore(input));
-const exploreHighlight = (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
-  const target = input.exploreTarget();
-  return target ? [target] : [];
-};
-
-/**
- * Before the player owns a town (the foothold's town step was skipped), a town
- * they can take comes before a Relay Beacon: it extends reach by itself, so the
- * Relay Beacon step points at that town first. Once any town is held the step
- * asks for the beacon, so towns coming into view can't keep deferring it.
- */
-const TAKEABLE_TOWN_ACTIONS: ReadonlySet<GuideTargetAction> = new Set(["pending", "garrison", "expand"]);
-// Only a town the player can take now: "explore" / "scouting" would turn the beacon step into a drone loop.
-const townBeforeBeacon = (input: GuideInput): boolean => !input.checklist.townExpanded && TAKEABLE_TOWN_ACTIONS.has(townAction(input));
-
-const targetHighlights =
-  (kind: "town" | "food") =>
-  (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
-    const action = kind === "town" ? townAction(input) : foodAction(input);
-    if (action === "explore") return exploreHighlight(input);
-    if (action === "scouting") return [];
-    // Only the recommended beacon site: the checklist's other highlights follow
-    // its own reach-based goal and could point at a town or food tile instead.
-    if (action === "beacon") return input.checklist.relayBeaconSite ? [input.checklist.relayBeaconSite] : [];
-    return input.footholdTargets[kind][action];
-  };
-
-/**
- * The Relay Beacon site the current step asks the player to build on, if any:
- * the Relay Beacon step's own site, or a foothold step's site when no town or
- * food is in reach. Drives the build menu's Recommended badge.
- */
-export const guideBeaconSite = (stepId: string, input: GuideInput): { x: number; y: number } | undefined => {
-  if (stepId === "reach-beacon") return townBeforeBeacon(input) ? undefined : input.beaconSite();
-  const footholdBeacon =
-    ((stepId === "foothold-take-town" || (stepId === "build-first" && needsTownForBuild(input))) && townAction(input) === "beacon") ||
-    ((stepId === "foothold-take-food" || stepId === "build-food-slot") && foodAction(input) === "beacon");
-  return footholdBeacon ? input.checklist.relayBeaconSite : undefined;
-};
-
-/** Where to build the beacon: the marked recommended site when there is one, otherwise any garrisoned border tile. */
-const beaconWhere = (input: GuideInput): string =>
-  input.checklist.relayBeaconSite ? ": tap the marked tile, then Build" : " on a garrisoned tile at the edge of your land";
-
-const townTitle = (input: GuideInput): string => {
-  const action = townAction(input);
-  return TOWN_STEP[action].title + (action === "beacon" ? beaconWhere(input) : "");
-};
-
-const foodTitle = (input: GuideInput): string => {
-  const action = foodAction(input);
-  const progress = ` (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
-  return foodCopy(input).title + (action === "beacon" ? beaconWhere(input) : action === "explore" || action === "scouting" ? "" : progress);
-};
-
-/** No garrisoned town to build the Manufactory on (the town step was skipped): the build step asks for a town first. */
-export const needsTownForBuild = (input: GuideInput): boolean => input.buildTargetTiles.length === 0;
 
 const buildFirstTitle = (i: GuideInput): string => {
   if (needsTownForBuild(i)) return `A Manufactory needs a town. ${townTitle(i)}`;
@@ -247,17 +186,19 @@ export const guideRecommendsAfcUpgrade = (stepId: string): boolean => stepId ===
 const otherManifestChosen = (i: GuideInput): boolean => i.manifestCount > 0 && !i.manufactoryResearched;
 
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
-  { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Towns, food and rivals are out there in the dark.", isDone: (i) => i.panned },
-  { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
+  // The drag/zoom signals live only in this page (tutorial-guide-input-signals.ts). A player who has
+  // already done later steps has looked around: playtest 2026-11-27 sat on "Drag the map" at 4/18.
+  { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Towns, food and rivals are out there in the dark.", isDone: (i) => i.panned, doneIfLaterStepDone: true },
+  { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed, doneIfLaterStepDone: true },
   {
     id: "look-explore",
     chapter: "look",
-    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground and Explore" : "Tap dark, unexplored ground and Explore"),
-    why: "Your scout drone is free. It flies out and reports towns, food and rivals.",
+    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground, then Explore" : "Tap unexplored ground, then Explore"),
+    why: "Your drone is free. It shows towns, food and rivals.",
     // A launch completes it (sticky), and so does having nothing left to explore near home.
     isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.nothingToExplore()),
     isAvailable: (i) => i.scout !== "none",
-    waitingNote: "Your scout drone launches from your AFC.",
+    waitingNote: "Your drone launches from your AFC.",
     doneIfLaterStepDone: true,
     highlight: exploreHighlight
   },
@@ -269,7 +210,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "foothold-take-town",
     chapter: "foothold",
     title: townTitle,
-    why: (i) => TOWN_STEP[townAction(i)].why,
+    why: townWhy,
     isDone: (i) => i.checklist.townExpanded,
     highlight: targetHighlights("town")
   },
@@ -285,11 +226,11 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "reach-beacon",
     chapter: "reach",
-    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on a tile at the edge of your land"),
+    title: (i) => (townBeforeBeacon(i) ? TOWN_STEP[townAction(i)].title : i.beaconSite() ? "Tap the marked tile and build a Relay Beacon" : "Build a Relay Beacon on garrisoned land at your edge"),
     why: (i) =>
       townBeforeBeacon(i)
-        ? "A town pushes your reach out by itself, so take it before spending manpower on a beacon."
-        : "A beacon pushes your reach outward, so you can garrison land further out. It needs no Manifest; it costs manpower and uses one food slot.",
+        ? "Take this town first: once garrisoned, it widens your reach."
+        : "Your reach is the land close to your towns and beacons. You can only Garrison inside it. A beacon widens it.",
     isDone: (i) => i.ownsRelayBeacon,
     doneIfLaterStepDone: true,
     highlight: (i) => {
@@ -302,7 +243,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manpower-open",
     chapter: "manpower",
     title: () => "Tap your manpower gauge",
-    why: "Manpower pays for every claim, garrison, build and attack. It refills every 4 hours.",
+    why: "Manpower pays for taking land, garrisoning, building and attacking. It refills every 4 hours.",
     isDone: (i) => i.openPanel === "manpower",
     anchor: "manpower"
   },
@@ -310,7 +251,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manifest-open",
     chapter: "manifest",
     title: () => "Open Manifests",
-    why: "You can't build anything but Relay Beacons until you commission a Manifest.",
+    why: "Manifests unlock buildings. Only Relay Beacons work without one.",
     isDone: (i) => i.openPanel === "tech" || i.manifestCount > 0,
     anchor: "manifest"
   },
@@ -318,7 +259,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "manifest-commission",
     chapter: "manifest",
     title: () => "Commission the Industrial Tooling Module",
-    why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
+    why: "It unlocks the Manufactory, which earns coin from your town.",
     // Any Manifest completes it. Choosing another than the recommended one skips the Manufactory
     // steps (otherManifestChosen) rather than waiting for a module that was never commissioned.
     // A Waystation can grant the module itself (not counted in manifestCount): nothing left to commission then.
@@ -334,7 +275,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "afc-upgrade",
     chapter: "afc",
     title: () => "Open AFC and install the Founding Concession",
-    why: "Your Manifest unlocked an AFC upgrade. The Founding Concession gives your first three towns +50% Coin and frees 2 food slots each.",
+    why: "Your first three towns earn +50% coin and need 2 fewer food slots each.",
     isDone: (i) => i.afcUpgradeInstalled,
     isAvailable: (i) => i.afcUpgradeReady,
     waitingNote: "Your Manifest is docking at your AFC: then an upgrade unlocks.",
@@ -344,7 +285,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "build-food-slot",
     chapter: "build",
     title: (i) => `A Manufactory needs a free food slot. ${foodCopy(i).title}`,
-    why: (i) => `All your food slots are in use. ${foodCopy(i).why}`,
+    why: (i) => `All your food slots are in use. ${foodCopy(i).why}${needsTownForBuild(i) ? "" : " No food nearby? Build a Farm Plot by your town with manpower."}`,
     // A free slot only counts once the Manufactory is reachable, so a spare slot a Relay Beacon
     // later uses up isn't ticked off early. Skipped when the player chose another Manifest.
     isDone: (i) => (i.manufactoryResearched && i.foodSlotFree) || i.ownsBuiltStructure || otherManifestChosen(i),
@@ -359,8 +300,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     title: buildFirstTitle,
     why: (i) =>
       needsTownForBuild(i)
-        ? TOWN_STEP[townAction(i)].why
-        : "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
+        ? townWhy(i)
+        : "Build it on your town or right next to it. It earns coin.",
     isDone: (i) => i.ownsBuiltStructure || otherManifestChosen(i),
     isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
@@ -370,22 +311,50 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     id: "contest-muster",
     chapter: "contest",
     title: () => "Raise a muster flag on a marked border tile",
-    why: "Flags gather manpower to attack Planetary Defense or rival Houses.",
+    why: "A flag gathers manpower so you can attack.",
     isDone: (i) => i.ownsMusterFlag,
     isAvailable: (i) => i.musterUnlocked,
-    waitingNote: "Explore to find Planetary Defense or a rival House: this starts when you meet one.",
-    highlight: (i) => i.musterTargetTiles
+    waitingNote: "Explore to find Insurgents or a rival House: this starts when you meet one.",
+    highlight: (i) => i.musterTargetTiles,
+    // The Stage Muster button once a tile is picked, then the first-flag confirm sheet's button.
+    anchor: "muster"
+  },
+  {
+    // After the flag, the attack it pays for: raising a flag alone left players waiting for something to happen.
+    id: "contest-attack",
+    chapter: "contest",
+    title: () => "Tap a marked enemy tile, then Launch Attack",
+    why: "Your flag's manpower pays for the attack. Win and the tile is yours.",
+    isDone: (i) => i.attackLaunched,
+    // Waits until an enemy tile touches your land: an enemy seen only across neutral
+    // land has nothing to attack yet, and an always-available step would block Finish.
+    isAvailable: (i) => i.musterUnlocked && i.attackTargetTiles().length > 0,
+    waitingNote: "Expand until an enemy tile borders your land: this starts then.",
+    highlight: (i) => i.attackTargetTiles(),
+    anchor: "attack"
   },
   {
     id: "diplomacy-truce",
     chapter: "diplomacy",
-    title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"} to offer a truce`,
-    why: "A truce keeps a neighbour from attacking you while you grow. AI Houses tell you their price.",
+    title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"}`,
+    why: "A truce stops a neighbour attacking you while you grow.",
     // Opening the panel before meeting anyone doesn't count: there was no one to offer a truce to.
     isDone: (i) => i.rivalHouseMet && i.diplomacyUsed,
     isAvailable: (i) => i.rivalHouseMet,
     waitingNote: "Explore to find a rival House: this starts when you meet one.",
     anchor: "diplomacy"
+  },
+  {
+    // Walks the offer through to a truce in force. While the player is on this step an AI
+    // accepts a truce for free (gateway ai-guide-truce-welcome.ts keys on this id).
+    id: "diplomacy-truce-made",
+    chapter: "diplomacy",
+    title: truceTitle,
+    why: (i) => (i.truceStage === "offered" ? "They answer in a moment." : "AI Houses take this first truce for free."),
+    isDone: (i) => i.truceStage === "active",
+    isAvailable: (i) => i.rivalHouseMet,
+    waitingNote: "Explore to find a rival House: this starts when you meet one.",
+    anchor: (i) => (i.truceStage === "incoming" ? "truceAccept" : "truce")
   },
   {
     id: "turn-activity",
@@ -398,8 +367,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "turn-finish",
     chapter: "turn",
-    title: (i) => turnFinishTitle(i.manpower),
-    why: (i) => turnFinishWhy(i.manpower, i.hudV2 ? "Chronicle" : "Activity dashboard"),
+    title: () => turnFinishTitle(),
+    why: (i) => turnFinishWhy(i.manpower),
     isDone: () => false,
     acknowledge: true
   }
@@ -474,7 +443,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     waiting,
     laterChapterTitles,
     highlightTiles: waiting ? [] : (step.highlight?.(input) ?? []),
-    ...(step.anchor && !waiting ? { anchor: step.anchor } : {}),
+    ...(step.anchor && !waiting ? { anchor: typeof step.anchor === "function" ? step.anchor(input) : step.anchor } : {}),
     ...(step.lookFor && !waiting ? { lookFor: step.lookFor } : {})
   };
 };

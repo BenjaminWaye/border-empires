@@ -101,7 +101,15 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     // can't do there and how to extend reach instead of a countdown.
     const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
     expect(status?.text).toBe("Beyond your reach");
-    expect(status?.helpText).toBe("Your reach is the land within 3 tiles of your towns (more with Dominion) and 5 tiles of your Relay Beacons. Outside it you can claim tiles but not garrison or build on them, and they are lost if their supply route is cut. Build a Relay Beacon nearby to extend it.");
+    expect(status?.helpText).toBe("Reach: 3 tiles from garrisoned towns (more with Dominion), 5 from Relay Beacons, over land only; mountains and sea stop it. Outside it: claim only, no garrison or build, lost if cut off. Tap \"Relay Beacon toward here\" to extend it.");
+  });
+
+  // Playtest 2026-11-27: the tip said to build a Relay Beacon, but this tile greys Build Relay Beacon out
+  // ("Outside your reach"); the button that works here is "Relay Beacon toward here".
+  it("points the beyond-reach tip at the button that works on that tile", () => {
+    const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
+    expect(status?.helpText).toContain("Relay Beacon toward here");
+    expect(status?.helpText).not.toContain("A Relay Beacon extends it");
   });
 
   it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {
@@ -115,6 +123,16 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Cut off from supply — disappears in 30s");
+  });
+
+  // Regression (2026-11 staging playtest): "can't garrison" sat above a working Garrison button on tiles the sim garrisons out of reach.
+  it.each([
+    ["a town", { town: { name: "Far", type: "FARMING", populationTier: "TOWN" } }],
+    ["a dock", { dockId: "dock-far" }],
+    ["a captured building", { economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "active" } }]
+  ])("shows no reach warning on %s, which Garrison accepts out of reach", (_label, extra) => {
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile(extra as never), 1_000, () => false, () => ["Ravenwood"])).toBeUndefined();
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile({ ...(extra as object), reachOwnerId: "player-2" } as never), 1_000, () => false, () => [])).toBeUndefined();
   });
 
   it("shows \"Inside Enemy Reach\" when a rival's reach border covers the tile but its owner isn't known locally", () => {
@@ -144,10 +162,10 @@ describe("tileMenuHeaderStatusForTile — reach lines", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  it("escapes player-controlled names and attaches the explainer to the reach line only", () => {
+  it("keeps player-controlled names as plain text (renderers escape) and attaches the explainer to the reach line only", () => {
     const tile = makeFrontierTile();
     const status = tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["<b>Evil</b>"]);
-    expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
+    expect(status?.text).toBe("Inside <b>Evil</b> Reach");
     expect(status?.helpText).toBe("Can't garrison inside another empire's reach.");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });

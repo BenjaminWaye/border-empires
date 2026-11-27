@@ -25,11 +25,17 @@
  * socket whichever it did not already receive. Re-sending is safe: the client
  * drops any REACH_UPDATE revision at or below the one it already applied
  * (packages/client/src/client-reach-authoritative/client-reach-authoritative.ts),
- * and AETHER_SHIELDS / ISLAND_NAMES / HOUSE_CHARGES are full replacement lists
+ * and AETHER_SHIELDS / ISLAND_NAMES / HOUSE_CHARGES / LONGEST_ROAD are full replacements
  * (ISLAND_NAMES: apps/simulation/src/island-names/island-names-ticker.ts).
- * SCOUT_DRONE carries the whole flight (or null once docked); its landing
- * report is stripped before storing so a new tab doesn't repeat the feed line
- * (apps/simulation/src/scout-drone/scout-drone-runtime.ts).
+ * SCOUT_DRONE carries the whole flight (or null once docked). Its landing
+ * report is kept when it carries an `id`: the client shows each report id once,
+ * so a socket that reconnects before the old one is reaped (no fresh
+ * subscribe, so no resend) still gets a report it missed. A report without an
+ * id is stripped, so it can't repeat (apps/simulation/src/scout-drone/scout-drone-runtime.ts);
+ * everything else, `charges` included, is kept.
+ * WELCOME_BACK (what the empire did while the player was away) is sent once
+ * per live SubscribePlayer, so a tab that reconnects onto an unreaped socket
+ * would never see it; its `at` lets the client ignore a copy it already showed.
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -39,7 +45,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "HOUSE_CHARGES" | "SCOUT_DRONE";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_HIJACKS" | "ISLAND_NAMES" | "HOUSE_CHARGES" | "SCOUT_DRONE" | "LONGEST_ROAD" | "WELCOME_BACK";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -67,12 +73,19 @@ type ReplayEntry<TSocket extends object> = {
 export const isReplayedPlayerMessage = (payload: Record<string, unknown>): payload is ReplayedPlayerMessage =>
   (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
   (payload.type === "AFC_HIJACKS" && Array.isArray(payload.hijacks)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands)) ||
-  (payload.type === "HOUSE_CHARGES" && Array.isArray(payload.charges)) ||
-  (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined)));
+  (payload.type === "HOUSE_CHARGES" && Array.isArray(payload.charges)) || (payload.type === "LONGEST_ROAD" && "road" in payload) ||
+  (payload.type === "SCOUT_DRONE" && (payload.flight === null || (typeof payload.flight === "object" && payload.flight !== undefined))) ||
+  (payload.type === "WELCOME_BACK" && typeof payload.elapsedMs === "number");
 
-/** What is kept for replay: SCOUT_DRONE without its one-off landing report. */
-const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage =>
-  payload.type === "SCOUT_DRONE" ? { type: payload.type, flight: payload.flight } : payload;
+/** What is kept for replay: SCOUT_DRONE keeps its report only when the client can tell it already showed it (an id). */
+const hasReportId = (report: unknown): boolean => Boolean(report && typeof report === "object" && typeof (report as { id?: unknown }).id === "string");
+// Everything but an id-less report is kept: `charges` above all, or a reconnected tab showed every charge
+// ready (the client's default with none) while the server had none left (player report 2026-11-26).
+const replayCopy = (payload: ReplayedPlayerMessage): ReplayedPlayerMessage => {
+  if (payload.type !== "SCOUT_DRONE" || hasReportId(payload.report)) return payload;
+  const { report: _report, ...kept } = payload;
+  return kept as ReplayedPlayerMessage;
+};
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));

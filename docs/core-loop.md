@@ -171,7 +171,7 @@ flowchart LR
     RN --> G
     A -->|10+ MP| B[Expand To<br/>beyond reach]
     B -->|town or dock:<br/>auto-settles, new anchor| K
-    B -.->|anything else:<br/>decays in 5 min| X[Lost]
+    B -.->|anything else: stays FRONTIER,<br/>can't be settled; lost if cut off| X[Lost]
     K -->|town tiles auto-settle| D[Towns grow<br/>population tiers]
     E -->|FOOD slots: only fed towns grow| D
     K --> DK[Docks<br/>reach anchor + sea crossing]
@@ -191,7 +191,7 @@ flowchart LR
     MB -->|forts defend, siege adds attack| I
     I -->|capture| CF[Captured tile<br/>lands as FRONTIER]
     CF -->|captured buildings and out-of-reach<br/>towns/docks auto-settle; others<br/>settle by hand, 20 MP| C
-    CF -.->|outside reach:<br/>decays in 5 min| X
+    CF -.->|outside reach and cut off<br/>from supply: lost at once| X
     K -.->|expand onto one| WS[Waystations<br/>1 random reward]
     WS -.->|+1 slot| E
     WS -.->|+5,000 pop| D
@@ -255,7 +255,7 @@ a development slot. It buys three things:
   already yours as FRONTIER, and a beacon sweeps up any that isn't.
 - Only some of that FRONTIER settles on its own: town and dock tiles, resource
   tiles you've revealed, and plain tiles inside a town's support ring (radius
-  1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
+  1, or 2 at City and up; owner call 2026-11-23, it was Great City) (`isAutoSettlementEligibleTarget` in
   `territory-automation.ts`). The rest stays FRONTIER, with zero defense,
   unless you settle it by hand (20 MP, only while in reach).
 - **Ground outside reach stays thin.** FRONTIER claimed or captured outside
@@ -270,7 +270,8 @@ a development slot. It buys three things:
 - **Expand To is the way across gaps, not a way to settle.** Its lasting use
   is reaching a town or dock outside your reach. Towns and docks auto-settle
   even when out of reach, and then act as a new anchor. Any other tile claimed
-  beyond reach is gone after 5 minutes.
+  beyond reach stays FRONTIER: it can't be settled until reach covers it, and
+  it is lost at once if it is cut off from supply (encirclement).
 
 The key idea is that **towns are never built, only acquired**. World gen
 places `max(70, 180 × worldScale)` neutral towns, and the only ways to own
@@ -283,8 +284,8 @@ growing your economy *means* taking the land around you.
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
-| **Explore** | Send the scout drone from your AFC toward an unexplored tile: it reveals radius 3 around itself, flies up to 15 tiles past your land and back, claims nothing, and files a scout report. A rival's border turns it back | Free; one drone in the air; 7.5s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
-| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
+| **Explore** | Plan a scout drone route from your AFC through stops on unexplored ground (each leg up to 20 open tiles), then straight home: it reveals radius 3 around itself, claims nothing, and files a scout report. A rival's border turns it back | 1 charge per stop (8 held, each back 4h after use); one drone in the air; 3s per tile past your land, 1s over it | `planScoutDroneFlight`, `apps/simulation/src/scout-drone/` |
+| **Expand To** | Claim an adjacent neutral tile. Not offered on unexplored tiles (Explore is). Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims stay FRONTIER (can't be settled; lost only if cut off from supply) | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, same time as an EXPAND on that tile (first 10 lifetime garrisons instant), uses a development slot | `SETTLE_MANPOWER_COST`, `garrisonBaseDurationMsAt`, `INSTANT_GARRISON_COUNT` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
@@ -324,8 +325,8 @@ a victory hold.
 
 For a town or dock outside reach, **Expand To** a path of tiles out to it
 (10 MP each, 7.5s, or 11.25s on forest or hills). The town or dock
-auto-settles and anchors its own reach. The path tiles behind it decay after
-5 minutes unless reach covers them by then.
+auto-settles and anchors its own reach. The path tiles behind it stay
+FRONTIER until reach covers them; they are lost only if cut off from supply.
 
 The feedback at this scale is the beacon's disk filling in all at once, the
 border jumping outward, a waystation or watchtower popping when you land on
@@ -498,7 +499,7 @@ to expansion and war.
    as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
-   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A fort's perimeter
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8). A besieged town (its owner holds none of its 8 surrounding land plots, settled or frontier, and a non-allied rival holds one of them) defends ×0.75 (2026-11-27). A fort's perimeter
    lends its owner's garrisoned tiles around it a share of that bonus
    (radius 1 at 1/3 for Palisade/Fort, radius 2 at 1/4 for Titanium and 1/5 for Thunder Bastion;
    `fort-perimeter.ts`), and plain frontier tiles inside a perimeter
@@ -507,10 +508,11 @@ to expansion and war.
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,
    economic structures) auto-settle straight away. Captured towns and docks
-   auto-settle only if they'd otherwise decay for being outside your reach and
+   auto-settle only if they are outside your reach and
    the player's towns auto-settle opt-in is on (`capturedTileWillAutoSettle`). Everything else has to be settled by hand
-   (20 MP, in reach) or it stays zero-defense FRONTIER, and outside reach it
-   decays in 5 minutes. A failed assault can lose the **origin** tile.
+   (20 MP, in reach) or it stays zero-defense FRONTIER; outside reach it can't
+   be settled and is lost at once if cut off from supply. A failed assault can
+   lose the **origin** tile.
    Eliminated players respawn.
 6. **Consolidate:** settle captured ground, re-anchor reach, fort the new
    border, or offer a truce.
@@ -531,7 +533,7 @@ loop at a named point.
 | **Dock gold** | **Core (part of the economy)** | Docks are reach anchors, gold sources, and a victory path (Maritime Supremacy) at once. Island-heavy maps make them important | Reach → Docks → Gold, sea crossings |
 | **Military buildings** | **Core, in the conflict loop** | War is the second source of land. Forts and siege set how much taking land costs, and they compete with economic buildings for MP and slots | Structures → Attack/defense |
 | **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by the casting Aether Tower's shots (3 per tower per 24h, 6 with Resonance Governor). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
-| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Capturing one grants one random reward and removes the waystation: permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), a resource site on that tile, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
+| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Claiming its tile makes the Survey Rig available to activate; pressing **Activate** grants one random reward and removes the rig and hovering prompt (AI captures collect automatically): a 5-minute look at the nearest unseen town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), a resource site on that tile, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
 | **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP, which makes them the biggest manpower sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), Sovereign Siege Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Census Directorate and Titanium Levy feed manpower instead | Manpower → Monuments → abilities |
 | **Sky Dock** | **Supporting (ability structure, not a monument)** | Works like a monument ability but isn't unique and has no stages: 150 MP (doubling per copy), and it needs a powered Aether Tower. Its Bombard hits tiles up to 30 away | Tech → Sky Dock → Attack |
 | **Diplomacy** | **Supporting (social layer)**, with one exception | Alliances and truces decide *who* you fight and when, not how you grow. Allies can't attack each other, and breaking a truce locks you out of truces for 24h. The exception: **Diplomatic Dominance** is a victory path, so for a player going for it, diplomacy moves into the season loop | Choice of attack target; the Victory path |
@@ -626,7 +628,7 @@ deliberately no decay for simply being offline.
 | Out of manpower | Overspent | Can't act | Wait for regen or rush-buy with gold |
 | Dormant structure | Lost its slot-backing tile | Stops giving its bonus but stays standing | Retake the resource or free a slot |
 | Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or use Ministry Hall provisioning to reduce demand |
-| Out-of-reach frontier | Lost the anchor | Decays in 5 min | Re-anchor with a beacon or recapture |
+| Out-of-reach frontier | Lost the anchor | Stays FRONTIER but can't be settled; lost at once if cut off from supply | Re-anchor with a beacon or recapture |
 | Eliminated | Last tile lost | Respawn (`respawnIfEliminated`) | Start again mid-season |
 | Lost the season | Someone held a path for 24h | Season ends, score graph | Next season; the galactic layer if you won |
 
@@ -647,21 +649,33 @@ deliberately no decay for simply being offline.
    `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
    panel and only puts a top-bar chip and warning up once it is below 50%
    (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
-4. **Onboarding teaches the wrong growth verb.** The checklist (and the
-   removed intro guide) frame Expand To as how you grow ("Tap a neutral tile next to your border to
-   claim it… Settle it"). In the live game, beacons and town/dock anchors move
-   reach and auto-claim everything inside it, and Expand To mostly matters for
-   crossing to an out-of-reach town or dock. Players who follow the checklist will
-   Expand To tiles beyond reach and watch them decay. The checklist
-   should say that reach comes from beacons and that ground beyond reach
-   doesn't last.
+4. **Onboarding taught the wrong growth verb.** *Mostly addressed
+   2026-11-24; open items below.* The old checklist framed Expand To as how
+   you grow. The tutorial guide ([plan](tutorial-guide-plan.md)) replaced it
+   for players enrolled in it (every player once a season is known). Its
+   "Your reach" step asks for a Relay Beacon and ticks from game state only
+   when one is built (saved progress past it also counts it done). The beacon
+   step explains reach ("You can only Garrison inside it. A beacon widens
+   it."), and food targets are only ever inside reach. The plain-words pass
+   (PR #2951) removed the false "uses one food slot" line, and the last card
+   no longer lists "expand". The old 5-minute decay for ground beyond reach
+   no longer exists (§2): such land stays FRONTIER, can't be settled, and is
+   lost only if cut off from supply. Still open: the town step still says
+   "Expand To" without saying that plain land beyond reach can't be
+   garrisoned; and the older four-row checklist, still shown to an account
+   with no guide progress when the gateway sends no season id
+   (`isEnrolledInTutorialGuide`), still says "Expand To".
+   [The opening contract](product/new-player-opening.md) keeps those rows.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a
    roll, unless you spend 20 MP a tile settling it. That isn't necessarily
    bad: it makes *which* plain tiles to settle a real choice between defense,
    road corridors between towns, and beacon sites. But neither the UI nor the
-   guide explains the trade-off.
+   guide explains the trade-off. A guide step asking the player to garrison
+   one plain border tile was drafted and dropped (2026-11-23): it lengthens a
+   16-step guide, and telling every new player to spend manpower there is an
+   owner decision.
 6. **The runaway leader** is held back only by the 24h hold and social
    pile-on. There is no systemic catch-up mechanic besides respawn.
 7. **Siphon: design intent and code may disagree.** Siphon has been
@@ -672,8 +686,9 @@ deliberately no decay for simply being offline.
    output") suggests a transfer was intended. Needs a decision: either the
    code is missing the transfer, or the description should change.
 8. **Doc drift found while writing this.** The code is authoritative:
-   - README says combat takes a "3-second lock". `COMBAT_LOCK_MS` is 30s, and
-     attacks on FRONTIER are instant.
+   - *Fixed 2026-11-23:* README said combat takes a "3-second lock".
+     `COMBAT_LOCK_MS` is 15s (this list used to say 30s), and attacks on
+     FRONTIER are instant.
    - README says research costs "gold + strategic resources + time". It is
      instant and gold-only (`chooseTechForPlayer`). `researchTimeSeconds` in
      `tech-tree.json` is not enforced by the simulation.
@@ -682,8 +697,11 @@ deliberately no decay for simply being offline.
      cap.
    - The expansion brief quotes `FRONTIER_CLAIM_COST = 1` and a 1.25s claim.
      The claim cost is now 0 gold and 10 MP, and the claim takes 7.5s.
-   - The in-game guide says "plant up to 5 muster flags". `MUSTER_MAX_TILES`
-     is 2, plus 1–2 from each of four domains.
+   - *Fixed:* the in-game guide no longer says "plant up to 5 muster flags"
+     (the 8-slide guide was removed; the client shows the server's limit).
+     `MUSTER_MAX_TILES` is 2, plus 1–2 from each of four domains.
+   - *Fixed 2026-11-24 (PR #2951):* the tutorial guide said a Relay Beacon
+     "uses one food slot". The first 5 need none (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT`).
 
 ## Auto-settle is opt-in per category
 

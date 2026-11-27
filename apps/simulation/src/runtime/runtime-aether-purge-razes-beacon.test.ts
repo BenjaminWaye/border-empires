@@ -23,7 +23,9 @@ const purge = async (economicStructure: NonNullable<DomainTileState["economicStr
         { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
         { x: 5, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure, ...(town ? { town } : {}) },
         // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
-        { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+        { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+        // Distant land keeps player-2 alive, so no elimination respawn lands on the purged tile.
+        { x: 40, y: 40, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
       ],
       activeLocks: []
     }

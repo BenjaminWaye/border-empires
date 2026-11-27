@@ -83,4 +83,71 @@ describe("renderSidePanel", () => {
     renderSidePanel({ ...state, activePanel: null }, deps);
     expect(sidePanelEl.classList.contains("settings-panel-active")).toBe(false);
   });
+
+  // Owner 2026-11-18: hover titles don't exist on a phone, so each panel says what it is in visible text.
+  it("shows a one-line explanation under the manpower and Integrity titles, and a ? instead on House Charges", () => {
+    const head = document.createElement("div");
+    head.innerHTML = '<h3 id="panel-title">Panel</h3><button id="panel-help" hidden>?</button><p id="panel-hint" class="panel-hint" hidden></p>';
+    const help = head.querySelector<HTMLElement>("#panel-help")!;
+    const panelTitleEl = head.querySelector<HTMLElement>("#panel-title")!;
+    const hint = head.querySelector<HTMLElement>("#panel-hint")!;
+    const deps = { sidePanelBodyEl: document.createElement("div"), sidePanelEl: document.createElement("aside"), panelTitleEl };
+    const base = { techTreeExpanded: false, domainDetailOpen: false };
+    renderSidePanel({ ...base, activePanel: "manpower" }, deps);
+    expect(hint.hidden).toBe(false);
+    expect(hint.textContent).toBe("Expand, garrison, build, attack · refills every 4h");
+    renderSidePanel({ ...base, activePanel: "defensibility" }, deps);
+    expect(hint.textContent).toContain("Compact garrisoned land");
+    expect(help.hidden).toBe(true);
+    // Owner 2026-11-20: no line above the charge cards, only a ? beside the title.
+    renderSidePanel({ ...base, activePanel: "charges" }, deps);
+    expect(hint.hidden).toBe(true);
+    // The charges panel shows the ? once it has charges to explain (client-house-charges-panel.ts).
+    help.hidden = false;
+    // Owner 2026-11-19: on desktop the charges float side by side; the class lets the panel widen and lose its frame.
+    expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(true);
+    renderSidePanel({ ...base, activePanel: "settings" }, deps);
+    expect(hint.hidden).toBe(true);
+    expect(help.hidden).toBe(true);
+    expect(deps.sidePanelEl.classList.contains("charges-panel-active")).toBe(false);
+  });
+});
+
+// Playtest 2026-11-26: Settings reopened scrolled down, so a tap meant for Credits opened "Join the Discord".
+describe("renderSidePanel scroll on open", () => {
+  const setup = () => {
+    document.body.innerHTML = `<aside id="side-panel"><div><h2 id="panel-title"></h2></div><div id="side-panel-body"><section id="panel-settings" class="panel-body"></section></div></aside>`;
+    return {
+      sidePanelEl: document.getElementById("side-panel")!,
+      sidePanelBodyEl: document.getElementById("side-panel-body")!,
+      panelTitleEl: document.getElementById("panel-title")!
+    };
+  };
+  const render = (deps: ReturnType<typeof setup>, activePanel: "settings" | "economy" | null): void =>
+    renderSidePanel({ activePanel, techTreeExpanded: false, domainDetailOpen: false }, deps);
+
+  it("reopens Settings at the top", () => {
+    const deps = setup();
+    render(deps, "settings");
+    deps.sidePanelBodyEl.scrollTop = 120;
+    render(deps, null);
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(0);
+  });
+
+  it("keeps the scroll of an open panel across re-renders", () => {
+    const deps = setup();
+    render(deps, "settings");
+    deps.sidePanelBodyEl.scrollTop = 120;
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(120);
+  });
+
+  it("starts at the top when switching to another panel", () => {
+    const deps = setup();
+    render(deps, "economy");
+    deps.sidePanelBodyEl.scrollTop = 80;
+    render(deps, "settings");
+    expect(deps.sidePanelBodyEl.scrollTop).toBe(0);
+  });
 });

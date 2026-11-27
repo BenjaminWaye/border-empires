@@ -13,7 +13,7 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
     foodSlotsTarget: 4,
     highlightTiles: [{ x: 5, y: 5 }]
   },
-  footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } },
+  footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
   afcUpgradeReady: false,
@@ -34,6 +34,9 @@ const baseInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  attackLaunched: false,
+  attackTargetTiles: () => [],
+  truceStage: "none",
   scout: "none",
   exploreTarget: () => undefined,
   nothingToExplore: () => false,
@@ -93,7 +96,7 @@ describe("tutorial guide steps", () => {
     const view = evaluateGuide(baseInput({ checklist: footholdDone, musterTargetTiles: [{ x: 2, y: 2 }] }), allButContest);
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.waiting).toBe(true);
-    expect(view.title).toMatch(/Planetary Defense/);
+    expect(view.title).toMatch(/Insurgents/);
     expect(view.highlightTiles).toEqual([]);
 
     const unlocked = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, musterTargetTiles: [{ x: 2, y: 2 }] }), allButContest);
@@ -115,46 +118,66 @@ describe("tutorial guide steps", () => {
     );
   });
 
+  // Playtest Run 4: a newcomer flew the drone five times in random directions over three mornings and never
+  // saw a town, then built four beacons. With no town known, the guide now marks the nearest real town
+  // (the server's lead) and asks for Explore there, for as many flights as it takes.
+  it("points the drone at the server's town lead while no town is known, never at a beacon loop", () => {
+    const pastFind = new Set(ids("look"));
+    const checklist = { ...baseInput().checklist, step: "EXPAND_RELAY_BEACON" as const, relayBeaconSite: { x: 1, y: 1 } };
+    const lead = { x: 60, y: 8 };
+    const view = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 7, ownsRelayBeacon: true, townLead: lead }), pastFind);
+    expect(view).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore", highlightTiles: [lead] }));
+    expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
+    const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
+    expect(flying.kind === "step" && flying.title).toBe("Your drone is flying: wait for its report");
+    // Review of PR #2933: with too few charges for the whole way, a part-way flight would repeat forever: wait.
+    const short = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, townLeadChargesShort: 2 }), pastFind);
+    expect(short).toEqual(expect.objectContaining({ title: "Let's explore further: wait for 2 more drone charges", highlightTiles: [] }));
+    // Once a town is known (here, beyond reach), the usual town steps take over.
+    const known = evaluateGuide(baseInput({ checklist, scout: "ready", townLead: lead, footholdTargets: { town: { outOfReach: 1, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    expect(known.kind === "step" && known.title).toMatch(/build a Relay Beacon/);
+  });
+
   it("tells the player to Garrison a town that is already their frontier, Expand To a neutral town in vision, else build a beacon", () => {
     const pastFind = new Set(ids("look"));
     const found = { ...baseInput().checklist, townFound: true };
 
-    const garrison = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
-    expect(garrison).toEqual(expect.objectContaining({ title: "Tap the marked town and Garrison it", highlightTiles: [{ x: 3, y: 0 }] }));
-    expect(garrison.kind === "step" && garrison.why).toMatch(/frontier/);
+    const garrison = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    expect(garrison).toEqual(expect.objectContaining({ title: "Tap the marked town, then Garrison", highlightTiles: [{ x: 3, y: 0 }] }));
+    expect(garrison.kind === "step" && garrison.why).toMatch(/counts as yours/);
 
-    const expand = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
-    expect(expand).toEqual(expect.objectContaining({ title: "Tap the marked town and Expand To it", highlightTiles: [{ x: 9, y: 9 }] }));
+    const expand = evaluateGuide(baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 9, y: 9 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }), pastFind);
+    expect(expand).toEqual(expect.objectContaining({ title: "Tap the marked town, then Expand To", highlightTiles: [{ x: 9, y: 9 }] }));
 
     const beacon = evaluateGuide(baseInput({ checklist: { ...found, step: "EXPAND_RELAY_BEACON", highlightTiles: [{ x: 1, y: 1 }], relayBeaconSite: { x: 1, y: 1 } } }), pastFind);
-    expect(beacon).toEqual(expect.objectContaining({ title: "No town in sight: build a Relay Beacon: tap the marked tile, then Build", highlightTiles: [{ x: 1, y: 1 }] }));
+    expect(beacon).toEqual(expect.objectContaining({ title: "No town nearby: build a Relay Beacon: tap the marked tile, then Build", highlightTiles: [{ x: 1, y: 1 }] }));
     // No recommended site: say where instead of pointing at a ring that isn't there.
     const noSite = evaluateGuide(baseInput({ checklist: { ...found, step: "EXPAND_RELAY_BEACON" } }), pastFind);
     expect(noSite).toEqual(
-      expect.objectContaining({ title: "No town in sight: build a Relay Beacon on a garrisoned tile at the edge of your land", highlightTiles: [] })
+      expect.objectContaining({ title: "No town nearby: build a Relay Beacon on garrisoned land at your edge", highlightTiles: [] })
     );
 
     // Right after Expand To, the town is our pending frontier: don't ask for a Garrison that is already queued.
     const pending = evaluateGuide(
-      baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, pending: [{ x: 3, y: 0 }], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } } }),
+      baseInput({ checklist: found, footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [{ x: 3, y: 0 }], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } } }),
       pastFind
     );
-    expect(pending).toEqual(expect.objectContaining({ title: "Your claim on the marked town is underway", highlightTiles: [{ x: 3, y: 0 }] }));
+    expect(pending).toEqual(expect.objectContaining({ title: "Taking the marked town...", highlightTiles: [{ x: 3, y: 0 }] }));
   });
 
   it("treats food like towns: Garrison own frontier food, Expand To food in vision, else a beacon, and shows the grain and fish icons", () => {
     const pastTown = new Set([...ids("look"), "foothold-take-town"]);
     const checklist = { ...footholdDone, step: "EXPAND_FOOD" as const, foodExpanded: false, foodSlotsClaimed: 1, highlightTiles: [{ x: 1, y: 1 }] };
-    const food = (garrison: Array<{ x: number; y: number }>, expand: Array<{ x: number; y: number }>) => ({ town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison, expand } });
+    const food = (garrison: Array<{ x: number; y: number }>, expand: Array<{ x: number; y: number }>) => ({ town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison, expand } });
 
     const garrison = evaluateGuide(baseInput({ checklist, footholdTargets: food([{ x: 2, y: 2 }], [{ x: 8, y: 8 }]) }), pastTown);
-    expect(garrison).toEqual(expect.objectContaining({ title: "Tap a marked food tile and Garrison it (1/4 slots)", highlightTiles: [{ x: 2, y: 2 }], lookFor: ["FOOD", "FISH"] }));
+    expect(garrison).toEqual(expect.objectContaining({ title: "Tap a marked food tile, then Garrison (1/4 slots)", highlightTiles: [{ x: 2, y: 2 }], lookFor: ["FOOD", "FISH"] }));
 
     const expand = evaluateGuide(baseInput({ checklist, footholdTargets: food([], [{ x: 8, y: 8 }]) }), pastTown);
-    expect(expand).toEqual(expect.objectContaining({ title: "Tap a marked food tile and Expand To it (1/4 slots)", highlightTiles: [{ x: 8, y: 8 }] }));
+    expect(expand).toEqual(expect.objectContaining({ title: "Tap a marked food tile, then Expand To (1/4 slots)", highlightTiles: [{ x: 8, y: 8 }] }));
 
     const beacon = evaluateGuide(baseInput({ checklist: { ...checklist, relayBeaconSite: { x: 1, y: 1 } } }), pastTown);
-    expect(beacon).toEqual(expect.objectContaining({ title: "No food in sight: build a Relay Beacon: tap the marked tile, then Build", highlightTiles: [{ x: 1, y: 1 }] }));
+    expect(beacon).toEqual(expect.objectContaining({ title: "No food nearby: build a Relay Beacon: tap the marked tile, then Build", highlightTiles: [{ x: 1, y: 1 }] }));
   });
 
   it("offers Finish once every other step left is waiting, but not while one can still be done", () => {
@@ -191,16 +214,51 @@ describe("tutorial guide steps", () => {
     const allButDiplomacy = new Set(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce" && s.id !== "turn-finish").map((s) => s.id));
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButDiplomacy)).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }) }));
     expect(evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true }), allButDiplomacy)).toEqual(
-      expect.objectContaining({ title: "A rival House is near: open Allies to offer a truce", anchor: "diplomacy" })
+      expect.objectContaining({ title: "A rival House is near: open Allies", anchor: "diplomacy" })
     );
     expect(evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, hudV2: true }), allButDiplomacy)).toEqual(
-      expect.objectContaining({ title: "A rival House is near: open Diplomacy to offer a truce" })
+      expect.objectContaining({ title: "A rival House is near: open Diplomacy" })
     );
     // Opening Allies before meeting anyone doesn't silently complete it.
     const early = evaluateGuide(baseInput({ checklist: footholdDone, diplomacyUsed: true }), allButDiplomacy);
     expect(early.kind === "step" && early.newlyCompleted).not.toContain("diplomacy-truce");
     const opened = evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, diplomacyUsed: true }), allButDiplomacy);
     expect(opened.kind === "step" && opened.newlyCompleted).toContain("diplomacy-truce");
+  });
+
+  // Owner, 2026-11-26: raising a muster flag was the whole Contest chapter, and nothing attacked.
+  it("asks for an attack on a marked enemy tile after the muster flag", () => {
+    const allButAttack = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "turn-finish").map((s) => s.id));
+    const targets = [{ x: 3, y: 3 }];
+    const view = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true, attackTargetTiles: () => targets }), allButAttack);
+    expect(view).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "contest-attack" }), title: "Tap a marked enemy tile, then Launch Attack", highlightTiles: targets, anchor: "attack" }));
+    const launched = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, attackLaunched: true }), allButAttack);
+    expect(launched.kind === "step" && launched.newlyCompleted).toContain("contest-attack");
+    // Opening the Chronicle early must not skip it.
+    const chronicleFirst = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "contest-muster" && s.id !== "turn-finish").map((s) => s.id));
+    const flagged = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true, attackTargetTiles: () => targets }), chronicleFirst);
+    expect(flagged.kind === "step" && flagged.step.id).toBe("contest-attack");
+  });
+
+  // Review of #3012: with an enemy seen only across neutral land there is nothing to
+  // attack, and an always-available attack step kept the guide from offering Finish.
+  it("waits on the attack step, and still offers Finish, while no enemy tile borders your land", () => {
+    const allButAttack = new Set(GUIDE_STEPS.filter((s) => s.id !== "contest-attack" && s.id !== "turn-finish").map((s) => s.id));
+    const view = evaluateGuide(baseInput({ checklist: footholdDone, musterUnlocked: true, ownsMusterFlag: true }), allButAttack);
+    expect(view.kind === "step" && view.step.id).toBe("turn-finish");
+  });
+
+  // Owner, 2026-11-26: the guide stopped at opening Diplomacy; it now walks the offer through to a truce.
+  it("walks a truce from the offer to a truce in force", () => {
+    const allButTruce = new Set(GUIDE_STEPS.filter((s) => s.id !== "diplomacy-truce-made" && s.id !== "turn-finish").map((s) => s.id));
+    const at = (truceStage: GuideInput["truceStage"]) => evaluateGuide(baseInput({ checklist: footholdDone, rivalHouseMet: true, truceStage }), allButTruce);
+    expect(at("none")).toEqual(expect.objectContaining({ title: "Tap a rival House, pick Truce 12h, then send it", anchor: "truce" }));
+    expect(at("offered")).toEqual(expect.objectContaining({ title: "Truce offered: waiting for their answer", anchor: "truce" }));
+    expect(at("incoming")).toEqual(expect.objectContaining({ title: "A rival offers a truce: tap Accept", anchor: "truceAccept" }));
+    const made = at("active");
+    expect(made.kind === "step" && made.newlyCompleted).toContain("diplomacy-truce-made");
+    // Waits for a rival House like the open-Diplomacy step.
+    expect(evaluateGuide(baseInput({ checklist: footholdDone }), allButTruce)).toEqual(expect.objectContaining({ step: expect.objectContaining({ id: "turn-finish" }) }));
   });
 
   it("names the Chronicle under the new desktop HUD", () => {
@@ -233,7 +291,7 @@ describe("tutorial guide steps", () => {
     expect(guideBeaconSite("reach-beacon", input)).toEqual(site);
 
     expect(evaluateGuide(baseInput({ checklist: footholdDone }), pastFoothold)).toEqual(
-      expect.objectContaining({ title: "Build a Relay Beacon on a tile at the edge of your land", highlightTiles: [] })
+      expect.objectContaining({ title: "Build a Relay Beacon on garrisoned land at your edge", highlightTiles: [] })
     );
 
     const built = evaluateGuide(baseInput({ checklist: footholdDone, ownsRelayBeacon: true }), pastFoothold);
@@ -297,7 +355,7 @@ describe("tutorial guide steps", () => {
 
     it("works the player through finding a food slot before the Manufactory when none is free", () => {
       const afcDone = new Set([...beforeAfc, "afc-upgrade"]);
-      const food = { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 7, y: 7 }] };
+      const food = { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 7, y: 7 }] };
       const noSlot = evaluateGuide(
         baseInput({ ...withManifest, foodSlotFree: false, manufactoryUnlocked: true, footholdTargets: { town: food, food } }),
         afcDone
@@ -307,6 +365,8 @@ describe("tutorial guide steps", () => {
       expect(noSlot.title).toMatch(/free food slot/i);
       expect(noSlot.highlightTiles).toEqual([{ x: 7, y: 7 }]);
       expect(noSlot.step.lookFor).toEqual(["FOOD", "FISH"]);
+      // Farm Plot (docs/farm-plot-plan.md): a held town can grow its own food with manpower.
+      expect(noSlot.kind === "step" && noSlot.why).toMatch(/Farm Plot/);
 
       const slotFree = evaluateGuide(baseInput({ ...withManifest, foodSlotFree: true, manufactoryUnlocked: true }), new Set([...afcDone, "build-food-slot"]));
       expect(slotFree.kind === "step" && slotFree.step.id).toBe("build-first");
@@ -333,12 +393,12 @@ describe("tutorial guide steps", () => {
   it("asks for a town the player can take before a Relay Beacon while they own none, then the beacon", () => {
     const pastFoothold = new Set([...ids("look"), ...ids("foothold")]);
     const site = { x: 12, y: 3 };
-    const townInSight = { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 4, y: 1 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } };
+    const townInSight = { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 4, y: 1 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } };
     // The town step was skipped: no town held yet.
     const noTown = { ...footholdDone, step: "EXPAND_TOWN" as const, townExpanded: false };
     const input = baseInput({ checklist: noTown, beaconSite: () => site, footholdTargets: townInSight });
     expect(evaluateGuide(input, pastFoothold)).toEqual(
-      expect.objectContaining({ title: "Tap the marked town and Expand To it", chapterTitle: "Your reach", highlightTiles: [{ x: 4, y: 1 }] })
+      expect.objectContaining({ title: "Tap the marked town, then Expand To", chapterTitle: "Your reach", highlightTiles: [{ x: 4, y: 1 }] })
     );
     // No beacon badge in the build menu while the step points at the town.
     expect(guideBeaconSite("reach-beacon", input)).toBeUndefined();
@@ -347,5 +407,13 @@ describe("tutorial guide steps", () => {
     const held = baseInput({ checklist: footholdDone, beaconSite: () => site, footholdTargets: townInSight });
     expect(evaluateGuide(held, pastFoothold)).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", highlightTiles: [site] }));
     expect(guideBeaconSite("reach-beacon", held)).toEqual(site);
+  });
+
+  // Playtest 2026-11-27: the card sat on "Drag the map" at 4/18. The drag signal lives only in the page,
+  // so a player with later steps saved (after a reload) was sent back to step 1 forever.
+  it("counts the look-around steps done once a later step is saved", () => {
+    const view = evaluateGuide(baseInput(), new Set(["look-explore", "foothold-take-town", "foothold-take-food", "reach-beacon"]));
+    expect(view.kind === "step" ? view.step.id : view.kind).not.toBe("look-pan");
+    expect(view.kind === "step" ? view.newlyCompleted : []).toEqual(expect.arrayContaining(["look-pan", "look-zoom"]));
   });
 });

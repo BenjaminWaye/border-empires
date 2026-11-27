@@ -79,6 +79,7 @@ const toRuntimeExportTile = (
   if (typeof tile.warScarUntil === "number") entry.warScarUntil = tile.warScarUntil;
   if (typeof tile.razedWreckUntil === "number") entry.razedWreckUntil = tile.razedWreckUntil;
   if (typeof tile.razedWreck === "string") entry.razedWreck = tile.razedWreck;
+  if (typeof tile.campId === "string") entry.campId = tile.campId;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;
@@ -143,8 +144,13 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         // Derived from owned wonders (recomputed at boot); exported so the player snapshot prices Manifests as charged.
         ...(player.wonderTechGoldDiscount ? { wonderTechGoldDiscount: player.wonderTechGoldDiscount } : {}),
         ...(typeof player.lifetimeGarrisons === "number" && player.lifetimeGarrisons > 0 ? { lifetimeGarrisons: player.lifetimeGarrisons } : {}),
+        ...(player.achievements ? { achievements: structuredClone(player.achievements) } : {}),
+        ...(typeof player.redeploys === "number" && player.redeploys > 0 ? { redeploys: player.redeploys } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         ...(player.houseCharges ? { houseCharges: structuredClone(player.houseCharges) } : {}),
+        ...(player.scoutChargeSpends?.length ? { scoutChargeSpends: [...player.scoutChargeSpends] } : {}),
+        ...(player.scoutLastReport ? { scoutLastReport: player.scoutLastReport } : {}),
+        ...(typeof player.lastActiveAt === "number" ? { lastActiveAt: player.lastActiveAt } : {}),
         autoSettle: autoSettlePrefsForOutput(player.autoSettle),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
@@ -344,12 +350,13 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
     const structureCounts = track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId));
     const focusKeys = track("planner_view_focus_front_tile_keys", playerId, () => input.spatialFocusFrontForPlayer(playerId));
     track("planner_view_push", playerId, () => {
+      const installedModuleTechIds = activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles);
       players.push({
         id: player.id,
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
-        installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
+        installedModuleTechIds,
         domainIds: [...(player.domainIds ?? [])].sort(),
         ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
         ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
@@ -367,7 +374,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         territoryTileKeys: tileKeys.territoryTileKeys,
         reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
         focusFrontTileKeys: focusKeys,
-        ...((player.techIds.has("crystal-lattices") || (structureCounts.OBSERVATORY ?? 0) > 0) && input.tacticalViewForPlayer ? { tacticalView: input.tacticalViewForPlayer(playerId, focusKeys) } : {}),
+        ...((player.techIds.has("crystal-lattices") || (structureCounts.OBSERVATORY ?? 0) > 0 || installedModuleTechIds.includes("crystal-lattices")) && input.tacticalViewForPlayer ? { tacticalView: input.tacticalViewForPlayer(playerId, focusKeys) } : {}),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,

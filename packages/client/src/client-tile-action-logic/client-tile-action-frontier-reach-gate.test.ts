@@ -72,9 +72,7 @@ const stateWithTownAndFrontierTile = (frontierX: number, frontierY: number): {
     ownershipState: "SETTLED",
     town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
   } as Tile);
-  // Settle Land/Settle Connected are hidden until the player has an established
-  // economy (a settled town + a settled grain tile) -- give this fixture a
-  // settled FARM tile too, so these reach-gate assertions can still see the row.
+  // A settled FARM tile too, so the fixture matches a typical established empire.
   state.tiles.set(keyFor(0, 1), {
     x: 0,
     y: 1,
@@ -173,5 +171,33 @@ describe("settle_land on out-of-reach tiles the sim garrisons automatically", ()
     const settleLand = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "settle_land");
     expect(settleLand).toBeDefined();
     expect(settleLand?.disabled).toBeFalsy();
+  });
+});
+
+// Regression (2026-11 staging playtest): Build stayed lit on an owned FRONTIER
+// tile outside reach. It garrisons first, the sim refuses that garrison as
+// OUT_OF_REACH, and the player got a raw error plus a stuck "already queued".
+describe("garrison-first builds on an owned FRONTIER tile outside reach", () => {
+  const farmFrontier = (x: number, y: number) => {
+    const fixture = stateWithTownAndFrontierTile(x, y);
+    fixture.state.techIds = ["agriculture"];
+    fixture.target.resource = "FARM";
+    return fixture;
+  };
+
+  it("disables Build Hydrogarden with 'Outside your reach', even inside a rival's reach", () => {
+    const { state, target } = farmFrontier(50, 50);
+    target.reachOwnerId = "rival-player";
+    const build = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "build_hydrogarden");
+    expect(build).toBeDefined();
+    expect(build?.disabled).toBe(true);
+    expect(build?.disabledReason).toBe("Outside your reach");
+  });
+
+  it("leaves Build Hydrogarden enabled inside your reach", () => {
+    const { state, target } = farmFrontier(2, 2);
+    const build = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "build_hydrogarden");
+    expect(build).toBeDefined();
+    expect(build?.disabled).toBeFalsy();
   });
 });

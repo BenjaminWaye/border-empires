@@ -10,17 +10,13 @@
 // launch time and how each tile on the line is classified, so the client can
 // draw exactly the flight the server runs.
 
-import { FRONTIER_CLAIM_MS } from "../config.js";
+import type { ScoutDroneCharges } from "./scout-drone-charges.js";
 
 /** Live vision radius around the drone while it flies. */
 export const SCOUT_DRONE_VISION_RADIUS = 3;
-/** Tiles the drone may fly past the player's own land before it turns back. */
-export const SCOUT_DRONE_MAX_RANGE_TILES = 15;
-/** Own and allied land the drone may cross on one flight (bounds the plan's size). */
-export const SCOUT_DRONE_MAX_HOME_TILES = 80;
-/** Time per tile past the player's land: the same pace as Expand To. */
-export const SCOUT_DRONE_STEP_MS = FRONTIER_CLAIM_MS;
-/** Time per tile over the player's own or allied land, which it already sees. */
+/** Time per tile past the player's land (3s since 2026-11-21: 1s explored too fast; was Expand To's 7.5s before 2026-11-20). */
+export const SCOUT_DRONE_STEP_MS = 3_000;
+/** Time per tile over home ground (own and allied land and reach), which the player already sees. */
 export const SCOUT_DRONE_HOME_STEP_MS = 1_000;
 /** A player's scout reports reach the shared Activity log at most this often (the feed still gets every one). */
 export const SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS = 10 * 60_000;
@@ -31,16 +27,23 @@ export const SCOUT_SIGHTED_ALERT_COOLDOWN_MS = 60 * 60_000;
 export const SCOUT_DRONE_MESSAGE_TYPE = "SCOUT_DRONE";
 /** PLAYER_MESSAGE: a rival's drone was turned back at this player's border. */
 export const SCOUT_SIGHTED_MESSAGE_TYPE = "SCOUT_SIGHTED";
+/** PLAYER_MESSAGE: what the owner's drone just spotted, sent as it flies (not replayed). */
+export const SCOUT_FINDS_MESSAGE_TYPE = "SCOUT_FINDS";
 
 /** How the drone treats a tile on its line. */
 export type ScoutDroneTileClass =
-  | "HOME" // the player's own or allied land: crossed quickly, not counted toward range
-  | "OPEN" // neutral land, sea or Planetary Defense land: counted toward range
+  | "HOME" // the player's own or allied land, or unclaimed own or allied reach: crossed quickly
+  | "OPEN" // neutral land, sea or Planetary Defense land: flown at Expand To pace
   | "BLOCKED"; // a non-allied player's land: the drone turns back before it
 
 export type ScoutDroneStep = { x: number; y: number; at: number };
 
-export type ScoutDroneEndReason = "TARGET" | "RANGE" | "BLOCKED";
+/**
+ * RECALLED: the owner called it home early (RECALL_SCOUT). There is no RANGE
+ * reason: the drone has had no range limit since 2026-11-20 (a farther target
+ * only means a longer flight). A client parses an unknown reason as TARGET.
+ */
+export type ScoutDroneEndReason = "TARGET" | "BLOCKED" | "RECALLED";
 
 export type ScoutDroneFlight = {
   launchedAt: number;
@@ -51,6 +54,8 @@ export type ScoutDroneFlight = {
   /** Index in `steps` of the turnaround tile (the last outbound tile). */
   turnIndex: number;
   landsAt: number;
+  /** The stops of a waypoint flight as the drone reaches them (scout-drone-route.ts); absent on a single-target flight. */
+  waypoints?: Array<{ x: number; y: number }>;
   endReason: ScoutDroneEndReason;
   /** Owner of the border that turned the drone back, when endReason is BLOCKED. */
   blockedByPlayerId?: string;
@@ -68,14 +73,68 @@ export type ScoutReportFindings = {
   planetaryDefenseTiles: number;
   /** Other empires whose land the drone saw. */
   empiresSighted: string[];
+  /** Where each counted find is, so the report can jump to it. Absent on reports from before it existed. */
+  sites?: ScoutFindingSites;
+  /** Every tile within the drone's vision along its whole path, out and home, explored before or not. */
+  tilesSeen?: number;
+  /** Tiles this flight explored for the first time (the report card's "+N Tiles", and what Cartographer counts). */
+  tilesExplored?: number;
+  /** The most notable find (first town, else dock, waystation, watchtower, resource, empire, Planetary Defense); absent when nothing was found. */
+  focusX?: number;
+  focusY?: number;
+};
+
+/** Most tiles kept per find group; the counts above stay exact past it. */
+export const SCOUT_FINDING_SITES_MAX_TILES = 24;
+
+export type ScoutFindingTile = { x: number; y: number };
+
+/** Tiles per find group, in the order the drone saw them, each capped at SCOUT_FINDING_SITES_MAX_TILES. */
+export type ScoutFindingSites = {
+  towns: ScoutFindingTile[];
+  docks: ScoutFindingTile[];
+  waystations: ScoutFindingTile[];
+  watchtowers: ScoutFindingTile[];
+  planetaryDefense: ScoutFindingTile[];
+  /** Keyed by resource id. */
+  resources: Record<string, ScoutFindingTile[]>;
+  /** Keyed by player id. */
+  empires: Record<string, ScoutFindingTile[]>;
 };
 
 export type ScoutDronePayload = {
   type: typeof SCOUT_DRONE_MESSAGE_TYPE;
   /** The drone in the air, or null when it is docked. */
   flight: ScoutDroneFlight | null;
-  /** Set on the landing message: what the finished flight found. */
-  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string };
+  /** Every SCOUT_DRONE carries the player's charges (scout-drone-charges.ts), server clock. */
+  charges?: ScoutDroneCharges;
+  /**
+   * What the last flight found: on the landing message, and on every resend until the player has seen it on any
+   * device (SCOUT_REPORT_SEEN), for at most a day. `id` names the flight; `landedAt` is server clock.
+   */
+  report?: ScoutReportFindings & { targetX: number; targetY: number; blockedByPlayerId?: string; id?: string; landedAt?: number };
+};
+
+/** A landing report as kept on the player until they have seen it (DomainPlayer.scoutLastReport). */
+export type ScoutHeldReport = NonNullable<ScoutDronePayload["report"]> & { id: string; landedAt: number };
+
+/** Client -> server: the player has seen the report with this id, on whichever device; it stops riding along. */
+export const SCOUT_REPORT_SEEN_COMMAND_TYPE = "SCOUT_REPORT_SEEN";
+
+/** One thing a flying drone spotted: the client pops it over the map and lets the report card frame it. */
+export type ScoutFind = {
+  kind: "town" | "dock" | "waystation" | "watchtower" | "resource" | "empire" | "defense";
+  x: number;
+  y: number;
+  /** The resource, for `kind: "resource"`. */
+  resource?: string;
+};
+
+export type ScoutFindsPayload = {
+  type: typeof SCOUT_FINDS_MESSAGE_TYPE;
+  /** The flight these belong to (its launch time, server clock). */
+  launchedAt: number;
+  finds: ScoutFind[];
 };
 
 export type ScoutSightedPayload = {
@@ -136,8 +195,10 @@ export const scoutDroneBlockAt = (
 
 /**
  * Plans a flight from the launch tile toward the target: outbound until the
- * target, the range limit, the home-land limit or a blocking border, then
- * straight back along the same tiles. Returns undefined when the drone could
+ * target or a blocking border, then straight back along the same tiles. There
+ * is no range limit: a farther target only takes longer (Expand To pace over
+ * open ground). The plan stays bounded because the line takes the short way
+ * round the wrapping map, so it is at most half the map's width or height. Returns undefined when the drone could
  * not leave at all (the very first tile past the AFC is blocked).
  */
 export const planScoutDroneFlight = (
@@ -148,8 +209,6 @@ export const planScoutDroneFlight = (
 ): ScoutDroneFlight | undefined => {
   const line = scoutDroneLine(launch, target, world.width, world.height);
   const outbound: Array<{ x: number; y: number; stepMs: number }> = [{ x: launch.x, y: launch.y, stepMs: 0 }];
-  let open = 0;
-  let home = 0;
   let endReason: ScoutDroneEndReason = "TARGET";
   let blocked: { ownerId?: string | undefined; x: number; y: number } | undefined;
   let prev = launch;
@@ -161,19 +220,6 @@ export const planScoutDroneFlight = (
       endReason = "BLOCKED";
       blocked = wall;
       break;
-    }
-    if (cls.kind === "HOME") {
-      if (home >= SCOUT_DRONE_MAX_HOME_TILES) {
-        endReason = "RANGE";
-        break;
-      }
-      home += 1;
-    } else {
-      if (open >= SCOUT_DRONE_MAX_RANGE_TILES) {
-        endReason = "RANGE";
-        break;
-      }
-      open += 1;
     }
     outbound.push({ x: tile.x, y: tile.y, stepMs: cls.kind === "HOME" ? SCOUT_DRONE_HOME_STEP_MS : SCOUT_DRONE_STEP_MS });
   }
@@ -230,6 +276,52 @@ export const turnScoutDroneFlightBack = (
     endReason: "BLOCKED",
     ...(blocked.ownerId ? { blockedByPlayerId: blocked.ownerId, blockedAtX: blocked.x, blockedAtY: blocked.y } : {})
   };
+};
+
+/**
+ * The owner calls the drone home early: it turns back over `turnIndex` and flies
+ * the same tiles home at the same pace, like a border turn-back but with no rival
+ * to blame. Pass the outbound tile it is flying toward, not the one it last
+ * reached: the drone finishes its current leg, so it never jumps back on screen
+ * and every homeward leg keeps its outbound time.
+ */
+export const recallScoutDroneFlight = (flight: ScoutDroneFlight, turnIndex: number, nowMs: number): ScoutDroneFlight => {
+  const turned = turnScoutDroneFlightBack(flight, turnIndex, nowMs, { x: flight.targetX, y: flight.targetY });
+  return { ...turned, endReason: "RECALLED" };
+};
+
+/**
+ * Ground on the drone's path that became home ground (the player's or an
+ * ally's land or reach) mid-flight: the legs over it drop to home pace, so the
+ * drone jumps forward. A leg's pace follows its outer tile (the tile flown
+ * into on the way out, the tile flown out of on the way home), as in the plan.
+ * Legs only ever get faster: losing that ground again doesn't slow the drone.
+ * The leg in progress ends no earlier than `nowMs`, so the drone may jump
+ * straight onto the tile it was flying toward but never past it. Tiles,
+ * turnaround and range are unchanged. Undefined when no remaining leg got
+ * faster. Runs every tick for every drone, so it only reads until a leg
+ * changes, and asks `isHome` only about legs still slower than home pace.
+ */
+export const speedUpScoutDroneFlight = (
+  flight: ScoutDroneFlight,
+  nowMs: number,
+  isHome: (x: number, y: number) => boolean
+): ScoutDroneFlight | undefined => {
+  const index = scoutDroneStepIndexAt(flight, nowMs);
+  if (index < 0 || index >= flight.steps.length - 1) return undefined;
+  let steps: ScoutDroneStep[] | undefined;
+  for (let j = index + 1; j < flight.steps.length; j += 1) {
+    const duration = flight.steps[j]!.at - flight.steps[j - 1]!.at;
+    const outer = j <= flight.turnIndex ? flight.steps[j]! : flight.steps[j - 1]!;
+    const faster = duration > SCOUT_DRONE_HOME_STEP_MS && isHome(outer.x, outer.y);
+    if (!faster && !steps) continue;
+    steps ??= flight.steps.map((step) => ({ ...step }));
+    let at = steps[j - 1]!.at + (faster ? SCOUT_DRONE_HOME_STEP_MS : duration);
+    if (j === index + 1) at = Math.max(nowMs, at);
+    steps[j]!.at = at;
+  }
+  if (!steps || steps.at(-1)!.at === flight.landsAt) return undefined;
+  return { ...flight, steps, landsAt: steps.at(-1)!.at };
 };
 
 /** Index of the step the drone is over at `nowMs` (the last step whose time has come), or -1 before the first. */

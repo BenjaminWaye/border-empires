@@ -1,4 +1,6 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityGrowthMult, townFocusMultipliers, type BiotaTownSupply } from "@border-empires/shared";
+import { biotaCoinRefreshFor } from "./biota-coin-refresh/biota-coin-refresh.js";
 import {
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
@@ -29,6 +31,12 @@ export function incubationEngineGrowthMultForTile(input: {
   return incubationEngineGrowthMultiplier(hasIncubationEngine);
 }
 
+/** Empire-integrity growth multiplier per player, or undefined while the integrity system is off. Moved out of runtime.ts. */
+export const integrityGrowthMultSource = (
+  metricsFor: (playerId: string) => { T: number; Ts: number; Es: number }
+): ((playerId: string) => number) | undefined =>
+  EMPIRE_INTEGRITY_ENABLED ? (playerId) => { const metrics = metricsFor(playerId); return integrityGrowthMult(empireIntegrity(metrics.T, metrics.Es, metrics.Ts)); } : undefined;
+
 export function tickPopulationGrowth(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -53,6 +61,8 @@ export function tickPopulationGrowth(input: {
   // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Incubation Engine/Seed
   // Incubation Engine doesn't grant its growth bonus.
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  /** The player's luxury biota allocation; a town whose share changed is re-pushed so its Coin stays current. */
+  biotaTownSupplyForPlayer?: (playerId: string) => ReadonlyMap<string, BiotaTownSupply> | undefined;
 }): {
   growthStalledNoFood: number;
   townsGrown: number;
@@ -72,6 +82,7 @@ export function tickPopulationGrowth(input: {
   // player with a growing town, i.e. every minute for every large empire
   // (2026-09-17 prod CPU-throttle incident).
   const dirtyPlayerIds = new Set<string>();
+  const biotaRefresh = biotaCoinRefreshFor(input.townLastGrowthTickAtByKey);
   let growthStalledNoFood = 0;
   let townsGrown = 0;
   let townsSkippedWar = 0;
@@ -143,6 +154,8 @@ export function tickPopulationGrowth(input: {
       }
     };
 
+    const biota = input.biotaTownSupplyForPlayer?.(player.id);
+    let biotaShifted = false;
     const pDiag = { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: 0, logisticCap: 0, totalTowns: 0 };
     let pHadEligibleTown = false;
 
@@ -151,6 +164,12 @@ export function tickPopulationGrowth(input: {
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
       let town = tile.town;
       pDiag.totalTowns += 1;
+      // A town focus picked since the last tick is applied right after this tick (town-focus-promotion.ts). A town
+      // skipped below keeps its old growth clock and is paid the whole stall on its first growing tick, so restart
+      // the clock now: otherwise a focus switched just before a stall ends would be paid for time before it applied.
+      const restartClockForFocus = (): void => {
+        if (town.pendingFocus !== undefined) input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
+      };
       // §5.4 self-heal: a town's own persisted isFed only ever gets
       // refreshed as a side effect of some OTHER mutation touching this
       // exact tile (build/upgrade/capture/etc, via
@@ -173,17 +192,28 @@ export function tickPopulationGrowth(input: {
         recordTileDelta(tileKey, healedTile);
         dirtyPlayerIds.add(player.id);
       }
+      if (biotaRefresh.changed(tileKey, biota?.get(tileKey))) {
+        // Re-stamped with the current share on emission; the cached tile-yield context must not hold the old one.
+        if (!biotaShifted) input.invalidateEconomyCachesForPlayer(player.id);
+        biotaShifted = true;
+        recordTileDelta(tileKey, { ...tile, town });
+      }
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;
         townsSkippedCaptureShock += 1;
+        restartClockForFocus();
         continue;
       }
       if (!fedTownKeys.has(tileKey)) {
         pDiag.unfed += 1;
         townsSkippedUnfed += 1;
+        restartClockForFocus();
         continue;
       }
-      if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") continue;
+      if (typeof town.population !== "number" || typeof town.maxPopulation !== "number") {
+        restartClockForFocus();
+        continue;
+      }
 
       let isNearActiveWar = false;
       for (let i = 0; !growsThroughWar && i < attackCoords.length; i += 2) {
@@ -219,6 +249,7 @@ export function tickPopulationGrowth(input: {
       if (logisticFactor <= 0) {
         pDiag.logisticCap += 1;
         townsSkippedLogisticCap += 1;
+        restartClockForFocus();
         continue;
       }
 
@@ -242,6 +273,7 @@ export function tickPopulationGrowth(input: {
         firstThreeMult *
         longPeaceMult *
         integrityGrowthMult *
+        townFocusMultipliers(town).growth *
         logisticFactor;
       const growth = growthPerMinute * elapsedMinutes;
       if (growth <= 0) continue;

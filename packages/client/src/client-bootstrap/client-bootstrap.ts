@@ -9,7 +9,7 @@ import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-v
 import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
-import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
+import { bindBootstrapUiControls } from "./client-bootstrap-ui-controls.js";
 import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
 import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
 import { createBootstrapThreeRendererHost } from "./client-bootstrap-three-renderer.js";
@@ -17,6 +17,7 @@ import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
 import { installPostBootstrapHooks } from "../client-post-bootstrap-installs/client-post-bootstrap-installs.js";
 import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
+import { DEPLOY_WAIT_STATUS } from "../client-auth-deploy-wait/client-auth-deploy-wait.js";
 
 type BootstrapDeps = Record<string, any>;
 
@@ -42,7 +43,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     techOwnedHtml,
     techCurrentModsHtml,
     bindTechTreeDragScroll,
-    renderSocialInspectCardHtml,
     playerNameForOwner,
     wrapX,
     wrapY,
@@ -121,17 +121,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     techPickEl,
     canvas,
     tileActionMenuEl,
-    authColorPresetButtons,
     authProfileColorEl,
-    authEmailEl,
-    authEmailLinkBtn,
     authProfileNameEl,
-    authProfileSaveBtn,
-    techChooseBtn,
-    captureCancelBtn,
-    captureCloseBtn,
-    captureTimeEl,
-    panelCloseBtn,
     miniMapEl,
     ctx,
     initTerrainTextures
@@ -156,13 +147,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   mountBootstrapSidePanels({ state, firebaseAuth, wsUrl });
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
-    if (ws.readyState !== ws.OPEN) {
-      setAuthStatus(`Game server unavailable at ${wsUrl}.`, "error");
-      syncAuthOverlay();
-      return false;
-    }
-    if (state.authSessionReady) return true;
-    setAuthStatus(message, "error");
+    if (ws.readyState === ws.OPEN && state.authSessionReady) return true;
+    // A dropped socket (usually a deploy restart) gets terse waiting copy, never the server URL.
+    if (ws.readyState === ws.OPEN) setAuthStatus(message, "error");
+    else setAuthStatus(DEPLOY_WAIT_STATUS);
     syncAuthOverlay();
     return false;
   };
@@ -302,7 +290,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       domainOwnedHtml,
       renderDomainDetailCard: techFlow.renderDomainDetailCard,
       sendGameMessage: actionFlow.sendGameMessage,
-      renderSocialInspectCardHtml,
       playerNameForOwner,
       wrapX,
       wrapY,
@@ -342,27 +329,13 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   resize();
   authFlow.bindAuthUi();
 
-  bindClientUiControls({
+  bindBootstrapUiControls(dom, deps as Parameters<typeof bindBootstrapUiControls>[1], {
     state,
-    techChooseBtn,
-    techPickEl,
-    captureCancelBtn,
-    captureDismissBtn: dom.captureDismissBtn,
-    captureCloseBtn,
-    captureReportBugBtn: dom.captureReportBugBtn,
-    captureTimeEl,
-    placementCancelBtn: dom.placementCancelBtn,
-    placementConfirmBtn: dom.placementConfirmBtn, victoryAlertCollapseBtn: dom.victoryAlertCollapseBtn, victoryAlertBannerBtn: dom.victoryAlertBannerBtn,
-    panelCloseBtn,
-    authColorPresetButtons,
-    authProfileColorEl,
-    authEmailEl,
-    authEmailLinkBtn,
-    authProfileNameEl,
-    authProfileSaveBtn,
+    requestViewRefresh,
     actionFlow,
     renderHud,
-    acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
+    acknowledgeVictoryHoldAlert,
+    renderVictoryHoldAlert,
     renderCaptureProgress,
     setActivePanel,
     syncAuthPanelState

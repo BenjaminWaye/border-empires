@@ -21,6 +21,7 @@ import {
 } from "./death-forensics.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
+import { assertHostedSectorTicketKey } from "./hosted-sector/hosted-sector-ticket.js";
 import { gatewaySeedProfileFromEnv, parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
@@ -178,6 +179,7 @@ process.env.SIMULATION_ADDRESS = `${simHost}:${simPort}`;
 process.env.GATEWAY_SIMULATION_WAKE_ADDRESS = `${simHost}:${simPort}`;
 const gatewayEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 
+await assertHostedSectorTicketKey(gatewayEnv.hostedSector);
 const gateway = await createRealtimeGatewayApp({
   host: gatewayEnv.host,
   port: gatewayEnv.port,
@@ -192,7 +194,9 @@ const gateway = await createRealtimeGatewayApp({
   ...(gatewayEnv.adminApiToken ? { adminApiToken: gatewayEnv.adminApiToken } : {}),
   ...(gatewayEnv.adminEmail ? { adminEmail: gatewayEnv.adminEmail } : {}),
   ...(gatewayEnv.aiPlayerCount ? { aiPlayerCount: gatewayEnv.aiPlayerCount } : {}),
+  ...(gatewayEnv.hostedSector ? { hostedSector: gatewayEnv.hostedSector } : {}),
   emailAlerts: gatewayEnv.emailAlerts,
+  ...(gatewayEnv.playerReportGithubIssues ? { playerReportGithubIssues: gatewayEnv.playerReportGithubIssues } : {}),
   simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`,
   simDiagnostics: () => latestSimDiagnostics
 });

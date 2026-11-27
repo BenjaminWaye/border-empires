@@ -4,21 +4,24 @@
 // (career stats, galactic holdings, public pacts), which keeps fetching while
 // its own overlay stays hidden under the new HUD.
 
-import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
+import { profileCrestHtml, type ProfileCrestFields } from "./client-hud-v2-profile-crest.js";
+import { leaderboardScoreParts, type LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { COMBAT_FOOTNOTE_HTML, combatPanelsHtml, combatStatCardsHtml, type ProfileCombat } from "./client-hud-v2-profile-combat.js";
-import { coinPerDay, type HouseChargesPayload } from "@border-empires/shared";
+import { coinPerDay, type AchievementsView, type HouseChargesPayload } from "@border-empires/shared";
 import { NET_COIN_TITLE } from "./client-hud-v2-resource-bar.js";
 import { houseChargesProfileSectionHtml } from "../client-house-charges/client-house-charges-profile.js";
 import { houseChargeCollectionHtml, type HouseChargeCardView } from "../client-house-charges/client-house-charge-cards.js";
+import { achievementsProfileSectionHtml } from "../client-achievements/client-achievements-html.js";
+import type { PublicProfileShareView } from "../client-public-house/client-public-house-share-state.js";
 
 type Loadable<T> = T | "loading" | undefined;
 
-export type ProfileRelation = { kind: "self" } | { kind: "ally" } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
+export type ProfileRelation = { kind: "self" } | { kind: "ally"; label?: string } | { kind: "truce"; endsAt: number } | { kind: "war" } | { kind: "none" };
 
-export type ProfileInput = {
+export type ProfileInput = ProfileCrestFields & {
   id: string;
   name: string;
   color: string;
@@ -37,8 +40,12 @@ export type ProfileInput = {
   ownNetCoinPerMinute?: number;
   /** Your own House Charges (null before they are dealt); only set on your own profile, since charges are secret. */
   houseCharges?: HouseChargesPayload | null;
+  /** Your own achievement badges; only set on your own profile. */
+  achievements?: AchievementsView;
   /** Fulfilled charges from past Sector Contests, as trading cards; public on any profile. */
   chargeCards?: HouseChargeCardView[] | "loading" | undefined;
+  /** Your own profile only: a guest must save first; otherwise Stop sharing shows only while a public link exists. */
+  share?: "guest" | PublicProfileShareView;
   /** Rivals only: whether you've ever seen one of their tiles, so "Show on map" has somewhere to go. */
   mapFocus?: "seen" | "unseen";
 };
@@ -51,11 +58,23 @@ const int = (value: number): string => Math.round(value).toLocaleString("en-US")
 const relationHtml = (relation: ProfileRelation, nowMs: number): string => {
   switch (relation.kind) {
     case "self": return `<span class="v2p-rel v2p-rel-self">Your empire</span>`;
-    case "ally": return `<span class="v2p-rel v2p-rel-ally">Ally</span>`;
+    case "ally": return `<span class="v2p-rel v2p-rel-ally">${esc(relation.label ?? "Ally")}</span>`;
     case "truce": return `<span class="v2p-rel v2p-rel-truce">Truce · ${socialRemainingLabel(relation.endsAt, nowMs)} left</span>`;
     case "war": return `<span class="v2p-rel v2p-rel-war">At war</span>`;
     default: return `<span class="v2p-rel">No pact</span>`;
   }
+};
+
+const shareHtml = (share: NonNullable<ProfileInput["share"]>): string => {
+  if (share === "guest") return `<button type="button" class="v2p-action" data-v2-profile-save-to-share title="A saved account can share a public web page of your House">Save your empire to share</button>`;
+  const busy = share.pending ? " disabled" : "";
+  const start = `<button type="button" class="v2p-action" data-v2-profile-share${busy} title="Share a public web page of your House's contests, rating, charges and records">${share.pending === "share" ? "Making link…" : "Share profile"}</button>`;
+  const stop = share.state === "on" || share.pending === "stop"
+    ? `<button type="button" class="v2p-action" data-v2-profile-unshare${busy} title="Take your public House page down. The old link stops working">${share.pending === "stop" ? "Stopping…" : "Stop sharing"}</button>`
+    : "";
+  const note = share.note ? `<p class="v2p-share-note" role="status">${esc(share.note)}</p>` : "";
+  const link = share.link ? `<a class="v2p-share-link" href="${esc(share.link)}" target="_blank" rel="noopener" data-v2-profile-share-link>${esc(share.link)}</a>` : "";
+  return `${start}${stop}${note}${link}`;
 };
 
 const heroHtml = (input: ProfileInput): string => {
@@ -77,15 +96,33 @@ const heroHtml = (input: ProfileInput): string => {
     : input.mapFocus === "unseen"
       ? `<button type="button" class="v2p-action" disabled>Not discovered yet</button>`
       : "";
+  // Your own profile only: makes (on first use) and shares the public web link (client-public-house-share.ts).
+  const share = input.relation.kind === "self" ? shareHtml(input.share ?? { state: "unknown" }) : "";
   return `<aside class="v2p-hero">
-    <span class="v2p-crest" style="background:${esc(input.color)}" aria-hidden="true">${esc((input.name.trim()[0] ?? "?").toUpperCase())}</span>
+    ${profileCrestHtml(input)}
     <h2 class="v2p-name">${esc(input.name)}</h2>
     ${relationHtml(input.relation, input.nowMs)}
     ${rank}
     ${badges ? `<div class="v2p-badges">${badges}</div>` : ""}
     ${diplomacy}
     ${showOnMap}
+    ${share}
   </aside>`;
+};
+
+/**
+ * Score with its parts (game-domain leaderboard-score.ts). Playtest 2026-11-27: the score fell 25 -> 24
+ * after 19 captures. Captured frontier scores nothing until garrisoned, and the Empire Integrity it lowers
+ * scales the coin part, so the card says where the score comes from.
+ */
+const scoreCardHtml = (entry: LeaderboardOverallEntry | undefined): string => {
+  if (!entry) return `<div class="v2p-stat"><span>Score</span><b>—</b></div>`;
+  const parts = leaderboardScoreParts(entry.tiles, entry.incomePerMinute, entry.techs);
+  return `<div class="v2p-stat v2p-stat-score" data-v2-profile-score>
+    <span>Score</span><b>${int(entry.score)}</b>
+    <small class="v2p-score-parts">Tiles ${int(parts.tiles)} · Coin ${parts.coin.toFixed(1)} · Manifests ${int(parts.manifests)}</small>
+    <small class="v2p-score-parts">Frontier scores once garrisoned</small>
+  </div>`;
 };
 
 const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCombat | undefined, ownNet: number | undefined): string => {
@@ -97,7 +134,7 @@ const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCo
     ? card("Net coin / day", coinPerDay(ownNet).toFixed(1), NET_COIN_TITLE)
     : card("Gross coin / day", v((e) => coinPerDay(e.incomePerMinute).toFixed(1)), "Coin income per day before upkeep");
   return `<div class="v2p-stats${combat ? " v2p-stats-combat" : ""}">
-    ${card("Score", v((e) => int(e.score)))}
+    ${scoreCardHtml(entry)}
     ${card("Garrisoned tiles", v((e) => int(e.tiles)))}
     ${coin}
     ${card("Manifests", v((e) => int(e.techs)))}
@@ -175,10 +212,12 @@ const breaksHtml = (breaks: Loadable<TruceBreakView[]>): string => {
 
 export const profileHtml = (input: ProfileInput): string =>
   `<div class="v2p" data-v2-scroll="profile-page">${heroHtml(input)}<div class="v2p-main" data-v2-scroll="profile">
+    ${input.houseCharges !== undefined ? `<div class="v2p-grid">${houseChargesProfileSectionHtml(input.houseCharges, input.nowMs)}</div>` : ""}
     <h3 class="v2p-h">This Sector Contest</h3>
     ${statsHtml(input.entry, input.combat, input.ownNetCoinPerMinute)}
+    ${achievementsProfileSectionHtml(input.achievements)}
     ${input.combat ? `<div class="v2p-grid">${combatPanelsHtml(input.combat)}</div>${COMBAT_FOOTNOTE_HTML}` : ""}
-    <div class="v2p-grid">${input.houseCharges !== undefined ? houseChargesProfileSectionHtml(input.houseCharges, input.nowMs) : ""}${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
+    <div class="v2p-grid">${careerHtml(input.career)}${trophiesHtml(input.holdings)}${holdingsHtml(input.holdings)}${pactsHtml(input)}${breaksHtml(input.truceBreaks)}</div>
     <h3 class="v2p-h">Charge Cards</h3>
     ${houseChargeCollectionHtml(input.chargeCards, input.relation.kind === "self")}
   </div></div>`;

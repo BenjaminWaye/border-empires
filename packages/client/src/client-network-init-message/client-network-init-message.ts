@@ -1,10 +1,12 @@
+import { applyInitJoinScreenFields } from "../client-join-season-late-join/client-join-season-late-join.js";
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
+import { applyInitPlayerStyles, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
+import { applyInitIntegrity } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -39,7 +41,10 @@ import { prepareCameraForIncomingPlayer } from "../client-state/client-camera-st
 import { recentreRestoredCameraOverFog } from "../client-restored-camera-fog/client-restored-camera-fog.js";
 import { resetServerReachForNewConnection } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { applyServerExploredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
-import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
+import { applyLostTileMemory } from "../client-lost-tile-memory/client-lost-tile-memory.js";
+import { clearFoundingNameDraft } from "../client-profile-name-field/client-profile-name-field.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, markWaystationActivationsSeenFromEventLog, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
+import { hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -119,6 +124,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
+  applyInitJoinScreenFields(state, msg);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
   state.joinSeasonOverlayOpen = state.needsSeasonJoin;
   applyInitSeasonPending(state, msg); applyInitNextContest(state, msg as Record<string, unknown>);
@@ -142,6 +148,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // whichever account last saved on this browser -- swap in this account's own.
   const accountSwitchedInPlace = prepareCameraForIncomingPlayer(state, incomingPlayerId, isFirstInitThisSession);
   const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
+  // Logging in (not an in-place reconnect) backfills history quietly: no waystation/survey cards, the Chronicle has them.
+  const loginBackfill = isFirstInitThisSession || seasonRolledOverInSession || accountSwitchedInPlace;
   resetServerReachForNewConnection(state, !seasonRolledOverInSession && incomingPlayerId.length > 0 && state.me === incomingPlayerId); // before state.me is overwritten below
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
   state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
@@ -169,9 +177,11 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.authEmail,
     state.bridgeDebugSeasonId
   );
+  hydrateMetPlayersFromServer(state, player.metPlayerIds, player.metPlayersSeasonId); // after state.me and the season id are set
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
-  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail);
+  if (!state.profileSetupRequired) clearFoundingNameDraft(); // founded: the typed-name draft has served its purpose
+  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail, state.bridgeDebugSeasonId);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
@@ -204,7 +214,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
-  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE);
+  applyInitIntegrity(state, player, defensibilityPctFromTE);
   state.defensibilityAnimDir = 0;
   state.defensibilityAnimUntil = 0;
   state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
@@ -223,7 +233,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   });
   state.techRootId = player.techRootId as string | undefined;
   state.techIds = (player.techIds as string[]) ?? [];
-  occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
+  occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`, !loginBackfill);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
   state.pendingTechUnlockAt = 0;
@@ -233,6 +243,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.relicMapHints.clear();
+  // INIT carries no town lead: drop last session's (another account or season) until a PLAYER_UPDATE sends one.
+  state.guideTownLead = undefined;
   applyRelicAndProgressionUpdate(state, player);
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
@@ -325,18 +337,11 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.playerColors.set(state.me, myTileColor);
     authProfileColorEl.value = myTileColor;
   }
-  if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
+  applyPlayerProfileFields(state, player, true); // suggested swatches + once-per-contest change flags
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
   seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up
-  for (const style of ((msg.playerStyles as any[]) ?? [])) {
-    if (style.name) state.playerNames.set(style.id, style.name);
-    if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
-    if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
-    if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
-    if (style.duke) state.dukePlayers.add(style.id);
-    else state.dukePlayers.delete(style.id);
-  }
+  applyInitPlayerStyles(state, msg);
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {
     state.homeTile = homeTile;
@@ -381,6 +386,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   // Server-held fog memory: restores explored land the browser copy lost (cleared storage, new device).
   applyServerExploredTiles(state.discoveredTiles, player.exploredTiles);
+  applyLostTileMemory(state, player.lostTiles); // who took land lost out of sight (client-lost-tile-memory.ts)
   state.bridgeDebugInitialTileCount = appliedInitialTileCount;
   if (appliedInitialTileCount > 0) {
     state.firstChunkAt = Date.now();
@@ -394,7 +400,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   requestViewRefresh(1, true);
   state.techChoices = (msg.techChoices as string[]) ?? [];
-  state.techCatalog = (msg.techCatalog as any[]) ?? []; notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
+  state.techCatalog = (msg.techCatalog as any[]) ?? []; if (loginBackfill) markWaystationActivationsSeenFromEventLog(state.eventLog, state);
+  else notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
   logIncomingTechPayload("INIT", {
     techIds: player.techIds,
     techChoices: msg.techChoices,

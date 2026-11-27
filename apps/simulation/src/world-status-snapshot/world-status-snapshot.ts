@@ -2,7 +2,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { aiNameFromStored, anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME, type SeasonVictoryPathId } from "@border-empires/shared";
-import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP } from "@border-empires/game-domain";
+import { leaderboardScoreFor, MANPOWER_BASE_CAP } from "@border-empires/game-domain"; // score formula: game-domain leaderboard-score.ts
 import type { LeaderboardMetricEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -14,14 +14,6 @@ const isCompetitivePlayer = (playerId: string, excludedIds?: ReadonlySet<string>
 
 const hasZeroActivity = (entry: { tiles: number; incomePerMinute: number; techs: number }): boolean =>
   entry.tiles === 0 && entry.incomePerMinute === 0 && entry.techs === 0;
-// §24.5: the income term's weight (3) is an old (pre-§6.1) gold/min figure —
-// rescaled by the same GOLD_RESCALE_DIVISOR the real income source constants
-// went through, so income keeps contributing its intended share of the
-// leaderboard score instead of permanently vanishing to a rounding error
-// once incomePerMinute itself shrank ~288x.
-const leaderboardScoreFor = (settledTileCount: number, incomePerMinute: number, techCount: number): number =>
-  Math.round((settledTileCount + incomePerMinute * 3 * GOLD_RESCALE_DIVISOR + techCount * 8) * 10) / 10;
-
 const displayNameForPlayer = (playerId: string, fallbackName?: string): string => {
   // Before the stored name: worlds seeded before the rename still store "Barbarians".
   if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
@@ -50,6 +42,8 @@ export const buildWorldStatusSnapshot = (
    *  selfProgressByPlayerId. Used by the galactic meta-layer's Outpost/Stipend
    *  tiering at season end (season-galaxy-tiers.ts). */
   allPlayerSelfProgress: Map<string, Map<SeasonVictoryPathId, number>>;
+  /** Towns Town Control needs, from this scan (the broadcast labels live town counts against it). */
+  townTarget: number;
 } => {
   const worldTiles = runtimeState.tiles;
   const overall = runtimeState.players
@@ -91,7 +85,7 @@ export const buildWorldStatusSnapshot = (
   const selfByTiles = byTiles.find((entry) => entry.id === playerId);
   const selfByIncome = byIncome.find((entry) => entry.id === playerId);
   const selfByTechs = byTechs.find((entry) => entry.id === playerId);
-  const { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId } = computeSeasonVictory(worldTiles, overall, runtimeState.players);
+  const { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId, townTarget } = computeSeasonVictory(worldTiles, overall, runtimeState.players);
 
   return {
     leaderboard: {
@@ -107,6 +101,7 @@ export const buildWorldStatusSnapshot = (
     seasonVictory: mergeSelfProgress(objectives, selfProgressLabelsByPlayerId.get(playerId), selfProgressByPlayerId.get(playerId)),
     allPlayerSelfProgressLabels: selfProgressLabelsByPlayerId,
     allPlayerSelfProgress: selfProgressByPlayerId,
+    townTarget,
     ...(typeof options?.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: options.acceptLatencyP95Ms } : {})
   };
 };
@@ -115,13 +110,15 @@ export const buildWorldStatusSnapshot = (
 export type SelfProgressCache = {
   labels: Map<string, Map<SeasonVictoryPathId, string>>;
   values: Map<string, Map<SeasonVictoryPathId, number>>;
+  /** Towns Town Control needs (absent before the first scan). */
+  townTarget?: number;
 };
 
 export const emptySelfProgressCache = (): SelfProgressCache => ({ labels: new Map(), values: new Map() });
 
 export const selfProgressCacheOf = (
-  worldStatus: Pick<ReturnType<typeof buildWorldStatusSnapshot>, "allPlayerSelfProgressLabels" | "allPlayerSelfProgress">
-): SelfProgressCache => ({ labels: worldStatus.allPlayerSelfProgressLabels, values: worldStatus.allPlayerSelfProgress });
+  worldStatus: Pick<ReturnType<typeof buildWorldStatusSnapshot>, "allPlayerSelfProgressLabels" | "allPlayerSelfProgress"> & { townTarget?: number }
+): SelfProgressCache => ({ labels: worldStatus.allPlayerSelfProgressLabels, values: worldStatus.allPlayerSelfProgress, ...(typeof worldStatus.townTarget === "number" ? { townTarget: worldStatus.townTarget } : {}) });
 
 /**
  * Cheap O(n_players) leaderboard build with no tile iteration.

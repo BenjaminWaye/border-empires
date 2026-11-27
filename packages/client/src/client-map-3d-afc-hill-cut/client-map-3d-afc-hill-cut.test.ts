@@ -165,7 +165,7 @@ describe("AFC hill cut", () => {
   it("is wired into the true-3D map: hill drapes use hillCutAt, roads still draw from roadDirsAt, the AFC uses the full pad surface", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const mapSource = readFileSync(resolve(here, "../client-map-3d/client-map-3d.ts"), "utf8");
-    expect(mapSource).toContain("hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt: hillCutAt })");
+    expect(mapSource).toContain("hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt: hillCutAt, forestZoneAt: forestZoneFromHeightfield(heightfield.cornerAttributesAt) })");
     expect(mapSource).toContain("deps.wrapX, deps.wrapY, hillCutAt);");
     expect(mapSource).toContain("const roadDirs = roadDirsAt(wx, wy);");
     expect(mapSource).toContain("afcOverlayGroup.addAfc(x, z, afcPadSurfaceY(wx, wy),");

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { feedEntryForEventLogEntry } from "./client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "./client-event-log-html.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { manifestFit } from "./client-manifest-detail/client-manifest-fit.js";
 
@@ -69,122 +69,181 @@ describe("occupation survey presentation", () => {
     vi.useRealTimers();
   });
 
-  it("opens a centered dialog regardless of the camera, and View survey focuses the clue and dismisses it", () => {
+  const pending = (): string[] => occupationSurveyController.pendingReports().map((report) => report.resource);
+  const dialog = (): Element | null => document.querySelector('[role="dialog"]');
+  /** A tap on the first clue's map pin (client-map-tip-pins.ts). */
+  const tapFirstPin = (): void => {
+    const first = occupationSurveyController.pendingReports()[0];
+    if (first) occupationSurveyController.open(first.id);
+  };
+
+  // Owner, 2026-11-21: survey cards that opened on their own got in the way of play. A clue is a pin now.
+  it("pins a new clue on the map instead of opening a card", () => {
+    occupationSurveyController.record(entry());
+    sync(true);
+    expect(dialog()).toBeNull();
+    expect(occupationSurveyController.pendingReports()).toEqual([expect.objectContaining({ resource: "TITANIUM", x: 14, y: 10 })]);
+  });
+
+  it("opens the clue's card from its pin, and View survey focuses the clue and dismisses it", () => {
     const view = vi.fn();
     occupationSurveyController.installViewHandler(view);
     occupationSurveyController.record(entry());
     sync(false);
-    const popup = document.querySelector('[role="dialog"]');
-    expect(popup?.getAttribute("aria-modal")).toBe("true");
-    expect(popup?.textContent).toContain("Signs of Titanium nearby");
-    expect(document.activeElement).toBe(popup?.querySelector("[data-survey-view]"));
-    popup?.querySelector<HTMLButtonElement>("[data-survey-view]")?.click();
+    tapFirstPin();
+    expect(dialog()?.getAttribute("aria-modal")).toBe("true");
+    expect(dialog()?.textContent).toContain("Signs of Titanium nearby");
+    expect(document.activeElement).toBe(dialog()?.querySelector("[data-survey-view]"));
+    dialog()?.querySelector<HTMLButtonElement>("[data-survey-view]")?.click();
     expect(view).toHaveBeenCalledWith(expect.objectContaining({ resource: "TITANIUM", x: 14, y: 10 }));
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(pending()).toEqual([]);
   });
 
   // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", a screen that no longer exists.
-  // The clue is not in the Chronicle either: the resource's Manifest card is where it shows again
-  // (client-manifest-fit.ts, "A town you garrisoned turned up signs of ...").
-  it("points to the Manifest card that keeps the clue", () => {
+  // Then it pointed at the Manifest card, which no one would look at. Chronicle → Yours now lists open
+  // survey clues (client-hud-v2-chronicle-surveys.ts), so the card points there.
+  it("points to the Chronicle, which keeps the clue", () => {
     occupationSurveyController.record(entry());
     sync(true);
+    tapFirstPin();
     const hint = document.querySelector(".occupation-survey-hint")?.textContent ?? "";
-    expect(hint).toContain("Manifest's card keeps this clue");
+    expect(hint).toContain("Your Chronicle keeps this clue");
     expect(hint).not.toContain("Activity");
-    expect(hint).not.toContain("Chronicle");
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
   });
 
-  it("keeps important information visible until Got it is clicked, even after a minute", () => {
+  it("keeps an opened card up until Got it is clicked, even after a minute, and keeps the clue", () => {
     vi.useFakeTimers();
     occupationSurveyController.record(entry());
     sync(true);
+    tapFirstPin();
     vi.advanceTimersByTime(60_000);
     sync(false);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+    expect(dialog()?.textContent).toContain("Signs of Titanium nearby");
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
     sync(true);
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(pending()).toEqual([]);
     expect(occupationSurveyController.currentReports()).toHaveLength(1);
   });
 
-  it("queues discoveries and does not repeat a dismissed report on ordinary state updates", () => {
+  it("pins each clue, opens only the tapped one, and does not repeat a dismissed report on ordinary state updates", () => {
     const titanium = entry();
     const crystal = { ...entry(), surveyResource: "GEMS" as const, surveySignature: "REFRACTIVE_GROUND" as const };
     occupationSurveyController.reconcile([titanium, crystal]);
     sync(true);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+    expect(pending()).toEqual(["TITANIUM", "GEMS"]);
+    occupationSurveyController.open(crystal.id);
+    expect(dialog()?.textContent).toContain("Signs of Crystal nearby");
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Crystal nearby");
+    // One card never opens the next on its own.
+    expect(dialog()).toBeNull();
+    expect(pending()).toEqual(["TITANIUM"]);
+    tapFirstPin();
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
     occupationSurveyController.reconcile([titanium, crystal]);
     sync(true);
-    expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(pending()).toEqual([]);
   });
 
   it("remembers Escape as an acknowledgement when the player scope is restored", () => {
     const report = entry();
     occupationSurveyController.reconcile([report], [], "escape-player:season");
     sync(true);
+    tapFirstPin();
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(dialog()).toBeNull();
     occupationSurveyController.reconcile([], [], "another-player:season");
     occupationSurveyController.reconcile([report], [], "escape-player:season");
     sync(true);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(pending()).toEqual([]);
   });
 
-  it("defers the popup until the town panel is dismissed", () => {
+  it("holds the pin while the town capture card is open", () => {
     occupationSurveyController.beginCapture();
     occupationSurveyController.record(entry());
     sync(true);
-    expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
-    // The card did not list this clue (it arrived after the card was built), so it still presents.
+    expect(pending()).toEqual([]);
+    // The card did not list this clue (it arrived after the card was built), so it is pinned once the card closes.
     occupationSurveyController.endCapture([]);
     sync(true);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+    expect(pending()).toEqual(["TITANIUM"]);
+    expect(dialog()).toBeNull();
   });
 
   // 10-persona playtest: the capture card listed the clue, the player closed it, and the same clue
   // came back as its own survey card. Closing the card reads the clues it listed.
-  it("does not re-show a clue the town capture card already listed", () => {
+  it("does not re-pin a clue the town capture card already listed", () => {
     occupationSurveyController.beginCapture();
     occupationSurveyController.record(entry());
     occupationSurveyController.endCapture(occupationSurveyController.currentReports());
     sync(true);
-    expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
+    expect(pending()).toEqual([]);
     expect(occupationSurveyController.currentReports()).toHaveLength(1);
   });
 
-  it("restores standing reports directly, but skips resources whose reveal tech is researched", () => {
+  // Logging back in popped a survey card for a clue found while away. The login
+  // backfill keeps the clue (Manifest card, Chronicles) without a pin; new clues are still pinned.
+  it("restores standing reports quietly on login, skipping resources whose reveal tech is researched", () => {
     const report = entry();
-    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1");
+    occupationSurveyController.reconcile([report], ["masonry"], "researched:season-1", false);
     sync(true);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-    occupationSurveyController.reconcile([report], [], "new-player:season-1");
+    expect(pending()).toEqual([]);
+    expect(occupationSurveyController.currentForResource("TITANIUM")).toBeUndefined();
+    occupationSurveyController.reconcile([report], [], "new-player:season-1", false);
     sync(true);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Signs of Titanium nearby");
+    expect(pending()).toEqual([]);
+    expect(occupationSurveyController.currentForResource("TITANIUM")?.id).toBe(report.id);
+    occupationSurveyController.reconcile([report]);
+    sync(true);
+    expect(pending()).toEqual([]);
+    const live = { ...entry(), surveyResource: "GEMS" as const, surveySignature: "REFRACTIVE_GROUND" as const };
+    occupationSurveyController.reconcile([report, live]);
+    sync(true);
+    expect(pending()).toEqual(["GEMS"]);
+    expect(dialog()).toBeNull();
   });
 
-  it("does not reopen dismissed history after a later town panel closes", () => {
+  it("does not pin a clue from the first-sync feed backfill, even one older than the feed window", () => {
+    const old = { ...entry(), occurredAt: 1_000 };
+    seedFeedFromEventLog({ feed: [] } as never, [old], 1_000 + 3 * 24 * 60 * 60 * 1000);
+    occupationSurveyController.reconcile([old]);
+    sync(true);
+    expect(pending()).toEqual([]);
+  });
+
+  it("does not re-pin dismissed history after a later town panel closes", () => {
     occupationSurveyController.record(entry());
     sync(true);
+    tapFirstPin();
     document.querySelector<HTMLButtonElement>("[data-survey-dismiss]")?.click();
     occupationSurveyController.beginCapture();
     occupationSurveyController.endCapture(occupationSurveyController.currentReports());
     sync(true);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(pending()).toEqual([]);
   });
 
-  it("closes a survey once its resource is researched and waits for login to finish before presenting", () => {
+  // Review 2026-11-23: pins stayed up behind the AFC drop and screens, so a tap opened a card the next frame closed.
+  it("hides the pins while a screen covers the map, and shows them again after", () => {
     occupationSurveyController.record(entry());
     const state = { camX: 10, camY: 10, camSubX: 0, camSubY: 0, selected: undefined };
     occupationSurveyController.sync({ ...state, presentationReady: false }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-    sync(true);
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(pending()).toEqual([]);
+    occupationSurveyController.sync({ ...state, presentationReady: true }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
+    expect(pending()).toEqual(["TITANIUM"]);
+  });
+
+  it("closes an open card while a screen covers the map, and drops the clue once its resource is researched", () => {
+    occupationSurveyController.record(entry());
+    const state = { camX: 10, camY: 10, camSubX: 0, camSubY: 0, selected: undefined };
+    tapFirstPin();
+    expect(dialog()).not.toBeNull();
+    occupationSurveyController.sync({ ...state, presentationReady: false }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
+    expect(dialog()).toBeNull();
+    occupationSurveyController.sync({ ...state, presentationReady: true }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
+    expect(pending()).toEqual(["TITANIUM"]);
     occupationSurveyController.sync({ ...state, techIds: ["masonry"] }, () => ({ sx: 0, sy: 0 }), 32, 16, 16);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(pending()).toEqual([]);
   });
 });

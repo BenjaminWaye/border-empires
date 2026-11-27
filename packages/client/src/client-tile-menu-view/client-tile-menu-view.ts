@@ -1,4 +1,5 @@
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
+import { afcFounderOverviewLines } from "../client-afc-founder/client-afc-founder-line.js";
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
 import { gateTileConstructionActions } from "../client-afc-recovery/client-afc-recovery-actions.js";
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
@@ -6,10 +7,9 @@ import { townBiotaLineHtml } from "../client-town-biota/client-town-biota-line.j
 import { manpowerPerBatch, isNetworkResource, isDepletedReclamationWorks } from "@border-empires/shared";
 import { depletedReclamationWorksLine } from "../client-salvage-tribute/client-salvage-tribute.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
-import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
+import { fortCaptureMenuLines } from "./client-tile-menu-fort-capture-lines.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
-  isFortDefending,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
   type SlotResource
@@ -23,7 +23,7 @@ import { resourceSlotProductionHtml } from "./client-tile-resource-slot-producti
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml, type StructureInfoKey } from "../client-map-display.js";
-import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
+import { LAST_SEEN_UNCLAIMED_LABEL, ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
@@ -34,7 +34,7 @@ import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { townModifierGroupsOutsideStatCards, townStatGridModifiers } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
+import { townModifierGroupsOutsideStatCards, townStatGridModifiersWithZeroCoinReason } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
@@ -174,22 +174,13 @@ export const menuOverviewForTile = (
     // Foreign towns under satellite reveal carry only public fields; absent owner-only economy
     // fields hide private-info lines instead of rendering misleading defaults like "Town is unfed" or "Support 0/0".
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
-    const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and garrison this tile to start its economy.");
     } else if (!isSettled) {
       pushLine("Garrison this tile to activate the town's economy and start coin income.");
-    } else if (tile.town.populationTier === "SETTLEMENT") {
-      // No prose income line — the unified `Production: X/m` row below shows the same value.
-    } else if (
-      hasOwnerEconomyData &&
-      !tile.town.isFed &&
-      !hasFullFoodCoverage &&
-      (tile.town.goldPerMinute ?? 0) <= 0.001 &&
-      (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
-    ) {
-      pushLine("Town is unfed. Add more FOOD upkeep coverage or garrison nearby fish or grain.");
     }
+    // No prose income or Unfed line: the stat grid's Coin card says "Unfed · no coin · garrison grain or fish in
+    // reach", and a separate "Add more FOOD upkeep coverage" line contradicted it at full coverage.
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus coin production.");
     }
@@ -203,7 +194,9 @@ export const menuOverviewForTile = (
       // (fed) or 0 (unfed), never a partial count. The simulation stamps it
       // after upgrade waivers and the Ministry Hall reduction.
       const foodDemand = townFoodSlotDemand(tile.town);
-      const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
+      // The sim's own isFed, as HUD v2's tile facts and town screen read it. Fed is a FOOD *slot* allocation, not the
+      // empire's food-stock coverage: overriding it to fed at full coverage hid a real Unfed town (0 coin, no reason).
+      const townForGrowth = tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
@@ -228,7 +221,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
-          ...townStatGridModifiers(townForGrowth, terrainProfile, coastal),
+          ...townStatGridModifiersWithZeroCoinReason(tile, townForGrowth, goldPerDay, terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -321,17 +314,7 @@ export const menuOverviewForTile = (
   for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), ownMaxShots: ownObservatoryMaxShots(deps.state), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
-    pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
-  }
   for (const line of captureAftermathMenuLines(tile)) pushLine(line);
-  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
-    // Same helper the client's own attack gate uses (findClosestMuster in
-    // client-muster-attack-gate.ts), so the number shown here always matches
-    // the muster the client will actually demand.
-    const required = attackFloorForPlayer(deps.state, tile);
-    pushLine(`Capturing requires ${required} mustered manpower.`);
-  }
   if (tile.fort?.status === "active") {
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);
@@ -395,6 +378,8 @@ export const menuOverviewForTile = (
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);
   for (const historyLine of deps.tileHistoryLines(tile)) pushLine(historyLine);
+  // Last, so its "Defense" heading never adopts lines from unrelated sections.
+  lines.push(...fortCaptureMenuLines(deps.state, tile));
   return lines;
 };
 
@@ -417,7 +402,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; tiles?: ReadonlyMap<string, Tile>; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
+    state: { me: string; tiles?: ReadonlyMap<string, Tile>; afcRecovery?: import("@border-empires/shared").AfcRecoveryState | undefined; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[]; tileActionMenu?: { currentTileKey: string; afcArmFocus?: { socket: number } | undefined } } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -452,7 +437,9 @@ export const tileMenuViewForTile = (
   const progress = primaryProgress && queuedNext ? { ...primaryProgress, queuedNext } : primaryProgress;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
-  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me);
+  // Only the open menu's own tile spotlights the arm the player tapped to open it.
+  const armFocus = deps.state.tileActionMenu?.currentTileKey === `${tile.x},${tile.y}` ? deps.state.tileActionMenu.afcArmFocus?.socket : undefined;
+  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me, Date.now(), armFocus, deps.playerNameForOwner);
   if (modules) actionTabs.actions = actionTabs.actions.filter((action) => !action.id.startsWith("redeploy_afc_module:"));
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
@@ -467,7 +454,7 @@ export const tileMenuViewForTile = (
         ? "Crossing route"
         : "Open sea"
       : !tile.ownerId
-        ? "Unclaimed"
+        ? tile.fogged ? LAST_SEEN_UNCLAIMED_LABEL : "Unclaimed"
         : tile.ownerId === deps.state.me
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
@@ -476,7 +463,7 @@ export const tileMenuViewForTile = (
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
-  const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
+  const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? (tile.fogged ? "last-seen-unclaimed" : "unclaimed") : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
   const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
@@ -488,7 +475,7 @@ export const tileMenuViewForTile = (
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),
     tabs,
     ...(modules ? { modules } : {}),
-    overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
+    overviewLines: [...afcFounderOverviewLines(tile, deps.playerNameForOwner, deps.state.me), ...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,

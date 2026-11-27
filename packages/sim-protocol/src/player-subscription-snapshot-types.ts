@@ -127,6 +127,8 @@ export type PlayerSubscriptionSnapshot = {
      * snapshot -- so a reconnect can restore fog memory the browser lost.
      */
     exploredTiles?: ExploredTilesRuns;
+    /** Land the player lost in the last 24h and who took it, stamped fresh on each reply (apps/simulation lost-tile-memory.ts). */
+    lostTiles?: Array<{ x: number; y: number; ownerId: string }>;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used this UTC day). Sent purely so the
     // client's rush-buy price preview can replicate the server's exact
@@ -134,6 +136,8 @@ export type PlayerSubscriptionSnapshot = {
     // @border-empires/shared) — the server remains authoritative on price.
     wonderLastFreeRushBuyAt?: number;
     relicMapHints?: import("@border-empires/shared").RelicMapHint[];
+    /** Nearest unowned town while the player holds none, else null (apps/simulation guide-town-lead.ts). */
+    guideTownLead?: { x: number; y: number } | null;
     // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
     // one-time Wonder-style starting bonus granted to the most recent
     // season's Planet winner (§3) for their next season — a manpower-regen
@@ -175,6 +179,7 @@ export type PlayerSubscriptionSnapshot = {
     warScarUntil?: number | undefined;
     razedWreckUntil?: number | undefined;
     razedWreck?: string | undefined;
+    campId?: string | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

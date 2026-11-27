@@ -6,10 +6,15 @@
 // least one target is effort-eligible (SETTLED or holding captured ground,
 // non-barbarian -- see isAttackEffortEligibleTarget); any other frontier or
 // barbarian attack gains nothing
-// from extra manpower, so it still fires on the first click.
+// from extra manpower, so it still fires on the first click -- unless the
+// attack would raise a brand new muster flag: then the same sheet first asks
+// where to raise it (docs/launch-attack-flag-placement-plan.md), with no
+// effort controls when no target benefits from extra manpower.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
-import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
+import { attackPreviewBreakdownForTarget, previewBaseWinChanceForTarget, winChanceAtCommit } from "../client-queue-logic/client-attack-preview-logic.js";
+import { besiegedOddsSuffix, targetShowsBesieged } from "../client-town-siege/client-town-siege.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
@@ -18,8 +23,11 @@ import {
   isAttackEffortEligibleTarget,
   setAttackCommit
 } from "../client-attack-commit/client-attack-commit.js";
+import { launchFlagPlacement, type LaunchFlagPlacement } from "./client-launch-attack-flag-placement.js";
+import { attackFlagFillNote } from "../client-muster-fill-eta/client-muster-fill-eta.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { hasOwnAttackEnRoute, type AttackEnRouteState } from "../client-attack-en-route-gate/client-attack-en-route-gate.js";
 
 export type AttackLaunchScope = "single" | "bulk" | "region";
 
@@ -41,6 +49,42 @@ type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCom
 
 const percent = (chance: number | undefined): string | undefined => (chance == null ? undefined : `${Math.round(chance * 100)}%`);
 
+type PreviewDeps = Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget">;
+
+// The tile whose odds the open effort sheet shows. The tile menu closes when
+// the sheet opens, and the attack preview's keepalive (client-attack-preview-
+// keepalive-ticker.ts) only refreshed the open menu's tile -- so the cached
+// preview aged out (5s TTL) under the sheet and every effort read the same
+// stale or missing odds (2026-11-26 playtest: "Normal / Extra / Double all
+// showed 37%"; the region sheet's win chance vanished after Double).
+let sheetTargetKey: string | undefined;
+
+/** The tile the open Launch Attack effort sheet shows odds for, if any. */
+export const attackEffortSheetTargetKey = (): string | undefined => sheetTargetKey;
+
+/**
+ * Win chance at a commitment from the server preview, scaled per effort. Keeps
+ * the last base it saw, so a preview refresh in flight doesn't blank the odds
+ * or freeze them at another effort's value.
+ */
+const stickyCommitWinChance = (state: ClientState, tile: Tile, deps: PreviewDeps): ((commitManpower: number) => number | undefined) => {
+  let lastBase: number | undefined;
+  return (commitManpower) => {
+    lastBase = previewBaseWinChanceForTarget(state, tile, deps) ?? lastBase;
+    return lastBase === undefined ? undefined : winChanceAtCommit(state, tile, lastBase, commitManpower);
+  };
+};
+
+const trackSheetTarget = (shown: boolean, deps: PreviewDeps, tile: Tile | undefined): void => {
+  sheetTargetKey = shown && tile ? deps.keyFor(tile.x, tile.y) : undefined;
+};
+
+/** The sheet's only subtitle: "Starts war with House X" when the attack would start a war (client-attack-war-warning.ts). */
+const warSubtitle = (state: ClientState, ownerIds: ReadonlyArray<string | undefined>): { subtitle?: string } => {
+  const warning = attackWarWarning(state, ownerIds, Date.now());
+  return warning ? { subtitle: warning } : {};
+};
+
 /** Records the chosen commitment, or clears a stale one when the player stayed at the floor. */
 const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): void => {
   if (commitManpower > attackEffortFloorForTarget(tile, state)) setAttackCommit(state, tile.x, tile.y, commitManpower);
@@ -55,31 +99,50 @@ const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): v
 export const promptAttackEffortForTarget = (
   state: ClientState,
   tile: Tile | undefined,
-  options: { title: string; confirmLabel: string; onConfirm: (commitManpower: number | undefined) => void },
-  deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget">
+  options: { title: string; confirmLabel: string; onConfirm: (commitManpower: number | undefined) => void; placement?: LaunchFlagPlacement | undefined },
+  deps: PreviewDeps
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
   const floor = attackEffortFloorForTarget(tile, state);
+  const winChanceAt = stickyCommitWinChance(state, tile, deps);
+  const origin = deps.pickOriginForTarget(tile.x, tile.y);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
+    ...warSubtitle(state, [tile.ownerId]),
     floor,
     cap: Math.max(floor, state.manpowerCap),
-    mode: "slider",
+    // Presets only: Normal / Extra / Double read at a glance; the cost and
+    // win chance on the line below say what each buys.
+    mode: "presets",
+    ...(options.placement ? { flagSpots: options.placement.sheet } : {}),
     confirmLabel: options.confirmLabel,
     describe: (commitManpower) => {
-      const winChance = percent(commitPreviewWinChanceForTarget(state, tile, commitManpower, deps));
-      return `${winChance ? `Win chance ${winChance}` : "Win chance shown once the target borders you"} · costs ${commitManpower} manpower`;
+      const winChance = percent(winChanceAt(commitManpower));
+      const siege = winChance ? besiegedOddsSuffix(targetShowsBesieged(tile, state, attackPreviewBreakdownForTarget(state, tile, deps))) : "";
+      return `${winChance ? `Win ${winChance}${siege} · ` : ""}${commitManpower} MP`;
     },
-    onConfirm: (commitManpower) => options.onConfirm(commitManpower > floor ? commitManpower : undefined)
+    note: (commitManpower) => attackFlagFillNote(state, origin, tile, commitManpower),
+    onConfirm: (commitManpower) => {
+      sheetTargetKey = undefined;
+      options.placement?.apply();
+      options.onConfirm(commitManpower > floor ? commitManpower : undefined);
+    },
+    onCancel: () => {
+      sheetTargetKey = undefined;
+    }
   });
+  trackSheetTarget(handle !== undefined, deps, tile);
   return handle !== undefined;
 };
 
-const enemyTargetKeys = (state: EffortState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
+const launchTitle = (scope: AttackLaunchScope, count: number): string => (scope === "region" ? `Attack region · ${count} tiles` : `Attack ${count} tiles`);
+
+// Skips tiles an own attack is already heading for: a connected-region or
+// bulk launch would otherwise re-send them and be refused LOCKED.
+const enemyTargetKeys = (state: EffortState & AttackEnRouteState, targetKeys: string[], deps: Pick<AttackLaunchDeps, "isTileOwnedByAlly">): string[] =>
   targetKeys.filter((k) => {
     const t = state.tiles.get(k);
-    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t));
+    return Boolean(t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t) && !hasOwnAttackEnRoute(state, t.x, t.y));
   });
 
 const queueAndReport = (
@@ -116,28 +179,45 @@ const promptBulkEffort = (
   eligible: Tile[],
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void,
-  focus?: { tile: Tile | undefined; deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget"> }
+  focus?: { tile: Tile | undefined; deps: PreviewDeps },
+  placement?: LaunchFlagPlacement
 ): boolean => {
   const focusTile = focus?.tile && eligible.includes(focus.tile) ? focus.tile : undefined;
+  const winChanceAt = focusTile && focus ? stickyCommitWinChance(state, focusTile, focus.deps) : undefined;
   const focusOdds = (preset: MusterCommitPreset): string => {
-    if (!focusTile || !focus) return "";
+    if (!focusTile || !winChanceAt) return "";
     const commit = musterCommitPresetAmount(preset, attackEffortFloorForTarget(focusTile, state));
-    const chance = percent(commitPreviewWinChanceForTarget(state, focusTile, commit, focus.deps));
-    return chance ? `Win chance ${chance} at (${focusTile.x}, ${focusTile.y}) · ` : "";
+    const chance = percent(winChanceAt(commit));
+    return chance ? `Win ${chance} · ` : "";
   };
   const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
+  // The fill line follows one flag: the tapped tile's when it is one of the targets, else the first.
+  const fillTile = focusTile ?? eligible[0];
+  const fillOrigin = fillTile && focus ? focus.deps.pickOriginForTarget(fillTile.x, fillTile.y) : undefined;
+  const fillNote = (preset: MusterCommitPreset): string =>
+    fillTile ? attackFlagFillNote(state, fillOrigin, fillTile, musterCommitPresetAmount(preset, attackEffortFloorForTarget(fillTile, state))) : "";
   const totalFor = (preset: MusterCommitPreset): number =>
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
+    ...warSubtitle(state, eligible.map((tile) => tile.ownerId)),
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
+    ...(placement ? { flagSpots: placement.sheet } : {}),
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
-    onConfirm: (_commit, preset) => onConfirm(preset ?? "normal")
+    describe: (_commit, preset) => `${focusOdds(preset ?? "normal")}${totalFor(preset ?? "normal")} MP total`,
+    note: (_commit, preset) => fillNote(preset ?? "normal"),
+    onConfirm: (_commit, preset) => {
+      sheetTargetKey = undefined;
+      placement?.apply();
+      onConfirm(preset ?? "normal");
+    },
+    onCancel: () => {
+      sheetTargetKey = undefined;
+    }
   });
+  if (focus) trackSheetTarget(handle !== undefined, focus.deps, focusTile);
   return handle !== undefined;
 };
 
@@ -165,16 +245,16 @@ const launchWithEffort = (
   enemyKeys: string[],
   deps: AttackLaunchDeps
 ): void => {
-  const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter((tile) => isAttackEffortEligibleTarget(tile));
+  const enemyTiles = enemyKeys.map((k) => state.tiles.get(k)).filter((tile): tile is Tile => tile !== undefined);
+  const eligible = enemyTiles.filter((tile) => isAttackEffortEligibleTarget(tile));
   const launch = (): void => queueAndReport(enemyKeys, request, deps);
+  const focus = request.selected ? state.tiles.get(deps.keyFor(request.selected.x, request.selected.y)) : undefined;
+  const placement = launchFlagPlacement(state, enemyTiles, focus, deps.pickOriginForTarget);
   if (eligible.length === 0) {
     // attackCommitForTarget already ignores ineligible targets; clearing too
     // means a tile that later settles can't revive an old choice.
-    for (const k of enemyKeys) {
-      const t = state.tiles.get(k);
-      if (t) clearAttackCommit(state, t.x, t.y);
-    }
-    launch();
+    for (const t of enemyTiles) clearAttackCommit(state, t.x, t.y);
+    if (!placement || !promptFlagPlacementOnly(state, enemyTiles, request, placement, launch, deps.pickOriginForTarget)) launch();
     return;
   }
   if (enemyKeys.length === 1 && eligible.length === 1) {
@@ -183,8 +263,9 @@ const launchWithEffort = (
       state,
       tile,
       {
-        title: `Launch attack on (${tile.x}, ${tile.y})`,
+        title: `Attack (${tile.x}, ${tile.y})`,
         confirmLabel: "Attack",
+        placement,
         onConfirm: (commitManpower) => {
           recordCommit(state, tile, commitManpower ?? attackEffortFloorForTarget(tile, state));
           launch();
@@ -195,11 +276,42 @@ const launchWithEffort = (
     if (!shown) launch();
     return;
   }
-  const title = request.scope === "region" ? `Attack connected region (${enemyKeys.length})` : `Launch ${enemyKeys.length} attacks`;
+  const title = launchTitle(request.scope, enemyKeys.length);
   const shown = promptBulkEffort(state, eligible, title, (preset) => {
     const multiplier = MUSTER_COMMIT_PRESET_MULTIPLIERS[preset];
     for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile, state) * multiplier));
     launch();
-  }, { tile: request.selected ? state.tiles.get(deps.keyFor(request.selected.x, request.selected.y)) : undefined, deps });
+  }, { tile: focus, deps }, placement);
   if (!shown) launch();
+};
+
+/**
+ * The sheet for targets where extra manpower buys nothing (barbarians, plain
+ * frontier) when the attack would raise a new flag: only the flag spot.
+ */
+const promptFlagPlacementOnly = (
+  state: ClientState,
+  targets: Tile[],
+  request: { scope: AttackLaunchScope },
+  placement: LaunchFlagPlacement,
+  launch: () => void,
+  pickOriginForTarget: AttackLaunchDeps["pickOriginForTarget"]
+): boolean => {
+  const only = targets.length === 1 ? targets[0] : undefined;
+  const first = targets[0];
+  const origin = first ? pickOriginForTarget(first.x, first.y) : undefined;
+  const handle = showEffortConfirmSheet({
+    title: only ? `Attack (${only.x}, ${only.y})` : launchTitle(request.scope, targets.length),
+    floor: 1,
+    cap: Math.max(1, state.manpowerCap),
+    mode: "none",
+    flagSpots: placement.sheet,
+    confirmLabel: "Attack",
+    note: () => (first ? attackFlagFillNote(state, origin, first, attackEffortFloorForTarget(first, state)) : ""),
+    onConfirm: () => {
+      placement.apply();
+      launch();
+    }
+  });
+  return handle !== undefined;
 };

@@ -1,3 +1,4 @@
+import { truceNeedsTownReturn, type ReturnableTown } from "@border-empires/shared";
 import { RESOURCE_SUPPLY_TRADE_DAYS, spendableCoin, hasRecurringCoin, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOffer, hasResourceSupplyOffer, supplyAgreementLimitMessage } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
@@ -10,8 +11,7 @@ import {
   evaluateAiOffer,
   extensionPricing,
   requiredForOffer,
-  netValueToAi,
-  aiCoinHours,
+  aiValueOfTerms,
   recurringCoinTermHours,
   type AiDiplomacyPricing,
   type AiGiftView,
@@ -23,6 +23,7 @@ import {
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
 import { ownSupplyLimitReason } from "./client-supply-agreement-limit.js";
+import { allianceActionLabel, allianceOfferPhrase, type FealtyStanding } from "../client-fealty/client-fealty.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
@@ -31,6 +32,10 @@ export type DiplomacyStanceReply = {
   truceLockout?: { until: number; reason: string };
   /** The target is at its supply agreement limit (known only for live or AI targets). */
   supplyAgreementsFull?: true;
+  /** Your towns taken from this target lately that you could hand back (client-diplomacy-town-return.ts). */
+  returnableTowns?: ReturnableTown[];
+  /** Their towns taken from you lately that you could ask back. */
+  askableTowns?: ReturnableTown[];
 } & (
   | { found: false; targetPlayerName: string }
   /** holdings: the human's coin and spare supply, absent when they're offline or the gateway predates it. */
@@ -55,6 +60,9 @@ export type DiplomacyStanceReply = {
 );
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
+
+/** What an alliance obliges both sides to (game-mechanics.md Alliances; the break notice and bloc rules). */
+export const ALLIANCE_OBLIGATIONS = "Allies can't attack each other. Their land counts as one bloc toward Diplomatic Dominance, won by its largest member. Breaking it takes 24 hours' notice.";
 
 export const ATTITUDE_LABEL: Record<DiplomacyAttitude, string> = {
   FURIOUS: "Furious",
@@ -135,14 +143,14 @@ export type TradeVerdict = {
   sendLabel: string;
 };
 
-const offerLabel = (selection: TradeSelection): string =>
-  selection.kind === "trade" ? "a resource trade" : selection.kind === "alliance" ? "an alliance" : `a ${selection.durationHours}h truce${extendsTruce(selection) ? " extension" : ""}`;
+const offerLabel = (selection: TradeSelection, fealty: FealtyStanding): string =>
+  selection.kind === "trade" ? "a resource trade" : selection.kind === "alliance" ? allianceOfferPhrase(fealty) : `a ${selection.durationHours}h truce${extendsTruce(selection) ? " extension" : ""}`;
 
 /**
  * An AI below Pleased asks tribute for an alliance (the gateway's
  * ai-diplomacy-pricing.ts): coin that wins it over -- deal payments count as
- * goodwill -- plus its alliance price. Says how the price splits, or "" when
- * no tribute is involved.
+ * goodwill. Alliances themselves are free at Pleased, so this is normally the
+ * whole price; any remainder is shown too. "" when no tribute is involved.
  */
 export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection): string => {
   if (selection.kind !== "alliance" || !reply?.found || !reply.ai || !reply.attitude || !reply.gift) return "";
@@ -150,7 +158,8 @@ export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, sel
   if (required === null || reply.attitude.score >= ATTITUDE_MIN_SCORE.PLEASED) return "";
   const winOver = giftToReach(reply.gift, reply.attitude.score, ATTITUDE_MIN_SCORE.PLEASED);
   if (winOver === undefined) return "";
-  return ` Its price is tribute: about ${winOver} coin to win it over, plus ${Math.max(0, required - winOver)} for the alliance.`;
+  const rest = Math.max(0, required - winOver);
+  return ` Its price is tribute: about ${winOver} coin to win it over${rest > 0 ? `, plus ${rest} for the alliance` : ""}.`;
 };
 
 export const formatOfferCooldown = (remainingMs: number): string => `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
@@ -170,6 +179,12 @@ export const ownGoodsShortfall = (give: DiplomacyGoods, own: DiplomacyGoods): st
   return missing ? `You only have ${own.resources?.[missing] ?? 0} spare ${supplyResourceLabel(missing)} slots.` : undefined;
 };
 
+/** Why an AI can't give what was asked: towns it never took, more Coin per day than it earns spare, or more than it holds. */
+const cannotPayText = (missing: DiplomacyGoods, aiSpareCoinPerHour: number | undefined): string =>
+  missing.towns?.length ? "can't hand back a town it didn't take from you in the last day."
+    : missing.coinPerHour ? `can pledge at most ${Math.max(0, Math.floor(aiSpareCoinPerHour ?? 0)) * 24} Coin per day.`
+    : "doesn't have that much to give.";
+
 export const tradeVerdict = (input: {
   targetName: string;
   reply: DiplomacyStanceReply | undefined;
@@ -179,12 +194,17 @@ export const tradeVerdict = (input: {
   nowMs?: number;
   /** Your active supply agreements; at the limit, a deal with resource supply can't be sent. */
   ownSupplyAgreements?: number;
+  /** Your standing with the target by size: an unequal alliance is sworn or demanded fealty (client-fealty.ts). */
+  fealty?: FealtyStanding;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
+  const fealty = input.fealty ?? "ALLIANCE";
   const kind = selection.kind;
   if (kind === "gift") return giftVerdict(input);
+  // What an alliance binds you to, said plainly (Playtest Run 4: Henrik couldn't tell what he had signed up for).
+  const binds = kind === "alliance" ? ` ${ALLIANCE_OBLIGATIONS}` : "";
   const sendLabel =
-    kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
+    kind === "trade" ? "Offer resource trade" : kind === "alliance" ? allianceActionLabel(fealty) : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
   const lockoutReason = kind === "truce" ? activeTruceLockoutReason(reply, input.nowMs) : undefined;
   if (lockoutReason) return { tone: "bad", text: lockoutReason, canSend: false, sendLabel };
   if (input.cooldownRemainingMs > 0) {
@@ -201,11 +221,11 @@ export const tradeVerdict = (input: {
     return { tone: "bad", text: `${supplyAgreementLimitMessage(targetName)} The offer will be refused unless one of theirs ends first.`, canSend: true, sendLabel };
   }
   if (hasRecurringCoin(selection.terms)) {
-    // An AI takes Coin per hour only from you, and only for a truce: say so before pointing at a slot that wouldn't help.
-    if (reply?.found && reply.ai && (selection.terms.ask.coinPerHour || kind !== "truce"))
-      return { tone: "bad", text: "AI Houses accept Coin per hour only from you, and only for a truce.", canSend: false, sendLabel };
+    // An AI pledges or takes Coin per day only for a truce: say so before pointing at a slot that wouldn't help.
+    if (reply?.found && reply.ai && kind !== "truce")
+      return { tone: "bad", text: "AI Houses trade Coin per day only for a truce.", canSend: false, sendLabel };
     if (recurringCoinTermHours(kind, selection.durationHours, selection.terms) === null)
-      return { tone: "neutral", text: "Add a resource slot to pledge Coin per hour outside a truce.", canSend: false, sendLabel };
+      return { tone: "neutral", text: "Add a resource slot to pledge Coin per day outside a truce.", canSend: false, sendLabel };
   }
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
   if (kind === "trade") {
@@ -222,27 +242,27 @@ export const tradeVerdict = (input: {
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };
-  if (!reply.ai) return { tone: "neutral", text: `${targetName} will decide for themselves.`, canSend: true, sendLabel };
+  if (!reply.ai) return { tone: "neutral", text: `${targetName} will decide for themselves.${binds}`, canSend: true, sendLabel };
   if (!reply.pricing) return { tone: "neutral", text: `${targetName} can't be read right now. You can still send the offer.`, canSend: true, sendLabel };
 
   const pricing = pricingFor(reply.pricing, selection);
   const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
-  // An AI counts Coin per hour only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
+  // An AI counts Coin per day only up to your spare income (shared pledgeAsCounted); say so when the pledge is above it.
   const pledged = selection.terms.give.coinPerHour ?? 0, spare = reply.pricing.requesterSpareCoinPerHour ?? 0;
-  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per hour only up to your spare income (${spare}/h).` : "");
-  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
+  const tribute = allianceTributeNote(reply, selection) + (pledged > spare ? ` It counts Coin per day only up to your spare income (${spare * 24}/day).` : "");
+  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection, fealty)} on these terms.${tribute}${binds}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
-    return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
+    return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection, fealty)} at any price right now.`, canSend: true, sendLabel };
   }
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
-  if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
-  const required = requiredForOffer(pricing, kind, selection.durationHours) ?? 0;
+  if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} ${cannotPayText(verdict.missing, reply.pricing.aiSpareCoinPerHour)}`, canSend: true, sendLabel };
+  const required = requiredForOffer(pricing, kind, selection.durationHours, selection.terms) ?? 0;
   // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin >= verdict.shortfall;
-  const offered = netValueToAi(selection.terms, aiCoinHours(kind, selection.durationHours, selection.terms));
+  const offered = aiValueOfTerms(pricing, kind, selection.durationHours, selection.terms);
   return {
     tone: "bad",
     text: (affordable
@@ -267,8 +287,9 @@ export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection
   if (kind === "trade" || !reply?.found || !reply.ai || !reply.pricing) return undefined;
   const pricing = pricingFor(reply.pricing, selection);
   const required = requiredForOffer(pricing, kind, selection.durationHours);
-  if (required === null) return undefined;
-  if (required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
+  // A truce it refuses until one of its towns comes back: the counter names the town.
+  if (required === null && !(kind === "truce" && truceNeedsTownReturn(pricing, selection.durationHours))) return undefined;
+  if (required !== null && required < 0) return { give: { gold: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold) } };
   const counter = aiCounterOffer(pricing, kind, selection.durationHours, emptyDiplomacyTerms(), own);
   return counter.kind === "counter" ? counter.terms : undefined;
 };

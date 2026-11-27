@@ -3,12 +3,15 @@
 //   - ISLAND_NAMES push (island-names/island-names-ticker.ts): derived, never snapshotted;
 //   - House Charges upkeep (house-charges/house-charges-ticker.ts): deals and
 //     tracks charges on player state, which is snapshotted with each player,
-//     and pushes HOUSE_CHARGES to an online House whose charges changed.
+//     and pushes HOUSE_CHARGES to an online House whose charges changed;
+//   - live Longest Road holder (longest-road/longest-road-ticker.ts): derived, never snapshotted.
 // Each ticker throttles itself; `tick` is cheap to call every second.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import type { HouseChargesPayload, IslandNamesPayload } from "@border-empires/shared";
+import type { HouseChargesPayload, IslandNamesPayload, LongestRoadPayload } from "@border-empires/shared";
+import { createLongestRoadTicker } from "../longest-road/longest-road-ticker.js";
 import { createHouseChargesTicker } from "../house-charges/house-charges-ticker.js";
+import { createHouseChargesAfcWatch } from "../house-charges/house-charges-afc-watch.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { houseChargesPayloadFor } from "../house-charges/house-charges-view.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
@@ -17,8 +20,13 @@ export type RuntimeSideTickersDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;
   readonly players: () => ReadonlyMap<string, DomainPlayer>;
   readonly docks?: () => readonly DockRouteDefinition[];
+  /** Tile keys of the garrisoned (SETTLED), active AFCs a player owns (runtime summary index); a Writ of Correction checks only these, and the 1s watch relies on garrisoning changing this set. */
+  readonly afcTileKeys?: (playerId: string) => ReadonlySet<string>;
   readonly isPlayerSubscribed: (playerId: string) => boolean;
-  readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload) => void;
+  readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: IslandNamesPayload | HouseChargesPayload | LongestRoadPayload) => void;
+  /** Tile keys of the towns a player owns (runtime summary); enables the live Longest Road push. */
+  readonly townTileKeys?: (playerId: string) => Iterable<string>;
+  readonly territoryTileKeys?: (playerId: string) => Iterable<string>;
 };
 
 export type RuntimeSideTickers = {
@@ -30,6 +38,7 @@ export type RuntimeSideTickers = {
 
 export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeSideTickers => {
   const islandNames = createIslandNamesTicker(deps);
+  const longestRoad = deps.townTileKeys && deps.territoryTileKeys ? createLongestRoadTicker({ ...deps, townTileKeys: deps.townTileKeys, territoryTileKeys: deps.territoryTileKeys }) : undefined;
   // Last HOUSE_CHARGES signature sent to each online House; pruned to online humans every pass, so bounded by online players.
   const sentChargesSignature = new Map<string, string>();
   const sendHouseCharges = (playerId: string, onlyIfChanged: boolean): void => {
@@ -46,6 +55,7 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
   const houseCharges = createHouseChargesTicker({
     tiles: deps.tiles,
     ...(deps.docks ? { docks: deps.docks } : {}),
+    ...(deps.afcTileKeys ? { afcTileKeys: deps.afcTileKeys } : {}),
     players: deps.players,
     onPassComplete: () => {
       const online = new Set<string>();
@@ -57,14 +67,19 @@ export const createRuntimeSideTickers = (deps: RuntimeSideTickersDeps): RuntimeS
       for (const playerId of [...sentChargesSignature.keys()]) if (!online.has(playerId)) sentChargesSignature.delete(playerId);
     }
   });
+  // A Writ of Correction re-checks within a second of its House's AFCs changing, not on the next 15s pass.
+  const afcWatch = deps.afcTileKeys ? createHouseChargesAfcWatch({ ...deps, afcTileKeys: deps.afcTileKeys }) : undefined;
   return {
     tick: (nowMs, force = false) => {
       islandNames.tick(nowMs);
+      longestRoad?.tick(nowMs);
       if (force) houseCharges.runNow(nowMs);
       else houseCharges.tick(nowMs);
+      for (const playerId of afcWatch?.tick(nowMs) ?? []) sendHouseCharges(playerId, true);
     },
     sendTo: (playerId, nowMs) => {
       islandNames.sendTo(playerId, nowMs);
+      longestRoad?.sendTo(playerId);
       sendHouseCharges(playerId, false);
     }
   };

@@ -4,6 +4,7 @@
 
 import { formatCoinPerDay, spendableCoin, type SlotResource } from "@border-empires/shared";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
+import { INTEGRITY_HINT } from "./client-hud-v2-hints.js";
 
 export const NET_COIN_TITLE = "Net coin per day: income less coin upkeep";
 
@@ -16,7 +17,11 @@ export type ResourceBarInput = {
   integrityPct: number | undefined;
   /** Titanium/Crystal/Umbrite stay off the bar until researched (or until they have slots or users); Food always shows. */
   isRevealed?: (resource: SlotResource) => boolean;
+  /** After INIT, until the first full PLAYER_UPDATE: slot and Integrity chips show "…", not stale numbers. */
+  pending?: boolean;
 };
+
+const PENDING_HTML = `<span class="hud-v2-chip-value hud-v2-chip-pending" aria-label="Loading">…</span>`;
 
 const SLOT_ORDER: ReadonlyArray<[SlotResource, string]> = [
   ["FOOD", "Food"],
@@ -69,16 +74,17 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const remaining = total - used;
     // A shortfall carries a minus sign so it can't be read as free slots by colour alone.
     const amount = `${over ? "−" : ""}${chipNumberHtml(Math.abs(remaining))}`;
-    const description = over ? " slots short" : " free slots";
+    // A visible unit: a bare "4" beside Economy's "3 / 7" read as two different food numbers (playtest 2026-11-27).
+    const unit = over ? " short" : " free";
     const tone = over ? "hud-v2-over" : remaining > 0 ? "hud-v2-chip-available" : "hud-v2-chip-zero";
-    const summary = `<span class="hud-v2-chip-summary ${tone}">${amount}<span class="hud-v2-chip-description">${description}</span></span>`;
+    const summary = input.pending ? PENDING_HTML : `<span class="hud-v2-chip-summary ${tone}">${amount}<span class="hud-v2-chip-unit">${unit}</span></span>`;
     // The bar shows only free slots; hover keeps the totals one step away (desktop has no icon cue).
-    const title = `${label}: ${fmt(Math.abs(remaining))}${description} (${fmt(used)} / ${fmt(total)} used)`;
-    return chip(key.toLowerCase(), label, summary, resourceSimpleIconUrl(key), title);
+    const title = `${label}: ${fmt(Math.abs(remaining))}${over ? " slots short" : " free slots"} (${fmt(used)} / ${fmt(total)} used)`;
+    return chip(key.toLowerCase(), label, summary, resourceSimpleIconUrl(key), input.pending ? undefined : title);
   }).join("");
   const integrity = input.integrityPct === undefined
     ? ""
-    : chip("integrity", "Integrity", `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`);
+    : chip("integrity", "Integrity", input.pending ? PENDING_HTML : `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`, undefined, INTEGRITY_HINT);
   const gear = `<button type="button" class="hud-v2-gear" data-hud-v2-open="settings" aria-label="Settings" title="Settings · Esc"><span aria-hidden="true">⚙</span><img src="/icons/nav/settings.svg" alt="" draggable="false"></button>`;
   return `${coin}${slots}<span class="hud-v2-sep" aria-hidden="true"></span>${integrity}${gear}`;
 };

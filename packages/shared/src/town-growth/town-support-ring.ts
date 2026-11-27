@@ -133,3 +133,17 @@ export const wideSupportRingScanRadiusFor = <T extends { x: number; y: number }>
   }
   return 1;
 };
+
+/**
+ * Which of two towns a shared support tile belongs to: the closer one (Chebyshev distance from the tile), then the
+ * lower (x, y) as a stable tie-break. Owner call 2026-11-24: with Cities reaching distance 2, picking by map
+ * position alone handed a Town's own inner plot (and the building on it) to a farther City.
+ * Returns true when `candidate` should replace `current`.
+ */
+export const isPreferredSupportTown = (
+  candidate: { x: number; y: number; distance: number },
+  current: { x: number; y: number; distance: number } | undefined
+): boolean =>
+  !current ||
+  candidate.distance < current.distance ||
+  (candidate.distance === current.distance && (candidate.x < current.x || (candidate.x === current.x && candidate.y < current.y)));

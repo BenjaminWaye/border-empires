@@ -7,6 +7,12 @@ export type ClientTownWireSummary = {
   type: "MARKET" | "FARMING";
   terrainProfile?: "TUNDRA" | "DESERT" | "GRASS" | "COASTAL_DESERT";
   coastal?: boolean;
+  // Town focus (docs/town-focus-plan.md): active focus (absent = Balanced) and a pick the server applies after its next growth tick.
+  focus?: "BALANCED" | "GROWTH" | "LEVY" | "COMMERCE";
+  pendingFocus?: "BALANCED" | "GROWTH" | "LEVY" | "COMMERCE";
+  pendingFocusAt?: number;
+  /** The focus cannot change again before this time (the owner's next refill after the last change). */
+  focusLockedUntil?: number;
   arsenalFactoryCount?: number;
   arsenalTitaniumFactoryCount?: number;
   arsenalUmbriteFactoryCount?: number;
@@ -15,6 +21,9 @@ export type ClientTownWireSummary = {
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;
+  /** Inner-ring (distance 1) part of the support counts; the outer ring is the rest (town-support-coin.ts). */
+  supportInnerCurrent?: number;
+  supportInnerMax?: number;
   goldPerMinute: number;
   cap: number;
   isFed: boolean;

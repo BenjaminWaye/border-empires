@@ -86,7 +86,8 @@ describe("parkOrReuseMusterFlagForAttack (via processActionQueue)", () => {
     parkOrReuseMusterFlagForAttack(state, { from: makeTile({ x: 50 }), to: makeTile({ x: 51 }), closest: undefined }, deps);
     expect(deps.sendSetMuster.mock.calls).toEqual([[20, 0, "HOLD"]]);
     expect(state.pendingMusterAttacks.map(entry => entry.musterTileKey)).toEqual(["20,0", "20,0"]);
-    expect(deps.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full"), "combat", "error");
+    // The slot is held by a flag the Tracker doesn't list yet: say so (Playtest Run 4: "2/2" beside a Tracker showing 1).
+    expect(deps.pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full (1/1, 1 still being placed)"), "combat", "error");
   });
 
   it("cancels the attack up front (no SET_MUSTER) when at the muster-flag cap with nothing nearby to reuse", () => {

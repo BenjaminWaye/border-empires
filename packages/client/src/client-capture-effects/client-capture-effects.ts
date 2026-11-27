@@ -58,7 +58,16 @@ export const renderCaptureProgress = (
       deps.captureGotoBtn.dataset.feedFocusX = String(state.captureAlert.focusX);
       deps.captureGotoBtn.dataset.feedFocusY = String(state.captureAlert.focusY);
       deps.captureGotoBtn.textContent = state.captureAlert.actionLabel ?? "Center";
+      delete deps.captureGotoBtn.dataset.captureOpenPanel;
+    } else if (state.captureAlert.openPanel) {
+      // Opens a side panel (wired in client-ui-controls.ts) rather than centring the map.
+      deps.captureGotoBtn.style.display = "inline-flex";
+      deps.captureGotoBtn.dataset.captureOpenPanel = state.captureAlert.openPanel;
+      deps.captureGotoBtn.textContent = state.captureAlert.actionLabel ?? "Open";
+      delete deps.captureGotoBtn.dataset.feedFocusX;
+      delete deps.captureGotoBtn.dataset.feedFocusY;
     } else {
+      delete deps.captureGotoBtn.dataset.captureOpenPanel;
       deps.captureGotoBtn.style.display = "none";
       delete deps.captureGotoBtn.dataset.feedFocusX;
       delete deps.captureGotoBtn.dataset.feedFocusY;
@@ -73,11 +82,12 @@ export const renderCaptureProgress = (
   deps.captureGotoBtn.style.display = "none";
   delete deps.captureGotoBtn.dataset.feedFocusX;
   delete deps.captureGotoBtn.dataset.feedFocusY;
+  delete deps.captureGotoBtn.dataset.captureOpenPanel;
   // An attack or claim in progress no longer gets a "Capturing Territory..."
   // banner with a countdown: several attacks can now resolve at once, and
   // each one already shows its own progress on the map (skirmish, claim
   // plate, marching company) and in its tile menu. The card only appears for
-  // results and errors (captureAlert above).
+  // failed results and errors (captureAlert above); good news never does (showCaptureAlert).
   hideCaptureCard(deps);
   if (state.capture && !state.capture.silent) revealLockedCombatResult(state, deps);
 };

@@ -18,6 +18,7 @@
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
+import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import {
   buildRuntimeExportPlayers,
   buildRuntimeExportState,
@@ -51,7 +52,7 @@ const economicSynergyRow = (view: readonly TownEconomyEntry[] | undefined): Pick
 // derive their playerId-keyed variants from this context's player-keyed
 // ones at the call site instead of the context carrying both.
 export type RuntimeExportContext = Parameters<typeof buildRuntimeExportState>[0] &
-  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "afcGlobalLosses" | "recordedEventsByCommandId" | "reachBorder" | "exploredTiles" | "resourceSupplyState"> &
+  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "afcGlobalLosses" | "recordedEventsByCommandId" | "reachBorder" | "exploredTiles" | "fairSpawnSites" | "planetaryDefensePlanner" | "resourceSupplyState"> &
   Pick<Parameters<typeof buildRuntimeSnapshotSectionsAsync>[0], "prebuiltTiles"> &
   Omit<Parameters<typeof buildRuntimePlannerWorldView>[0], "playerIds" | "playerManpowerCap" | "playerManpowerRegenPerMinute"> &
   Parameters<typeof buildRuntimePlayerDebugSnapshot>[0] & {
@@ -94,6 +95,11 @@ export async function snapshotSectionsAsyncForRuntime(
   ctx: RuntimeExportContext,
   yieldToEventLoop: () => Promise<void>
 ): Promise<SimulationSnapshotSections> {
+  // Size gauge for the two per-tile caches behind a checkpoint (state-and-persistence-discipline.md).
+  runtimeLogInfo(
+    { tileDeltaStringifyCache: ctx.tileDeltaStringifyCache.stats(), snapshotTileCacheEntries: ctx.prebuiltTiles?.size ?? 0 },
+    "simulation checkpoint tile caches"
+  );
   return buildRuntimeSnapshotSectionsAsync(ctx, yieldToEventLoop);
 }
 

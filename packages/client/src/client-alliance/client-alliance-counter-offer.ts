@@ -14,8 +14,9 @@ export type CounterOfferDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   state: {
     gold: number;
-    incomingTruceRequests: readonly TruceRequest[];
-    incomingAllianceRequests: readonly AllianceRequest[];
+    /** Mutable: sending the counter drops the offer it answers (client-countered-offer-drop.ts). */
+    incomingTruceRequests: TruceRequest[];
+    incomingAllianceRequests: AllianceRequest[];
     /** The deal screen offers no second truce while one is running. */
     activeTruces: readonly ActiveTruceView[];
   };
@@ -57,12 +58,4 @@ export const openCounterOfferScreen = (kind: DiplomacyOfferKind, requestId: stri
   if (!input) return false;
   openDiplomacyTradeScreen(input, diplomacyTradeDepsFor(deps.state, deps.sendGameMessage));
   return true;
-};
-
-export const bindCounterOfferButtons = (root: ParentNode, deps: CounterOfferDeps): void => {
-  root.querySelectorAll<HTMLButtonElement>(".counter-offer").forEach((btn) => {
-    btn.onclick = () => {
-      openCounterOfferScreen(btn.dataset.counterKind === "alliance" ? "alliance" : "truce", btn.dataset.counterRequestId ?? "", deps);
-    };
-  });
 };

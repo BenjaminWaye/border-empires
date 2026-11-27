@@ -3,7 +3,7 @@ import { townCharacterLabelForProfile } from "./client-town-terrain-modifiers.js
 
 describe("townCharacterLabelForProfile", () => {
   it("uses the full terrain identity in the town header", () => {
-    expect(townCharacterLabelForProfile("GRASS", false)).toBe("Fertile Town");
+    expect(townCharacterLabelForProfile("GRASS", false)).toBe("Standard Town");
     expect(townCharacterLabelForProfile("DESERT", false)).toBe("Trade Town");
     expect(townCharacterLabelForProfile("TUNDRA", false)).toBe("Tundra Town");
   });

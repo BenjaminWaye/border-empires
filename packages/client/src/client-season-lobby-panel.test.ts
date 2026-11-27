@@ -133,4 +133,14 @@ describe("bindSeasonLobbyPanel", () => {
     expect(inviteBtn.textContent).toBe("Copy failed");
     expect(statusEl.textContent).toContain(GAME_SHARE_URL);
   });
+
+  it("shows a Count's title before their name in the roster", () => {
+    const html = renderSeasonLobbyPanelHtml({
+      seasonLobbyWaitingCount: 2,
+      seasonLobbyMaxPlayers: 100,
+      seasonLobbyRoster: [{ playerId: "p1", name: "Varn", title: "Count" }, { playerId: "p2", name: "Aln" }]
+    });
+    expect(html).toContain('<span class="account-title">Count</span> Varn');
+    expect(html.match(/account-title/g)).toHaveLength(1);
+  });
 });

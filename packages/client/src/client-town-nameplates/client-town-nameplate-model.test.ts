@@ -20,6 +20,32 @@ describe("townNameplateFor", () => {
     expect(townNameplateFor(unfed, "me", 0)).toMatchObject({ status: "unfed", growth: "paused" });
   });
 
+  it("flags an own town that isn't garrisoned, ahead of every other status, until a garrison starts", () => {
+    const frontier = tile({ ownershipState: "FRONTIER", town: town({ isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(frontier, "me", 0)).toMatchObject({ status: "ungarrisoned", growth: "paused" });
+    expect(townNameplateFor(frontier, "me", 0, undefined, new Set(["4,5"]))?.status).toBeUndefined();
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER", optimisticPending: "settle" }), "me", 0)?.status).toBeUndefined();
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER", ownerId: "rival" }), "me", 0)?.status).toBeUndefined();
+  });
+
+  // Owner request 2026-11-25: an unruly City with plots left to garrison showed only the unruly badge.
+  it("shows the garrison badge on a garrisoned town with plots left to garrison, ahead of unruly, without growth pausing", () => {
+    const city = tile({ town: town({ populationTier: "CITY" }) });
+    const plate = townNameplateFor(city, "me", 0, new Set(["4,5"]), undefined, () => true);
+    expect(plate).toMatchObject({ status: "plots", growth: "growing" });
+    expect(townNameplateFor(city, "me", 0, new Set(["4,5"]), undefined, () => false)?.status).toBe("unruly");
+    expect(townNameplateFor(tile({ ownershipState: "FRONTIER" }), "me", 0, undefined, undefined, () => true)?.status).toBe("ungarrisoned");
+    expect(townNameplateFor(city, "rival", 0, undefined, undefined, () => true)?.status).toBeUndefined();
+  });
+
+  // Review of PR #3025: plots must not hide a starving town, and must not hide a war pause.
+  it("keeps unfed ahead of plots, and keeps growth paused under a nearby war when plots win the badge", () => {
+    const unfedCity = tile({ town: town({ populationTier: "CITY", isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }) });
+    expect(townNameplateFor(unfedCity, "me", 0, undefined, undefined, () => true)?.status).toBe("unfed");
+    const atWar = tile({ town: town({ populationTier: "CITY", nearbyWarPausedUntil: 10_000 } as Partial<NonNullable<Tile["town"]>>) });
+    expect(townNameplateFor(atWar, "me", 0, undefined, undefined, () => true)).toMatchObject({ status: "plots", growth: "paused" });
+  });
+
   it("flags an own large town short of biota as unruly, below unfed", () => {
     const city = tile({ town: town({ populationTier: "CITY" }) });
     expect(townNameplateFor(city, "me", 0, new Set(["4,5"]))?.status).toBe("unruly");

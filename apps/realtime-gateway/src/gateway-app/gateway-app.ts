@@ -1,9 +1,10 @@
 import { createViewportDetailLoader } from "../viewport-detail/viewport-detail.js";
 import { createRevealMapStreamer } from "../reveal-map-stream/reveal-map-stream.js";
+import { createRevealMapRequestHandler } from "../reveal-map-request/reveal-map-request.js";
 import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
-import { seedAiColors } from "./seed-ai-colors.js";
+import { humanColorsForAiSeeding, seedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -35,7 +36,6 @@ import { createGatewayActivityCalibrationStore } from "../activity-calibration-s
 import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
-import type { StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "../player-profile-store-factory/player-profile-store-factory.js";
 import { createPlayerGrowthBaselineStore } from "../player-growth-baseline-store-factory/player-growth-baseline-store-factory.js";
 import { createPlayerFunnelStore } from "../player-funnel-store-factory/player-funnel-store-factory.js";
@@ -55,6 +55,8 @@ import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcas
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { handlePlayerRespawned } from "../player-respawned-email/player-respawned-email.js";
 import { sweepExpiredCacheEntries } from "./sweep-expired-cache-entries.js";
+import { createProfileCache } from "./profile-cache.js";
+import { createAccountCosmeticsGatewayIntegration } from "../account-cosmetics/account-cosmetics-gateway-integration.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -77,7 +79,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage, hintStateInitFields } from "./handle-set-hint-state-message.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage, emailNotificationPrefsInitFields } from "./handle-set-email-notification-prefs-message.js"; import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js"; import { handleRequestWorldPulseMessage } from "./handle-world-pulse-message.js"; import { createWorldPulseActivitySource } from "../activity-api/world-pulse-activity-source.js";
+import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { joinSeasonReservationDeps } from "../season-full-rejection/reserve-next-contest-place.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage } from "./handle-set-hint-state-message.js"; import { applyInitProfileFields } from "./init-profile-fields.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage } from "./handle-set-email-notification-prefs-message.js"; import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js"; import { handleRequestWorldPulseMessage } from "./handle-world-pulse-message.js"; import { createWorldPulseActivitySource } from "../activity-api/world-pulse-activity-source.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
@@ -114,6 +116,7 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
+import { clearFogDisabledForRestore, createFogIntentTracker } from "../fog-live-refresh/fog-live-refresh.js";
 import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import { createSimulationRpcRetry, resolveSimulationRpcRetryConfig } from "../simulation-rpc-retry/simulation-rpc-retry.js";
 import { createPlayerMessageReplay, isReplayedPlayerMessage } from "../player-message-replay/player-message-replay.js";
@@ -543,7 +546,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
-  const { rallyLinkStore, sectorWaitlistStore } = await createGatewayJoinStores(commandStoreFactoryOptions);
+  const { rallyLinkStore, sectorWaitlistStore, publicProfileLinkStore } = await createGatewayJoinStores(commandStoreFactoryOptions);
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
@@ -572,9 +575,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     });
 
   const authIdentityCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_AUTH_IDENTITY_CACHE_TTL_MS ?? 300_000));
-  const profileCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000));
   const authBindingCache = new Map<string, { value: ResolvedGatewayAuthBinding; expiresAt: number }>();
-  const profileCache = new Map<string, { value: StoredPlayerProfile | undefined; expiresAt: number }>();
   const cachedReconcileGatewayAuthBinding = async (
     identity: Parameters<typeof reconcileGatewayAuthBinding>[0]
   ): Promise<ResolvedGatewayAuthBinding> => {
@@ -588,23 +589,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     authBindingCache.set(identity.authUid, { value: fresh, expiresAt: now + authIdentityCacheTtlMs });
     return fresh;
   };
-  const cachedProfileGet = async (playerId: string): Promise<StoredPlayerProfile | undefined> => {
-    if (profileCacheTtlMs <= 0) return profileStore.get(playerId);
-    const now = Date.now();
-    const cached = profileCache.get(playerId);
-    if (cached && cached.expiresAt > now) return cached.value ? { ...cached.value } : undefined;
-    const fresh = await profileStore.get(playerId);
-    profileCache.set(playerId, { value: fresh ? { ...fresh } : undefined, expiresAt: now + profileCacheTtlMs });
-    return fresh;
-  };
-  const invalidateProfileCache = (playerId: string): void => {
-    profileCache.delete(playerId);
-  };
-  const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
+  const { get: cachedProfileGet, invalidate: invalidateProfileCache, sweep: sweepProfileCache } = createProfileCache(profileStore, Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000)));
+  const { resolveLogin, resolveHttpBearerIdentity } = createAuthResolvers({
     options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
     onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(),
-    onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected")
+    onRejectReason: (reason) => app.log[reason.endsWith("_ticket") || reason === "missing_account" ? "warn" : "debug"]({ reason }, "gateway_auth_token_rejected")
   });
   const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
     const snapshot = await simulationClient.subscribePlayer(
@@ -643,7 +633,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       const hasSnapshot = seededPlayerIds.has(playerId);
       return simulationClient.subscribePlayer(
         playerId,
-        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, ...(subscriptionKey ? { subscriptionKey } : {}) })
+        JSON.stringify({ emitBootstrapEvent: false, trigger: "gateway_live_subscribe", omitTiles: hasSnapshot, spectate: playerHasFogDisabledSocket(playerId), ...(subscriptionKey ? { subscriptionKey } : {}) })
       );
     },
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
@@ -715,7 +705,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   await seedAiColors(seededAiPlayerIds, async (id, color) => {
     await profileStore.setTileColor(id, color);
     profileOverrides.upsert(id, { tileColor: color });
-  });
+  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }));
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
@@ -779,17 +769,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // only catches *repeated* commandId/clientSeq, not a fast-incrementing stream of new
   // ones, so nothing else stops SETTLE/BUILD_*/CANCEL_* spam without this.
   const commandRateLimiter = new CommandRateLimiter({ capacity: COMMAND_RATE_LIMIT_CAPACITY, refillPerSecond: COMMAND_RATE_LIMIT_REFILL_PER_SECOND });
-  // Fog-disabled sessions need a full-world snapshot resubscribe whenever the
-  // world changes, but doing that synchronously inside the per-batch event
-  // handler blocks the gateway loop for hundreds of ms × N batches per second
-  // (login bootstrap_subscribe got starved for 45s+ in prod on 2026-05-23).
-  // Coalesce per-player refreshes: only one in-flight refresh per player, and
-  // record a "dirty" bit so the next refresh starts as soon as the previous one
-  // resolves if more deltas arrived in the meantime.
-  const FOG_LIVE_REFRESH_MIN_INTERVAL_MS = 1_000;
-  const fogLiveRefreshInflightByPlayerId = new Map<string, Promise<void>>();
-  const fogLiveRefreshPendingByPlayerId = new Map<string, { commandId: string }>();
-  const fogLiveRefreshLastStartedAtByPlayerId = new Map<string, number>();
+  // Fog-disabled sessions stay current through unfiltered live deltas (setSpectating below),
+  // never through full-world resubscribes. Stale-toggle rules live in fog-live-refresh.ts.
+  const fogIntent = createFogIntentTracker();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
   const wsHeartbeat = createWebSocketHeartbeat({ intervalMs: Math.max(1_000, options.wsHeartbeatIntervalMs ?? Number(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS ?? 30_000)) });
   const gatewaySnapshotByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
@@ -894,9 +876,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
+  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } } });
+  const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId), getTitle: (playerId) => accountCosmetics.titleOf(playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
-    simulationClient, store: sectorWaitlistStore, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
+    simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
     onSeasonStarted: (seasonId, force) => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); seasonLobby.roster.reset(); slackAlerter?.alertSeasonStarted(seasonId, force); notifySeasonStarted(); },
     broadcast: (payload) => { const updatePayload = preSerializeBroadcast(payload); for (const s of playerSubscriptions.allSockets()) queueOrSendSessionPayload(s, updatePayload); }
   });
@@ -922,15 +905,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       growthBaselineStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
-      rallyLinkStore, sectorWaitlistStore,
+      rallyLinkStore, sectorWaitlistStore, publicProfileLinkStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
-      authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache,
+      accountCosmetics,
+      authBindingStore, emailAlertConfig: options.emailAlerts, invalidateProfileCache, ...(options.playerReportGithubIssues ? { playerReportGithubIssues: options.playerReportGithubIssues } : {}),
       disconnectDeletedPlayer: (playerId) => {
         for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
       },
-      admin: { apiToken: options.adminApiToken, email: options.adminEmail },
+      admin: { apiToken: options.adminApiToken, email: options.adminEmail, singleContest: options.hostedSector !== undefined },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); nextContest.reset(); } } : {}),
       onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); diplomacySocket.resetAiDiplomacyMemory(); nextContest.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
@@ -980,7 +964,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     cachedSnapshotForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
     sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert, sendTruceEndingAlert: emailAlerts.sendTruceEndingAlert,
-    onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
+    onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind), guideProgressOf: (playerId) => cachedProfileGet(playerId),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
     isSimulationConnected: () => simulationHealth.connected,
     simulationReads: simulationClient
@@ -988,8 +972,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const refreshPlayerFogSnapshot = async (
     playerId: string,
     fogDisabled: boolean,
-    options?: { includeFogUpdate?: boolean; reason?: string; commandId?: string }
+    options?: { includeFogUpdate?: boolean; reason?: string; commandId?: string; intentGeneration?: number }
   ): Promise<void> => {
+    const intentGeneration = options?.intentGeneration ?? fogIntent.current(playerId);
     recordGatewayEvent("info", "gateway_fog_refresh_started", {
       playerId,
       fogDisabled,
@@ -1003,6 +988,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           playerId,
           JSON.stringify({
             fullVisibility: fogDisabled,
+            spectate: fogDisabled,
             emitBootstrapEvent: false,
             trigger: fogDisabled ? "gateway_fog_refresh" : "gateway_fog_restore"
           })
@@ -1010,6 +996,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         simulationSubscribeTimeoutMs,
         fogDisabled ? "gateway fog resubscribe" : "gateway fog restore resubscribe"
       );
+      // A newer fog toggle landed while this resubscribe was in flight; applying
+      // it would undo that toggle (e.g. re-reveal the map right after "restore fog").
+      if (!fogIntent.isCurrent(playerId, intentGeneration)) {
+        recordGatewayEvent("info", "gateway_fog_refresh_superseded", { playerId, fogDisabled, ...(options?.reason ? { reason: options.reason } : {}) });
+        return;
+      }
       playerSubscriptions.seedSnapshot(playerId, snapshot);
       const { payload: replacementSnapshot, payloadJsonBytes: replacementSnapshotJsonBytes } =
         fullVisibilityReplacementPayloadCache.get(snapshot);
@@ -1061,50 +1053,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
-  const scheduleFogLiveRefresh = (playerId: string, commandId: string): void => {
-    // Always record the latest commandId so the next refresh annotates with
-    // the most recent trigger rather than the stale one.
-    fogLiveRefreshPendingByPlayerId.set(playerId, { commandId });
-    if (fogLiveRefreshInflightByPlayerId.has(playerId)) return;
-    const runRefresh = async (): Promise<void> => {
-      try {
-        while (fogLiveRefreshPendingByPlayerId.has(playerId)) {
-          const pending = fogLiveRefreshPendingByPlayerId.get(playerId)!;
-          fogLiveRefreshPendingByPlayerId.delete(playerId);
-          const lastStartedAt = fogLiveRefreshLastStartedAtByPlayerId.get(playerId) ?? 0;
-          const sinceLast = Date.now() - lastStartedAt;
-          if (sinceLast < FOG_LIVE_REFRESH_MIN_INTERVAL_MS) {
-            await sleep(FOG_LIVE_REFRESH_MIN_INTERVAL_MS - sinceLast);
-          }
-          // Only fire if the player still has at least one fog-disabled socket.
-          const stillFogDisabled = [...playerSubscriptions.socketsForPlayer(playerId)].some(
-            (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-          );
-          if (!stillFogDisabled) continue;
-          fogLiveRefreshLastStartedAtByPlayerId.set(playerId, Date.now());
-          try {
-            await refreshPlayerFogSnapshot(playerId, true, {
-              reason: "live-delta-coalesced",
-              commandId: pending.commandId
-            });
-          } catch (error) {
-            recordGatewayEvent("warn", "gateway_fog_refresh_skip_failed", {
-              playerId,
-              commandId: pending.commandId,
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
-        }
-      } finally {
-        fogLiveRefreshInflightByPlayerId.delete(playerId);
-      }
-    };
-    fogLiveRefreshInflightByPlayerId.set(playerId, runRefresh());
+  const playerHasFogDisabledSocket = (playerId: string): boolean =>
+    [...playerSubscriptions.socketsForPlayer(playerId)].some((playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true);
+  // A revealed map stays current through unfiltered live deltas from the
+  // simulation (spectating), never by re-requesting the whole world.
+  const setSpectating = (playerId: string, spectating: boolean): Promise<unknown> => withTimeout(
+    simulationClient.subscribePlayer(playerId, JSON.stringify({ spectateOnly: true, spectate: spectating, emitBootstrapEvent: false, trigger: "gateway_spectate" })),
+    simulationSubscribeTimeoutMs, "gateway spectate");
+  const syncSpectating = (playerId: string): void => {
+    const spectating = playerHasFogDisabledSocket(playerId);
+    void setSpectating(playerId, spectating).catch((error: unknown) =>
+      recordGatewayEvent("warn", "gateway_spectate_sync_failed", { playerId, spectating, error: error instanceof Error ? error.message : String(error) }));
   };
 
   const revealMapPayloadSet = async (playerId: string): Promise<RevealMapPayloadSet> => {
-    const cachedPayloadSet = revealMapChunkCache.current();
-    if (cachedPayloadSet) return cachedPayloadSet;
+    // Never reuse a finished export: changes no subscriber could see never reach the gateway to invalidate it.
     if (!revealMapPayloadBuild) {
       const buildStartedAt = Date.now();
       revealMapPayloadBuild = (async () => {
@@ -1142,13 +1105,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return revealMapPayloadBuild;
   };
 
-  const streamRevealMapToSocket = createRevealMapStreamer({
-    activeSockets: activeRevealStreamSockets, payloadSet: revealMapPayloadSet,
+  const revealMapStream = createRevealMapStreamer({
+    activeSockets: activeRevealStreamSockets,
+    // Spectating starts before the export so no change can fall between the two.
+    payloadSet: async (playerId) => { await setSpectating(playerId, true); return revealMapPayloadSet(playerId); },
     send: queueOrSendSessionPayload, sleep,
     onActiveStreams: (count) => gatewayMetrics.setRevealActiveStreams(count),
     onChunk: () => gatewayMetrics.incrementRevealChunksSent(1),
     onComplete: (socket) => { const session = sessionsBySocket.get(socket); if (session) viewportDetails.refresh(socket, session); },
     record: (event, fields) => recordGatewayEvent("info", event, fields)
+  });
+  const handleRevealMapRequest = createRevealMapRequestHandler({
+    streamer: revealMapStream, activeStreamCount: () => activeRevealStreamSockets.size, maxConcurrentStreams: MAX_CONCURRENT_REVEAL_STREAMS,
+    cooldownMs: REVEAL_REQUEST_COOLDOWN_MS, lastRequestMsByPlayerId: lastRevealRequestMsByPlayerId, now: Date.now,
+    bumpFogIntent: (playerId) => { fogIntent.bump(playerId); }, syncSpectating, sendJson, record: recordGatewayEvent,
+    foggedReplacement: (playerId) => { const fogged = playerSubscriptions.snapshotForPlayer(playerId); return fogged ? fullVisibilityReplacementPayloadCache.get(fogged).payload : undefined; }
   });
   const viewportDetails = createViewportDetailLoader({
     seasonForPlayer: (playerId) => playerSubscriptions.snapshotForPlayer(playerId)?.season,
@@ -1233,6 +1204,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (event.eventType === "TILE_DELTA_BATCH") {
         revealMapChunkCache.clear();
         gatewayMetrics.setRevealCacheEntries(0);
+        // A spectator's unfiltered copy goes only to the revealed sockets; never into the cache.
+        if (event.spectator === true) {
+          const spectatorBroadcast = preSerializeBroadcast({ type: "TILE_DELTA_BATCH", commandId: event.commandId, tiles: jsonSafeTileDeltaBatch(event.tileDeltas) });
+          for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(sockets, (candidate) => sessionsBySocket.get(candidate))) {
+            if (sessionsBySocket.get(targetSocket)?.fogDisabled === true) revealMapStream.sendOrHold(targetSocket, spectatorBroadcast);
+          }
+          return;
+        }
         const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
         if (!persistedTileDeltaCommandIds.has(event.commandId)) {
           persistedTileDeltaCommandIds.add(event.commandId);
@@ -1258,24 +1237,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         // sockets === playerSubscriptions.socketsForPlayer(playerId) (assigned at line 899),
         // so every entry already belongs to this player; no need to re-filter.
         const playerSockets = sockets;
-        const hasFogDisabledSession = [...playerSubscriptions.socketsForPlayer(playerId)].some(
-          (playerSocket) => sessionsBySocket.get(playerSocket)?.fogDisabled === true
-        );
-        if (hasFogDisabledSession) {
-          recordGatewayEvent("info", "gateway_fog_refresh_from_live_delta", {
-            playerId,
-            commandId: event.commandId,
-            tileDeltaCount: tileDeltas.length,
-            socketCount: playerSockets.size,
-            coalesced: true
-          });
-          // Do NOT await — a full-world resubscribe inside the per-batch handler
-          // blocks the gateway event loop and starves bootstrap_subscribe /
-          // live_subscribe for incoming logins. The fog admin's view will lag
-          // by at most FOG_LIVE_REFRESH_MIN_INTERVAL_MS.
-          scheduleFogLiveRefresh(playerId, event.commandId);
-          return;
-        }
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
         syncGatewaySnapshotMetricsFromCache(playerId);
         const tileDeltaBroadcast = preSerializeBroadcast({
@@ -1284,7 +1245,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         });
         for (const targetSocket of selectSocketsForTileDeltaBatchByPlayer(playerSockets, (candidate) => sessionsBySocket.get(candidate))) {
-          queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
+          if (sessionsBySocket.get(targetSocket)?.fogDisabled !== true) queueOrSendSessionPayload(targetSocket, tileDeltaBroadcast);
         }
         return;
       }
@@ -1599,7 +1560,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
     sweepStalePendingInputToState(pendingInputToStateByCommandId, Date.now() - 120_000);
     sweepExpiredCacheEntries(authBindingCache, Date.now());
-    sweepExpiredCacheEntries(profileCache, Date.now());
+    sweepProfileCache(Date.now());
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
     if (activityCalibrationStore && !activityCalibrationPersistInFlight && now - lastActivityCalibrationPersistedAt >= 15_000) {
@@ -1725,19 +1686,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token);
-            if (!resolvedPlayerIdentity) {
-              recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
+            const login = await resolveLogin(message.token, message.sectorTicket);
+            if ("error" in login) {
+              recordGatewayEvent("warn", login.error.code === "AUTH_FAIL" ? "gateway_auth_rejected_unmapped_token" : "gateway_auth_rejected_sector_ticket", {
                 channel
               });
-              sendJson(socket, {
-                type: "ERROR",
-                code: "AUTH_FAIL",
-                message: "Authentication token is not recognized by the rewrite gateway."
-              });
-              authTrace.complete("rejected", "AUTH_FAIL");
+              sendJson(socket, login.error);
+              authTrace.complete("rejected", login.error.code);
               return;
             }
+            const resolvedPlayerIdentity = login.identity;
             loginPhase.notify(socket, "Verifying identity...", "Your Google session is being verified.");
             let playerIdentity = { ...resolvedPlayerIdentity };
             let authBindingSource: ResolvedGatewayAuthBinding["bindingSource"] | undefined;
@@ -1776,6 +1734,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             authTrace.setPlayerId(playerIdentity.playerId);
+            const previousPlayerId = session.playerId;
             session.playerId = playerIdentity.playerId;
             session.isGuest = playerIdentity.isGuest === true;
             playerFunnel.onSocketAuthenticated(session.sessionId, playerIdentity.playerId, authBindingSource);
@@ -1784,7 +1743,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).
+            const wasRevealed = session.fogDisabled;
             session.fogDisabled = false;
+            if (wasRevealed && previousPlayerId) syncSpectating(previousPlayerId); // the account this socket was revealed for
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
             if (session.isGuest) await provisionGuest(playerIdentity.playerId); // guests get a name and colour here instead of the setup step
@@ -1829,7 +1790,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", admission.reason === "rate" || admission.reason === "queue_full" ? "bootstrap_admission" : "queue_socket_closed");
               return;
             }
-            let bootstrapInitialState; let needsSeasonJoin = false; let seasonPending = false; let seasonPendingScheduledStartAt: number | undefined; let seasonPendingRoster: SeasonLobbyUpdatePayload | undefined;
+            let bootstrapInitialState; let needsSeasonJoin = false; let seasonPending = false; let seasonPendingScheduledStartAt: number | undefined; let seasonStartedAt: number | undefined; let seasonPendingRoster: SeasonLobbyUpdatePayload | undefined;
             try {
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
@@ -1877,7 +1838,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               if (acceptedRallyCode && !prepareResult.spawned) { await rallyLinkStore.releaseUse(acceptedRallyCode); acceptedRallyCode = undefined; }
               if (prepareResult.spawned) playerFunnel.onSpawned(playerIdentity.playerId);
               if (prepareResult.full) { recordGatewayEvent("info", "gateway_auth_prepare_season_full", { playerId: playerIdentity.playerId, channel, prepareDurationMs: Date.now() - prepareStartedAt }); sendJson(socket, seasonFullErrorPayload()); authTrace.endStep("prepare_player", false); authTrace.complete("rejected", "season_full"); return; }
-              needsSeasonJoin = prepareResult.joined === false; if (prepareResult.pending) { seasonPending = true; seasonPendingScheduledStartAt = prepareResult.scheduledStartAt; seasonPendingRoster = await handlePrepareResultSeasonPending(playerIdentity.playerId, { checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, rosterEntries: () => seasonLobby.roster.entries() }); } const prepareDurationMs = Date.now() - prepareStartedAt;
+              needsSeasonJoin = prepareResult.joined === false; seasonStartedAt = prepareResult.seasonStartedAt; if (prepareResult.pending) { seasonPending = true; seasonPendingScheduledStartAt = prepareResult.scheduledStartAt; seasonPendingRoster = await handlePrepareResultSeasonPending(playerIdentity.playerId, { checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, rosterEntries: () => seasonLobby.roster.entries() }); } const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
                 "gateway_auth_prepare_ready",
@@ -2080,7 +2041,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelectionFor, { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,
@@ -2103,8 +2064,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // injected the same way suggestedColors is above, rather than
               // threading it through buildGatewayInitPayload's own signature.
               const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
-              Object.assign(initMessage.player as Record<string, unknown>, hintStateInitFields(hintStateProfile));
-              (initMessage.player as Record<string, unknown>).emailNotificationPrefs = emailNotificationPrefsInitFields(hintStateProfile?.emailNotificationPrefs); (initMessage as Record<string, unknown>).activitySeen = { lastActivitySeenAt: hintStateProfile?.lastActivitySeenAt ?? 0, lastActivitySeenSeasonId: hintStateProfile?.lastActivitySeenSeasonId ?? "" };
+              applyInitProfileFields(initMessage, hintStateProfile); // hint/guide state, email prefs, Activity seen mark, name/colour change allowance (init-profile-fields.ts)
               Object.assign(initMessage as Record<string, unknown>, nextContest.initFields(playerIdentity.playerId));
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
@@ -2192,51 +2152,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "REQUEST_REVEAL_MAP") {
-            if (!session.canToggleFog) {
-              recordGatewayEvent("warn", "gateway_reveal_map_forbidden", {
-                playerId: session.playerId,
-                channel: session.channel
-              });
-              sendJson(socket, { type: "ERROR", code: "FORBIDDEN", message: "reveal map unavailable" });
-              return;
-            }
-            const now = Date.now();
-            const lastRequestedAt = lastRevealRequestMsByPlayerId.get(session.playerId) ?? 0;
-            if (now - lastRequestedAt < REVEAL_REQUEST_COOLDOWN_MS) {
-              recordGatewayEvent("warn", "gateway_reveal_map_throttled", {
-                playerId: session.playerId,
-                channel: session.channel,
-                cooldownRemainingMs: REVEAL_REQUEST_COOLDOWN_MS - (now - lastRequestedAt)
-              });
-              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_THROTTLED", message: "reveal request rate limit" });
-              return;
-            }
-            if (activeRevealStreamSockets.size >= MAX_CONCURRENT_REVEAL_STREAMS) {
-              recordGatewayEvent("warn", "gateway_reveal_map_overloaded", {
-                playerId: session.playerId,
-                channel: session.channel,
-                activeStreams: activeRevealStreamSockets.size,
-                cap: MAX_CONCURRENT_REVEAL_STREAMS
-              });
-              sendJson(socket, { type: "ERROR", code: "REVEAL_MAP_BUSY", message: "reveal capacity exceeded" });
-              return;
-            }
-            lastRevealRequestMsByPlayerId.set(session.playerId, now);
-            session.fogDisabled = true;
-            void streamRevealMapToSocket(socket, session.playerId).catch((error) => {
-              recordGatewayEvent("error", "gateway_reveal_map_stream_failed", {
-                playerId: session.playerId,
-                error: error instanceof Error ? error.message : String(error)
-              });
-              if (socket.readyState === socket.OPEN) {
-                sendJson(socket, {
-                  type: "ERROR",
-                  code: "REVEAL_MAP_UNAVAILABLE",
-                  message: "Full-map reveal is temporarily unavailable."
-                });
-              }
-            });
+          if (message.type === "REQUEST_REVEAL_MAP" || (message.type === "SET_FOG_DISABLED" && message.disabled === true)) {
+            handleRevealMapRequest(socket, session);
             return;
           }
 
@@ -2276,13 +2193,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               return;
             }
             const fogDisabled = message.disabled === true;
+            const intentGeneration = fogIntent.bump(session.playerId);
+            // Sockets read as fogged from now on, not only once the (slow) restore snapshot lands.
+            const undoRestore = fogDisabled ? undefined : clearFogDisabledForRestore(playerSubscriptions.socketsForPlayer(session.playerId), (s) => sessionsBySocket.get(s));
             try {
               await refreshPlayerFogSnapshot(session.playerId, fogDisabled, {
                 includeFogUpdate: true,
                 reason: "fog_toggle",
-                commandId: `fog:${session.playerId}:${Date.now()}`
+                commandId: `fog:${session.playerId}:${Date.now()}`,
+                intentGeneration
               });
             } catch (error) {
+              // Clients never got FOG_UPDATE false; keep the server agreeing they are still revealed.
+              if (undoRestore && fogIntent.isCurrent(session.playerId, intentGeneration)) { undoRestore(); syncSpectating(session.playerId); }
               sendJson(socket, { type: "ERROR", code: "SIMULATION_UNAVAILABLE", message: "fog toggle temporarily unavailable" });
             }
             return;
@@ -2296,9 +2219,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ onSpawned: playerFunnel.onSpawned, playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
-          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
-          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ onSpawned: playerFunnel.onSpawned, playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner, ...joinSeasonReservationDeps(options.hostedSector !== undefined, { store: sectorWaitlistStore, getCurrentSeason: () => simulationClient.getCurrentSeasonSummary() }) }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
+          if (message.type === "SET_COSMETIC" || message.type === "REQUEST_COSMETICS") { await accountCosmetics.handleClientMessage(session.playerId, message, (payload) => sendJson(socket, payload)); return; }
+          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
+          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, guideSeasonId: message.guideSeasonId, metPlayerIds: message.metPlayerIds, metPlayersSeasonId: message.metPlayersSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") { await handleSetProfileMessage({ playerId: session.playerId, displayName: message.displayName, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), buildTakenNameSet, incrementDisplayNameCollisionRejectedTotal: () => gatewayMetrics.incrementDisplayNameCollisionRejectedTotal(), runExclusive: runProfileExclusive, profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, renamePlayer: socialState.renamePlayer, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload), preSerializeBroadcast }); return; }
           if (message.type === "SET_EMAIL_NOTIFICATION_PREFS") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetEmailNotificationPrefsMessage({ playerId: session.playerId, prefs: message.prefs, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_PERSONAL_ACTIVITY") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestPersonalActivityMessage({ playerId: session.playerId, now: () => Date.now(), getPersonalActivityTimeline: (playerId, from, to) => simulationClient.getPersonalActivityTimeline(playerId, from, to), getDiplomacyCards: (playerId, from, to) => socialState.diplomacyActivityCards(playerId, from, to), recordPayloadBytes: (bytes) => gatewayMetrics.observeActivityTimelinePayloadBytes(bytes), recordCardCount: (count) => gatewayMetrics.observeActivityTimelineCardCount(count), recordTruncated: () => gatewayMetrics.incrementActivityTimelineTruncatedTotal(), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_WORLD_PULSE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestWorldPulseMessage({ playerId: session.playerId, getActivity: getWorldPulseActivity, profileStore, invalidateProfileCache, recordPayloadBytes: (bytes) => gatewayMetrics.observeWorldPulsePayloadBytes(bytes), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "ACKNOWLEDGE_ACTIVITY_SEEN") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleAcknowledgeActivitySeenMessage({ playerId: session.playerId, seenAt: message.seenAt, seasonId: message.seasonId, now: () => Date.now(), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
@@ -2544,7 +2468,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND" || message.type === "EXPLORE") {
-            await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}), ...(message.type === "EXPLORE" && message.waypoints ? { waypoints: message.waypoints } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
             await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", autoSettlePrefsCommandPayload(message));
           } else if (isDevQueueWaypointMessageType(message.type)) {
@@ -2605,7 +2529,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         void playerSubscriptions.removeSocket(closingPlayerId, socket).then(() => {
           syncGatewaySnapshotMetricsFromCache(closingPlayerId);
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
-          if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
+          if (session.fogDisabled && remainingSockets.length > 0) syncSpectating(closingPlayerId);
           evictSeededPlayerId(closingPlayerId);
           if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); playerMessageReplay.forget(closingPlayerId); }
         }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));

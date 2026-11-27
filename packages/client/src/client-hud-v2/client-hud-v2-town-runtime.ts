@@ -1,4 +1,5 @@
 import { townBuildTarget } from "./client-hud-v2-town-build-target.js";
+import { clearTownPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 import { pushFeed } from "../client-alerts/client-alerts.js";
 import { TOWN_PLOTS_TAKEN_REASON, townTileOpenPlotReason } from "../client-tile-action-logic/client-town-tile-support-gate.js";
 import { RESOURCE_NETWORKS, structureRequiresTownOrSupportTile } from "@border-empires/shared";
@@ -16,10 +17,15 @@ import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
-import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
-import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { TOWN_SCREEN_SKELETON, townScreenRegions, type TownGarrisonState } from "./client-hud-v2-town.js";
+import { garrisonPlannedTileKeys, isOwnTownUngarrisoned } from "../client-town-growth/client-town-growth.js";
+import { garrisonableTownPlotsFor, townPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
+import { unwatchTownBarHeight, watchTownBarHeight } from "./client-hud-v2-town-bar-height.js";
 import { biotaSteps, type BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
+import { pickTownFocus, selectTownFocus, selectedTownFocus, townFocusExtras } from "./client-hud-v2-town-focus-pick.js";
+import { townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
+import type { TownFocus } from "@border-empires/shared";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -71,6 +77,12 @@ export const forgetMyTowns = (): void => {
  * the town screen re-renders on every view update, Place press and work action.
  */
 let biotaStepsCache: { key: string; steps: BiotaStep[] } | undefined;
+/** Your town still on FRONTIER: nobody has sent a garrison ("none"), or one is under way, queued or planned. */
+const townGarrisonState = (state: HudV2Deps["state"], town: Tile): TownGarrisonState | undefined => {
+  if (town.ownerId !== state.me || town.ownershipState !== "FRONTIER") return undefined;
+  return isOwnTownUngarrisoned(town, state.me, garrisonPlannedTileKeys(state)) ? "none" : "on_its_way";
+};
+
 const townBiotaSteps = (state: HudV2Deps["state"], town: Tile, townKey: string): BiotaStep[] => {
   const techId = RESOURCE_NETWORKS.LUXURY_BIOTA.tech;
   const otherTownsSlots = (state.manpowerBreakdown.biotaTowns ?? [])
@@ -99,7 +111,8 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   const townKey = current.townKey;
   const biota = deps.state.manpowerBreakdown.biotaTowns?.find((entry) => entry.tileKey === townKey);
   const regions = townScreenRegions({
-    town,
+    // At its shown focus: Coin/day, growth per minute and the next-tier time move as soon as a focus is confirmed.
+    town: townTileAtFocus(town),
     focus,
     townView,
     focusView: current.focusView,
@@ -110,16 +123,37 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
     focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? []),
     autoSettle: deps.state.autoSettle,
+    garrison: townGarrisonState(deps.state, town),
+    plotGarrison: townPlotGarrison(garrisonableTownPlotsFor(deps.state, town), deps.state),
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
     biota,
+    ...(deps.state.me ? { me: deps.state.me, focusExtras: townFocusExtras(deps.state, towns, townKey) } : {}),
     ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
     ...placeButtonState(placeFlash, screen.townBuildSelection, Date.now())
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
+  watchTownBarHeight(document.getElementById("v2t-bar"));
+};
+
+/** A Town focus press: previews `focus` on the open town (Confirm switches). */
+export const runTownFocusPick = (deps: HudV2Deps, focus: TownFocus): void => {
+  if (!current) return;
+  selectTownFocus(deps, current.townKey, focus);
+  renderTownScreen(deps);
+  // A preview (a tap, or keys 1–4 while the card is closed) must be visible; writeHtml keeps it open from here on.
+  document.querySelector<HTMLDetailsElement>("#v2t-left details.v2tf")?.setAttribute("open", "");
+};
+
+/** Confirm on the open town: switches to the previewed focus, which then locks until the next refill. */
+export const runTownFocusConfirm = (deps: HudV2Deps): void => {
+  if (!current) return;
+  const focus = selectedTownFocus(current.townKey);
+  if (focus) pickTownFocus(deps, current.townKey, focus);
+  renderTownScreen(deps);
 };
 
 /**
@@ -214,11 +248,17 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
 let placeFlash: PlaceFlash | undefined;
 let placeFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** The open town screen's town and selected tile, if it is open. */
+export const townScreenKeys = (): { townKey: string; focusKey: string } | undefined =>
+  current && { townKey: current.townKey, focusKey: current.focusKey };
+
 export const closeTownScreen = (keepPosition = false): void => {
+  clearTownPlotPlacement();
   current = undefined;
   placeFlash = undefined;
   screen.townBuildSelection = undefined;
   if (lastDeps) endCloseUp(lastDeps, keepPosition);
+  unwatchTownBarHeight();
   if (screen.id === "town") clearScreen();
 };
 
@@ -254,7 +294,6 @@ export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], 
       deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
       return;
     }
-    suppressAutoExpand();
     deps.state.selected = { x: target.x, y: target.y };
     const centre = screenCentre();
     deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
@@ -305,7 +344,6 @@ export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
   // Match a map press: even a previously full tile can have stale economy
   // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
   deps.actionFlow.requestTileDetailIfNeeded(next, { force: true });
-  suppressAutoExpand();
   const centre = screenCentre();
   deps.actionFlow.openSingleTileActionMenu(next, centre.x, centre.y);
 };

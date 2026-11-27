@@ -2,6 +2,7 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import type { FirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { EmailAlertConfig } from "../email-alerts/email-alerts.js";
+import type { HostedSectorConfig } from "../hosted-sector/hosted-sector-ticket.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
@@ -13,6 +14,7 @@ import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js";
 import type { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js";
 import type { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js";
+import type { PlayerReportGithubIssueConfig } from "../github-issues/player-report-github-issue.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
 
@@ -28,5 +30,8 @@ export type RealtimeGatewayAppOptions = {
   aiPlayerCount?: number; snapshotDir?: string; createCommandId?: () => string; now?: () => number;
   simulationPrepareTimeoutMs?: number; simulationSubscribeTimeoutMs?: number; simulationSubmitTimeoutMs?: number;
   simulationRpcRetryAttempts?: number; adminApiToken?: string; adminEmail?: string; emailAlerts?: EmailAlertConfig;
+  playerReportGithubIssues?: PlayerReportGithubIssueConfig;
+  // Set on a hosted sector: members-only entry and a single Sector Contest.
+  hostedSector?: HostedSectorConfig;
   playOrigin?: string; simMetricsUrl?: string; simDiagnostics?: () => unknown[]; wsHeartbeatIntervalMs?: number;
 };

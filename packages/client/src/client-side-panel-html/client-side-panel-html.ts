@@ -1,7 +1,7 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
-import type { LeaderboardOverallEntry } from "../client-types.js";
+import { musterFlagDrainText, musterFlagDrawText } from "../client-muster-drain/client-muster-drain.js";
 
 export type ManpowerPanelMusterFlag = {
   x: number;
@@ -9,6 +9,10 @@ export type ManpowerPanelMusterFlag = {
   amount: number;
   /** This flag's own cap (musterFlagCap with its capLevel), so every screen shows the same "x / cap". */
   cap?: number | undefined;
+  /** Manpower this flag drew from the pool in the last 10 minutes (client-muster-draw-log.ts). */
+  drawnRecently?: number | undefined;
+  /** Manpower/min this flag is drawing from the pool right now; 0 when full or the pool is empty. */
+  refillPerMin?: number | undefined;
   mode: "HOLD" | "ADVANCE" | "MARCH";
   targetX?: number | undefined;
   targetY?: number | undefined;
@@ -23,7 +27,6 @@ export type ManpowerPanelMusterFlag = {
   insufficientManpower?: boolean | undefined;
   unfundableTarget?: { x: number; y: number; required: number } | undefined;
   clearing?: boolean | undefined;
-  hunt?: boolean | undefined;
 };
 
 /**
@@ -39,7 +42,7 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "fightClaim" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget" | "hunt"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "fightClaim" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget"
   >,
   nowMs: number = Date.now()
 ): string => {
@@ -86,14 +89,12 @@ const musterBaseStatusText = (
   if (flag.nextActionAt !== undefined && flag.nextActionAt > nowMs) {
     const remainingS = Math.max(1, Math.ceil((flag.nextActionAt - nowMs) / 1000));
     if (flag.insufficientManpower) return `Not enough manpower for the nearest target — retrying in ${remainingS}s.`;
-    if (flag.noTargetInRange) return flag.hunt ? `No Planetary Defense within range — retrying in ${remainingS}s.` : `No target within range — retrying in ${remainingS}s.`;
-    if (flag.hunt) return `Tracking Planetary Defense — next move in ${remainingS}s.`;
+    if (flag.noTargetInRange) return `No target within range — retrying in ${remainingS}s.`;
     return `Planning next move — ${remainingS}s.`;
   }
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
     return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
   }
-  if (flag.hunt) return `Hunting Planetary Defense — ${Math.floor(flag.amount)} manpower staged.`;
   if (flag.clearing) return `Clearing the area — ${Math.floor(flag.amount)} manpower staged.`;
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
@@ -108,16 +109,18 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
         .map(
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
-              <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small></span>
+              <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small><small class="muster-flag-draw">${musterFlagDrawText(flag)}</small></span>
               <strong>${musterFillText(flag)}</strong>
             </button>
           `
         )
         .join("")
     : `<div class="economy-footnote">No active muster flags.</div>`;
+  const drain = musterFlagDrainText(flags);
   return `
     <section class="card manpower-detail-card">
       <h4>Active muster flags</h4>
+      ${drain ? `<div class="economy-footnote muster-flag-drain">${drain}</div>` : ""}
       ${rows}
     </section>
   `;
@@ -209,35 +212,4 @@ export const renderManpowerPanelHtml = (args: {
       ${musterFlagsSectionHtml(args.musterFlags)}
     </div>
   `;
-};
-
-export const renderSocialInspectCardHtml = (args: {
-  socialInspectPlayerId: string;
-  leaderboardOverall: LeaderboardOverallEntry[];
-  allies: string[];
-  playerNameForOwner: (ownerId: string) => string | undefined;
-}): string => {
-  if (!args.socialInspectPlayerId) return "";
-  const id = args.socialInspectPlayerId;
-  const entry = args.leaderboardOverall.find((player) => player.id === id);
-  const name = args.playerNameForOwner(id) ?? entry?.name ?? id.slice(0, 8);
-  return `<article class="card social-inspect-card">
-    <div class="economy-detail-head">
-      <div>
-        <div class="economy-detail-kicker">Player</div>
-        <strong>${name}</strong>
-      </div>
-      <div class="economy-rate">${args.allies.includes(id) ? "Allied" : "Empire"}</div>
-    </div>
-    <div class="economy-detail-columns">
-      <div class="economy-detail-column">
-        <div class="economy-line"><span>Score</span><strong>${entry ? entry.score.toFixed(0) : "?"}</strong></div>
-        <div class="economy-line"><span>Tiles</span><strong>${entry ? entry.tiles.toFixed(0) : "?"}</strong></div>
-      </div>
-      <div class="economy-detail-column">
-        <div class="economy-line"><span>Income</span><strong>${entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?"}</strong></div>
-        <div class="economy-line"><span>Manifests</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
-      </div>
-    </div>
-  </article>`;
 };

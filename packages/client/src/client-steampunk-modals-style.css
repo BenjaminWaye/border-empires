@@ -23,11 +23,6 @@
   color: var(--sp-brass-300);
 }
 
-/* ---- Rally link settings card ---- */
-.auth-rally-link p {
-  color: var(--sp-parchment-muted);
-}
-
 /* ---- Rush-buy button ---- */
 .tile-progress-rush-buy {
   border-color: var(--sp-brass-500);
@@ -53,6 +48,9 @@
 }
 
 /* ---- Bug report / suggestion modal ---- */
+.player-report-overlay {
+  color: var(--sp-parchment-100);
+}
 .bug-report-modal,
 .suggestion-modal {
   border: 1px solid var(--sp-brass-700);
@@ -97,15 +95,6 @@
 .discord-join-btn {
   border-color: var(--sp-brass-700);
   color: var(--sp-parchment-100);
-}
-
-/* ---- Placement overlay buttons ---- */
-.placement-confirm-btn {
-  border-color: var(--sp-verdigris-500);
-  color: var(--sp-brass-100);
-}
-.placement-cancel-btn {
-  border-color: var(--sp-ember-600);
 }
 
 /* ---- Tile progress "queued next" chip ---- */

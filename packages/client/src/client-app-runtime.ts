@@ -20,7 +20,7 @@ import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
 import { wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
 import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
-import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html/client-side-panel-html.js";
+import { renderManpowerPanelHtml } from "./client-side-panel-html/client-side-panel-html.js";
 import { populationPerMinuteLabel, townNextGrowthEtaLabel } from "./client-town-growth/client-town-growth.js";
 import { feedHtml, leaderboardHtml, missionCardsHtml } from "./client-panel-html/client-panel-html.js";
 import {
@@ -210,7 +210,6 @@ bootstrapClientApp({
   techOwnedHtml,
   techCurrentModsHtml,
   bindTechTreeDragScroll,
-  renderSocialInspectCardHtml,
   missionCardsHtml,
   playerNameForOwner,
   wrapX,

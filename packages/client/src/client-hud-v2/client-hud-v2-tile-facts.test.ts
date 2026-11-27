@@ -37,11 +37,16 @@ describe("tile fact strip", () => {
   });
 
   it("gives a town's tier, coin and food", () => {
-    const town = { populationTier: "TOWN", isFed: false } as NonNullable<Tile["town"]>;
+    const town = { populationTier: "TOWN", isFed: false, foodSlotDemand: 2 } as NonNullable<Tile["town"]>;
     const facts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", town, yieldRate: { goldPerMinute: 0.01 } }), noView, "me");
-    expect(labels(facts)).toEqual(["Town", "Coin", "Food"]);
+    expect(labels(facts)).toEqual(["Town", "Coin", "Food", "Fix"]);
     expect(facts[1]?.value).toBe("14.4/day");
-    expect(facts[2]).toEqual({ label: "Food", value: "Unfed", tone: "warn" });
+    // Playtest 2026-11-27: an unfed town of yours says what it needs and how to fix it.
+    expect(facts[2]).toEqual({ label: "Food", value: "Unfed · needs 2 food", tone: "warn" });
+    expect(facts[3]).toEqual({ label: "Fix", value: "build Farm Plot / garrison grain or fish", tone: "warn" });
+    // A rival's town stays a bare state.
+    const rival = tileFactsFor(tile({ ownerId: "rival", ownershipState: "SETTLED", town }), noView, "me");
+    expect(rival.find((f) => f.label === "Food")).toEqual({ label: "Food", value: "Unfed", tone: "warn" });
   });
 
   it("gives the odds and the muster an enemy fort demands", () => {
@@ -116,5 +121,26 @@ describe("tile details", () => {
 
   it("offers no Details while the overview is still loading", () => {
     expect(hasDetails(view([{ html: "<span>Loading</span>", kind: "loading" }]))).toBe(false);
+  });
+});
+
+// Playtest 2026-11-18: a town read "Coin 0.0/day" beside "Food Fed" with nothing saying why.
+describe("a town earning no coin says why", () => {
+  const town = (patch: Partial<NonNullable<Tile["town"]>>): NonNullable<Tile["town"]> =>
+    ({ populationTier: "TOWN", isFed: true, supportCurrent: 4, supportMax: 4, goldPerMinute: 0, ...patch }) as NonNullable<Tile["town"]>;
+  const coin = (patch: Partial<Tile>): TileFact | undefined =>
+    tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", ...patch }), noView, "me").find((f) => f.label === "Coin");
+
+  it("names ungarrisoned plots, unfed and sabotage", () => {
+    expect(coin({ town: town({ supportCurrent: 0 }) })).toEqual({ label: "Coin", value: "0.0/day · 0/4 plots garrisoned", tone: "warn" });
+    // Unfed is said once, on the Food row (review of #2846: "Coin 0.0/day · Unfed" then "Food Unfed").
+    expect(coin({ town: town({ isFed: false }) })).toEqual({ label: "Coin", value: "0.0/day", tone: "warn" });
+    const unfedFacts = tileFactsFor(tile({ ownerId: "me", ownershipState: "SETTLED", town: town({ isFed: false, foodSlotDemand: 1 }) }), noView, "me");
+    expect(unfedFacts.filter((f) => f.value.includes("Unfed"))).toEqual([{ label: "Food", value: "Unfed · needs 1 food", tone: "warn" }]);
+    expect(coin({ town: town({ goldPerMinute: 0.01 }), sabotage: { endsAt: Date.now() + 60_000, ownerId: "rival", outputMultiplier: 0 } })?.value).toBe("0.0/day · Sabotaged");
+  });
+
+  it("adds nothing to a town that earns", () => {
+    expect(coin({ town: town({ goldPerMinute: 0.01 }) })).toEqual({ label: "Coin", value: "14.4/day" });
   });
 });

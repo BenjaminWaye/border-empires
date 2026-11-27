@@ -12,12 +12,16 @@
 // the haze back out and every remembered hill breaks the fog as a dark patch
 // cut off at the sheet's height.
 import type { Material, Scene } from "three";
-import { createOwnershipOverlay, type OwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay, HILL_DRAPE_CLEARANCE, type OwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js";
 import { FOG_OVERLAY_RENDER_ORDERS } from "../client-map-3d-render-order.js";
 import { FOGGED_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import type { ShoreFringe } from "../client-map-3d-shore/client-map-3d-shore-sand.js";
 import { applyFoggedEdgeClipToOverlay, type FoggedEdgeUniforms } from "./client-map-3d-fogged-edge-clip.js";
 import { applyFoggedMistHaze, type FoggedMistHazeMode, type FoggedMistHazeUniforms } from "./client-map-3d-fogged-mist-haze.js";
+
+/** How far the fog overlays' hill drapes ride over the dome (rise + drape clearance). */
+export const FOG_HILL_OVERLAY_LIFT = OWNERSHIP_RISE_ABOVE_HEIGHTFIELD + HILL_DRAPE_CLEARANCE;
 
 export type FogOverlays = {
   /** Slate wash: remembered land dimmed and desaturated under the fogged mist. */
@@ -28,11 +32,12 @@ export type FogOverlays = {
   readonly extendOntoShore: (fringe: ShoreFringe) => void;
 };
 
-// All four buckets: flat ones lie under the sheet, where the haze's own height gate skips them.
+// All four buckets: flat ones lie under the sheet, where the haze's own height
+// gate skips them. Gated on the ground under them (each bucket's own lift off
+// it), exactly where the sheet stops covering that ground.
 const applyFoggedMistHazeToOverlay = (overlay: OwnershipOverlay, uniforms: FoggedMistHazeUniforms, mode: FoggedMistHazeMode): void => {
-  for (const mesh of [overlay.settledMesh, overlay.frontierMesh, overlay.settledHillMesh, overlay.frontierHillMesh]) {
-    applyFoggedMistHaze(mesh.material as Material, uniforms, mode);
-  }
+  for (const mesh of [overlay.settledMesh, overlay.frontierMesh]) applyFoggedMistHaze(mesh.material as Material, uniforms, mode, OWNERSHIP_RISE_ABOVE_HEIGHTFIELD);
+  for (const mesh of [overlay.settledHillMesh, overlay.frontierHillMesh]) applyFoggedMistHaze(mesh.material as Material, uniforms, mode, FOG_HILL_OVERLAY_LIFT);
 };
 
 export const createFogOverlays = (scene: Scene, maxTiles: number, edgeUniforms: FoggedEdgeUniforms, hazeUniforms: FoggedMistHazeUniforms): FogOverlays => {

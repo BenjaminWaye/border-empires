@@ -20,6 +20,10 @@ Aether Tower, and adds a platform to Umbrite Rig through their dedicated
 renderers. They remain outside the town-support replacement and connection
 catalogue. Fort, Dread Tower and Siege Battery remain unchanged.
 
+The Farm Plot and its Hydrogarden Plot upgrade ([plan](farm-plot-plan.md))
+joined the kit later: planted beds and a windpump, with lit glass vaults over
+the beds once upgraded.
+
 Every remodeled model is generated from the same geometry kit as the towns. Geometry
 is baked per kind/foundation variant and batched with instancing. The 2D
 fallback uses SVGs exported from those production models and the same logical
@@ -92,7 +96,7 @@ before making its visual brief:
    saved copy is dropped on boot (`legacy-structure-kind-migration.ts`).
 2. `packages/shared/src/config.ts`, simulation build-completion/population
    modules and the `game-domain/structure-modifier-catalog/` establish effects.
-   Incubation Engine grants +10,000 population once and +10% ongoing growth;
+   Incubation Engine grants +50,000 population once and +10% ongoing growth;
    FOOD is its input slot, not an output or food-efficiency effect.
 3. The lore bible establishes fiction. Current Project component descriptions
    identify the commissioned part: Orbital Array is a tracking dish, Shield

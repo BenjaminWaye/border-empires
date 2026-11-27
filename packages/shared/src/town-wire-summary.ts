@@ -1,10 +1,11 @@
 import type { PopulationTier, TownGrowthUpgradeTier, TownType } from "./types.js";
 import type { TownTerrainProfileId } from "./town-terrain-profile.js";
+import type { TownFocusFields } from "./town-focus/town-focus.js";
 
 // Tile["town"] wire shape, split out of types.ts to keep that file from
 // growing past its 500-line cap (packages/client/src/client-tile-town-type.ts
 // carries the client-side mirror of this same contract).
-export type TownWireSummary = {
+export type TownWireSummary = TownFocusFields & {
   name?: string;
   type: TownType;
   terrainProfile?: TownTerrainProfileId;
@@ -17,6 +18,9 @@ export type TownWireSummary = {
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;
+  /** Inner-ring (distance 1) share of supportCurrent/supportMax: the base coin's ring (town-support-coin.ts). */
+  supportInnerCurrent?: number;
+  supportInnerMax?: number;
   goldPerMinute: number;
   isFed: boolean;
   population: number;
@@ -66,6 +70,8 @@ export type TownWireSummary = {
   forcedAncillarificationCooldownUntil?: number;
   // House whose Colonial Charter (AFC Dominion II) delivered this town's free Incubation Engine; a new owner earns its own.
   colonialIncubationGrantedTo?: string;
+  // Owner that already received this town's one Incubation Engine population burst (built or chartered).
+  incubationBurstGrantedTo?: string;
   nearbyWarPausedUntil?: number;
   nearbyWarLastAt?: number;
   growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;

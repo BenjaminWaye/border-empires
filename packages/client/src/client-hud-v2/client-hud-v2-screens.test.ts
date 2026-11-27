@@ -3,11 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
-import { AWAY_LOSSES_HEADING, cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
+import { AWAY_LOSSES_HEADING, AWAY_RESULTS_HEADING, cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
 import { diplomacyEmpires, empireStance } from "./client-hud-v2-diplomacy.js";
 import { manifestLayout, manifestNodeState, nextManifestCost } from "./client-hud-v2-manifest.js";
 import { closestPath, leaderShare, selfShare } from "./client-hud-v2-ranks.js";
-import { shouldAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { townBuildCategories, townScreenRegions } from "./client-hud-v2-town.js";
 
 const tech = (id: string, tier: number, branch: string, prereqIds: string[] = [], gold = 40): TechInfo => ({
@@ -103,20 +102,31 @@ describe("chronicle", () => {
     expect(dayHeading(now - 3 * 86_400_000, now)).toMatch(/^[A-Z]{3} \d+$/);
   });
 
-  it("puts losses since the player last looked first, without repeating them below", () => {
+  it("puts the player's own results since they last looked first, then losses, without repeating either below", () => {
     const raid: PersonalActivityCard = { kind: "TERRITORY_FLIP_GROUP", id: "r", occurredAt: now - 2 * 3_600_000, direction: "LOST", counterpartyPlayerId: "kara", tileCount: 11, x: 4, y: 4 };
     const groups = chronicleGroups([...cards, raid], "me", "", now, now - 5 * 3_600_000);
-    expect(groups.map((g) => g.heading)).toEqual([AWAY_LOSSES_HEADING, "TODAY", "YESTERDAY"]);
-    expect(groups[0]?.cards.map((c) => c.id)).toEqual(["r"]);
-    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["c", "a"]);
-    // Losses the player had already read stay in their day.
-    expect(chronicleGroups([...cards, raid], "me", "", now, now - 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+    expect(groups.map((g) => g.heading)).toEqual([AWAY_RESULTS_HEADING, AWAY_LOSSES_HEADING, "YESTERDAY"]);
+    // A finished build and a won attack are the player's own orders paying off.
+    expect(groups[0]?.cards.map((c) => c.id)).toEqual(["c", "a"]);
+    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["r"]);
+    expect(groups[2]?.cards.map((c) => c.id)).toEqual(["b"]);
+    // What the player had already read stays in its day.
+    expect(chronicleGroups([...cards, raid], "me", "", now, now - 30_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+  });
+
+  it("starts a fresh day group after the lifted ones, even when a lifted heading could match", () => {
+    const held: PersonalActivityCard = { kind: "SIEGE", id: "h", occurredAt: now - 2 * 3_600_000, startedAt: now - 3 * 3_600_000, x: 2, y: 2, outcome: "HOLDING", assaultsRepelled: 2, originsSeized: 0, attackerIds: ["kara"], manpowerSpentAgainst: 20 };
+    const groups = chronicleGroups([...cards, held], "me", "", now, now - 5 * 3_600_000);
+    expect(groups.map((g) => g.heading)).toEqual([AWAY_RESULTS_HEADING, "TODAY", "YESTERDAY"]);
+    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["h"]);
   });
 
   // Review of #2771: your own failed attacks are "loss"-toned but nothing was taken from you.
   it("leaves your own failed attacks out of the losses since you last looked", () => {
     const failed: PersonalActivityCard = { kind: "COMBAT", id: "f", occurredAt: now - 2 * 3_600_000, attackerId: "me", defenderId: "hugo", attackerWon: false, manpowerLoss: 5, x: 5, y: 5, pillagedGold: 0, defenderGoldLoss: 0, targetWasSettled: false };
-    expect(chronicleGroups([...cards, failed], "me", "", now, now - 5 * 3_600_000).map((g) => g.heading)).toEqual(["TODAY", "YESTERDAY"]);
+    const groups = chronicleGroups([...cards, failed], "me", "", now, now - 5 * 3_600_000);
+    expect(groups.map((g) => g.heading)).toEqual([AWAY_RESULTS_HEADING, "TODAY", "YESTERDAY"]);
+    expect(groups[1]?.cards.map((c) => c.id)).toEqual(["f"]);
   });
 });
 
@@ -160,7 +170,14 @@ describe("town screen", () => {
     const { left } = townScreenRegions({ town: tile, focus: support, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
     expect(tile.town?.manpowerCap).toBeUndefined();
     expect(left).toContain(`MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+${cap}</span>`);
-    expect(left).toContain(`Base town · +${regen} per batch regen`);
+    expect(left).toContain(`Base town · +${regen} per refill`);
+  });
+
+  it("includes the town's active focus in its manpower per refill (regression: showed the Balanced figure)", () => {
+    const levy: Tile = { ...town, town: { ...town.town!, terrainProfile: "GRASS", coastal: false, focus: "LEVY" } };
+    const { left } = townScreenRegions({ town: levy, focus: levy, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).toContain("Base town · +120 per refill");
+    expect(left).toContain('MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+300</span>');
   });
 
   it("keeps building bonuses separate from the town's base manpower contribution", () => {
@@ -168,7 +185,7 @@ describe("town screen", () => {
       townModifierTotals: [{ heading: "1 Ancillary Depot", modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }] }] } };
     const { left } = townScreenRegions({ town: tile, focus: tile, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
     expect(left).toContain('MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+300</span>');
-    expect(left).toContain("Base town · +100 per batch regen");
+    expect(left).toContain("Base town · +100 per refill");
     expect(left).toContain("1 Ancillary Depot");
     expect(left).toContain("Manpower cap +150");
     expect(left).not.toContain("3,150");
@@ -321,15 +338,6 @@ describe("battle and neutral expand", () => {
     expect(parseWinPct("Win chance shown once the target borders you")).toBeUndefined();
   });
 
-  it("claims neutral land touching yours on the click, and nothing else", () => {
-    const tiles = new Map<string, Tile>([["4,5", { x: 4, y: 5, terrain: "LAND", ownerId: "me" }]]);
-    const neutral: Tile = { x: 5, y: 5, terrain: "LAND" };
-    const expand = { actions: [act("settle_land", { label: "Expand To" })] };
-    expect(shouldAutoExpand({ tiles, me: "me" }, neutral, expand)).toBe(true);
-    expect(shouldAutoExpand({ tiles, me: "me" }, { x: 9, y: 9, terrain: "LAND" }, expand)).toBe(false);
-    expect(shouldAutoExpand({ tiles, me: "me" }, neutral, { actions: [act("settle_land", { label: "Expand To", disabled: true })] })).toBe(false);
-    expect(shouldAutoExpand({ tiles, me: "me" }, { ...neutral, ownerId: "them" }, expand)).toBe(false);
-  });
 });
 
 describe("detail-screen close-up camera", () => {

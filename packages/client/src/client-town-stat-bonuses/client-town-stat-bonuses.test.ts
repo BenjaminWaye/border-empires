@@ -52,7 +52,7 @@ describe("townGoldBonuses", () => {
   });
 
   it("reports an unfed town's coin as stopped", () => {
-    expect(townGoldBonuses(town({ isFed: false }))).toEqual([{ label: "Unfed", effect: "coin production stopped", tone: "negative" }]);
+    expect(townGoldBonuses(town({ isFed: false }))).toEqual([{ label: "Unfed", effect: "no coin · garrison grain or fish in reach", tone: "negative" }]);
   });
 });
 
@@ -78,5 +78,17 @@ describe("townManpowerBonuses / townModifierGroupsOutsideStatCards", () => {
     });
     expect(html).toContain("Trade Nexus in Avalon");
     expect(html).toContain("Manpower cap +450");
+  });
+});
+
+// A short town earns part of its tier's coin (biota-town-output.ts): the breakdown names the shortfall.
+describe("townGoldBonuses — luxury biota", () => {
+  it("adds a negative row for the share of the tier's coin a short town loses", () => {
+    const metro = town({ populationTier: "METROPOLIS" });
+    const row = townGoldBonuses(metro, { biota: { received: 3, needed: 6 } }).find((b) => b.label === "Short of biota 3/6");
+    expect(row?.tone).toBe("negative");
+    expect(row?.effect).toMatch(/^−\d+%$|^-\d+%$/);
+    expect(townGoldBonuses(metro, { biota: { received: 6, needed: 6 } }).some((b) => b.label.startsWith("Short of biota"))).toBe(false);
+    expect(townGoldBonuses(metro).some((b) => b.label.startsWith("Short of biota"))).toBe(false);
   });
 });

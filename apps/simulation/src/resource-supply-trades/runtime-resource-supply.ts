@@ -20,6 +20,7 @@ export interface RuntimeResourceSupplyContext {
   resourceSlotSources?: (id: string) => import("@border-empires/shared").ResourceSlotSources | undefined;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
+  installedModules?(id: string): ReadonlySet<string>;
   physicalUpkeep(id: string): ResourceSlotTotals;
   siphonCasterIds?: () => Iterable<string>;
   siphonedTiles?: (id: string) => readonly DomainTileState[];

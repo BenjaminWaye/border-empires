@@ -5,10 +5,10 @@
 // client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
 import { empireCoinIncome } from "../client-coin-income/client-coin-income.js";
+import { crestFor } from "../client-house-crest/client-house-crest.js";
 import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
-import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
@@ -19,12 +19,14 @@ import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch,
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
+import { recordVisitProgress } from "./client-hud-v2-chronicle-progress.js";
 import { currentHudV2Layout, type HudV2Layout } from "./client-hud-v2-layout.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
 import { activeLens, installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
+import { isAwaitingFreshPlayer } from "../client-player-freshness/client-player-freshness.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
@@ -33,9 +35,19 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
+import { foodShortageForState } from "./client-hud-v2-food-shortage.js";
+import { handleFoodShortageClick } from "./client-hud-v2-food-plots.js";
+import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
+import { RELAY_BEACON_TOWARD_ACTION_ID } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
+import { syncHouseChargesBubble } from "../client-house-charges/client-house-charges-bubble.js";
+import { houseChargesBubbleCovered } from "../client-house-charges/client-house-charges-bubble-cover.js";
+import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
+import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { takeRequestedDiplomacyTarget } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -43,6 +55,9 @@ import "./client-hud-v2-profile.css";
 import "./client-hud-v2-economy.css";
 import "./client-hud-v2-compact.css";
 import "./client-hud-v2-compact-screens.css";
+import "./client-hud-v2-town-plot-pick.css";
+import "./client-hud-v2-town-focus.css";
+import { installTownKeys } from "./client-hud-v2-town-keys.js";
 import "./client-hud-v2-compact-overlays.css";
 import "./client-hud-v2-map-overview.css";
 
@@ -122,6 +137,8 @@ const openResourcePanel = (deps: HudV2Deps, chip: string, mode: "toggle" | "open
 
 /** Whether the tracker's Dev slots section is unfolded; open until the player folds it. */
 const slotsFold = { open: true };
+/** The tracker's "Short N FOOD" header starts folded: one line until tapped. */
+const foodFold = { open: false };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
@@ -148,12 +165,23 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   }
   // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
-    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
+    // The queued expansions leave the tracker and the map; no card.
+    clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage });
     deps.renderHud();
+    return;
+  }
+  // A tracker row "Relay Beacon to grain/fish": straight into beacon placement.
+  const beacon = target.closest<HTMLElement>("[data-hud-v2-beacon]");
+  if (beacon) {
+    // A food row's beacon starts placement on a beacon site in reach nearest the grain or fish it names.
+    const x = Number(beacon.dataset.hudV2BeaconX);
+    const y = Number(beacon.dataset.hudV2BeaconY);
+    startRelayBeaconPlacement(deps, beacon.dataset.hudV2BeaconX !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined);
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
   if (handleSlotsToggle(target, slotsFold, () => renderTracker(deps.state, Date.now()))) return;
+  if (handleFoodShortageClick(deps, target, foodFold, () => renderTracker(deps.state, Date.now()))) return;
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
   if (chip?.dataset.hudV2Chip) {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
@@ -254,12 +282,14 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
-    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
+    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog),
+    pending: isAwaitingFreshPlayer(state, nowMs)
   }));
   syncTreasury(written.get("bar") ?? "");
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",
     color: ownerColor(state.me),
+    crest: crestFor(state, state.me),
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
@@ -274,21 +304,22 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     warPlayerIds: warOpponentIds(state, nowMs),
     nameOf: (id) => state.playerNames.get(id) ?? "",
     colorOf: ownerColor,
+    crestOf: (id) => crestFor(state, id),
     nowMs
   }));
   renderLens(state);
-  writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor)))); // Base colour: the Diplomacy view recolours ownerColor.
+  writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor), trackerScan?.flags))); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay), lensMenu.open, mapOverview.open));
 
-/** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
+/** The tracker's tile scans (four passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
 type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
-let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"] } | undefined;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"]; nextStep: NextStepScan } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
-  [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
+  [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap, state.resourceSlots?.supply.FOOD, state.resourceSlots?.demand.FOOD].join("|");
 
 const slotPulse = createSlotPulse();
 
@@ -303,7 +334,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile, (x, y) => state.tiles.get(`${x},${y}`)),
       building: development.activeSlots,
-      queue: development.queue
+      queue: development.queue,
+      nextStep: nextStepScanForState(state)
     };
   }
   const elapsed = nowMs - trackerScan.at;
@@ -325,6 +357,9 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     slotsPulse: slotPulse(trackerScan.buildSlots.busy, trackerScan.queue.length, nowMs),
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
+    nextSteps: nextStepsForState(state, trackerScan.nextStep),
+    food: foodShortageForState(state, trackerScan.nextStep.food),
+    foodOpen: foodFold.open,
     nowMs
   };
   writeRegion("tracker", document.body.classList.contains("hud-v2-compact") ? compactTrackerHtml(input) : trackerHtml(input));
@@ -344,13 +379,19 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   // Before onEscape, so Esc folds an open lens list first.
   installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
+  installTownKeys(deps);
   setDockListener({
     onMenuView: (view, tileKey, tapPress) => {
       battleOnMenuView(view, tileKey);
       return townOnMenuView(deps, view, tileKey, tapPress);
     },
     onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
-    onBarAction: battleOnBarAction
+    onBarAction: (id, view, tileKey) => {
+      // Relay Beacon toward here: placement on a beacon site in reach toward this tile, centred (client-relay-beacon-toward.ts).
+      const [x, y] = tileKey.split(",").map(Number);
+      if (id === RELAY_BEACON_TOWARD_ACTION_ID && Number.isFinite(x) && Number.isFinite(y)) startRelayBeaconPlacement(deps, { x: x!, y: y! });
+      battleOnBarAction(id, view, tileKey);
+    }
   });
   installBattleWatch(deps);
   let tick = 0;
@@ -360,8 +401,11 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const layout = currentHudV2Layout();
     const onScreen = hudV2GameOnScreen(deps.state, document.body);
     document.body.classList.toggle("hud-v2-compact", layout === "compact");
+    if (onScreen) recordVisitProgress(deps.state, Date.now(), document.visibilityState !== "hidden");
     // Desktop <-> compact (rotation, resize): a screen laid out for the other layout closes rather than stranding.
     if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
+    const chargeView = takeHouseChargeMapShowRequest(); // Show on map from a charge opened over a screen (your profile)
+    if (chargeView && screen.id) closeScreenKeepingView(deps, chargeView, () => closeScreen(deps, { toMap: true }));
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
     // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.
@@ -372,9 +416,18 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-waiting", !onScreen);
     if (!onScreen) lensMenu.open = false;
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
+    const nowMs = Date.now();
+    // Before the off-screen return, so the bubble also goes away on sign-out, the lobby and other waits.
+    // The tile sheet, Build list and popups also hide it: the cards drew over their titles and buttons.
+    const bubbleHidden = !onScreen || !deps.state.me || screen.id !== null || Boolean(deps.state.activePlayerProfileId) || houseChargesBubbleCovered(document);
+    syncHouseChargesBubble(deps.state, nowMs, bubbleHidden, () => {
+      deps.setActivePanel("charges");
+      deps.renderHud();
+    }, deps.requestViewRefresh);
+    // Taken before the off-screen return so a request made while the game is hidden is dropped, not kept.
+    const diplomacyTarget = takeRequestedDiplomacyTarget(deps.state, onScreen && Boolean(deps.state.me));
     if (!onScreen || !deps.state.me) return;
     openRequestedTechDetail(deps);
-    const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
     // The login briefing and release notes open as the Chronicle on the matching tab.
@@ -387,6 +440,11 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
+    // A tile's Diplomacy action opens that empire's deal.
+    if (diplomacyTarget) {
+      deps.actionFlow.hideTileActionMenu();
+      openScreen(deps, "diplomacy", { diplomacyTarget });
+    }
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };

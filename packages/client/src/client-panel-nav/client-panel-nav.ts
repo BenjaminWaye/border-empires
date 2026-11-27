@@ -2,6 +2,7 @@ import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
 
+import { PANEL_HINTS } from "../client-hud-v2/client-hud-v2-hints.js";
 import { isPhoneViewport } from "./client-phone-viewport.js";
 
 export { isPhoneViewport };
@@ -9,7 +10,6 @@ export { isPhoneViewport };
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Campaign Loadout";
-  if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
   if (panel === "development") return "Development";
@@ -62,6 +62,9 @@ export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domai
   state.activePanel = null;
 };
 
+/** The panel each side panel last showed, so a panel opening (not a re-render) can start at the top. */
+const shownPanelByBody = new WeakMap<HTMLElement, ClientState["activePanel"]>();
+
 export const renderSidePanel = (
   state: Pick<ClientState, "activePanel" | "techTreeExpanded" | "domainDetailOpen">,
   deps: {
@@ -78,9 +81,25 @@ export const renderSidePanel = (
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen);
   deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains");
+  deps.sidePanelEl.classList.toggle("charges-panel-active", state.activePanel === "charges"); // widens the panel on desktop for the cards
   deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // centres Settings from its first frame
   deps.sidePanelEl.style.display = state.activePanel ? "grid" : "none";
+  // A panel opens at its top: Settings reopened at its old scroll, so taps landed on the wrong row (playtest
+  // 2026-11-26: a tap for Credits opened "Join the Discord"). Re-renders of an open panel keep their scroll.
+  if (state.activePanel && shownPanelByBody.get(deps.sidePanelBodyEl) !== state.activePanel) deps.sidePanelBodyEl.scrollTop = 0;
+  shownPanelByBody.set(deps.sidePanelBodyEl, state.activePanel);
   if (state.activePanel) deps.panelTitleEl.textContent = panelTitle(state.activePanel);
+  // One-line explanation under the title (client-hud-v2-hints.ts): visible text, since phones have no hover.
+  const hintEl = deps.panelTitleEl.parentElement?.querySelector<HTMLElement>("#panel-hint");
+  if (hintEl) {
+    const hint = state.activePanel ? PANEL_HINTS[state.activePanel] ?? "" : "";
+    hintEl.textContent = hint;
+    hintEl.hidden = hint === "";
+  }
+  // The "?" beside the title only explains House Charges: hidden on every other panel here, and shown by
+  // client-house-charges-panel.ts once there are charges to explain.
+  const helpEl = deps.panelTitleEl.parentElement?.querySelector<HTMLElement>("#panel-help");
+  if (helpEl && state.activePanel !== "charges") helpEl.hidden = true;
 };
 
 export const bindTechTreeDragScroll = (

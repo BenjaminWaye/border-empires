@@ -1,0 +1,159 @@
+.hosted-sectors-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.hosted-sectors-card {
+  position: relative;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 8px;
+  background: var(--sp-panel-bg);
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+  pointer-events: auto;
+}
+
+.hosted-sectors-card h2 {
+  margin: 0 0 12px;
+  padding-right: 28px;
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+  font-size: 20px;
+}
+
+.hosted-sectors-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-parchment-muted);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.hosted-sector-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hosted-sector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+  background: var(--sp-iron-850);
+}
+
+.hosted-sector-meta,
+.hosted-sector-note {
+  display: block;
+  color: var(--sp-parchment-muted);
+  font-size: 13px;
+}
+
+.hosted-sector-here {
+  color: var(--sp-verdigris-300);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.hosted-sector-notice {
+  color: var(--sp-brass-300);
+}
+
+.hosted-sector-error {
+  color: var(--sp-ember-400);
+}
+
+.hosted-sector-actions,
+.hosted-sector-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hosted-sector-form fieldset {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+}
+
+.hosted-sector-form legend {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.hosted-sector-option,
+.hosted-sector-consent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+
+.hosted-sector-option.is-unavailable {
+  opacity: 0.55;
+}
+
+.hosted-sector-form-actions {
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+[data-hosted-sector-invite-output] input {
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+  background: var(--sp-iron-900);
+  color: var(--sp-parchment-100);
+}
+
+.hosted-sector-funding {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.hosted-sector-funding-bar {
+  height: 8px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--sp-iron-900);
+}
+
+.hosted-sector-funding-bar span {
+  display: block;
+  height: 100%;
+  background: var(--sp-brass-500, #c9a24a);
+}
+
+.hosted-sector-chip-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hosted-sector-chip-in input {
+  width: 6em;
+}

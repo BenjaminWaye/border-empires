@@ -14,6 +14,9 @@ export const RENDER_ORDER = {
   riverWater: 8,
   // Ground ore flecks and crystal clues stay readable over the owner tint.
   prospectClues: 8.25,
+  // Insurgent frontier insignia stamped on the ground (client-map-3d-insurgent-insignia-overlay.ts):
+  // over the owner tint, under both fog layers so remembered Insurgent land darkens with the rest.
+  insurgentInsignia: 8.3,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
   // Map names inked on the ground (client-map-3d-name-decal): over the
@@ -21,6 +24,11 @@ export const RENDER_ORDER = {
   // wash names out on remembered land; the 2D map already draws names over
   // fog); under the drifting mist, ocean, storm clouds and every overlay;
   // depth-tested so buildings and units stand in front.
+  // A focused House Charge's shaded area and its gold outline (client-map-3d-map-guide-overlay.ts): explored
+  // tiles only, so over the ownership fill and both fog layers (as the 2D overlay draws it) but under the inked
+  // names, the drifting mist and the storm.
+  houseChargeAreaTint: 10.2,
+  houseChargeAreaOutline: 10.3,
   groundNames: 10.5,
   // client-map-3d-water-surface.ts: the ocean plane.
   oceanSurface: 12,
@@ -41,6 +49,11 @@ export const RENDER_ORDER = {
   // gone back under fog; under the placement-preview and crystal-targeting
   // markers (15, client-map-3d-placement-overlay.ts / crystal-targeting overlay)
   // and the selection and hover markers.
+  // A focused House Charge's dotted rough circles and link (client-map-3d-map-guide-overlay.ts): over the
+  // storm and fogged mist, since they mark unexplored ground; drawn at 2 the storm hid them (owner, 2026-11-19).
+  houseChargeGuideDots: 14.15,
+  // Lost-tile flash (client-battle-warnings/client-battle-flash-3d.ts): over terrain and fog, under guide rings.
+  battleFlash: 14.1,
   guideMarkerHalo: 14.2,
   guideMarkerRing: 14.3,
   guideMarkerChevron: 14.4,

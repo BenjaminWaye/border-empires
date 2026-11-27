@@ -23,7 +23,7 @@ const tile = (t: Partial<Tile> & { x: number; y: number }): Tile => ({ terrain: 
 
 const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: { step: "DONE", townFound: true, townExpanded: true, foodFound: true, foodExpanded: true, foodSlotsFound: 4, foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] },
-  footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } },
+  footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } },
   manufactoryResearched: false,
   manufactoryUnlocked: false,
   afcUpgradeReady: false,
@@ -44,6 +44,9 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  attackLaunched: false,
+  attackTargetTiles: () => [],
+  truceStage: "none",
   scout: "none",
   exploreTarget: () => undefined,
   nothingToExplore: () => false,
@@ -76,8 +79,8 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     ];
     const inReach = (x: number, y: number) => x === 9 && y === 9;
     expect(scanGuideFootholdTargets(tiles, ME, () => 0, inReach)).toEqual({
-      town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
-      food: { outOfReach: 2, pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
+      town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] },
+      food: { outOfReach: 2, unreachable: 0, pending: [], garrison: [{ x: 9, y: 9 }], expand: [] }
     });
   });
 
@@ -103,7 +106,7 @@ describe("food step only marks tiles a garrison can reach (Sam stuck on 'Beyond 
     const view = evaluateGuide(
       stepInput({
         checklist: { ...stepInput().checklist, townExpanded: false },
-        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [{ x: 3, y: 0 }], expand: [] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } }
       }),
       new Set(["look-pan", "look-zoom"])
     );
@@ -159,23 +162,23 @@ describe("build step without a town (Tom skipped the town step)", () => {
         manufactoryResearched: true,
         manufactoryUnlocked: true,
         buildTargetTiles: [],
-        footholdTargets: { town: { outOfReach: 0, pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { outOfReach: 0, pending: [], garrison: [], expand: [] } }
+        footholdTargets: { town: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [{ x: 7, y: 2 }] }, food: { outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] } }
       }),
       doneExcept(["build-first", "contest-muster", "diplomacy-truce", "turn-activity", "turn-finish"])
     );
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("build-first");
-    expect(view.title).toBe("A Manufactory needs a town. Tap the marked town and Expand To it");
+    expect(view.title).toBe("A Manufactory needs a town. Tap the marked town, then Expand To");
     expect(view.highlightTiles).toEqual([{ x: 7, y: 2 }]);
   });
 });
 
-describe("last step names the Chronicle on the new HUD", () => {
+describe("last step on the new HUD", () => {
+  // The step before it ("Open the Chronicle") points at the screen, so the last card names none (owner, 2026-11-24: keep it short).
   it("doesn't mention an Activity dashboard the player can't find", () => {
     const view = evaluateGuide(stepInput(), doneExcept(["turn-finish"]));
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("turn-finish");
-    expect(view.why).toContain("Chronicle");
     expect(view.why).not.toContain("Activity dashboard");
   });
 
@@ -192,8 +195,8 @@ describe("last step names the Chronicle on the new HUD", () => {
     const view = evaluateGuide({ ...stepInput(), manpower }, doneExcept(["turn-finish"]));
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("turn-finish");
-    expect(view.title).toBe("That's the basics. Spend your 2,712 manpower.");
-    expect(view.why).not.toContain("Come back");
+    expect(view.title).toBe("That's the basics.");
+    expect(view.why).toMatch(/^Spend your 2,712 manpower/);
   });
 });
 

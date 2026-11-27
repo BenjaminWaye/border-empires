@@ -60,9 +60,8 @@ describe("AFC landing among barbarians", () => {
   });
 
   // The elimination-respawn path (respawnIfEliminated) lands an AFC the same way a fresh spawn does and must
-  // clear barbarians too. Real flow: the player's only tile falls to a barbarian counter-capture, they are
-  // eliminated and respawn on the tile the barbarian just walked off, right beside the barbarian that took
-  // their old tile -- which the landing then releases.
+  // clear barbarians too. Real flow: the player's only tile falls to a Planetary Defense counter-capture,
+  // they are eliminated and respawn on the open ground beside that camp -- which the landing then releases.
   it("clears barbarians in reach when an eliminated player respawns", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
@@ -82,7 +81,9 @@ describe("AFC landing among barbarians", () => {
             // SETTLED, not FRONTIER: a lone frontier origin is stranded and decays before combat, but this
             // must stay player-1's only tile so losing it eliminates them.
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 100, mode: "HOLD", updatedAt: 0 } },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
+            // Open ground right beside the camp: the only place left to land.
+            ...Array.from({ length: 25 }, (_, i) => ({ x: 11 + (i % 5), y: 9 + Math.floor(i / 5), terrain: "LAND" as const }))
           ],
           activeLocks: []
         }

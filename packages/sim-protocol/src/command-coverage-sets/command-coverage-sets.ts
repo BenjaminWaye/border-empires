@@ -19,6 +19,7 @@ const DURABLE_COMMAND_TYPES = [
   "SET_CONVERTER_STRUCTURE_ENABLED",
   "SET_CONVERTER_STRUCTURE_MODE",
   "ASSIGN_REFINERY_FIELD",
+  "SET_TOWN_FOCUS",
   "SET_OBSERVATORY_ENABLED",
   "REVEAL_EMPIRE",
   "REVEAL_EMPIRE_STATS",
@@ -29,6 +30,7 @@ const DURABLE_COMMAND_TYPES = [
   "HIJACK_AETHER_TOWER",
   "RECRUIT_ANCILLARIES",
   "SHIP_SALVAGE_TO_COURT",
+  "ACTIVATE_WAYSTATION",
   "FORCED_ANCILLARIFICATION",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",
@@ -61,7 +63,9 @@ const DURABLE_COMMAND_TYPES = [
   "SET_AUTO_SETTLE_PREFS",
   "NAME_ISLAND",
   "CHOOSE_HOUSE_CHARGES",
-  "EXPLORE"
+  "EXPLORE",
+  "RECALL_SCOUT",
+  "SCOUT_REPORT_SEEN"
 ] as const;
 
 // DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/
@@ -82,8 +86,11 @@ const DURABLE_COMMAND_TYPES = [
 // disconnect/reconnect case, just not restart-parity coverage.
 //
 // EXPLORE is excluded for the same reason: a scout drone's flight lives only
-// in memory (it lasts a few minutes), so a restart docks it early.
-const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET", "EXPLORE"] as const;
+// in memory (it lasts a few minutes), so a restart docks it early. RECALL_SCOUT
+// only shortens that in-memory flight, so it is excluded with it. SCOUT_REPORT_SEEN
+// only clears a landing report held for display (scoutLastReport, saved at the next
+// checkpoint like the charges): losing it to a crash shows that report once more.
+const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET", "EXPLORE", "RECALL_SCOUT", "SCOUT_REPORT_SEEN"] as const;
 
 const PHASE4_NON_DURABLE_COMMAND_TYPES = [
   "ATTACK_PREVIEW",

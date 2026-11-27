@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
-import { diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
+import { dealSkeletonHtml, diplomacyListHtml, diplomacyResponseMessage, type DiplomacyListInput } from "./client-hud-v2-diplomacy.js";
 
 const names: Record<string, string> = { me: "Lumen Accord", "ai-1": "Tove", "ai-2": "Astrid", "p-3": "Nordmark" };
 const rank = (id: string, tiles: number, position: number): LeaderboardOverallEntry => ({ id, name: names[id] ?? id, tiles, incomePerMinute: 0, techs: 0, manpowerCap: 0, score: tiles, rank: position });
@@ -77,8 +77,9 @@ describe("phone Diplomacy list: layout", () => {
     expect(html.match(/data-v2-scroll=/g)).toHaveLength(1);
   });
 
-  it("links to the Alliances panel", () => {
-    expect(diplomacyListHtml(input())).toContain('data-v2-dip-alliances=""');
+  // 2026-11-21: "Alliances & supply ▸" opened the old pre-v2 Alliances panel, now deleted.
+  it("has no link out to the removed Alliances panel", () => {
+    expect(diplomacyListHtml(input())).not.toContain("data-v2-dip-alliances");
   });
 
   it("keeps the empty note out of the narrow grid", () => {
@@ -109,5 +110,52 @@ describe("phone Diplomacy list: truces ending", () => {
 
   it("shows no section when no truce is ending", () => {
     expect(diplomacyListHtml(input({ activeTruces: [truce("ai-1", 3 * 3_600_000)] }))).not.toContain("Truces ending");
+  });
+});
+
+describe("Diplomacy deal header", () => {
+  it("links the empire's name and a Profile button to their profile", () => {
+    const html = dealSkeletonHtml("Rival <House>", "Truce 3h", "p2");
+    expect(html.match(/data-hud-v2-profile="p2"/g)).toHaveLength(2);
+    expect(html).toContain("Profile ▸");
+    expect(html).toContain("Rival &lt;House&gt;");
+  });
+
+  it("shows a plain name with no profile link when the empire is unknown", () => {
+    expect(dealSkeletonHtml("Empire")).not.toContain("data-hud-v2-profile");
+  });
+});
+
+// Playtest 2026-11-26: an offer read "Truce 12h" and the truce ended about 2h after it was accepted. A new
+// truce runs from its offer (gateway offeredTruceEndsAt), so the row shows the time it has left.
+describe("phone Diplomacy list: incoming truce offers", () => {
+  const hour = 3_600_000;
+  it("shows a new truce's time left, not the hours offered", () => {
+    const truce: TruceRequest = { id: "t1", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0, expiresAt: 12 * hour, durationHours: 12 };
+    const html = diplomacyListHtml(input({ incomingTruce: [truce], nowMs: 10 * hour }));
+    expect(html).toContain("Truce · 2h left");
+    expect(html).not.toContain("12h");
+  });
+
+  it("keeps an extension's hours, which add to the running truce", () => {
+    const truce: TruceRequest = { id: "t2", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0, expiresAt: 168 * hour, durationHours: 24, extendsTruce: true };
+    expect(diplomacyListHtml(input({ incomingTruce: [truce], nowMs: 10 * hour }))).toContain("Extend truce 24h");
+  });
+});
+
+// Playtest run 5: "Empires you've met" dropped a rival the player was fighting, and an ✕ on an incoming
+// offer read as "close" but declined it, with the Chronicle logging "You declined…" and no undo.
+describe("Diplomacy list: playtest run 5", () => {
+  it("lists an empire you are at war with as met, even before its land was scanned", () => {
+    const html = diplomacyListHtml(input({ warPlayerIds: new Set(["ai-2", "barbarian-1"]) }));
+    expect(html).toContain("Empires you've met · 1");
+    expect(html).toMatch(/data-v2-dip-open="ai-2"[\s\S]*?War/);
+  });
+
+  it("spells out Decline on an incoming offer instead of an ✕", () => {
+    const alliance: AllianceRequest = { id: "a9", fromPlayerId: "ai-1", toPlayerId: "me", createdAt: 0 };
+    const html = diplomacyListHtml(input({ incomingAlliance: [alliance] }));
+    expect(html).toMatch(/data-v2-dip-reject="alliance" data-request-id="a9">Decline<\/button>/);
+    expect(html).not.toContain("✕");
   });
 });

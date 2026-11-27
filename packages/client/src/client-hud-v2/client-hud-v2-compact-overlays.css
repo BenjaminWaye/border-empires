@@ -17,13 +17,18 @@ body.hud-v2-compact #placement-overlay {
   flex-wrap: wrap; justify-content: center; gap: 8px; border-width: 1px 0 0; border-radius: 14px 14px 0 0;
 }
 body.hud-v2-compact #placement-label { flex: 1 1 100%; white-space: normal; text-align: center; }
-body.hud-v2-compact #placement-overlay .placement-btn { flex: 1 1 0; min-height: var(--v2c-touch); }
+body.hud-v2-compact #placement-overlay .v2s-btn { flex: 1 1 0; min-height: var(--v2c-touch); }
 /* Its inline style is "display:none" while closed. The tab bar, orb and lens step aside like they do for the tile sheet. */
 body.hud-v2-compact:has(#placement-overlay:not([style*="none"])) :is(.hud-v2-nav, .hud-v2-orb-slot, #mini-map-wrap, .onb-root) { display: none !important; }
 
 /* ---- Discovery tips: body-level, so they paint over all of #hud; at bottom: 10px that was on the tabs ---- */
 body.hud-v2-compact #discovery-tip-overlay {
   left: calc(var(--v2c-safe-left) + 8px); right: calc(var(--v2c-safe-right) + 8px); bottom: calc(var(--v2c-bottom) + 8px); width: auto;
+}
+/* While the scout drone flies its pill (44px tall, z 40) holds the same corner and sat on the tip's buttons;
+   the tip stands above it (client-scout-drone-dock-layout.test.ts). The "Explore" offer stays under tips. */
+body.hud-v2-compact:has(#scout-drone-pill:not(.is-offer)[style*="flex"]) #discovery-tip-overlay {
+  bottom: calc(var(--v2c-bottom) + 62px);
 }
 
 /* ---- Tutorial guide over a screen or panel: a short strip above the tab bar ----

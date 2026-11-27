@@ -19,3 +19,16 @@ export const buildRelocatedSettlementTile = (target: DomainTileState, namePrefix
   clearForestOnTownOrDockTile(relocated);
   return relocated;
 };
+
+// Where a Refuge settlement goes: the oldest remaining owned land tile with no town yet.
+export const firstTownlessOwnedLandKey = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  territoryTileKeys: Iterable<string>,
+  playerId: string
+): string | undefined => {
+  for (const tileKey of territoryTileKeys) {
+    const tile = tiles.get(tileKey);
+    if (tile && tile.terrain === "LAND" && tile.ownerId === playerId && !tile.town) return tileKey;
+  }
+  return undefined;
+};

@@ -1,6 +1,8 @@
 import { afcSpecializationProgress, usesAfcSpecializations, type AfcTechTier } from "@border-empires/shared";
 import type { DomainInfo, Tile } from "../client-types.js";
 import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
+// Shared callout first, so this file's own rules (same specificity) come after it.
+import "../client-callout/client-callout.css";
 import "./client-afc-upgrade-ready.css";
 
 type Resource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
@@ -51,6 +53,24 @@ export function shouldShowAfcUpgradeReadyBadge(
   return Boolean(ready > 0 && me && tile?.terrain === "LAND" && tile.ownerId === me &&
     tile.afc?.ownerId === me && tile.afc.status === "active" && !isAfcHiddenForJoinDrop(drop, tile.x, tile.y));
 }
+
+/** The map modes where a tap picks tiles: Garrison Many's multi-select, a placement and the targeting modes. */
+export interface AfcBadgeMapPickState {
+  readonly garrisonMany: { readonly active: boolean };
+  readonly buildingPlacement: { readonly active: boolean };
+  readonly crystalTargeting: { readonly active: boolean };
+  readonly aetherWallTargeting: { readonly active: boolean };
+  readonly musterMarchTargeting: { readonly active: boolean };
+}
+
+/**
+ * The floating "1 upgrade ready" bubbles step aside while the map is picking tiles: during Garrison Many a tap
+ * meant for a tile landed on the bubble and opened the permanent-upgrade panel behind the selection bar
+ * (playtest 2026-11-26). The AFC's own sheet and the nav badge still show the count.
+ */
+export const afcUpgradeBadgesPaused = (state: AfcBadgeMapPickState): boolean =>
+  state.garrisonMany.active || state.buildingPlacement.active || state.crystalTargeting.active ||
+  state.aetherWallTargeting.active || state.musterMarchTargeting.active;
 
 export interface AfcReadyBadgePosition {
   readonly key: string;
@@ -103,7 +123,7 @@ export function createAfcUpgradeReadyBadges(canvas: HTMLCanvasElement, openUpgra
         if (!button) {
           button = canvas.ownerDocument.createElement("button");
           button.type = "button";
-          button.className = "afc-upgrade-ready-badge";
+          button.className = "afc-upgrade-ready-badge sp-callout sp-callout-tail-down";
           button.onpointerdown = event => event.stopPropagation();
           button.onclick = event => { event.stopPropagation(); openUpgrades(); };
           layer.append(button);

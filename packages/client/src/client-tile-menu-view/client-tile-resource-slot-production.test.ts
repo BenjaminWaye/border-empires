@@ -96,6 +96,12 @@ describe("every resource tile explains its role", () => {
       } else expect(lines).toContain("Base supply");
     }
   });
+  it("drops the Requires card once the viewer's own garrisoned deposit meets it", () => {
+    const own: Tile = { x: 1, y: 1, terrain: "LAND", resource: "FISH", ownerId: "me", ownershipState: "SETTLED" };
+    expect(resourceTileStatsHtml(own, { me: "me" })).not.toContain("Requires");
+    expect(resourceTileStatsHtml({ ...own, ownershipState: "FRONTIER" }, { me: "me" })).toContain("Requires");
+    expect(resourceTileStatsHtml({ ...own, ownerId: "rival" }, { me: "me" })).toContain("Requires");
+  });
   it("describes a visible coastal fishing marker before the sea early return", () => {
     expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
   });

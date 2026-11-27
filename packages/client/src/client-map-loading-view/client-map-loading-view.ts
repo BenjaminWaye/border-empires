@@ -1,12 +1,13 @@
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS, RECONNECT_OVERLAY_GRACE_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { deployCountdownLabel } from "../client-deploy-countdown/client-deploy-countdown.js";
 
 export type MapLoadingView = {
   title: string;
   meta: string;
   showRetry: boolean;
   showReload: boolean;
-  showDiagnostics: boolean;
+  showReportBug: boolean;
   tone: "normal" | "warn";
 };
 
@@ -59,7 +60,7 @@ export const isMapLoadingOverlayActive = (
 const SOFT_HINT_THRESHOLD_MS = AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS;
 const ACTION_AFFORDANCE_THRESHOLD_MS = 25_000;
 
-export const buildMapLoadingView = (
+const buildBaseMapLoadingView = (
   state: Pick<
     ClientState,
     | "connection"
@@ -73,7 +74,8 @@ export const buildMapLoadingView = (
     | "authBusyTitle"
     | "authBusyDetail"
     | "serverDeploying"
-  >,
+  > &
+    Partial<Pick<ClientState, "deployStatus">>,
   wsUrl: string,
   now: number = Date.now()
 ): MapLoadingView => {
@@ -95,7 +97,7 @@ export const buildMapLoadingView = (
         meta: "Reconnecting automatically — updates usually complete in 1–2 minutes.",
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        showReportBug: false,
         tone: "normal"
       };
     }
@@ -105,7 +107,7 @@ export const buildMapLoadingView = (
         meta: retryMeta,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -114,7 +116,7 @@ export const buildMapLoadingView = (
       meta: "Retrying connection...",
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -125,7 +127,7 @@ export const buildMapLoadingView = (
         meta: "Waiting for the updated server to come back online.",
         showRetry: false,
         showReload: false,
-        showDiagnostics: false,
+        showReportBug: false,
         tone: "normal"
       };
     }
@@ -134,7 +136,7 @@ export const buildMapLoadingView = (
       meta: "Retrying connection...",
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -145,7 +147,7 @@ export const buildMapLoadingView = (
         meta: retryMeta,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -155,7 +157,7 @@ export const buildMapLoadingView = (
         meta: "Your session initialized, but nearby land has not arrived from the server. Retry now or reload the client.",
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -168,10 +170,10 @@ export const buildMapLoadingView = (
     if (stuckOnAuth && elapsedMs >= ACTION_AFFORDANCE_THRESHOLD_MS) {
       return {
         title: state.authBusyTitle || "Securing session",
-        meta: `The server hasn't acknowledged sign-in in ${elapsedSeconds}s. It may be restarting (~90s) — try again or grab diagnostics.`,
+        meta: `The server hasn't acknowledged sign-in in ${elapsedSeconds}s. It may be restarting (~90s) — try again or report a bug.`,
         showRetry: true,
         showReload: true,
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "warn"
       };
     }
@@ -187,7 +189,7 @@ export const buildMapLoadingView = (
         // ACTION_AFFORDANCE (25s, where retry/reload appear). Waiting until
         // 25s to offer diagnostics meant anything in the 8-25s band (a very
         // common slow-login shape) had no way to grab logs.
-        showDiagnostics: true,
+        showReportBug: true,
         tone: "normal"
       };
     }
@@ -198,7 +200,7 @@ export const buildMapLoadingView = (
         : (state.authBusyDetail || `Connected to ${wsUrl}`),
       showRetry: false,
       showReload: false,
-      showDiagnostics: false,
+      showReportBug: false,
       tone: "normal"
     };
   }
@@ -207,7 +209,17 @@ export const buildMapLoadingView = (
     meta: "Finalizing map render...",
     showRetry: false,
     showReload: false,
-    showDiagnostics: false,
+    showReportBug: false,
     tone: "normal"
   };
+};
+
+type MapLoadingViewState = Parameters<typeof buildBaseMapLoadingView>[0];
+
+export const buildMapLoadingView = (state: MapLoadingViewState, wsUrl: string, now: number = Date.now()): MapLoadingView => {
+  const view = buildBaseMapLoadingView(state, wsUrl, now);
+  // A running deploy (from /__deploy_status.json) replaces the offline copy
+  // with a countdown; any Retry/Reload the outage already offers stays.
+  const countdown = deployCountdownLabel(state, now);
+  return countdown ? { ...view, title: countdown, meta: "Reconnecting automatically…", tone: "normal" } : view;
 };

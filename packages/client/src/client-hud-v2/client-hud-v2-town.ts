@@ -6,8 +6,8 @@
 // at the bottom. All actions reuse the tile menu's own definitions.
 
 import { tileCoinPerMinute } from "../client-coin-income/client-coin-income.js";
-import { townCoinNote, townPlotIncomeNote } from "../client-town-plot-income/client-town-plot-income.js";
-import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { townCoinNote, townPlotIncomeNote, townZeroCoinReason } from "../client-town-plot-income/client-town-plot-income.js";
+import { biotaAdjustedTownManpower, manpowerPerBatch, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townFoodSlotDemand } from "../client-town-food-demand/client-town-food-demand.js";
 import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
@@ -18,8 +18,12 @@ import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-se
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
+import { townFocusCardHtml, type TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
+import { shownTownFocus, townFocusCard, townGrowthEtaPrecise } from "../client-town-focus/client-town-focus.js";
+import { TOWN_FOCUS_MULTIPLIERS } from "@border-empires/shared";
 import { townBiota } from "./client-hud-v2-town-biota.js";
 import type { BiotaStep } from "./client-hud-v2-town-biota-steps.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
@@ -28,6 +32,10 @@ import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { RefineryStatusOf } from "./client-hud-v2-refinery-gives.js";
 import type { BuildPlacedOutcome } from "../client-queue-logic/client-build-placed-feedback.js";
+import type { TownPlotGarrison } from "../client-town-plot-garrison/client-town-plot-garrison.js";
+
+/** An ungarrisoned town gives no coin or manpower: "none" sent yet, or a garrison "on_its_way". */
+export type TownGarrisonState = "none" | "on_its_way";
 
 export type TownScreenInput = {
   town: Tile;
@@ -42,6 +50,10 @@ export type TownScreenInput = {
   focusQueuePosition?: number;
   /** The work cards' buttons are locked while a rush or cancel waits on the server. */
   focusWorkLocked?: boolean;
+  /** Absent once the town is garrisoned. */
+  garrison?: TownGarrisonState | undefined;
+  /** A garrisoned town's plots you hold but haven't garrisoned (client-town-plot-garrison.ts); absent when none. */
+  plotGarrison?: TownPlotGarrison | undefined;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
@@ -58,6 +70,10 @@ export type TownScreenInput = {
   biota?: BiotaTownStatus | undefined;
   /** What to do about a biota shortfall (client-hud-v2-town-biota-steps.ts). */
   biotaSteps?: readonly BiotaStep[];
+  /** The local player, for the Town focus card's refill countdown; the card is left out when absent. */
+  me?: string;
+  /** Empire counts, empire manpower and the pick flash for the Town focus card. */
+  focusExtras?: TownFocusCardExtras;
 };
 
 const esc = (text: string): string =>
@@ -78,6 +94,8 @@ export const townBuildCategories = buildCategories;
 const actionFor = (view: TileMenuView, id: TileActionDef["id"]): TileActionDef | undefined =>
   view.actions.find((a) => a.id === id) ?? view.buildings.find((a) => a.id === id);
 
+const ungarrisonedTown = (input: TownScreenInput): boolean => input.garrison !== undefined;
+
 const leftPanelHtml = (input: TownScreenInput): string => {
   const town = input.town.town;
   if (!town) return "";
@@ -90,27 +108,44 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const growth = townGrowth(town);
   // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
-  const fed = townCoinNote(town);
+  const coinNote = townCoinNote(town);
+  // Sabotage (or a lost garrison) is the one zero-coin cause the Fed/plots note doesn't already name.
+  const zeroWhy = known(town.goldPerMinute) && tileCoinPerMinute(input.town) < 0.0001 ? townZeroCoinReason(input.town) : undefined;
+  const fed = zeroWhy && !coinNote.includes(zeroWhy) ? [coinNote, zeroWhy].filter(Boolean).join(" · ") : coinNote;
   // Match the town overview's base contribution; optional manpowerCap is
   // not the town's tier-and-terrain contribution. Building bonuses stay below.
   const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
   const character = townCharacterLabelForProfile(terrainProfile, coastal);
   const signed = (n: number): string => `${n >= 0 ? "+" : ""}${n}%`;
+  // A Standard Town's terrain is neutral: "+0% · +0% · +0%" read as a perk that had lost its numbers (Playtest Run 4).
+  const terrainModsText = (m: { goldOutputPercent: number; manpowerCapacityPercent: number; manpowerRegenPercent: number }): string =>
+    m.goldOutputPercent === 0 && m.manpowerCapacityPercent === 0 && m.manpowerRegenPercent === 0
+      ? "No terrain bonus"
+      : `Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}`;
   const modifiers = townStatModifiersForProfile(terrainProfile, coastal).map((m) =>
-    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">Coin ${signed(m.goldOutputPercent)} · Manpower cap ${signed(m.manpowerCapacityPercent)} · Regen ${signed(m.manpowerRegenPercent)}</span></span></div>`
-  ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false }) : []).map((b) =>
+    `<div class="v2t-built"><span><span class="v2t-built-name">${esc(m.label)}</span><span class="v2t-built-mods">${terrainModsText(m)}</span></span></div>`
+  ).join("") + (typeof town.isFed === "boolean" ? townGoldBonuses(town, { includeBuildings: false, biota: input.biota }) : []).map((b) =>
     `<div class="v2t-built"><span><span class="v2t-built-name">${esc(b.label)}</span><span class="v2t-built-mods"><span class="v2t-mod-${b.tone}">${/^[+−]/.test(b.effect) ? "Coin " : ""}${esc(b.effect)}</span></span></span></div>`
   ).join("");
-  // A large town short of biota gives a smaller tier's manpower: show what it gives, and why.
+  // A large town short of biota gives part of its tier's manpower: show what it gives, and why.
   const biota = townBiota(town.populationTier, input.biota, input.biotaSteps);
-  const manpower = terrainAdjustedTownManpower(biota.manpowerTier, terrainProfile, coastal);
+  const manpower = biotaAdjustedTownManpower(town.populationTier, terrainProfile, coastal, input.biota);
+  // The town's active focus scales its own regen (docs/town-focus-plan.md); the card projects each choice.
+  const focusRegen = manpower.regenPerMinute * TOWN_FOCUS_MULTIPLIERS[shownTownFocus(town)].manpowerRegen;
+  const focusCard = input.me && !ungarrisonedTown(input) ? townFocusCardHtml(townFocusCard(input.town, input.me, manpower.regenPerMinute), input.focusExtras) : "";
   // The simulation's per-town demand after waivers; the tier base only explains a waiver.
   const foodDemand = townFoodSlotDemand(town);
   const foodBase = townFoodSlotDemandForTier(town.populationTier);
+  // An ungarrisoned town gives nothing yet, whether or not a coin figure has arrived: say so, not a bare dash.
+  const ungarrisoned = input.garrison !== undefined;
   const stats = [
     // A town with its fed state but no coin figure is mid-refresh (the tile-detail request is in flight), not coinless.
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
+    ungarrisoned
+      ? input.garrison === "none"
+        ? { k: "COIN", v: "Not garrisoned", n: "Garrison to start coin", tone: " v2t-warn" }
+        : { k: "COIN", v: "Garrisoning…", n: "Starts once garrisoned", tone: "" }
+      : { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(tileCoinPerMinute(input.town) * 1440)}/day` : typeof town.isFed === "boolean" ? "…" : "—", n: fed, tone: town.isFed === false || townPlotIncomeNote(town) || zeroWhy ? " v2t-warn" : "" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: ungarrisoned ? "Starts once garrisoned" : `${biota.unrulyNote ?? "Base town"} · +${fmt(manpowerPerBatch(focusRegen))} per refill`, tone: input.garrison === "none" || biota.unrulyNote ? " v2t-warn" : " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${foodDemand} slots`, n: foodDemand < foodBase ? `${foodBase} base · ${foodBase - foodDemand} waived by upgrades` : "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
@@ -123,10 +158,11 @@ const leftPanelHtml = (input: TownScreenInput): string => {
       <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${esc(character)}</span></span>
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
-    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
+    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.paused ? growth.eta : townGrowthEtaPrecise(town))}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
+    ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}
-    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
+    ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;
 };
 
@@ -194,18 +230,22 @@ const barHtml = (input: TownScreenInput): string => {
   const improvementBtn = improvement
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="${esc(improvement.id)}"${targetAttrs(improvement, keyOf(input.focus))} title="${esc(improvement.detail ?? improvement.label)}">${esc(improvement.label)}${improvement.cost ? `<small>${esc(improvement.cost)}</small>` : ""}</button>`
     : "";
+  // A garrisoned town with plots still to garrison: one gold button garrisons them all (the selected tile's own action wins the slot).
+  const plots = garrison || improvement ? undefined : input.plotGarrison;
+  const plotsBtn = plots
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-v2-garrison-plots="${esc(keyOf(input.town))}"${plots.disabledReason ? " disabled" : ""} title="${esc(plots.disabledReason ?? `Garrison ${plots.count} plot${plots.count === 1 ? "" : "s"} around the town`)}">Garrison plots<small>${esc(plots.disabledReason ?? plots.cost)}</small></button>`
+    : "";
   // The "garrison these automatically from now on" checkbox the tile dock shows under its Garrison button.
   // Read from live prefs (a toggle doesn't rebuild focusView, so the snapshot's copy goes stale).
   const garrisonTile = focusGarrison ? input.focus : input.town;
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), ...(improvement ? [improvement.id] : [])]);
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), "garrison_town_plots", ...(improvement ? [improvement.id] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
-  const minor = minorActions.map(({ a, key }) =>
-    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
+  const minor = minorActions.map(({ a, key }) => minorActionButtonHtml(a, targetAttrs(a, key), a.cost ?? a.detail ?? "")).join("");
   // Raise flag on the selected tile; when it can't take one, on the town as before.
   const focusRaise = actionFor(input.focusView, "muster_hold");
   const raise = focusRaise ?? actionFor(input.townView, "muster_hold");
@@ -214,7 +254,7 @@ const barHtml = (input: TownScreenInput): string => {
   const raiseBtn = raise
     ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
-  return `${garrisonBtn}${improvementBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  return `${garrisonBtn}${improvementBtn}${plotsBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map<span class="v2-key-hint"> · Esc</span></button>${garrisonOption}`;
 };
@@ -227,4 +267,5 @@ export const townScreenRegions = (input: TownScreenInput): { left: string; build
 
 export const TOWN_SCREEN_SKELETON = `<section class="v2t-left" id="v2t-left" aria-label="Town"></section>
   <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
-  <div class="v2t-bar" id="v2t-bar"></div>`;
+  <div class="v2t-bar" id="v2t-bar"></div>
+  <div class="v2t-pick" id="v2t-pick" aria-label="Place building"></div>`;

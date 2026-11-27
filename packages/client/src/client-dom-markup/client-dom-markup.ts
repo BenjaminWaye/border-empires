@@ -1,3 +1,5 @@
+import { profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
+
 export const hudMarkup = `
   <div id="mini-map-wrap">
     <canvas id="mini-map" width="220" height="220"></canvas>
@@ -28,8 +30,8 @@ export const hudMarkup = `
 
   <div id="placement-overlay" style="display:none">
     <span id="placement-label"></span>
-    <button id="placement-cancel" class="placement-btn placement-cancel-btn" type="button">Cancel</button>
-    <button id="placement-confirm" class="placement-btn placement-confirm-btn" type="button">Confirm</button>
+    <button id="placement-cancel" class="v2s-btn" type="button">Cancel</button>
+    <button id="placement-confirm" class="v2s-btn v2s-btn-primary" type="button">Confirm</button>
   </div>
 
   <div id="victory-alert-overlay" style="display:none">
@@ -51,10 +53,14 @@ export const hudMarkup = `
         <div id="map-loading-meta">Preparing map data...</div>
       </div>
     </div>
+    <figure id="map-loading-quote" class="lore-quote" hidden>
+      <blockquote id="map-loading-quote-text"></blockquote>
+      <figcaption id="map-loading-quote-source"></figcaption>
+    </figure>
     <div id="map-loading-actions">
       <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
       <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
-      <button id="map-loading-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Download diagnostics</button>
+      <button id="map-loading-report-bug" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Report bug</button>
     </div>
   </div>
 
@@ -156,7 +162,10 @@ export const hudMarkup = `
             <div class="auth-panel-title">Found your first standard.</div>
             <div class="auth-panel-subtitle">Choose the name and color other empires will remember.</div>
           </div>
-          <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" />
+          <div class="profile-name-field">
+            <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" aria-describedby="auth-profile-name-count" />
+            ${profileNameCountHtml("auth-profile-name-count")}
+          </div>
           <div class="auth-color-block">
             <div class="auth-color-label">Nation color</div>
             <div id="auth-color-presets" class="auth-color-presets">
@@ -171,6 +180,7 @@ export const hudMarkup = `
               <span>Custom</span>
               <input id="auth-profile-color" type="color" value="#38b000" />
             </label>
+            <div id="auth-color-clash" class="auth-color-clash" data-color-clash role="status" aria-live="polite" hidden></div>
           </div>
           <button id="auth-profile-save" class="panel-btn auth-email-cta" type="button">Enter the map</button>
         </div>
@@ -194,7 +204,11 @@ export const hudMarkup = `
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
           <div id="auth-busy-progress" class="auth-busy-progress" role="progressbar" aria-label="World download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="auth-busy-progress-fill"></div></div>
-          <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
+          <figure id="auth-busy-quote" class="lore-quote" hidden>
+            <blockquote></blockquote>
+            <figcaption></figcaption>
+          </figure>
+          <button id="auth-busy-report-bug" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Report bug</button>
           <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Join the waitlist for the next Sector</button>
         </div>
       </div>
@@ -214,7 +228,8 @@ export const hudMarkup = `
     <div id="side-panel-head">
       <div>
         <span class="afc-upgrade-eyebrow">AFC Upgrades</span>
-        <h3 id="panel-title">Panel</h3>
+        <h3 id="panel-title">Panel</h3><button id="panel-help" class="panel-help" type="button" aria-label="How charges work" aria-controls="house-charges-help" aria-expanded="false" hidden>?</button>
+        <p id="panel-hint" class="panel-hint" hidden></p>
       </div>
       <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>
@@ -243,10 +258,6 @@ export const hudMarkup = `
       </section>
       <section id="panel-domains" class="panel-body">
         <div id="panel-domains-content"></div>
-      </section>
-      <section id="panel-alliance" class="panel-body alliance-panel">
-        <div id="allies-list" class="alliance-section-stack"></div>
-        <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>

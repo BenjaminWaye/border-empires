@@ -24,7 +24,6 @@ import {
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
-  drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
   drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
   drawDockMarker as drawDockMarkerOnCanvas,
   drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
@@ -42,8 +41,7 @@ import type { RoadDirections } from "./client-road-network/client-road-network.j
 import type { ClientState } from "./client-state/client-state.js";
 import { knownTerrainAt } from "./client-tile-action-support/client-tile-action-support.js";
 import { diplomacyOverlayKey, diplomacyOwnerColor } from "./client-diplomacy-overlay/client-diplomacy-overlay.js";
-import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
-import { drawMusterSiegeBadge } from "./client-map-render/client-map-render-muster-siege-badge.js";
+import { drawIncomingAttackTile } from "./client-map-render/client-map-render-incoming-attack-tile.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 
@@ -297,18 +295,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   };
-  const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
-    drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
-  const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {
-    const nowMs = Date.now();
-    const claim = incomingFrontierClaimAt(state, keyFor(wx, wy), nowMs);
-    const claimOverlay = claim
-      ? { color: claim.attackerId ? effectiveColor(claim.attackerId) : "#8a8f98", progress: (nowMs - claim.startAt) / Math.max(1, claim.resolvesAt - claim.startAt) }
-      : undefined;
-    drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt, claimOverlay);
-    const tile = state.tiles.get(keyFor(wx, wy));
-    if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs);
-  };
+  const drawPlanetaryDefenseOverlay = (tile: Tile, px: number, py: number, size: number, wx: number, wy: number): void =>
+    drawPlanetaryDefenseOverlayOnCanvas(ctx, tile, px, py, size, wx, wy, performance.now());
+  const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
+    drawIncomingAttackTile(ctx, state, keyFor, effectiveColor, { wx, wy, px, py, size, resolvesAt });
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
     drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined, state.townTierUpgradeFxByKey.get(keyFor(tile.x, tile.y))); // mid tier-upgrade growth
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
@@ -417,6 +407,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     // (below) is the only reliable way to tell whether tile/replay state was actually
     // consumed this frame.
     const contentComputedAtBefore = miniMapContentCache.computedAt;
+    // Allies' known land is drawn even under fog, so a new or broken alliance repaints the content layer.
+    const miniMapColorKey = `${diplomacyOverlayKey(state)}|allies:${state.allies.join(",")}`;
     const changed = drawMiniMapIntoCanvas({
       nowMs,
       state,
@@ -436,7 +428,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         tilesRevision: miniMapLastTilesRevision,
         colorKey: miniMapLastColorKey
       },
-      colorKey: diplomacyOverlayKey(state),
+      colorKey: miniMapColorKey,
+      alliedOwnerIds: new Set(state.allies),
       contentCache: miniMapContentCache,
       parseKey,
       keyFor,
@@ -460,7 +453,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
       miniMapLastTileCount = state.tiles.size;
       miniMapLastTilesRevision = state.tilesRevision;
-      miniMapLastColorKey = diplomacyOverlayKey(state);
+      miniMapLastColorKey = miniMapColorKey;
     }
   };
 

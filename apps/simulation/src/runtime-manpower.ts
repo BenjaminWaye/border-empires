@@ -11,16 +11,20 @@ import {
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
-import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, terrainAdjustedTownManpower, type BiotaTownSupply } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS, TOWN_FOCUS_MULTIPLIERS, biotaAdjustedTownManpower, lastManpowerRefillAtMs, terrainAdjustedTownManpower, type BiotaTownSupply } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
 type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
-/** Biota supply per town (runtime-manpower-structure-bonus.ts); a short town gives a lower tier's manpower. */
+/** Biota supply per town (runtime-manpower-structure-bonus.ts); a short town gives part of the way from Town to its tier's manpower. */
 type BiotaSupply = ReadonlyMap<string, BiotaTownSupply> | undefined;
-const manpowerTier = (tileKey: string, tier: TownTier, biota: BiotaSupply): TownTier => biota?.get(tileKey)?.manpowerTier ?? tier;
+const townManpower = (summary: PlayerRuntimeSummary, tileKey: string, tier: TownTier, biota: BiotaSupply): { cap: number; regenPerMinute: number } =>
+  biotaAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey), biota?.get(tileKey));
+/** Town focus regen multiplier (docs/town-focus-plan.md): scales the town's own regen only, never its cap. */
+const townFocusRegenMult = (summary: PlayerRuntimeSummary, tileKey: string): number =>
+  TOWN_FOCUS_MULTIPLIERS[summary.ownedTownFocusByTile?.get(tileKey) ?? "BALANCED"].manpowerRegen;
 
 // Starting capital is a separate,
 // AFC-backed manpower source — distinct from TOWN_MANPOWER_BY_TIER.SETTLEMENT
@@ -48,7 +52,7 @@ export const playerManpowerCapFromSummary = (
 ): number => {
   let cap = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    cap += terrainAdjustedTownManpower(manpowerTier(tileKey, tier, biota), summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
+    cap += townManpower(summary, tileKey, tier, biota).cap;
   }
   cap += ancillaryDepotCount * ANCILLARY_DEPOT_MANPOWER_CAP_BONUS;
   cap += reserveLatticeNetworkAncillaryDepotCount * NEURAL_WORKS_NETWORK_MANPOWER_CAP_PER_ANCILLARY_DEPOT;
@@ -77,7 +81,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   let regen = 0;
   let index = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    const base = terrainAdjustedTownManpower(manpowerTier(tileKey, tier, biota), summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).regenPerMinute;
+    const base = townManpower(summary, tileKey, tier, biota).regenPerMinute * townFocusRegenMult(summary, tileKey);
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
@@ -147,6 +151,7 @@ export const playerManpowerBreakdownFromSummary = (
     index += 1;
   }
   const shortfall = biotaShortfall(summary, biota);
+  const focusRegenDelta = townFocusRegenDelta(summary, biota);
   const capLines = [...capByTier.entries()].map(([tier, line]) => ({
     label: townTierLabel(tier, line.count),
     amount: line.amount
@@ -203,22 +208,23 @@ export const playerManpowerBreakdownFromSummary = (
     capLinesWithNeuralWorksNetwork.push({ label, amount: -shortfall.cap });
     regenLines.push({ label, amount: -shortfall.regen });
   }
+  if (focusRegenDelta !== 0) regenLines.push({ label: "Town focus", amount: focusRegenDelta });
   return {
     cap: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "AFC baseline", amount: STARTING_CAPITAL_MANPOWER_CAP }] : []), ...capLinesWithNeuralWorksNetwork],
     regen: [...(summary.ownedAfcTileKeys.size > 0 ? [{ label: "AFC baseline", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }] : []), ...regenLines]
   };
 };
 
-/** Manpower lost to towns working below their tier for lack of biota (regen weighted like the town lines). */
+/** Manpower lost to towns short of biota (regen weighted like the town lines). */
 const biotaShortfall = (summary: PlayerRuntimeSummary, biota: BiotaSupply): { count: number; cap: number; regen: number } => {
   const result = { count: 0, cap: 0, regen: 0 };
   if (!biota) return result;
   let index = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    const effective = manpowerTier(tileKey, tier, biota);
-    if (effective !== tier) {
+    const supply = biota.get(tileKey);
+    if (supply && supply.received < supply.needed) {
       const profile = summary.ownedTownProfileByTile?.get(tileKey), coastal = summary.ownedTownCoastalByTile?.get(tileKey);
-      const full = terrainAdjustedTownManpower(tier, profile, coastal), reduced = terrainAdjustedTownManpower(effective, profile, coastal);
+      const full = terrainAdjustedTownManpower(tier, profile, coastal), reduced = townManpower(summary, tileKey, tier, biota);
       result.count += 1;
       result.cap += full.cap - reduced.cap;
       result.regen += (full.regenPerMinute - reduced.regenPerMinute) * manpowerRegenWeightForSettlementIndex(index);
@@ -226,6 +232,18 @@ const biotaShortfall = (summary: PlayerRuntimeSummary, biota: BiotaSupply): { co
     index += 1;
   }
   return result;
+};
+
+/** Regen gained or lost to town focus, weighted like the town lines, so the breakdown sums to the real regen. */
+const townFocusRegenDelta = (summary: PlayerRuntimeSummary, biota: BiotaSupply): number => {
+  let delta = 0;
+  let index = 0;
+  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
+    const mult = townFocusRegenMult(summary, tileKey);
+    if (mult !== 1) delta += townManpower(summary, tileKey, tier, biota).regenPerMinute * (mult - 1) * manpowerRegenWeightForSettlementIndex(index);
+    index += 1;
+  }
+  return delta;
 };
 
 /** Spendable manpower plus regen accrued in the current refill window but not yet paid out. */

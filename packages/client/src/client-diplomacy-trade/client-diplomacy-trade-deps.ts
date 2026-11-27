@@ -2,6 +2,8 @@
 // buttons it shows. Split out of client-diplomacy-trade.ts (line cap).
 import type { DiplomacyGoods, ResourceSupplyAgreementStatus, ResourceSupplyOffer, ResourceTradeOffer } from "@border-empires/shared";
 import type { ChronicleWarCounts } from "./client-diplomacy-trade-view.js";
+import { fealtyLookupFor, type FealtyLookup, type FealtyState } from "../client-fealty/client-fealty.js";
+import { dropCounteredOffer, type CounteredOfferState } from "./client-countered-offer-drop.js";
 
 export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
@@ -14,9 +16,11 @@ export type DiplomacyTradeDeps = {
   activeSupply?: () => { ownId: string; agreements: readonly ResourceSupplyAgreementStatus[]; offers?: readonly ResourceTradeOffer[] };
   /** This empire's row in your last-fetched Chronicle, so the war tally shows the Chronicle's own tile counts. */
   chronicleRival?: (targetPlayerId: string) => ChronicleWarCounts | undefined;
+  /** Your standing with the target by size: an unequal alliance is sworn or demanded fealty (client-fealty.ts). */
+  fealtyWith?: FealtyLookup;
 };
 
-type TradeDepsState = {
+type TradeDepsState = CounteredOfferState & {
   resourceTradeOffers?: readonly ResourceTradeOffer[];
   me?: string;
   resourceTradeAgreements?: readonly ResourceSupplyAgreementStatus[];
@@ -25,15 +29,22 @@ type TradeDepsState = {
   activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }>;
   allies?: readonly string[];
   activityDashboard?: { timeline?: { rivals?: ReadonlyArray<ChronicleWarCounts & { playerId: string }> } | undefined };
+  leaderboard?: FealtyState["leaderboard"];
 };
 
 /**
  * Trade-screen deps from the client's own state: every truce/alliance entry
- * point (tile menu, Alliances tab) opens the screen with these, so none of
+ * point (tile menu, Diplomacy screen) opens the screen with these, so none of
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (state: TradeDepsState, send: DiplomacyTradeDeps["send"]): DiplomacyTradeDeps => ({
-  send,
+  // A sent counter replaces the offer it answers, so that offer leaves the dock and Diplomacy at once.
+  send: (payload, notSignedInMessage) => {
+    const sent = send(payload, notSignedInMessage);
+    if (sent) dropCounteredOffer(state, payload);
+    return sent;
+  },
+  fealtyWith: fealtyLookupFor({ me: state.me ?? "", leaderboard: state.leaderboard }),
   chronicleRival: (targetPlayerId) => state.activityDashboard?.timeline?.rivals?.find((rival) => rival.playerId === targetPlayerId),
   runningTruce: (targetPlayerId, targetName) =>
     state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase())),

@@ -15,6 +15,7 @@ const makeState = () => ({
   hover: undefined as { x: number; y: number } | undefined,
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   marchOriginPicking: { active: false, targetX: 0, targetY: 0 },
+  scoutDronePicking: { active: false, stops: [], bumpAt: 0, shakeAt: 0, launches: 0 },
   arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined,
   pendingArrowGestureConfirm: undefined,
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
@@ -84,6 +85,16 @@ describe("dragging a march's destination", () => {
     expect(sheets[0]?.subtitle).toBe("Attacking ends your 1 supply trade with House Rival.");
     sheets[0]!.onConfirm();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 16, targetY: 12 });
+  });
+
+  // Regression (review): panning while picking where to send the scout drone re-targeted a march.
+  it("does not start while picking where to send the scout drone", () => {
+    const state = makeState();
+    state.scoutDronePicking.active = true;
+    const sendGameMessage = vi.fn(() => true);
+    installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
+    expect(marchTargetDrag.begin(14, 10, 0, 0)).toBe(false);
+    expect(state.arrowGesture).toBeUndefined();
   });
 
   it("does not start on tiles that aren't a march destination, and a press without moving is a plain tap", () => {

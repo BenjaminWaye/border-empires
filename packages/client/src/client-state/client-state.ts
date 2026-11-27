@@ -1,4 +1,6 @@
+import type { SectorListRow } from "../client-sector-list/client-sector-list.js";
 import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
+import type { CosmeticId, PlayerCosmeticSelection } from "@border-empires/shared";
 import { NEXT_CONTEST_DEFAULT_THRESHOLD } from "../client-next-contest/client-next-contest.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
@@ -8,6 +10,7 @@ import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
+import type { IntegrityDropNotice } from "../client-integrity-drop/client-integrity-drop-cause.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
@@ -16,7 +19,7 @@ import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
-import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
+import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js"; import { createInitialAchievementsState } from "../client-achievements/client-achievements-state.js";
 import { createInitialHouseChargesState } from "../client-house-charges/client-house-charges-state.js";
 import { createInitialHouseChargeRevealState } from "../client-house-charges/client-house-charge-reveal.js";
 import { createInitialScoutDroneState } from "../client-scout-drone/client-scout-drone-state.js";
@@ -60,6 +63,7 @@ type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; struc
 
 export { storageGet, storageRemove, storageSet } from "./client-storage.js";
 import { storageGet } from "./client-storage.js";
+import type { ScoutFindingHighlight } from "../client-scout-drone/client-scout-finding-highlight.js";
 
 export const createInitialState = () => ({
   me: "",
@@ -115,6 +119,9 @@ export const createInitialState = () => ({
   defensibilityPct: 100,
   settledT: 1,
   settledE: 4,
+  ownedT: undefined as number | undefined, // owned land tiles (PLAYER_UPDATE T): what Integrity's shape is judged against
+  integrityDropNotice: undefined as IntegrityDropNotice | undefined, // last Integrity drop explained (client-integrity-drop/)
+  awaitingFreshPlayerUntil: 0, // after INIT, food/Integrity chips show "…" until a full PLAYER_UPDATE or this time (client-player-freshness/)
   // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
   selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
@@ -166,6 +173,10 @@ export const createInitialState = () => ({
   dukePlayers: new Set<string>(), // Duke title (owns a galaxy Planet) -- see client-duke-title.ts.
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
+  // Account cosmetics (client-cosmetics.ts): non-default looks by player, and what this account owns.
+  playerCosmetics: new Map<string, PlayerCosmeticSelection>(),
+  ownedCosmetics: [] as CosmeticId[],
+  cosmeticsRequested: false,
   playerShieldUntil: new Map<string, number>(),
   serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<
@@ -211,14 +222,14 @@ export const createInitialState = () => ({
   replayAppliedIndex: 0,
   replayLastTickAt: 0,
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
-  socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
+  scoutFindingHighlight: undefined as ScoutFindingHighlight | undefined,
   feedUnreadCount: 0,
   spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
+    kind: "town_ungarrisoned" | "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;
@@ -254,7 +265,9 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; timeout?: boolean } | undefined,
+  captureAlert: undefined as { title: string; detail: string; fromFeed?: boolean; until: number; tone: "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; openPanel?: "charges" | "integrity"; timeout?: boolean } | undefined,
+  /** Good news (a won fight, a claimed tile): never drawn as a card, kept only so the battle screen can read a win. */
+  goodNewsAlert: undefined as { title: string; detail: string; until: number; tone: "success"; manpowerLoss?: number; focusX?: number; focusY?: number } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
@@ -278,18 +291,18 @@ export const createInitialState = () => ({
   seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false, seasonStartVoteThreshold: NEXT_CONTEST_DEFAULT_THRESHOLD, // Houses committed to the next Sector Contest: client-next-contest.ts
   missions: [] as MissionState[],
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "towns" | "charges" | "settings" | null,
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
-  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
+  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), ...createInitialAchievementsState(), // ISLAND_NAMES push; achievements + LONGEST_ROAD (client-achievements/), see client-map-name-labels/
   ...createInitialHouseChargesState(), // HOUSE_CHARGES push, see client-house-charges/
   ...createInitialHouseChargeRevealState(), // season-end reveal, see client-house-charges/client-house-charge-reveal.ts
   ...createInitialScoutDroneState(), // SCOUT_DRONE push, see client-scout-drone/
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
-  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonStartedAt: 0, singleContest: false, joinSeasonClosedMessage: "" as string, sectorListRows: [] as SectorListRow[], sectorListLoadedFor: "" as string, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string; title?: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts; seasonStartedAt/singleContest/joinSeasonClosedMessage: honest join card and NO_LANDING_SITE (client-join-season-late-join.ts); sectorList*: the join card's sector list (client-sector-list/)
   lastSeenRespawnNoticeId: "",
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
@@ -299,7 +312,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | "credits" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,

@@ -15,6 +15,7 @@ const setup = (tiles: Tile[]) => {
   const sendDevelopmentBuild = vi.fn(() => true);
   const applyOptimisticStructureBuild = vi.fn();
   const pushFeed = vi.fn();
+  const startRelayBeaconChain = vi.fn();
   const flow = createBuildingPlacementFlow(state, {
     keyFor: tileKey,
     pushFeed,
@@ -23,9 +24,10 @@ const setup = (tiles: Tile[]) => {
     placementLabelEl: document.createElement("div"),
     sendDevelopmentBuild,
     applyOptimisticStructureBuild,
-    sendGameMessage: vi.fn(() => true)
+    sendGameMessage: vi.fn(() => true),
+    startRelayBeaconChain
   });
-  return { state, flow, sendDevelopmentBuild, applyOptimisticStructureBuild, pushFeed };
+  return { state, flow, sendDevelopmentBuild, applyOptimisticStructureBuild, pushFeed, startRelayBeaconChain };
 };
 
 describe("Relay Beacon placement", () => {
@@ -85,5 +87,48 @@ describe("Relay Beacon placement", () => {
     flow.confirmBuildingPlacement();
     expect(sendDevelopmentBuild).not.toHaveBeenCalled();
     expect(pushFeed).toHaveBeenCalledWith("Cannot build here. The tile is no longer valid.", "combat", "warn");
+  });
+
+  // Playtest 2026-11-17: Build Relay Beacon on neutral or FRONTIER land spent
+  // the expand/garrison straight from the menu with no reach preview.
+  it("previews and confirms a beacon on neutral or FRONTIER land in reach, spending only on Confirm", () => {
+    const { state, flow, sendDevelopmentBuild, startRelayBeaconChain } = setup([
+      settled(4, 4),
+      { x: 5, y: 4, terrain: "LAND" },
+      settled(6, 4, { ownershipState: "FRONTIER" }),
+      { x: 9, y: 9, terrain: "LAND" }
+    ]);
+    state.serverReach = new Set(["4,4", "5,4", "6,4"]);
+    state.serverReachRevision += 1;
+    state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 5, y: 4 };
+    expect(flow.isPlacementValidForTile(state.tiles.get("5,4"))).toBe(true);
+    expect(flow.isPlacementValidForTile(state.tiles.get("6,4"))).toBe(true);
+    expect(flow.isPlacementValidForTile(state.tiles.get("9,9"))).toBe(false); // outside reach
+    expect(startRelayBeaconChain).not.toHaveBeenCalled();
+    flow.confirmBuildingPlacement();
+    expect(startRelayBeaconChain).toHaveBeenCalledWith(state.tiles.get("5,4"));
+    expect(sendDevelopmentBuild).not.toHaveBeenCalled();
+    expect(state.buildingPlacement.active).toBe(false);
+  });
+
+  it("shows the cost on the placement bar and a big confirm prompt at the tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("5,4", { x: 5, y: 4, terrain: "LAND" });
+    state.serverReach = new Set(["5,4"]);
+    state.serverReachRevision += 1;
+    const placementLabelEl = document.createElement("div");
+    const confirmPrompt = { offer: vi.fn(), hide: vi.fn() };
+    const flow = createBuildingPlacementFlow(state, {
+      keyFor: tileKey, pushFeed: vi.fn(), renderHud: vi.fn(), placementOverlayEl: document.createElement("div"), placementLabelEl,
+      sendDevelopmentBuild: vi.fn(() => true), applyOptimisticStructureBuild: vi.fn(), sendGameMessage: vi.fn(() => true), startRelayBeaconChain: vi.fn(), confirmPrompt
+    });
+    state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 5, y: 4 };
+    flow.renderPlacementOverlay();
+    expect(placementLabelEl.textContent).toMatch(/^Placing Relay Beacon \(\d+ m\.p\./);
+    // The big confirm prompt at the tapped tile, with the cost, confirms the placement.
+    expect(confirmPrompt.offer).toHaveBeenCalledWith({ label: "Build Relay Beacon", cost: expect.stringMatching(/m\.p\./) }, flow.confirmBuildingPlacement);
+    flow.cancelBuildingPlacement();
+    expect(confirmPrompt.hide).toHaveBeenCalled();
   });
 });

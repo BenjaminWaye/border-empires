@@ -53,12 +53,16 @@ describe("Economy rows (new HUD)", () => {
     const titanium = render(input()).querySelector<HTMLElement>("[data-v2e-row='TITANIUM']")!;
     expect(titanium.textContent).toContain("Garrison a titanium deposit");
     expect(titanium.querySelector('[data-economy-lens="TITANIUM"]')?.textContent).toBe("Find on map");
-    expect(render(input({ slots: { ...input().slots, FOOD: slot(0, 0) } })).querySelector("[data-v2e-row='FOOD']")?.textContent).toContain("No tiles yet");
+    // 2026-11-18 playtest: Food's "No tiles yet" read as false beside farm tiles not yet garrisoned.
+    const food = render(input({ slots: { ...input().slots, FOOD: slot(0, 0) } })).querySelector<HTMLElement>("[data-v2e-row='FOOD']")!;
+    expect(food.textContent).not.toContain("No tiles yet");
+    expect(food.textContent).toContain("Garrison a grain or fish site");
+    expect(food.querySelector('[data-economy-lens="FOOD"]')?.textContent).toBe("Find on map");
   });
 
   it("gives used / supply, where supply comes from and what uses it", () => {
     const food = render(input()).querySelector("[data-v2e-row='FOOD']")!;
-    expect(food.textContent).toContain("9 / 10");
+    expect(food.textContent).toContain("9 / 10 used"); // labelled: the top bar shows the same row as "1 free" (playtest 2026-11-27)
     expect(food.textContent).toContain("1 free");
     expect(food.textContent).toContain("Farm ×4");
     expect(food.textContent).toContain("Town support ×3");

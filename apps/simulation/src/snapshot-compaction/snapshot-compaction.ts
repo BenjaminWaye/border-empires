@@ -73,6 +73,7 @@ const MUTABLE_TILE_FIELDS = [
   "warScarUntil",
   "razedWreckUntil",
   "razedWreck",
+  "campId",
   // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
   // legacy structure fields above. Including it here ensures the compaction
   // overlay preserves it on round-trip even before Phase 4 activates the reader.
@@ -108,6 +109,8 @@ export type V1SnapshotPayload = {
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   reachBorder?: RecoveredSimulationState["reachBorder"];
   exploredTiles?: RecoveredSimulationState["exploredTiles"];
+  fairSpawnSites?: RecoveredSimulationState["fairSpawnSites"];
+  planetaryDefensePlanner?: RecoveredSimulationState["planetaryDefensePlanner"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -262,6 +265,13 @@ export const compactSnapshotForStorage = async (
     if (i > 0 && i % YIELD_CHUNK_SIZE === 0) await yieldToEventLoop();
     const baseline = baselineIndex.get(tileKey(tile.x, tile.y));
     if (baseline !== undefined) matchedBaselineCount += 1;
+    i += 1;
+    // The runtime's snapshot tile cache hands back the baseline object itself
+    // for a tile nobody has touched (snapshot-tile-boot.ts). It cannot differ
+    // from itself, so it needs neither a diff nor a memo entry. Measured on a
+    // world that has not restarted: memo 8.0 MB -> 1.0 MB. After a restart the
+    // recovered tiles are separate objects from the baseline and this is a no-op.
+    if (tile === baseline) continue;
     let overlay: V1OverlayTile | undefined;
     const memoed = tileOverlayMemo?.get(tile);
     if (memoed !== undefined) {
@@ -271,7 +281,6 @@ export const compactSnapshotForStorage = async (
       tileOverlayMemo?.set(tile, overlay ?? null);
     }
     if (overlay) tileOverlay.push(overlay);
-    i += 1;
   }
   // Only if some baseline tile is unaccounted for could a "fully cleared"
   // overlay entry be needed. matchedBaselineCount counts distinct baseline hits (tile
@@ -306,6 +315,8 @@ export const compactSnapshotForStorage = async (
       : {}),
     ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
     ...(initialState.exploredTiles ? { exploredTiles: initialState.exploredTiles } : {}),
+    ...(initialState.fairSpawnSites ? { fairSpawnSites: initialState.fairSpawnSites } : {}),
+    ...(initialState.planetaryDefensePlanner ? { planetaryDefensePlanner: initialState.planetaryDefensePlanner } : {}),
     commandEvents
   };
 };
@@ -372,7 +383,9 @@ export const expandSnapshotFromStorage = (
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
       ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {}),
-      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {})
+      ...(v1.exploredTiles ? { exploredTiles: v1.exploredTiles } : {}),
+      ...(v1.fairSpawnSites ? { fairSpawnSites: v1.fairSpawnSites } : {}),
+      ...(v1.planetaryDefensePlanner ? { planetaryDefensePlanner: v1.planetaryDefensePlanner } : {})
     },
     commandEvents: v1.commandEvents
   };

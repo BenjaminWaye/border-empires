@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 import { InMemorySectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 import { countHumanHouses, registerSectorBoardRoute } from "./register-sector-board-route.js";
 
-const setup = (playerIds: string[], maxHouses: number, fail = false) => {
+const setup = (playerIds: string[], maxHouses: number, fail = false, landingSiteAvailable?: boolean) => {
   const app = Fastify();
   const store = new InMemorySectorWaitlistStore();
   registerSectorBoardRoute(app, {
     store,
     getOccupancy: async () => {
       if (fail) throw new Error("sim down");
-      return { seasonId: "season-9", status: "active", playerIds };
+      return { seasonId: "season-9", status: "active", playerIds, ...(landingSiteAvailable === undefined ? {} : { landingSiteAvailable }) };
     },
     maxHouses: () => maxHouses
   });
@@ -30,12 +30,19 @@ describe("GET /sector/board", () => {
     const { app, store } = setup(["alice", "bob", "ai-1"], 100);
     await store.join({ seasonId: "season-9", playerId: "carol", joinedAt: 1 });
     const response = await app.inject({ method: "GET", url: "/sector/board" });
-    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, full: false, waitingCount: 1 });
+    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, full: false, noLandingSite: false, waitingCount: 1 });
   });
 
   it("marks the Sector full at the cap", async () => {
     const { app } = setup(["alice", "bob"], 2);
     expect((await app.inject({ method: "GET", url: "/sector/board" })).json()).toMatchObject({ houses: 2, full: true });
+  });
+
+  it("marks the Sector full when no viable landing site is left, with House places to spare (GDD §6)", async () => {
+    const { app } = setup(["alice"], 100, false, false);
+    expect((await app.inject({ method: "GET", url: "/sector/board" })).json()).toMatchObject({ houses: 1, full: true, noLandingSite: true });
+    const open = setup(["alice"], 100, false, true);
+    expect((await open.app.inject({ method: "GET", url: "/sector/board" })).json()).toMatchObject({ full: false, noLandingSite: false });
   });
 
   it("never reports full when there is no cap", async () => {

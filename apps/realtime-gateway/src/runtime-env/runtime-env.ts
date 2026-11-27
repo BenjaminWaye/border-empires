@@ -1,3 +1,4 @@
+import { parseHostedSectorConfig, type HostedSectorConfig } from "../hosted-sector/hosted-sector-ticket.js";
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "../seed-fallback.js";
 
 const DEFAULT_EMAIL_ALERTS_FROM = "Border Empires <alerts@borderempires.com>";
@@ -17,6 +18,10 @@ export type RealtimeGatewayRuntimeEnv = {
   adminApiToken?: string;
   adminEmail?: string;
   aiPlayerCount?: number;
+  hostedSector?: HostedSectorConfig;
+  // Files player bug reports/suggestions as GitHub issues when both
+  // GATEWAY_GITHUB_ISSUES_TOKEN and GATEWAY_GITHUB_ISSUES_REPO are set.
+  playerReportGithubIssues?: { token: string; repo: string };
   emailAlerts: {
     resendApiKey?: string;
     from?: string;
@@ -81,6 +86,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
   // deployer sets their own address via ADMIN_EMAIL.
   const adminEmail = (env.ADMIN_EMAIL ?? "").trim().toLowerCase() || undefined;
   const bugReportEmailTo = (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? adminEmail ?? "").trim();
+  const githubIssuesToken = (env.GATEWAY_GITHUB_ISSUES_TOKEN ?? "").trim();
+  const githubIssuesRepo = (env.GATEWAY_GITHUB_ISSUES_REPO ?? "").trim();
 
   // GATEWAY_DEFAULT_HUMAN_PLAYER_ID collapses every distinct authenticated Firebase
   // uid without an explicit binding onto a single shared playerId. That is only ever
@@ -117,6 +124,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
     );
   }
 
+  const hostedSector = parseHostedSectorConfig(env);
+
   return {
     host: env.HOST ?? "127.0.0.1",
     port: parsePort(env.PORT, 3101),
@@ -134,10 +143,14 @@ export const parseRealtimeGatewayRuntimeEnv = (
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
     ...(adminEmail ? { adminEmail } : {}),
+    ...(githubIssuesToken && githubIssuesRepo
+      ? { playerReportGithubIssues: { token: githubIssuesToken, repo: githubIssuesRepo } }
+      : {}),
     ...(() => {
       const count = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
       return count !== undefined ? { aiPlayerCount: count } : {};
     })(),
+    ...(hostedSector ? { hostedSector } : {}),
     emailAlerts: {
       ...(env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY ? { resendApiKey: env.GATEWAY_EMAIL_ALERTS_RESEND_API_KEY } : {}),
       ...(env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET ? { unsubscribeSecret: env.GATEWAY_EMAIL_UNSUBSCRIBE_SECRET } : {}),

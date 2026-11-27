@@ -1,0 +1,77 @@
+/* Select first, then confirm: the big confirm prompt that floats right above
+   the tapped tile (client-tap-confirm-button.ts). No transition on purpose:
+   the second tap must land the instant the prompt appears.
+   Styled as a brass plate in the steampunk theme (--sp-* tokens), echoing
+   the tile sheet's primary action: display-face label, mono cost, dark ink
+   on brass. */
+.tap-confirm-btn {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 180px;
+  max-width: calc(100vw - 16px);
+  min-height: 64px;
+  padding: 10px 22px;
+  border-radius: 4px;
+  border: 1px solid var(--sp-brass-700, #8a611f);
+  background: linear-gradient(180deg, var(--sp-brass-100, #f4dfa6) 0%, var(--sp-brass-300, #d9ad52) 38%, var(--sp-brass-500, #b8862f) 100%);
+  color: var(--sp-iron-950, #0c0906);
+  font-family: var(--sp-font-display, "Cinzel", Georgia, serif);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 227, 0.6),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
+    0 0 0 2px rgba(20, 16, 10, 0.85),
+    0 0 0 3px var(--sp-brass-700, #8a611f),
+    0 10px 28px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: none;
+}
+
+.tap-confirm-btn:active:not(:disabled) {
+  background: linear-gradient(180deg, var(--sp-brass-300, #d9ad52), var(--sp-brass-500, #b8862f));
+}
+
+.tap-confirm-btn:disabled {
+  /* Dark plate, but keep the brass ring so it still reads over dark terrain. */
+  background: var(--sp-panel-bg, #1b140d);
+  border-color: var(--sp-brass-500, #b8862f);
+  color: var(--sp-parchment-300, #e6d6ae);
+  box-shadow:
+    0 0 0 2px rgba(20, 16, 10, 0.85),
+    0 0 0 3px var(--sp-brass-700, #8a611f),
+    0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+
+.tap-confirm-label,
+.tap-confirm-cost {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tap-confirm-label {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.tap-confirm-cost {
+  font-family: var(--sp-font-mono, "Space Mono", monospace);
+  font-size: 13px;
+  font-weight: 700;
+  color: #120f0b;
+  white-space: nowrap;
+}
+
+.tap-confirm-btn:disabled .tap-confirm-cost {
+  color: var(--sp-parchment-300, #e6d6ae);
+}

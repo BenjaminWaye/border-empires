@@ -39,6 +39,24 @@ describe("HUD v2 town screen bonuses", () => {
     expect(upkeep(left(town()))).toEqual(["4 slots", undefined]);
   });
 
+  // Playtest Run 4: "Fertile Town · Coin +0% · Manpower cap +0% · Regen +0%" read as a perk that did nothing.
+  it("calls a neutral-terrain town a Standard Town with no terrain bonus, and keeps real bonuses", () => {
+    const town = (terrainProfile: "GRASS" | "DESERT") => ({
+      x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", landBiome: terrainProfile === "GRASS" ? "GRASS" : "SAND",
+      town: {
+        name: "Bryn", type: "MARKET", baseGoldPerMinute: 2, supportCurrent: 4, supportMax: 4, goldPerMinute: 5, cap: 0, terrainProfile, coastal: false,
+        isFed: true, population: 20_000, maxPopulation: 50_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0,
+        hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
+      }
+    }) as unknown as Tile;
+    const left = (tile: Tile) => townScreenRegions({ town: tile, focus: tile, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined }).left;
+    const standard = left(town("GRASS"));
+    expect(standard).toContain("Standard Town");
+    expect(standard).toContain("No terrain bonus");
+    expect(standard).not.toContain("+0%");
+    expect(left(town("DESERT"))).toContain("Coin +60%");
+  });
+
   // Regression: every effect was prefixed with "Coin ", giving "Coin coin production stopped".
   it("does not double the Coin prefix on worded effects", () => {
     const tile = {
@@ -50,7 +68,7 @@ describe("HUD v2 town screen bonuses", () => {
       }
     } as unknown as Tile;
     const { left } = townScreenRegions({ town: tile, focus: tile, townView: view, focusView: view, townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
-    expect(left).toContain(">coin production stopped<");
+    expect(left).toContain(">no coin · garrison grain or fish in reach<");
     expect(left).not.toContain("Coin coin");
   });
 });

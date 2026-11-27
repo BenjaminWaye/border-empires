@@ -6,8 +6,11 @@
 import { RESOURCE_SUPPLY_TRADE_DAYS, hasRecurringCoin, recurringCoinTermHours, diplomacyTermsAreEmpty, hasResourceSupplyOffer, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
-import { TRADE_GOODS, tradeAmount, type TradeSide } from "./client-diplomacy-trade-goods.js";
+import { dealTownItemsHtml } from "./client-diplomacy-town-return.js";
+import type { DiplomacyTownRef } from "@border-empires/shared";
+import { TRADE_GOODS, tradeAmount, tradeDisplayScale, type TradeSide } from "./client-diplomacy-trade-goods.js";
 import type { TradeKind, TradeSelection, TradeVerdict } from "./client-diplomacy-trade-view.js";
+import { allianceTreatyLabel, type FealtyStanding } from "../client-fealty/client-fealty.js";
 
 /** A truce or alliance picked from the left column, or none. */
 export type DealTreaty = DiplomacyOfferKind | undefined;
@@ -15,7 +18,7 @@ export type DealTreaty = DiplomacyOfferKind | undefined;
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 
-const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources);
+const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || hasResourceSupplyOffer(terms.ask.resources) || Boolean(terms.ask.towns?.length);
 
 const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources);
 
@@ -41,8 +44,8 @@ export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: 
   return undefined;
 };
 
-export const treatyLabel = (selection: TradeSelection): string =>
-  selection.kind === "alliance" ? "Alliance" : `${selection.extendsTruce ? "Extend truce" : "Truce"} · ${selection.durationHours}h`;
+export const treatyLabel = (selection: TradeSelection, fealty: FealtyStanding = "ALLIANCE"): string =>
+  selection.kind === "alliance" ? allianceTreatyLabel(fealty) : `${selection.extendsTruce ? "Extend truce" : "Truce"} · ${selection.durationHours}h`;
 
 const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number): string =>
   TRADE_GOODS.filter((spec) => spec.side === side)
@@ -50,11 +53,12 @@ const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number
       const amount = tradeAmount(terms, spec);
       if (amount <= 0) return [];
       const unit = spec.good === "coinPerHour" ? ` <small>up to ${amount * coinHours} Coin over ${coinHours}h</small>` : spec.supply ? ` <small>supply slot${amount === 1 ? "" : "s"}</small>` : "";
+      const shown = amount * tradeDisplayScale(spec);
       return [
         `<li class="diplomacy-deal-item" data-deal-item="${spec.key}">
           <button type="button" class="diplomacy-deal-edit" data-deal-edit="${spec.key}" title="Change amount">
             <span class="diplomacy-deal-icon" aria-hidden="true">${resourceIconHtml(spec.icon)}</span>
-            <span><b>${amount}</b> ${escapeHtml(spec.label)}${unit}</span>
+            <span><b>${shown}</b> ${escapeHtml(spec.label)}${unit}</span>
           </button>
           <button type="button" class="diplomacy-deal-remove" data-deal-remove="${spec.key}" aria-label="Remove ${escapeHtml(spec.label)} from the deal">✕</button>
         </li>`
@@ -64,20 +68,20 @@ const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide, coinHours: number
 
 /** The "In this deal" list: the treaty, then each side's goods. */
 /** `locked`: a counter-offer keeps its treaty (it may switch truce/alliance, not drop it). */
-export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean }): string => {
+export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean; townName?: (town: DiplomacyTownRef) => string | undefined; fealty?: FealtyStanding }): string => {
   const { selection, treaty, targetName } = input;
   const { terms } = selection;
   const treatyHtml = treaty
-    ? `<div class="diplomacy-deal-treaty" data-deal-treaty="${treaty}"><span>${escapeHtml(treatyLabel(selection))}</span>
+    ? `<div class="diplomacy-deal-treaty" data-deal-treaty="${treaty}"><span>${escapeHtml(treatyLabel(selection, input.fealty))}</span>
         ${input.locked ? "" : `<button type="button" class="diplomacy-deal-remove" data-deal-remove="treaty" aria-label="Remove the ${treaty} from the deal">✕</button>`}</div>`
     : "";
   if (!treaty && diplomacyTermsAreEmpty(terms)) {
     return `<p class="diplomacy-deal-empty">Nothing in the deal yet.</p>`;
   }
-  // Coin per hour runs for the supply term, or a slot-free truce's own length.
+  // A coin pledge (stored per hour, shown per day) runs for the supply term, or a slot-free truce's own length.
   const coinHours = recurringCoinTermHours(selection.kind === "gift" ? "trade" : selection.kind, selection.durationHours, terms) ?? RESOURCE_SUPPLY_TRADE_DAYS * 24;
-  const give = sideItemsHtml(terms, "give", coinHours);
-  const ask = sideItemsHtml(terms, "ask", coinHours);
+  const give = sideItemsHtml(terms, "give", coinHours) + dealTownItemsHtml(terms, "give", input.townName);
+  const ask = sideItemsHtml(terms, "ask", coinHours) + dealTownItemsHtml(terms, "ask", input.townName, true);
   const sideBlock = (heading: string, items: string, side: TradeSide): string =>
     `<div class="diplomacy-deal-side" data-deal-side="${side}"><h4>${escapeHtml(heading)}</h4>${items ? `<ul>${items}</ul>` : `<p class="diplomacy-deal-none">Nothing</p>`}</div>`;
   const supplyNote = hasSupply(terms)

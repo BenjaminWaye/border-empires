@@ -1,5 +1,5 @@
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
-import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
+import { OFFER_NOTE_TEXT, describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, isOfferNoteId, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -7,6 +7,9 @@ import type { AllianceRequest, TruceRequest } from "../client-types.js";
 import { attackerNoteText, recentAttacksOnMe } from "./client-offer-dock-attacker-note.js";
 import { ownGoodsShortfall } from "../client-diplomacy-trade/client-diplomacy-trade-view.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason } from "../client-diplomacy-trade/client-supply-agreement-limit.js";
+import { incomingAllianceHeadline } from "../client-fealty/client-fealty.js";
+import { recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
+import { acceptTruceLabel, truceLengthLabel } from "../client-truce-offer-length/client-truce-offer-length.js";
 import "./client-diplomacy-offer-dock.css";
 
 // Incoming truce/alliance offers as a small dock you answer in place, instead
@@ -47,6 +50,10 @@ export type OfferDockEntry = {
   attackerNote?: string;
   /** Why you can't pay what this offer asks of you right now; Accept stays disabled while set. */
   blockedReason?: string;
+  /** The preset line the sender attached, as text (diplomacy-offer-notes.ts). */
+  message?: string;
+  /** A new truce: it ends when the countdown does, accepted or not. */
+  truceRunsOut?: boolean;
 };
 
 /** Time left on the server's clock, once the client has a server timestamp to align with. */
@@ -86,10 +93,10 @@ const remainingFor = (
   return Math.max(0, onServerClock === undefined ? sinceSeen : Math.min(sinceSeen, onServerClock));
 };
 
-// Coin, or an ongoing resource supply from your slots.
+// Coin, an ongoing resource supply from your slots, or a town.
 const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
   (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.coinPerHour ?? 0) > 0 ||
-  hasResourceSupplyOffer(request.terms?.ask.resources);
+  hasResourceSupplyOffer(request.terms?.ask.resources) || (request.terms?.ask.towns?.length ?? 0) > 0;
 
 /**
  * The deal screen's own affordability check (ownGoodsShortfall), applied to
@@ -124,26 +131,32 @@ export const offerDockEntries = (
     const note = attackerNoteText(attacks.get(fromPlayerId));
     return note ? { ...entry, attackerNote: note } : entry;
   };
-  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withNote(withBlocked({
+  const withMessage = (entry: OfferDockEntry, request: { note?: unknown }): OfferDockEntry =>
+    isOfferNoteId(request.note) ? { ...entry, message: OFFER_NOTE_TEXT[request.note] } : entry;
+  const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "truce",
     id: request.id,
     fromName: senderName(request),
-    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : `offers a ${request.durationHours}h truce`,
+    // A new truce runs from the offer, so its countdown is the truce itself; "a 12h truce" read as 12h from
+    // accepting when 2h were left (playtest 2026-11-26).
+    headline: request.extendsTruce ? `offers to extend your truce by ${request.durationHours}h` : "offers a truce",
     terms: describeDiplomacyTermsForRecipient(request.terms, senderName(request)),
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
-    costsYou: costsRecipient(request)
-  }, acceptBlockedReason(request, state)), request.fromPlayerId));
-  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withNote(withBlocked({
+    costsYou: costsRecipient(request),
+    ...(request.extendsTruce ? {} : { truceRunsOut: true })
+  }, acceptBlockedReason(request, state)), request.fromPlayerId), request));
+  const alliances = state.incomingAllianceRequests.map((request: AllianceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "alliance",
     id: request.id,
     fromName: senderName(request),
-    headline: "proposes an alliance",
+    // An offer recorded as fealty when sent: "Ada swears fealty" / "Ada demands your fealty" (client-fealty-recorded.ts).
+    headline: incomingAllianceHeadline(recordedFealtyStanding(request.fealty, state.me, request.fromPlayerId)),
     terms: describeDiplomacyTermsForRecipient(request.terms, senderName(request)),
     remainingMs: remainingFor(request, firstSeenAtById, nowMs, serverRemaining),
     pending: pendingIds.has(request.id),
     costsYou: costsRecipient(request)
-  }, acceptBlockedReason(request, state)), request.fromPlayerId));
+  }, acceptBlockedReason(request, state)), request.fromPlayerId), request));
   const liveIds = new Set([...truces, ...alliances].map((entry) => entry.id));
   for (const id of firstSeenAtById.keys()) if (!liveIds.has(id)) firstSeenAtById.delete(id);
   // An offer about to run out comes first; offers without an expiry keep their order after them.
@@ -170,10 +183,20 @@ const ICON = {
   alliance: '<img class="offer-dock-icon-img" src="/icons/simple/alliance.svg" alt="" draggable="false">'
 } as const;
 
+/**
+ * The Accept button's text. A new truce says the truce you'd actually get, which is the countdown,
+ * not the hours first offered: "Accept 22h truce" (playtest 2026-11-27, "my 24h truce ran as an 11h one").
+ */
+export const offerDockAcceptText = (entry: Pick<OfferDockEntry, "pending" | "truceRunsOut" | "remainingMs">, confirming: boolean): string => {
+  if (entry.pending) return "Sending…";
+  const length = entry.truceRunsOut && entry.remainingMs !== undefined ? truceLengthLabel(entry.remainingMs) : undefined;
+  return acceptTruceLabel(length, confirming ? "Confirm" : "Accept");
+};
+
 const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined, canCounter: boolean): string => {
   const disabled = entry.pending ? " disabled" : "";
   const blockedAccept = entry.blockedReason && !entry.pending
-    ? `<button type="button" class="offer-dock-btn offer-dock-accept" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}" title="${esc(entry.blockedReason)}" disabled>Accept</button>`
+    ? `<button type="button" class="offer-dock-btn offer-dock-accept" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}" title="${esc(entry.blockedReason)}" disabled>${esc(offerDockAcceptText(entry, false))}</button>`
     : undefined;
   const counter = canCounter
     ? `<button type="button" class="offer-dock-btn offer-dock-counter" data-offer-action="counter" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}" title="Change the terms and send them back"${disabled}>Counter</button>`
@@ -181,17 +204,18 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined, canCou
   const confirming = entry.id === confirmingId;
   const countdown = entry.remainingMs === undefined
     ? ""
-    : `<span class="offer-dock-timer" data-offer-timer="${esc(entry.id)}" title="Time left to answer">${formatOfferCountdown(entry.remainingMs)}</span>`;
+    : `<span class="offer-dock-timer" data-offer-timer="${esc(entry.id)}" title="${entry.truceRunsOut ? "Truce time left" : "Time left to answer"}">${formatOfferCountdown(entry.remainingMs)}</span>`;
   return `<div class="offer-dock-row" data-offer-kind="${entry.kind}">
     <span class="offer-dock-icon" aria-hidden="true">${ICON[entry.kind]}</span>
     <div class="offer-dock-text">
       <div class="offer-dock-headline"><strong>${esc(entry.fromName)}</strong> ${esc(entry.headline)}${countdown}</div>
+      ${entry.message ? `<div class="offer-dock-message">“${esc(entry.message)}”</div>` : ""}
       ${entry.attackerNote ? `<div class="offer-dock-attacker">${esc(entry.attackerNote)}</div>` : ""}
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
       ${entry.blockedReason ? `<div class="offer-dock-blocked" data-offer-blocked="${esc(entry.id)}">${esc(blockedText(entry.blockedReason, canCounter))}</div>` : ""}
     </div>
     <div class="offer-dock-actions">
-      ${blockedAccept ?? `<button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${entry.pending ? "Sending…" : confirming ? "Confirm" : "Accept"}</button>`}
+      ${blockedAccept ?? `<button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${esc(offerDockAcceptText(entry, confirming))}</button>`}
       ${counter}
       <button type="button" class="offer-dock-btn offer-dock-decline" data-offer-action="decline" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${disabled}>Decline</button>
     </div>
@@ -279,6 +303,10 @@ export const installDiplomacyOfferDock = (deps: {
         dockEl.querySelector<HTMLElement>(`[data-offer-action="accept"][data-offer-id="${CSS.escape(entry.id)}"]`)?.setAttribute("title", entry.blockedReason);
       }
       if (entry.remainingMs === undefined) continue;
+      // The truce length on Accept shrinks with the countdown.
+      const acceptEl = dockEl.querySelector<HTMLElement>(`[data-offer-action="accept"][data-offer-id="${CSS.escape(entry.id)}"]`);
+      const acceptText = offerDockAcceptText(entry, confirming?.id === entry.id);
+      if (acceptEl && acceptEl.textContent !== acceptText) acceptEl.textContent = acceptText;
       const timerEl = dockEl.querySelector<HTMLElement>(`[data-offer-timer="${CSS.escape(entry.id)}"]`);
       if (timerEl) timerEl.textContent = formatOfferCountdown(entry.remainingMs);
     }

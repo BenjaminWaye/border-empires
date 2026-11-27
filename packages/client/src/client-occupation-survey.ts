@@ -36,6 +36,8 @@ type SurveyState = { camX: number; camY: number; camSubX: number; camSubY: numbe
 
 const TECH_BY_RESOURCE: Record<OccupationSurveyResource, string> = { TITANIUM: "masonry", UMBRITE: "leatherworking", GEMS: "crystal-lattices" };
 const RESOURCE_LABEL: Record<OccupationSurveyResource, string> = { TITANIUM: "Titanium", UMBRITE: "Umbrite", GEMS: "Crystal" };
+/** "Titanium", "Umbrite" or "Crystal". */
+export const occupationSurveyResourceLabel = (resource: OccupationSurveyResource): string => RESOURCE_LABEL[resource];
 const SIGNATURE_LABEL: Record<ProspectSignature, string> = { BLACKWOOD_CANOPY: "Blackwood canopy", FERROUS_DUST: "Ferrous dust", REFRACTIVE_GROUND: "Refractive ground" };
 
 const reportFromEntry = (entry: SurveyEventEntry): OccupationSurveyReport | undefined => {
@@ -54,6 +56,8 @@ let releaseCardSlot: (() => void) | undefined;
 let previousFocus: HTMLElement | undefined;
 let viewHandler: ((report: OccupationSurveyReport) => void) | undefined;
 let capturePanelOpen = false;
+// Last frame's gate (client-popup-gate.ts): a screen covers the map, the AFC drop is landing, or one is about to open.
+let presentationBlocked = false;
 let reportScope: string | undefined;
 let revealTechIds: readonly string[] = []; // At most the three resource-reveal techs.
 
@@ -83,10 +87,10 @@ const removePopup = (): void => {
   releaseCardSlot = undefined;
   release?.();
 };
+// The next clue waits for its own pin tap: one card never opens another on its own (owner, 2026-11-21).
 const dismissPopup = (): void => {
   removePopup();
   active = queue.shift();
-  if (active && !capturePanelOpen) showPopup(active);
 };
 const acknowledgePopup = (): void => {
   if (active && reportScope !== undefined) rememberSurveyDismissal(reportScope, active.resource, active.id);
@@ -95,7 +99,7 @@ const acknowledgePopup = (): void => {
 const showPopup = (report: OccupationSurveyReport): void => {
   if (typeof document === "undefined" || popupElement?.dataset.reportId === report.id) return;
   removePopup();
-  // Another full-screen card (town capture, waystation) is up or waiting: this one waits its turn (sync retries every frame).
+  // Another full-screen card (town capture, waystation) is up or waiting: its pins are hidden meanwhile (pendingReports).
   if (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0) return;
   const overlay = document.createElement("div");
   const release = tryClaimFullscreenCard("occupation-survey", overlay);
@@ -109,7 +113,7 @@ const showPopup = (report: OccupationSurveyReport): void => {
     <span class="occupation-survey-kicker">Town survey completed</span>
     <h2 id="occupation-survey-title">Signs of ${RESOURCE_LABEL[report.resource]} nearby</h2>
     <p id="occupation-survey-detail">${escapeHtml(SIGNATURE_LABEL[report.signature])} ${escapeHtml(report.bearing.toLowerCase())} of this town indicates likely ${RESOURCE_LABEL[report.resource]}-bearing territory.</p>
-    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. The Manifest's card keeps this clue.</p>
+    <p class="occupation-survey-hint">Research the resource's Manifest to reveal deposits. Your Chronicle keeps this clue.</p>
     <div class="occupation-survey-actions"><button type="button" data-survey-view>View survey</button><button type="button" data-survey-dismiss>Got it</button></div>
   </section>`;
   overlay.querySelector<HTMLButtonElement>("[data-survey-view]")?.addEventListener("click", () => {
@@ -135,13 +139,14 @@ const presentReports = (incoming: OccupationSurveyReport[]): void => {
 };
 
 export const occupationSurveyController = {
-  record(entry: SurveyEventEntry): void {
+  /** `present: false` keeps the clue (Manifest card, town capture card, Chronicles) without popping it. */
+  record(entry: SurveyEventEntry, present = true): void {
     const report = reportFromEntry(entry);
     if (!report || seenReportIds[report.resource] === report.id) return;
     seenReportIds[report.resource] = report.id;
     if (revealTechIds.includes(TECH_BY_RESOURCE[report.resource])) return;
     reports.set(report.resource, report);
-    if (reportScope !== undefined && readSurveyDismissals(reportScope)[report.resource] === report.id) return;
+    if (!present || (reportScope !== undefined && readSurveyDismissals(reportScope)[report.resource] === report.id)) return;
     presentReports([report]);
   },
   currentReports(techIds: readonly string[] = []): OccupationSurveyReport[] {
@@ -167,13 +172,40 @@ export const occupationSurveyController = {
       if (active?.id === report.id) active = queue.shift();
     }
   },
+  /** Each frame: drops clues a researched Manifest has revealed, and closes the card while a screen covers the map. */
   sync(state: SurveyState, _worldToScreen: WorldToScreen, _size: number, _halfW: number, _halfH: number): void {
     if (state.techIds) filterRevealedReports(state.techIds);
-    if (state.presentationReady === false) { removePopup(); return; }
-    if (active && !capturePanelOpen) showPopup(active);
+    presentationBlocked = state.presentationReady === false;
+    if (presentationBlocked) removePopup();
+  },
+  /**
+   * Clues not yet acknowledged, one per resource at most: each is a pin on the map (client-map-tip-pins.ts).
+   * None while the town capture card, a screen over the map or another full-screen card would keep a tap
+   * from opening the clue's card.
+   */
+  pendingReports(): OccupationSurveyReport[] {
+    const otherCard = !popupElement && (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0);
+    if (capturePanelOpen || presentationBlocked || otherCard) return [];
+    return active ? [active, ...queue] : [...queue];
+  },
+  /** A pin tap: shows that clue's card. View survey or Got it acknowledges it and removes its pin. */
+  open(reportId: string): void {
+    if (capturePanelOpen) return;
+    const queued = queue.findIndex((report) => report.id === reportId);
+    if (queued >= 0) {
+      const [report] = queue.splice(queued, 1);
+      if (active) queue.unshift(active);
+      active = report;
+    }
+    if (active?.id === reportId) showPopup(active);
   },
   installViewHandler(handler: (report: OccupationSurveyReport) => void): void { viewHandler = handler; },
-  reconcile(entries: readonly SurveyEventEntry[], techIds?: readonly string[], scope?: string): void {
+  /**
+   * `present: false` is the login backfill: clues are recorded (Manifest card,
+   * town capture card, Chronicle) but not popped, so logging back in does not
+   * bury the player in cards for things that happened while they were away.
+   */
+  reconcile(entries: readonly SurveyEventEntry[], techIds?: readonly string[], scope?: string, present = true): void {
     if (scope !== undefined && scope !== reportScope) {
       this.beginCapture();
       capturePanelOpen = false;
@@ -184,6 +216,7 @@ export const occupationSurveyController = {
       delete seenReportIds.UMBRITE;
       delete seenReportIds.GEMS;
       revealTechIds = [];
+      presentationBlocked = false;
       reportScope = scope;
     }
     if (techIds) filterRevealedReports(techIds);
@@ -191,7 +224,7 @@ export const occupationSurveyController = {
     for (const [resource, report] of reports) if (!currentIds.has(report.id)) reports.delete(resource);
     queue.splice(0, queue.length, ...queue.filter((report) => currentIds.has(report.id)));
     if (active && !currentIds.has(active.id)) dismissPopup();
-    for (const entry of entries) this.record(entry);
+    for (const entry of entries) this.record(entry, present);
   },
   dismiss: acknowledgePopup
 };

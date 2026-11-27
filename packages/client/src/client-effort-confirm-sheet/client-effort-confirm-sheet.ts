@@ -1,3 +1,4 @@
+import { renderFlagSpotSection, wireFlagSpotSection, type EffortSheetFlagSpots } from "./client-effort-flag-spot-section.js";
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 
 // The effort-level (Normal / Extra / Double, per docs/replenishment-update-
@@ -21,11 +22,17 @@ export type EffortConfirmSheetOptions = {
    * "slider": an absolute-manpower slider plus preset buttons, for one target.
    * "presets": preset buttons only, for several targets with different
    * floors -- the caller applies the chosen preset's multiplier per target.
+   * "none": no effort controls, for targets where extra manpower buys
+   * nothing; used when the sheet is only asking where to raise a flag.
    */
-  mode: "slider" | "presets";
+  mode: "slider" | "presets" | "none";
+  /** Where to raise a new muster flag, when the attack would raise one. */
+  flagSpots?: EffortSheetFlagSpots;
   confirmLabel?: string;
   /** Live info line under the controls (e.g. win chance); re-run on every change and on a short timer. */
   describe?: (commitManpower: number, preset: MusterCommitPreset | undefined) => string;
+  /** Second live line, for how long the attack's muster flag takes to fill (client-muster-fill-eta.ts); hidden when empty. */
+  note?: (commitManpower: number, preset: MusterCommitPreset | undefined) => string;
   onChange?: (commitManpower: number) => void;
   /** `preset` is undefined when the player dragged the slider off a preset. */
   onConfirm: (commitManpower: number, preset: MusterCommitPreset | undefined) => void;
@@ -83,24 +90,32 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   card.innerHTML = `
     <h3 class="effort-confirm-title">${escapeHtml(options.title)}</h3>
     ${options.subtitle ? `<p class="effort-confirm-subtitle">${escapeHtml(options.subtitle)}</p>` : ""}
+    ${options.flagSpots ? renderFlagSpotSection(options.flagSpots) : ""}
     ${
-      options.mode === "slider"
-        ? `<div class="effort-confirm-dial">
-      <div class="effort-confirm-readout"><span class="effort-confirm-readout-value" data-effort-value>${commitManpower}</span><span class="effort-confirm-readout-unit">manpower</span></div>
-      <input type="range" class="effort-confirm-range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" />
-      <div class="effort-confirm-scale"><span>${floor}</span><span>${cap}</span></div>
-    </div>`
-        : ""
-    }
-    <div class="effort-confirm-presets">
+      options.mode === "none"
+        ? ""
+        : `<div class="effort-section">
+      <div class="effort-section-head">
+        <span class="effort-section-label">Effort</span>
+        ${options.mode === "slider" ? `<span class="effort-confirm-readout"><b data-effort-value>${commitManpower}</b> MP</span>` : ""}
+      </div>
+      <div class="effort-seg effort-confirm-presets" role="group" aria-label="Effort">
       ${presets
         .map(
           ({ key, amount }) =>
-            `<button type="button" class="effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span>${PRESET_LABELS[key]}</span><small>${amount}</small></button>`
+            `<button type="button" class="effort-seg-item effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span class="effort-seg-name">${PRESET_LABELS[key]}</span><small>${amount} MP</small></button>`
         )
         .join("")}
-    </div>
+      </div>
+      ${
+        options.mode === "slider"
+          ? `<input type="range" class="effort-confirm-range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" />`
+          : ""
+      }
+    </div>`
+    }
     <p class="effort-confirm-info" data-effort-info></p>
+    ${options.note ? `<p class="effort-confirm-fill" data-effort-fill hidden></p>` : ""}
     <div class="effort-confirm-actions">
       <button type="button" class="effort-confirm-cancel" data-effort-cancel>Cancel</button>
       <button type="button" class="effort-confirm-go" data-effort-go>${escapeHtml(options.confirmLabel ?? "Go")}</button>
@@ -111,6 +126,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   const slider = card.querySelector<HTMLInputElement>("[data-effort-slider]");
   const valueEl = card.querySelector<HTMLElement>("[data-effort-value]");
   const infoEl = card.querySelector<HTMLElement>("[data-effort-info]");
+  const fillEl = card.querySelector<HTMLElement>("[data-effort-fill]");
   const presetButtons = Array.from(card.querySelectorAll<HTMLButtonElement>("[data-effort-preset]"));
 
   const refresh = (): void => {
@@ -126,6 +142,11 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
       btn.classList.toggle("is-active", selected);
     }
     if (infoEl && options.describe) infoEl.textContent = options.describe(commitManpower, preset);
+    if (fillEl && options.note) {
+      const note = options.note(commitManpower, preset);
+      fillEl.textContent = note;
+      fillEl.hidden = note === "";
+    }
   };
   const changed = (): void => {
     refresh();
@@ -174,6 +195,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
       changed();
     };
   }
+  if (options.flagSpots) wireFlagSpotSection(card, options.flagSpots, refresh);
   card.querySelector<HTMLButtonElement>("[data-effort-cancel]")?.addEventListener("click", cancel);
   const goBtn = card.querySelector<HTMLButtonElement>("[data-effort-go]");
   goBtn?.addEventListener("click", confirm);
@@ -183,7 +205,7 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   activeSheet = { overlay, teardown: cancel };
   refresh();
   options.onChange?.(commitManpower);
-  if (options.describe) refreshTimer = setInterval(refresh, DESCRIBE_REFRESH_MS);
+  if (options.describe || options.note) refreshTimer = setInterval(refresh, DESCRIBE_REFRESH_MS);
   goBtn?.focus();
   return { close: cancel };
 };

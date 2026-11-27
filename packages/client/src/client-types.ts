@@ -16,6 +16,8 @@ export type OptimisticStructureKind =
   | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"
@@ -38,6 +40,7 @@ export type OptimisticStructureKind =
   | "HIGH_YIELD_AETHER_CONDENSER"
   | "TRADE_NEXUS"
   | "ANCILLARY_DEPOT"
+  | "VIVARIUM"
   | "HARBOR_EXCHANGE"
   | "NEURAL_WORKS"
   | "MINISTRY_HALL"
@@ -157,6 +160,7 @@ export type Tile = {
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
       | "ANCILLARY_DEPOT"
+      | "VIVARIUM"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
       | "MINISTRY_HALL"
@@ -194,6 +198,7 @@ export type Tile = {
       | "HIGH_YIELD_AETHER_CONDENSER"
       | "TRADE_NEXUS"
       | "ANCILLARY_DEPOT"
+      | "VIVARIUM"
       | "HARBOR_EXCHANGE"
       | "NEURAL_WORKS"
       | "MINISTRY_HALL"
@@ -210,7 +215,7 @@ export type Tile = {
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; capturedAt?: number; foundedBy?: string; modules?: string[]; houseModules?: string[]; capturedModuleHouses?: Record<string, string>; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -374,6 +379,7 @@ export type StrategicReplayEvent = {
     | "AETHER_CONDENSER"
     | "TRADE_NEXUS"
     | "ANCILLARY_DEPOT"
+    | "VIVARIUM"
     | "HARBOR_EXCHANGE"
     | "MINISTRY_HALL"
     | "RESONANCE_GRID";
@@ -405,11 +411,11 @@ export type FeedEntry = {
   focusX?: number;
   focusY?: number;
   actionLabel?: string;
+  /** The alert card's action opens this side panel instead of centring the map (e.g. "Manage charges"). */
+  openPanel?: "charges" | "integrity";
   unread?: boolean;
   /** Never mirror onto the alert card: a background notice with its own UI (client-feed-alert-surface.ts). */
   feedOnly?: boolean;
-  /** Mirror onto the alert card even when info/success: a background result the player has no other way to see. */
-  alert?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };

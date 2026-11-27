@@ -16,7 +16,7 @@ const discoveredAround = (radius: number, extra: string[] = []): Set<string> => 
   return set;
 };
 
-const emptySet = (): GuideTargetSet => ({ outOfReach: 0, pending: [], garrison: [], expand: [] });
+const emptySet = (): GuideTargetSet => ({ outOfReach: 0, unreachable: 0, pending: [], garrison: [], expand: [] });
 
 const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   checklist: {
@@ -51,6 +51,9 @@ const input = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   musterUnlocked: false,
   ownsMusterFlag: false,
   musterTargetTiles: [],
+  attackLaunched: false,
+  attackTargetTiles: () => [],
+  truceStage: "none",
   scout: "ready",
   exploreTarget: () => ({ x: 70, y: 50 }),
   nothingToExplore: () => false,
@@ -100,7 +103,7 @@ describe("guide steps with the scout drone", () => {
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("look-explore");
     expect(view.chapterTitle).toBe("Explore");
-    expect(view.title).toBe("Tap the marked unexplored ground and Explore");
+    expect(view.title).toBe("Tap the marked unexplored ground, then Explore");
     expect(view.highlightTiles).toEqual([{ x: 70, y: 50 }]);
   });
 
@@ -128,13 +131,13 @@ describe("guide steps with the scout drone", () => {
     const done = new Set(["look-pan", "look-zoom", "look-explore"]);
     const explore = evaluateGuide(input(), done);
     expect(explore).toEqual(
-      expect.objectContaining({ title: "No town in sight: tap the marked unexplored ground and Explore", highlightTiles: [{ x: 70, y: 50 }] })
+      expect.objectContaining({ title: "No town nearby: tap the marked unexplored ground, then Explore", highlightTiles: [{ x: 70, y: 50 }] })
     );
     const scouting = evaluateGuide(input({ scout: "out" }), done);
-    expect(scouting).toEqual(expect.objectContaining({ title: "Your scout drone is out: wait for its report", highlightTiles: [] }));
+    expect(scouting).toEqual(expect.objectContaining({ title: "Your drone is flying: wait for its report", highlightTiles: [] }));
     // Nothing left to explore nearby: back to the beacon.
     const beacon = evaluateGuide(input({ exploreTarget: () => undefined, nothingToExplore: () => true }), done);
-    expect(beacon.kind === "step" && beacon.title).toMatch(/^No town in sight: build a Relay Beacon/);
+    expect(beacon.kind === "step" && beacon.title).toMatch(/^No town nearby: build a Relay Beacon/);
   });
 
   it("a town the drone found, now back under fog, is still asked for with Expand To", () => {
@@ -147,7 +150,7 @@ describe("guide steps with the scout drone", () => {
     expect(guideTargetAction(food, "ready", true)).toBe("beacon");
     const done = new Set(["look-pan", "look-zoom", "look-explore", "foothold-take-town"]);
     const view = evaluateGuide(input({ footholdTargets: { town: emptySet(), food } }), done);
-    expect(view.kind === "step" && view.title).toMatch(/^No food in your reach: build a Relay Beacon/);
+    expect(view.kind === "step" && view.title).toMatch(/^Food is outside your reach: build a Relay Beacon/);
   });
 
   it("first-contact steps tell the player to Explore while they wait", () => {
@@ -198,10 +201,10 @@ describe("review fixes: no Explore loops, beacon step stays a beacon", () => {
     const early = evaluateGuide(input({ scoutFlights: 2 }), done);
     expect(early.kind === "step" && early.title).toMatch(/Explore$/);
     const capped = evaluateGuide(input({ scoutFlights: 3 }), done);
-    expect(capped.kind === "step" && capped.title).toMatch(/^No town in sight: build a Relay Beacon/);
+    expect(capped.kind === "step" && capped.title).toMatch(/^No town nearby: build a Relay Beacon/);
   });
 
-  it("keeps the target within drone range of home", () => {
+  it("keeps the target within the guide's search radius of home", () => {
     // Seen out to radius 11: the nearest unexplored tile is 12 out; 12 + overshoot would be 20.
     const target = guideExploreTarget(discoveredAround(11), HOME);
     expect(Math.max(Math.abs(target!.x - HOME.x), Math.abs(target!.y - HOME.y))).toBe(GUIDE_EXPLORE_SEARCH_RADIUS);

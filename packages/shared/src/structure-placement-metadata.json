@@ -40,6 +40,18 @@
     "sortGroup": "resource",
     "resourceTypes": ["FARM"]
   },
+  "FARM_PLOT": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support",
+    "excludesResourceTiles": true
+  },
+  "HYDROGARDEN_PLOT": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support",
+    "excludesResourceTiles": true
+  },
   "HYDROWORKS": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
@@ -151,6 +163,11 @@
     "sortGroup": "support"
   },
   "ANCILLARY_DEPOT": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
+  "VIVARIUM": {
     "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"

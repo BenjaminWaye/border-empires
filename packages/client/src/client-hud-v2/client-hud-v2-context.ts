@@ -2,6 +2,7 @@
 // contract, which screen is open, and a region writer that only touches the
 // DOM when the HTML changed (keeping list scroll positions across rewrites).
 
+import { clearTownPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 import type { createClientActionFlow } from "../client-action-flow.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -10,7 +11,11 @@ import { measuredCompactFocusRowOffset } from "./client-hud-v2-compact-camera.js
 export type HudV2ActionFlow = Pick<
   ReturnType<typeof createClientActionFlow>,
   "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile" | "requestTileDetailIfNeeded"
->;
+> &
+  /** Shows the build placement bar after the HUD arms a placement (the tracker's Relay Beacon step). */
+  Partial<Pick<ReturnType<typeof createClientActionFlow>, "renderPlacementOverlay">> &
+  /** The town screen's Garrison plots queues a Garrison per plot through these. */
+  Partial<Pick<ReturnType<typeof createClientActionFlow>, "requestSettlement" | "processDevelopmentQueue">>;
 
 export type HudV2Deps = {
   state: ClientState;
@@ -36,7 +41,7 @@ export type HudV2ScreenState = {
   manifestClosedLanes: Set<string>;
   diplomacyTargetId: string | undefined;
   chronicleRival: string;
-  chronicleTab: "yours" | "world" | "updates";
+  chronicleTab: "yours" | "ahead" | "world" | "updates";
   /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
   chronicleUpdatesBaseline: number | undefined;
   /** The release note opened on Updates (its updateKey); undefined opens the newest unread, null closes all. */
@@ -107,6 +112,7 @@ export const setScreen = (id: HudV2ScreenId, skeletonHtml: string): void => {
   if (screen.id === id) return;
   const host = document.getElementById(SCREEN_HOST_ID);
   if (!host) return;
+  clearTownPlotPlacement(); // a town plot pick belongs to the town screen this replaces
   screen.id = id;
   host.innerHTML = skeletonHtml;
   written.clear();
@@ -115,6 +121,7 @@ export const setScreen = (id: HudV2ScreenId, skeletonHtml: string): void => {
 
 export const clearScreen = (): void => {
   if (!screen.id) return;
+  clearTownPlotPlacement();
   screen.id = null;
   const host = document.getElementById(SCREEN_HOST_ID);
   if (host) host.innerHTML = "";
@@ -123,7 +130,7 @@ export const clearScreen = (): void => {
 };
 
 export const FRAME_SKELETON = `<div class="v2s-backdrop" aria-hidden="true"></div>
-  <header class="v2s-head"><h1 class="v2s-title" id="v2s-title"></h1><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><div class="v2s-head-right" id="v2s-head-right"></div></header>
+  <header class="v2s-head"><h1 class="v2s-title" id="v2s-title"></h1><span class="v2s-hint" id="v2s-hint"></span><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><div class="v2s-head-right" id="v2s-head-right"></div></header>
   <div class="v2s-body" id="v2s-body"></div>`;
 
 /** Centres the map on (x, y) and selects it; on a phone, centred in the map left visible above the bottom panels. */

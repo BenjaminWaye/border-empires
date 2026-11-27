@@ -95,6 +95,13 @@ export const createSeedPlayers = (profile: SimulationSeedProfile = "default"): M
   return new Map<string, DomainPlayer>();
 };
 
+const openLandPatch = (originX: number, originY: number, size: number): Array<[string, DomainTileState]> =>
+  Array.from({ length: size * size }, (_, index) => {
+    const x = originX + (index % size);
+    const y = originY + Math.floor(index / size);
+    return [simulationTileKey(x, y), { x, y, terrain: "LAND" }];
+  });
+
 const createDefaultSeedWorld = (): SimulationSeedWorld => {
   const players = createSeedPlayers("default");
   const tiles = new Map<string, DomainTileState>([
@@ -108,7 +115,14 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
     // existing town, farm, or titanium node.
     [simulationTileKey(9, 11), { x: 9, y: 11, terrain: "LAND" }],
     [simulationTileKey(8, 11), { x: 8, y: 11, terrain: "LAND" }],
-    [simulationTileKey(8, 12), { x: 8, y: 12, terrain: "LAND" }]
+    [simulationTileKey(8, 12), { x: 8, y: 12, terrain: "LAND" }],
+    // Open ground clear of every seeded empire's reach: the only viable
+    // landing site (GDD §6). A first-time join refuses a site inside a
+    // rival's reach, which covers every tile above. The sea tile makes the
+    // patch coastal, which every spawn candidate must be. Kept far from the
+    // small hand-built worlds runtime tests overlay on these seed tiles.
+    ...openLandPatch(300, 150, 5),
+    [simulationTileKey(299, 152), { x: 299, y: 152, terrain: "SEA" }]
   ]);
 
   return {

@@ -1,10 +1,11 @@
 import { createPopupBlockedCheck, POPUP_PENDING_DASHBOARD_GRACE_MS, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
+import { retireWaystationDiscoveryTip, type DiscoveryTipId } from "../client-discovery-tips/client-discovery-tips.js";
 import { showWaystationActivationOverlay, type WaystationActivationInfo } from "./client-waystation-activation.js";
 
 // The activation popup shares z-index 32 with the Activity dashboard; see
 // client-popup-gate.ts for why it waits until What's New is gone.
 
-export type WaystationPopupGateState = PopupGateState;
+export type WaystationPopupGateState = PopupGateState & { discoveryTipQueue?: DiscoveryTipId[]; authEmail?: string | null };
 
 export const WAYSTATION_POPUP_PENDING_DASHBOARD_GRACE_MS = POPUP_PENDING_DASHBOARD_GRACE_MS;
 const RECHECK_INTERVAL_MS = 400;
@@ -20,6 +21,9 @@ export const resetWaystationPopupGateForTests = (): void => {
   if (recheckTimer !== null) clearTimeout(recheckTimer);
   recheckTimer = null;
 };
+
+/** A reward card is waiting for What's New (or the tutorial) to close. */
+export const isWaystationActivationPopupPending = (): boolean => pendingInfo !== null;
 
 export const isWaystationPopupBlocked = (state: WaystationPopupGateState, nowMs: number = Date.now()): boolean => gate.isBlocked(state, nowMs);
 
@@ -40,6 +44,8 @@ const flush = (state: WaystationPopupGateState): void => {
  * second popup replaces the first) until the dashboard/lobby is gone.
  */
 export const showWaystationActivationOverlayWhenClear = (info: WaystationActivationInfo, state: WaystationPopupGateState): void => {
+  // The Activated card answers the Discovered tip: drop a tip still queued so it can't show after the card.
+  retireWaystationDiscoveryTip(state.discoveryTipQueue, state.authEmail);
   if (!isWaystationPopupBlocked(state)) {
     showWaystationActivationOverlay(info);
     return;

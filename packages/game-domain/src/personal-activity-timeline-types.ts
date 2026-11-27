@@ -1,4 +1,4 @@
-import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, NaturalWonderType, ResourceSupplyOffer, ScoutFindingSites, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -236,7 +236,8 @@ export type PersonalActivityBuildingCard = {
 };
 
 // A scout drone's flight landed (docs/explore-scout-plan.md): what it saw.
-// x/y is the tile it was sent toward. Counts are of things not owned by the
+// x/y is its most notable find, or the tile it was sent toward when it found
+// nothing. Counts are of things not owned by the
 // viewer; empiresSighted lists the other empires whose land it saw.
 export type PersonalActivityScoutReportCard = {
   kind: "SCOUT_REPORT";
@@ -251,6 +252,9 @@ export type PersonalActivityScoutReportCard = {
   resourceTiles: number;
   planetaryDefenseTiles: number;
   empiresSighted: string[];
+  resourcesSighted?: Array<{ resource: string; count: number }>;
+  // Where each find is (capped per group); absent on reports from before it existed.
+  sites?: ScoutFindingSites;
   // Set when a rival's border turned the drone back.
   blockedByPlayerId?: string;
 };
@@ -307,6 +311,11 @@ export type PersonalActivityDiplomacyCard = {
   byPlayerId?: string;
   /** TRUCE_STARTED: a Court armistice rather than a negotiated truce. */
   court?: boolean;
+  /**
+   * ALLIANCE_OFFERED / ALLIANCE_DECLINED / ALLIANCE_FORMED: who was liege when the offer was sent
+   * (AllianceFealty in shared; null for near-equals). Absent on rows from before it was recorded.
+   */
+  fealty?: { liegePlayerId: string | null };
 };
 
 // A resource supply deal with another House ended: cancelled by either side,

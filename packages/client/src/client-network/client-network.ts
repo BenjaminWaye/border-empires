@@ -1,17 +1,17 @@
 import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
-import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
+import { announceRelicWakesForClient, applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { aetherHijackAlertFeedEntry, applyAfcHijackMessage, applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, OUT_OF_REACH_LABEL, spendableCoin, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
-import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js"; import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
+import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -20,6 +20,7 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
+import { releaseDevelopmentRefusedOutOfReach } from "../client-out-of-reach-rejection/client-out-of-reach-rejection.js";
 import {
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
@@ -29,7 +30,7 @@ import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/clien
 import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAttack, isDetachedAttackCommandId, takeDetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
-import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
+import { applyPlayerUpdateIntegrityWithNotices } from "../client-integrity-drop/client-player-update-integrity-notices.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
@@ -48,7 +49,7 @@ import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
-import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerAppearanceMessage, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
@@ -56,10 +57,11 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyPlayerUpdateColorChange, applyProfileSaveRejection } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
+import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js"; import { applyNextContestUpdate } from "../client-next-contest/client-next-contest.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
-import { clearTechCommissionOnError } from "../client-tech-commission/client-tech-commission.js";
-import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld } from "../client-alliance/client-met-players.js";
+import { applyServerErrorSideEffects } from "./client-network-error-side-effects.js";
+import { handleSilentServerError } from "../client-command-pacer/client-command-pacer.js"; import { clearMetPlayersForNewWorld, hydrateMetPlayersFromServer } from "../client-alliance/client-met-players.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -92,7 +94,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     centerOnOwnedTile,
     authProfileNameEl,
     authProfileColorEl,
-    defensibilityPctFromTE,
     resetStrategicReplayState,
     setWorldSeed,
     clearRenderCaches,
@@ -754,7 +755,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const socketLifecycle = bindClientSocketLifecycle({
     state, ws, wsUrl, keyFor, clearAuthInFlight, clearAuthReconnectTimer,
     resetAuthReconnectAttempt, clearDeferredBootstrapRefreshTimer,
-    clearOptimisticTileState, pushFeed, applyLoginPhase, authenticateSocket, renderHud
+    clearOptimisticTileState, pushFeed, applyLoginPhase, authenticateSocket, renderHud, syncAuthOverlay
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;
@@ -1055,7 +1056,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      applyPlayerUpdateIntegrity(state, msg, prevDefensibility, () => defensibilityPctFromTE(state.settledT, state.settledE));
+      applyPlayerUpdateIntegrityWithNotices(state, msg, prevDefensibility, { keyFor, terrainAt, pushFeedEntry: appendFeedEntry, renderHud }); applyPlayerUpdateAchievementsAndCelebrate(state, msg);
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
@@ -1075,7 +1076,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      applyRelicAndProgressionUpdate(state, msg);
+      applyRelicAndProgressionUpdate(state, msg); announceRelicWakesForClient(state, appendFeedEntry); // a rival's running relic gets one feed line; the map plate and edge tab name it on screen
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -1092,15 +1093,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
-      if (myTileColor) {
-        state.playerColors.set(state.me, myTileColor);
-        authProfileColorEl.value = myTileColor;
-        if (state.pendingColorChange && state.pendingColorChange === myTileColor) {
-          state.pendingColorChange = "";
-          pushFeed("Empire colour updated.", "info", "success");
-        }
-      }
-      if (Array.isArray(msg.suggestedColors)) state.suggestedColors = msg.suggestedColors as string[];
+      if (myTileColor) applyPlayerUpdateColorChange(myTileColor, { state, authProfileColorEl, pushFeed });
+      applyPlayerProfileFields(state, msg, false); // suggested swatches + once-per-contest change flags
       const myVisualStyle = msg.visualStyle as any;
       if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
       syncAuthOverlay();
@@ -1935,60 +1929,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); applySeasonErrorCodes(state, rawCode, rawMessage, renderHud);
+      clearAuthInFlight?.();
+      applyServerErrorSideEffects(state, msg, rawCode, rawMessage, renderHud);
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
       const errorMessage = String(msg.message ?? "unknown failure");
-      clearTechCommissionOnError(state, errorCode);
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
-        authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
-        const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
-        const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
-        setAuthStatus(fullMessage, "error");
-        syncAuthOverlay();
-        // A pending display-name or color change rides on the same SET_PROFILE
-        // message as the (unchanged) color, so a color-collision rejection here
-        // also means both updates were never persisted — surface that on the
-        // Settings feed too, since the auth overlay above isn't visible from there.
-        if (state.pendingColorChange) {
-          state.pendingColorChange = "";
-          pushFeed(`Empire colour not updated: ${fullMessage}`, "error", "error");
-        }
-        if (state.pendingDisplayNameChange) {
-          state.pendingDisplayNameChange = "";
-          pushFeed(`Display name not updated: ${fullMessage}`, "error", "error");
-        }
-        return;
-      }
+      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; }
+      // COLOR_TAKEN / limits / a generic error during a profile save: clears both pending changes and tells the waiting modal.
+      if (applyProfileSaveRejection({ state, authProfileColorEl, setAuthStatus, syncAuthOverlay, pushFeed }, errorCode, msg as { message?: unknown; suggestion?: unknown })) return;
       // Queue-mirror dedup and rate-limit backoff: handled silently, never a popup.
       if (handleSilentServerError(ws, errorCode, msg as Record<string, unknown>)) return;
-      if (errorCode === "DISPLAY_NAME_LIMIT") {
-        state.pendingDisplayNameChange = "";
-        pushFeed(errorMessage, "error", "warn");
-        return;
-      }
-      if (errorCode === "COLOR_LIMIT") {
-        state.pendingColorChange = "";
-        pushFeed(errorMessage, "error", "warn");
-        return;
-      }
-      // A generic gateway internal error can also orphan pending profile changes.
-      // Clear them here so the next PLAYER_UPDATE doesn't silently skip its feed
-      // message, even though the error is also surfaced via the generic handler.
-      if (errorCode === "GATEWAY_INTERNAL_ERROR") {
-        if (state.pendingDisplayNameChange) {
-          state.pendingDisplayNameChange = "";
-          pushFeed(`Display name not updated: ${errorMessage}`, "error", "error");
-        }
-        if (state.pendingColorChange) {
-          state.pendingColorChange = "";
-          pushFeed(`Empire colour not updated: ${errorMessage}`, "error", "error");
-        }
-      }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
       const serverErrorContext = buildServerErrorContext(state, { code: msg.code, message: msg.message, failedTargetKey, failedTargetTile });
@@ -2210,14 +2164,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
-        // Terminal, not retryable: reach only grows when the player builds a
-        // town/outpost/dock, so re-planning this step can never succeed. Cancel
-        // the waypoints depending on it (local + durable server mirror) so a
-        // reconnect cannot resurrect the loop (client-waypoint-out-of-reach.ts).
-        // failedTargetKey (the in-flight target) wins over errorTileKey, which
-        // falls back to a stale latestSettleTargetKey when no x/y is sent.
+        // Terminal: cancel the waypoints depending on it, local + server mirror (client-waypoint-out-of-reach.ts); failedTargetKey
+        // (in-flight target) wins over errorTileKey (stale latestSettleTargetKey fallback, no x/y sent). A refused garrison/build
+        // also drops the build queued on its tile, else stuck on "Build already queued" (client-out-of-reach-rejection.ts).
         cancelWaypointsBlockedByOutOfReach(state, failedTargetKey || errorTileKey, outOfReachDeps);
-        showCaptureAlertSafely("Outside your borders", actionFailureExplanation, "warn");
+        releaseDevelopmentRefusedOutOfReach(state, errorTileKey, { clearOptimisticTileState: clearOptimisticTileStateSafely, clearSettlementProgress: clearSettlementProgressSafely });
+        showCaptureAlertSafely(OUT_OF_REACH_LABEL, actionFailureExplanation, "warn");
       } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
         showCaptureAlertSafely(
           "Frontier sync mismatch",
@@ -2372,12 +2324,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "PLAYER_STYLE") {
-      applyPlayerStyleMessage(msg, { state, authProfileNameEl, authProfileColorEl, syncAuthOverlay, renderHud });
-      return;
-    }
+    if (applyPlayerAppearanceMessage(msg, { state, authProfileNameEl, authProfileColorEl, syncAuthOverlay, renderHud })) return; // PLAYER_STYLE, COSMETICS_STATE
 
-    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); hydrateMetPlayersFromServer(state, msg.metPlayerIds, msg.metPlayersSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
     if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { pushFeed, renderHud }); return; }
 

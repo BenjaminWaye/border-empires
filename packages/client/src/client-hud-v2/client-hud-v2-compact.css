@@ -68,6 +68,8 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label {
 }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon { display: block; width: 15px; height: 15px; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; }
+/* "free"/"short" under the number on phones: it widened every slot chip inline. */
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-unit { display: block; margin-top: 1px; font-size: 8px; line-height: 1; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-short { display: inline; font-size: 0.9em; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon + .hud-v2-chip-name,
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact {
@@ -121,11 +123,21 @@ body.hud-v2-compact .hud-v2-bubble-badge { top: -3px; right: 1px; }
 body.hud-v2-compact .hud-v2-right { top: var(--v2c-top); right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: 44vw; gap: 0; }
 body.hud-v2-compact .hud-v2-rivals { display: none; }
 body.hud-v2-compact .hud-v2-season { gap: 1px; min-height: 36px; padding: 4px 10px; }
-body.hud-v2-compact .hud-v2-season-title { font-size: 10px; }
+/* Only the "Victory race ›" title opens Ranks: taps on the rest of the pill reach the map under it, where Explore
+   sends players to tap the fog (playtest 2026-11-26: those taps opened Ranks instead). By id, to beat style.css's
+   `#hud button { pointer-events: auto }`. */
+body.hud-v2-compact #hud-v2-season { pointer-events: none; }
+body.hud-v2-compact .hud-v2-season-title {
+  font-size: 10px; pointer-events: auto; justify-self: end; min-width: 44px; min-height: 24px; margin: -4px -10px 0 0; padding: 4px 10px 2px 8px;
+}
+body.hud-v2-compact .hud-v2-season-title::after { content: " ›"; }
 body.hud-v2-compact .hud-v2-season-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 
+/* The season pill takes up to 44vw from the right; the folded tracker stops a gutter short of it. 56vw minus the
+   gutter alone ran ~6px (more with notch insets) under "Victory race". */
 body.hud-v2-compact .hud-v2-tracker {
-  top: var(--v2c-top); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); width: auto; max-width: calc(56vw - var(--v2c-gutter));
+  box-sizing: border-box; top: var(--v2c-top); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); width: auto;
+  max-width: calc(56vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 3 * var(--v2c-gutter));
   max-height: none; padding: 0; overflow: visible;
 }
 body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
@@ -138,6 +150,14 @@ body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
 .v2c-track-line-open { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); border-bottom: 1px solid var(--v2-line); }
 .v2c-track-caret { color: var(--v2-gold); }
 .v2c-track-needs { color: var(--v2-amber); font-weight: 700; }
+.v2c-track-next { color: var(--v2-amber); font-weight: 700; }
+/* Folded with a runnable next step: the line folds/unfolds, and "Next ›" beside it runs the step (one tap). */
+body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-next-go) { display: flex; align-items: stretch; }
+body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-next-go) .v2c-track-line { flex: 1 1 auto; min-width: 0; }
+.v2c-track-next-go {
+  flex: 0 0 auto; min-height: 36px; padding: 4px 10px; border: 0; border-left: 1px solid var(--v2-line); background: transparent;
+  font-family: var(--v2-mono); font-size: 11px; white-space: nowrap; cursor: pointer;
+}
 body.hud-v2-compact .hud-v2-tracker-row { min-height: var(--v2c-touch); }
 
 /* ---- Bottom corners: lens button left, manpower orb right, above the tab bar ---- */
@@ -158,6 +178,10 @@ body.hud-v2-compact .hud-v2-orb-slot { right: calc(var(--v2c-safe-right) + 8px);
 body.hud-v2-compact .hud-v2-orb { width: 84px; height: 84px; }
 body.hud-v2-compact .hud-v2-orb-label,
 body.hud-v2-compact .hud-v2-orb-refill { display: none; }
+/* Full / over cap stays visible inside the fixed 84px orb (no countdown exists in that state). */
+body.hud-v2-compact .hud-v2-orb-refill.hud-v2-orb-refill-state { display: block; margin-top: 1px; font-size: 9px; }
+/* The flag drain stays visible on phones, smaller. */
+body.hud-v2-compact .hud-v2-orb-drain { margin-top: 0; font-size: 8px; }
 body.hud-v2-compact .hud-v2-orb-value { font-size: 18px; }
 body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
 
@@ -185,9 +209,16 @@ body.hud-v2-compact .hud-v2-tile::before {
 body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .hud-v2-nav,
 body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .hud-v2-orb-slot,
 body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) #mini-map-wrap,
-body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .onb-root { display: none !important; }
-body.hud-v2-compact .hud-v2-tile-close { width: var(--v2c-touch); height: var(--v2c-touch); font-size: 16px; }
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .onb-root,
+/* "AFC offline · Requires 20 gold" sat over the sheet's title and status line (playtest 2026-11-26). */
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .afc-recovery-status { display: none !important; }
+body.hud-v2-compact .hud-v2-tile-close { width: var(--v2c-touch); height: var(--v2c-touch); font-size: 16px; grid-column: 2; grid-row: 1; }
 body.hud-v2-compact .hud-v2-tile-sub { white-space: normal; }
+/* The status chip ("Fogged — showing last known data") gets its own line under the title: beside it, it squeezed
+   the title to three lines and drew over the coordinates (playtest 2026-11-26). */
+body.hud-v2-compact .hud-v2-tile-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+body.hud-v2-compact .hud-v2-tile-text { grid-column: 1; grid-row: 1; }
+body.hud-v2-compact .hud-v2-tile-status { grid-column: 1 / -1; grid-row: 2; justify-self: start; max-width: 100%; text-align: left; }
 body.hud-v2-compact .hud-v2-act-row { flex-wrap: wrap; }
 body.hud-v2-compact .hud-v2-act { flex: 1 1 calc(50% - 4px); min-height: 50px; }
 body.hud-v2-compact .hud-v2-act-primary { flex: 1 1 100%; order: -1; }
@@ -258,4 +289,4 @@ body.hud-v2-compact #placement-overlay {
   width: calc(100vw - var(--v2c-safe-left) - var(--v2c-safe-right) - 24px);
 }
 body.hud-v2-compact #placement-label { white-space: normal; text-align: center; flex: 1 1 100%; }
-body.hud-v2-compact #placement-overlay .placement-btn { flex: 1 1 0; min-height: var(--v2c-touch); }
+body.hud-v2-compact #placement-overlay .v2s-btn { flex: 1 1 0; min-height: var(--v2c-touch); }

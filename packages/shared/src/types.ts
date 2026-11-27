@@ -38,6 +38,8 @@ export type EconomicStructureType =
   | import("./resource-networks/resource-networks.js").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
+  | "FARM_PLOT"
+  | "HYDROGARDEN_PLOT"
   | "TITANIUM_REFINERY"
   | "UMBRITE_REFINERY"
   | "CRYSTAL_REFINERY"
@@ -60,6 +62,7 @@ export type EconomicStructureType =
   | "HIGH_YIELD_AETHER_CONDENSER"
   | "TRADE_NEXUS"
   | "ANCILLARY_DEPOT"
+  | "VIVARIUM"
   | "HARBOR_EXCHANGE"
   | "NEURAL_WORKS"
   | "MINISTRY_HALL"
@@ -254,6 +257,8 @@ export interface Tile {
   warScarUntil?: number;
   razedWreckUntil?: number;
   razedWreck?: string;
+  // Planetary Defense camp (its camp tile key) a barbarian tile belongs to.
+  campId?: string;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;
@@ -269,7 +274,7 @@ export interface Tile {
     modifiers?: Array<{ label: string; percent: number; deltaGoldPerMinute: number }>;
   };
   naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
-  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen PERMANENT effect on activation -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
+  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen effect on activation (VISION is a timed look, WAYSTATION_VISION_REVEAL_TTL_MS) -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null;
   town?: TownWireSummary;
   yieldRate?: {

@@ -3,12 +3,14 @@ import { applyRecoveredResourceTrade } from "./event-recovery-resource-trades.js
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState } from "@border-empires/game-domain";
+import { type DomainTileState, type FairSpawnSite } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { recoverTownState, parseOptionalJson } from "./event-recovery-town-helpers.js";
 import { recoverOverlaySubstructures } from "./event-recovery-overlays.js";
+import { recoverCampId, recoverRazedWreck, recoverWarScars } from "./event-recovery-tile-fields.js";
+import type { PlanetaryDefensePlannerSnapshot } from "../ai/system-job-barbarian-planner.js";
 import { overlaySubstructuresFrom, type TileOverlays } from "../tile-overlay-fields/tile-overlay-fields.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
@@ -34,6 +36,7 @@ type RecoveredTileState = {
   warScarUntil?: DomainTileState["warScarUntil"];
   razedWreckUntil?: DomainTileState["razedWreckUntil"];
   razedWreck?: DomainTileState["razedWreck"];
+  campId?: DomainTileState["campId"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -76,6 +79,10 @@ export type RecoveredSimulationState = {
   reachBorder?: ReachBorderSnapshot;
   /** Per-player explored-tile memory (explored-tiles-store.ts); carried through recovery unchanged. Absent on older snapshots. */
   exploredTiles?: ExploredTilesSnapshotEntry[];
+  /** The season's worldgen roster of starting sites (spawn-placement-index.ts); carried unchanged. Absent on seasons generated before it was saved. */
+  fairSpawnSites?: FairSpawnSite[];
+  /** Planetary Defense camp rest and raid counts (system-job-barbarian-planner.ts); carried unchanged. */
+  planetaryDefensePlanner?: PlanetaryDefensePlannerSnapshot;
 };
 
 type RecoveredSimulationAccumulator = {
@@ -97,6 +104,8 @@ type RecoveredSimulationAccumulator = {
    */
   reachBorder?: Map<string, string>;
   exploredTiles?: ExploredTilesSnapshotEntry[];
+  fairSpawnSites?: FairSpawnSite[];
+  planetaryDefensePlanner?: PlanetaryDefensePlannerSnapshot;
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -118,6 +127,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
   ...(typeof tile.razedWreckUntil === "number" ? { razedWreckUntil: tile.razedWreckUntil } : {}),
   ...(typeof tile.razedWreck === "string" ? { razedWreck: tile.razedWreck } : {}),
+  ...(typeof tile.campId === "string" ? { campId: tile.campId } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -149,23 +159,10 @@ export const createRecoveredSimulationAccumulator = (
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
     ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {}),
-    ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {})
+    ...(baseState.exploredTiles ? { exploredTiles: baseState.exploredTiles } : {}),
+    ...(baseState.fairSpawnSites ? { fairSpawnSites: baseState.fairSpawnSites } : {}),
+    ...(baseState.planetaryDefensePlanner ? { planetaryDefensePlanner: baseState.planetaryDefensePlanner } : {})
   };
-};
-
-// Battle scars (shared war-scars.ts): same "absent = unchanged, present but
-// not a number = cleared" rule as captureHoldUntil.
-const recoverWarScars = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "warScarLevel" | "warScarUntil"> => {
-  const level = "warScarLevel" in tileDelta ? tileDelta.warScarLevel : existing?.warScarLevel;
-  const until = "warScarUntil" in tileDelta ? tileDelta.warScarUntil : existing?.warScarUntil;
-  return typeof level === "number" && typeof until === "number" ? { warScarLevel: level, warScarUntil: until } : {};
-};
-
-// Razed wreck (shared razed-wreck.ts): the same rule again.
-const recoverRazedWreck = (tileDelta: TileDelta, existing: RecoveredTileState | undefined): Pick<RecoveredTileState, "razedWreck" | "razedWreckUntil"> => {
-  const kind = "razedWreck" in tileDelta ? tileDelta.razedWreck : existing?.razedWreck;
-  const until = "razedWreckUntil" in tileDelta ? tileDelta.razedWreckUntil : existing?.razedWreckUntil;
-  return typeof kind === "string" && kind && typeof until === "number" ? { razedWreck: kind, razedWreckUntil: until } : {};
 };
 
 const applyTileDeltaToRecoveredAccumulator = (
@@ -228,6 +225,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         : {}),
     ...recoverWarScars(tileDelta, existing),
     ...recoverRazedWreck(tileDelta, existing),
+    ...recoverCampId(tileDelta, existing),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)
   });
@@ -242,6 +240,12 @@ const spendRecoveredPlayerGold = (
   const player = accumulator.players.find((entry) => entry.id === playerId);
   if (!player || typeof player.points !== "number") return;
   player.points -= goldCost;
+};
+
+// Mirrors countRedeploy (runtime-respawn-helpers.ts), which bumps the counter as the landing's batch is emitted.
+const countRecoveredRedeploy = (accumulator: RecoveredSimulationAccumulator, playerId: string): void => {
+  const player = accumulator.players.find((entry) => entry.id === playerId);
+  if (player) player.redeploys = (player.redeploys ?? 0) + 1;
 };
 
 // Mirrors startSettlementProcess, which bumps the counter as it emits SETTLEMENT_STARTED.
@@ -297,6 +301,7 @@ export const applySimulationEventsToRecoveredAccumulator = (
     }
     if (event.eventType === "TILE_DELTA_BATCH") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
+      for (const redeployedId of event.redeployPlayerIds ?? []) countRecoveredRedeploy(accumulator, redeployedId);
       for (const tileDelta of event.tileDeltas) {
         const tileKey = simulationTileKey(tileDelta.x, tileDelta.y);
         const pendingSettlement = accumulator.pendingSettlements.find(
@@ -446,7 +451,9 @@ export const finalizeRecoveredSimulationAccumulator = (
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
   ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {}),
-  ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {})
+  ...(accumulator.exploredTiles ? { exploredTiles: accumulator.exploredTiles } : {}),
+  ...(accumulator.fairSpawnSites ? { fairSpawnSites: accumulator.fairSpawnSites } : {}),
+  ...(accumulator.planetaryDefensePlanner ? { planetaryDefensePlanner: accumulator.planetaryDefensePlanner } : {})
 });
 
 export const recoverSimulationStateFromEvents = (

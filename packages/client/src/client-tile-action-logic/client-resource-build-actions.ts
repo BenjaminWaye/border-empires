@@ -3,18 +3,20 @@ import { economicBuildMsForState } from "../client-build-speed/client-build-spee
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { hasBuildTech } from "../client-afc-module-access/client-afc-module-access.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
 import { refineryTileActions, type RefineryActionDeps } from "../client-refineries/refinery-tile-actions.js";
+import { farmPlotTileActions } from "../client-farm-plot/farm-plot-tile-actions.js";
 
 type ResourceBuild = { type: EconomicStructureType; id: TileActionDef["id"]; name: string; tech: string; requirement: string; effect: string };
 export interface ResourceBuildDeps extends RefineryActionDeps {
   buildDetailTextForAction: (id: TileActionDef["id"], tile: Tile) => string | undefined;
 }
 
-/** The deposit's own build row (network building, Hydrogarden), then the town-refinery rows (refinery-tile-actions.ts). */
+/** The deposit's own build row (network building, Hydrogarden), then the town-refinery rows (refinery-tile-actions.ts), then the Farm Plot rows (farm-plot-tile-actions.ts). */
 export function resourceBuildActions(state: ClientState, tile: Tile, blocked: boolean, detailSuffix: string, deps: ResourceBuildDeps): TileActionDef[] {
-  return [...depositBuildActions(state, tile, blocked, detailSuffix, deps), ...refineryTileActions(state, tile, deps)];
+  return [...depositBuildActions(state, tile, blocked, detailSuffix, deps), ...refineryTileActions(state, tile, deps), ...farmPlotTileActions(state, tile, deps)];
 }
 
 function depositBuildActions(state: ClientState, tile: Tile, blocked: boolean, detailSuffix: string, deps: ResourceBuildDeps): TileActionDef[] {
@@ -29,8 +31,8 @@ function depositBuildActions(state: ClientState, tile: Tile, blocked: boolean, d
   // Titanium, Umbrite and Gems deposits take no on-tile building: a town
   // refinery processes the field (territory-development-plan.md Phase 2).
   if (!build) return [];
-  const eligible = !blocked && state.techIds.includes(build.tech) && hasFreeResourceSlots(state, build.type);
-  const reason = blocked ? "Tile already has structure" : !state.techIds.includes(build.tech) ? build.requirement : missingResourceSlotReason(state, build.type) ?? "Unavailable";
+  const eligible = !blocked && hasBuildTech(state, build.tech) && hasFreeResourceSlots(state, build.type);
+  const reason = blocked ? "Tile already has structure" : !hasBuildTech(state, build.tech) ? build.requirement : missingResourceSlotReason(state, build.type) ?? "Unavailable";
   const [enabled, disabledReason, cost] = deps.availability(build.type, eligible, reason,
     `${deps.structureCostText(build.type)} • ${buildTimeLabel(economicBuildMsForState(state, build.type))} • ${build.effect}${upkeepSuffixFor(build.type)}`);
   return [{ id: build.id, label: `Build ${build.name}`, detail: (deps.buildDetailTextForAction(build.id, tile) ?? "") + detailSuffix,

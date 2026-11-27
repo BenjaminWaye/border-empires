@@ -50,6 +50,7 @@ const makeState = (
     camX: 0,
     camY: 0,
     me: "attacker",
+    playerCosmetics: new Map(),
     dockPairs: [],
     musterTransitByCommand: new Map(),
     outgoingMusterAttacksByTile: new Map(),

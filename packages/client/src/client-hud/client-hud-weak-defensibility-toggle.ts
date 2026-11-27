@@ -3,6 +3,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { focusCameraOnTile } from "../client-activity-dashboard/client-activity-dashboard-center.js";
 import { weakDefensibilityEntries } from "../client-defensibility-weak-tiles/client-defensibility-weak-tiles.js";
+import { openGarrisonManyFromIntegrity } from "../client-integrity-drop/client-integrity-garrison-entry.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType, Tile } from "../client-types.js";
 
@@ -43,7 +44,7 @@ export const toggleWeakDefensibility = (state: WeakToggleState, deps: WeakDefens
     });
     const first = entries[0];
     if (!first) {
-      deps.pushFeed("No weak tiles: every garrisoned tile has at most 1 open side.", "info", "info");
+      deps.pushFeed("No weak tiles: none of your land has more than 1 open side.", "info", "info");
     } else {
       focusCameraOnTile(state, first.x, first.y, deps);
       deps.pushFeed(`Showing ${entries.length} weak tile${entries.length === 1 ? "" : "s"}. Weakest at (${first.x}, ${first.y}): ${first.reason}.`, "info", "info");
@@ -53,7 +54,7 @@ export const toggleWeakDefensibility = (state: WeakToggleState, deps: WeakDefens
   deps.rerender();
 };
 
-/** Wires the panel's toggle button and its per-tile "go to" buttons. */
+/** Wires the panel's toggle button, its per-tile "go to" buttons and the drop card's Garrison Many. */
 export const bindWeakDefensibilityToggle = (root: ParentNode, state: ClientState, deps: WeakDefensibilityToggleDeps): void => {
   root.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]").forEach((btn) => {
     btn.onclick = () => toggleWeakDefensibility(state, deps);
@@ -63,6 +64,13 @@ export const bindWeakDefensibilityToggle = (root: ParentNode, state: ClientState
       const [x, y] = (btn.dataset.weakDefFocus ?? "").split(",").map(Number);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       focusCameraOnTile(state, x as number, y as number, deps);
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-integrity-garrison-many]").forEach((btn) => {
+    btn.onclick = () => {
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
+      if (!openGarrisonManyFromIntegrity(state, { ...deps, viewport })) deps.pushFeed("No frontier tiles to garrison.", "info", "info");
+      deps.rerender();
     };
   });
 };

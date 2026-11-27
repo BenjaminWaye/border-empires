@@ -215,6 +215,30 @@ describe("client-multiplex-websocket", () => {
     expect(openSpy).toHaveBeenCalledTimes(1);
   });
 
+  // Regression: after reconnect() the bulk channel replayed the previous
+  // connection's AUTH as soon as it opened. On a hosted sector that payload
+  // carries a membership ticket that may have expired, so the server could
+  // refuse a login the client was about to make correctly.
+  it("does not replay the previous connection's AUTH on the sockets reconnect() opens", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [firstControl, firstBulk] = FakeWebSocket.instances;
+    firstControl?.open();
+    firstBulk?.open();
+    socket.send(JSON.stringify({ type: "AUTH", token: "t", sectorTicket: "old-ticket" }));
+    firstControl?.close();
+
+    socket.reconnect();
+    const [, , secondControl, secondBulk] = FakeWebSocket.instances;
+    secondBulk?.open();
+    secondControl?.open();
+    expect(secondBulk?.sent).toEqual([]);
+
+    socket.send(JSON.stringify({ type: "AUTH", token: "t", sectorTicket: "new-ticket" }));
+    expect(secondBulk?.sent).toEqual([JSON.stringify({ type: "AUTH", token: "t", sectorTicket: "new-ticket" })]);
+  });
+
   it("ignores a belated close from a socket generation reconnect() already superseded", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
 

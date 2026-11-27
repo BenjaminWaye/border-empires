@@ -1,3 +1,4 @@
+import { noteMapPress } from "../client-scout-drone/client-scout-drone-closing-press.js";
 import { noteGuideMapPanned, noteGuideMapZoomed } from "../client-tutorial-guide/tutorial-guide-input-signals.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
@@ -8,7 +9,8 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import type { TileTapInput } from "../client-tile-interaction/client-tile-interaction.js";
 import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
-import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
+import { cancelArmedModesOnEscape } from "./client-map-input-escape.js";
+import { handleTownPlotPlacementTap, townPlotPlacement } from "../client-town-plot-placement/client-town-plot-placement.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -109,10 +111,21 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return true;
   };
 
+  // While a town plot pick runs (client-town-plot-placement.ts) a tap moves the chosen plot, never selects a tile.
+  const pickTownPlotAtPointer = (offsetX: number, offsetY: number): boolean => {
+    if (!townPlotPlacement()) return false;
+    const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+    return handleTownPlotPlacementTap(wx, wy);
+  };
+
   // Mouse-up and touch-end commit once, giving alert locators priority over
   // the world tile underneath. Arm suppression only for the follow-up click.
   const commitPointerSelection = (offsetX: number, offsetY: number, clientX: number, clientY: number, tapInput: TileTapInput): boolean => {
     deps.interactionFlags.suppressNextClick = false;
+    if (pickTownPlotAtPointer(offsetX, offsetY)) {
+      deps.interactionFlags.suppressNextClick = true;
+      return false;
+    }
     const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY, tapInput);
     if (!focusedAlert) {
       const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
@@ -135,6 +148,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.interactionFlags.suppressNextClick = false;
       return;
     }
+    if (pickTownPlotAtPointer(ev.offsetX, ev.offsetY)) return;
     if (focusPersistentAlertAtPointer(ev.offsetX, ev.offsetY, ev.clientX, ev.clientY, "mouse")) return;
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY, "mouse");
@@ -195,11 +209,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (editing) return;
 
     if (ev.key === "Escape") {
-      deps.cancelOngoingCapture();
-      deps.hideTileActionMenu();
-      deps.clearCrystalTargeting();
-      deps.cancelBuildingPlacement();
-      if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
+      cancelArmedModesOnEscape(state, deps);
       return;
     }
 
@@ -219,7 +229,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   window.addEventListener("mousedown", (ev) => {
     const target = ev.target as Node | null;
     if (!target) return;
-    if (deps.tileActionMenuEl.contains(target)) return;
+    const inMenu = deps.tileActionMenuEl.contains(target);
+    if (ev.button === 0) noteMapPress(state.tileActionMenu.visible && !inMenu); // a closing tap never starts a scout plan
+    if (inMenu) return;
     deps.hideTileActionMenu();
   });
   window.addEventListener("resize", () => deps.renderSidePanel());
@@ -340,6 +352,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchstart",
     (ev) => {
+      noteMapPress(state.tileActionMenu.visible); // a tap that closes the menu never starts a scout plan
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
         if (!t) return;

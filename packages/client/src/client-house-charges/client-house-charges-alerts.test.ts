@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
 import type { FeedEntry } from "../client-types.js";
-import { announceHouseChargeChoice, announceHouseChargeLosses } from "./client-house-charges-alerts.js";
+import { announceHouseChargeLosses } from "./client-house-charges-alerts.js";
 import { houseChargesPanelHtml } from "./client-house-charges-panel.js";
 
 const road: HouseChargeView = {
@@ -42,37 +42,7 @@ describe("House Charge loss warnings", () => {
 
   it("shows when a kept charge was lost in the panel", () => {
     const html = houseChargesPanelHtml({ activePanel: "charges", houseCharges: payload([road]), houseChargesDraftKeep: undefined }, 5_000);
-    expect(html).toContain("house-charge-status is-lost");
+    expect(html).toContain("hcd-status is-lost");
     expect(html).toContain("Lost ");
-  });
-});
-
-describe("House Charge keep-choice reminder", () => {
-  beforeEach(() => window.localStorage.clear());
-  const three = payload([road, { ...road, id: "b" }, { ...road, id: "c", kept: false }]);
-
-  it("announces an open choice once per deal", () => {
-    const state = feedState();
-    expect(announceHouseChargeChoice(state as never, three, 1_500)).toBe(true);
-    expect(state.feed[0]).toMatchObject({ title: "House charges arrived", severity: "warn" });
-    expect(state.feed[0]!.text).toContain("Keep 2 of 3");
-    expect(announceHouseChargeChoice(state as never, three, 1_600)).toBe(false);
-    delete (state as { captureAlert?: unknown }).captureAlert;
-    expect(announceHouseChargeChoice(state as never, { ...three, dealtAt: 5_000, choiceClosesAt: 9_000 }, 6_000)).toBe(true);
-  });
-
-  it("waits for a clear alert card instead of being marked shown under another alert", () => {
-    const state = { ...feedState(), captureAlert: { title: "Captured", detail: "", until: 9_000, tone: "success" as const } };
-    expect(announceHouseChargeChoice(state as never, three, 1_500)).toBe(false);
-    expect(state.feed).toHaveLength(0);
-    expect(announceHouseChargeChoice(state as never, three, 1_700)).toBe(false);
-    state.captureAlert.until = 1_000;
-    expect(announceHouseChargeChoice(state as never, three, 1_800)).toBe(true);
-  });
-
-  it("stays quiet once the choice has closed or there is nothing to choose", () => {
-    const state = feedState();
-    expect(announceHouseChargeChoice(state as never, three, 2_000)).toBe(false);
-    expect(announceHouseChargeChoice(state as never, payload([road, { ...road, id: "b" }]), 1_500)).toBe(false);
   });
 });

@@ -20,6 +20,9 @@ set -euo pipefail
 . "${HOST_CONF:=/etc/border-empires/host.conf}"   # BE_ENV, BE_HOSTNAME, GITHUB_REPO, IMAGE_REPO
 if [ "$BE_ENV" = production ]; then
   BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-play.borderempires.com}"
+elif [ "$BE_ENV" = hosted ]; then
+  # A hosted sector serves only its own name; players load the client from play.borderempires.com.
+  BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-localhost}"
 else
   BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-staging.borderempires.com}"
 fi
@@ -34,6 +37,12 @@ HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"   # boot replay can be s
 SETTLE_MIN_UPTIME_SECONDS="${SETTLE_MIN_UPTIME_SECONDS:-120}"
 SETTLE_STREAK="${SETTLE_STREAK:-8}"
 SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-300}"
+# While the app restarts, players' clients read this file (served by Caddy's
+# @static route from the live client release) to show a countdown. The
+# estimate is the median of the last few compose-up -> healthy durations.
+CLIENT_ROOT="${CLIENT_ROOT:-${STATE_DIR}/client}"
+DEPLOY_STATUS_FILE="${CLIENT_ROOT}/current/__deploy_status.json"
+RESTART_HISTORY_FILE="${STATE_DIR}/restart-durations"
 LOGS_ONLY=0
 if [ "${1:-}" = "--logs-only" ]; then LOGS_ONLY=1; shift; fi
 ARG="${SSH_ORIGINAL_COMMAND:-$*}"
@@ -89,13 +98,74 @@ wait_settled() {
   return 0
 }
 
+# --- Deploy status file (best effort: never fails or delays a deploy) -------
+# Prints the median of the last 5 recorded restart seconds, clamped to
+# 60..600; 120 with no history.
+expected_restart_seconds() {
+  local values count a b median
+  values="$(grep -E '^[0-9]+$' "$RESTART_HISTORY_FILE" 2>/dev/null | tail -n 5 | sort -n)"
+  count="$(printf '%s\n' "$values" | grep -c . || true)"
+  if [ "${count:-0}" -eq 0 ]; then echo 120; return 0; fi
+  if [ $((count % 2)) -eq 1 ]; then
+    median="$(printf '%s\n' "$values" | sed -n "$(( (count + 1) / 2 ))p")"
+  else
+    a="$(printf '%s\n' "$values" | sed -n "$(( count / 2 ))p")"
+    b="$(printf '%s\n' "$values" | sed -n "$(( count / 2 + 1 ))p")"
+    median=$(( (a + b) / 2 ))
+  fi
+  [ "$median" -lt 60 ] && median=60
+  [ "$median" -gt 600 ] && median=600
+  echo "$median"
+}
+
+write_deploy_status() {
+  local dir="${CLIENT_ROOT}/current" tmp
+  [ -d "$dir" ] || return 0
+  tmp="$(mktemp "${dir}/.deploy-status.XXXXXX" 2>/dev/null)" || return 0
+  if printf '{"state":"deploying","startedAt":%s,"expectedSeconds":%s}\n' \
+      "$(( $(date +%s) * 1000 ))" "$(expected_restart_seconds)" > "$tmp" \
+      && chmod 644 "$tmp" && mv -f "$tmp" "$DEPLOY_STATUS_FILE"; then
+    return 0
+  fi
+  rm -f "$tmp"
+  log "WARNING: could not write deploy status file; continuing"
+}
+
+clear_deploy_status() {
+  rm -f "$DEPLOY_STATUS_FILE" 2>/dev/null || true
+}
+
+record_restart_duration() { # seconds; keeps the last 20
+  local tmp
+  [[ "$1" =~ ^[0-9]+$ ]] || return 0
+  tmp="$(mktemp "${STATE_DIR}/.restart-durations.XXXXXX" 2>/dev/null)" || return 0
+  if { grep -E '^[0-9]+$' "$RESTART_HISTORY_FILE" 2>/dev/null | tail -n 19; echo "$1"; } > "$tmp" \
+      && mv -f "$tmp" "$RESTART_HISTORY_FILE"; then
+    return 0
+  fi
+  rm -f "$tmp"
+}
+
 switch_to() { # image sha  -> 0 if healthy
+  local started
   write_env "$1" "$2"
-  docker compose up -d --remove-orphans >&2 && wait_healthy && wait_settled
+  # The downtime starts at compose up; a killed run must not leave the
+  # countdown up (clients also ignore files older than 15 minutes).
+  trap 'clear_deploy_status' EXIT
+  write_deploy_status || true
+  started=$SECONDS
+  if docker compose up -d --remove-orphans >&2 && wait_healthy; then
+    record_restart_duration "$((SECONDS - started))" || true
+    clear_deploy_status
+    wait_settled
+    return 0
+  fi
+  clear_deploy_status
+  return 1
 }
 
 fetch_config() { # sha
-  local sha="$1" tmp f
+  local sha="$1" tmp f rc
   tmp="$(mktemp -d)"
   mkdir -p "$tmp/env" "$tmp/bin"
   for f in compose.yml Caddyfile "env/${BE_ENV}.env" bin/backup bin/publish-client; do
@@ -108,6 +178,23 @@ fetch_config() { # sha
   install -m 644 "$tmp/env/${BE_ENV}.env" "env/${BE_ENV}.env"
   install -m 755 "$tmp/bin/backup" backup
   install -m 755 "$tmp/bin/publish-client" publish-client
+  # Backup/restore helpers (deploy/bin/backup needs backup-snapshot.mjs). Optional
+  # so that deploying a sha from before they existed still works; the previous
+  # copies are then kept.
+  # Only an HTTP error (curl exit 22, e.g. 404) means "not in this sha"; a network
+  # failure fails the deploy like the required files do, so a new `backup` is
+  # never paired with a stale helper.
+  for f in backup-snapshot.mjs restore-prepare.mjs restore-backup; do
+    rc=0
+    curl -fsSL --retry 3 -o "$tmp/bin/$f" "${CONFIG_BASE_URL}/${sha}/deploy/bin/${f}" || rc=$?
+    if [ "$rc" = 0 ]; then
+      case "$f" in *.mjs) install -m 644 "$tmp/bin/$f" "$f" ;; *) install -m 755 "$tmp/bin/$f" "$f" ;; esac
+    elif [ "$rc" = 22 ]; then
+      log "deploy/bin/${f} not found at ${sha}; keeping the installed copy, if any"
+    else
+      log "could not fetch deploy/bin/${f} at ${sha} (curl exit ${rc})"; rm -rf "$tmp"; return 1
+    fi
+  done
   rm -rf "$tmp"
 }
 

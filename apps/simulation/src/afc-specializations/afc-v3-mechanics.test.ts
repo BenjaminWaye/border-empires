@@ -15,11 +15,14 @@ import { grantColonialIncubationEngines, type ColonialCharterDeps } from "./afc-
 const player = (id: string, domains: string[] = []) => ({ ...createHumanRuntimePlayer(id), afcUpgradeRuleset: "afc-v1" as const, domainIds: new Set(domains) });
 
 describe("AFC v3 rules", () => {
-  it("Pacification Routines pays its bounty only for attacks that take Planetary Defense tiles", () => {
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousOwnerId: "barbarian-1", bountyPerTile: 25 })).toBe(25);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: false, actionType: "ATTACK", previousOwnerId: "barbarian-1", bountyPerTile: 25 })).toBe(0);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousOwnerId: "enemy", bountyPerTile: 25 })).toBe(0);
-    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "EXPAND", previousOwnerId: undefined, bountyPerTile: 25 })).toBe(0);
+  it("Pacification Routines pays its bounty only for attacks that take a Planetary Defense camp", () => {
+    const camp = { ownerId: "barbarian-1", ownershipState: "SETTLED" as const };
+    const campFrontier = { ownerId: "barbarian-1", ownershipState: "FRONTIER" as const };
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: camp, bountyPerCamp: 25 })).toBe(25);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: false, actionType: "ATTACK", previousTarget: camp, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: campFrontier, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "ATTACK", previousTarget: { ownerId: "enemy", ownershipState: "SETTLED" }, bountyPerCamp: 25 })).toBe(0);
+    expect(afcPlanetaryDefenseBounty({ attackerWon: true, actionType: "EXPAND", previousTarget: undefined, bountyPerCamp: 25 })).toBe(0);
   });
 
   it("Breakthrough Protocol forces a second surrender only from a flag at full Momentum", () => {
@@ -77,6 +80,19 @@ describe("AFC v3 rules", () => {
     expect(grantColonialIncubationEngines(deps, actor, 6)).toBe(0);
     expect(grantColonialIncubationEngines(deps, player("q"), 7)).toBe(0);
     expect(writes).toHaveLength(2);
+  });
+
+  it("Colonial Charter still places the engine but pays no second burst to an owner who already took one", () => {
+    const actor = player("p", ["afc-dominion-2"]);
+    const tiles = new Map<string, DomainTileState>();
+    tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 5000, incubationBurstGrantedTo: "p" } });
+    tiles.set("11,10", { x: 11, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
+    const deps: ColonialCharterDeps = { tiles, players: new Map([["p", actor]]), ownedTownKeys: () => ["10,10"],
+      replaceTileState: (key, tile) => { tiles.set(key, tile); }, tileDeltaFromState: tile => ({ x: tile.x, y: tile.y }),
+      emitEvent: () => {}, emitPlayerStateUpdate: () => {} };
+    expect(grantColonialIncubationEngines(deps, actor, 5)).toBe(1);
+    expect(tiles.get("11,10")?.economicStructure).toMatchObject({ type: "INCUBATION_ENGINE", status: "active" });
+    expect(tiles.get("10,10")?.town).toMatchObject({ colonialIncubationGrantedTo: "p", population: 1000, maxPopulation: 5000 });
   });
 
   it("Colonial Charter skips settlements and towns that already have an engine, and re-grants a captured town to its new owner", () => {

@@ -1,9 +1,9 @@
 import type { Terrain } from "@border-empires/shared";
-import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS as MAX_SUPPORT_LOOKUP_RADIUS, isPreferredSupportTown, supportRingRadiusForTier, landmarkConstructionBlocker } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
 
 // Shared eligibility/anchor logic for a town's support ring, used by both
-// renderers: the 3D hatch-tile overlay (client-map-3d/client-map-3d.ts) and
+// renderers: the 3D corner-marker overlay (client-map-3d/client-map-3d.ts) and
 // the 2D canvas equivalent (client-map-2d-town-support-tile-overlay.ts).
 // Pulled out so the two renderers can't silently drift on what counts as a
 // "support plot" -- see AGENTS.md's renderer-parity rule. This mirrors the
@@ -30,7 +30,9 @@ export const isTownSupportHighlightableAt = (wx: number, wy: number, deps: TownS
   const tile = deps.tiles.get(deps.keyFor(wx, wy));
   const terrain = tile?.terrain ?? deps.terrainAt(wx, wy);
   if (terrain !== "LAND") return false;
-  if (tile?.dockId) return false;
+  if (tile?.dockId || tile?.afc || tile?.town || tile?.economicStructure || tile?.observatory || tile?.siegeBattery) return false;
+  if (tile?.ownerId && tile.ownerId !== deps.me) return false;
+  if (landmarkConstructionBlocker(deps.tiles, wx, wy)) return false;
   return true;
 };
 
@@ -50,8 +52,9 @@ export const supportPlotAnchorTown = (selectedTile: Tile | undefined, deps: Town
   // neighbor at distance 2 doesn't anchor here even though a Great City
   // neighbor at distance 2 would. If multiple match, pick the deterministic
   // lowest (x,y) so the overlay stays stable as the user drags the selection
-  // around.
+  // around. The closer town wins a tile both reach (isPreferredSupportTown, as the server assigns it).
   let best: Tile | undefined;
+  let bestDistance = 0;
   for (let dy = -MAX_SUPPORT_LOOKUP_RADIUS; dy <= MAX_SUPPORT_LOOKUP_RADIUS; dy += 1) {
     for (let dx = -MAX_SUPPORT_LOOKUP_RADIUS; dx <= MAX_SUPPORT_LOOKUP_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -62,9 +65,11 @@ export const supportPlotAnchorTown = (selectedTile: Tile | undefined, deps: Town
       if (neighbor.town.populationTier === "SETTLEMENT") continue;
       if (neighbor.ownerId !== deps.me) continue;
       if (neighbor.ownershipState !== "SETTLED") continue;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(neighbor.town.populationTier)) continue;
-      if (!best || neighbor.x < best.x || (neighbor.x === best.x && neighbor.y < best.y)) {
+      const distance = Math.max(Math.abs(dx), Math.abs(dy));
+      if (distance > supportRingRadiusForTier(neighbor.town.populationTier)) continue;
+      if (isPreferredSupportTown({ x: neighbor.x, y: neighbor.y, distance }, best && { x: best.x, y: best.y, distance: bestDistance })) {
         best = neighbor;
+        bestDistance = distance;
       }
     }
   }

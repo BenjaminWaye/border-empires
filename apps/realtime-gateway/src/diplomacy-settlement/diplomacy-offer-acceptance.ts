@@ -4,6 +4,7 @@ import { settleResourceTreaty } from "./resource-treaty-settlement.js";
 // coin, then record the agreement.
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms } from "@border-empires/shared";
 import { termsCreateAgreement } from "./diplomacy-settlement.js";
+import { offeredTruceHoursLeft } from "../social-state/social-truce-extension.js";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "./diplomacy-settlement.js";
@@ -25,6 +26,7 @@ export type DiplomacyOfferAcceptanceDeps = {
    */
   recheckProposer?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => Promise<{ reason: string; withdraw: boolean } | undefined>;
   withdrawOffer?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
+  now?: () => number;
 };
 
 export type DiplomacyOfferAcceptance = {
@@ -53,7 +55,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       deps.socialState.endSettlement(requestId);
       if (recheck.withdraw) deps.withdrawOffer?.(kind, request);
       deps.recordGatewayEvent("info", "gateway_diplomacy_offer_rechecked_refused", { requestId, kind, withdrawn: recheck.withdraw });
-      return { ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: recheck.reason };
+      return { ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: recheck.reason, ...(recheck.withdraw ? { requestId } : {}) };
     }
     const terms = request.terms;
     if (!terms || diplomacyTermsAreEmpty(terms)) {
@@ -63,8 +65,11 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       return recordedFree;
     }
     if (termsCreateAgreement(terms)) {
-      // A truce's Coin per hour without slots is paid for the truce's own length.
-      const coinTermHours = kind === "truce" && "durationHours" in request ? request.durationHours : undefined;
+      // A truce's Coin per hour without slots is paid for the hours it adds:
+      // a new truce runs from its offer, so only what is left of it.
+      const coinTermHours = kind === "truce" && "durationHours" in request
+        ? request.extendsTruce ? request.durationHours : offeredTruceHoursLeft(request, (deps.now ?? Date.now)())
+        : undefined;
       return settleResourceTreaty(deps, kind, request, terms, record, coinTermHours);
     }
     const paid = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms });
@@ -78,7 +83,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       // that started meanwhile can still refuse the agreement: give the
       // payment back so nobody pays for a deal that didn't happen.
       deps.socialState.endSettlement(requestId);
-      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms), refundIfLate: false, ...(paid.settlementId ? { refundOf: paid.settlementId } : {}) });
+      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms), refundIfLate: false, refund: true, ...(paid.settlementId ? { refundOf: paid.settlementId } : {}) });
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_refunded", {
         requestId,
         kind,

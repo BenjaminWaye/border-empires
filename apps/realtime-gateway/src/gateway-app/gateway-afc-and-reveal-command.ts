@@ -1,9 +1,12 @@
 import type { DurableCommandType } from "@border-empires/client-protocol";
+import { dispatchTownFocusCommand } from "./gateway-town-focus-command.js";
 
-type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string | undefined; coin?: number };
+type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string | undefined; coin?: number; tiles?: ReadonlyArray<{ x: number; y: number }>; focus?: string };
 type DispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata?: boolean) => Promise<void>;
 
 export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage, dispatch: DispatchDurableCommand): Promise<boolean> => {
+  // Town focus rides this passthrough so gateway-app.ts (over the line cap) needs no new branch.
+  if (await dispatchTownFocusCommand(message, dispatch)) return true;
   if (message.type === "WITHDRAW_AND_REDEPLOY") {
     await dispatch("WITHDRAW_AND_REDEPLOY", {});
     return true;
@@ -29,8 +32,8 @@ export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage,
     await dispatch("REDEPLOY_AFC_MODULE", { x: message.x, y: message.y, techId: message.techId }, true);
     return true;
   }
-  if (message.type === "SHIP_SALVAGE_TO_COURT") {
-    await dispatch("SHIP_SALVAGE_TO_COURT", { x: message.x, y: message.y }, true);
+  if (message.type === "SHIP_SALVAGE_TO_COURT" || message.type === "ACTIVATE_WAYSTATION") {
+    await dispatch(message.type, { x: message.x, y: message.y }, true);
     return true;
   }
   if (message.type !== "BUILD_AFC") return false;

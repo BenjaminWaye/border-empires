@@ -15,7 +15,7 @@ export const domainWeights = async (ctx: DukeContext, world: DukeWorld, contribu
     let totalStability = 0;
     for (const s of sectors.values()) totalStability += s.stability;
     const renown = (await ctx.deps.dukeStore.get(uid))?.renown ?? 0;
-    weights.set(uid, computeDomainWeight({ holdings, totalStability, committedInfluence: contributions[uid] ?? 0, renown }));
+    weights.set(uid, computeDomainWeight({ holdings, totalStability, committedInfluence: contributions[uid] ?? 0, renown, houseCharges: world.chargeWeightByOwner?.get(uid) ?? 0 }));
   }
   return weights;
 };

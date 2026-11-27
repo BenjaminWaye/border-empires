@@ -33,7 +33,8 @@ import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from 
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
 import { getCurrentSeasonSummaryRpcCall, getAdminPlayersRpcCall, type ProtoSeasonSummaryAck, type ProtoAdminPlayersAck } from "./sim-client-season-summary-and-admin.js";
 import { getPersonalActivityTimelineRpcCall, type GetPersonalActivityTimelineRpc } from "./sim-client-personal-activity-timeline.js";
-import { normalizeProtoTile, type ProtoTileDelta, type SimClientTileDelta } from "./sim-client-tile-normalize.js";
+import { normalizeProtoTile, type ProtoTileDelta } from "./sim-client-tile-normalize.js";
+import { decodeTileDeltaBatchEvent, type DecodedTileDeltaBatchEvent } from "./sim-client-tile-delta-batch.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
@@ -243,12 +244,7 @@ export type SimulationClientEvent =
       pillagedStrategic?: Partial<Record<StrategicResourceKey, number>>;
       combatResult?: LockedFrontierCombatResult;
     }
-  | {
-      eventType: "TILE_DELTA_BATCH";
-      commandId: string;
-      playerId: string;
-      tileDeltas: SimClientTileDelta[];
-    }
+  | DecodedTileDeltaBatchEvent
   | {
       eventType: "COLLECT_RESULT";
       commandId: string;
@@ -290,14 +286,6 @@ const toProtoCommand = (command: CommandEnvelope): Record<string, unknown> => ({
   payload_json: command.payloadJson
 });
 
-const parseJsonTileDeltas = (json: string): Array<NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number]> => {
-  if (!json) return [];
-  const parsed = JSON.parse(json) as unknown;
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((item): item is ProtoTileDelta => Boolean(item) && typeof item === "object" && typeof (item as ProtoTileDelta).x === "number" && typeof (item as ProtoTileDelta).y === "number")
-    .map((tile) => normalizeProtoTile(tile));
-};
 
 const parseLockedCombatResult = (json: string | undefined): LockedFrontierCombatResult | undefined => {
   if (!json) return undefined;
@@ -362,18 +350,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       ...(cancelledCommandIds.length > 0 ? { cancelledCommandIds } : {})
     };
   }
-  if (event.event_type === "TILE_DELTA_BATCH") {
-    const tileDeltas =
-      Array.isArray(event.tile_deltas) && event.tile_deltas.length > 0
-        ? event.tile_deltas.map((tile) => normalizeProtoTile(tile))
-        : parseJsonTileDeltas(event.tileDeltaJson || event.tile_delta_json || "");
-    return {
-      eventType: "TILE_DELTA_BATCH",
-      commandId: event.command_id,
-      playerId: event.player_id,
-      tileDeltas
-    };
-  }
+  if (event.event_type === "TILE_DELTA_BATCH") return decodeTileDeltaBatchEvent(event);
   if (event.event_type === "COLLECT_RESULT") {
     let strategic: Partial<Record<StrategicResourceKey, number>> = {};
     if (typeof event.strategic_json === "string" && event.strategic_json.length > 0) {

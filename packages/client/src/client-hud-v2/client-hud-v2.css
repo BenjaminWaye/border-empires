@@ -67,9 +67,8 @@ body.hud-v2.hud-v2-waiting #tile-action-menu { display: none !important; }
 .hud-v2-chip-summary { font-weight: 700; }
 .hud-v2-chip-available { color: var(--v2-green-hi); }
 .hud-v2-chip-zero { color: var(--v2-muted); }
-.hud-v2-chip-description {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-}
+.hud-v2-chip-unit { font-size: 10px; font-weight: 600; opacity: 0.8; white-space: nowrap; }
+.hud-v2-chip-pending { color: var(--v2-muted); }
 .hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
 .hud-v2-chip-rate-loss { color: var(--v2-red); }
 .hud-v2-over { font-weight: 700; color: var(--v2-amber); }
@@ -288,6 +287,9 @@ body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-minor { padding: 2px 0; border: 0; border-bottom: 1px solid var(--v2-line); background: none; font-family: var(--v2-body); font-size: 13px; color: var(--v2-soft); }
 .hud-v2-minor:hover:not(:disabled) { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
 .hud-v2-minor-off { opacity: 0.5; }
+/* A blocked minor action's reason, on the button: phones show no tooltips (Playtest Run 5). */
+.hud-v2-minor-why { display: block; font-size: 11px; color: var(--v2-amber); }
+.hud-v2-minor-off:has(.hud-v2-minor-why) { opacity: 0.8; }
 .hud-v2-minor-link { color: var(--v2-gold); }
 /* Facts that matter on sight (a waystation's bonus). */
 .hud-v2-tile-facts { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -296,6 +298,10 @@ body.hud-v2-compact .hud-v2-lens-btn + .hud-v2-lens-legend { display: none; }
 .hud-v2-fact-good { color: #b9dca0; }
 .hud-v2-fact-warn { color: #f0b48a; border-color: rgba(240, 180, 138, 0.45); }
 .hud-v2-act-details { flex: 0 0 auto; min-width: 104px; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+/* A main action beside the fixed-width Aether and Details (and often Build) was squeezed to a sliver with
+   its label cut ("EXPA…", or ~26px blank on a dock): give it its own full-width line instead. */
+.hud-v2-act-row:has(> .hud-v2-act-primary):has(> .hud-v2-act-aether):has(> .hud-v2-act-details) { flex-wrap: wrap; }
+.hud-v2-act-row:has(> .hud-v2-act-aether):has(> .hud-v2-act-details) > .hud-v2-act-primary { flex: 1 0 100%; }
 .hud-v2-details { gap: 4px; max-height: 300px; padding: 8px 10px; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
 .hud-v2-details .tile-overview-line { color: inherit; }
 .hud-v2-details .tile-overview-line-section { margin-top: 6px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
@@ -346,6 +352,12 @@ body.hud-v2 #side-panel.settings-panel-active { top: 50%; left: 50%; right: auto
 .hud-v2-orb-value { font-family: var(--v2-mono); font-size: 26px; font-weight: 700; line-height: 1.1; }
 .hud-v2-orb-cap { font-family: var(--v2-mono); font-size: 12px; }
 .hud-v2-orb-refill { margin-top: 4px; font-family: var(--v2-mono); font-size: 11px; color: #f3e6c4; }
+/* Muster flags refilling from the pool: amber line under the batch, and an amber rim arc for what flags hold. */
+.hud-v2-orb-drain { margin-top: 2px; font-family: var(--v2-mono); font-size: 10px; color: #f0a447; }
+.hud-v2-orb-flag-arc { fill: none; stroke: #f0a447; stroke-width: 5; stroke-linecap: round; opacity: 0.85; }
+.hud-v2-orb-flag-arc-draining { animation: hud-v2-orb-flag-drain 1.6s ease-in-out infinite; }
+@keyframes hud-v2-orb-flag-drain { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .hud-v2-orb-flag-arc-draining { animation: none; } }
 
 /* A pressurised fluid globe: contained rolling liquid, internal bubbles, and small escaping droplets. */
 .hud-v2-orb svg { overflow: visible; }

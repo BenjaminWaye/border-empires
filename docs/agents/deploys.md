@@ -80,6 +80,19 @@ available for historical rollback, and Hetzner workflows skip its deploy steps.
 - A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
 - `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size). `season.victory` lists each win path's leader, 0..1 progress, `conditionMet` and `holdRemainingSeconds` (the 24h hold resets whenever the leader changes or the condition lapses).
 
+## Hosted sector mode (built, not deployed anywhere yet)
+
+A hosted sector is a private, paid Sector Contest on its own server; the design is in `docs/hosted-sectors-plan.md` (PR #2952 until merged). Nothing creates such a server yet. The game server side exists:
+
+- `HOSTED_SECTOR_ID` turns the mode on. Unset, the server is an ordinary public one. With it set, `HOSTED_SECTOR_TICKET_PUBLIC_KEY` is required (base64 of an Ed25519 SPKI key) and the gateway refuses to boot without it.
+- **Members only.** The WebSocket `AUTH` message must carry `sectorTicket`: a token signed by the hosting service for this sector and this account (`apps/realtime-gateway/src/hosted-sector/hosted-sector-ticket.ts`). Anyone else gets `SECTOR_TICKET_REJECTED` (a bad sign-in still gets `AUTH_FAIL`). A ticket must say when it was issued and may be at most 15 minutes old. Signed-in HTTP routes answer 401 until the account has entered through the WebSocket once. Routes without sign-in, such as `/hq/summary`, stay readable by anyone who has the address. The server keeps no member list and makes no call to the hosting service at login. A public key that cannot be read stops the server from starting.
+- **One contest.** "Commit to the next contest" is refused, the 15-second start check never fires, and `POST /admin/season/start-next` answers 409, with or without `force`.
+- `deploy/env/hosted.env` is the shared non-secret env for these servers (standard sector: 60 AI Houses, 40 human places). `bootstrap-server.sh` and `deploy/bin/deploy` accept `BE_ENV=hosted`: no SSH key is installed, SSH is switched off and port 22 stays closed, and Caddy serves only the sector's own name.
+- **Creating sector servers** (`HOSTING_SERVER_PROVIDER=hetzner` in the hosting service): one CX23 per sector in the Hetzner project the token (`HETZNER_API_TOKEN`) belongs to, which must hold hosted sectors only. Its cloud-init (`apps/sector-control/src/providers/hetzner/sector-cloud-init.ts`) fetches the deploy scripts at the release production runs (`HOSTING_SECTOR_RELEASE_URL`, default `https://api.borderempires.com/__build_sha.txt`), bootstraps with `BE_ENV=hosted`, writes the sector's settings (id, ticket public key, admin token, map style and size, AI count, human places, no guest seats) to `/etc/border-empires/secrets.env`, and deploys. The server is named and labelled with the sector id (`be-sector=<id>`), so a repeated request finds it instead of making a second one; `<sector id>.borderempires-sectors.com` (the id already starts with `s-`) is set in the Hetzner DNS zone. `HOSTING_SECTOR_DNS_ZONE` may only be `borderempires-sectors.com` (`HOSTED_SECTOR_DNS_ZONE` in `packages/shared`), the one zone the web client connects to. Each sector's admin token is derived from `HOSTING_SECTOR_ADMIN_SECRET` (32+ characters) and the sector id, and the hosting service uses it for `GET /admin/hosted/status`, which reports the last human visit from the player funnel. Whether the contest has ended comes from the public `/hq/summary`. The hosting service runs in production only with both real providers. The domain `borderempires-sectors.com` is registered at Namecheap with Hetzner's nameservers, and its zone is in the hosted-sectors Hetzner project (done 2026-11-25). Until Let's Encrypt wildcard support lands, each sector server gets its own certificate, so at most 50 sectors can be created a week (plan §11). The first two test servers (2026-11-25 and 2026-11-27, each deleted the same day) never served; on both, CPU and network went quiet a minute or two after boot. A third (2026-11-27) was opened in the Hetzner web console, and its `/var/log/cloud-init-output.log` showed setup stopping at `adduser deploy`: the root password Hetzner sets on a server created without an SSH key (every sector server) is already expired ("You are required to change your password immediately (administrator enforced)"), so PAM account checks for root fail, and `adduser` runs `chfn`, which makes one. The first two servers most likely stopped at the same step, though no log of theirs was read; the SSH reload that was blamed first comes after it. The fix has two parts that reach sector servers differently: the cloud-init (`sector-cloud-init.ts`, live as soon as the hosting service runs it) clears root's password expiry with `chage` before anything else and runs the deploy with `runuser`, not `sudo`; `bootstrap-server.sh` creates the user with `useradd`, not `adduser`, but it is fetched at the release production runs (`HOSTING_SECTOR_RELEASE_URL`), so that part arrives only with a production release. Either part is enough on its own for this failure (`sector-cloud-init.test.ts`, `scripts/ops/bootstrap-server-user.test.mjs`). The SSH change made first (a hosted server switches SSH off and skips fail2ban) is kept. To read a failing sector server's log, log in as root in the Hetzner web console with the password Hetzner emails, and read `/var/log/cloud-init-output.log`.
+- `apps/sector-control` is the hosting service that will sell and run these sectors: orders, members, invite links, membership tickets, and a reconciler that creates servers, retries, refunds and tears down. It runs locally only (`pnpm --filter @border-empires/sector-control dev`, with `HOSTING_SQLITE_PATH` and `HOSTING_TICKET_PRIVATE_KEY` set; `GET /hosting/health` reports its state). It is not in `Dockerfile.combined` or `deploy/compose.yml`, uses fake providers by default, and refuses to start with `NODE_ENV=production` unless both providers are real (Stripe test mode and Hetzner). Payment is the fake by default; `HOSTING_PAYMENT_PROVIDER=stripe-test` uses Stripe Checkout in test mode and needs `STRIPE_SECRET_KEY` (a test key: live keys are refused, and the service asks Stripe at boot and stops on a live-mode key), `STRIPE_WEBHOOK_SECRET` (the endpoint's signing secret) and `HOSTING_RETURN_ORIGIN` (where players return after paying). Subscribe the Stripe webhook endpoint (`POST /hosting/payment-webhook`) to the events in `STRIPE_WEBHOOK_EVENTS` (`apps/sector-control/src/providers/stripe/stripe-webhook.ts`). A withdrawal is made by the player: `GET /hosting/sectors/:id/withdrawal` quotes it (price less one thirtieth per started day open), `POST` with `{ "confirm": true, "purchaseKey" }` (the key the quote returned) records it, closes the purchase at once (the whole sector, or only that share, whose owner leaves the sector) and sends the partial refund; a refund Stripe does not accept is retried by the reconciler, and the Stripe provider finds an earlier withdrawal refund by its metadata and never refunds more than is left. Any other refund is issued by hand in the Stripe dashboard. Its `charge.refunded` event closes the sector only when the whole payment has been refunded; a partial refund (goodwill for an outage) keeps it running and alerts the owner. A payment dispute (`charge.dispute.created`) leaves the sector as it is, alerts the owner, and pauses that account's purchases (`PURCHASES_PAUSED`) until `charge.dispute.closed`. **Split funding:** `POST /hosting/funding-bars` opens a bar (state `funding`, 72-hour deadline) and `POST /hosting/sectors/:id/contributions` pledges a share (at least USD 5, never more than is left). Each share is a Checkout Session with `capture_method=manual`, so the card is only held; the reconciler captures the holds once the bar is full (in the order they were placed; the share that crosses the price is charged only the part still needed, and every other hold and open checkout is released; only holds placed before the deadline count) and moves the sector to `creating`, or releases every hold and refunds anything captured at the deadline. A refund of one share (`charge.refunded` on a payment whose metadata names a `contributionId`) leaves the sector running and alerts the owner. Node's built-in fetch ignores `HTTPS_PROXY` unless `NODE_USE_ENV_PROXY=1` is set, which matters behind an outbound proxy. Sales are off unless `HOSTING_SALES_ENABLED=1`. A hosted sector has no time limit; one that no human has visited for 7 days is closed. The ticket format and the map sizes on offer are shared in `packages/shared/src/hosted-sector/hosted-sector-contract.ts`.
+- The web client can list an account's sectors, enter one and accept an invite link (`/h/<code>`), in `packages/client/src/client-hosted-sectors/`. It is off unless the client is built with `VITE_HOSTED_SECTORS=1`, which no build sets yet, and it is never on in the apps. Entering a sector reloads the page as `/?sector=<id>`: only the game socket goes to the sector's server (which must be under `.borderempires-sectors.com`), and every HTTP call stays on the main API. This build can play only sectors of its own map size.
+- Final results need no new endpoint: the public `GET /hq/summary` of an ended contest already carries the winner, the full standings, House Charges and records.
+
 ## Season rollover (new map, map size, AI count, worldgen)
 
 Worldgen code, `SIMULATION_MAP_STYLE`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `WATCHTOWERS_ENABLED` and `SIMULATION_AI_PLAYER_COUNT` only take effect for a **new** season. A deploy or restart reloads the persisted season unchanged. Learned on 2026-10-02 (PR #2208, staging 320x160 / 20 AI):
@@ -156,14 +169,140 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 
 - **Target:** the deploy workflows always deploy to Hetzner; the old `STAGING_BACKEND` / `PROD_BACKEND` repo variables are no longer read. Image builds use `DEPLOY_PLATFORM` (default `linux/amd64`; `linux/arm64` for CAX11).
 - **Build cache:** GitHub Actions cache export is best effort (`ignore-error=true`). A denied cache write must not block an otherwise successful image build/push or skip deployment.
-- **Deploy:** the workflow builds `Dockerfile.combined`, pushes `ghcr.io/<owner>/border-empires-combined:<sha>`, then runs `ssh deploy@host <sha>`. The CI key is a forced command (`deploy/bin/deploy`), so it can only `<sha>`, `rollback`, `snapshot` or `logs [<since>]`. The server fetches `deploy/compose.yml`, `Caddyfile`, `env/<env>.env` and `bin/backup` at that sha from GitHub, switches, and polls `127.0.0.1:8080/health` for `ok:true` (15 min), then waits for the app to *settle* (container up ≥120s and 8 consecutive fast `/health` checks; tunable via `SETTLE_*`) because staging measured a ~15–20s window of hung requests about 15s after boot that made the CI soak fail; an unhealthy deploy auto-rolls back. Updating `deploy/bin/deploy` itself on an existing server: as root, `curl -fsSL https://raw.githubusercontent.com/BenjaminWaye/border-empires/<sha>/deploy/bin/deploy -o /opt/border-empires/bin/deploy && chmod 755 /opt/border-empires/bin/deploy`. Do not re-run `bootstrap-server.sh` for this: it rewrites `authorized_keys` and re-enables the backup timer that staging and production keep disabled.
+- **Deploy:** the workflow builds `Dockerfile.combined`, pushes `ghcr.io/<owner>/border-empires-combined:<sha>`, then runs `ssh deploy@host <sha>`. The CI key is a forced command (`deploy/bin/deploy`), so it can only `<sha>`, `rollback`, `snapshot` or `logs [<since>]`. The server fetches `deploy/compose.yml`, `Caddyfile`, `env/<env>.env`, `bin/backup` and the backup/restore helpers (`bin/backup-snapshot.mjs`, `bin/restore-backup`, `bin/restore-prepare.mjs`; optional, so older shas still deploy) at that sha from GitHub, switches, and polls `127.0.0.1:8080/health` for `ok:true` (15 min), then waits for the app to *settle* (container up ≥120s and 8 consecutive fast `/health` checks; tunable via `SETTLE_*`) because staging measured a ~15–20s window of hung requests about 15s after boot that made the CI soak fail; an unhealthy deploy auto-rolls back. Updating `deploy/bin/deploy` itself on an existing server: as root, `curl -fsSL https://raw.githubusercontent.com/BenjaminWaye/border-empires/<sha>/deploy/bin/deploy -o /opt/border-empires/bin/deploy && chmod 755 /opt/border-empires/bin/deploy`. Do not re-run `bootstrap-server.sh` for this: it rewrites `authorized_keys` (it no longer switches the backup timer on unless run with `BACKUP_TIMER=on`).
 - **Env:** `deploy/env/*.env` hold the non-secret container env and are edited directly; `scripts/ops/hetzner-env-files.test.mjs` checks that keys are sorted and unique, values need no quoting, and `SIMULATION_METRICS_HOST=0.0.0.0`. Secrets live only in `/etc/border-empires/secrets.env` on the server (never in the repo).
+- **Restart countdown:** just before `docker compose up` (in `switch_to`, so also for `rollback` and auto-rollback), `deploy/bin/deploy` atomically writes `/srv/border-empires/client/current/__deploy_status.json` = `{"state":"deploying","startedAt":<unix ms>,"expectedSeconds":<n>}`. Caddy's `@static` route serves it from the live client release while the app is down. `expectedSeconds` is the median of the last 5 lines in `/srv/border-empires/restart-durations` (seconds from compose up to `/health` ok; last 20 kept), clamped to 60–600, 120 with no history. The file is deleted once `/health` is ok, on failure, and on script exit; `publish-client` also drops a leftover one when it activates a release. All of this is best effort and never fails a deploy. While the realtime socket is down the client fetches it every 15s (`packages/client/src/client-deploy-countdown/`) and shows "Server update · back in ~m:ss", then "Almost ready…"; a missing file or one older than 15 minutes falls back to "Reconnecting…". Tests: `deploy/tests/test_deploy_status.py`. Because the script lives at `/opt/border-empires/bin/deploy` and is not fetched per deploy, a change to it only applies after the root `curl` update described under **Deploy** above.
 - **Logs:** `scripts/ops/backend-logs.sh <staging|production> [--since 6h] [--lines N]`. It uses the read-only logs key (`~/.ssh/be_logs_ed25519`, override with `BE_LOGS_SSH_KEY`), whose `authorized_keys` entry is `command="/opt/border-empires/bin/deploy --logs-only",restrict <pubkey>` (or `LOGS_PUBKEY` at bootstrap), so it can only run `logs <since>`. Host keys are pinned in `deploy/known_hosts` with strict checking; update that file (after checking the fingerprint in the Hetzner console) if a server is rebuilt. Hosts default to the servers below; override with `BE_STAGING_HOST`/`BE_PRODUCTION_HOST`. With the admin key: `ssh deploy@host "cd /opt/border-empires && docker compose logs -f app"`.
 - **Rollback:** `ssh deploy@host rollback` (admin key) restores the previous release. There is no Fly fallback any more.
-- **Servers:** staging `178.105.133.33`, production `188.245.240.42` (Nuremberg, Ubuntu 26.04). Staging has no backups (disposable state, backup timer disabled). Production has Hetzner daily server backups enabled; there is **no hourly SQLite snapshot job on prod** (the timer is disabled): two staging watchdog kills coincided with hourly `VACUUM INTO` backups (hypothesis: SQLite lock contention with the synchronous app), so do not re-enable it on prod without measuring first.
+- **Servers:** staging `178.105.133.33`, production `188.245.240.42` (Nuremberg, Ubuntu 26.04). Production has Hetzner daily server backups (7 kept). The hourly off-site B2 backup is **built but switched off** on both servers until the owner switches it on; see **Backups** below.
 - **Metrics/debug port:** `ssh -L 50052:127.0.0.1:50052 deploy@host`, then `curl 127.0.0.1:50052/metrics`.
 - **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command).
-- **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
+- **Backups:** see the **Backups** section below.
+
+## Backups
+
+Status: owner decision 2026-11-27 — production keeps an hourly off-site
+database backup in Backblaze B2 beside Hetzner's daily server backups (at most
+about an hour of play lost; a copy survives the loss of the Hetzner account).
+The code is ready; **the timer is off on production and staging** until the
+owner switches it on (steps below). Switching it on, creating buckets and
+entering credentials need the owner's explicit go-ahead.
+
+**What runs.** `border-empires-backup.timer` (hourly, up to 5 min random delay)
+runs `/opt/border-empires/backup` as `deploy`:
+
+1. `backup-snapshot.mjs`, piped into `node` inside the app container (`nice 19`):
+   one read transaction on `/data/border-empires.db`, rows copied into a scratch
+   file a few MB at a time with a sleep after each chunk (`BACKUP_RATE_MB` in
+   `host.conf`, default 16 MB/s, about 2 min per GB), then streamed through zstd
+   (with checksum) at the same rate. The scratch file is deleted.
+2. The `.zst` is copied to `/srv/border-empires/backups` (newest 3 kept) and checked with `zstd -t`.
+3. With `BACKUP_BUCKET` set: upload to `b2:<bucket>/hourly/`, and at 00 UTC also
+   `daily/`; `/data/account-deletion-ledger.json` (hashes only) goes to
+   `ledger/`. Retention: hourly 48 h, daily 14 d, deleted with `--b2-hard-delete`
+   so nothing lingers as a hidden version. The bucket's own lifecycle rules (owner
+   step 1) expire the same prefixes even if the job stops or keeps failing, so
+   no copy outlives 3 days (hourly) or 15 days (daily) either way.
+
+Before the snapshot it checks that `/data` has room for a scratch copy the size
+of the live database (plus 512 MB) and refuses otherwise.
+
+A `flock` keeps it to one run at a time.
+
+**Why paced (measured).** The old single `VACUUM INTO` did not stall the game
+through locks (WAL readers never block writers). It read and wrote the whole
+~1 GB database in one burst, so on a memory-tight server the game's
+synchronous SQLite reads waited on disk. In a local reproduction (100 Houses,
+1 GB world, production-like disk) that meant 0.9-2.5 s gateway stalls per run;
+paced at 16 MB/s, nothing beyond the baseline. Numbers:
+[`../load-results/backup-snapshot-2026-11-27.md`](../load-results/backup-snapshot-2026-11-27.md).
+To measure again, start the probe stack and run
+`node scripts/sector-memory-probe/backup-stall-probe.mjs <run-dir> [paced|vacuum-into]`
+(exit 1 if a snapshot window stalls past `BACKUP_PROBE_MAX_STALL_MS`, default 1 s).
+`scripts/ops/backup-snapshot.test.mjs` (in `pnpm test:scripts`) fails if the
+snapshot stops being paced, stops yielding to writers or stops being consistent.
+
+**Restore** (tested end to end locally, including booting the real game from a
+restored 1 GB world). On the server, as `deploy`:
+
+1. Check only (the game keeps running): `/opt/border-empires/restore-backup latest`
+   (or `hourly/<file>.db.zst`, `daily/<file>.db.zst`, or `/abs/path.db.zst`). It
+   downloads, runs `zstd -t`, decompresses into `/data/restore-<stamp>/`, runs a
+   full `integrity_check` and `foreign_key_check`, prints the latest snapshot and
+   event ids, and dry-runs the account-deletion ledger (the server's own, else the
+   copy in `b2:<bucket>/ledger/`). It takes the backup lock, refuses if `/data`
+   lacks room for the copy (two copies with `--apply`), and deletes its download
+   from `/srv/border-empires/restore/` on exit. The unpack and check are a 1 GB burst, so
+   rehearse on a spare machine or at a quiet time, not routinely on a busy server.
+2. Swap in: rerun with `--apply`. It stops the app (final checkpoint), moves
+   `border-empires.db` and `-wal`/`-shm` to `/data/pre-restore-<stamp>/`, copies
+   the checked file in, reapplies the deletion ledger offline
+   ([`account-deletion.md`](account-deletion.md) "Backups and restoration"), starts the app and waits up to 15 min
+   for `/health`. On any failure after the stop it prints the command that puts
+   the previous database back (stop the app, remove the restored files and their
+   `-wal`/`-shm`, copy the old set back, start). `--no-ledger` is needed only if no ledger exists anywhere.
+3. Afterwards check the game, then delete `/data/restore-<stamp>/` and, once
+   satisfied, `/data/pre-restore-<stamp>/` (both hold player data).
+
+On a laptop: `rclone copy b2:<bucket>/hourly/<file>.db.zst .` then
+`node deploy/bin/restore-prepare.mjs <file>.db.zst restored.db` (Node 22.15+).
+
+**Switching it on — owner steps (staging first, then production).**
+
+In the Backblaze console (the account whose existing `be-backups-staging`
+bucket is in `eu-central-003`, Amsterdam; a B2 account's region is fixed when the
+account is created, so new buckets there are also in the EU):
+
+1. Production: create a new **private** bucket, for example
+   `be-backups-prod-eu`, with default encryption on and Object Lock **off**
+   (it would block the retention deletes). Lifecycle: **custom rules** — prefix
+   `hourly/`: hide after 2 days, delete 1 day after hiding; prefix `daily/`: hide
+   after 14 days, delete 1 day after hiding; prefix `ledger/`: delete 1 day after
+   hiding (keeps only the last version). These expire copies even if the job
+   stops, which the privacy page relies on. Check that its endpoint reads `s3.eu-central-003…`.
+2. Staging: empty the old `be-backups-staging` bucket first (stale snapshots and
+   hidden versions from the old job; see `docs/legal-drafts/README.md`) and give
+   it the same lifecycle rules. Also empty or delete the old `be-backups-prod` bucket.
+3. For each bucket create an **application key restricted to that bucket**,
+   read and write. The key is shown once; it goes only into the server file below,
+   never into chat, the repository or logs.
+
+On each server, as root:
+
+4. `/etc/border-empires/rclone.conf` (owner `deploy`, mode 600):
+   `[b2]` / `type = b2` / `account = <keyID>` / `key = <applicationKey>` / `hard_delete = true`.
+5. In `/etc/border-empires/host.conf` set `BACKUP_BUCKET=<bucket>` (optionally `BACKUP_RATE_MB`).
+6. Update `/opt/border-empires/bin/deploy` with the root `curl` from **Deploy**
+   above (so deploys fetch `backup-snapshot.mjs` and the restore helpers), then
+   deploy the current sha (or wait for the next CI deploy) and check that
+   `/opt/border-empires/backup-snapshot.mjs` exists.
+7. Install the units if they are missing (`install -m 644` from `deploy/systemd/`,
+   `systemctl daemon-reload`) — without enabling yet.
+8. Run once by hand while watching the game: `sudo -u deploy /opt/border-empires/backup`,
+   then `rclone --config /etc/border-empires/rclone.conf lsf b2:<bucket>/hourly/`.
+   Watch `scripts/ops/backend-logs.sh <env> --since 10m` for `event_loop_blocked`
+   or watchdog lines during the run.
+9. Rehearse a restore check from a laptop (above).
+10. `systemctl enable --now border-empires-backup.timer`; review
+    `journalctl -u border-empires-backup` and the logs around :00-:05 for the first day.
+
+Staging: run steps 2-10 there and leave it for a day or two before production.
+Production: only after the privacy page naming Backblaze
+(`docs/legal-drafts/privacy.html`) is published.
+
+**After an account erasure** (done offline, [`account-deletion.md`](account-deletion.md)),
+run `/opt/border-empires/backup` once the app is back up: until the next hourly
+run, the newest backup still holds the account and the off-site ledger does not
+list it yet, so a restore from B2 after losing the server could bring it back.
+
+**Open points for the owner.** Nothing alerts when a backup fails: the job
+only logs to the journal. An `OnFailure=` unit or a check of the newest object's age
+would catch it. Hosted sector servers (not deployed yet) run the same timer by
+default but keep only local copies on the sector server itself (no
+`BACKUP_BUCKET`), so a lost server loses its world. Whether they should get the
+same hourly off-site backup is undecided. The privacy draft promises a hosted
+world's backup copy for up to 30 days after closing, which needs an off-site
+store either way. Not built.
 
 ## Vercel (historical rollback only)
 

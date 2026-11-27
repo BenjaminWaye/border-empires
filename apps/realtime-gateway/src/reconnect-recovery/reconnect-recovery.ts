@@ -1,7 +1,9 @@
 import type { GatewayCommandStore } from "../command-store/command-store.js";
+import type { PlayerCosmeticSelection } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { SeasonVictoryObjectiveView, SeasonWinnerView, WorldStyle } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
+import { playerCosmeticsForInit, type ShownCosmeticLookup } from "../init-cosmetics/init-cosmetics.js";
 import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
@@ -41,7 +43,13 @@ export const buildInitMessage = (
   seasonPending = false,
   seasonPendingScheduledStartAt?: number,
   seasonPendingRoster?: SeasonLobbyUpdatePayload,
-  dukeAuthUids?: ReadonlySet<string>
+  dukeAuthUids?: ReadonlySet<string>,
+  // Account cosmetics: an account's shown look (account-cosmetics-service.ts),
+  // sent only for players in this world or its lobby (init-cosmetics.ts).
+  shownCosmeticFor?: ShownCosmeticLookup,
+  // Honest join screen (GDD §6): when the running contest started, for the
+  // day and late-join manpower bonus; singleContest = hosted, no next contest.
+  joinScreen?: { seasonStartedAt?: number; singleContest?: boolean }
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -70,6 +78,7 @@ export const buildInitMessage = (
   domainCatalog: unknown[];
   resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   allianceRequests: unknown[];
+  allianceFealty: Record<string, unknown>;
   outgoingAllianceRequests: unknown[];
   activeAllianceBreaks: unknown[];
   recentAllianceBreaks: unknown[];
@@ -79,6 +88,7 @@ export const buildInitMessage = (
   truceBreaksThisSeason: unknown[];
   leaderboard: Record<string, unknown>;
   playerStyles: Array<{ id: string; name: string; tileColor: string; duke?: boolean }>;
+  playerCosmetics?: Record<string, PlayerCosmeticSelection>;
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
@@ -96,6 +106,8 @@ export const buildInitMessage = (
   needsSeasonJoin?: boolean;
   seasonPending?: boolean;
   seasonPendingScheduledStartAt?: number;
+  seasonStartedAt?: number;
+  singleContest?: boolean;
   seasonLobbyWaitingCount?: number;
   seasonLobbyMaxPlayers?: number;
   seasonLobbyRoster?: SeasonLobbyUpdatePayload["roster"];
@@ -168,6 +180,11 @@ export const buildInitMessage = (
         if (objectiveOverride?.name) objective.leaderName = objectiveOverride.name;
       }
       const socialSnapshot = socialState?.snapshotForPlayer(playerIdentity.playerId);
+      const shownCosmetics = playerCosmeticsForInit(shownCosmeticFor, [
+        playerIdentity.playerId,
+        ...bootstrap.playerStyles.map((style) => style.id),
+        ...(seasonPendingRoster?.roster.map((entry) => entry.playerId) ?? [])
+      ]);
       return {
       type: "INIT",
       serverBuildSha: process.env.BUILD_SHA ?? "",
@@ -185,6 +202,7 @@ export const buildInitMessage = (
       domainCatalog: bootstrap.domainCatalog,
       ...(socialSnapshot?.resourceTradeOffers ? {resourceTradeOffers:socialSnapshot.resourceTradeOffers} : {}),
       allianceRequests: socialSnapshot?.incomingAllianceRequests ?? [],
+      allianceFealty: socialSnapshot?.allianceFealty ?? {},
       outgoingAllianceRequests: socialSnapshot?.outgoingAllianceRequests ?? [],
       activeAllianceBreaks: socialSnapshot?.activeAllianceBreaks ?? [],
       recentAllianceBreaks: socialSnapshot?.recentAllianceBreaks ?? [],
@@ -196,6 +214,7 @@ export const buildInitMessage = (
       truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],
       leaderboard: bootstrap.leaderboard,
       playerStyles: bootstrap.playerStyles,
+      ...(shownCosmetics ? { playerCosmetics: shownCosmetics } : {}),
       missions: bootstrap.missions,
       domainIds: bootstrap.domainIds,
       seasonVictory: bootstrap.seasonVictory,
@@ -203,6 +222,8 @@ export const buildInitMessage = (
       mapMeta: bootstrap.mapMeta,
       ...(initialState ? { initialState } : {}),
       ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
+      ...(needsSeasonJoin && typeof joinScreen?.seasonStartedAt === "number" ? { seasonStartedAt: joinScreen.seasonStartedAt } : {}),
+      ...(joinScreen?.singleContest ? { singleContest: true } : {}),
       ...(seasonPending
         ? { seasonPending: true, ...(typeof seasonPendingScheduledStartAt === "number" ? { seasonPendingScheduledStartAt } : {}) }
         : {}),

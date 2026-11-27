@@ -1,4 +1,5 @@
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
+import { assertHostedSectorTicketKey } from "./hosted-sector/hosted-sector-ticket.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
@@ -6,6 +7,7 @@ import { warmGatewaySeedWorld } from "./seed-world-warmup/seed-world-warmup.js";
 
 const runtimeEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 warmGatewaySeedWorld(runtimeEnv.simulationSeedProfile); // never on the first login (seed-world-warmup.ts)
+await assertHostedSectorTicketKey(runtimeEnv.hostedSector);
 const gateway = await createRealtimeGatewayApp({
   host: runtimeEnv.host,
   port: runtimeEnv.port,
@@ -20,6 +22,7 @@ const gateway = await createRealtimeGatewayApp({
   ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {}),
   ...(runtimeEnv.adminEmail ? { adminEmail: runtimeEnv.adminEmail } : {}),
   ...(runtimeEnv.aiPlayerCount ? { aiPlayerCount: runtimeEnv.aiPlayerCount } : {}),
+  ...(runtimeEnv.hostedSector ? { hostedSector: runtimeEnv.hostedSector } : {}),
   emailAlerts: runtimeEnv.emailAlerts
 });
 

@@ -109,7 +109,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
   CULTIVATION_ESTATE: "Economy",
   RECLAMATION_WORKS: "Economy",
-  HYDROGARDEN: "Economy", HYDROWORKS: "Economy",
+  HYDROGARDEN: "Economy", HYDROWORKS: "Economy", FARM_PLOT: "Economy", HYDROGARDEN_PLOT: "Economy",
   TITANIUM_REFINERY: "Economy", UMBRITE_REFINERY: "Economy", CRYSTAL_REFINERY: "Economy",
   TITANIUM_SMELTER: "Economy", UMBRITE_DISTILLERY: "Economy", CRYSTAL_CUTTER: "Economy",
   MANUFACTORY: "Economy", CLEARING_HOUSE: "Economy",
@@ -119,7 +119,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   TRADE_NEXUS: "Economy", MINISTRY_HALL: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   INCUBATION_ENGINE: "Manpower", CENSUS_HALL: "Manpower",
-  ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower",
+  ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower", VIVARIUM: "Manpower",
   ANCILLARY_FACTORY: "Manpower",
   RESERVE_LATTICE: "Manpower",
   CENSUS_DIRECTORATE_PART_1: "Manpower", CENSUS_DIRECTORATE_PART_2: "Manpower", CENSUS_DIRECTORATE_PART_3: "Manpower", CENSUS_DIRECTORATE: "Manpower",
@@ -188,12 +188,14 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with Manifests"];
     if (key === "PALISADE") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "RELAY_BEACON") return ["Receives the House AI’s gravitational command signal", `Extends your reach ${OUTPOST_REACH_RADIUS} tiles around it, so you can garrison and build there`, "Widens frontier vision", "Supplied frontier can advance beyond reach"];
+    if (key === "RELAY_BEACON") return ["Relays the Mothership AI’s command signal to your ancillaries", `Extends your reach ${OUTPOST_REACH_RADIUS} tiles around it, so you can garrison and build there`, "Widens frontier vision", "Supplied frontier can advance beyond reach"];
     if (key === "SIEGE_BATTERY") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
     if (key === "HYDROGARDEN") return ["Grain resource tiles only — no effect on fish tiles"];
     if (key === "HYDROWORKS") return [];
+    if (key === "FARM_PLOT") return ["FOOD without a grain tile", "Upgrades in place to a Hydrogarden Plot"];
+    if (key === "HYDROGARDEN_PLOT") return ["Counts as a Hydrogarden for nearby Hydroworks"];
     if (key === "TITANIUM_REFINERY" || key === "UMBRITE_REFINERY" || key === "CRYSTAL_REFINERY") return [`Processes one deposit field of its resource, linked to the town by your land within ${REFINERY_REACH_LAND_TILES} land tiles`];
     if (key === "TITANIUM_SMELTER" || key === "UMBRITE_DISTILLERY" || key === "CRYSTAL_CUTTER") return ["Boosts this town's refineries of its resource"];
     if (key === "MANUFACTORY") return ["Developed precursor salvage improves output backing campaign credit", "Stacks additively across every active Manufactory in the town"];
@@ -203,6 +205,7 @@ export const structureInfoForKey = (
     if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
     if (key === "HARBOR_EXCHANGE") return [];
     if (key === "MINISTRY_HALL") return [];
+    if (key === "VIVARIUM") return ["Each copy covers one of its town's luxury biota slots", "Copies beyond the slots the town needs do nothing"];
     if (key === "ANCILLARY_DEPOT") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
     if (key === "SKY_DOCK") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];

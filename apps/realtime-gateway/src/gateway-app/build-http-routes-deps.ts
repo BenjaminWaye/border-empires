@@ -4,6 +4,7 @@
 // object and call this function, instead of inlining the whole ~45-line
 // literal at the call site. Also wires up the bug report alerter/routes for
 // the same reason (see bug-report-routes.ts).
+import { hostedStatusFromFunnel } from "../http-routes/register-hosted-status-route.js";
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
@@ -13,6 +14,8 @@ import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolut
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
+import type { PublicProfileLinkStore } from "../public-house-profile/public-profile-link-store.js";
+import { publicProfileAccountState } from "../public-house-profile/public-house-profile-routes.js";
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 import { resolveMaxSeasonPlayersForGateway } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
@@ -37,6 +40,7 @@ import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { hydrateCurrentSeasonSummaryDisplayNames, hydrateSeasonArchiveDisplayNames } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { setBugReportAlerter, registerBugReportRoutes } from "../http-routes/bug-report-routes.js";
+import { createPlayerReportGithubIssue, type PlayerReportGithubIssueConfig } from "../github-issues/player-report-github-issue.js";
 import { toPublicSocialView, type PublicSocialActiveTruce, type PublicSocialTruceBreak } from "../social-routes/social-routes.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -67,12 +71,14 @@ export type BuildGatewayHttpRoutesDepsContext = {
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
+  accountCosmetics?: RegisterGatewayHttpRoutesDeps["accountCosmetics"];
   profileStore: GatewayPlayerProfileStore;
   growthBaselineStore: PlayerGrowthBaselineStore;
   playOrigin?: string;
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
   sectorWaitlistStore?: SectorWaitlistStore;
+  publicProfileLinkStore?: PublicProfileLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
@@ -85,13 +91,14 @@ export type BuildGatewayHttpRoutesDepsContext = {
   // Same config the email alert service signs unsubscribe links with, so the
   // /email/unsubscribe route verifies them with the identical secret.
   emailAlertConfig?: EmailAlertConfig | undefined;
+  playerReportGithubIssues?: PlayerReportGithubIssueConfig;
   invalidateProfileCache?: (playerId: string) => void;
   disconnectDeletedPlayer?: (playerId: string) => void;
   sovereignSiegeEngineStrikeStore: SovereignSiegeEngineStrikeStore;
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
   // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
   // endpoints (admin-firebase-auth.ts).
-  admin?: { apiToken?: string | undefined; email?: string | undefined };
+  admin?: { apiToken?: string | undefined; email?: string | undefined; singleContest?: boolean };
   adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
@@ -119,10 +126,21 @@ const emailUnsubscribeRouteDeps = (ctx: BuildGatewayHttpRoutesDepsContext): Pick
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
   if (ctx.alertPlayerBugReport && ctx.alertPlayerSuggestion) {
+    const { alertPlayerBugReport, alertPlayerSuggestion } = ctx;
+    const github = ctx.playerReportGithubIssues;
+    const issueDeps = github
+      ? { ...github, log: app.log, ...(ctx.emailAlertConfig?.appLabel ? { appLabel: ctx.emailAlertConfig.appLabel } : {}) }
+      : undefined;
     setBugReportAlerter({
       recentEvents: () => ctx.recentGatewayEvents,
-      alertPlayerBugReport: ctx.alertPlayerBugReport,
-      alertPlayerSuggestion: ctx.alertPlayerSuggestion
+      alertPlayerBugReport: (report) => {
+        alertPlayerBugReport(report);
+        if (issueDeps) void createPlayerReportGithubIssue("bug", report, issueDeps);
+      },
+      alertPlayerSuggestion: (report) => {
+        alertPlayerSuggestion(report);
+        if (issueDeps) void createPlayerReportGithubIssue("suggestion", report, issueDeps);
+      }
     });
   }
   registerBugReportRoutes(app);
@@ -174,15 +192,31 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       return result.diagnostics ?? [];
     },
     startNextSeason: async (force?: boolean) => {
+      // A hosted sector is paid for one contest; its server is deleted afterwards.
+      if (ctx.admin?.singleContest) throw new Error("a hosted sector runs a single Sector Contest");
       const result = await ctx.simulationClient.startNextSeason(force);
       ctx.alertSeasonStarted?.(result.seasonId, force === true);
       ctx.onSeasonStarted?.();
       return result;
     },
     seedBarbarians: (count?: number) => ctx.simulationClient.seedBarbarians(count),
+    ...(ctx.accountCosmetics ? { accountCosmetics: ctx.accountCosmetics } : {}),
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
+    ...(ctx.publicProfileLinkStore
+      ? {
+          publicHouseProfile: {
+            store: ctx.publicProfileLinkStore,
+            authenticateBearer: ctx.resolveHttpBearerIdentity,
+            accountState: (playerId: string) => publicProfileAccountState(ctx.authBindingStore, playerId),
+            getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
+            ...(ctx.accountCosmetics ? { getTitle: ctx.accountCosmetics.titleOf } : {}),
+            getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
+            listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
+          }
+        }
+      : {}),
     ...(ctx.sectorWaitlistStore
       ? {
           sectorWaitlist: {
@@ -197,7 +231,12 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             getOccupancy: () =>
               ctx.simulationClient
                 .getCurrentSeasonSummary()
-                .then(({ seasonId, status, overall }) => ({ seasonId, status, playerIds: overall.map((entry) => entry.id) })),
+                .then(({ seasonId, status, overall, landingSiteAvailable }) => ({
+                  seasonId,
+                  status,
+                  playerIds: overall.map((entry) => entry.id),
+                  ...(typeof landingSiteAvailable === "boolean" ? { landingSiteAvailable } : {})
+                })),
             maxHouses: resolveMaxSeasonPlayersForGateway
           }
         }
@@ -231,6 +270,10 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     authBindingStore: ctx.authBindingStore,
     ...emailUnsubscribeRouteDeps(ctx),
     sovereignSiegeEngineStrikeStore: ctx.sovereignSiegeEngineStrikeStore,
+    // On a hosted sector the hosting service asks when a human last came (idle closure).
+    ...(ctx.playerFunnel && ctx.admin?.singleContest
+      ? { hostedStatus: hostedStatusFromFunnel(ctx.playerFunnel.store) }
+      : {}),
     ...(ctx.playerFunnel
       ? {
           playerInsights: {

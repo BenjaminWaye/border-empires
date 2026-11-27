@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Scene, type MeshStandardMaterial, type Object3D } from "three";
+import { InstancedMesh, Scene, type Object3D } from "three";
 import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js";
 import { createSiegeMachineOverlay } from "../client-map-3d-siege-machine-overlay.js";
@@ -36,20 +36,18 @@ describe("frozen overlay instances (remembered under fog)", () => {
     expect(matricesOf(scene)).toEqual(before);
   });
 
-  it("waystation: a dormant one remembered under fog keeps its bright (steady) lens, not the activated dim one", () => {
+  it("waystation: a dormant one remembered under fog keeps its seal orb, on the still (non-pulsing) materials", () => {
     // Regression: frozen was treated as activated, so 3D showed an unclaimed waystation as already claimed.
     const scene = new Scene();
     const overlay = createWaystationOverlay(scene, 4);
     overlay.addInstance(0, 0, 0, 3, 4, { activated: false }, true);
     overlay.commit();
-    const counts = { remembered: 0, active: 0 };
+    const counts = { still: 0, live: 0 };
     scene.traverse((child) => {
-      if (!(child instanceof InstancedMesh) || child.count === 0) return;
-      const material = child.material as MeshStandardMaterial;
-      if (material.emissiveIntensity === 1.175) counts.remembered += child.count;
-      if (material.emissiveIntensity === 0.3) counts.active += child.count;
+      if (!(child instanceof InstancedMesh) || child.count === 0 || !child.name.startsWith("holo-crate-orbShell:holo")) return;
+      if (child.name.endsWith("|still")) counts.still += child.count; else counts.live += child.count;
     });
-    expect(counts).toEqual({ remembered: 1, active: 0 });
+    expect(counts).toEqual({ still: 1, live: 0 });
   });
 
   it("siege machine: frozen heads hold still while a live one spins", () => {

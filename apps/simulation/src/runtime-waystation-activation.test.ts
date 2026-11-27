@@ -1,8 +1,8 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { WAYSTATION_POP_BURST } from "@border-empires/shared";
+import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_VISION_REVEAL_TTL_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
-import { activateWaystationAt, seedWaystationVisionBonus } from "./runtime-waystation-activation.js";
+import { activateWaystationAt } from "./runtime-waystation-activation.js";
 import { FAR_TOWN_KEY, PLAYER_ID, RANDOM_FOR, TOWN_KEY, WAYSTATION_KEY, createInput, makePlayer, queueRandom, townTile, waystationTile } from "./runtime-waystation-activation.test-helpers.js";
 
 describe("activateWaystationAt", () => {
@@ -61,18 +61,34 @@ describe("activateWaystationAt", () => {
     expect(batches).toHaveLength(1);
   });
 
+  // The client only pops the live reward card for a freshly stamped record; the tile re-sends its
+  // consumed record forever (e.g. released on withdrawal), which must not replay the old card.
+  it("stamps the activation time on the consumed record", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+    input.now = () => 1_800_000_000_000;
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-1");
+
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.activatedAt).toBe(1_800_000_000_000);
+  });
+
   it("VISION effect reveals around the nearest town (any owner) within range, not the waystation's own tile", () => {
     const tiles = new Map<string, DomainTileState>([
       [WAYSTATION_KEY, waystationTile()],
       [TOWN_KEY, townTile(9, 10, "someone-else")]
     ]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+    const { input, reveals, expiries } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-town");
 
     expect(reveals).toHaveLength(1);
     expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 9, y: 10 });
+    // A one-time look: the same reveal is queued to expire, never left on for good.
+    expect(reveals[0]?.radius).toBe(WAYSTATION_REVEAL_RADIUS);
+    expect(expiries).toEqual([{ kind: "waystation-vision", tileKey: WAYSTATION_KEY, playerId: PLAYER_ID, expiresAt: WAYSTATION_VISION_REVEAL_TTL_MS, cellKeys: ["9,10"] }]);
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.revealedAtX).toBe(9);
     expect(waystation?.revealedAtY).toBe(10);
@@ -339,36 +355,5 @@ describe("activateWaystationAt", () => {
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-noop-eventlog");
 
     expect(players.get(PLAYER_ID)!.eventLog ?? []).toHaveLength(0);
-  });
-});
-
-describe("seedWaystationVisionBonus", () => {
-  it("re-applies the permanent vision bonus at the stored revealedAtX/Y for a VISION-activated waystation", () => {
-    const calls: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
-    const coverage = { addTileVisionBonus: (playerId: string, x: number, y: number, radius: number) => { calls.push({ playerId, x, y, radius }); } };
-
-    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "VISION", revealedAtX: 9, revealedAtY: 10 } });
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ playerId: PLAYER_ID, x: 9, y: 10 });
-  });
-
-  it("is a no-op for a waystation activated with a non-VISION effect", () => {
-    const calls: unknown[] = [];
-    const coverage = { addTileVisionBonus: () => { calls.push(undefined); } };
-
-    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "POPULATION" } });
-
-    expect(calls).toHaveLength(0);
-  });
-
-  it("is a no-op for a dormant or absent waystation", () => {
-    const calls: unknown[] = [];
-    const coverage = { addTileVisionBonus: () => { calls.push(undefined); } };
-
-    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: false } });
-    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10 });
-
-    expect(calls).toHaveLength(0);
   });
 });

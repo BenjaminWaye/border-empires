@@ -14,6 +14,18 @@
 //
 // Per instance, `aBannerWind` = (phase 0..1, speed multiplier): banners
 // across the map don't billow in lockstep, and ADVANCE-mode banners whip faster.
+//
+// Per instance, `aBannerDesign` picks the livery (BANNER_DESIGN_INDEX). It is
+// an account cosmetic (docs/gdd.md §8) and may change the embroidery only:
+// the cloth's outline, its wind, the owner's colour as the field and the
+// ADVANCE cues are the same for every design, and no design covers more of
+// the owner's colour than the standard one does. The High-noble standard's
+// gilded metalwork is separate geometry (muster-banner-regalia-geometry.ts).
+//
+// Per instance, `aBannerCrest` puts the owner's House crest (a free cosmetic)
+// in place of the device, the cog or the sun, stitched in the same thread
+// with the same dark outline (muster-banner-crest-atlas.ts). 0 keeps the device,
+// and so does a crest whose atlas cell has not loaded yet.
 import {
   Color,
   DoubleSide,
@@ -22,7 +34,15 @@ import {
   RGBADepthPacking,
   type WebGLProgramParametersWithUniforms
 } from "three";
+import type { MusterFlagDesign } from "../client-cosmetics/client-cosmetics.js";
 import { BANNER_CLOTH } from "./muster-banner-geometry.js";
+import { CREST_ATLAS_COLUMNS, CREST_ATLAS_ROWS, sharedBannerCrestAtlas } from "./muster-banner-crest-atlas.js";
+
+/**
+ * `aBannerDesign` value per muster flag design. 0 is the standard livery and
+ * is what a geometry without the attribute (the relic banner) reads.
+ */
+export const BANNER_DESIGN_INDEX = { default: 0, "flag-high-noble": 1 } as const satisfies Record<MusterFlagDesign, number>;
 
 /** The shader clock wraps every this many seconds, so float precision never degrades. */
 const TIME_PERIOD = 3600;
@@ -85,12 +105,22 @@ vec3 bannerNormal(vec2 uv, float t, float gust) {
 }
 varying vec2 vBannerUv;
 varying float vBannerFold;
+attribute float aBannerDesign;
+varying float vBannerDesign;
+attribute float aBannerCrest;
+varying float vBannerCrest;
 `;
 
 const FRAGMENT_DECLARATIONS = /* glsl */ `
 varying vec2 vBannerUv;
 varying float vBannerFold;
+varying float vBannerDesign;
+varying float vBannerCrest;
+uniform sampler2D uBannerCrests;
+uniform float uBannerTime;
 uniform vec3 uBannerTrim;
+// How much of this fragment is the High-noble standard's gold thread: it shines as metal.
+float gBannerGold = 0.0;
 uniform vec3 uBannerBand;
 ${SHAPE_CONSTANTS}
 // Antialiased 1 inside / 0 outside for a signed distance d (negative inside).
@@ -106,6 +136,32 @@ float bannerCog(vec2 p) {
   float hole = bannerFill(r - 0.27);
   float hub = bannerFill(r - 0.12);
   return clamp(outer - hole + hub, 0.0, 1.0);
+}
+// High-noble standard: a sun in splendour, twelve rays round a ringed disc.
+// p is in half-widths, like the cog.
+float bannerSun(vec2 p) {
+  float r = length(p);
+  float ray = pow(abs(cos(atan(p.y, p.x) * 6.0)), 3.0);
+  float rays = bannerFill(r - (0.36 + 0.3 * ray));
+  float gap = bannerFill(r - 0.31);
+  float ring = bannerFill(r - 0.27);
+  float hollow = bannerFill(r - 0.2);
+  float disc = bannerFill(r - 0.13);
+  return clamp(rays - gap + ring - hollow + disc, 0.0, 1.0);
+}
+// House crest from the atlas: x = the crest, y = the crest grown for its outline,
+// z = 1 once the crest's cell has loaded (0 keeps the device).
+// p is in half-widths, centred on the device; the crest fills a square 0.9 across.
+vec3 bannerCrest(vec2 p, float crest) {
+  vec2 local = p / 0.9 + 0.5;
+  float inside = step(0.0, local.x) * step(local.x, 1.0) * step(0.0, local.y) * step(local.y, 1.0);
+  float cell = max(crest - 1.0, 0.0);
+  float column = mod(cell, ${CREST_ATLAS_COLUMNS}.0);
+  float row = floor(cell / ${CREST_ATLAS_COLUMNS}.0);
+  vec2 uv = vec2((column + clamp(local.x, 0.0, 1.0)) / ${CREST_ATLAS_COLUMNS}.0, 1.0 - (row + 1.0 - clamp(local.y, 0.0, 1.0)) / ${CREST_ATLAS_ROWS}.0);
+  vec2 centre = vec2((column + 0.5) / ${CREST_ATLAS_COLUMNS}.0, 1.0 - (row + 0.5) / ${CREST_ATLAS_ROWS}.0);
+  float loaded = texture2D(uBannerCrests, centre).b;
+  return vec3(texture2D(uBannerCrests, uv).rg * inside, loaded);
 }
 `;
 
@@ -128,17 +184,54 @@ const COLOR_PATCH = /* glsl */ `
   // Running stitch where the side bands meet the panel.
   float seam = bannerFill(abs(side - BANNER_WIDTH * 0.15) - 0.0025) * step(0.45, fract(drop * column / 0.016));
   vec2 cogP = vec2((u - 0.5) * BANNER_WIDTH, (0.42 - drop) * column) / (BANNER_WIDTH * 0.5);
+  vec2 deviceP = cogP;
   float device = bannerCog(cogP / 0.8);
   float outline = clamp(bannerCog(cogP / 0.92) - device, 0.0, 1.0);
+  float damask = 0.0;
+  if (vBannerDesign > 0.5) {
+    // High-noble standard. The field stays the owner's colour, woven as a
+    // damask of lozenges a shade lighter and darker, inside a doubled gold
+    // border, under a gold sun in splendour. Hem and fringe are shared with
+    // the standard livery, so the outline is identical; the pale side bands
+    // are gone, so more of the owner's colour shows, not less.
+    float across = abs(u - 0.5) * BANNER_WIDTH;
+    float down = drop * column;
+    band = 0.0;
+    seam = 0.0;
+    float top = bannerFill(down - 0.012);
+    float inner = bannerFill(abs(side - 0.02) - 0.0022) + bannerFill(abs(hem - BANNER_FRINGE - 0.026) - 0.0022) + bannerFill(abs(down - 0.024) - 0.0022);
+    trim = max(max(bannerFill(hem - BANNER_FRINGE - 0.014), bannerFill(side - 0.011)), max(top, clamp(inner, 0.0, 1.0)));
+    vec2 lattice = vec2(across + down, across - down) / 0.05;
+    vec2 cell = abs(fract(lattice) - 0.5);
+    damask = (smoothstep(0.2, 0.26, max(cell.x, cell.y)) - 0.5) * (1.0 - trim);
+    // A scalloped gold pelmet across the head of the cloth.
+    float scallop = 0.05 + 0.016 * abs(sin(across * 3.14159 / 0.05));
+    trim = max(trim, bannerFill(abs(down - scallop) - 0.003));
+    vec2 sunP = vec2(across, down - 0.27) / (BANNER_WIDTH * 0.5);
+    deviceP = vec2((u - 0.5) * BANNER_WIDTH, 0.27 - down) / (BANNER_WIDTH * 0.5);
+    device = bannerSun(sunP / 0.78);
+    outline = clamp(bannerSun(sunP / 0.86) - device, 0.0, 1.0);
+  }
+  // Sampled outside any branch so the atlas's mipmaps see smooth derivatives.
+  vec3 crestTexel = bannerCrest(deviceP, vBannerCrest);
+  // Only a crest whose atlas cell has loaded replaces the device.
+  float hasCrest = step(0.5, vBannerCrest) * step(0.5, crestTexel.z);
+  device = mix(device, crestTexel.x, hasCrest);
+  outline = mix(outline, clamp(crestTexel.y - crestTexel.x, 0.0, 1.0), hasCrest);
   // Folds turned away from the camera sit in their own shade.
   float shade = 0.84 + 0.16 * (vBannerFold * 0.5 + 0.5);
   // On light (yellow, gold) banners the brass thread would vanish: darken it to bronze.
   float clothLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
   vec3 thread = uBannerTrim * mix(1.0, 0.4, smoothstep(0.3, 0.45, clothLuma));
+  diffuseColor.rgb *= 1.0 + 0.16 * damask;
   diffuseColor.rgb = mix(diffuseColor.rgb, uBannerBand, band);
   diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45, outline);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread * 0.7, seam);
+  // High-noble standard: a glint runs down the gold thread every few seconds.
+  float glint = step(0.5, vBannerDesign) * pow(max(0.0, sin((drop * 1.6 + u * 0.7) * 3.14159 - uBannerTime * 1.1)), 40.0);
+  thread = mix(thread, vec3(1.0, 0.96, 0.78), glint * 0.75);
   diffuseColor.rgb = mix(diffuseColor.rgb, thread, max(max(trim, device), fringe));
+  gBannerGold = step(0.5, vBannerDesign) * max(max(trim, device), fringe);
   diffuseColor.rgb *= shade;
 }
 `;
@@ -162,6 +255,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
   const time = { value: 0 };
   const trim = { value: new Color("#d8b066") };
   const band = { value: new Color("#ece3cc") };
+  const crests = { value: sharedBannerCrestAtlas().texture };
 
   const cloth = new MeshPhysicalMaterial({
     color: "#ffffff",
@@ -176,6 +270,7 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
     shader.uniforms.uBannerTime = time;
     shader.uniforms.uBannerTrim = trim;
     shader.uniforms.uBannerBand = band;
+    shader.uniforms.uBannerCrests = crests;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>\n${POINT_DECLARATIONS}${NORMAL_DECLARATIONS}`)
       .replace(
@@ -184,11 +279,14 @@ export const createMusterBannerClothMaterials = (): MusterBannerClothMaterials =
       )
       .replace(
         "#include <begin_vertex>",
-        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
+        `${VERTEX_POINT}\nvBannerUv = aBannerUv;\nvBannerDesign = aBannerDesign;\nvBannerCrest = aBannerCrest;\nfloat bannerDrop = 1.0 - aBannerUv.y;\nvBannerFold = clamp((transformed.z - BANNER_Z - 0.07 * bannerDrop * (0.25 + 0.75 * bannerDrop)) / 0.045, -1.0, 1.0);`
       );
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_DECLARATIONS}`)
-      .replace("#include <color_fragment>", COLOR_PATCH);
+      .replace("#include <color_fragment>", COLOR_PATCH)
+      // Only the High-noble standard's thread: gBannerGold is 0 for every other design, which leaves them as they were.
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.32, gBannerGold);")
+      .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.85, gBannerGold);");
   };
   cloth.customProgramCacheKey = () => "muster-banner-cloth";
 

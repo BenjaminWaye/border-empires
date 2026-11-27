@@ -21,6 +21,7 @@
 
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
+import { TILE_OVERLAY_KEYS } from "../tile-overlay-fields/tile-overlay-fields.js";
 
 export type TileLastEmittedRefs = {
   terrain: unknown;
@@ -37,6 +38,7 @@ export type TileLastEmittedRefs = {
   warScarUntil: unknown;
   razedWreckUntil: unknown;
   razedWreck: unknown;
+  campId: unknown;
   townRef: unknown;
   fortRef: unknown;
   observatoryRef: unknown;
@@ -73,7 +75,6 @@ interface Entry {
   musterRef: unknown;
   afcJson: string | undefined;
   afcRef: unknown;
-  lastEmitted: TileLastEmittedRefs | undefined;
 }
 
 export type AllSubstructureJson = {
@@ -90,14 +91,51 @@ export type AllSubstructureJson = {
   afcJson: string | undefined;
 };
 
+/** Shared result for a tile with no substructure at all: nothing to memoise. */
+const NO_SUBSTRUCTURE_JSON: AllSubstructureJson = Object.freeze({
+  townJson: undefined,
+  fortJson: undefined,
+  observatoryJson: undefined,
+  siegeBatteryJson: undefined,
+  economicStructureJson: undefined,
+  sabotageJson: undefined,
+  naturalWonderJson: undefined,
+  watchtowerJson: undefined,
+  waystationJson: undefined,
+  musterJson: undefined,
+  afcJson: undefined
+});
+
+// Derived from the shared overlay list (plus town, which is not an overlay), so a
+// new overlay cannot be left out here and silently come back as "no substructure".
+const SUBSTRUCTURE_KEYS: ReadonlyArray<"town" | (typeof TILE_OVERLAY_KEYS)[number]> = ["town", ...TILE_OVERLAY_KEYS];
+const hasAnySubstructure = (tile: DomainTileState): boolean => {
+  for (const key of SUBSTRUCTURE_KEYS) if (tile[key]) return true;
+  return false;
+};
+
+export type TileDeltaStringifyCacheStats = { substructureEntries: number; lastEmittedEntries: number };
+
 export class TileDeltaStringifyCache {
+  // Both maps are keyed by tile key, so each is bounded by the world's tile
+  // count. They are separate, and a tile gets an entry only when it has
+  // something to remember: one combined all-undefined entry per tile cost
+  // ~55 MB on a 204,800-tile world, almost all of it for sea and bare land
+  // (docs/load-results/sector-memory-2026-11-23.md). Sizes: stats().
+  /** Memoised JSON, only for tiles that carry at least one substructure. */
   private readonly entries = new Map<string, Entry>();
+  /** Last-emitted baseline, only for tiles that have been emitted or seeded. */
+  private readonly lastEmittedByKey = new Map<string, TileLastEmittedRefs>();
 
   /**
    * Return cached JSON strings for all substructures of the tile.
    * Only recomputes strings whose reference has changed since the last call.
    */
   getOrComputeAll(tileKey: string, tile: DomainTileState): AllSubstructureJson {
+    if (!hasAnySubstructure(tile)) {
+      this.entries.delete(tileKey);
+      return NO_SUBSTRUCTURE_JSON;
+    }
     let entry = this.entries.get(tileKey);
     if (!entry) {
       entry = {
@@ -111,8 +149,7 @@ export class TileDeltaStringifyCache {
         watchtowerJson: undefined, watchtowerRef: undefined,
         waystationJson: undefined, waystationRef: undefined,
         musterJson: undefined, musterRef: undefined,
-        afcJson: undefined, afcRef: undefined,
-        lastEmitted: undefined
+        afcJson: undefined, afcRef: undefined
       };
       this.entries.set(tileKey, entry);
     }
@@ -192,7 +229,7 @@ export class TileDeltaStringifyCache {
     fullDelta: SimulationTileWireDelta,
     reachOwnerId: string | undefined
   ): SimulationTileWireDelta {
-    const last = this.entries.get(tileKey)?.lastEmitted;
+    const last = this.lastEmittedByKey.get(tileKey);
     if (!last) {
       // Same guarantee as the sparse-diff path below (ownerId/ownershipState/
       // dockId always present, even when the value is falsy/absent) applied
@@ -268,6 +305,7 @@ export class TileDeltaStringifyCache {
     if (tile.warScarUntil !== last.warScarUntil) { (delta as Record<string, unknown>).warScarUntil = tile.warScarUntil; hasFieldChanges = true; }
     if (tile.razedWreckUntil !== last.razedWreckUntil) { (delta as Record<string, unknown>).razedWreckUntil = tile.razedWreckUntil; hasFieldChanges = true; }
     if (tile.razedWreck !== last.razedWreck) { (delta as Record<string, unknown>).razedWreck = tile.razedWreck; hasFieldChanges = true; }
+    if (tile.campId !== last.campId) { (delta as Record<string, unknown>).campId = tile.campId; hasFieldChanges = true; }
 
     if (tile.town !== last.townRef) { (delta as Record<string, unknown>).townJson = fullDelta.townJson; hasFieldChanges = true; }
     if (tile.fort !== last.fortRef) { (delta as Record<string, unknown>).fortJson = fullDelta.fortJson; hasFieldChanges = true; }
@@ -310,29 +348,11 @@ export class TileDeltaStringifyCache {
   }
 
   getLastEmitted(tileKey: string): TileLastEmittedRefs | undefined {
-    return this.entries.get(tileKey)?.lastEmitted;
+    return this.lastEmittedByKey.get(tileKey);
   }
 
   setLastEmitted(tileKey: string, tile: DomainTileState, reachOwnerId: string | undefined): void {
-    let entry = this.entries.get(tileKey);
-    if (!entry) {
-      entry = {
-        townJson: undefined, townRef: undefined,
-        fortJson: undefined, fortRef: undefined,
-        observatoryJson: undefined, observatoryRef: undefined,
-        siegeBatteryJson: undefined, siegeBatteryRef: undefined,
-        economicStructureJson: undefined, economicStructureRef: undefined,
-        sabotageJson: undefined, sabotageRef: undefined,
-        naturalWonderJson: undefined, naturalWonderRef: undefined,
-        watchtowerJson: undefined, watchtowerRef: undefined,
-        waystationJson: undefined, waystationRef: undefined,
-        musterJson: undefined, musterRef: undefined,
-        afcJson: undefined, afcRef: undefined,
-        lastEmitted: undefined
-      };
-      this.entries.set(tileKey, entry);
-    }
-    entry.lastEmitted = {
+    this.lastEmittedByKey.set(tileKey, {
       terrain: tile.terrain,
       resource: tile.resource,
       dockId: tile.dockId,
@@ -347,6 +367,7 @@ export class TileDeltaStringifyCache {
       warScarUntil: tile.warScarUntil,
       razedWreckUntil: tile.razedWreckUntil,
       razedWreck: tile.razedWreck,
+      campId: tile.campId,
       townRef: tile.town,
       fortRef: tile.fort,
       observatoryRef: tile.observatory,
@@ -358,44 +379,33 @@ export class TileDeltaStringifyCache {
       waystationRef: tile.waystation,
       musterRef: tile.muster,
       afcRef: tile.afc,
-    };
+    });
   }
 
   clearLastEmitted(tileKey: string): void {
-    const entry = this.entries.get(tileKey);
-    if (entry) entry.lastEmitted = undefined;
+    this.lastEmittedByKey.delete(tileKey);
   }
 
+  /** Drops the tile's memoised JSON. The last-emitted baseline is kept. */
   invalidate(tileKey: string): void {
-    const entry = this.entries.get(tileKey);
-    if (entry) {
-      const preserved = entry.lastEmitted;
-      entry.townJson = undefined; entry.townRef = undefined;
-      entry.fortJson = undefined; entry.fortRef = undefined;
-      entry.observatoryJson = undefined; entry.observatoryRef = undefined;
-      entry.siegeBatteryJson = undefined; entry.siegeBatteryRef = undefined;
-      entry.economicStructureJson = undefined; entry.economicStructureRef = undefined;
-      entry.sabotageJson = undefined; entry.sabotageRef = undefined;
-      entry.naturalWonderJson = undefined; entry.naturalWonderRef = undefined;
-      entry.watchtowerJson = undefined; entry.watchtowerRef = undefined;
-      entry.waystationJson = undefined; entry.waystationRef = undefined;
-      entry.musterJson = undefined; entry.musterRef = undefined;
-      entry.afcJson = undefined; entry.afcRef = undefined;
-      entry.lastEmitted = preserved;
-    }
+    this.entries.delete(tileKey);
   }
 
+  /** Drops everything known about the tiles, last-emitted baselines included. */
   invalidateMany(keys: Iterable<string>): void {
     for (const key of keys) {
       this.entries.delete(key);
+      this.lastEmittedByKey.delete(key);
     }
   }
 
   clear(): void {
     this.entries.clear();
+    this.lastEmittedByKey.clear();
   }
 
-  size(): number {
-    return this.entries.size;
+  /** Entry counts of both maps, for the checkpoint log's size gauge. */
+  stats(): TileDeltaStringifyCacheStats {
+    return { substructureEntries: this.entries.size, lastEmittedEntries: this.lastEmittedByKey.size };
   }
 }

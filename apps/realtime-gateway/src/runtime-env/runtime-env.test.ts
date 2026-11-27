@@ -39,6 +39,12 @@ describe("realtime gateway runtime env", () => {
     ).toThrow("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
+  it("reads hosted-sector settings, and is a public server without them", () => {
+    expect(parseRealtimeGatewayRuntimeEnv({}).hostedSector).toBeUndefined();
+    expect(parseRealtimeGatewayRuntimeEnv({ HOSTED_SECTOR_ID: "s-abc", HOSTED_SECTOR_TICKET_PUBLIC_KEY: "key" }).hostedSector).toEqual({ sectorId: "s-abc", ticketPublicKey: "key" });
+    expect(() => parseRealtimeGatewayRuntimeEnv({ HOSTED_SECTOR_ID: "s-abc" })).toThrow(/HOSTED_SECTOR_TICKET_PUBLIC_KEY/);
+  });
+
   it("parses explicit production configuration", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({
@@ -138,6 +144,15 @@ describe("realtime gateway runtime env", () => {
 
   it("leaves bugReportEmailTo unset when neither GATEWAY_BUG_REPORT_EMAIL_TO nor ADMIN_EMAIL is configured", () => {
     expect(parseRealtimeGatewayRuntimeEnv({}).emailAlerts.bugReportEmailTo).toBeUndefined();
+  });
+
+  it("enables GitHub issue filing only when both token and repo are set", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_TOKEN: " tok ", GATEWAY_GITHUB_ISSUES_REPO: "acme/game" })
+        .playerReportGithubIssues
+    ).toEqual({ token: "tok", repo: "acme/game" });
+    expect(parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_TOKEN: "tok" }).playerReportGithubIssues).toBeUndefined();
+    expect(parseRealtimeGatewayRuntimeEnv({ GATEWAY_GITHUB_ISSUES_REPO: "acme/game" }).playerReportGithubIssues).toBeUndefined();
   });
 
   it("allows explicit override for non-authoritative fallback mode", () => {

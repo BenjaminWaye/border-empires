@@ -134,7 +134,7 @@ describe("alliance tribute", () => {
     expect(verdict({ reply: cautious, selection: { ...selection(0, "alliance"), terms: deal! }, own: { gold: 5_000 } })).toEqual(
       expect.objectContaining({
         tone: "good",
-        text: "Milo would accept an alliance on these terms. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance."
+        text: "Milo would accept an alliance on these terms. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance. Allies can't attack each other. Their land counts as one bloc toward Diplomatic Dominance, won by its largest member. Breaking it takes 24 hours' notice."
       })
     );
     expect(verdict({ reply: cautious, selection: selection(0, "alliance"), own: { gold: 100 } }).text).toBe(
@@ -142,9 +142,17 @@ describe("alliance tribute", () => {
     );
   });
 
+  // Review of #2885: alliances are free at Pleased, so the note read "plus 0 for the alliance".
+  it("drops the alliance part when the tribute is the whole price", () => {
+    const tributeOnly = { ...cautious, pricing: { ...pricing, required: { ...pricing.required, alliance: 92 } } };
+    expect(verdict({ reply: tributeOnly, selection: selection(0, "alliance"), own: { gold: 50 } }).text).toBe(
+      "Milo wants about 92 coin for this, more than you can offer. Its price is tribute: about 92 coin to win it over."
+    );
+  });
+
   it("names no tribute once the AI is Pleased", () => {
     const pleased = { ...cautious, attitude: { level: "PLEASED" as const, score: 12, modifiers: [] }, pricing: { ...pricing, required: { ...pricing.required, alliance: 2880 } } };
-    expect(verdict({ reply: pleased, selection: selection(2880, "alliance"), own: { gold: 5_000 } }).text).toBe("Milo would accept an alliance on these terms.");
+    expect(verdict({ reply: pleased, selection: selection(2880, "alliance"), own: { gold: 5_000 } }).text).toBe("Milo would accept an alliance on these terms. Allies can't attack each other. Their land counts as one bloc toward Diplomatic Dominance, won by its largest member. Breaking it takes 24 hours' notice.");
   });
 });
 
@@ -338,6 +346,18 @@ describe("diplomacy trade screen", () => {
     const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
     expect(sendButton.disabled).toBe(true);
     expect(sendButton.textContent).toBe("Can offer again in 10m");
+  });
+
+  it("lets a counter to their offer through your own re-offer cooldown (playtest run 5)", () => {
+    setDiplomacyOfferCooldowns([{ kind: "truce", targetPlayerId: "ai-1", until: Date.now() + 30 * 60_000 }]);
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen(
+      { targetName: "Milo", kind: "truce", durationHours: 12, counters: { kind: "truce", requestId: "req-1" } },
+      { send, ownHoldings: () => ({ gold: 100 }) }
+    );
+    receiveDiplomacyStance(aiReply);
+    const sendButton = document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-send]")!;
+    expect(sendButton.textContent).not.toContain("Can offer again");
   });
 
   it("re-enables truce offers when the lockout expires with the sheet still open", () => {

@@ -1,10 +1,40 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { storageGet, storageSet } from "../client-state/client-storage.js";
+import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
+
+/** The diplomacy lists whose counterparts count as met (diplomacyContactIds). */
+type DiplomacyContacts = Partial<Pick<
+  ClientState,
+  | "allies" | "activeTruces" | "truceBreaksThisSeason" | "activeAllianceBreaks" | "recentAllianceBreaks"
+  | "incomingTruceRequests" | "outgoingTruceRequests" | "incomingAllianceRequests" | "outgoingAllianceRequests"
+>>;
 
 export type MetPlayersState = Pick<
   ClientState,
   "tiles" | "tilesRevision" | "me" | "bridgeDebugSeasonId" | "metPlayerIds" | "metPlayersScannedRevision" | "metPlayersLoadedFor" | "metPlayersSavedCount"
->;
+> & DiplomacyContacts;
+
+/**
+ * Every empire you have, or just had, a pact or a pending offer with: an
+ * ally, a truce partner, either side of an offer, an alliance on notice or
+ * just broken, a truce you broke. Playtest run 5 (pt-spender): right after a
+ * truce with Elin, Diplomacy still listed her as "Not met yet" with 0 met,
+ * because only seen land counted and a pact counted only while it ran. Added
+ * to the saved set, so a partner stays met after the pact ends.
+ */
+export const diplomacyContactIds = (state: DiplomacyContacts & Pick<ClientState, "me">): string[] => {
+  const ids = [
+    ...(state.allies ?? []),
+    ...(state.activeTruces ?? []).map((truce) => truce.otherPlayerId),
+    ...(state.truceBreaksThisSeason ?? []).map((record) => record.targetPlayerId),
+    ...(state.activeAllianceBreaks ?? []).map((notice) => notice.otherPlayerId),
+    ...(state.recentAllianceBreaks ?? []).map((notice) => notice.otherPlayerId)
+  ];
+  for (const request of [...(state.incomingTruceRequests ?? []), ...(state.outgoingTruceRequests ?? []), ...(state.incomingAllianceRequests ?? []), ...(state.outgoingAllianceRequests ?? [])]) {
+    ids.push(request.fromPlayerId, request.toPlayerId);
+  }
+  return ids.filter((id) => isMeetablePlayerId(id, state.me));
+};
 
 // Barbarians / Planetary Defense are environment, not diplomatic counterparts.
 export const isMeetablePlayerId = (ownerId: string | undefined, me: string | undefined): ownerId is string =>
@@ -16,8 +46,11 @@ export const isMeetablePlayerId = (ownerId: string | undefined, me: string | und
  * overwrites it, so at most one entry (player ids only) is ever kept.
  * Playtest run 2: it was rebuilt only from the tiles loaded now, so after a
  * reload, or once a truce partner's land was out of view, empires reverted to
- * "Not met yet". Client-side only: another device or cleared site data starts
- * from the loaded tiles again.
+ * "Not met yet". Playtest run 5: a fresh browser (another device, cleared
+ * site data) still started from the tiles in view ("Empires you've met · 0"),
+ * so the set is also kept on the gateway's player profile: every save sends it
+ * (SET_HINT_STATE metPlayerIds, merged there per season) and INIT /
+ * HINT_STATE_SET bring the stored set back (hydrateMetPlayersFromServer).
  */
 export const MET_PLAYERS_STORAGE_KEY = "be:met-players";
 /** Hard cap on saved ids; the season's player count is far below it. Oldest-met are dropped first. */
@@ -49,6 +82,8 @@ const save = (state: MetPlayersState, replace = false): void => {
   const value: SavedMetPlayers = { playerId: state.me, seasonId: state.bridgeDebugSeasonId, ids };
   storageSet(MET_PLAYERS_STORAGE_KEY, JSON.stringify(value));
   state.metPlayersSavedCount = state.metPlayerIds.size;
+  // An empty set clears the server's copy, so it is only sent to start over (a regenerated world).
+  if (replace || ids.length > 0) sendHintStateUpdate({ metPlayerIds: ids, metPlayersSeasonId: state.bridgeDebugSeasonId });
 };
 
 const isLoaded = (state: Pick<ClientState, "metPlayersLoadedFor">): boolean =>
@@ -72,7 +107,8 @@ const ensureLoaded = (state: MetPlayersState): void => {
 };
 
 /**
- * "Met" = you have seen a tile owned by that player this season. The set only
+ * "Met" = you have seen a tile owned by that player this season, or had a
+ * pact or offer with them (diplomacyContactIds). The set only
  * ever grows within a season (a player you saw and later lost sight of, or
  * whose border tiles were captured, stays met) and is bounded by the player
  * count. New sightings come from `state.tiles`, memoized on `tilesRevision`,
@@ -81,14 +117,29 @@ const ensureLoaded = (state: MetPlayersState): void => {
  */
 export const refreshMetPlayerIds = (state: MetPlayersState): ReadonlySet<string> => {
   ensureLoaded(state);
-  if (state.metPlayersScannedRevision === state.tilesRevision) return state.metPlayerIds;
-  for (const tile of state.tiles.values()) {
-    if (isMeetablePlayerId(tile.ownerId, state.me)) state.metPlayerIds.add(tile.ownerId);
+  // Pacts and offers are short lists, read every time: they change without a tile revision.
+  for (const id of diplomacyContactIds(state)) state.metPlayerIds.add(id);
+  if (state.metPlayersScannedRevision !== state.tilesRevision) {
+    for (const tile of state.tiles.values()) {
+      if (isMeetablePlayerId(tile.ownerId, state.me)) state.metPlayerIds.add(tile.ownerId);
+    }
+    state.metPlayersScannedRevision = state.tilesRevision;
   }
-  state.metPlayersScannedRevision = state.tilesRevision;
   // The set only grows, so a size change means new sightings to save.
   if (isLoaded(state) && state.metPlayerIds.size !== state.metPlayersSavedCount) save(state);
   return state.metPlayerIds;
+};
+
+/**
+ * Adds the gateway's stored set (INIT, HINT_STATE_SET) when it is for this
+ * season. New ids are saved on the next refresh, which also sends them back.
+ */
+export const hydrateMetPlayersFromServer = (state: MetPlayersState, ids: unknown, seasonId: unknown): void => {
+  ensureLoaded(state);
+  if (!isLoaded(state) || !Array.isArray(ids) || typeof seasonId !== "string" || seasonId !== state.bridgeDebugSeasonId) return;
+  const before = state.metPlayerIds.size;
+  for (const id of ids) if (typeof id === "string" && isMeetablePlayerId(id, state.me)) state.metPlayerIds.add(id);
+  if (state.metPlayerIds.size !== before) state.metPlayersScannedRevision = -1;
 };
 
 export const resetMetPlayers = (state: Pick<ClientState, "metPlayerIds" | "metPlayersScannedRevision" | "metPlayersLoadedFor" | "metPlayersSavedCount">): void => {

@@ -15,7 +15,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, townFocusMultipliers, biotaBlend, hasWideSupportRing, isInnerSupportRing, isPreferredSupportTown, townSupportCoinMultiplier, type TownSupportCounts, biotaShareMet, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -41,21 +41,25 @@ export const supportSummaryForTown = (
   tileKey: string,
   ownerId: string,
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
-): { supportCurrent: number; supportMax: number } => {
+): TownSupportCounts => {
   const [rawX, rawY] = tileKey.split(",");
   const x = Number(rawX);
   const y = Number(rawY);
-  if (!Number.isInteger(x) || !Number.isInteger(y)) return { supportCurrent: 0, supportMax: 0 };
-  let supportCurrent = 0;
-  let supportMax = 0;
+  const counts: TownSupportCounts = { supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 };
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return counts;
   const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (const { tile } of supportRingCandidates(tilesByKey, x, y, radius)) {
+  for (const { tile, dx, dy } of supportRingCandidates(tilesByKey, x, y, radius)) {
     if (tile.terrain !== "LAND") continue;
     if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
-    supportMax += 1;
-    if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
+    const held = tile.ownerId === ownerId && tile.ownershipState === "SETTLED";
+    counts.supportMax += 1;
+    if (held) counts.supportCurrent += 1;
+    if (isInnerSupportRing(dx, dy)) {
+      counts.innerMax += 1;
+      if (held) counts.innerCurrent += 1;
+    }
   }
-  return { supportCurrent, supportMax };
+  return counts;
 };
 
 export const hasSupportedStructure = (
@@ -226,6 +230,7 @@ export const supportTileBelongsToTown = (
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   let assignedTown: RuntimeState["tiles"][number] | undefined;
+  let assignedDistance = 0;
   // See the matching comment in economy-network-support-ring.ts's
   // supportTileBelongsToTown -- only scan the wider distance-2 shell when
   // supportTile is actually within range of one of this player's real
@@ -235,14 +240,16 @@ export const supportTileBelongsToTown = (
     ownerId,
     supportTile.x,
     supportTile.y,
-    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && (t.townPopulationTier === "GREAT_CITY" || t.townPopulationTier === "METROPOLIS")
+    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && hasWideSupportRing(t.townPopulationTier)
   );
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tilesByKey, supportTile.x, supportTile.y, scanRadius)) {
     if (candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
     if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.townPopulationTier)) continue;
-    if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    if (distance > supportRingRadiusForTier(candidate.townPopulationTier)) continue;
+    if (isPreferredSupportTown({ x: candidate.x, y: candidate.y, distance }, assignedTown && { x: assignedTown.x, y: assignedTown.y, distance: assignedDistance })) {
       assignedTown = candidate;
+      assignedDistance = distance;
     }
   }
   return assignedTown?.x === townX && assignedTown.y === townY;
@@ -314,8 +321,7 @@ export const buildTownSummary = (
   const isSettlement = populationTier === "SETTLEMENT";
   const support = tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
     ? supportSummaryForTown(tileKey, tile.ownerId, tilesByKey)
-    : { supportCurrent: 0, supportMax: 0 };
-  const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
+    : { supportCurrent: 0, supportMax: 0, innerCurrent: 0, innerMax: 0 };
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
   const manufactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MANUFACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
   const hasManufactory = manufactoryCount > 0;
@@ -350,7 +356,9 @@ export const buildTownSummary = (
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
       ? supportedConverterGoldPerMinute(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys)
       : { total: 0, countsByType: {} };
-  const goldPerMinute =
+  // Town focus (docs/town-focus-plan.md) scales the town's whole Coin, as townGoldPerMinuteForPlayer does.
+  const focus = townFocusMultipliers(townPartial);
+  const goldPerMinute = focus.coin * (
     !tile.ownerId || tile.ownershipState !== "SETTLED"
       ? 0
       : isSettlement
@@ -359,14 +367,15 @@ export const buildTownSummary = (
           ? 0
           : (
               TOWN_BASE_GOLD_PER_MIN * terrain.goldMultiplier *
-              supportRatio *
-              townPopulationMultiplier(populationTier) *
+              // Base from the inner ring, tier bonus from the outer (town-support-coin.ts); a short City+ earns part of
+              // its tier's coin (biota-town-output.ts), as the live path does.
+              townSupportCoinMultiplier(support, townPopulationMultiplier("TOWN"), biotaBlend(townPopulationMultiplier("TOWN"), townPopulationMultiplier(populationTier), biotaShareMet(player?.manpowerBreakdown?.biotaTowns?.find((entry) => entry.tileKey === tileKey)))) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
               manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, economyPlayer ? multiplicativeEffectForPlayer(economyPlayer, "clearingHouseUpliftMult") : 1) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total;
+            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total);
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -385,6 +394,7 @@ export const buildTownSummary = (
         incubationEngineGrowthMult *
         firstThreeTownPopGrowthMult *
         (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *
+        focus.growth *
         logisticFactor;
   // The population-growth tick stamps the rate it actually applied
   // (runtime-population-growth.ts), which also folds in the owner's
@@ -436,6 +446,8 @@ export const buildTownSummary = (
     baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
+    supportInnerCurrent: support.innerCurrent,
+    supportInnerMax: support.innerMax,
     goldPerMinute: Number(goldPerMinute.toFixed(6)),
     isFed,
     population,
@@ -465,6 +477,9 @@ export const buildTownSummary = (
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
     ...(typeof townPartial.forcedAncillarificationCooldownUntil === "number" ? { forcedAncillarificationCooldownUntil: townPartial.forcedAncillarificationCooldownUntil } : {}),
+    ...(townPartial.focus ? { focus: townPartial.focus } : {}),
+    ...(townPartial.pendingFocus && typeof townPartial.pendingFocusAt === "number" ? { pendingFocus: townPartial.pendingFocus, pendingFocusAt: townPartial.pendingFocusAt } : {}),
+    ...(typeof townPartial.focusLockedUntil === "number" ? { focusLockedUntil: townPartial.focusLockedUntil } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
     ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
     ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})

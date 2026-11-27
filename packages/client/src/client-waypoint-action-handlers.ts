@@ -13,8 +13,12 @@ import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
 import { dispatchExploreAction } from "./client-scout-drone/client-scout-drone-explore-action.js";
+import { dispatchAfcScoutAction } from "./client-scout-drone/client-scout-drone-picking.js";
+import { dispatchDockCrossAction } from "./client-dock-navigator/client-dock-navigator.js";
 import type { ClientState } from "./client-state/client-state.js";
+import type { Tile } from "./client-types.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { confirmWaypointAttacks } from "./client-waypoint-attack-confirm/client-waypoint-attack-confirm.js";
 
 type WaypointHandlerDeps = {
   state: ClientState;
@@ -29,6 +33,8 @@ type WaypointHandlerDeps = {
   sendGameMessage?: (payload: unknown) => boolean;
   /** The clicked button's data-origin-key (March Attack rows carry their origin flag/tile). */
   originKey?: string | undefined;
+  /** Opens a tile's sheet (Cross the sea opens the far dock's). */
+  openTileMenu?: (tile: Tile) => void;
 };
 
 const setWaypointForSelected = (
@@ -42,11 +48,15 @@ const setWaypointForSelected = (
     processActionQueue: () => boolean;
     renderHud: () => void;
     sendGameMessage?: (payload: unknown) => boolean;
+    /** How many attacks the player approved on this route (confirmWaypointAttacks); more on a re-plan asks again. */
+    approvedAttacks?: number;
+    /** Clear every queued waypoint first, but only once the route is approved: a cancelled prompt keeps the queue. */
+    clearQueueFirst?: boolean;
   },
   feedPrefix?: string
 ): boolean => {
   const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, sendGameMessage } = params;
-  if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
+  if (!params.clearQueueFirst && state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
     showVisibleActionWarning(
       { pushFeed, showCaptureAlert },
       "Action blocked",
@@ -64,6 +74,16 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
+  // Asks again when the route now needs more attacks than were approved (it is re-planned on confirm).
+  if (plan.attackCount > (params.approvedAttacks ?? 0)) {
+    hideTileActionMenu();
+    confirmWaypointAttacks(plan, state, keyFor, () => {
+      setWaypointForSelected({ ...params, approvedAttacks: plan.attackCount }, feedPrefix);
+    });
+    renderHud();
+    return true;
+  }
+  if (params.clearQueueFirst) feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   // Anchors and captured structures can be garrisoned without existing reach.
   if (!isInReach(selected.x, selected.y) && !settleIgnoresReach(selectedTile ?? {}) && state.discoveryTipQueue) {
@@ -77,7 +97,8 @@ const setWaypointForSelected = (
     plan,
     trackBarbarian,
     planId,
-    plannedAt
+    plannedAt,
+    ...(plan.attackCount > 0 ? { attacksConfirmed: true } : {})
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
   sendGameMessage?.(
@@ -130,8 +151,17 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   // An unexplored tile's Explore: launch the scout drone toward it (client-scout-drone/).
-  if (dispatchExploreAction(actionId, selected, state.scoutDroneFlight, { sendGameMessage, pushFeed })) {
+  // An AFC's Send scout drone opens a flight plan (client-scout-drone-picking.ts) instead.
+  if (
+    dispatchExploreAction(actionId, selected, { sendGameMessage, pushFeed }) ||
+    dispatchAfcScoutAction(actionId, state)
+  ) {
     hideTileActionMenu();
+    renderHud();
+    return true;
+  }
+  // Your dock's Cross the sea: open the far dock's sheet (client-dock-navigator.ts).
+  if (dispatchDockCrossAction(actionId, selected, state, (tile) => deps.openTileMenu?.(tile))) {
     renderHud();
     return true;
   }
@@ -150,11 +180,10 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "clear_waypoint_and_expand_here" && selected) {
-    const feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
-    return setWaypointForSelected(
-      { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) },
-      feedPrefix
-    );
+    return setWaypointForSelected({
+      state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, clearQueueFirst: true,
+      ...(sendGameMessage ? { sendGameMessage } : {})
+    });
   }
 
   // Reachable from any tile's menu (see appendCancelAllWaypointsAction in

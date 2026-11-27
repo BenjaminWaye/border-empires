@@ -730,7 +730,9 @@ describe("rewrite stack integration", () => {
     expect(acceptedDelayMs).toBeLessThan(500);
   }, 20_000);
 
-  it("resnapshots fog-disabled sessions instead of merging global tile delta leaks", async () => {
+  // Regression (docs/load-results/full-reveal-2026-11-23.md): a revealed admin used to get the whole
+  // world re-exported and re-sent on every change in their view, which stalled the server for everyone.
+  it("keeps a fog-disabled session current through live deltas, without resending the world", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
     const simulation = await createSimulationService({
       host: "127.0.0.1",
@@ -774,9 +776,8 @@ describe("rewrite stack integration", () => {
     );
     expect((await nextNonBootstrapMessage(fogAdminSocket, "fog-admin init")).type).toBe("INIT");
 
-    fogAdminSocket.socket.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: true }));
-    expect(await nextTypedMessage(fogAdminSocket, "fog update", "FOG_UPDATE")).toEqual({ type: "FOG_UPDATE", fogDisabled: true });
-    expect((await nextNonBootstrapMessage(fogAdminSocket, "fog snapshot replace")).type).toBe("TILE_SNAPSHOT_REPLACE");
+    fogAdminSocket.socket.send(JSON.stringify({ type: "REQUEST_REVEAL_MAP" }));
+    await nextTypedMessage(fogAdminSocket, "reveal map end", "REVEAL_MAP_END");
 
     // Muster is unconditionally required to attack — stage it through the
     // real command path, then advance muster accumulation with a direct tick.
@@ -808,16 +809,14 @@ describe("rewrite stack integration", () => {
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
-    // COMBAT_RESULT also arrives on resolution now — consume it by type before the fog-admin's TILE_SNAPSHOT_REPLACE.
-    await nextTypedMessage(fogAdminSocket, "combat result", "COMBAT_RESULT");
-
-    const fogRefresh = await nextTypedMessage(fogAdminSocket, "fog-admin refresh after remote delta", "TILE_SNAPSHOT_REPLACE");
-    expect(fogRefresh).toEqual(
-      expect.objectContaining({
-        type: "TILE_SNAPSHOT_REPLACE",
-        tiles: expect.any(Array)
-      })
-    );
+    const afterResolution: Array<Record<string, unknown>> = [];
+    for (;;) {
+      const message = await nextNonBootstrapMessage(fogAdminSocket, "live delta for the attacked tile");
+      afterResolution.push(message);
+      const tiles = message.type === "TILE_DELTA_BATCH" ? (message.tiles as Array<{ x: number; y: number }>) : [];
+      if (tiles.some((tile) => tile.x === 10 && tile.y === 11)) break;
+    }
+    expect(afterResolution.filter((message) => message.type === "TILE_SNAPSHOT_REPLACE")).toEqual([]);
   });
 
   // Skipped: observer receives a TILE_DELTA_BATCH for the lost tile before the
@@ -1748,10 +1747,10 @@ describe("rewrite stack integration", () => {
 
       // Re-sending the same name (e.g. only intending a colour change) is not
       // a rename and should never hit the throttle.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#654321" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#3a1a00" }));
       const style = await nextTypedMessage(sock, "unchanged-name resend", "PLAYER_STYLE");
       expect(style.name).toBe("P1 Renamed");
-      expect(style.tileColor).toBe("#654321");
+      expect(style.tileColor).toBe("#3a1a00");
     }, 15_000);
   });
 

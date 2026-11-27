@@ -100,6 +100,11 @@ describe("ClientMessageSchema", () => {
     ).toThrow();
   });
 
+  it("accepts BUILD_ECONOMIC_STRUCTURE for the Vivarium", () => {
+    expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "VIVARIUM" }))
+      .toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "VIVARIUM" });
+  });
+
   it("accepts BUILD_ECONOMIC_STRUCTURE for both Weapons Factories", () => {
     // Regression: the two Weapons Factories were never added to this
     // message's structureType enum, so once the client-side dispatch bug
@@ -114,6 +119,12 @@ describe("ClientMessageSchema", () => {
     expect(
       ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" })
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
+  });
+
+  it("accepts Farm Plot and Hydrogarden Plot builds (docs/farm-plot-plan.md)", () => {
+    for (const structureType of ["FARM_PLOT", "HYDROGARDEN_PLOT"]) {
+      expect(ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType })).toMatchObject({ structureType });
+    }
   });
 
   it("accepts refinery and booster builds, with an optional field, and rejects the removed Mine", () => {
@@ -191,3 +202,16 @@ describe("Fortify / Siege picker tier on build messages", () => {
   });
 });
 
+
+describe("account cosmetics messages", () => {
+  it("accepts REQUEST_COSMETICS and SET_COSMETIC, including null for the default look", () => {
+    expect(ClientMessageSchema.safeParse({ type: "REQUEST_COSMETICS" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }).success).toBe(true);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: null }).success).toBe(true);
+  });
+
+  it("rejects a SET_COSMETIC without a slot or with an oversized id", () => {
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", cosmeticId: "flag-high-noble" }).success).toBe(false);
+    expect(ClientMessageSchema.safeParse({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "x".repeat(25) }).success).toBe(false);
+  });
+});

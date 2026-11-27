@@ -51,7 +51,30 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   // list per viewer, never client-resubmitted.
   "island-names:",
   // HOUSE_CHARGES pushes (side-tickers/runtime-side-tickers.ts), likewise.
-  "house-charges:"
+  "house-charges:",
+  // Scout drone pushes (scout-drone/scout-drone-runtime.ts): vision batches, landing/turn/speed-up/reroute flights,
+  // reports, rival alerts, subscribe pushes and the mid-flight SCOUT_FINDS, none client-resubmitted. SCOUT_FINDS
+  // (one id per flight, an event per find tick) leaked here until review 2026-11-21.
+  "scout-drone-vision:",
+  "scout-drone-landed:",
+  "scout-drone-sped-up:",
+  "scout-drone-turned:",
+  "scout-drone-rerouted:",
+  "scout-drone:",
+  "scout-report:",
+  "scout-sighted:",
+  "scout-finds:",
+  // Waystation VISION look expiry flush (runtime-watchtower-reveal-tick.ts).
+  "waystation-vision-expire:",
+  // Reach-border follow-ups (runtime-reach-border-apply.ts, runtime-reach-contested-flush.ts)
+  // and the muster ticker (runtime-muster-tick/). Each wraps the id of whatever caused it, so
+  // a client only ever resubmits the inner id, never one of these. With 60 AI Houses they were
+  // every entry of the replay cache: 6,642 commands / 33 MB after 40 minutes, and climbing
+  // toward the 50,000 cap (docs/load-results/sector-memory-2026-11-23.md).
+  "reach-contested:",
+  "reach-auto-claim:",
+  "muster-tick:",
+  "muster-status:"
 ] as const;
 
 /**
