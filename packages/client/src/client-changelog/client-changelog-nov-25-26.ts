@@ -29,6 +29,7 @@ import { FEALTY_WORDING_ENTRY } from "./client-changelog-fealty-wording.js";
 import { HOUSE_CRESTS_ENTRY } from "./client-changelog-house-crests.js";
 import { SIEGE_ODDS_ENTRY } from "./client-changelog-siege-odds.js";
 
+import { MOTHERSHIP_AI_ENTRY } from "./client-changelog-mothership-ai.js";
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -49,6 +50,7 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...TOWN_FOCUS_CONFIRM_ENTRY, createdAt: 1795724645924, },
   { ...LAUNCH_ATTACK_FLAG_SPOT_ENTRY, createdAt: 1795724732015, },
   { ...BEACON_RELAY_WORDING_ENTRY, createdAt: 1795726388531, },
+  { ...MOTHERSHIP_AI_ENTRY, createdAt: 1795769269985, },
   { ...REGION_CHARGE_PROGRESS_ENTRY, createdAt: 1795727660821, },
   { ...GUIDE_ATTACK_TRUCE_ENTRY, createdAt: 1795764700050, },
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
