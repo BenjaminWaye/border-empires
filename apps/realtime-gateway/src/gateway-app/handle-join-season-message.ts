@@ -1,11 +1,12 @@
-import { guestSlotsFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { guestSlotsFullErrorPayload, noLandingSiteErrorPayload } from "../season-full-rejection/season-full-rejection.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import { joinWithReservedPlace } from "../season-full-rejection/reserve-next-contest-place.js";
 
 type PrepareLikeFn = (
   playerId: string,
   rallyAnchor?: { x: number; y: number; island?: string },
-  options?: { isGuest?: boolean }
-) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+  options?: { isGuest?: boolean; reservedPlace?: boolean }
+) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number; noLandingSite?: boolean }>;
 
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
 // (already oversized) file from growing. JOIN_SEASON is the only path that
@@ -55,6 +56,13 @@ export type JoinSeasonMessageDeps = {
   resolveSpawnTile?: (playerId: string) => Promise<{ x: number; y: number } | undefined>;
   // Player-funnel hook (player-funnel-tracker.ts), fired when result.spawned.
   onSpawned?: (playerId: string) => void;
+  // GDD §6: a player turned away for lack of a landing site keeps a place in
+  // the next contest (reserve-next-contest-place.ts). Omitted on a hosted
+  // sector, which has no next contest.
+  reserveNextContestPlace?: (playerId: string) => Promise<boolean>;
+  // True when the player reserved a place in this contest; JoinSeason then
+  // skips the player cap (owner decision 2026-11-27). Omitted on a hosted sector.
+  hasReservedPlace?: (playerId: string) => Promise<boolean>;
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
@@ -71,12 +79,18 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     checkIntoLobby,
     broadcastLobbyUpdate,
     resolveSpawnTile,
-    onSpawned
+    onSpawned,
+    reserveNextContestPlace,
+    hasReservedPlace
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
+    // A player holding a reserved place is retried past the cap only after a "full" reply.
     const result = await withTimeout(
-      joinFn(playerId, rallyAnchor, { isGuest: isGuest === true }),
+      joinWithReservedPlace(
+        (reservedPlace) => joinFn(playerId, rallyAnchor, { isGuest: isGuest === true, ...(reservedPlace ? { reservedPlace: true } : {}) }),
+        hasReservedPlace ? () => hasReservedPlace(playerId) : undefined
+      ),
       JOIN_SEASON_RPC_TIMEOUT_MS,
       "join season RPC"
     );
@@ -98,6 +112,12 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     if (result.full) {
       recordGatewayEvent("info", "gateway_join_season_full", { playerId });
       sendJson(socket, seasonFullErrorPayload());
+      return;
+    }
+    if (result.noLandingSite) {
+      const reserved = reserveNextContestPlace ? await reserveNextContestPlace(playerId) : false;
+      recordGatewayEvent("info", "gateway_join_season_no_landing_site", { playerId, reserved });
+      sendJson(socket, noLandingSiteErrorPayload(reserved));
       return;
     }
     recordGatewayEvent("info", "gateway_join_season", { playerId, spawned: result.spawned });
