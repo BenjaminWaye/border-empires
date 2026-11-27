@@ -231,7 +231,12 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             getOccupancy: () =>
               ctx.simulationClient
                 .getCurrentSeasonSummary()
-                .then(({ seasonId, status, overall }) => ({ seasonId, status, playerIds: overall.map((entry) => entry.id) })),
+                .then(({ seasonId, status, overall, landingSiteAvailable }) => ({
+                  seasonId,
+                  status,
+                  playerIds: overall.map((entry) => entry.id),
+                  ...(typeof landingSiteAvailable === "boolean" ? { landingSiteAvailable } : {})
+                })),
             maxHouses: resolveMaxSeasonPlayersForGateway
           }
         }
