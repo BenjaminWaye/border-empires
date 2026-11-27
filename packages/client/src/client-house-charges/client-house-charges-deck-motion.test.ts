@@ -46,6 +46,13 @@ describe("House Charges card styles", () => {
     expect(deckCss).toMatch(/\.hcd-card \.hc-text \.hcd-status \{[^}]*color:/);
   });
 
+  // Regression (owner 2026-11-27, staging phone): with one card kept, "Keep these 2" is disabled but looked
+  // exactly like the live button, so tapping it seemed to do nothing. A disabled Keep must look disabled.
+  it("dims the Keep button while it cannot be pressed", () => {
+    const style = source("client-house-charges-style.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(style).toMatch(/\.house-charges-popover \.panel-btn:disabled \{[^}]*opacity: 0\.4/);
+  });
+
   // Review of #2887: a phone held sideways is wider than 900 px but compact, and must keep the phone panel.
   it("floats the hand only on the desktop HUD, never on a compact one", () => {
     const desktop = motionCss.slice(motionCss.indexOf("@media (min-width: 901px)"), motionCss.indexOf("@keyframes hcd-float"));

@@ -16,6 +16,7 @@ import { GUIDE_ATTACK_TRUCE_ENTRY } from "./client-changelog-guide-attack-truce.
 import { DIPLOMACY_PLAYTEST_FIXES_ENTRY } from "./client-changelog-diplomacy-playtest-fixes.js";
 import { DRONE_BORDER_COIN_RESTART_ENTRY } from "./client-changelog-drone-border-coin-restart.js";
 import { PHONE_OVERLAPS_ENTRY } from "./client-changelog-phone-overlaps.js";
+import { KEEP_CHARGES_DISABLED_ENTRY } from "./client-changelog-keep-charges-disabled.js";
 
 export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DEPLOY_SAFE_JOIN_ENTRY, createdAt: 1795620620384, },
@@ -37,4 +38,5 @@ export const NOV_25_26_CHANGELOG: ClientChangelogEntry[] = [
   { ...DRONE_BORDER_COIN_RESTART_ENTRY, createdAt: 1795765010313, },
   { ...DIPLOMACY_PLAYTEST_FIXES_ENTRY, createdAt: 1795765266554, },
   { ...PHONE_OVERLAPS_ENTRY, createdAt: 1795765309360, },
+  { ...KEEP_CHARGES_DISABLED_ENTRY, createdAt: 1795779079188, },
 ];

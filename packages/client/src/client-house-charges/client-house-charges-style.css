@@ -32,6 +32,8 @@
 .house-charges-popover-text { display: grid; gap: 2px; min-width: 0; }
 .house-charges-popover-actions { display: flex; flex: none; gap: 8px; }
 .house-charges-popover .panel-btn { white-space: nowrap; }
+/* Until the right number of cards is kept, Keep is greyed so a tap on it never seems ignored (owner 2026-11-27). */
+.house-charges-popover .panel-btn:disabled { opacity: 0.4; box-shadow: none; }
 .house-charges-popover-actions [data-house-charges-tip-show] { flex: 1 1 auto; }
 .house-charges-popover-close { flex: none; min-width: 40px; font-size: 18px; line-height: 1; }
 
