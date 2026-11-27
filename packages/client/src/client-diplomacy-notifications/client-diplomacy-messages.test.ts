@@ -61,8 +61,28 @@ describe("handleDiplomacySocketMessage", () => {
       fromName: "Milo",
       terms: { give: { gold: 0 }, ask: { gold: 60 } }
     };
-    handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
-    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a 12h truce (you pay 60 coin).", "alliance", "info");
+    vi.useFakeTimers();
+    vi.setSystemTime(3_600_000);
+    try {
+      handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a truce · 11h left (you pay 60 coin).", "alliance", "info");
+  });
+
+  // Playtest run 5: "offered a 12h truce" was replayed at login hours after the offer, when far less was left.
+  it("says the time left on an offer seen hours after it was made, not the hours offered", () => {
+    const handlerDeps = deps();
+    const request = { id: "t3", fromPlayerId: "ai-1", toPlayerId: "p1", createdAt: 0, expiresAt: 12 * 3_600_000, durationHours: 12, fromName: "Milo" };
+    vi.useFakeTimers();
+    vi.setSystemTime(10 * 3_600_000);
+    try {
+      handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a truce · 2h left.", "alliance", "info");
   });
 
   it("words an incoming truce extension as an extension", () => {

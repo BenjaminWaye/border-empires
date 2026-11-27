@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { storageGet, storageSet } from "../client-state/client-storage.js";
+import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
 
 export type MetPlayersState = Pick<
   ClientState,
@@ -16,8 +17,11 @@ export const isMeetablePlayerId = (ownerId: string | undefined, me: string | und
  * overwrites it, so at most one entry (player ids only) is ever kept.
  * Playtest run 2: it was rebuilt only from the tiles loaded now, so after a
  * reload, or once a truce partner's land was out of view, empires reverted to
- * "Not met yet". Client-side only: another device or cleared site data starts
- * from the loaded tiles again.
+ * "Not met yet". Playtest run 5: a fresh browser (another device, cleared
+ * site data) still started from the tiles in view ("Empires you've met · 0"),
+ * so the set is also kept on the gateway's player profile: every save sends it
+ * (SET_HINT_STATE metPlayerIds, merged there per season) and INIT /
+ * HINT_STATE_SET bring the stored set back (hydrateMetPlayersFromServer).
  */
 export const MET_PLAYERS_STORAGE_KEY = "be:met-players";
 /** Hard cap on saved ids; the season's player count is far below it. Oldest-met are dropped first. */
@@ -49,6 +53,8 @@ const save = (state: MetPlayersState, replace = false): void => {
   const value: SavedMetPlayers = { playerId: state.me, seasonId: state.bridgeDebugSeasonId, ids };
   storageSet(MET_PLAYERS_STORAGE_KEY, JSON.stringify(value));
   state.metPlayersSavedCount = state.metPlayerIds.size;
+  // An empty set clears the server's copy, so it is only sent to start over (a regenerated world).
+  if (replace || ids.length > 0) sendHintStateUpdate({ metPlayerIds: ids, metPlayersSeasonId: state.bridgeDebugSeasonId });
 };
 
 const isLoaded = (state: Pick<ClientState, "metPlayersLoadedFor">): boolean =>
@@ -89,6 +95,18 @@ export const refreshMetPlayerIds = (state: MetPlayersState): ReadonlySet<string>
   // The set only grows, so a size change means new sightings to save.
   if (isLoaded(state) && state.metPlayerIds.size !== state.metPlayersSavedCount) save(state);
   return state.metPlayerIds;
+};
+
+/**
+ * Adds the gateway's stored set (INIT, HINT_STATE_SET) when it is for this
+ * season. New ids are saved on the next refresh, which also sends them back.
+ */
+export const hydrateMetPlayersFromServer = (state: MetPlayersState, ids: unknown, seasonId: unknown): void => {
+  ensureLoaded(state);
+  if (!isLoaded(state) || !Array.isArray(ids) || typeof seasonId !== "string" || seasonId !== state.bridgeDebugSeasonId) return;
+  const before = state.metPlayerIds.size;
+  for (const id of ids) if (typeof id === "string" && isMeetablePlayerId(id, state.me)) state.metPlayerIds.add(id);
+  if (state.metPlayerIds.size !== before) state.metPlayersScannedRevision = -1;
 };
 
 export const resetMetPlayers = (state: Pick<ClientState, "metPlayerIds" | "metPlayersScannedRevision" | "metPlayersLoadedFor" | "metPlayersSavedCount">): void => {

@@ -10,6 +10,7 @@
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import { showEffortConfirmSheet } from "../client-effort-confirm-sheet/client-effort-confirm-sheet.js";
+import { attackWarWarning } from "../client-attack-war-warning/client-attack-war-warning.js";
 import { supplyTradeAttackWarningsForTargets } from "../client-supply-trade-attack-warning/client-supply-trade-attack-warning.js";
 import { confirmSupplyTradeEnd, type SupplyTradeSheet } from "../client-flag-supply-trade-confirm/client-flag-supply-trade-confirm.js";
 import {
@@ -41,6 +42,12 @@ type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCom
 
 const percent = (chance: number | undefined): string | undefined => (chance == null ? undefined : `${Math.round(chance * 100)}%`);
 
+/** "Starts war with House X · " when the attack would start a war (client-attack-war-warning.ts), else "". */
+const warPrefix = (state: ClientState, ownerIds: ReadonlyArray<string | undefined>): string => {
+  const warning = attackWarWarning(state, ownerIds, Date.now());
+  return warning ? `${warning} · ` : "";
+};
+
 /** Records the chosen commitment, or clears a stale one when the player stayed at the floor. */
 const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): void => {
   if (commitManpower > attackEffortFloorForTarget(tile, state)) setAttackCommit(state, tile.x, tile.y, commitManpower);
@@ -62,7 +69,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
+    subtitle: `${warPrefix(state, [tile.ownerId])}${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} · More manpower improves your odds. You spend the full commitment whether you win or lose.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -130,7 +137,7 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
+    subtitle: `${warPrefix(state, eligible.map((tile) => tile.ownerId))}${eligible.length} defended target${eligible.length === 1 ? "" : "s"} · Extra commits 50% more manpower per target. Double commits twice as much. Both improve your odds, and you spend the full commitment either way.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
