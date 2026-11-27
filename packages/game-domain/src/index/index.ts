@@ -142,6 +142,8 @@ export type DomainPlayer = {
   scoutChargeSpends?: number[];
   /** The last scout drone landing report, until the player has seen it on some device (SCOUT_REPORT_SEEN); scout-drone-held-report.ts. */
   scoutLastReport?: import("@border-empires/shared").ScoutHeldReport;
+  /** A human's last command or subscribe (Unix ms): the 24h passive-income inactivity window counts from it, across restarts (runtime-passive-income.ts). */
+  lastActiveAt?: number;
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into
