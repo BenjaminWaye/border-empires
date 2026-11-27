@@ -9,6 +9,7 @@ import type { SectorTicketSigner } from "../sector-ticket/sector-ticket-signer.j
 import type { HostingConfig } from "./hosting-config.js";
 import { consentRecord } from "./hosting-consent.js";
 import { PURCHASES_PAUSED_MESSAGE } from "./hosting-disputes.js";
+import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingService, type ContributionEvent, type FundingErrorCode, type FundingView } from "./hosting-funding.js";
 
 /** The signed-in caller, as verified from their Firebase ID token. */
@@ -17,7 +18,7 @@ export type HostingAccount = { uid: string; isGuest: boolean; emailVerified: boo
 export type HostingErrorCode =
   | "SALES_CLOSED" | "ACCOUNT_REQUIRED" | "EMAIL_NOT_VERIFIED" | "ALREADY_HOSTING" | "PAYMENT_UNAVAILABLE"
   | "NOT_FOUND" | "NOT_HOST" | "NOT_MEMBER" | "SECTOR_CLOSED" | "SECTOR_NOT_READY" | "SECTOR_FULL"
-  | "INVITE_INVALID" | "TOO_MANY_INVITES" | FundingErrorCode;
+  | "INVITE_INVALID" | "TOO_MANY_INVITES" | "WITHDRAWAL_NOT_AVAILABLE" | FundingErrorCode;
 export type HostingResult<T> = ({ ok: true } & T) | { ok: false; code: HostingErrorCode; message: string };
 
 /** What a member is shown. Never includes payment or server references. */
@@ -37,6 +38,8 @@ export type SectorView = {
   delayed: boolean;
   /** Only while the sector is being split-funded. */
   funding?: FundingView;
+  /** True while this account can withdraw from what it paid for here: shows the "Withdraw from contract" button. */
+  canWithdraw: boolean;
 };
 
 /**
@@ -70,6 +73,7 @@ const fail = (code: HostingErrorCode, message: string): { ok: false; code: Hosti
 export const createHostingService = (deps: HostingServiceDeps) => {
   const { store, config } = deps;
   const funding = createFundingService(deps);
+  const withdrawal = createWithdrawalService(deps);
 
   const view = (sector: SectorRecord, role: "host" | "member", accountUid: string): SectorView => {
     const fundingView = funding.view(sector, accountUid);
@@ -85,7 +89,8 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       ...(sector.endedAt !== undefined ? { endedAt: sector.endedAt } : {}),
       ...(role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? { checkoutUrl: sector.checkoutUrl } : {}),
       delayed: sector.state === "creating" && sector.createAttempts > 0,
-      ...(fundingView ? { funding: fundingView } : {})
+      ...(fundingView ? { funding: fundingView } : {}),
+      canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId)
     };
   };
 
@@ -184,8 +189,9 @@ export const createHostingService = (deps: HostingServiceDeps) => {
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment"], { state: "cancelled" }, now);
       } else if (event.kind === "refunded" && !event.fullRefund) {
         // A part of the price given back (goodwill for an outage, Terms of Sale
-        // section 8): the sector keeps running for every member.
-        deps.alert("partial_refund", { sectorId: sector.sectorId, state: sector.state });
+        // section 8): the sector keeps running for every member. The service's
+        // own withdrawal refund is no news.
+        if (!store.getWithdrawal(sector.sectorId)) deps.alert("partial_refund", { sectorId: sector.sectorId, state: sector.state });
       } else if (event.kind === "refunded") {
         // The whole price given back. The reconciler deletes the server of a refunded sector, if one exists.
         applied = store.transitionSector(sector.sectorId, ["awaiting_payment", "creating", "open", "ended"], { state: "refunded" }, now);
@@ -247,6 +253,11 @@ export const createHostingService = (deps: HostingServiceDeps) => {
     },
 
     /** The ticket and address a member's client needs to connect to the sector's own server. */
+    /** The withdrawal's confirmation step: what would be refunded. Nothing is done. */
+    quoteWithdrawal: (account: HostingAccount, sectorId: string) => withdrawal.quote(account.uid, sectorId),
+    /** A confirmed withdrawal: refunds the price less the days used and closes the purchase. */
+    withdraw: (account: HostingAccount, sectorId: string, purchaseKey: unknown) => withdrawal.withdraw(account.uid, sectorId, purchaseKey),
+
     async issueTicket(account: HostingAccount, sectorId: string): Promise<HostingResult<{ ticket: string; expiresAt: number; wsUrl: string }>> {
       const sector = store.getSector(sectorId);
       if (!sector || !store.getMember(sectorId, account.uid)) return fail("NOT_MEMBER", "You are not a member of this sector.");

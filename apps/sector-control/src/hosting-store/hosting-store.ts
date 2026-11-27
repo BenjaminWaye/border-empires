@@ -83,6 +83,22 @@ export type ContributionRecord = {
 /** `amountCents` changes only when a share is partly captured: it is then what was charged. */
 export type ContributionPatch = { state?: ContributionState; amountCents?: number; paymentRef?: string | null; checkoutUrl?: string | null };
 
+/** `withdrawalKey` is the sector id for a purchase in full, or the contribution id for one share. */
+export type WithdrawalRecord = {
+  withdrawalKey: string;
+  sectorId: string;
+  contributionId?: string;
+  accountUid: string;
+  /** The payment the refund goes back to. */
+  paymentRef: string;
+  paidCents: number;
+  deductionCents: number;
+  refundCents: number;
+  requestedAt: number;
+  /** Set once the payment provider has accepted the refund; until then the reconciler keeps trying. */
+  refundedAt?: number;
+};
+
 export type SectorMember = { sectorId: string; accountUid: string; role: "host" | "member"; joinedAt: number };
 
 export type SectorInvite = {
@@ -128,6 +144,8 @@ export interface HostingStore {
   /** Returns false when the account was already a member. */
   addMember(member: SectorMember): boolean;
   getMember(sectorId: string, accountUid: string): SectorMember | undefined;
+  /** False when the account was not a member. */
+  removeMember(sectorId: string, accountUid: string): boolean;
   countMembers(sectorId: string): number;
 
   insertInvite(invite: SectorInvite): void;
@@ -149,6 +167,17 @@ export interface HostingStore {
   openDispute(dispute: { disputeId: string; accountUid: string; sectorId: string; openedAt: number }): boolean;
   closeDispute(disputeId: string, closedAt: number): boolean;
   hasOpenDispute(accountUid: string): boolean;
+
+  /**
+   * A consumer's withdrawal from the contract (Terms of Sale section 7): one
+   * per sector, or per share of a split-funded one (`withdrawalKey`). False
+   * when that purchase was already withdrawn from.
+   */
+  insertWithdrawal(withdrawal: WithdrawalRecord): boolean;
+  getWithdrawal(withdrawalKey: string): WithdrawalRecord | undefined;
+  markWithdrawalRefunded(withdrawalKey: string, at: number): boolean;
+  /** Withdrawals whose refund has not been accepted yet. */
+  listPendingWithdrawals(): WithdrawalRecord[];
 
   /** Returns false when this provider event was already recorded. */
   recordPaymentEvent(eventId: string, now: number): boolean;

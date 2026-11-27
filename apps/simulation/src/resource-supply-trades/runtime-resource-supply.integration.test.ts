@@ -264,6 +264,10 @@ describe("resource trades in the production runtime",()=>{
     f.runtime.applyPassiveIncome(start, 24 * hour);
     await f.pay("trade", { FOOD: 2 }, 10);
     const checkpoint = f.runtime.exportSnapshotSections().initialState;
+    // Last activity survives the restart now, so the seller would earn its own income too: make it
+    // a day idle, so only the recurring Coin can move its balance.
+    const seller = checkpoint.players?.find(player => player.id === "seller");
+    if (seller) seller.lastActiveAt = start - 25 * hour;
     let now = start + 10 * hour;
     const restored = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialState: checkpoint });
     const sellerPoints = () => restored.exportState().players.find(player => player.id === "seller")!.points;

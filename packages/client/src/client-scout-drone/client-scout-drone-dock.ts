@@ -6,7 +6,7 @@
 // It must fit a 375px phone (owner, 2026-11-21: eight pips overflowed it).
 import { nextScoutChargeAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanBlocked, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
 import "./client-scout-drone-dock.css";
 import { activeFullscreenCard } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
@@ -67,6 +67,8 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
   const base = { count: `${DRONE_SVG}<b>${left}</b><small>/${scoutChargesMax(state)}</small>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
+  // A seen rival border right past home: the drone would turn back having found nothing (Playtest Run 5).
+  if (stops > 0 && scoutPlanBlocked(preview)) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-go-word">Blocked</span>` };
   // With the drone already out the stops join its route, so the button says Add, not Go (player review 2026-11-21).
   // An empty plan says what to do: the one place the dock spends words (player review 2026-11-21).
   const word = stops === 0 ? "Tap fog" : flyingScoutDrone(state, nowMs) ? "Add" : "Go";

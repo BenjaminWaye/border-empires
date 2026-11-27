@@ -1,5 +1,6 @@
 import type { AttackCommitEntry } from "../client-attack-commit/client-attack-commit.js";
 import type { DetachedAttack } from "../client-detached-attacks/client-detached-attacks.js";
+import type { MusterFlagPlanEntry } from "../client-muster-flag-plan/client-muster-flag-plan.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 
 /**
@@ -19,5 +20,9 @@ export const createInitialAttackDispatchState = () => ({
   // Keyed by target tile key: the effort level (commitManpower) the player
   // picked in the Launch Attack dialog, read at every
   // ATTACK send point. Size- and TTL-bounded; see client-attack-commit.ts.
-  attackCommitByTargetKey: new Map<string, AttackCommitEntry>()
+  attackCommitByTargetKey: new Map<string, AttackCommitEntry>(),
+  // Keyed by target tile key: where the player chose to raise a new muster
+  // flag in the Launch Attack sheet, consumed when the attack parks. Size-
+  // and TTL-bounded; see client-muster-flag-plan.ts.
+  musterFlagPlanByTargetKey: new Map<string, MusterFlagPlanEntry>()
 });
