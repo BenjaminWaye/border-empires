@@ -314,6 +314,15 @@ baseline.
     before). A full map has not been run, so which holds is still open. The
     options (a full-map run, a higher heap limit, a shorter contest, cutting
     more per-tile state) are in that record for the owner; none is chosen.
+  - Decided 2026-11-28 (owner): raise the heap limit from 900 MB to
+    1,536 MB as insurance (it applies to the simulation and to every other
+    thread without its own cap), and the checkpoint watermarks with it, from
+    680 to 1,300 MB heap and from 1,500 to 2,300 MB process, so checkpoints
+    are not put off while the heap is still well under its limit. This
+    supersedes the 2026-11-25 watermark values below. Not yet measured at
+    the new limit; a full-map run is still wanted to confirm that growth
+    stops when the land is full
+    ([`load-results/sim-heap-growth-2026-11-28.md`](load-results/sim-heap-growth-2026-11-28.md) §6).
   - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
     process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
     watermark from 480 MB to 680 MB, so that checkpoints stop being put off at

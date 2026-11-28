@@ -9,6 +9,7 @@ import { ANALYTICS_CONSENT_ENTRY } from "./client-changelog-analytics-consent.js
 import { NUMBER_AGREEMENT_ENTRY } from "./client-changelog-number-agreement.js";
 import { FIRST15_GUIDE_CAMERA_ENTRY } from "./client-changelog-first15-guide-camera.js";
 import { FIRST15_HUD_EXPLAIN_ENTRY } from "./client-changelog-first15-hud-explain.js";
+import { GUIDE_MANUFACTORY_BUILD_LIST_ENTRY } from "./client-changelog-guide-manufactory-build-list.js";
 import { POPUPS_WAIT_THEIR_TURN_ENTRY } from "./client-changelog-popups-wait-their-turn.js";
 import { INSURGENT_MARCH_ENTRY } from "./client-changelog-insurgent-march.js";
 
@@ -24,4 +25,5 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...FIRST15_GUIDE_CAMERA_ENTRY, createdAt: 1795851462394, },
   { ...INSURGENT_MARCH_ENTRY, createdAt: 1795861349536, },
   { ...FIRST15_HUD_EXPLAIN_ENTRY, createdAt: 1795865152971, },
+  { ...GUIDE_MANUFACTORY_BUILD_LIST_ENTRY, createdAt: 1795866260277, },
 ];
