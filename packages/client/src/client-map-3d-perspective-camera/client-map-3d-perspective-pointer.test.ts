@@ -114,4 +114,19 @@ describe("3d perspective pointer pick", () => {
       expect(gy).toBe(liveCamY);
     }
   });
+
+  it("keeps a tile behind the camera on its own side of the screen (edge arrows point at it)", () => {
+    // 100 rows due south is behind the tilted camera at zoom 32: the plain perspective divide
+    // mirrors it to above the screen, so an edge arrow would point north at a southern tile.
+    const pick = setupPick(225, 100, 32);
+    const south = pick.worldToScreen(225, 200);
+    expect(Number.isFinite(south.sx) && Number.isFinite(south.sy)).toBe(true);
+    expect(south.sy).toBeGreaterThan(CANVAS_HEIGHT);
+    const southEast = pick.worldToScreen(265, 200);
+    expect(southEast.sy).toBeGreaterThan(CANVAS_HEIGHT);
+    expect(southEast.sx).toBeGreaterThan(CANVAS_WIDTH / 2);
+    // In front of the camera nothing changes: north stays above, east stays right.
+    expect(pick.worldToScreen(225, 40).sy).toBeLessThan(CANVAS_HEIGHT / 2);
+    expect(pick.worldToScreen(325, 100).sx).toBeGreaterThan(CANVAS_WIDTH);
+  });
 });
