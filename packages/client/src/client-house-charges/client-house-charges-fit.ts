@@ -74,6 +74,30 @@ export const houseChargeFitDiscs = (
 export type HouseChargeFitView = { x: number; y: number; zoom: number };
 
 /**
+ * The widest zoom Show on map uses when none of the charge's ground has been
+ * scouted: the view is only a search circle (or rough circles) in fog, so
+ * framing all of it buys nothing, and on a phone the fit reached about 16
+ * pixels a tile, too small to tap a tile to explore without a pinch (first-15
+ * playtest 2026-11-28). Charges with scouted ground still zoom out to show it all.
+ */
+export const UNSCOUTED_CHARGE_MIN_ZOOM = 28;
+
+/** Whether any of what Show on map frames has been seen: a found AFC, a region tile, a target town. */
+export const houseChargeHasScoutedGround = (
+  charge: HouseChargeView,
+  isExplored: (x: number, y: number) => boolean,
+  found: readonly { x: number; y: number }[] = []
+): boolean => {
+  if (found.length > 0) return true;
+  if (charge.areaTileKeys) return charge.areaTileKeys.some((key) => {
+    const tile = parseKey(key);
+    return tile !== undefined && isExplored(tile.x, tile.y);
+  });
+  if (charge.targets.length === 0 || charge.kind === "CORRECTION" || charge.kind === "METROPOLIS") return false;
+  return charge.targets.some((target) => isExplored(target.x, target.y));
+};
+
+/**
  * Camera centre and zoom that show the whole charge. Only ever zooms out from
  * `currentZoom`: someone already zoomed out further keeps their level. When
  * even the widest zoom cannot hold it all, the centre is pulled towards the
@@ -109,7 +133,8 @@ export const houseChargeFitView = (
     // Visible extent scales as 1/zoom in both renderers, so the extent at zoom 1 gives the fit directly.
     const unit = visibleTileExtents(renderer, canvas, 1);
     const fit = Math.min(unit.halfWidth / Math.max(0.5, (maxX - minX) / 2), unit.halfHeight / Math.max(0.5, (maxY - minY) / 2));
-    zoom = Math.max(MIN_ZOOM, Math.min(currentZoom, Math.floor(fit)));
+    const widest = houseChargeHasScoutedGround(charge, isExplored, found) ? MIN_ZOOM : Math.min(currentZoom, UNSCOUTED_CHARGE_MIN_ZOOM);
+    zoom = Math.max(widest, Math.min(currentZoom, Math.floor(fit)));
     const seen = visibleTileExtents(renderer, canvas, zoom);
     // Too wide even at the widest zoom: slide the centre (anchor-relative, anchor at 0) until the anchor's disc is in view.
     const keepX = Math.max(0, seen.halfWidth - anchor.radius);

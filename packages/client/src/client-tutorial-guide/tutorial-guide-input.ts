@@ -64,6 +64,7 @@ export type GuideInputState = Pick<
   | "guideTownLead"
   | "scoutDroneCharges"
   | "dockPairs"
+  | "waypoint"
 > &
   GuideContestState;
 
@@ -186,6 +187,8 @@ let cached:
       revision: number;
       chunks: number;
       reachKey: string;
+      /** Queued Expand To targets: queuing one changes no tile, but the foothold steps then wait on it. */
+      waypointKey: string;
       me: string;
       footholdSaved: boolean;
       checklist: OnboardingChecklistState;
@@ -279,8 +282,12 @@ const foodSlotFreeFor = (state: GuideInputState): boolean => {
 const footholdTargetsFor = (state: GuideInputState): GuideFootholdTargets => {
   const reach = resolveMyReach(state);
   const hasRoute = createGuideTownRouteCheck(state.tiles, state.me, state.dockPairs);
-  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)), hasRoute);
+  return scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile), (x, y) => reach.has(tileKey(x, y)), hasRoute, queuedTargetKeysOf(state));
 };
+
+/** Targets of queued Expand To waypoints: the foothold steps wait on them instead of asking for Expand To again. */
+const queuedTargetKeysOf = (state: GuideInputState): Set<string> => new Set(state.waypoint.map((entry) => tileKey(entry.target.x, entry.target.y)));
+const waypointKeyOf = (state: GuideInputState): string => [...queuedTargetKeysOf(state)].sort().join(";");
 
 export const buildGuideInput = (state: GuideInputState): GuideInput => {
   const footholdSaved = footholdStepsSaved(state.authEmail);
@@ -289,6 +296,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     cached.revision !== state.tilesRevision ||
     cached.chunks !== state.chunkFullCount ||
     cached.reachKey !== serverReachKey(state) ||
+    cached.waypointKey !== waypointKeyOf(state) ||
     cached.me !== state.me ||
     cached.footholdSaved !== footholdSaved
   ) {
@@ -296,6 +304,7 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       revision: state.tilesRevision,
       chunks: state.chunkFullCount,
       reachKey: serverReachKey(state),
+      waypointKey: waypointKeyOf(state),
       me: state.me,
       footholdSaved,
       // Judged from the live tiles, not the checklist's account-wide saved flag, until the guide's

@@ -11,7 +11,9 @@ import { GUIDE_EXPLORE_MAX_FLIGHTS } from "./tutorial-guide-explore-target.js";
 import type { GuideInput } from "./tutorial-guide-steps.js";
 import type { GuideIslandDock, GuideIslandDockAction } from "./tutorial-guide-island-dock.js";
 
-const EXPLORE_TITLE = "tap the marked unexplored ground, then Explore";
+// "Go" launches the drone (the plan bar's button); Explore opens the plan (first-15 playtest 2026-11-28:
+// "the guide said Explore, but the button said Go").
+const EXPLORE_TITLE = "tap the marked ground, then Explore and Go";
 
 // Plain words, one short line each (Playtest Run 4: "frontier", "garrison", "reach" lost first-time players).
 // Button names (Explore, Expand To, Garrison, Relay Beacon) stay exact, so the line matches what's on screen.
@@ -46,13 +48,13 @@ const ISLAND_DOCK_STEP: Record<GuideIslandDockAction, { title: string; why: stri
 // told to look for a dock (owner, 2026-11-27: never fly the drone more than one leg to a town). Not "you're
 // on an island": only a fully seen island is sure (QA review of PR #3029).
 const DOCK_SEARCH_STEP: Partial<Record<GuideTargetAction, { title: string; why: string }>> = {
-  explore: { title: "No town close by: tap the marked ground, then Explore", why: "Look for a dock. On an island, it's how your troops cross the sea." },
+  explore: { title: "No town close by: tap the marked ground, then Explore and Go", why: "Look for a dock. On an island, it's how your troops cross the sea." },
   scouting: { title: "Your drone is flying: wait for its report", why: "Look for a dock in what it finds. On an island, it's how your troops cross the sea." }
 };
 
 // The dock lead (tutorial-guide-dock-lead.ts): marked like the town lead, and here the guide does say what
 // is there, so the player knows what they're looking for.
-const DOCK_LEAD_EXPLORE = { title: "Find a dock: tap the mark, then Explore", why: "No town close by. On an island, a dock is how your troops cross the sea." };
+const DOCK_LEAD_EXPLORE = { title: "Find a dock: tap the mark, then Explore and Go", why: "No town close by. On an island, a dock is how your troops cross the sea." };
 /** The free dock on land that isn't a confirmed island. */
 const LAND_DOCK_EXPAND = { title: "No town close by: tap the marked dock, then Expand To", why: "On an island, a dock is how your troops cross the sea." };
 
@@ -168,7 +170,7 @@ const townLeadWait = (short: number) => ({
 });
 
 const TOWN_LEAD_EXPLORE = {
-  title: "Let's try exploring some more: tap the mark, then Explore",
+  title: "Let's try exploring some more: tap the mark, then Explore and Go",
   why: "Your drone flies over here and shows what it finds."
 };
 
