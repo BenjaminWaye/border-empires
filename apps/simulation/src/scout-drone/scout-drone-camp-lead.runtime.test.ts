@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { SCOUT_CAMP_LEAD_REVEAL_TTL_MS } from "./scout-drone-camp-lead.js";
 
 // End-to-end through the real runtime (runtime.ts wires the live camp index in):
 // PLAYER_UPDATE names the camp lead, an ordinary EXPLORE shows no camp, the
-// guide's flight to the lead lifts the fog off the camp, and the look ends
-// after its TTL, leaving the camp explored.
+// guide's flight to the lead lifts the fog off the camp once the drone is over
+// it (owner decision: on arrival, not at launch), and the look holds until the
+// player moves past the guide's chapter (SCOUT_CAMP_LEAD_DONE), leaving the
+// camp explored.
 const humanPlayer = (id: string) => ({
   id,
   isAi: false,
@@ -86,7 +87,7 @@ describe("guide camp lead in the runtime", () => {
     expect(visibleKeys(runtime).has("40,22")).toBe(false);
   });
 
-  it("the guided flight shows the camp, then lets it drop back to fog, and the lead clears", async () => {
+  it("the guided flight shows the camp on arrival and holds it until the chapter is done; the lead clears", async () => {
     const clock = { now: 1_000 };
     const seen: SimulationEvent[] = [];
     const runtime = newRuntime(clock, seen);
@@ -95,12 +96,24 @@ describe("guide camp lead in the runtime", () => {
     explore(runtime, "explore-camp", clock.now, GUIDED);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(seen.find((event) => event.eventType === "COMMAND_REJECTED")).toBeUndefined();
+    // Not at launch: the drone has not got there yet.
+    expect(visibleKeys(runtime).has("41,23")).toBe(false);
+
+    // Long enough for the drone to be over the camp and home again.
+    clock.now += 30 * 60_000;
+    runtime.tickWatchtowerReveals(clock.now);
     const visible = visibleKeys(runtime);
     expect(visible.has("40,22")).toBe(true);
     expect(visible.has("41,23")).toBe(true);
 
-    clock.now += SCOUT_CAMP_LEAD_REVEAL_TTL_MS;
+    // Hours on, the camp still stands and the look holds.
+    clock.now += 3 * 60 * 60_000;
     runtime.tickWatchtowerReveals(clock.now);
+    expect(visibleKeys(runtime).has("40,22")).toBe(true);
+
+    runtime.submitCommand({ commandId: "camp-done", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: clock.now, type: "SCOUT_CAMP_LEAD_DONE", payloadJson: "{}" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seen.find((event) => event.eventType === "COMMAND_REJECTED")).toBeUndefined();
     expect(visibleKeys(runtime).has("40,22")).toBe(false);
     runtime.applyPassiveIncome(clock.now, Number.MAX_SAFE_INTEGER);
     expect(lastCampLead(seen)).toBeNull();

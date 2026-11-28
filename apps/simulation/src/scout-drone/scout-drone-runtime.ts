@@ -30,7 +30,7 @@ import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutExploredLookup, type ScoutFindings } from "./scout-drone-findings.js";
 import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge, type ScoutSighting } from "./scout-drone-borders.js";
 import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
-import { createScoutCampLeads, findScoutCampLead, isScoutCampLeadFlight, type ScoutCampLeadsGauge } from "./scout-drone-camp-lead.js";
+import { createScoutCampLeadFlights, type ScoutCampLeadFlightsGauge } from "./scout-drone-camp-lead.js";
 
 export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
 
@@ -59,6 +59,8 @@ export const SCOUT_SIGHTED_MAX_COOLDOWN_ENTRIES = 20_000;
 type ActiveFlight = ScoutBorderFlight & {
   readonly findings: ScoutFindings;
   alerted: boolean;
+  /** The guide's free flight: its camp, until the drone is over it (scout-drone-camp-lead.ts). */
+  campLead?: { x: number; y: number } | undefined;
 };
 
 export type ScoutDroneRuntimeDeps = {
@@ -88,7 +90,7 @@ export type ScoutDroneRuntimeDeps = {
   readonly liveCampKeys?: () => Iterable<string>;
 };
 
-export type ScoutDroneGauge = ScoutDroneBorderGauge & ScoutCampLeadsGauge & {
+export type ScoutDroneGauge = ScoutDroneBorderGauge & ScoutCampLeadFlightsGauge & {
   activeFlights: number;
   alertCooldownEntries: number;
   capRefusals: number;
@@ -116,6 +118,8 @@ export type ScoutDroneRuntime = {
   readonly handleRecall: (command: CommandEnvelope) => void;
   /** SCOUT_REPORT_SEEN: the player saw their last report on some device, so it stops riding along (scout-drone-held-report.ts). */
   readonly handleReportSeen: (command: CommandEnvelope) => void;
+  /** SCOUT_CAMP_LEAD_DONE: the player moved past the guide's First battle chapter; their camp look ends. */
+  readonly handleCampLeadDone: (command: CommandEnvelope) => void;
   readonly tick: (nowMs: number) => void;
   /** Push the player their drone (live subscribe / reconnect), `flight: null` while docked, with their charges. */
   readonly sendTo: (playerId: string) => void;
@@ -125,17 +129,19 @@ export type ScoutDroneRuntime = {
   readonly gauge: () => ScoutDroneGauge;
 };
 
-/** The runtime's EXPLORE, RECALL_SCOUT and SCOUT_REPORT_SEEN dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
+/** The runtime's EXPLORE, RECALL_SCOUT, SCOUT_REPORT_SEEN and SCOUT_CAMP_LEAD_DONE dispatch entries (runtime-command-dispatch.ts). A getter: the runtime's drones are a class field. */
 export const scoutDroneCommandDispatchHandlers = (
-  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall" | "handleReportSeen">
+  drones: () => Pick<ScoutDroneRuntime, "handleExplore" | "handleRecall" | "handleReportSeen" | "handleCampLeadDone">
 ): {
   handleExploreCommand: (command: CommandEnvelope) => void;
   handleRecallScoutCommand: (command: CommandEnvelope) => void;
   handleScoutReportSeenCommand: (command: CommandEnvelope) => void;
+  handleScoutCampLeadDoneCommand: (command: CommandEnvelope) => void;
 } => ({
   handleExploreCommand: (command) => drones().handleExplore(command),
   handleRecallScoutCommand: (command) => drones().handleRecall(command),
-  handleScoutReportSeenCommand: (command) => drones().handleReportSeen(command)
+  handleScoutReportSeenCommand: (command) => drones().handleReportSeen(command),
+  handleScoutCampLeadDoneCommand: (command) => drones().handleCampLeadDone(command)
 });
 
 const wrap = (v: number, size: number): number => ((v % size) + size) % size;
@@ -242,6 +248,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
 
   const land = (active: ActiveFlight, nowMs: number): void => {
     moveReveal(active, undefined);
+    if (active.campLead) campLeads.landedShort();
     flights.delete(active.playerId);
     const report = scoutFindingsReport(active.findings);
     const { targetX, targetY, blockedByPlayerId } = active.flight;
@@ -279,34 +286,12 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     });
   };
 
-  const campLeads = createScoutCampLeads({
-    visibilityCoverage: deps.visibilityCoverage,
-    visionTransitionCallbacks: deps.visionTransitionCallbacks,
+  // The guide's free flight to its camp lead, and the look at the camp it leaves (scout-drone-camp-lead.ts).
+  const campLeads = createScoutCampLeadFlights({
+    ...deps,
+    nearestAfc,
     flushVision: (playerId, commandId) => deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [] })
   });
-
-  /** The guide's camp lead: the nearest live camp to the player's active AFCs they have never seen (scout-drone-camp-lead.ts). */
-  const campLeadFor = (playerId: string): { x: number; y: number } | undefined => {
-    if (!deps.liveCampKeys || !deps.isExplored) return undefined;
-    const origins: Array<{ x: number; y: number }> = [];
-    for (const key of deps.afcTileKeys(playerId)) {
-      const tile = deps.tiles().get(key);
-      if (tile?.afc?.status === "active") origins.push({ x: tile.x, y: tile.y });
-    }
-    if (origins.length === 0) return undefined;
-    return findScoutCampLead({ playerId, origins, campKeys: deps.liveCampKeys(), tiles: deps.tiles(), isExplored: deps.isExplored, worldWidth: deps.worldWidth, worldHeight: deps.worldHeight });
-  };
-
-  /** The guided flight shows its camp at launch; the camp joins this flight's finds and report. */
-  const showCampLead = (active: ActiveFlight, camp: { x: number; y: number }, owner: DomainPlayer, nowMs: number): void => {
-    // Observed before the reveal explores it, so the report's new-tile count includes it.
-    const finds = active.findings.observeTile(camp.x, camp.y, owner);
-    campLeads.reveal(owner.id, camp, nowMs, active.commandId);
-    if (finds.length === 0 || deps.isPlayerSubscribed?.(owner.id) === false) return;
-    const payload: ScoutFindsPayload = { type: SCOUT_FINDS_MESSAGE_TYPE, launchedAt: active.flight.launchedAt, finds };
-    deps.emitPlayerMessage({ commandId: `scout-finds:${active.commandId}`, playerId: owner.id }, payload);
-    findsSent += finds.length;
-  };
 
   const borders = createScoutDroneBorders<ActiveFlight>({
     worlds,
@@ -345,6 +330,8 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         }
         const step = flight.steps[i]!;
         if (owner) found.push(...active.findings.observe(step.x, step.y, owner));
+        // The guided flight shows its camp once the drone is over it on the way out, never at launch.
+        if (active.campLead && i <= flight.turnIndex && campLeads.arriveIfOver(active.playerId, active.campLead, step, active.commandId)) active.campLead = undefined;
       }
       sendFound();
       if (index >= flight.turnIndex && flight.endReason === "BLOCKED") alertRival(active, nowMs);
@@ -384,7 +371,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   };
 
   return {
-    campLeadFor,
+    campLeadFor: campLeads.campLeadFor,
     handleExplore: (command) => {
       const actor = deps.players().get(command.playerId);
       const stops = parseScoutDroneExploreStops(command.payloadJson, deps.worldWidth, deps.worldHeight);
@@ -403,22 +390,23 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       const world = worlds.known(actor.id);
       const targetOwnerId = deps.tiles().get(keyOf(first.x, first.y))?.ownerId;
       if (targetOwnerId && isOwnOrAllied(actor.id, targetOwnerId)) return reject(command, "SCOUT_TARGET_HOME", "explore past your own land");
-      const launch = nearestAfc(actor.id, first);
+      // The guide's flight to its camp lead (scout-drone-camp-lead.ts): checked here, never trusted from the client.
+      const guided = campLeads.guidedFlight(actor.id, stops);
+      const launch = guided?.launch ?? nearestAfc(actor.id, first);
       if (!launch) return reject(command, "SCOUT_NO_AFC", "scout drones launch from an active AFC");
       // A border the player can see, right past their land: say so, and spend no charge on a flight that finds nothing.
       if (scoutDroneRouteDeadEnd(planScoutDroneRoute(launch, stops, world))) return reject(command, "SCOUT_BORDER_BLOCKED", "a rival border blocks the way");
       const now = deps.now();
-      // The guide's flight to its camp lead is free (scout-drone-camp-lead.ts): checked here, never trusted from the client.
-      const lead = campLeadFor(actor.id);
-      const campLead = lead && isScoutCampLeadFlight(stops, lead, launch, deps.worldWidth, deps.worldHeight) ? lead : undefined;
-      if (!campLead && stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
+      if (!guided && stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
       const flight = planScoutDroneWaypointFlight(launch, stops, now, world);
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
+      // Free only when it reaches the camp: a border the player knows of that cuts it short makes it an ordinary flight.
+      const campLead = guided && campLeads.confirmFree(flight, guided.lead) ? guided.lead : undefined;
+      if (!campLead && stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.
       if (!campLead) charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
-      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight, deps.isExplored), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
+      const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight, deps.isExplored), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false, campLead };
       flights.set(actor.id, active);
-      if (campLead) showCampLead(active, campLead, actor, now);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
@@ -436,6 +424,10 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
         sendTo(command.playerId);
       }
       // A repeat or a stale id is fine: another device may have said so first.
+      deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    },
+    handleCampLeadDone: (command) => {
+      campLeads.release(command.playerId, command.commandId);
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     },
     handleRecall: (command) => {
@@ -457,7 +449,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     },
     tick: (nowMs) => {
       for (const active of [...flights.values()]) advance(active, nowMs);
-      campLeads.tick(nowMs);
+      campLeads.tick();
       for (const [key, at] of lastAlertAt) if (nowMs - at >= SCOUT_SIGHTED_ALERT_COOLDOWN_MS) lastAlertAt.delete(key);
       for (const [key, at] of lastReportActivityAt) if (nowMs - at >= SCOUT_REPORT_ACTIVITY_MIN_INTERVAL_MS) lastReportActivityAt.delete(key);
     },

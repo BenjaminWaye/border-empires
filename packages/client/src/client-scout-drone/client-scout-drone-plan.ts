@@ -257,11 +257,16 @@ export const handleScoutPlanTap = (
   return true;
 };
 
-/** The open plan is the guide's free flight to its camp lead: the dock counts no charges for it. */
+/**
+ * The open plan is the guide's free flight to its camp lead: the dock counts no charges for it. Judged on the stops
+ * Go sends (the route as reached), from the AFC nearest the camp, as the simulation judges it: a known border that
+ * cuts the route short makes it an ordinary flight, so the dock never says "free" over one the server would charge.
+ */
 export const scoutPlanIsFreeCampFlight = (state: ScoutPlanState, nowMs: number): boolean => {
-  const stops = state.scoutDronePicking.stops;
-  const first = stops[0];
-  return Boolean(first && !flyingScoutDrone(state, nowMs) && isCampLeadRoute(stops, state.guideCampLead, scoutLaunchAfc(state, first)));
+  const camp = state.guideCampLead;
+  if (!camp || state.scoutDronePicking.stops.length === 0 || flyingScoutDrone(state, nowMs)) return false;
+  const sent = scoutPlanPreview(state, state.scoutDronePicking.stops, nowMs)?.route.stops ?? [];
+  return isCampLeadRoute(sent, camp, scoutLaunchAfc(state, camp));
 };
 
 export type ScoutPlanLaunchDeps = { sendGameMessage?: ((payload: unknown) => boolean) | undefined };

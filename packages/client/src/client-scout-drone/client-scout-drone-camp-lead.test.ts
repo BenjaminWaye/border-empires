@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { LEAD_ROUTE_LEG_TILES, isCampLeadRoute } from "./client-scout-drone-lead-route.js";
+import { LEAD_ROUTE_LEG_TILES, isCampLeadRoute, leadRouteStops } from "./client-scout-drone-lead-route.js";
 import { handleScoutPlanTap, scoutPlanIsFreeCampFlight } from "./client-scout-drone-plan.js";
 import { scoutDockChargesLeft } from "./client-scout-drone-dock.js";
 
@@ -36,12 +36,25 @@ describe("the guide's free camp flight", () => {
     expect(scoutPlanIsFreeCampFlight(state, 0)).toBe(false);
   });
 
-  it("the free route is the straight one: extra stops make it a normal flight", () => {
+  it("the free route is exactly the straight one: extra or moved stops make it a normal flight", () => {
     const launch = { x: 10, y: 10 };
     const camp = { x: 10 + LEAD_ROUTE_LEG_TILES + 5, y: 10 };
-    expect(isCampLeadRoute([{ x: 20, y: 10 }, camp], camp, launch)).toBe(true);
-    expect(isCampLeadRoute([{ x: 12, y: 30 }, { x: 20, y: 10 }, camp], camp, launch)).toBe(false);
-    expect(isCampLeadRoute([{ x: 20, y: 10 }], camp, launch)).toBe(false);
+    const straight = leadRouteStops(launch, camp, 8);
+    expect(straight).toHaveLength(2);
+    expect(isCampLeadRoute(straight, camp, launch)).toBe(true);
+    expect(isCampLeadRoute([{ x: 12, y: 30 }, ...straight], camp, launch)).toBe(false);
+    // Regression (PR #3063 review): the right count, but the first stop is a leg the other way.
+    expect(isCampLeadRoute([{ x: 0, y: 30 }, camp], camp, launch)).toBe(false);
+    expect(isCampLeadRoute([straight[0]!], camp, launch)).toBe(false);
     expect(isCampLeadRoute([camp], undefined, launch)).toBe(false);
+  });
+
+  it("a known rival border that cuts the route short of the camp is not called free (regression: Go said free, the server charged)", () => {
+    const state = spentState();
+    state.scoutDroneCharges = undefined as unknown as typeof state.scoutDroneCharges;
+    for (let y = 0; y <= 20; y += 1) state.tiles.set(`32,${y}`, { x: 32, y, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" } as Tile);
+    expect(handleScoutPlanTap(state, 40, 10, 0)).toBe(true);
+    expect(state.scoutDronePicking.stops.at(-1)).toEqual({ x: 40, y: 10 });
+    expect(scoutPlanIsFreeCampFlight(state, 0)).toBe(false);
   });
 });

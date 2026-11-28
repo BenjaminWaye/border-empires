@@ -2,44 +2,24 @@
 // SCOUT_DRONE_MAX_LEG_TILES open tiles and a farther stop is pulled back, so one tap on a far town
 // flew the same 20 tiles every time and never got there. Tapping the marked town instead lays stops
 // along the straight line to it, one per leg, as many as the charges allow (Playtest Run 4).
-import { SCOUT_DRONE_MAX_LEG_TILES, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+// The route itself is shared (scout-drone-lead-route.ts): the simulation checks the free camp flight against it.
+import { isScoutLeadRoute, SCOUT_LEAD_ROUTE_LEG_TILES, scoutLeadRouteLegs, scoutLeadRouteStops, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 type Point = { x: number; y: number };
 
 /** Each leg a little under the range, so a stop is never pulled back short of the next one's start. */
-export const LEAD_ROUTE_LEG_TILES = SCOUT_DRONE_MAX_LEG_TILES - 2;
-
-const signedDelta = (from: number, to: number, size: number): number => {
-  const d = (((to - from) % size) + size) % size;
-  return d > size / 2 ? d - size : d;
-};
+export const LEAD_ROUTE_LEG_TILES = SCOUT_LEAD_ROUTE_LEG_TILES;
 
 /** How many legs (one charge each) the route from `launch` to `lead` takes. */
-export const leadRouteLegs = (launch: Point, lead: Point): number => {
-  const dx = signedDelta(launch.x, lead.x, WORLD_WIDTH);
-  const dy = signedDelta(launch.y, lead.y, WORLD_HEIGHT);
-  return Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / LEAD_ROUTE_LEG_TILES));
-};
+export const leadRouteLegs = (launch: Point, lead: Point): number => scoutLeadRouteLegs(launch, lead, WORLD_WIDTH, WORLD_HEIGHT);
 
 /**
- * True when `stops` is the guide's free flight to its camp lead (state.guideCampLead): it ends on the camp with
- * no more stops than the straight route needs. Mirrors the simulation's isScoutCampLeadFlight, which decides.
+ * True when `stops` is the guide's free flight to its camp lead (state.guideCampLead): exactly the straight route
+ * from `launch` (the AFC nearest the camp). Mirrors the simulation's isScoutCampLeadFlight, which decides.
  */
-export const isCampLeadRoute = (stops: readonly Point[], lead: Point | undefined, launch: Point | undefined): boolean => {
-  const last = stops.at(-1);
-  if (!lead || !launch || !last || last.x !== lead.x || last.y !== lead.y) return false;
-  return stops.length <= leadRouteLegs(launch, lead);
-};
+export const isCampLeadRoute = (stops: readonly Point[], lead: Point | undefined, launch: Point | undefined): boolean =>
+  Boolean(lead && launch && isScoutLeadRoute(stops, lead, launch, WORLD_WIDTH, WORLD_HEIGHT));
 
 /** Stops from `launch` to `lead`, ending on the lead itself, at most `capacity` of them (the nearest first). */
-export const leadRouteStops = (launch: Point, lead: Point, capacity: number): Point[] => {
-  if (capacity <= 0) return [];
-  const dx = signedDelta(launch.x, lead.x, WORLD_WIDTH);
-  const dy = signedDelta(launch.y, lead.y, WORLD_HEIGHT);
-  const legs = leadRouteLegs(launch, lead);
-  const stops: Point[] = [];
-  for (let i = 1; i <= legs && stops.length < capacity; i += 1) {
-    stops.push({ x: wrapX(launch.x + Math.round((dx * i) / legs), WORLD_WIDTH), y: wrapY(launch.y + Math.round((dy * i) / legs), WORLD_HEIGHT) });
-  }
-  return stops;
-};
+export const leadRouteStops = (launch: Point, lead: Point, capacity: number): Point[] =>
+  capacity <= 0 ? [] : scoutLeadRouteStops(launch, lead, WORLD_WIDTH, WORLD_HEIGHT).slice(0, capacity);

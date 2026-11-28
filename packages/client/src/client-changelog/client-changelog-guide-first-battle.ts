@@ -7,7 +7,7 @@ export const GUIDE_FIRST_BATTLE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> =
   changes: [
     "The guide now ends with a First battle chapter: it marks the nearest Insurgent camp and your scout drone flies there for free, even with no charges left.",
     "It then walks you through raising a muster flag, reading your win chance, attacking the camp and taking it.",
-    "The camp stays in sight for 10 minutes, then stays on your map under fog. Other Explore flights no longer reveal a camp.",
+    "The camp comes into sight when the drone reaches it and stays in sight until it falls or you move past the chapter. Other Explore flights no longer reveal a camp.",
     "A new Diplomacy step shows the alliance option: with a House twice your size it reads Swear fealty."
   ]
 };

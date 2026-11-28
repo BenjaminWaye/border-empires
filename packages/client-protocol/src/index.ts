@@ -67,7 +67,8 @@ export const DurableCommandTypeSchema = z.enum([
   "CHOOSE_HOUSE_CHARGES",
   "EXPLORE",
   "RECALL_SCOUT",
-  "SCOUT_REPORT_SEEN"
+  "SCOUT_REPORT_SEEN",
+  "SCOUT_CAMP_LEAD_DONE"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;
