@@ -38,12 +38,36 @@ describe("the hosting email outbox", () => {
     expect(box.countPending()).toBe(2);
   });
 
-  it("remembers when the first email of a group was written", () => {
+  it("reports when a group was first written and first sent, and how many still wait", () => {
     const box = outbox();
-    expect(box.firstQueuedAt("g")).toBeUndefined();
+    expect(box.groupStatus("g")).toEqual({ pending: 0 });
     box.enqueue(email("g:1", "g"), 10);
     box.enqueue(email("g:2", "g"), 20);
-    expect(box.firstQueuedAt("g")).toBe(10);
+    box.enqueue(email("g:3", "g"), 20);
+    expect(box.groupStatus("g")).toEqual({ writtenAt: 10, pending: 3 });
+    box.markSent("g:2", 30);
+    box.markAbandoned("g:3", "no address", 30);
+    expect(box.groupStatus("g")).toEqual({ writtenAt: 10, sentAt: 30, pending: 1 });
+  });
+
+  it("keeps the address of the first attempt", () => {
+    const box = outbox();
+    box.enqueue(email("k"), 0);
+    box.setToAddress("k", "first@example.test");
+    box.setToAddress("k", "second@example.test");
+    expect(box.get("k")?.toAddress).toBe("first@example.test");
+  });
+
+  it("forgets an account's address and unsent emails, and prunes unused addresses", () => {
+    const box = outbox();
+    box.rememberAddress("gone", "gone@example.test", 0);
+    box.enqueue({ ...email("unsent"), accountUid: "gone" }, 0);
+    box.enqueue({ ...email("sent"), accountUid: "gone" }, 0);
+    box.markSent("sent", 1);
+    box.forgetAccount("gone");
+    expect(box.getAddress("gone")).toBeUndefined();
+    expect(box.get("unsent")).toBeUndefined();
+    expect(box.get("sent")).toBeDefined();
   });
 
   it("prunes only finished emails older than the cut-off", () => {

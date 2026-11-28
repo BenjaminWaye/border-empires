@@ -40,6 +40,8 @@ const parseEmailEnv = (env: NodeJS.ProcessEnv): HostingEmailEnv => {
   if (resendApiKey && !replyTo) throw new Error("HOSTING_EMAIL_REPLY_TO is required with HOSTING_EMAIL_RESEND_API_KEY: every email invites a reply");
   if (resendApiKey && !appUrl) throw new Error("HOSTING_APP_URL is required with HOSTING_EMAIL_RESEND_API_KEY: every email links to My sectors");
   if (appUrl && !/^https?:\/\/[^\s]+$/.test(appUrl)) throw new Error("HOSTING_APP_URL must be a URL such as https://play.borderempires.com");
+  if (resendApiKey && !appUrl.startsWith("https://")) throw new Error("HOSTING_APP_URL must use https when emails are sent");
+  if (replyTo && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(replyTo)) throw new Error("HOSTING_EMAIL_REPLY_TO must be a plain email address");
   const termsHtmlPath = (env.HOSTING_TERMS_HTML_PATH ?? "").trim();
   return {
     ...(resendApiKey ? { resendApiKey } : {}),

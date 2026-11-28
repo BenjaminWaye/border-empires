@@ -3,12 +3,15 @@
 // ready email, the warning before an idle sector closes, and the withdrawal
 // acknowledgement. Each goes out once, to the address the account bought or
 // joined with, and survives a provider outage.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { HOSTED_SECTOR_CONSENT_EARLY_START, HOSTED_SECTOR_CONSENT_TERMS, HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { account, CONSENT, createHostingHarness, DAY, HOUR, MINUTE, TERMS_HTML } from "../hosting-test-support.js";
 import { openBar, pledge } from "../hosting-service/funding-test-support.js";
-import { MAX_SEND_ATTEMPTS } from "./hosting-mailer.js";
+import { MAX_SEND_ATTEMPTS, termsAttachment } from "./hosting-mailer.js";
 
 const subjects = (h: Awaited<ReturnType<typeof createHostingHarness>>, to?: string): string[] =>
   h.mail.sent.filter((message) => to === undefined || message.to === to).map((message) => message.subject);
@@ -60,6 +63,28 @@ describe("hosted sector emails", () => {
     expect(subjects(h)).not.toContain("Your hosted sector order is confirmed");
   });
 
+  it("confirms the charge of a share at the amount charged, and tells whoever's hold was let go", async () => {
+    const h = await createHostingHarness();
+    const sectorId = openBar(h, ["friend", "late"]);
+    const friend = (await pledge(h, "friend", sectorId, 1500)).replace("fake-hold-", "");
+    await h.reconciler.runOnce();
+    expect(subjects(h, "friend@example.test")).toEqual(["Your share of a hosted sector is confirmed"]);
+
+    // The bar fills; the share that crosses the price is charged only the part still needed (Terms section 6a).
+    h.store.transitionContribution(friend, ["held"], { state: "captured", amountCents: 1200 }, h.clock.now);
+    await h.reconciler.runOnce();
+    const charged = h.mail.sent.find((message) => message.subject === "Your share of a hosted sector has been charged");
+    expect(charged?.to).toBe("friend@example.test");
+    expect(charged?.text).toContain("USD 12.00 was charged");
+    expect(charged?.attachments?.[0]?.content).toBe(TERMS_HTML);
+
+    const late = (await pledge(h, "late", sectorId, 500)).replace("fake-hold-", "");
+    await h.reconciler.runOnce();
+    h.store.transitionContribution(late, ["held"], { state: "released" }, h.clock.now);
+    await h.reconciler.runOnce();
+    expect(subjects(h, "late@example.test")).toEqual(["Your share of a hosted sector is confirmed", "Your hold for a hosted sector has been released"]);
+  });
+
   it("acknowledges a withdrawal with the amounts", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
@@ -70,7 +95,7 @@ describe("hosted sector emails", () => {
     await h.reconciler.runOnce();
     const ack = h.mail.sent.find((message) => message.subject === "Your withdrawal is confirmed");
     expect(ack?.to).toBe("host@example.test");
-    expect(ack?.text).toContain("You paid USD 20.00. For the days the sector was open, USD 2.00 is kept. USD 18.00 is refunded");
+    expect(ack?.text).toContain("You paid USD 20.00. For the days the sector was open, USD 2.00 is kept. USD 18.00 is being refunded");
   });
 
   it("warns every member 2 days before an idle sector closes, and never closes it sooner than 2 days after the warning", async () => {
@@ -157,14 +182,29 @@ describe("hosted sector emails", () => {
     expect(h.alerts.find((alert) => alert.kind === "email_failed")?.details).toMatchObject({ emailKey: `order:${sectorId}`, reason: "no email address for this account" });
   });
 
-  it("never attaches other Terms than the ones the buyer agreed to", async () => {
+  it("never attaches other Terms than the ones the buyer agreed to, keeps trying, and tells the owner", async () => {
     const h = await createHostingHarness();
     h.outbox.rememberAddress("host", "host@example.test", h.clock.now);
     // Written before a deploy that changed the Terms, sent after it.
     h.outbox.enqueue({ emailKey: "order:older-terms", kind: "order_confirmation", accountUid: "host", subject: "s", text: "t", html: "h", attachTermsVersion: "2020-01-01" }, h.clock.now);
     await h.reconciler.runOnce();
     expect(h.mail.sent).toEqual([]);
+    expect(h.outbox.get("order:older-terms")).toMatchObject({ attempts: 1 });
+    expect(h.outbox.get("order:older-terms")?.abandonedAt).toBeUndefined();
+    expect(h.alerts.find((alert) => alert.kind === "email_failed")?.details).toMatchObject({ emailKey: "order:older-terms", retrying: 1 });
+    for (let pass = 0; pass < MAX_SEND_ATTEMPTS + 2; pass += 1) {
+      h.clock.now += 6 * HOUR;
+      await h.reconciler.runOnce();
+    }
+    expect(h.mail.sent).toEqual([]);
     expect(h.outbox.get("order:older-terms")?.abandonedAt).toBeDefined();
-    expect(h.alerts.find((alert) => alert.kind === "email_failed")?.details.reason).toContain("send the confirmation by hand");
+  });
+
+  it("attaches only a Terms page that names this build's version", () => {
+    expect(() => termsAttachment("<html>no version</html>")).toThrow(/version \(none\)/);
+    expect(() => termsAttachment('<meta name="terms-version" content="2020-01-01" />')).toThrow(/version 2020-01-01/);
+    // The draft in this repository matches the version the order form records.
+    const draft = readFileSync(fileURLToPath(new URL("../../../../docs/legal-drafts/purchase-terms.html", import.meta.url)), "utf8");
+    expect(termsAttachment(draft).version).toBe(HOSTED_SECTOR_TERMS_VERSION);
   });
 });

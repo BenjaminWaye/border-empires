@@ -32,7 +32,7 @@ export const DAY = 24 * HOUR;
 export const account = (uid: string, overrides: Partial<HostingAccount> = {}): HostingAccount => ({ uid, isGuest: false, emailVerified: true, email: `${uid}@example.test`, ...overrides });
 
 /** Stands in for the published Terms of Sale page. */
-export const TERMS_HTML = "<html><body>Terms of Sale</body></html>";
+export const TERMS_HTML = `<html><head><meta name="terms-version" content="${HOSTED_SECTOR_TERMS_VERSION}" /></head><body>Terms of Sale</body></html>`;
 
 export const createHostingHarness = async (configOverrides: Partial<HostingConfig> = {}) => {
   const clock = { now: 1_800_000_000_000 };

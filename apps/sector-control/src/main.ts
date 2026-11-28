@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-identity/firebase-token-verifier.js";
 import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.js";
-import { termsAttachment } from "./hosting-email/hosting-mailer.js";
+import { termsAttachment, type HostingTermsAttachment } from "./hosting-email/hosting-mailer.js";
 import { createResendEmailTransport } from "./hosting-email/resend-email-transport.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
@@ -39,17 +39,17 @@ const findUpwards = (relative: string, from: string): string | undefined => {
 
 // Order confirmations carry the Terms of Sale. With emails switched on, a missing file stops the start:
 // confirmations would otherwise pile up unsent.
-const readTerms = (): string | undefined => {
+const readTerms = (): HostingTermsAttachment | undefined => {
   const path = env.email.termsHtmlPath ?? findUpwards("docs/legal-drafts/purchase-terms.html", dirname(fileURLToPath(import.meta.url)));
   try {
     if (!path) throw new Error("docs/legal-drafts/purchase-terms.html not found above the service; set HOSTING_TERMS_HTML_PATH");
-    return readFileSync(path, "utf8");
+    return termsAttachment(readFileSync(path, "utf8"));
   } catch (error) {
     if (env.email.resendApiKey) throw new Error(`cannot read the Terms of Sale: ${error instanceof Error ? error.message : String(error)}`);
     return undefined;
   }
 };
-const termsHtml = readTerms();
+const terms = readTerms();
 
 // The same verification the game gateway applies: signature against Google's keys, issuer, audience and expiry.
 const verifyFirebaseToken = createFirebaseTokenVerifier({ ...(env.firebaseProjectId ? { projectId: env.firebaseProjectId } : {}) });
@@ -84,7 +84,7 @@ const control = createSectorControlApp({
   email: {
     outbox,
     appUrl: env.email.appUrl,
-    ...(termsHtml !== undefined ? { terms: termsAttachment(termsHtml) } : {}),
+    ...(terms ? { terms } : {}),
     ...(env.email.resendApiKey
       ? { transport: createResendEmailTransport({ apiKey: env.email.resendApiKey, from: env.email.from, ...(env.email.replyTo ? { replyTo: env.email.replyTo } : {}) }) }
       : {})

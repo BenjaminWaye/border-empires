@@ -205,6 +205,7 @@ export class SqliteHostingStore implements HostingStore {
         refunded_at INTEGER
       );
       CREATE INDEX IF NOT EXISTS hosted_withdrawals_pending_idx ON hosted_withdrawals (requested_at) WHERE refunded_at IS NULL;
+      CREATE INDEX IF NOT EXISTS hosted_withdrawals_requested_idx ON hosted_withdrawals (requested_at);
       CREATE TABLE IF NOT EXISTS hosted_payment_disputes (
         dispute_id TEXT PRIMARY KEY,
         account_uid TEXT NOT NULL,
@@ -220,6 +221,11 @@ export class SqliteHostingStore implements HostingStore {
       const columns = (this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((info) => info.name);
       if (!columns.includes(column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
     }
+    // For the sweep that confirms recent purchases by email (hosting-mailer.ts).
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS hosted_sectors_paid_idx ON hosted_sectors (paid_at) WHERE paid_at IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS hosted_contributions_updated_idx ON hosted_contributions (updated_at);
+    `);
   }
 
   insertSector(sector: SectorRecord): void {

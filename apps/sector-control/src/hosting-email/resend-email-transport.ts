@@ -16,6 +16,15 @@ export type HostingEmailMessage = {
 
 export type HostingEmailTransport = { send: (message: HostingEmailMessage) => Promise<void> };
 
+/**
+ * A refusal that will not change on a retry: a bad address, a bad key, an
+ * unverified sender domain. Anything else (timeouts, 409 while a request with
+ * the same key is in progress, 429, 5xx) is worth trying again.
+ */
+export class PermanentEmailError extends Error {}
+
+const PERMANENT_STATUSES = new Set([400, 401, 403, 404, 422]);
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const POST_TIMEOUT_MS = 10_000;
 
@@ -49,7 +58,8 @@ export const createResendEmailTransport = (options: { apiKey: string; from: stri
         });
         if (!response.ok) {
           const body = await response.text().catch(() => "");
-          throw new Error(`resend returned ${response.status}: ${body.slice(0, 200)}`);
+          const detail = `resend returned ${response.status}: ${body.slice(0, 200)}`;
+          throw PERMANENT_STATUSES.has(response.status) ? new PermanentEmailError(detail) : new Error(detail);
         }
       } finally {
         clearTimeout(timer);

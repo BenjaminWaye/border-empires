@@ -179,7 +179,7 @@ describe("hosting reconciler: teardown", () => {
     await h.reconciler.runOnce();
     expect(h.store.getSector(idle)).toMatchObject({ state: "deleted", endedAt: h.clock.now });
     expect(h.servers.servers.has(`fake-server-${idle}`)).toBe(false);
-    expect(h.alerts.at(-1)).toEqual({ kind: "sector_closed_idle", details: { sectorId: idle, idleDays: 7 } });
+    expect(h.alerts.at(-1)).toEqual({ kind: "sector_closed_idle", details: { sectorId: idle, idleDays: 7, unwarned: 0 } });
     expect(h.store.getSector(played)?.state).toBe("open");
 
     // A long contest that people keep visiting is never closed for its age.

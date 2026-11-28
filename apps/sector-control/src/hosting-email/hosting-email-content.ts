@@ -40,6 +40,17 @@ const render = (appUrl: string, input: { subject: string; eyebrow: string; headl
   return { subject: message.subject, text: message.text, html: message.html };
 };
 
+/** How to withdraw, as Terms of Sale section 7 has it; repeated here because the confirmation must stand on its own. */
+const WITHDRAWAL_WAYS = "with the Withdraw from contract button on the sector in My sectors, or by replying to this email";
+const WITHDRAWAL_IN_FULL =
+  `Your right to withdraw (if you are a consumer in the EU, the EEA or the UK): you can withdraw within 14 days of payment ${WITHDRAWAL_WAYS}. ` +
+  "Before your sector has opened you get the full price back. Once it has opened, one thirtieth of the price is kept for each started 24 hours it was open and the rest is refunded; the sector then closes. " +
+  "The right ends once its Sector Contest has ended. The attached Terms of Sale (section 7) are what count.";
+const WITHDRAWAL_SHARE =
+  `Your right to withdraw (if you are a consumer in the EU, the EEA or the UK): within 14 days of the day your share is charged you can withdraw ${WITHDRAWAL_WAYS}. ` +
+  "Before the sector has opened you get your whole share back. Once it has opened, one thirtieth of your share is kept for each started 24 hours it was open and the rest is refunded; you then leave the sector, which keeps running for the others. " +
+  "The right ends once its Sector Contest has ended. The attached Terms of Sale (sections 6a and 7) are what count.";
+
 export const orderConfirmationEmail = (appUrl: string, input: { sectorId: string; options: HostedSectorOptions; amountCents: number; currency: string; paidAt: number; consent: ConsentRecord }): RenderedEmail =>
   render(appUrl, {
     subject: "Your hosted sector order is confirmed",
@@ -51,28 +62,54 @@ export const orderConfirmationEmail = (appUrl: string, input: { sectorId: string
       `What you bought: ${describeSector(input.sectorId, input.options)}.`,
       `Price: ${formatMoney(input.amountCents, input.currency)}, paid on ${formatTime(input.paidAt)}. ${HOSTED_SECTOR_PRICE_FACTS}`,
       ...consentLines(input.consent),
-      "Your right to withdraw: for 14 days from payment you can withdraw with the Withdraw from contract button on your sector in My sectors, or by replying to this email. You then get back the price less a proportionate part for the days your sector was open, and the sector closes. The right ends once its Sector Contest has ended (Terms of Sale, section 7).",
+      WITHDRAWAL_IN_FULL,
       "Your sector is being created now. We will email you again when it is ready."
     ],
     linkLabel: "Open My sectors"
   });
 
-export const shareConfirmationEmail = (appUrl: string, input: { sectorId: string; amountCents: number; currency: string; pledgedAt: number; charged: boolean; fundingDeadline?: number; consent: ConsentRecord }): RenderedEmail =>
+export const shareConfirmationEmail = (appUrl: string, input: { sectorId: string; amountCents: number; currency: string; pledgedAt: number; fundingDeadline?: number; consent: ConsentRecord }): RenderedEmail =>
   render(appUrl, {
     subject: "Your share of a hosted sector is confirmed",
     eyebrow: "Order confirmation",
     headline: "Thank you for chipping in",
-    highlight: { label: "Your share", value: formatMoney(input.amountCents, input.currency) },
+    highlight: { label: "Held on your card", value: formatMoney(input.amountCents, input.currency) },
     body: [
       "This email confirms your purchase. Please keep it.",
       `What you bought: a share of ${formatMoney(input.amountCents, input.currency)} towards a Border Empires hosted sector (sector ${input.sectorId}), pledged on ${formatTime(input.pledgedAt)}. ${HOSTED_SECTOR_SHARE_PRICE_FACTS}`,
-      input.charged
-        ? "The sector's funding bar has filled and your share has been charged."
-        : input.fundingDeadline !== undefined
-        ? `Your card is held, not charged. It is charged only if the sector's funding bar fills before ${formatTime(input.fundingDeadline)}; if it does not, the hold is released and you pay nothing.`
-        : "Your card is held, not charged. It is charged only if the sector's funding bar fills in time; if it does not, the hold is released and you pay nothing.",
+      `Your card is held, not charged. It is charged only if the sector's funding bar fills${input.fundingDeadline !== undefined ? ` before ${formatTime(input.fundingDeadline)}` : " in time"}, and then possibly for less than the hold if less is still needed. If the bar does not fill, the hold is released and you pay nothing. We email you either way.`,
       ...consentLines(input.consent),
-      "Your right to withdraw: while your card is only held, you can cancel your share by replying to this email. Once it is charged, you can withdraw for 14 days with the Withdraw from contract button on the sector in My sectors, or by replying to this email. You then get back your share less a proportionate part for the days the sector was open, and you leave the sector, which keeps running for the others. The right ends once its Sector Contest has ended (Terms of Sale, sections 6a and 7)."
+      `While your card is only held, you can cancel your share by replying to this email. ${WITHDRAWAL_SHARE}`
+    ],
+    linkLabel: "Open My sectors"
+  });
+
+/** Sent when a held share is charged: the price of the contract is what was charged, and the withdrawal period starts. */
+export const shareChargedEmail = (appUrl: string, input: { sectorId: string; amountCents: number; currency: string; chargedAt: number; consent: ConsentRecord }): RenderedEmail =>
+  render(appUrl, {
+    subject: "Your share of a hosted sector has been charged",
+    eyebrow: "Payment confirmation",
+    headline: "The funding bar is full",
+    highlight: { label: "Charged", value: formatMoney(input.amountCents, input.currency) },
+    body: [
+      "This email confirms your purchase. Please keep it.",
+      `What you bought: a share towards a Border Empires hosted sector (sector ${input.sectorId}). The sector's funding bar filled and ${formatMoney(input.amountCents, input.currency)} was charged on ${formatTime(input.chargedAt)}. ${HOSTED_SECTOR_SHARE_PRICE_FACTS}`,
+      "The sector is being created now. You can enter it from My sectors once it is open.",
+      ...consentLines(input.consent),
+      WITHDRAWAL_SHARE
+    ],
+    linkLabel: "Open My sectors"
+  });
+
+/** Sent when a hold is let go: the bar did not fill in time, or it filled without this share. */
+export const shareReleasedEmail = (appUrl: string, input: { sectorId: string; amountCents: number; currency: string }): RenderedEmail =>
+  render(appUrl, {
+    subject: "Your hold for a hosted sector has been released",
+    eyebrow: "Hosted sector",
+    headline: "You pay nothing",
+    body: [
+      `The hold of ${formatMoney(input.amountCents, input.currency)} on your card for sector ${input.sectorId} has been released: the funding bar did not fill in time, or it filled without your share. Nothing was charged.`,
+      "Banks usually take a few days to remove a released hold from your statement."
     ],
     linkLabel: "Open My sectors"
   });
@@ -97,7 +134,7 @@ export const idleWarningEmail = (appUrl: string, input: { sectorId: string; last
     highlight: { label: "Closes", value: formatTime(input.closesAt) },
     body: [
       `No human player has entered sector ${input.sectorId} since ${formatTime(input.lastVisitAt)}.`,
-      `If nobody enters it before ${formatTime(input.closesAt)}, it closes and its server is deleted, with no look-around period. Its results are kept. AI Houses playing on do not count as a visit (Terms of Sale, section 5).`,
+      `If nobody enters it before ${formatTime(input.closesAt)}, it closes and its server is deleted, with no look-around period. AI Houses playing on do not count as a visit (Terms of Sale, section 5).`,
       "To keep it open, enter the sector from My sectors."
     ],
     linkLabel: "Open My sectors"
@@ -111,8 +148,8 @@ export const withdrawalAckEmail = (appUrl: string, input: { sectorId: string; sh
     highlight: { label: "Refund", value: formatMoney(input.refundCents, input.currency) },
     body: [
       `On ${formatTime(input.requestedAt)} you withdrew from ${input.share ? `your share of sector ${input.sectorId}` : `your purchase of sector ${input.sectorId}`}.`,
-      `You paid ${formatMoney(input.paidCents, input.currency)}. For the days the sector was open, ${formatMoney(input.deductionCents, input.currency)} is kept. ${formatMoney(input.refundCents, input.currency)} is refunded to the card you paid with; banks usually take 5 to 10 days to show it.`,
-      input.share ? "You have left the sector. It keeps running for its other members." : "The sector is closed for all its members, and its results are kept.",
+      `You paid ${formatMoney(input.paidCents, input.currency)}. For the days the sector was open, ${formatMoney(input.deductionCents, input.currency)} is kept. ${formatMoney(input.refundCents, input.currency)} is being refunded to the payment method you used; banks usually take 5 to 10 days to show it.`,
+      input.share ? "You have left the sector. It keeps running for its other members." : "The sector is closed for all its members.",
       "If anything here looks wrong, reply to this email."
     ],
     linkLabel: "Open My sectors"

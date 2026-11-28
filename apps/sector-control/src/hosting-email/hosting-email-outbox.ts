@@ -8,7 +8,8 @@
 // this account last bought or joined with.
 //
 // Growth: sent and abandoned emails are pruned after a retention period
-// (pruneFinished), and the reconciler logs how many are waiting.
+// (pruneFinished), addresses of accounts with no running sector after
+// another (pruneAddresses), and the reconciler logs both counts.
 import type { DatabaseSync } from "node:sqlite";
 
 export const HOSTING_EMAIL_KINDS = ["order_confirmation", "share_confirmation", "sector_ready", "idle_warning", "withdrawal_ack"] as const;
@@ -28,6 +29,8 @@ export type NewOutboxEmail = {
 };
 
 export type OutboxEmail = NewOutboxEmail & {
+  /** The address of the first attempt, reused for every retry so the email provider sees one request. */
+  toAddress?: string;
   createdAt: number;
   attempts: number;
   nextAttemptAt: number;
@@ -43,8 +46,10 @@ export interface HostingEmailOutbox {
   /** False when an email with this key exists already, sent or not. */
   enqueue(email: NewOutboxEmail, now: number): boolean;
   get(emailKey: string): OutboxEmail | undefined;
-  /** When the first email of a group was written, or undefined if none was. */
-  firstQueuedAt(groupKey: string): number | undefined;
+  /** When the first email of a group was written and first sent, and how many are still waiting. */
+  groupStatus(groupKey: string): { writtenAt?: number; sentAt?: number; pending: number };
+  /** Fixes the address on the first attempt. */
+  setToAddress(emailKey: string, address: string): void;
   /** Unsent, not abandoned, due by `now`; oldest first. */
   listDue(now: number, limit: number): OutboxEmail[];
   markSent(emailKey: string, now: number): void;
@@ -52,7 +57,15 @@ export interface HostingEmailOutbox {
   markAbandoned(emailKey: string, error: string, now: number): void;
   /** Deletes sent and abandoned emails finished before `olderThan`; returns how many. */
   pruneFinished(olderThan: number): number;
+  /**
+   * Deletes addresses last used before `olderThan` of accounts that belong to
+   * no sector still running or ended (hosted_sector_members); returns how many.
+   */
+  pruneAddresses(olderThan: number): number;
+  /** For account deletion: the address and every unsent email of the account. */
+  forgetAccount(accountUid: string): void;
   countPending(): number;
+  countAddresses(): number;
 }
 
 type OutboxRow = {
@@ -64,6 +77,7 @@ type OutboxRow = {
   text_body: string;
   html_body: string;
   attach_terms: string | null;
+  to_address: string | null;
   created_at: number;
   attempts: number;
   next_attempt_at: number;
@@ -81,6 +95,7 @@ const toEmail = (row: OutboxRow): OutboxEmail => ({
   text: row.text_body,
   html: row.html_body,
   ...(row.attach_terms !== null ? { attachTermsVersion: row.attach_terms } : {}),
+  ...(row.to_address !== null ? { toAddress: row.to_address } : {}),
   createdAt: Number(row.created_at),
   attempts: Number(row.attempts),
   nextAttemptAt: Number(row.next_attempt_at),
@@ -108,6 +123,7 @@ export class SqliteHostingEmailOutbox implements HostingEmailOutbox {
         text_body TEXT NOT NULL,
         html_body TEXT NOT NULL,
         attach_terms TEXT,
+        to_address TEXT,
         created_at INTEGER NOT NULL,
         attempts INTEGER NOT NULL DEFAULT 0,
         next_attempt_at INTEGER NOT NULL,
@@ -143,9 +159,19 @@ export class SqliteHostingEmailOutbox implements HostingEmailOutbox {
     return row ? toEmail(row) : undefined;
   }
 
-  firstQueuedAt(groupKey: string): number | undefined {
-    const row = this.db.prepare(`SELECT MIN(created_at) AS first FROM hosted_email_outbox WHERE group_key = ?`).get(groupKey) as { first: number | null };
-    return row.first === null ? undefined : Number(row.first);
+  groupStatus(groupKey: string): { writtenAt?: number; sentAt?: number; pending: number } {
+    const row = this.db
+      .prepare(`SELECT MIN(created_at) AS written, MIN(sent_at) AS sent, SUM(CASE WHEN sent_at IS NULL AND abandoned_at IS NULL THEN 1 ELSE 0 END) AS pending FROM hosted_email_outbox WHERE group_key = ?`)
+      .get(groupKey) as { written: number | null; sent: number | null; pending: number | null };
+    return {
+      ...(row.written !== null ? { writtenAt: Number(row.written) } : {}),
+      ...(row.sent !== null ? { sentAt: Number(row.sent) } : {}),
+      pending: Number(row.pending ?? 0)
+    };
+  }
+
+  setToAddress(emailKey: string, address: string): void {
+    this.db.prepare(`UPDATE hosted_email_outbox SET to_address = ? WHERE email_key = ? AND to_address IS NULL`).run(address, emailKey);
   }
 
   listDue(now: number, limit: number): OutboxEmail[] {
@@ -172,6 +198,25 @@ export class SqliteHostingEmailOutbox implements HostingEmailOutbox {
       .prepare(`DELETE FROM hosted_email_outbox WHERE (sent_at IS NOT NULL AND sent_at < ?) OR (abandoned_at IS NOT NULL AND abandoned_at < ?)`)
       .run(olderThan, olderThan);
     return Number(result.changes);
+  }
+
+  pruneAddresses(olderThan: number): number {
+    const result = this.db
+      .prepare(`DELETE FROM hosted_account_emails WHERE updated_at < ? AND account_uid NOT IN (
+        SELECT m.account_uid FROM hosted_sector_members m JOIN hosted_sectors s ON s.sector_id = m.sector_id
+        WHERE s.state IN ('awaiting_payment', 'funding', 'creating', 'open', 'ended'))`)
+      .run(olderThan);
+    return Number(result.changes);
+  }
+
+  forgetAccount(accountUid: string): void {
+    this.db.prepare(`DELETE FROM hosted_account_emails WHERE account_uid = ?`).run(accountUid);
+    this.db.prepare(`DELETE FROM hosted_email_outbox WHERE account_uid = ? AND sent_at IS NULL`).run(accountUid);
+  }
+
+  countAddresses(): number {
+    const row = this.db.prepare(`SELECT COUNT(*) AS n FROM hosted_account_emails`).get() as { n: number };
+    return Number(row.n);
   }
 
   countPending(): number {

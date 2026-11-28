@@ -64,5 +64,7 @@ describe("hosting service runtime env", () => {
     expect(parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "help@example.test", HOSTING_APP_URL: "https://play.example.test", HOSTING_TERMS_HTML_PATH: "/srv/terms.html" }).email)
       .toEqual({ resendApiKey: "re_abc", from: "Border Empires <hosting@borderempires.com>", replyTo: "help@example.test", appUrl: "https://play.example.test", termsHtmlPath: "/srv/terms.html" });
     expect(() => parseSectorControlRuntimeEnv({ ...base, HOSTING_APP_URL: "play.example.test" })).toThrow(/HOSTING_APP_URL must be/);
+    expect(() => parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "help@example.test", HOSTING_APP_URL: "http://play.example.test" })).toThrow(/https/);
+    expect(() => parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "Help <help>", HOSTING_APP_URL: "https://play.example.test" })).toThrow(/plain email address/);
   });
 });

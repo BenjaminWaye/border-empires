@@ -50,7 +50,18 @@ export const createSectorControlApp = (options: SectorControlAppOptions): { app:
   const service = createHostingService({
     store: options.store, payment: options.payment, alert, config: options.config, now, newId: randomId,
     signTicket: createSectorTicketSigner({ privateKeyPem: options.ticketPrivateKeyPem, now }),
-    ...(mailer ? { rememberAddress: mailer.rememberAddress } : {})
+    // Runs after the purchase or join is stored: a failure here must not turn that success into an error.
+    ...(mailer
+      ? {
+          rememberAddress: (account) => {
+            try {
+              mailer.rememberAddress(account);
+            } catch (error) {
+              app.log.error({ err: error }, "hosting email address could not be kept");
+            }
+          }
+        }
+      : {})
   });
   const reconciler = createHostingReconciler({
     store: options.store, payment: options.payment, servers: options.servers, alert, config: options.config, now,
