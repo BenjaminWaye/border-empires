@@ -252,7 +252,8 @@ export const computeFairSpawnSites = (
 
   // Proximity questions are answered from precomputed masks
   // (server-worldgen-fair-spawn-proximity.ts), not a scan of every town/food
-  // tile per candidate: same answers, ~10x less rollover main-thread time.
+  // tile per candidate: same answers, and the production (starter-economy)
+  // call drops from ~1.95s to ~0.86s CPU on a 204,800-tile world.
   const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
   const foodCoords = tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
   const isTooCloseToTown = regionProximityMask(townCoords, MIN_TOWN_SPAWN_DISTANCE - 1, tileList, regionAt);
