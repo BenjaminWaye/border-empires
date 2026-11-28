@@ -147,7 +147,7 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(cardTitle()).toBe("Tap the marked unexplored ground, then Explore and Go");
     click("skip"); // explore
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("No town nearby: tap the marked unexplored ground, then Explore and Go");
+    expect(cardTitle()).toBe("No town nearby: tap the marked ground, then Explore and Go");
     expect(state.onboardingHighlightTiles).toHaveLength(1);
   });
 
@@ -288,10 +288,11 @@ describe("tutorial guide in the onboarding corner", () => {
     click("finish");
     expect(readGuideProgress(EMAIL).status).toBe("active");
     expect(readGuideProgress(EMAIL).steps).toContain("turn-finish");
-    // Folded to its launcher, which still counts the two steps left.
+    // Folded to its launcher. Both steps left wait on a first contact, so it shows no count: first-15
+    // playtest 2026-11-28, "4 steps left" after Finish read as if Finish had not taken.
     expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true);
     expect(card()?.querySelector(".tg-launcher")?.hasAttribute("hidden")).toBe(false);
-    expect(card()?.querySelector(".tg-badge")?.textContent).toBe("2");
+    expect(card()?.querySelector(".tg-badge")).toBeNull();
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(card()?.querySelector(".tg-card")?.hasAttribute("hidden")).toBe(true); // stays folded while waiting
     // Meeting a rival House: the guide unfolds on Diplomacy by itself.
@@ -349,7 +350,7 @@ describe("tutorial guide in the onboarding corner", () => {
       markGuideStepsCompleted(["diplomacy-truce"], EMAIL);
       tickOnboardingUiGateForFrame(state, vi.fn());
       expect(folded()).toBe(true);
-      expect(card()?.querySelector(".tg-badge")?.textContent).toBe("1");
+      expect(card()?.querySelector(".tg-badge")).toBeNull();
     });
 
     it("doesn't flap or override the player when a rival's tiles leave the map and come back", () => {

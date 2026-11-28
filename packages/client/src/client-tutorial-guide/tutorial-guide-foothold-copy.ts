@@ -11,7 +11,9 @@ import { GUIDE_EXPLORE_MAX_FLIGHTS } from "./tutorial-guide-explore-target.js";
 import type { GuideInput } from "./tutorial-guide-steps.js";
 import type { GuideIslandDock, GuideIslandDockAction } from "./tutorial-guide-island-dock.js";
 
-const EXPLORE_TITLE = "tap the marked unexplored ground, then Explore and Go";
+// "Go" launches the drone (the plan bar's button); Explore opens the plan (first-15 playtest 2026-11-28:
+// "the guide said Explore, but the button said Go").
+const EXPLORE_TITLE = "tap the marked ground, then Explore and Go";
 
 // Plain words, one short line each (Playtest Run 4: "frontier", "garrison", "reach" lost first-time players).
 // Button names (Explore, Expand To, Garrison, Relay Beacon) stay exact, so the line matches what's on screen.

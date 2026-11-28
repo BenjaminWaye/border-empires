@@ -131,7 +131,7 @@ describe("guide steps with the scout drone", () => {
     const done = new Set(["look-pan", "look-zoom", "look-explore"]);
     const explore = evaluateGuide(input(), done);
     expect(explore).toEqual(
-      expect.objectContaining({ title: "No town nearby: tap the marked unexplored ground, then Explore and Go", highlightTiles: [{ x: 70, y: 50 }] })
+      expect.objectContaining({ title: "No town nearby: tap the marked ground, then Explore and Go", highlightTiles: [{ x: 70, y: 50 }] })
     );
     const scouting = evaluateGuide(input({ scout: "out" }), done);
     expect(scouting).toEqual(expect.objectContaining({ title: "Your drone is flying: wait for its report", highlightTiles: [] }));
@@ -199,7 +199,7 @@ describe("review fixes: no Explore loops, beacon step stays a beacon", () => {
   it("stops asking for Explore after a few flights, so a target the drone can't reach can't loop", () => {
     const done = new Set(["look-pan", "look-zoom", "look-explore"]);
     const early = evaluateGuide(input({ scoutFlights: 2 }), done);
-    expect(early.kind === "step" && early.title).toMatch(/Explore$/);
+    expect(early.kind === "step" && early.title).toMatch(/Explore and Go$/);
     const capped = evaluateGuide(input({ scoutFlights: 3 }), done);
     expect(capped.kind === "step" && capped.title).toMatch(/^No town nearby: build a Relay Beacon/);
   });

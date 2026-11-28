@@ -73,9 +73,20 @@ describe("client runtime display support", () => {
   });
 
   it("does not upgrade inferred deep-forest region tiles into forest labels", () => {
-    const { terrainLabel } = createSubject([createTile({ x: 11, y: 11, landBiome: "GRASS", regionType: "DEEP_FOREST" })]);
+    // A tile off hills and forest, whose local biome differs from the server's GRASS (so the server's wins as is).
+    let at: { x: number; y: number } | undefined;
+    for (let y = 0; y < WORLD_HEIGHT && !at; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
+        if (!isHillsTile(x, y) && !isForestTile(x, y) && landBiomeAt(x, y) !== "GRASS") {
+          at = { x, y };
+          break;
+        }
+      }
+    }
+    if (!at) throw new Error("expected a tile off hills and forest");
+    const { terrainLabel } = createSubject([createTile({ ...at, landBiome: "GRASS", regionType: "DEEP_FOREST" })]);
 
-    expect(terrainLabel(11, 11, "LAND")).toBe("GRASS");
+    expect(terrainLabel(at.x, at.y, "LAND")).toBe("GRASS");
   });
 
   // Regression: the label read only the mechanical biome, so every look-only

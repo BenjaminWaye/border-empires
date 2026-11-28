@@ -324,7 +324,7 @@ describe("a queued Expand To toward the town", () => {
   it("counts the town as being taken, without a tile change", () => {
     const state = createInitialState();
     state.me = ME;
-    const town = { name: "Mythharbor Vault", type: "FARMING", populationTier: "TOWN" } as unknown as Tile["town"];
+    const town = { name: "Mythharbor Vault", type: "FARMING", populationTier: "TOWN" } as unknown as NonNullable<Tile["town"]>;
     state.tiles.set(tileKey(6, 0), tile({ x: 6, y: 0, town }));
     expect(buildGuideInput(state).footholdTargets.town).toEqual(expect.objectContaining({ pending: [], expand: [{ x: 6, y: 0 }] }));
     state.waypoint = [{ target: { x: 6, y: 0 } } as unknown as (typeof state.waypoint)[number]];
