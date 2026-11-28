@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudV2Deps } from "./client-hud-v2-context.js";
-import { activeLens, installLens, lensClick, lensMenu, overlaysHtml, OVERLAYS_HOST_ID } from "./client-hud-v2-overlays.js";
+import { activeLens, installLens, lensClick, lensMenu, mapOverview, overlaysHtml, OVERLAYS_HOST_ID, setMapOverview } from "./client-hud-v2-overlays.js";
 import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
+import { closeWorldMap, installWorldMap, isWorldMapOpen, WORLD_MAP_ID } from "../client-world-map/client-world-map.js";
 
 const host = (html: string): HTMLElement => {
   const el = document.createElement("div");
@@ -120,5 +121,36 @@ describe("tile owner stance tag", () => {
 
   it("counts down in minutes in a truce's last hour", () => {
     expect(ownerStanceTagHtml("t", state, 5.5 * 3_600_000 - 18 * 60_000)).toContain(">Truce 18m<");
+  });
+});
+
+describe("phone map overview: whole world", () => {
+  it("offers World only in the overview, and a place picked there closes the overview too", () => {
+    expect(host(overlaysHtml(false, false, true)).querySelector(".v2c-map-head [data-v2c-world-map]")?.textContent).toBe("World");
+    expect(host(overlaysHtml(false, false)).querySelector("[data-v2c-world-map]")).toBeNull();
+    document.body.innerHTML = `<div id="mini-map-wrap"></div><div id="${OVERLAYS_HOST_ID}" class="hud-v2-overlays"></div>`;
+    const state = { showDiplomacyOverlay: false, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 20, me: "", tiles: new Map(), tilesRevision: 0 };
+    const deps = { state, requestViewRefresh: vi.fn() } as unknown as HudV2Deps;
+    const rerender = vi.fn(() => {
+      document.getElementById(OVERLAYS_HOST_ID)!.innerHTML = overlaysHtml(false, lensMenu.open, mapOverview.open);
+    });
+    installLens(deps, rerender);
+    installWorldMap({ state, mapCanvas: document.createElement("canvas"), ownerColor: () => "#ffffff", wrapX: (x) => x, wrapY: (y) => y, requestViewRefresh: vi.fn(), maybeRefreshForCamera: vi.fn() });
+    setMapOverview(true);
+    rerender();
+    document.querySelector<HTMLElement>("[data-v2c-world-map]")!.click();
+    expect(isWorldMapOpen()).toBe(true);
+    // Esc closes the world map first and leaves the overview open beneath it.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(isWorldMapOpen()).toBe(false);
+    expect(mapOverview.open).toBe(true);
+    document.querySelector<HTMLElement>("[data-v2c-world-map]")!.click();
+    const canvas = document.getElementById(WORLD_MAP_ID)!.querySelector("canvas")!;
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 640, height: 320, right: 640, bottom: 320, x: 0, y: 0, toJSON: () => ({}) });
+    canvas.dispatchEvent(new MouseEvent("click", { clientX: 40.5, clientY: 30.5, bubbles: true }));
+    expect(state.camX).toBe(40);
+    expect(state.camY).toBe(30);
+    expect(mapOverview.open).toBe(false);
+    closeWorldMap();
   });
 });

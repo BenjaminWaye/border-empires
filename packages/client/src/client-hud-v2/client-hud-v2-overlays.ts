@@ -11,6 +11,7 @@
 import type { HudV2Deps } from "./client-hud-v2-context.js";
 import { togglePhotoMode } from "../client-photo-mode/client-photo-mode.js";
 import { resourceLensLegendHtml } from "./client-hud-v2-resource-legend.js";
+import { isWorldMapOpen, openWorldMap } from "../client-world-map/client-world-map.js";
 
 export type MapLens = "terrain" | "diplomacy" | "resources";
 
@@ -91,7 +92,7 @@ export const activeLens = (diplomacyOn: boolean, resourcesOn = false): MapLens =
 /** The overview's header and lens row; the minimap canvas itself sits between them (CSS order). */
 const mapOverviewHtml = (active: MapLens): string => {
   const items = LENSES.map((l) => `<button type="button" role="radio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
-  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div>${PHOTO_BUTTON}<button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
+  return `<div class="v2c-map-head"><div><h2 class="v2c-map-title">Map</h2><p class="v2c-map-hint">Tap a place to go there</p><span class="v2c-map-key">your view</span></div>${WORLD_BUTTON}${PHOTO_BUTTON}<button type="button" class="v2c-map-close" data-v2c-map-close aria-label="Close the map">✕</button></div>
     <div class="v2c-map-lenses"><span class="v2c-map-lens-label" id="v2c-map-lens-label">Lens</span><div class="v2c-map-segments" role="radiogroup" aria-labelledby="v2c-map-lens-label">${items}</div>${active === "resources" ? resourceLensLegendHtml() : ""}</div>`;
 };
 
@@ -100,6 +101,9 @@ const mapOverviewHtml = (active: MapLens): string => {
  * Settings > Gameplay (2026-11-14 playtest). It is a plain button, not a lens radio item.
  */
 const PHOTO_BUTTON = `<button type="button" class="hud-v2-photo-btn" data-hud-v2-photo>Photo mode</button>`;
+
+/** The phone's way to the whole world (client-world-map.ts); on a desktop a tap on the corner minimap opens it. */
+const WORLD_BUTTON = `<button type="button" class="hud-v2-photo-btn v2c-map-world-btn" data-v2c-world-map aria-label="Whole world map">World</button>`;
 
 /** `lens` is the active lens, or (older callers) whether the Diplomacy lens is on. */
 export const overlaysHtml = (lens: MapLens | boolean, menuOpen: boolean, overviewOpen = false): string => {
@@ -147,6 +151,11 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
   host.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+    if (target.closest("[data-v2c-world-map]")) {
+      // A place picked on the world map has moved the camera: the overview behind it closes too.
+      openWorldMap({ onPicked: () => { setMapOverview(false); rerender(); } });
+      return;
+    }
     if (target.closest("[data-hud-v2-photo]")) {
       setMapOverview(false);
       togglePhotoMode(deps.state, deps.renderHud);
@@ -160,7 +169,7 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
     // The rerender replaced the focused button: keep keyboard focus on the lens (the checked item while open).
     host.querySelector<HTMLElement>(lensMenu.open || mapOverview.open ? '[aria-checked="true"]' : "[data-hud-v2-lens-toggle]")?.focus();
   });
-  // In the overview, a tap on the map has already centred the view (client-map-input-minimap-drag.ts): close it.
+  // In the overview, a tap on the map has already centred the view (client-minimap/client-minimap-drag.ts): close it.
   document.getElementById("mini-map")?.addEventListener("click", () => {
     if (!mapOverview.open) return;
     setMapOverview(false);
@@ -172,7 +181,8 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
     rerender();
   }, true);
   window.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || (!lensMenu.open && !mapOverview.open)) return;
+    // The world map over the overview takes Esc first (client-world-map.ts).
+    if (event.key !== "Escape" || (!lensMenu.open && !mapOverview.open) || isWorldMapOpen()) return;
     if (mapOverview.open) setMapOverview(false);
     lensMenu.open = false;
     // onEscape listens on the same window, so only stopImmediatePropagation keeps it from also opening Settings.

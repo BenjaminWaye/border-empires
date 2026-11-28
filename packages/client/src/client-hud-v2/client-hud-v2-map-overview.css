@@ -84,3 +84,7 @@ body.hud-v2-compact.v2c-map-overview .onb-root { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   body.hud-v2-compact.v2c-map-overview #mini-map-wrap { animation: none; }
 }
+
+/* World (client-world-map.ts) sits before Photo mode; only the first of the two pushes right. */
+.v2c-map-head .v2c-map-world-btn { margin-right: 6px; }
+.v2c-map-head .v2c-map-world-btn + .hud-v2-photo-btn { margin-left: 0; }

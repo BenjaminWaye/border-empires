@@ -19,6 +19,7 @@ import { createClientViewSupport } from "./client-app-runtime-view-support.js";
 import { formatCooldownShort, formatManpowerAmount, FULL_MAP_CHUNK_RADIUS, keyForTile, parseTileKey, prettyToken, rateToneClass, wrapTileX, wrapTileY } from "./client-app-runtime-utils.js";
 import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
+import { installWorldMap } from "./client-world-map/client-world-map.js";
 import { wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
 import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
 import { renderManpowerPanelHtml } from "./client-side-panel-html/client-side-panel-html.js";
@@ -132,6 +133,8 @@ const {
   ws,
   fullMapChunkRadius: FULL_MAP_CHUNK_RADIUS
 });
+// Tapping the minimap opens the whole world (client-world-map.ts); a place picked there moves the camera.
+installWorldMap({ state, mapCanvas: dom.canvas, ownerColor: effectiveOverlayColor, wrapX, wrapY, requestViewRefresh, maybeRefreshForCamera });
 
 const { structureGoldCost, structureCostText, structureInfoForKey, structureInfoButtonHtml, terrainLabel } =
   createClientRuntimeDisplaySupport({
