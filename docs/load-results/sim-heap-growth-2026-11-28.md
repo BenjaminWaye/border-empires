@@ -247,6 +247,60 @@ with their costs; none is chosen here:
    drop `frontierOriginExplanations`, a third of it). Cost: engineering time;
    each needs its own check that nothing reads what is dropped.
 
+## 6. Decision, 2026-11-28 (owner)
+
+Option 2 was taken: `--max-old-space-size` is raised from 900 MB to 1,536 MB in
+`deploy/env/production.env`, `staging.env` and `hosted.env`, as insurance.
+Under the straight-line reading (§5) simulation heap peaks at day 30 are about
+1,380 MB, under the new limit.
+
+**The limit is per thread, not only the simulation's.** `NODE_OPTIONS` applies
+to every V8 isolate in the one process that has no `resourceLimits` of its own:
+the simulation worker, and also the gateway main thread, the SQLite writer, the
+gateway command-store worker and the event-loop watchdog. Each of those can
+now grow to 1,536 MB where 900 MB stopped it before. The AI planner (192 MB),
+system worker (96 MB), snapshot builder (256 MB) and both stringifiers (96 MB)
+keep their own caps. The memory fit below counts only simulation growth, so a
+second thread leaking at the same time is not covered by it.
+
+Whole-process memory, simulation growth only: about 1.25–1.32 GB measured on
+soak day 3 (in Docker limited to 4 GB on the owner's MacBook, not on Hetzner),
+plus up to about 700 MB more simulation heap by day 30, plus about 320 MB per
+revealed session while its reveal is built
+([`full-reveal-2026-11-23.md`](full-reveal-2026-11-23.md)), plus the
+checkpoint build: about 2.4 GB with one reveal. That leaves out the OS, Docker,
+Caddy, the hourly backup and the SQLite page cache, which also want memory on
+the 4 GB server.
+
+The checkpoint watermarks are raised with it: heap from 680 to 1,300 MB and
+process from 1,500 to 2,300 MB. Left at 680 MB, regular checkpoints would be
+put off (run only when forced every 4,000 events, which lengthens what a crash
+rolls back) once heap peaks passed 680 MB, around day 10–13 on the
+straight-line reading. With the new values:
+
+- Late in a contest on the straight-line reading, process memory can still
+  pass 2,300 MB, with two or more reveals open at once, and process memory
+  rarely shrinks back afterwards. From then on regular checkpoints are put off
+  again, as before but about 800 MB later. If growth stops when the land is
+  full (peaks about 600–650 MB) neither watermark is reached.
+- 1,536 − 1,300 MB is not a precise margin: the limit caps V8's old space,
+  while the watermark compares the whole heap in use. The 7–40 MB measured
+  for a checkpoint build was process memory on an early-contest world.
+- `scripts/ops/hetzner-env-files.test.mjs` now checks that the three env files
+  agree and that the heap watermark stays at least 128 MB under the limit.
+
+**Not measured at the new limit.** Every figure here was measured at 900 MB.
+With more room V8 collects less eagerly, so heap in use is likely to run
+further above heap after GC than the 150–200 MB seen at 900 MB, and the
+watermarks may be reached earlier than estimated. A run at 1,536 MB would
+show it.
+
+**A full-map run is still wanted** to confirm that growth stops when the land
+is full. The higher limit buys time against the straight-line reading; it does
+not show which reading is right, and it lets a real leak run longer before it
+shows. No alert on simulation heap or on deferred checkpoints was added with
+this change; one would shorten that blind spot.
+
 ## Not measured
 
 - **Real time, and a real AI pace.** The 6× clock slowed the AI per game hour
