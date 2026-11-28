@@ -121,10 +121,17 @@ self-contained and fair.
   clear of every rival's reach; a reserved place gets in even when the next
   contest is at its player cap; a House redeploying after elimination also
   needs a viable site; and the join screen is always shown, never skipped.
+  *Decided 2026-11-27 (owner):* choosing to wait keeps the player on a
+  waiting screen, not an empty map: the Sector Contests running now, the
+  offer to fund a new sector, the running contest's current standings, a
+  way to be emailed when the next contest starts, and the option to land
+  after all. The screen does not close to the map, which is all fog for a
+  player who has not joined. Waiting does not reserve a place.
 - **The sector list** (decided 2026-11-27): the join screen lists the Sector
   Contests running now that the player can play in. A full one (every House
   place taken, or no viable landing site) is greyed out. If none has room,
-  the player can start funding a new sector. The host of a hosted sector is
+  or the player chose to wait for the next contest (decided 2026-11-27), the
+  player can start funding a new sector. The host of a hosted sector is
   not notified.
 - **When the free sector is full:** a waiting list for the next free contest,
   plus an offer to fund a new sector (§8). The owner decides case by case
@@ -214,6 +221,9 @@ product, including paid Houses.
   cosmetics before it is submitted. That work comes after the web and Android
   launch and does not hold it up. No links out to the web shop from either app
   at launch. Details and sources: [`app-store-purchase-rules.md`](app-store-purchase-rules.md).
+  *Decided 2026-11-28 (owner):* iOS prices equal the web prices; enrol in
+  Apple's Small Business Program and Google's reduced service fee (the owner
+  enrols); buying requires 18 or older and playing 13 or older.
 - **Dropped:** a recurring patron or supporter pass. A mark plus goodwill is
   too weak to buy twice.
 
@@ -353,6 +363,26 @@ baseline.
     iOS needs an owner decision (add in-app purchase, or ship without it and
     risk rejection); no link-outs at launch. Owner decisions listed in the
     research note.
+  - *Decided 2026-11-28* (proposed by an agent session at the owner's request,
+    confirmed by the owner; recorded in §8 and the research note): iOS prices
+    equal the web prices; no US link-out at launch; enrol in Apple's Small
+    Business Program and Google's reduced service fee (the owner enrols);
+    buying requires 18 or older; playing requires 13 or older; the owner
+    rechecks the store rules before each submission and after the Supreme
+    Court ruling in Apple v. Epic.
+  - Still open from these decisions:
+    - Neither age limit is enforced: the checkout's "18 or older" confirmation
+      is not built, the terms state no minimum playing age, and on iOS a
+      child's account with Ask to Buy can complete an in-app purchase.
+    - Some EU countries set the age of digital consent at 16, so analytics
+      consent from 13–15-year-olds there is not valid consent.
+    - 13+ means minors may play, which §2 (adults with jobs) does not cover.
+      The owner decides whether §2 changes.
+    - For the iOS in-app purchase build: how split funding (variable
+      contributions) and US sales tax work with fixed App Store prices, the
+      sector economics after Apple's cut, and refunds that Apple, not Stripe,
+      decides.
+
 
 ## 12. Keeping this document true
 
