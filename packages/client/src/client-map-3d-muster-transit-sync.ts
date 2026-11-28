@@ -11,6 +11,8 @@ import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-cl
 import type { ClientState } from "./client-state/client-state.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { TILE_CENTER_OFFSET } from "./client-map-3d-capture-overlays.js";
+import { activeInsurgentMarches } from "./client-insurgent-march/client-insurgent-march.js";
+import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath } from "./client-muster-transit-route/client-muster-transit-route.js";
 
 // Split out of client-map-3d-capture-overlays.ts (500-line cap) when march
@@ -176,6 +178,14 @@ export function syncMusterTransitOverlay(
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
+  // Insurgent companies marching out of their camp to the tile their attack or
+  // expansion launches from (client-insurgent-march.ts), in Planetary Defense
+  // armor. The server tells every player who can see the march, not only
+  // the House under attack.
+  for (const march of activeInsurgentMarches(nowEpochMs)) {
+    addMarch(march.campX, march.campY, march.fromX, march.fromY, march.startAt, march.transitEndsAt, undefined, PLANETARY_DEFENSE_ARMOR_COLOR, undefined);
   }
 
   // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):

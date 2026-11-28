@@ -10,6 +10,7 @@ import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
+import { insurgentMarchToTileUnderWay } from "./client-insurgent-march/client-insurgent-march.js";
 import { buildCaptureHoldGarrisons, defenderGarrisonField, rememberCompletedComebackGarrisons } from "./client-map-3d-capture-hold-garrison.js";
 
 export const TILE_CENTER_OFFSET = 0.5;
@@ -181,6 +182,8 @@ export function collectBattleRenderEntries(
       if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
       const target = state.tiles.get(key);
       if (!target) continue;
+      // Insurgents still walking out of their camp: syncMusterTransitOverlay draws them on the road.
+      if (insurgentMarchToTileUnderWay(target.x, target.y, nowEpochMs)) continue;
       // Undefended FRONTIER ground has no combat to show — see
       // runtime-lock-resolution.ts's hasDefendingForce, which no longer
       // emits a combatJson/battle broadcast for these attacks at all. Dock

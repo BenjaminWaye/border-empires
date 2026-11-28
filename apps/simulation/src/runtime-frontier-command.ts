@@ -18,6 +18,7 @@ import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { superTileActionTarget } from "./landmark-super-tile/landmark-super-tile.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js";
+import { campMarchOrigin, type CampMarch } from "./planetary-defense-camps/camp-march.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
@@ -99,6 +100,8 @@ export type RuntimeFrontierCommandContext = {
   releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
   /** Ends all resource supply agreements between attacker and defender; returns how many ended. */
   endSupplyTradesOnAttack: (attackerId: string, defenderId: string) => number;
+  /** A Planetary Defense company set out from its camp (planetary-defense-camps/camp-march.ts). */
+  onCampMarch?: (march: CampMarch) => void;
 };
 
 export type FrontierCommandResult = { accepted: boolean; code?: string };
@@ -313,6 +316,12 @@ export const handleFrontierCommandImpl = (
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
     transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, allies: actor.allies, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
+  // Planetary Defense marches every action out of its camp, at the same rate (camp-march.ts).
+  const campOrigin = musterOrigin ? undefined : campMarchOrigin(actor.id, ctx.tiles, resolvedOriginKey);
+  if (campOrigin) {
+    musterOrigin = campOrigin;
+    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: campOrigin, launch: validation.origin });
+  }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
   // resolution lock (15s base, per COMBAT_LOCK_MS) — floored so it can never
@@ -446,6 +455,9 @@ export const handleFrontierCommandImpl = (
     });
   }
   ctx.scheduleLockResolution(lock);
+  if (campOrigin && transitEndsAt !== undefined) {
+    ctx.onCampMarch?.({ commandId: command.commandId, actionType, camp: campOrigin, from: validation.origin, to: validation.target, marchMs: transitMs, transitEndsAt, resolvesAt, serverNow: ctx.now() });
+  }
   // Attacking a House (any owned tile, frontier included; manual or muster
   // launched alike) ends every supply trade between the two. Barbarians hold
   // no trades and are exempt. Runs after the lock is scheduled so a failure

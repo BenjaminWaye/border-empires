@@ -464,7 +464,7 @@ import {
   requiredMusterForTarget as requiredMusterForTargetImpl,
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
-import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
+import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js"; import { broadcastCampMarch } from "../planetary-defense-camps/camp-march.js";
 import { createStrandedFrontierCleanup, handleCheckStrandedRegionCommand as handleCheckStrandedRegionCommandImpl } from "../stranded-frontier/stranded-frontier-cleanup.js";
 import {
   handleRushBuyCommandImpl,
@@ -1327,7 +1327,7 @@ export class SimulationRuntime {
       isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId),
       frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0,
-      endSupplyTradesOnAttack: (attackerId, defenderId) => this.resourceSupply?.cancelBetween(attackerId, defenderId) ?? 0
+      endSupplyTradesOnAttack: (attackerId, defenderId) => this.resourceSupply?.cancelBetween(attackerId, defenderId) ?? 0, onCampMarch: (march) => broadcastCampMarch({ playerIds: () => this.state.players.keys(), isHumanOnline: (id) => !this.state.players.get(id)?.isAi && (this.isPlayerSubscribed?.(id) ?? false), isVisible: (id, x, y) => this.state.visibilityCoverage.isVisible(id, `${x},${y}`), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload) }, march)
     };
   }
 

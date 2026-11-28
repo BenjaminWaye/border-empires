@@ -31,7 +31,7 @@ import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAt
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrityWithNotices } from "../client-integrity-drop/client-player-update-integrity-notices.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js"; import { recordInsurgentMarch } from "../client-insurgent-march/client-insurgent-march.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
@@ -1434,7 +1434,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; } if (msg.type === "INSURGENT_MARCH") { recordInsurgentMarch(msg); return; } // drawn by both renderers' per-frame loops
     if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
       applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
