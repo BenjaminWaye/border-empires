@@ -9,7 +9,7 @@ import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
 import { pickTownFocus, pickTownFocusForAll, selectTownFocus, selectedTownFocus } from "./client-hud-v2-town-focus-pick.js";
 import { townFocusLockedInMs, townTileAtFocus } from "../client-town-focus/client-town-focus-projection.js";
 import type { TownsFocusState, TownsFocusView } from "./client-hud-v2-towns-focus.js";
-import { TownFocusSchema, type TownFocus } from "@border-empires/shared";
+import { TownFocusSchema, nextManpowerRefillAtMs, type TownFocus } from "@border-empires/shared";
 import { shownTownFocus } from "../client-town-focus/client-town-focus.js";
 import { isTownGrowthPaused } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -24,7 +24,7 @@ const CONFIRM_ALL_MS = 4_000;
 let armedAll: { focus: TownFocus } | undefined;
 
 /** Each listed town's focus. An ungarrisoned town gets none: the server applies focus to garrisoned towns only. */
-const focusView = (state: Pick<ClientState, "tiles">, rows: readonly TownListRow[], nowMs = Date.now()): TownsFocusView => {
+const focusView = (state: Pick<ClientState, "tiles" | "me">, rows: readonly TownListRow[], nowMs = Date.now()): TownsFocusView => {
   const byKey = new Map<string, TownsFocusState>();
   for (const row of rows) {
     const key = `${row.x},${row.y}`;
@@ -33,7 +33,9 @@ const focusView = (state: Pick<ClientState, "tiles">, rows: readonly TownListRow
     const selected = selectedTownFocus(key);
     byKey.set(key, { active: shownTownFocus(town), growthPaused: isTownGrowthPaused(town, { explainUnfed: true, nowMs }), lockedInMs: townFocusLockedInMs(town, nowMs), ...(selected ? { selected } : {}) });
   }
-  return { byKey, ...(armedAll ? { confirmAll: armedAll.focus } : {}) };
+  // A change locks until the next refill, the same moment for every town (optimisticTownFocus).
+  const lockForMs = state.me ? Math.max(0, nextManpowerRefillAtMs(state.me, nowMs) - nowMs) : undefined;
+  return { byKey, ...(armedAll ? { confirmAll: armedAll.focus } : {}), ...(lockForMs !== undefined ? { lockForMs } : {}) };
 };
 
 const SORT_KEYS: ReadonlySet<string> = new Set<TownListSortKey>(["gold", "manpower", "population", "growth", "slots"]);

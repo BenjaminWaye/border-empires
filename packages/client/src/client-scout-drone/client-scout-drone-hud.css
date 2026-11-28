@@ -53,6 +53,18 @@
 #scout-drone-pill .sdp-pill.is-ready .sdp-word { display: inline; }
 #scout-drone-pill .sdp-pill.is-ready .sdp-time { opacity: 0.75; font-size: 13px; }
 
+/* Every charge out: the offer greys and tells the wait for the next charge. */
+#scout-drone-pill .sdp-pill.is-empty {
+  border-color: rgba(170, 170, 170, 0.5);
+  background: linear-gradient(180deg, rgba(36, 36, 38, 0.95), rgba(20, 20, 22, 0.97));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  color: #c9c9c9;
+  cursor: default;
+}
+#scout-drone-pill .sdp-pill.is-empty .sdp-drone { color: #9a9a9a; animation: none; }
+#scout-drone-pill .sdp-pill.is-empty .sdp-word { display: inline; }
+#scout-drone-pill .sdp-pill.is-empty .sdp-time { opacity: 0.8; font-size: 13px; }
+
 #scout-drone-pill .sdp-drone {
   width: 26px;
   height: 26px;

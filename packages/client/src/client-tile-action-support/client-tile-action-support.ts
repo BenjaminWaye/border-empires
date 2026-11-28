@@ -6,7 +6,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { hostileAetherProtectionAt, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
-import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, presentTechLockedTileAction, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
+import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, presentTechLockedTileAction, techLockedBuildingRow, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
 // Re-exported for client-tile-action-logic.ts, whose deps type names them.
 export type { ProtectingAetherTower };
 
@@ -119,30 +119,38 @@ export const hideTechLockedTileAction = (
   state: TileActionFilterState
 ): boolean => hideTechLockedTileActionFromModule(action, state, requiredTechForTileAction);
 
+const byStructureRank = (a: TileActionDef, b: TileActionDef): number => {
+  const aType = structureTypeForTileAction(a.id);
+  const bType = structureTypeForTileAction(b.id);
+  return (aType ? structureSortRank(aType) : 99) - (bType ? structureSortRank(bType) : 99);
+};
+
 export const splitTileActionsIntoTabs = (
   actions: TileActionDef[],
   state: TileActionFilterState
-): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
-  const filtered = actions.flatMap((action) => presentTechLockedTileAction(action, state, requiredTechForTileAction) ?? []);
+): Pick<TileMenuView, "actions" | "buildings" | "crystal" | "lockedBuildings"> => {
+  const filtered: TileActionDef[] = [];
+  const lockedBuildings: TileActionDef[] = [];
+  for (const action of actions) {
+    const shown = presentTechLockedTileAction(action, state, requiredTechForTileAction);
+    if (shown) filtered.push(shown);
+    else if (tileActionIsBuilding(action.id)) {
+      const locked = techLockedBuildingRow(action, state, requiredTechForTileAction);
+      if (locked) lockedBuildings.push(locked);
+    }
+  }
   const actionRows = filtered.filter(
     (action) =>
       (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyHydrogarden(action)) &&
       !tileActionIsCrystal(action.id)
   );
-  const buildingRows = filtered
-    .filter((action) => tileActionIsBuilding(action.id))
-    .sort((a, b) => {
-      const aType = structureTypeForTileAction(a.id);
-      const bType = structureTypeForTileAction(b.id);
-      const rankDiff = (aType ? structureSortRank(aType) : 99) - (bType ? structureSortRank(bType) : 99);
-      if (rankDiff !== 0) return rankDiff;
-      return 0;
-    });
+  const buildingRows = filtered.filter((action) => tileActionIsBuilding(action.id)).sort(byStructureRank);
   const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
   return {
     actions: actionRows,
     buildings: buildingRows.length ? buildingRows : [],
-    crystal: crystalRows.length > 0 ? crystalRows : []
+    crystal: crystalRows.length > 0 ? crystalRows : [],
+    ...(lockedBuildings.length > 0 ? { lockedBuildings: lockedBuildings.sort(byStructureRank) } : {})
   };
 };
 

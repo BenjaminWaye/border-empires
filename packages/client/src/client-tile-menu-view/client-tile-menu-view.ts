@@ -387,7 +387,7 @@ export const tileMenuViewForTile = (
   tile: Tile,
   deps: {
     menuActionsForSingleTile: (tile: Tile) => TileActionDef[];
-    splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
+    splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[]; lockedBuildings?: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
     captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined; incomingAttackProgressForTile?: (tile: Tile) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
@@ -478,6 +478,7 @@ export const tileMenuViewForTile = (
     overviewLines: [...afcFounderOverviewLines(tile, deps.playerNameForOwner, deps.state.me), ...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
+    ...(!buildBlockedByQueue && actionTabs.lockedBuildings?.length ? { lockedBuildings: actionTabs.lockedBuildings } : {}),
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
     ...(construction || queuedBuild ? { work: [construction, queuedBuild].filter((w): w is TileMenuProgressView => Boolean(w)) } : {}),

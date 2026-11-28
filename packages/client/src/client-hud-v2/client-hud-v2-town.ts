@@ -182,12 +182,15 @@ const buildPanelHtml = (input: TownScreenInput): string => {
   const workHtml = work.length > 0 ? townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) : "";
   // Work first: under the "Built here" heading it would read as part of the building.
   const lead = `${workHtml}${built}`;
+  // Every building type the tile could take, the ones still locked by research greyed after the rest (owner, First-15 round 1).
+  const buildings = [...input.focusView.buildings, ...(input.focusView.lockedBuildings ?? [])];
   const list = buildListHtml({
-    buildings: input.focusView.buildings,
+    buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    category: input.category ?? defaultBuildCategory(input.focusView.buildings),
+    // The opening tab is one with something buildable now (a recommended building's, when there is one).
+    category: input.category ?? defaultBuildCategory(input.focusView.buildings.length > 0 ? input.focusView.buildings : buildings),
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,

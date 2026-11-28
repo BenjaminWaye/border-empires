@@ -707,7 +707,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const hideTechLockedTileAction = (action: TileActionDef): boolean => hideTechLockedTileActionFromModule(action, state);
   const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef["id"], tile: Tile): boolean =>
     shouldOptimisticallyBuildOnSelectedTileFromModule(actionId, tile);
-  const splitTileActionsIntoTabs = (actions: TileActionDef[]): Pick<TileMenuView, "actions" | "buildings" | "crystal"> =>
+  const splitTileActionsIntoTabs = (actions: TileActionDef[]): Pick<TileMenuView, "actions" | "buildings" | "crystal" | "lockedBuildings"> =>
     splitTileActionsIntoTabsFromModule(actions, state);
   const isTileOwnedByAlly = (tile: Tile): boolean => isTileOwnedByAllyFromModule(tile, state);
   const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number =>

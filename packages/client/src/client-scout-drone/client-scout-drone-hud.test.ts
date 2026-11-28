@@ -196,7 +196,9 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(pill.style.display).toBe("flex");
     expect(pill.classList.contains("is-offer")).toBe(true);
     expect(pill.matches(IN_FLIGHT_PILL)).toBe(false);
-    expect(pill.querySelector(".sdp-time")?.textContent).toBe("8");
+    // "Explore 8/8": ready charges of the most (owner, First-15 round 1).
+    expect(pill.querySelector(".sdp-word")?.textContent).toBe("Explore");
+    expect(pill.querySelector(".sdp-time")?.textContent).toBe("8/8");
     (pill.querySelector("button") as HTMLButtonElement).click();
     expect(state.scoutDronePicking.active).toBe(true);
     expect(rerender).toHaveBeenCalled();
@@ -283,6 +285,31 @@ describe("scout drone HUD (player review 2026-11-21)", () => {
     expect(scoutDroneReadyToOffer(state, 1_000)).toBe(true);
     state.scoutDroneCharges = { max: 2, refillMs: 14_400_000, usedAt: [0, 0] };
     expect(scoutDroneReadyToOffer(state, 1_000)).toBe(false);
+  });
+
+  // Owner, First-15 round 1: the pill vanished with every charge out, so players never learned they come back.
+  it("keeps the pill with every charge out, greyed, telling the wait for the next charge", () => {
+    const state = baseState();
+    state.scoutDroneCharges = { max: 2, refillMs: 14_400_000, usedAt: [0, 500] };
+    const rerender = vi.fn();
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender, focus: vi.fn(), now: () => 1_000 });
+    const pill = document.getElementById("scout-drone-pill")!;
+    const button = pill.querySelector("button") as HTMLButtonElement;
+    expect(pill.style.display).toBe("flex");
+    expect(pill.classList.contains("is-offer")).toBe(true);
+    expect(pill.matches(IN_FLIGHT_PILL)).toBe(false);
+    expect(button.classList.contains("is-empty")).toBe(true);
+    expect(button.classList.contains("is-ready")).toBe(false);
+    expect(button.disabled).toBe(true);
+    expect(pill.querySelector(".sdp-time")?.textContent).toBe(`next in ${scoutClock(14_400_000 - 1_000)}`);
+    expect(document.body.classList.contains("scout-flying")).toBe(false);
+    button.click();
+    expect(state.scoutDronePicking.active).toBe(false);
+    // A charge back: the offer is live again, with the count.
+    renderScoutDroneHud(state, { send: vi.fn(() => true), rerender, focus: vi.fn(), now: () => 14_400_000 });
+    expect(button.classList.contains("is-empty")).toBe(false);
+    expect(button.disabled).toBe(false);
+    expect(pill.querySelector(".sdp-time")?.textContent).toBe("1/2");
   });
 
   // Owner, Playtest Run 4: by a House's third day the pill only sits over the map.
