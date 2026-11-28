@@ -10,6 +10,7 @@ import {
   BUILDING_CATEGORY_LABELS,
   BUILDING_CATEGORY_ORDER,
   buildingActionCategory,
+  initialBuildingCategory,
   type BuildingCategory
 } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { TileActionDef } from "../client-types.js";
@@ -46,16 +47,29 @@ export const buildPanelCloseHtml = (panel: keyof typeof PANEL_NAME): string =>
 export const buildCategories = (buildings: readonly TileActionDef[]): Array<{ category: BuildingCategory; count: number }> =>
   BUILDING_CATEGORY_ORDER.map((category) => ({ category, count: buildings.filter((b) => buildingActionCategory(b) === category).length })).filter((c) => c.count > 0);
 
+/**
+ * The tab a build list opens on: the one holding a recommended building (the tutorial guide's
+ * Manufactory, an onboarding Relay Beacon), so the guide teaches players to find it in Build.
+ */
+export const defaultBuildCategory = (buildings: readonly TileActionDef[]): BuildingCategory | undefined => {
+  const recommended = buildings.find((b) => b.recommended);
+  return recommended ? buildingActionCategory(recommended) : initialBuildingCategory(buildCategories(buildings).map((c) => c.category));
+};
+
+const RECOMMENDED_BADGE = `<span class="v2t-build-rec-badge">★ Recommended</span>`;
+
 export const buildListHtml = (input: BuildListInput): string => {
   const cats = buildCategories(input.buildings);
-  const category = cats.some((c) => c.category === input.category) ? input.category
-    : cats.find((c) => c.category === "resource")?.category ?? cats[0]?.category;
-  const tabs = cats.map((c) => `<button type="button" role="tab" class="v2t-tab${c.category === category ? " v2t-tab-on" : ""}" aria-selected="${c.category === category}" data-v2-build-category="${c.category}">${esc(BUILDING_CATEGORY_LABELS[c.category].replace(/­/g, ""))} · ${c.count}</button>`).join("");
-  const rows = input.buildings.filter((b) => buildingActionCategory(b) === category).map((b) => {
+  const category = cats.some((c) => c.category === input.category) ? input.category : defaultBuildCategory(input.buildings);
+  const recommendedIn = new Set(input.buildings.filter((b) => b.recommended).map(buildingActionCategory));
+  const tabs = cats.map((c) => `<button type="button" role="tab" class="v2t-tab${c.category === category ? " v2t-tab-on" : ""}" aria-selected="${c.category === category}" data-v2-build-category="${c.category}">${recommendedIn.has(c.category) ? "★ " : ""}${esc(BUILDING_CATEGORY_LABELS[c.category].replace(/­/g, ""))} · ${c.count}</button>`).join("");
+  // A recommended building leads its tab, marked like the tile menu's "★ Recommended".
+  const inTab = input.buildings.filter((b) => buildingActionCategory(b) === category);
+  const rows = [...inTab.filter((b) => b.recommended), ...inTab.filter((b) => !b.recommended)].map((b) => {
     const on = b.id === input.selection;
-    return `<button type="button" class="v2t-build${on ? " v2t-build-on" : ""}${b.disabled ? " v2t-build-off" : ""}" data-v2-build-pick="${esc(b.id)}" aria-pressed="${on}">
+    return `<button type="button" class="v2t-build${on ? " v2t-build-on" : ""}${b.recommended ? " v2t-build-rec" : ""}${b.disabled ? " v2t-build-off" : ""}" data-v2-build-pick="${esc(b.id)}" aria-pressed="${on}">
       <span class="v2t-build-ico">${buildActionIconHtml(b.id) ?? ""}</span>
-      <span class="v2t-build-text"><span class="v2t-build-name">${esc(b.label)}</span>${b.detail ? `<span class="v2t-build-detail">${esc(b.detail)}</span>` : ""}<span class="v2t-build-cost${b.disabled ? " v2t-warn" : ""}">${esc(b.disabled ? b.disabledReason ?? "Unavailable" : b.cost ?? "")}</span></span>
+      <span class="v2t-build-text"><span class="v2t-build-name">${esc(b.label)}${b.recommended ? RECOMMENDED_BADGE : ""}</span>${b.detail ? `<span class="v2t-build-detail">${esc(b.detail)}</span>` : ""}<span class="v2t-build-cost${b.disabled ? " v2t-warn" : ""}">${esc(b.disabled ? b.disabledReason ?? "Unavailable" : b.cost ?? "")}</span></span>
     </button>`;
   }).join("");
   const empty = input.buildings.length === 0 && !input.leadHtml ? `<div class="v2s-empty">${esc(input.emptyText)}</div>` : "";
