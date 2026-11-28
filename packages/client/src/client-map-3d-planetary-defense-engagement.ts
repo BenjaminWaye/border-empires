@@ -12,7 +12,6 @@
 // out from the origin, the defender's stands on the target.
 import type { ClientState } from "./client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "./client-planetary-defense-style.js";
-import { insurgentMarchToTileUnderWay } from "./client-insurgent-march/client-insurgent-march.js";
 
 export type PlanetaryDefenseEngagementState = Pick<
   ClientState,
@@ -42,9 +41,6 @@ export const planetaryDefenseEngagedTileKeys = (
 
   for (const [key, incoming] of state.incomingAttacksByTile) {
     if (incoming.resolvesAt <= nowEpochMs || !isPlanetaryDefenseOwnerId(incoming.attackerId)) continue;
-    const target = state.tiles.get(key);
-    // Still marching out of the camp (syncMusterTransitOverlay draws that, not a skirmish).
-    if (target && insurgentMarchToTileUnderWay(target.x, target.y, nowEpochMs, (x, y) => state.tiles.get(keyFor(x, y))?.ownerId)) continue;
     engaged.add(key);
     if (incoming.fromX !== undefined && incoming.fromY !== undefined) mark(incoming.fromX, incoming.fromY);
   }

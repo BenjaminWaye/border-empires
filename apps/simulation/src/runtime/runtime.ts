@@ -19,7 +19,7 @@ import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-comb
 import { playerTradeHoldingsForRuntime, type PlayerTradeHoldings } from "../player-trade-holdings/player-trade-holdings.js";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
-import { captureSameOwnerSummaryOrder, restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
+import { restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
 import { handleAfcActiveCommand } from "../afc-specializations/afc-active-commands.js";
 import { sendAfcHijacks, tickResonanceHijacks, type AfcHijackDeps } from "../afc-specializations/afc-hijack.js";
 import { createColonialCharterSweep } from "../afc-specializations/afc-colonial-charter.js";
@@ -465,7 +465,6 @@ import {
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
 import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
-import { campMarchBroadcaster } from "../planetary-defense-camps/camp-march.js";
 import { createStrandedFrontierCleanup, handleCheckStrandedRegionCommand as handleCheckStrandedRegionCommandImpl } from "../stranded-frontier/stranded-frontier-cleanup.js";
 import {
   handleRushBuyCommandImpl,
@@ -1328,13 +1327,7 @@ export class SimulationRuntime {
       isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId),
       frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0,
-      endSupplyTradesOnAttack: (attackerId, defenderId) => this.resourceSupply?.cancelBetween(attackerId, defenderId) ?? 0,
-      onCampMarch: campMarchBroadcaster({
-        players: this.state.players,
-        isPlayerSubscribed: (id) => this.isPlayerSubscribed?.(id) ?? false,
-        isVisible: (id, x, y) => this.state.visibilityCoverage.isVisible(id, `${x},${y}`),
-        emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
-      })
+      endSupplyTradesOnAttack: (attackerId, defenderId) => this.resourceSupply?.cancelBetween(attackerId, defenderId) ?? 0
     };
   }
 
@@ -1691,7 +1684,14 @@ export class SimulationRuntime {
     // ownership instead of invalidating unconditionally on every mutation.
     this.economyCaches.refreshForTileChange(tileKey, previous, tile, this.state.players);
     updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
-    const previousOwnerOrder = captureSameOwnerSummaryOrder(previous?.ownerId && sameOwner ? this.summaryForPlayer(previous.ownerId) : undefined);
+    const previousOwnerTileOrder =
+      previous?.ownerId && sameOwner
+        ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]
+        : undefined;
+    const previousOwnerTownOrder =
+      previous?.ownerId && sameOwner
+        ? [...this.summaryForPlayer(previous.ownerId).ownedTownTierByTile.keys()]
+        : undefined;
     publishOwnershipChange({ tileKey, tile, previous, commandId, strikeByPlayerId }, this.onOwnershipChange, this.state.players, this.now(), this.activityLogs);
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.state.tiles.set(tileKey, tile);
@@ -1714,7 +1714,7 @@ export class SimulationRuntime {
         nextOwnershipState: tile.ownershipState
       });
     }
-    if (tile.ownerId) restoreSameOwnerSummaryOrder(this.summaryForPlayer(tile.ownerId), previousOwnerOrder?.tileOrder, previousOwnerOrder?.townOrder);
+    if (tile.ownerId) restoreSameOwnerSummaryOrder(this.summaryForPlayer(tile.ownerId), previousOwnerTileOrder, previousOwnerTownOrder);
     this.plannerCandidates.refreshAroundTileChange(tileKey, previous, tile);
     this.plannerCandidates.refreshAnchorForTile(tileKey, previous, tile);
     this.ownerIndexes.refreshForTileChange(tileKey, previous, tile);

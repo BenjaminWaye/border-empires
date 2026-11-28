@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { defaultHouseCrestFor } from "@border-empires/shared";
+
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { connect, createTestFirebaseTokens, type Client, type Message } from "./gateway-test-client.js";
@@ -47,7 +49,10 @@ const login = async (
   return { client, player: init.player as Record<string, unknown> };
 };
 
-const styleOf = (playerId: string) => (message: Message) => message.type === "PLAYER_STYLE" && message.playerId === playerId;
+const styleOf = (playerId: string) => (message: Message) => message.type === "PLAYER_STYLE" && message.playerId === playerId && "name" in message;
+const crestStyleOf = (playerId: string) => (message: Message) => message.type === "PLAYER_STYLE" && message.playerId === playerId && "cosmetics" in message;
+// First-15 round 1 (2026-11-28): guests are Houses like everyone else, not "House Noname <n>".
+const HOUSE_NAME = /^House [A-Z][a-z]+( [IVX]+)?$/;
 
 describe("guest profiles", () => {
   const openApps: Array<{ close: () => Promise<void> }> = [];
@@ -55,15 +60,16 @@ describe("guest profiles", () => {
     while (openApps.length > 0) await openApps.pop()?.close();
   });
 
-  it("gives a guest a numbered name and a colour at login and skips the setup step", async () => {
+  it("gives a guest a House name and a colour at login and skips the setup step", async () => {
     const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
 
     const first = await login(wsUrl, guestClaims("guest-1"), sign);
     const second = await login(wsUrl, guestClaims("guest-2"), sign);
 
-    expect(first.player).toMatchObject({ name: "House Noname 1", profileNeedsSetup: false });
-    expect(second.player).toMatchObject({ name: "House Noname 2", profileNeedsSetup: false });
+    expect(first.player).toMatchObject({ name: expect.stringMatching(HOUSE_NAME), profileNeedsSetup: false });
+    expect(second.player).toMatchObject({ name: expect.stringMatching(HOUSE_NAME), profileNeedsSetup: false });
+    expect(second.player.name).not.toBe(first.player.name);
     expect(first.player.tileColor).toMatch(/^#[0-9a-f]{6}$/);
     expect(second.player.tileColor).not.toBe(first.player.tileColor);
     expect(first.player.suggestedName).toBeUndefined();
@@ -83,7 +89,7 @@ describe("guest profiles", () => {
     again.client.socket.close();
   });
 
-  it("tells players who are already online about the new guest's name and colour", async () => {
+  it("tells players who are already online about the new guest's name, colour and crest", async () => {
     const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
     const observer = await login(wsUrl, accountClaims("observer", "Ada Lovelace"), sign);
@@ -91,7 +97,10 @@ describe("guest profiles", () => {
     const guest = await login(wsUrl, guestClaims("guest-seen"), sign);
 
     const style = await observer.client.waitFor("guest style", styleOf("guest-seen"));
-    expect(style).toMatchObject({ name: "House Noname 1", tileColor: guest.player.tileColor });
+    expect(style).toMatchObject({ name: guest.player.name, tileColor: guest.player.tileColor });
+    expect(guest.player.name).toMatch(HOUSE_NAME);
+    const crest = await observer.client.waitFor("guest crest", crestStyleOf("guest-seen"));
+    expect(crest).toMatchObject({ cosmetics: { crest: defaultHouseCrestFor("guest-seen") } });
     observer.client.socket.close();
     guest.client.socket.close();
   });
@@ -118,7 +127,7 @@ describe("guest profiles", () => {
     account.client.socket.close();
   });
 
-  it("asks a guest who saves their empire for a real name, lets them keep the empire's colour choice, and frees their number", async () => {
+  it("asks a guest who saves their empire for a real name, lets them keep the empire's colour choice, and frees their name", async () => {
     const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
     const guest = await login(wsUrl, guestClaims("guest-up"), sign);
@@ -133,7 +142,8 @@ describe("guest profiles", () => {
     upgraded.client.socket.close();
 
     const nextGuest = await login(wsUrl, guestClaims("guest-next"), sign);
-    expect(nextGuest.player.name).toBe("House Noname 1");
+    expect(nextGuest.player.name).toMatch(HOUSE_NAME);
+    expect(nextGuest.player.name).not.toBe("House Ashgrove");
     nextGuest.client.socket.close();
   });
 });

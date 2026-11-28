@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MARCH_MAX_ROUTE_STEPS, planMusterTransitRoute, type DockLandingIndex, type MusterTransitRoute, type TransitPoint } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_ROUTE_STEPS, planMusterTransitRoute, type DockLandingIndex, type TransitPoint } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement-application.js";
 import type { ActiveAetherBridgeView } from "../runtime-types.js";
@@ -40,10 +40,7 @@ const pointFromKey = (key: string): TransitPoint => {
  * straight one's cost rather than flooding its whole budget, barring a
  * terrain change since.
  */
-export const musterTransitMs = (input: MusterTransitDelayInput): number => musterTransitRoute(input).transitMs;
-
-/** The route musterTransitMs times, legs included (an insurgent march sends it to the client: camp-march.ts). */
-export const musterTransitRoute = (input: MusterTransitDelayInput): MusterTransitRoute => {
+export const musterTransitMs = (input: MusterTransitDelayInput): number => {
   const { tiles, dockLanding, playerId } = input;
   let bridges: ReadonlyMap<string, readonly string[]> | undefined;
   return planMusterTransitRoute({
@@ -69,5 +66,5 @@ export const musterTransitRoute = (input: MusterTransitDelayInput): MusterTransi
       return bridges.get(simulationTileKey(x, y))?.map(pointFromKey);
     },
     maxSteps: MUSTER_MARCH_MAX_ROUTE_STEPS
-  });
+  }).transitMs;
 };

@@ -29,8 +29,8 @@ describe("isDisplayNameTaken", () => {
   });
 
   it("blocks reserved names even when nobody holds them", () => {
-    // Seasonal AI names (Milo, Maren, ...) too, so no one can pass as an AI.
-    for (const name of ["Barbarians", "barbarian", "Planetary Defense", "planetary  DEFENSE", "Insurgents", "insurgent", "AI 3", "ai  12", "Nauticus", "House Noname 7", "  house  NONAME 12 ", "Milo", " maren "]) {
+    // Seasonal AI House names, and the bare names AIs had before them (Milo, Maren, ...), so no one can pass as an AI.
+    for (const name of ["House Brassmoor", " house  ROOKSTEAD ", "Barbarians", "barbarian", "Planetary Defense", "planetary  DEFENSE", "Insurgents", "insurgent", "AI 3", "ai  12", "Nauticus", "House Noname 7", "  house  NONAME 12 ", "Milo", " maren "]) {
       expect(isDisplayNameTaken(name, new Set())).toBe(true);
     }
     expect(isDisplayNameTaken("AI Overlord", new Set())).toBe(false);

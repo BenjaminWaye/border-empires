@@ -1,10 +1,10 @@
-import { aiDisplayNameForId, isEmpireColorFarEnough } from "@border-empires/shared";
-import { assignAiColors, initialOf } from "../player-color-allocation/ai-color-assignment.js";
+import { aiDisplayNameForId, defaultHouseCrestFor, isEmpireColorFarEnough } from "@border-empires/shared";
+import { assignAiColors } from "../player-color-allocation/ai-color-assignment.js";
 import { buildTakenColorSet, type TakenColorSetDeps } from "../player-color-allocation/build-taken-color-set.js";
 import { RESERVED_COLORS, normalizeHex } from "../player-color-allocation/player-color-allocation.js";
 
 // Seeded AI empires get colours kept apart for colour-blind viewers too, with
-// same-initial empires pushed furthest apart (see ai-color-assignment.ts), and
+// empires sharing a crest pushed furthest apart (see ai-color-assignment.ts), and
 // at least MIN_EMPIRE_COLOR_DELTA_E from every active human empire in `taken`.
 //
 // Owner rule (2026-11-27): an empire's colour must not change mid-game. The
@@ -35,11 +35,11 @@ const allFarEnough = (colors: Iterable<string>): boolean => {
 export async function seedAiColors(
   aiIds: ReadonlySet<string>,
   save: (id: string, color: string) => Promise<void>,
-  nameFor: (id: string) => string | undefined = aiDisplayNameForId,
+  markFor: (id: string) => string | undefined = defaultHouseCrestFor,
   taken: ReadonlySet<string> = new Set(),
   storedColors: ReadonlyMap<string, string> = new Map()
 ): Promise<void> {
-  const crowded = !allFarEnough(assignAiColors(aiIds, nameFor, taken).values());
+  const crowded = !allFarEnough(assignAiColors(aiIds, markFor, taken).values());
   const kept = new Map<string, string>();
   const keptInitials = new Map<string, string>();
   const needColor: string[] = [];
@@ -53,12 +53,12 @@ export async function seedAiColors(
       (crowded || isEmpireColorFarEnough(stored, keptInitials.keys()));
     if (keep) {
       kept.set(id, stored);
-      keptInitials.set(stored, initialOf(nameFor(id)));
+      keptInitials.set(stored, markFor(id) ?? "");
     } else {
       needColor.push(id);
     }
   }
-  const fresh = assignAiColors(needColor, nameFor, new Set([...taken, ...keptInitials.keys()]), keptInitials);
+  const fresh = assignAiColors(needColor, markFor, new Set([...taken, ...keptInitials.keys()]), keptInitials);
   for (const id of [...aiIds].sort()) {
     const color = kept.get(id) ?? fresh.get(id);
     if (color) await save(id, color);

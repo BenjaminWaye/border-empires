@@ -38,6 +38,11 @@ The Court never gave up the powers it took for the war. It rules through
 noble **Houses**; a House that holds a world for the Court is led by a
 **Duke**.
 
+Every House goes by its family name, "House Brassmoor", and bears a
+**crest** on its emblem: one plain device such as a cog, an anchor, a
+lighthouse or a kraken, set on a field of the House's colour. Every rival
+landed on a Sector is such a House, whoever leads it.
+
 A House may also claim the title of **Count** at Court: a mark of
 standing, shown in its gilded muster standard and its hooded Lancet guard. It
 commands nothing and wins nothing; the title of Duke is only won by holding a
@@ -113,10 +118,7 @@ refused.
 
 It holds out in fortified **camps**: old barracks, depots and strongpoints. A
 camp does not move. It holds the ground around it with pickets, and that ground
-falls away if cut off from the camp or if the camp is taken. The pickets only
-hold; the fighting soldiers live in the camp, so every raid or advance begins
-with a company marching out of the camp to the edge of its ground, and a camp
-whose ground is wide is slow to strike its far edge. The force digs in
+falls away if cut off from the camp or if the camp is taken. The force digs in
 as a new camp in any town or harbour it seizes; open land it only pickets. It
 cannot raise new garrisons, so every camp taken is gone for good and the force
 dwindles through the campaign. The Court pays a bounty for every camp taken

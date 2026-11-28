@@ -134,25 +134,6 @@ describe("join card when the sector is at its House cap (review regression)", ()
   });
 });
 
-describe("sectorListHtml on the waiting view", () => {
-  const openRow = buildSectorListRows({ publicBoard: { status: "active", houses: 3, maxHouses: 40, full: false, noLandingSite: false } });
-
-  it("offers funding even while a sector has room", () => {
-    const html = sectorListHtml(openRow, true, true);
-    expect(html).toContain("Fund a new sector");
-    expect(html).not.toContain("Every Sector Contest is full");
-  });
-
-  it("never offers funding where funding is not available", () => {
-    expect(sectorListHtml(openRow, false, true)).not.toContain("Fund a new sector");
-  });
-
-  it("offers funding with no sectors listed", () => {
-    expect(sectorListHtml([], true, true)).toContain("Fund a new sector");
-    expect(sectorListHtml([], false, true)).toBe("");
-  });
-});
-
 // First-15 playtest 2026-11-28 (pt-strategist): "3 of 50 Houses" on the join card beside "Not met yet · 23" in
 // Diplomacy. The cap counts player Houses; the AI Houses Diplomacy lists are now named beside it.
 describe("Houses on the join card", () => {

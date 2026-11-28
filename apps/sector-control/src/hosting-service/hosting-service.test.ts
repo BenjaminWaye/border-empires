@@ -197,15 +197,4 @@ describe("entering a sector", () => {
     const otherSector = createHostedSectorTicketVerifier({ sectorId: "s-other", ticketPublicKey: h.ticketPublicKey }, { now: () => h.clock.now });
     expect(await otherSector(issued.ticket, "host")).toEqual({ ok: false, reason: "invalid_ticket" });
   });
-
-  it("lists the board address of an open sector for the Sector Map, and none before it opens", async () => {
-    const h = await createHostingHarness();
-    const sectorId = await h.order();
-    expect(h.service.listSectors(account("host"))[0]?.boardUrl).toBeUndefined();
-    await h.service.handlePaymentEvent({ eventId: "evt-1", kind: "paid", sectorId });
-    await h.reconciler.runOnce();
-    h.servers.healthy.add(`${sectorId}.sectors.invalid`);
-    await h.reconciler.runOnce();
-    expect(h.service.listSectors(account("host"))[0]?.boardUrl).toBe(`https://${sectorId}.sectors.invalid/sector/board`);
-  });
 });

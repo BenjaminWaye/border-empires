@@ -11,9 +11,9 @@ import { colorBlindSafeDistance, hexToOkLab } from "./perceptual-color-distance.
 //
 // Now each AI, in sorted-id order, takes the candidate that is furthest
 // (colorBlindSafeDistance, so lightness and the blue-yellow axis count, not
-// just red vs green) from every colour already handed out. Empires whose
-// names start with the same letter share a crest letter on Ranks, so for
-// them the distance must be twice as large to win. Deterministic: same ids
+// just red vs green) from every colour already handed out. Empires that
+// share an emblem mark (the same crest, or the same initial when there is no
+// crest) must be twice as far apart to win. Deterministic: same ids
 // and names, same colours, on every boot.
 //
 // Owner rule (2026-11-27): only candidates at least MIN_EMPIRE_COLOR_DELTA_E
@@ -79,18 +79,20 @@ export const AI_EXTRA_COLOR_CANDIDATES: readonly string[] = (() => {
 
 const ALL_AI_CANDIDATES: readonly string[] = [...AI_COLOR_CANDIDATES, ...AI_EXTRA_COLOR_CANDIDATES];
 
+/** The emblem mark of a House shown by its letter: its name's initial. */
 export const initialOf = (name: string | undefined): string => (name?.trim()[0] ?? "").toUpperCase();
 
 /**
- * Colours for every id, keyed by id. `nameFor` gives the display name so
- * same-initial empires can be pushed further apart; `taken` colours are
- * avoided exactly and kept at a distance like any other assigned colour.
- * `takenInitials` (colour -> crest initial) lets a taken colour that belongs
- * to an AI keep the same-initial spacing from the AIs assigned here.
+ * Colours for every id, keyed by id. `markFor` gives the emblem mark (a crest
+ * id, or initialOf a name) so empires with the same mark can be pushed further
+ * apart; `taken` colours are avoided exactly and kept at a distance like any
+ * other assigned colour. `takenInitials` (colour -> emblem mark) lets a taken
+ * colour that belongs to an AI keep the same-mark spacing from the AIs
+ * assigned here.
  */
 export const assignAiColors = (
   ids: Iterable<string>,
-  nameFor: (id: string) => string | undefined = () => undefined,
+  markFor: (id: string) => string | undefined = () => undefined,
   taken: ReadonlySet<string> = new Set(),
   takenInitials: ReadonlyMap<string, string> = new Map()
 ): Map<string, string> => {
@@ -142,7 +144,7 @@ export const assignAiColors = (
     return best;
   };
   for (const id of [...ids].sort()) {
-    const initial = initialOf(nameFor(id));
+    const initial = markFor(id) ?? "";
     const color =
       bestFarEnough(AI_COLOR_CANDIDATES, initial, COLOR_BLIND_MIN_DISTANCE) ??
       bestFarEnough(AI_EXTRA_COLOR_CANDIDATES, initial, COLOR_BLIND_MIN_DISTANCE) ??

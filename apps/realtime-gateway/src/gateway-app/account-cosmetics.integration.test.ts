@@ -1,4 +1,4 @@
-import { FREE_COSMETIC_IDS } from "@border-empires/shared";
+import { defaultHouseCrestFor, FREE_COSMETIC_IDS } from "@border-empires/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
@@ -45,7 +45,10 @@ describe("account cosmetics integration", () => {
 
     const owner = await connect("player-1");
     const rival = await connect("player-2");
-    expect("playerCosmetics" in owner.init).toBe(false);
+    // Only the seeded AI Houses show a look yet: each was given its default crest at boot.
+    const atBoot = (owner.init.playerCosmetics ?? {}) as Record<string, unknown>;
+    expect(atBoot["player-1"]).toBeUndefined();
+    for (const [playerId, look] of Object.entries(atBoot)) expect(look).toEqual({ crest: defaultHouseCrestFor(playerId) });
 
     // A player cannot show a cosmetic the account does not own.
     owner.sock.socket.send(JSON.stringify({ type: "SET_COSMETIC", slot: "musterFlag", cosmeticId: "flag-high-noble" }));
@@ -68,6 +71,6 @@ describe("account cosmetics integration", () => {
     expect(await nextTypedMessage(owner.sock, "owner sees crest", "PLAYER_STYLE")).toMatchObject({ playerId: "player-2", cosmetics: { crest: "crest-kraken" } });
 
     const late = await connect("player-2"); // a fresh login
-    expect(late.init.playerCosmetics).toEqual({ "player-1": { musterFlag: "flag-high-noble" }, "player-2": { crest: "crest-kraken" } });
+    expect(late.init.playerCosmetics).toEqual({ ...atBoot, "player-1": { musterFlag: "flag-high-noble" }, "player-2": { crest: "crest-kraken" } });
   }, 30_000);
 });

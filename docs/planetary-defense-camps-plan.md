@@ -76,10 +76,7 @@ everywhere.
    its tiles) rests `BARBARIAN_TILE_REST_MS` (15 s) after an ATTACK and
    `PLANETARY_DEFENSE_EXPAND_REST_MS` (60 s) after an EXPAND into neutral land
    (a refused one rests 15 s), counted from when the action settles. The global limit of
-   `BARBARIAN_ATTACKS_PER_MINUTE` (12) stays. Since 2026-11-28 every action also **marches out
-   of the camp** first: the lock is charged the walk from the camp tile to the
-   launch tile, like a House's muster company, and nearby players watch the
-   soldiers walk (`camp-march.ts`; `game-mechanics.md`).
+   `BARBARIAN_ATTACKS_PER_MINUTE` (12) stays.
 7. **Only an online player wakes a camp** (option A). A camp acts only while a
    player who is **online** (map open; the simulation's `isPlayerSubscribed`)
    can see at least one of its tiles. An offline human's land never wakes a

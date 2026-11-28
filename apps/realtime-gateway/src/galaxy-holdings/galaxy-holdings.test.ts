@@ -37,7 +37,7 @@ describe("resolveGalaxyHoldingsByOwner", () => {
     const deps = { listSeasonArchives: async () => archives, authBindingStore };
     expect((await resolveGalaxyHoldingsByOwner(deps)).size).toBe(0);
     const withAi = await resolveGalaxyHoldingsByOwner({ ...deps, includeAiDukes: true });
-    expect([...withAi.entries()]).toEqual([["ai:season-1", [{ seasonId: "season-1", tier: "PLANET", specialization: "INDUSTRIAL", aiName: "Sigrid" }]]]);
+    expect([...withAi.entries()]).toEqual([["ai:season-1", [{ seasonId: "season-1", tier: "PLANET", specialization: "INDUSTRIAL", aiName: "House Cinderfell" }]]]);
   });
 
   it("groups an owner's won Planet and awarded Outposts together", async () => {

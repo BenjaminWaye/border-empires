@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -3939,7 +3939,7 @@ describe("simulation runtime", () => {
         payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(MUSTER_TRANSIT_MS_PER_TILE + COMBAT_LOCK_MS + 100); // marches out of its camp first (one tile minimum, camp-march.ts)
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       // The regression is specifically a reveal SQUARE of bare, unowned
       // neutral tiles flooding every client -- not player-2's legitimate

@@ -1,6 +1,6 @@
 import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
+import { aiNameFromStored, PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
@@ -17,8 +17,7 @@ import {
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { superTileActionTarget } from "./landmark-super-tile/landmark-super-tile.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { musterTransitMs, musterTransitRoute } from "./muster-transit-delay/muster-transit-delay.js";
-import { campMarchOrigin, type CampMarch } from "./planetary-defense-camps/camp-march.js";
+import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
@@ -43,7 +42,8 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
   // The barbarian system player keeps whatever name its season saved ("Planetary
   // Defense", "Barbarians"); players always see the current faction name.
   if (playerId.startsWith("barbarian")) return PLANETARY_DEFENSE_DISPLAY_NAME;
-  if (actorName && actorName !== playerId) return actorName;
+  const name = aiNameFromStored(playerId, actorName); // an AI's placeholder or pre-House name becomes its House name
+  if (name && name !== playerId) return name;
   return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
 };
 
@@ -100,8 +100,6 @@ export type RuntimeFrontierCommandContext = {
   releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
   /** Ends all resource supply agreements between attacker and defender; returns how many ended. */
   endSupplyTradesOnAttack: (attackerId: string, defenderId: string) => number;
-  /** A Planetary Defense company set out from its camp (planetary-defense-camps/camp-march.ts). */
-  onCampMarch?: (march: CampMarch) => void;
 };
 
 export type FrontierCommandResult = { accepted: boolean; code?: string };
@@ -316,14 +314,6 @@ export const handleFrontierCommandImpl = (
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
     transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, allies: actor.allies, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: musterOrigin, launch: validation.origin });
   }
-  // Planetary Defense marches every action out of its camp, at the same rate (camp-march.ts).
-  const campOrigin = musterOrigin ? undefined : campMarchOrigin(actor.id, ctx.tiles, resolvedOriginKey);
-  // The same route goes to the client, so it draws the company exactly where it was timed.
-  const campRoute = campOrigin ? musterTransitRoute({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: campOrigin, launch: validation.origin }) : undefined;
-  if (campOrigin && campRoute) {
-    musterOrigin = campOrigin;
-    transitMs = campRoute.transitMs;
-  }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
   // resolution lock (15s base, per COMBAT_LOCK_MS) — floored so it can never
@@ -457,9 +447,6 @@ export const handleFrontierCommandImpl = (
     });
   }
   ctx.scheduleLockResolution(lock);
-  if (campOrigin && campRoute && transitEndsAt !== undefined) {
-    ctx.onCampMarch?.({ commandId: command.commandId, actionType, camp: campOrigin, from: validation.origin, to: validation.target, route: campRoute, transitEndsAt, resolvesAt, serverNow: ctx.now() });
-  }
   // Attacking a House (any owned tile, frontier included; manual or muster
   // launched alike) ends every supply trade between the two. Barbarians hold
   // no trades and are exempt. Runs after the lock is scheduled so a failure

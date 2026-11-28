@@ -239,27 +239,7 @@ at each update. iOS with IAP is low risk but contradicts "the web is the main sh
 **Owner answer, 2026-11-26:** decision 1 is taken as recommended: add IAP on iOS for hosted
 sectors and cosmetics, built after the web and Android launch, with the iOS app submitted once
 IAP is in. Android ships consumption-only and neither app links out at launch (recommendations
-1, 3 and 4 above). Decisions 2 and 4–7 were left open then; they are answered below (2026-11-28).
-Recorded in `gdd.md` §8.
-
-**Decisions, 2026-11-28.** Proposed overnight by an agent session the owner had asked to make
-decisions, then confirmed by the owner in a Claude Code session the same day, ages included:
-
-- **2. iOS price:** the same as the web (USD 20 per hosted sector, USD 4.99 for the Count
-  bundle). Apple's 15 % is absorbed. iOS in-app purchase is still built after launch.
-- **4. US link-out:** no, not at launch (as already decided 2026-11-26).
-- **5. Fee tiers:** yes, enrol TIDN AB in Apple's Small Business Program and in Google's
-  reduced service fee (under the June 2026 structure described above: 10 % on the first USD 1M,
-  so no separate 15 % programme). The owner does the enrolment. Android sells nothing at launch,
-  so the Google part matters only if it ever does.
-- **6. Age:** buying requires 18 or older. Playing requires 13 or older. The store rules above
-  do not set this (their age rules cover web offers, and there are none at launch); 13 matches
-  the existing privacy policy ("not directed to children under 13", the US COPPA line).
-  Not settled by this decision, see `gdd.md` §11: in some EU countries the age of digital
-  consent is 16 (GDPR Art. 8), which affects analytics consent for 13–15-year-olds; and
-  neither age limit is enforced anywhere yet.
-- **7. Who rechecks:** the owner, before each store submission and after the Supreme Court rules
-  in Apple v. Epic (No. 25-1311). Agents flag it whenever they touch store or purchase code.
+1, 3 and 4 above). Decisions 2 and 4–7 are still open. Recorded in `gdd.md` §8.
 
 1. Add IAP on iOS for cosmetics and hosted sectors (3.1.3(b) parity), or ship iOS without IAP and
    accept review risk? This triggers the GDD §8 clause "if a store requires them".

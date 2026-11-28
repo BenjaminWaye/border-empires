@@ -164,6 +164,19 @@ describe("createTilesFromInitialState", () => {
 });
 
 describe("createPlayersFromRecoveredState", () => {
+  // First-15 round 1 (2026-11-28): AIs became Houses mid-contest; a running season saved them as "Tove".
+  it("restores an AI saved under its pre-House or placeholder name as its House name, and keeps real names", () => {
+    const state: RecoveredSimulationState = {
+      ...minimalState([]),
+      players: [{ id: "ai-10", name: "Tove" }, { id: "ai-3", name: "ai-3" }, { id: "ai-4", name: "Lady Freja" }, { id: "p1", name: "Milo" }]
+    };
+    const result = createPlayersFromRecoveredState(state);
+    expect(result?.get("ai-10")?.name).toBe("House Rookstead");
+    expect(result?.get("ai-3")?.name).toBe("House Coppergate");
+    expect(result?.get("ai-4")?.name).toBe("Lady Freja");
+    expect(result?.get("p1")?.name).toBe("Milo");
+  });
+
   it("restores truces alongside allies from a recovered snapshot", () => {
     // Regression: the sim persists each player's active truces into the
     // snapshot (runtime-state-export.ts), but this recovery path only read

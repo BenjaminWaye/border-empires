@@ -102,19 +102,17 @@ const rowButtonHtml = (row: SectorListRow): string => {
   return "";
 };
 
-/** The list, plus "Fund a new sector" when funding is offered here and either no listed sector has
- * room or the player chose to wait for the next contest (alwaysOfferFunding, the waiting view). */
-export const sectorListHtml = (rows: readonly SectorListRow[], canFund: boolean, alwaysOfferFunding = false): string => {
-  if (rows.length === 0 && !(canFund && alwaysOfferFunding)) return "";
-  const allFull = rows.length > 0 && !anySectorOpen(rows);
+/** The list, plus "Fund a new sector" when no listed sector has room and funding is offered here. */
+export const sectorListHtml = (rows: readonly SectorListRow[], canFund: boolean): string => {
+  if (rows.length === 0) return "";
   const items = rows.map((row) => `
       <li class="sector-list-row${row.full ? " is-full" : ""}${row.here ? " is-here" : ""}" data-sector-row="${escapeHtml(row.key)}"${row.full ? ' aria-disabled="true"' : ""}>
         <div><strong>${escapeHtml(row.title)}</strong>${row.here ? ' <span class="sector-list-here">You are here</span>' : ""}
           <span class="sector-list-meta">${escapeHtml(row.full ? `${row.detail} · ${row.fullReason}` : row.detail)}</span></div>
         <div class="sector-list-action">${row.here ? "" : rowButtonHtml(row)}</div>
       </li>`).join("");
-  const fund = canFund && (allFull || alwaysOfferFunding)
-    ? `${allFull ? '<p class="respawn-summary">Every Sector Contest is full right now.</p>' : ""}<button type="button" class="panel-btn" data-hosted-sectors-open="host">Fund a new sector</button>`
+  const fund = !anySectorOpen(rows) && canFund
+    ? `<p class="respawn-summary">Every Sector Contest is full right now.</p><button type="button" class="panel-btn" data-hosted-sectors-open="host">Fund a new sector</button>`
     : "";
-  return `<section class="respawn-section sector-list" aria-label="Sector Contests"><h3 class="sector-list-title">Sector Contests now</h3>${items ? `<ul class="sector-list-rows">${items}</ul>` : ""}${fund}</section>`;
+  return `<section class="respawn-section sector-list" aria-label="Sector Contests"><h3 class="sector-list-title">Sector Contests now</h3><ul class="sector-list-rows">${items}</ul>${fund}</section>`;
 };

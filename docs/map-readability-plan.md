@@ -75,11 +75,18 @@ their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
   opacity, which shrinks the visible gap to about a third, so 15 still reads
   at a glance there. A greedy packing of sRGB fits about 51–67 colours at 15
   (about 38 in the mid-light, saturated band AIs use), against about 32 at 20.
-- **Active empires** (`buildTakenColorSet`): every empire in the gateway's
-  live profile overrides (seeded AIs, anyone who logged in since boot,
-  leaderboard players) plus stored profiles written in the last 14 days
-  (`ACTIVE_EMPIRE_WINDOW_MS`). Older profiles and barbarian grey still
-  block their exact colour only.
+- **Active empires** (`buildTakenColorSet`): owner decision 2026-11-28,
+  only the empires taking part in the current contest: the simulation's
+  current-season leaderboard (`contestPlayerIdsFrom`, every competitive
+  empire with land, income or techs; memoised for 30 s so a login never
+  waits on the simulation, `createContestPlayerIdsSource`). They hold their colour whether or not
+  their player is online. Abandoned "Play now" guests and players from other
+  contests hold nothing, exact colour included; before this they filled the
+  colour space and a new player was offered one swatch (First-15 round 1).
+  While no contest is active or the simulation cannot answer, the older rule
+  applies: live profile overrides plus stored profiles written in the last
+  14 days (`ACTIVE_EMPIRE_WINDOW_MS`), with older profiles blocking their
+  exact colour only. Barbarian grey always blocks its exact colour.
 - **Human picks**: `SET_PROFILE` ("Found your first standard" and "Update
   your empire") and `SET_TILE_COLOR` refuse a colour too close to an active
   empire with `COLOR_TAKEN` and "Too close to <name>'s colour." plus a

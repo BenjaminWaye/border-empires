@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { MIN_EMPIRE_COLOR_DELTA_E, ciede2000 } from "@border-empires/shared";
-import { ACTIVE_EMPIRE_WINDOW_MS, buildTakenColorSet } from "./build-taken-color-set.js";
+import { ACTIVE_EMPIRE_WINDOW_MS, buildTakenColorSet, contestPlayerIdsFrom, createContestPlayerIdsSource } from "./build-taken-color-set.js";
 import { colorPickRejection } from "./color-pick-rejection.js";
 import { assignUniqueColor, pickSuggestedPalette, suggestAlternative } from "./player-color-allocation.js";
 import { TakenColorSet } from "./taken-color-set.js";
@@ -26,13 +26,88 @@ describe("buildTakenColorSet", () => {
   test("active empires: recent profiles and live overrides, never the player themself", async () => {
     const taken = await buildTakenColorSet("me", deps);
     const active = taken.activeEmpires.map((empire) => `${empire.playerId}:${empire.name}:${empire.color}`).sort();
-    expect(active).toEqual(["ai-1:Alden:#3f51b5", "rosa:Rosa:#fabebe"]);
+    expect(active).toEqual(["ai-1:House Brassmoor:#3f51b5", "rosa:Rosa:#fabebe"]);
   });
 
   test("an inactive profile still blocks its exact colour", async () => {
     const taken = await buildTakenColorSet("me", deps);
     expect(taken.has("#1f77b4")).toBe(true);
     expect(taken.has("#00ff00")).toBe(false);
+  });
+});
+
+// First-15 round 1 (2026-11-28): every profile of the last 14 days (abandoned
+// "Play now" guests, players of other contests) held a colour, so a new
+// player was offered one swatch. Only the current contest's empires count now.
+describe("buildTakenColorSet scoped to the current contest", () => {
+  const crowd = Array.from({ length: 60 }, (_, index) => ({
+    playerId: `guest-${index}`,
+    name: `House Guest ${index}`,
+    tileColor: `#${(index * 4).toString(16).padStart(2, "0")}${(255 - index * 4).toString(16).padStart(2, "0")}80`,
+    updatedAt: NOW - 1000
+  }));
+  const deps = (contest: ReadonlySet<string> | undefined) => ({
+    now: () => NOW,
+    profileStore: { listAllNamed: async () => [...crowd, { playerId: "rosa", name: "Rosa", tileColor: "#fabebe", updatedAt: NOW - ACTIVE_EMPIRE_WINDOW_MS - 1 }] },
+    profileOverrides: { entries: () => new Map([["guest-live", { name: "House Idle", tileColor: "#3f51b5" }], ["ai-1", { tileColor: "#e6194b" }]]).entries() },
+    contestPlayerIds: async () => contest
+  });
+
+  test("only contest empires hold a colour, even one whose player has been away", async () => {
+    const taken = await buildTakenColorSet("me", deps(new Set(["rosa", "ai-1"])));
+    expect(taken.activeEmpires.map((empire) => empire.playerId).sort()).toEqual(["ai-1", "rosa"]);
+    expect(taken.has(crowd[0]!.tileColor)).toBe(false);
+    expect(taken.has("#3f51b5")).toBe(false);
+    expect(taken.has("#fabebe")).toBe(true);
+    expect(pickSuggestedPalette(6, taken)).toHaveLength(6);
+  });
+
+  test("falls back to the 14-day rule while the contest is unknown", async () => {
+    const taken = await buildTakenColorSet("me", deps(undefined));
+    expect(taken.has(crowd[0]!.tileColor)).toBe(true);
+    expect(taken.activeEmpires.some((empire) => empire.playerId === "rosa")).toBe(false);
+    expect(taken.activeEmpires.some((empire) => empire.playerId === "guest-live")).toBe(true);
+  });
+});
+
+describe("contestPlayerIdsFrom", () => {
+  test("lists the active contest's leaderboard empires", async () => {
+    const ids = await contestPlayerIdsFrom(async () => ({ status: "active", overall: [{ id: "a" }, { id: "ai-2" }] }));
+    expect([...(ids ?? [])]).toEqual(["a", "ai-2"]);
+  });
+
+  test("unknown when no contest is running, or the simulation fails or is slow", async () => {
+    await expect(contestPlayerIdsFrom(async () => ({ status: "pending", overall: [] }))).resolves.toBeUndefined();
+    await expect(contestPlayerIdsFrom(async () => { throw new Error("down"); })).resolves.toBeUndefined();
+    await expect(contestPlayerIdsFrom(() => new Promise(() => undefined), 5)).resolves.toBeUndefined();
+  });
+});
+
+// The lookup runs on the login path; after the first answer a login must never wait on the simulation.
+describe("createContestPlayerIdsSource", () => {
+  test("serves the last answer at once and refreshes it in the background, one lookup at a time", async () => {
+    let clock = 0;
+    let calls = 0;
+    let release: (() => void) | undefined;
+    const source = createContestPlayerIdsSource(
+      async () => {
+        calls += 1;
+        if (calls > 1) await new Promise<void>((resolve) => (release = resolve));
+        return { status: "active", overall: [{ id: `p${calls}` }] };
+      },
+      { now: () => clock, refreshMs: 1_000 }
+    );
+    expect([...((await source()) ?? [])]).toEqual(["p1"]);
+    clock = 500;
+    expect([...((await source()) ?? [])]).toEqual(["p1"]);
+    expect(calls).toBe(1);
+    clock = 2_000;
+    expect([...((await source()) ?? [])]).toEqual(["p1"]); // stale answer served while the refresh waits
+    expect([...((await source()) ?? [])]).toEqual(["p1"]);
+    expect(calls).toBe(2);
+    release?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect([...((await source()) ?? [])]).toEqual(["p2"]);
   });
 });
 

@@ -5,7 +5,7 @@ import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-bro
 import type { ClientState } from "../client-state/client-state.js";
 import { getGuestSave, saveMethodLabel, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
 
-export type OpenReason = "badge" | "diplomacy" | "nudge" | "next-contest" | "contest-email" | "share";
+export type OpenReason = "badge" | "diplomacy" | "nudge" | "next-contest" | "share";
 
 const BADGE_ID = "guest-save-badge";
 const PANEL_ID = "guest-save-panel";
@@ -23,7 +23,6 @@ const INTRO: Record<OpenReason, string> = {
   diplomacy: "Alliances and truces are for saved empires. You're playing as a guest.",
   nudge: "Enjoying it? Save your empire so you don't lose it.",
   "next-contest": "Joining the next Sector Contest needs a saved empire. You're playing as a guest.",
-  "contest-email": "Save your empire to get an email when the next Sector Contest starts. You're playing as a guest.",
   share: "Sharing your House profile needs a saved empire. You're playing as a guest."
 };
 

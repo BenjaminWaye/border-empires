@@ -133,9 +133,9 @@ describe("initialSocialNameForSeedPlayer", () => {
 
   // Regression: AIs showed as "AI 6" in diplomacy though the simulation names them.
   it("gives AIs their listed seasonal names, numbered past the list, and labels barbarians", () => {
-    expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("Clara");
-    expect(initialSocialNameForSeedPlayer("ai-6", "ai-6")).toBe("Clara");
-    expect(initialSocialNameForSeedPlayer("ai-21", undefined)).toBe("AI 21");
+    expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("House Hollowmere");
+    expect(initialSocialNameForSeedPlayer("ai-6", "ai-6")).toBe("House Hollowmere");
+    expect(initialSocialNameForSeedPlayer("ai-21", undefined)).toBe("House Brassmoor II");
     expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Insurgents");
   });
 });

@@ -31,10 +31,8 @@ export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
 // a captured town doesn't add fresh raids to the window it was taken in.
 export const PLANETARY_DEFENSE_RAIDS_PER_HOUSE_PER_WINDOW = 3;
 // Safety net if no settle event ever arrives for an in-flight barb command.
-// Longer than COMBAT_LOCK_MS plus the longest march out of a camp (camp-march.ts:
-// MUSTER_TRANSIT_MAX_TILES x MUSTER_TRANSIT_MS_PER_TILE walking, plus up to
-// MUSTER_SAIL_MAX_MS at sea), so a marching company is never given up on early.
-export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 105_000;
+// Longer than COMBAT_LOCK_MS.
+export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
 export const INITIAL_BARBARIAN_COUNT = 80;

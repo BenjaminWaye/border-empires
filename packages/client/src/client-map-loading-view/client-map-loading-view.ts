@@ -40,11 +40,6 @@ export const isMapLoadingOverlayActive = (
   now: number = Date.now()
 ): boolean => {
   if (state.seasonPending || (state.needsSeasonJoin && state.joinSeasonOverlayOpen)) return false;
-  // The same holds once the player closes the join card ("Wait for the next
-  // contest", or the close button): they still have no land by choice, and
-  // the reopen button is their way back. Only an initialized session counts,
-  // so a real disconnect still shows its overlay.
-  if (state.needsSeasonJoin && state.connection === "initialized") return false;
   const rawActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (!rawActive) return false;
   if (!state.hasEverInitialized) return true;
