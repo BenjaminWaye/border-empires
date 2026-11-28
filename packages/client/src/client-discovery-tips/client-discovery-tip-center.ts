@@ -4,6 +4,7 @@
 
 import type { ClientState } from "../client-state/client-state.js";
 import { setDiscoveryTipCenterHandler } from "./client-discovery-tip-overlay.js";
+import { requestHudV2MapReveal } from "../client-hud-v2/client-hud-v2-map-reveal.js";
 
 export type DiscoveryTipCenterDeps = {
   state: Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "selected">;
@@ -21,6 +22,8 @@ export const installDiscoveryTipCenterBinding = ({ state, wrapX, wrapY, requestV
     state.camSubX = 0;
     state.camSubY = 0;
     state.selected = { x: wrapX(x), y: wrapY(y) };
+    // A Manifests screen or a phone side panel may be over the map: the HUD closes it (client-hud-v2-map-reveal.ts).
+    requestHudV2MapReveal();
     requestViewRefresh();
     renderHud();
   });

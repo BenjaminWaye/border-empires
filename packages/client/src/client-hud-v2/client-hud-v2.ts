@@ -44,6 +44,8 @@ import { syncHouseChargesBubble } from "../client-house-charges/client-house-cha
 import { houseChargesBubbleCovered } from "../client-house-charges/client-house-charges-bubble-cover.js";
 import { takeHouseChargeMapShowRequest } from "../client-house-charges/client-house-charges-panel.js";
 import { closeScreenKeepingView } from "./client-hud-v2-camera.js";
+import { applyHudV2MapReveal } from "./client-hud-v2-map-reveal.js";
+import { focusTileAndOpenMenu } from "./client-hud-v2-focus-tile.js";
 import { captureIsBattle, createSlotPulse, handleSlotsToggle, tickSlots, trackerHtml, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { closeTreasury, compactLayerClick, compactTrackerHtml, syncBackEntry, syncTreasury, treasuryOpen } from "./client-hud-v2-compact.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
@@ -203,7 +205,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     const x = Number(focus.dataset.hudV2FocusX);
     const y = Number(focus.dataset.hudV2FocusY);
     if (Number.isFinite(x) && Number.isFinite(y)) {
-      focusCamera(deps, x, y);
+      focusTileAndOpenMenu(deps, x, y);
       deps.renderHud();
     }
   }
@@ -406,6 +408,13 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (lastLayout && layout !== lastLayout && screen.id) closeScreen(deps, { toMap: true });
     const chargeView = takeHouseChargeMapShowRequest(); // Show on map from a charge opened over a screen (your profile)
     if (chargeView && screen.id) closeScreenKeepingView(deps, chargeView, () => closeScreen(deps, { toMap: true }));
+    applyHudV2MapReveal({
+      screenOpen: screen.id !== null,
+      closeScreenKeepingView: () => closeScreenKeepingView(deps, { x: deps.state.camX, y: deps.state.camY, zoom: deps.state.zoom }, () => closeScreen(deps, { toMap: true })),
+      panelOpen: deps.state.activePanel !== null,
+      compact: layout === "compact",
+      closePanel: () => deps.setActivePanel(null)
+    });
     lastLayout = layout;
     if (layout !== "compact") closeTreasury();
     // The map overview is a phone view: rotating to a desktop-sized layout, or leaving the game, closes it.

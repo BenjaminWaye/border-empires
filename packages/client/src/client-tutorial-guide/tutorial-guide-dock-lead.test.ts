@@ -74,7 +74,7 @@ describe("guide dock lead", () => {
     expect(input.townLeadFar).toBe(true);
     const pastLook = new Set(GUIDE_STEPS.filter((s) => s.id.startsWith("look")).map((s) => s.id));
     const ready = evaluateGuide({ ...input, scout: "ready" }, pastLook);
-    expect(ready).toEqual(expect.objectContaining({ title: "Find a dock: tap the mark, then Explore", highlightTiles: [UNSEEN_DOCK] }));
+    expect(ready).toEqual(expect.objectContaining({ title: "Find a dock: tap the mark, then Explore and Go", highlightTiles: [UNSEEN_DOCK] }));
     const flying = evaluateGuide({ ...input, scout: "out" }, pastLook);
     expect(flying).toEqual(expect.objectContaining({ title: "Your drone is flying: wait for its report", highlightTiles: [] }));
   });

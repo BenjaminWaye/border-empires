@@ -80,7 +80,8 @@ export const scanGuideFootholdTargets = (
   me: string,
   byDistance: (t: { x: number; y: number }) => number,
   inReach: (x: number, y: number) => boolean,
-  hasRoute: (town: { x: number; y: number }) => boolean = () => true
+  hasRoute: (town: { x: number; y: number }) => boolean = () => true,
+  queuedTargetKeys: ReadonlySet<string> = new Set()
 ): GuideFootholdTargets => {
   const result: GuideFootholdTargets = {
     town: { pending: [], garrison: [], expand: [], outOfReach: 0, unreachable: 0 },
@@ -96,7 +97,11 @@ export const scanGuideFootholdTargets = (
     }
     // Expand To marks its target as our pending FRONTIER and garrisons it once the
     // claim lands; asking for a Garrison then would be asking for what is already happening.
+    // An Expand To the target is queued for (a waypoint chain: the target turns ours only when the last
+    // leg lands) is underway too. First-15 playtest 2026-11-28: the step still read "then Expand To" while
+    // the town's menu offered only Cancel Waypoint, so the order looked lost.
     if (tile.ownerId === me && tile.optimisticPending) kind.pending.push({ x: tile.x, y: tile.y });
+    else if (!tile.ownerId && queuedTargetKeys.has(`${tile.x},${tile.y}`)) kind.pending.push({ x: tile.x, y: tile.y });
     else if (tile.ownerId === me && tile.ownershipState === "FRONTIER") kind.garrison.push({ x: tile.x, y: tile.y });
     else if (!tile.ownerId) kind.expand.push({ x: tile.x, y: tile.y });
   }

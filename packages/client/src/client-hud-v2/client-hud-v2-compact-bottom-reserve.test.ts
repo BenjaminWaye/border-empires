@@ -23,6 +23,7 @@ type Verdict =
   | { kind: "exempt"; why: string };
 
 const VERDICTS: Record<string, Verdict> = {
+  "client-analytics-consent/client-analytics-consent.css :: .analytics-consent": { kind: "lifted", token: ".analytics-consent" },
   "client-break-pact-sheet/client-break-pact-sheet-style.css :: .break-pact-overlay": { kind: "above" },
   "client-discovery-tips/client-discovery-tip-overlay.ts :: #discovery-tip-overlay": { kind: "lifted", token: "#discovery-tip-overlay" },
   "client-effort-confirm-sheet/client-effort-confirm-sheet-style.css :: .effort-confirm-overlay": { kind: "above" },

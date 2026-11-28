@@ -1,4 +1,4 @@
-import type { Analytics } from "firebase/analytics";
+import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import type { Auth } from "firebase/auth";
 import type { GoogleAuthProvider, OAuthProvider } from "firebase/auth";
 import type { User } from "firebase/auth";
@@ -22,7 +22,7 @@ export type AuthFlowDeps = {
   googleProvider?: GoogleAuthProvider | undefined;
   twitchProvider?: OAuthProvider | undefined;
   discordProvider?: OAuthProvider | undefined;
-  analytics?: Analytics | undefined;
+  analytics?: AnalyticsSource;
   ws: RealtimeSocket;
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
