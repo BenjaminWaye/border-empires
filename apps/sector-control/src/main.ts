@@ -7,6 +7,7 @@ import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-ide
 import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.js";
 import { termsAttachment, type HostingTermsAttachment } from "./hosting-email/hosting-mailer.js";
 import { createResendEmailTransport } from "./hosting-email/resend-email-transport.js";
+import { SqliteHostedResultsStore } from "./hosting-results/hosted-results.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
 import { FakePaymentProvider } from "./providers/fake-providers.js";
@@ -27,6 +28,8 @@ const store = new SqliteHostingStore(db);
 store.applySchema();
 const outbox = new SqliteHostingEmailOutbox(db);
 outbox.applySchema();
+const results = new SqliteHostedResultsStore(db);
+results.applySchema();
 
 /** `relative` in `from` or the nearest folder above it that has it, whether the service runs from src or dist. */
 const findUpwards = (relative: string, from: string): string | undefined => {
@@ -81,6 +84,7 @@ const control = createSectorControlApp({
     return { uid: verified.uid, isGuest: verified.isGuest === true, emailVerified, ...(emailVerified && verified.email ? { email: verified.email } : {}) };
   },
   parsePaymentWebhook: payment.parseWebhook,
+  results,
   email: {
     outbox,
     appUrl: env.email.appUrl,
