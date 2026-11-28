@@ -5,6 +5,7 @@
 // client-sent TRUCE_REJECT isn't guaranteed to be processed first.
 import type { ClientMessage } from "@border-empires/shared";
 
+import { offerNoteError } from "../diplomacy-offer-options/diplomacy-offer-options.js";
 import type { SocialActionResult, SocialRejectOptions } from "../social-state/social-state-types.js";
 
 export type DiplomacyCounterOfferDeps = {
@@ -18,11 +19,14 @@ export type DiplomacyCounterOfferDeps = {
  * No re-offer cooldown: a counter isn't a "no", and if the counter is then
  * refused (cooldown, guest lock) the original sender can still offer again.
  * A countered offer that's already gone (expired, accepted elsewhere) is ignored;
- * the counter is still sent as a fresh offer.
+ * the counter is still sent as a fresh offer. A counter whose note the blocklist
+ * refuses rejects nothing.
  */
 export const rejectCounteredOffer = (deps: DiplomacyCounterOfferDeps, message: ClientMessage, playerId: string): void => {
   if (message.type !== "TRUCE_REQUEST" && message.type !== "ALLIANCE_REQUEST") return;
   if (!message.counters) return;
+  // A counter whose note is refused is never sent, so the offer it answers must stay.
+  if (offerNoteError(message)) return;
   const { kind, requestId } = message.counters;
   const reject = kind === "truce" ? deps.rejectTruce : deps.rejectAlliance;
   // Playtest run 5: an AI refused the player's truce and countered; replying was blocked for 30m by the

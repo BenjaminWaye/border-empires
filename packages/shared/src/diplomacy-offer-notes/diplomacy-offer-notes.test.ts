@@ -12,6 +12,12 @@ describe("offer notes", () => {
     expect(cleanOfferNote(42)).toBeUndefined();
   });
 
+  it("drops format characters and lone surrogates, keeps emoji joiners, and caps stacked accents", () => {
+    expect(cleanOfferNote("a\u200Bb\u2066c\uD800d")).toBe("abcd");
+    expect(cleanOfferNote("\u{1F468}\u200D\u{1F469}")).toBe("\u{1F468}\u200D\u{1F469}");
+    expect(cleanOfferNote(`e${"\u0301".repeat(40)}`)).toBe(`e${"\u0301".repeat(3)}`);
+  });
+
   it("turns an older client's preset id into its line", () => {
     expect(cleanOfferNote("grow-in-peace")).toBe("Truce while we both grow?");
   });
@@ -27,6 +33,9 @@ describe("offer notes", () => {
   it("refuses abuse word by word without flagging innocent phrases", () => {
     expect(offerNoteRefusal("you sh1t")).toBe(OFFER_NOTE_REFUSED_MESSAGE);
     expect(offerNoteRefusal("Think of a good deal")).toBeUndefined();
+    expect(offerNoteRefusal("you ｓｈｉｔ")).toBe(OFFER_NOTE_REFUSED_MESSAGE);
+    expect(offerNoteRefusal("you shït")).toBe(OFFER_NOTE_REFUSED_MESSAGE);
+    expect(offerNoteRefusal("you sh\u200Bit")).toBe(OFFER_NOTE_REFUSED_MESSAGE);
     expect(offerNoteRefusal("")).toBeUndefined();
   });
 

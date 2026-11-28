@@ -37,9 +37,14 @@ export const OfferNoteSchema = z.string().max(OFFER_NOTE_MAX_LENGTH * 4);
 /** A stored note (an offer row, a Chronicle row): already cleaned. */
 export const StoredOfferNoteSchema = z.string().min(1).max(OFFER_NOTE_MAX_LENGTH);
 
-// Control and format characters (newlines, bidi overrides, zero-width joiners) and angle brackets: a note is one
-// line of plain text, shown escaped wherever it appears, and never markup.
-const STRIPPED = /[\p{Cc}\p{Cf}<>]/gu;
+// Control characters (newlines, tabs) and angle brackets become spaces: a note is one line of plain text, shown
+// escaped wherever it appears, and never markup. Format characters (bidi overrides, zero-width spaces) and lone
+// surrogates are dropped outright, so "f\u200Bck" can't split a word past the blocklist; the zero-width joiner and
+// non-joiner stay (emoji sequences, Persian). Runs of combining marks are capped so a note can't stack "Zalgo"
+// accents over the card.
+const SPACED = /[\p{Cc}<>]/gu;
+const DROPPED = /(?![\u200C\u200D])[\p{Cf}\p{Cs}]/gu;
+const STACKED_MARKS = /(\p{M}{3})\p{M}+/gu;
 
 /**
  * The note as the recipient will see it: a preset id becomes its line; markup characters and control characters
@@ -49,7 +54,8 @@ export const cleanOfferNote = (raw: unknown): string | undefined => {
   if (typeof raw !== "string") return undefined;
   if (isOfferNoteId(raw)) return OFFER_NOTE_TEXT[raw];
   // Cut in UTF-16 units (what the stored schema counts), without leaving half of an emoji's surrogate pair.
-  const cut = raw.replace(STRIPPED, " ").replace(/\s+/g, " ").trim().slice(0, OFFER_NOTE_MAX_LENGTH);
+  const plain = raw.replace(DROPPED, "").replace(STACKED_MARKS, "$1").replace(SPACED, " ");
+  const cut = plain.replace(/\s+/g, " ").trim().slice(0, OFFER_NOTE_MAX_LENGTH);
   const cleaned = cut.replace(/[\uD800-\uDBFF]$/, "").trim();
   return cleaned.length > 0 ? cleaned : undefined;
 };
@@ -63,5 +69,7 @@ export const OFFER_NOTE_REFUSED_MESSAGE = "Keep your message civil.";
 export const offerNoteRefusal = (raw: unknown): string | undefined => {
   const note = cleanOfferNote(raw);
   if (!note) return undefined;
-  return note.split(" ").some((word) => containsBlockedWord(word)) ? OFFER_NOTE_REFUSED_MESSAGE : undefined;
+  // Fold compatibility forms and accents first, so fullwidth "ｆｕｃｋ" or "fück" reads as the word it shows.
+  const folded = note.normalize("NFKD").replace(/\p{M}/gu, "");
+  return folded.split(" ").some((word) => containsBlockedWord(word)) ? OFFER_NOTE_REFUSED_MESSAGE : undefined;
 };
