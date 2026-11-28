@@ -12,7 +12,8 @@
 // listener and button listeners instead of threading hooks through
 // client-auth-flow.ts. Best-effort throughout — nothing here may throw into,
 // or delay, sign-in.
-import { logEvent, type Analytics } from "firebase/analytics";
+import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
+import { logEvent } from "firebase/analytics";
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 
 import { readAcquisitionParams } from "../client-auth-flow/client-auth-flow-acquisition.js";
@@ -107,7 +108,8 @@ const browserEnv = (): AcquisitionFunnelEnv => ({
 
 export type StartAcquisitionFunnelDeps = {
   firebaseAuth: Auth | undefined;
-  analytics: Analytics | undefined;
+  /** Read per event: undefined without the player's consent. */
+  analytics: AnalyticsSource;
   wsUrl: string;
   methodButtons: Array<{ button: HTMLElement; method: string }>;
 };
@@ -118,7 +120,8 @@ export const startClientAcquisitionFunnel = (deps: StartAcquisitionFunnelDeps): 
     const funnel = createAcquisitionFunnel(`${serverHttpOriginFromWsUrl(deps.wsUrl)}/api/funnel`, env);
     activeFunnel = funnel;
     const logGa = (name: string, params: Record<string, string>): void => {
-      if (deps.analytics && !funnel.isKnownPlayer()) safe(() => logEvent(deps.analytics!, name, params), undefined);
+      const analytics = deps.analytics();
+      if (analytics && !funnel.isKnownPlayer()) safe(() => logEvent(analytics, name, params), undefined);
     };
     funnel.report("visit", visitDetail(env.locationHost));
     for (const { button, method } of deps.methodButtons) {

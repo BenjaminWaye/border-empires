@@ -51,7 +51,7 @@ import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/cl
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay, DEFAULT_FRONTIER_HATCH, DEFAULT_SETTLED_EDGE_GLOW } from "../client-map-3d-ownership-overlay.js";
 import type { OwnershipTilePlacementDeps } from "../client-map-3d-ownership-tile/client-map-3d-ownership-tile.js";
 import { paintTerritoryTile3D } from "../client-map-3d-territory-paint/client-map-3d-territory-paint.js";
 import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
@@ -162,7 +162,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
-  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, undefined, undefined, undefined, undefined, { settledEdgeGlow: DEFAULT_SETTLED_EDGE_GLOW }); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, undefined, undefined, undefined, undefined, { settledEdgeGlow: DEFAULT_SETTLED_EDGE_GLOW, frontierHatch: DEFAULT_FRONTIER_HATCH }); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
   const fogOverlays = createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms, atmosphere.foggedMist.hazeUniforms); // remembered land's slate wash + last-known-owner tint
   const { fogDarkenOverlay, fogOwnershipOverlay } = fogOverlays;

@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType } from "../client-types.js";
 import { markProfileChangeUsed } from "../client-profile-change-allowance/client-profile-change-allowance.js";
+import { applyServerColorsInUse } from "../client-color-clash/client-color-clash.js";
 
 // Settings > Account > Edit Name & Colour used to close the moment SET_PROFILE
 // was sent, so the server's answer landed only in the (admin-only) feed or a
@@ -88,7 +89,7 @@ export const applyProfileSaveRejection = (
     pushFeed: (message: string, type?: FeedType, severity?: FeedSeverity) => void;
   },
   errorCode: string,
-  msg: { message?: unknown; suggestion?: unknown }
+  msg: { message?: unknown; suggestion?: unknown; colorsInUse?: unknown }
 ): boolean => {
   if (!PROFILE_REJECTION_CODES.has(errorCode)) return false;
   const { state } = deps;
@@ -100,7 +101,10 @@ export const applyProfileSaveRejection = (
   const pending = profileChangeStillPending(state);
   if (generic && !pending) return false;
   if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
-    deps.authProfileColorEl.value = state.playerColors.get(state.me) ?? deps.authProfileColorEl.value;
+    // Keep the player's pick (playtest 2026-11-28: it used to snap back to the
+    // provisional colour). Re-check it against the set the gateway used, so
+    // the inline note shows the reason and a one-tap suggestion.
+    applyServerColorsInUse(msg as Record<string, unknown>, false);
     deps.setAuthStatus(reason, "error");
     deps.syncAuthOverlay();
   }

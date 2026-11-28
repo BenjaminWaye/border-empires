@@ -69,6 +69,15 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 }
 
+/** A small /hq/summary: two Houses, the first crowned when the contest has ended. */
+export const fakeContestSummary = (ended: boolean): Record<string, unknown> => ({
+  seasonId: "fake-season", status: ended ? "ended" : "active", startedAt: 1_000, ...(ended ? { endedAt: 2_000, seasonWinner: { playerId: "p1", playerName: "First House" } } : {}),
+  overall: [
+    { id: "p1", name: "First House", tiles: 40, incomePerMinute: 1, techs: 3, manpowerCap: 10, score: 120, rank: 1 },
+    { id: "p2", name: "Second House", tiles: 20, incomePerMinute: 1, techs: 2, manpowerCap: 10, score: 60, rank: 2 }
+  ]
+});
+
 export class FakeServerProvider implements ServerProvider {
   /** serverRef -> hostname, for every server that exists. */
   readonly servers = new Map<string, string>();
@@ -79,6 +88,9 @@ export class FakeServerProvider implements ServerProvider {
   failCreates = false;
   failDeletes = false;
   failStatus = false;
+  /** What getContestSummary answers per hostname; a plain one when unset. */
+  readonly summaries = new Map<string, unknown>();
+  failSummaries = false;
   /** Runs inside createServer, after the server exists: lets a test change the world mid-request. */
   duringCreate: (() => Promise<void>) | undefined;
 
@@ -100,6 +112,11 @@ export class FakeServerProvider implements ServerProvider {
     if (this.failStatus) throw new Error("fake server unreachable");
     const lastHumanVisitAt = this.lastHumanVisitAt.get(hostname);
     return { ended: this.ended.has(hostname), ...(lastHumanVisitAt !== undefined ? { lastHumanVisitAt } : {}) };
+  }
+
+  async getContestSummary(hostname: string): Promise<unknown> {
+    if (this.failSummaries) throw new Error("fake summary unavailable");
+    return this.summaries.get(hostname) ?? fakeContestSummary(this.ended.has(hostname));
   }
 
   async deleteServer(serverRef: string): Promise<void> {

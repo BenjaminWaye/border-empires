@@ -205,6 +205,7 @@ export class SqliteHostingStore implements HostingStore {
         refunded_at INTEGER
       );
       CREATE INDEX IF NOT EXISTS hosted_withdrawals_pending_idx ON hosted_withdrawals (requested_at) WHERE refunded_at IS NULL;
+      CREATE INDEX IF NOT EXISTS hosted_withdrawals_requested_idx ON hosted_withdrawals (requested_at);
       CREATE TABLE IF NOT EXISTS hosted_payment_disputes (
         dispute_id TEXT PRIMARY KEY,
         account_uid TEXT NOT NULL,
@@ -220,6 +221,11 @@ export class SqliteHostingStore implements HostingStore {
       const columns = (this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((info) => info.name);
       if (!columns.includes(column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
     }
+    // For the sweep that confirms recent purchases by email (hosting-mailer.ts).
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS hosted_sectors_paid_idx ON hosted_sectors (paid_at) WHERE paid_at IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS hosted_contributions_updated_idx ON hosted_contributions (updated_at);
+    `);
   }
 
   insertSector(sector: SectorRecord): void {
@@ -301,6 +307,11 @@ export class SqliteHostingStore implements HostingStore {
     return row ? { sectorId: row.sector_id, accountUid: row.account_uid, role: row.role === "host" ? "host" : "member", joinedAt: row.joined_at } : undefined;
   }
 
+  listMemberUids(sectorId: string): string[] {
+    const rows = this.db.prepare(`SELECT account_uid FROM hosted_sector_members WHERE sector_id = ? ORDER BY joined_at`).all(sectorId) as Array<{ account_uid: string }>;
+    return rows.map((row) => row.account_uid);
+  }
+
   countMembers(sectorId: string): number {
     const row = this.db.prepare(`SELECT COUNT(*) AS n FROM hosted_sector_members WHERE sector_id = ?`).get(sectorId) as { n: number };
     return Number(row.n);
@@ -358,6 +369,20 @@ export class SqliteHostingStore implements HostingStore {
       .prepare(`UPDATE hosted_contributions SET ${assignments.join(", ")} WHERE contribution_id = ? AND state IN (${quoted(fromStates)})`)
       .run(...values, contributionId);
     return Number(result.changes) > 0;
+  }
+
+  listSectorsPaidSince(since: number): SectorRecord[] {
+    return (this.db.prepare(`SELECT ${SECTOR_COLUMNS} FROM hosted_sectors WHERE paid_at >= ? ORDER BY paid_at`).all(since) as SectorRow[]).map(toSector);
+  }
+
+  listContributionsChangedSince(states: readonly ContributionState[], since: number): ContributionRecord[] {
+    if (states.length === 0) return [];
+    const sql = `SELECT ${CONTRIBUTION_COLUMNS} FROM hosted_contributions WHERE state IN (${quoted(states)}) AND updated_at >= ? ORDER BY updated_at`;
+    return (this.db.prepare(sql).all(since) as ContributionRow[]).map(toContribution);
+  }
+
+  listWithdrawalsSince(since: number): WithdrawalRecord[] {
+    return (this.db.prepare(`SELECT * FROM hosted_withdrawals WHERE requested_at >= ? ORDER BY requested_at`).all(since) as WithdrawalRow[]).map(toWithdrawal);
   }
 
   listContributions(sectorId: string): ContributionRecord[] {

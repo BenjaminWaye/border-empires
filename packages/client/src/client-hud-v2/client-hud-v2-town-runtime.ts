@@ -229,8 +229,12 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
     placeFlash = undefined;
   }
   if (screen.id !== "town" || current?.focusKey !== tileKey) screen.townCategory = undefined;
-  // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
-  if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
+  // Close in on the town when the screen opens or moves to another town from the town itself (a tap on it,
+  // the Towns list, the steppers). A tap on a support tile -- a grain plot to Garrison -- leaves the camera
+  // where the player is working: the close-up there jumped to the town and glided back after every Garrison
+  // (first-15 playtest 2026-11-28). Picking support tiles never moves the camera.
+  const fromTownTile = picked || tileKey === keyOf(town);
+  if (fromTownTile && (screen.id !== "town" || current?.townKey !== keyOf(town))) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
   lastDeps = deps;
   installMapGuard();
   current = { townKey: keyOf(town), focusKey: tileKey, focusView: view };

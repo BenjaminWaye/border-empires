@@ -133,3 +133,15 @@ describe("join card when the sector is at its House cap (review regression)", ()
     expect(overlayEl.querySelector(".sector-list-row.is-full")?.textContent).toContain("every House place is taken");
   });
 });
+
+// First-15 playtest 2026-11-28 (pt-strategist): "3 of 50 Houses" on the join card beside "Not met yet · 23" in
+// Diplomacy. The cap counts player Houses; the AI Houses Diplomacy lists are now named beside it.
+describe("Houses on the join card", () => {
+  it("counts player Houses against the cap and adds the AI Houses", () => {
+    expect(parseSectorBoard({ ok: true, status: "active", houses: 3, maxHouses: 50, aiHouses: 20, full: false })).toEqual(board({ houses: 3, maxHouses: 50, aiHouses: 20 }));
+    const [row] = buildSectorListRows({ publicBoard: board({ houses: 3, maxHouses: 50, aiHouses: 20 }) });
+    expect(row?.detail).toBe("3 of 50 player Houses + 20 AI");
+    // An older server without the AI count still reads as player Houses.
+    expect(buildSectorListRows({ publicBoard: board({ houses: 3, maxHouses: 50 }) })[0]?.detail).toBe("3 of 50 player Houses");
+  });
+});

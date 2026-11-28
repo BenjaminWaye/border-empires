@@ -54,6 +54,8 @@ export interface ServerProvider {
    * restart would read as "never visited" and close a sector in play.
    */
   getContestStatus(hostname: string): Promise<{ ended: boolean; lastHumanVisitAt?: number }>;
+  /** The sector server's public contest summary (GET /hq/summary), read before the server is deleted. */
+  getContestSummary(hostname: string): Promise<unknown>;
   /** Deletes the server and its DNS record. Must be safe to repeat. */
   deleteServer(serverRef: string): Promise<void>;
 }
@@ -71,6 +73,12 @@ export type HostingAlertKind =
   | "payment_dispute"
   | "payment_dispute_closed"
   | "partial_refund"
+  /** An email to a player could not be sent and was given up (hosting-email). */
+  | "email_failed"
+  /** A sector's results could not be read before teardown; its server is kept until they are (plan section 10). */
+  | "results_export_failed"
+  /** Results could not be read for RESULTS_EXPORT_GRACE_MS; the server was deleted without them. */
+  | "results_export_abandoned"
   | "withdrawal"
   | "payment_for_unknown_sector";
 

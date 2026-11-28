@@ -103,7 +103,7 @@ describe("guide island dock", () => {
     it("with no dock seen, asks for a nearby Explore to look for one, not the far town", () => {
       const { view: far } = view(islandTiles({ ...open, dock: null }), { x: 60, y: 8 });
       expect(far).toEqual(
-        expect.objectContaining({ title: "No town close by: tap the marked ground, then Explore", why: "Look for a dock. On an island, it's how your troops cross the sea.", highlightTiles: [{ x: 12, y: 20 }] })
+        expect.objectContaining({ title: "No town close by: tap the marked ground, then Explore and Go", why: "Look for a dock. On an island, it's how your troops cross the sea.", highlightTiles: [{ x: 12, y: 20 }] })
       );
     });
 
@@ -111,7 +111,7 @@ describe("guide island dock", () => {
       const lead = { x: 25, y: 12 };
       const { input, view: near } = view(islandTiles({ ...open, dock: null }), lead);
       expect(input.townLead).toEqual(lead);
-      expect(near).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore", highlightTiles: [lead] }));
+      expect(near).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore and Go", highlightTiles: [lead] }));
     });
   });
 });

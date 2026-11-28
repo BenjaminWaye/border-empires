@@ -79,17 +79,20 @@ export const AI_EXTRA_COLOR_CANDIDATES: readonly string[] = (() => {
 
 const ALL_AI_CANDIDATES: readonly string[] = [...AI_COLOR_CANDIDATES, ...AI_EXTRA_COLOR_CANDIDATES];
 
-const initialOf = (name: string | undefined): string => (name?.trim()[0] ?? "").toUpperCase();
+export const initialOf = (name: string | undefined): string => (name?.trim()[0] ?? "").toUpperCase();
 
 /**
  * Colours for every id, keyed by id. `nameFor` gives the display name so
  * same-initial empires can be pushed further apart; `taken` colours are
  * avoided exactly and kept at a distance like any other assigned colour.
+ * `takenInitials` (colour -> crest initial) lets a taken colour that belongs
+ * to an AI keep the same-initial spacing from the AIs assigned here.
  */
 export const assignAiColors = (
   ids: Iterable<string>,
   nameFor: (id: string) => string | undefined = () => undefined,
-  taken: ReadonlySet<string> = new Set()
+  taken: ReadonlySet<string> = new Set(),
+  takenInitials: ReadonlyMap<string, string> = new Map()
 ): Map<string, string> => {
   const labs = new Map<string, Lab>();
   const labOf = (hex: string): Lab => {
@@ -97,7 +100,7 @@ export const assignAiColors = (
     if (!lab) labs.set(hex, (lab = hexToLab(hex)));
     return lab;
   };
-  const assigned: Array<{ color: string; initial: string }> = [...taken].map((color) => ({ color, initial: "" }));
+  const assigned: Array<{ color: string; initial: string }> = [...taken].map((color) => ({ color, initial: takenInitials.get(color) ?? "" }));
   const used = new Set<string>([...taken, ...RESERVED_COLORS]);
   const result = new Map<string, string>();
   const minDeltaE = (candidate: string): number => {

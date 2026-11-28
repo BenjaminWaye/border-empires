@@ -29,13 +29,27 @@ export type HetznerServerProviderConfig = {
 export type SectorHttpFetch = (url: string, init: { headers?: Record<string, string> }) => Promise<{ status: number; json: () => Promise<unknown> }>;
 
 const LABEL = "be-sector";
+/** A contest summary with its score history is a few hundred kilobytes; ten times that is not a real one. */
+const MAX_SECTOR_RESPONSE_BYTES = 4 * 1024 * 1024;
 const DNS_TTL_SECONDS = 300;
 const SECTOR_ID = /^s-[a-z0-9-]{1,61}$/;
 
 type HetznerServer = { id: number; name: string; public_net?: { ipv4?: { ip?: string } } };
 
 export const createHetznerServerProvider = (api: HetznerApi, config: HetznerServerProviderConfig, deps: { fetchImpl?: SectorHttpFetch } = {}): ServerProvider => {
-  const fetchImpl: SectorHttpFetch = deps.fetchImpl ?? ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(10_000) }));
+  // A sector server's answer is untrusted: no redirects, ten seconds, and no more than MAX_SECTOR_RESPONSE_BYTES.
+  const fetchImpl: SectorHttpFetch = deps.fetchImpl ?? (async (url, init) => {
+    const response = await fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(10_000) });
+    return {
+      status: response.status,
+      json: async () => {
+        if (Number(response.headers.get("content-length") ?? 0) > MAX_SECTOR_RESPONSE_BYTES) throw new Error(`${url} answered more than ${MAX_SECTOR_RESPONSE_BYTES} bytes`);
+        const text = await response.text();
+        if (Buffer.byteLength(text) > MAX_SECTOR_RESPONSE_BYTES) throw new Error(`${url} answered more than ${MAX_SECTOR_RESPONSE_BYTES} bytes`);
+        return JSON.parse(text) as unknown;
+      }
+    };
+  });
   const zone = encodeURIComponent(config.dnsZone);
   const hostnameOf = (sectorId: string): string => `${sectorId}.${config.dnsZone}`;
   const sectorIdOf = (hostname: string): string => {
@@ -116,6 +130,11 @@ export const createHetznerServerProvider = (api: HetznerApi, config: HetznerServ
       const status = await sectorJson(`https://${hostname}/admin/hosted/status`, { authorization: `Bearer ${sectorAdminToken(config.sectorAdminSecret, sectorId)}` });
       const lastHumanVisitAt = typeof status.lastHumanVisitAt === "number" ? status.lastHumanVisitAt : undefined;
       return { ended: summary.status === "ended", ...(lastHumanVisitAt !== undefined ? { lastHumanVisitAt } : {}) };
+    },
+
+    async getContestSummary(hostname) {
+      sectorIdOf(hostname);
+      return sectorJson(`https://${hostname}/hq/summary`);
     },
 
     async deleteServer(serverRef) {
