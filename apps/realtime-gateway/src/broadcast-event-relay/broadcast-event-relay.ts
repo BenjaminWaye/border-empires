@@ -31,7 +31,11 @@ export const relaySimulationBroadcastEvent = <TSocket extends RelaySocket>(
     return true;
   }
   if (isSeasonRolloverEvent(event)) {
-    const sockets = scheduleSeasonRolloverResync(deps.socketGroups());
+    // The new world is up: tell each client when its socket will close, so the
+    // season-end screen can say "World ready · joining in Ns" instead of a bare spinner.
+    const sockets = scheduleSeasonRolloverResync(deps.socketGroups(), {
+      notify: (socket, reconnectInMs) => deps.sendToSocket(socket, { type: "SEASON_ROLLOVER_READY", reconnectInMs })
+    });
     deps.countSeasonRolloverResyncSockets(sockets);
     deps.recordGatewayEvent("info", "gateway_season_rollover_resync_scheduled", { commandId: event.commandId, sockets });
     return true;

@@ -30,12 +30,14 @@ export const isSeasonRolloverEvent = (event: RolloverCandidate): boolean =>
 
 type ClosableSocket = { readonly readyState: number; readonly OPEN: number; close: (code: number, reason: string) => void };
 
-type ScheduleDeps = {
+type ScheduleDeps<TSocket extends ClosableSocket = ClosableSocket> = {
   /** Fixed spread window; defaults to a window sized from the number of connected players. */
   spreadMs?: number;
   minDelayMs?: number;
   random?: () => number;
   setTimer?: (task: () => void, delayMs: number) => void;
+  /** Tells each socket how long until it is closed, so the client can show it. */
+  notify?: (socket: TSocket, reconnectInMs: number) => void;
 };
 
 // unref'd so a pending close never holds the process open at shutdown.
@@ -62,19 +64,24 @@ export const seasonRolloverSpreadMs = (playerCount: number): number =>
 // GATEWAY_SEASON_ROLLOVER_SPREAD_MS / GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS
 // override the window and the floor (used by tests; 0 closes immediately).
 // Returns how many sockets were scheduled.
-export const scheduleSeasonRolloverResync = (socketGroups: Iterable<Iterable<ClosableSocket>>, deps: ScheduleDeps = {}): number => {
+export const scheduleSeasonRolloverResync = <TSocket extends ClosableSocket>(
+  socketGroups: Iterable<Iterable<TSocket>>,
+  deps: ScheduleDeps<TSocket> = {}
+): number => {
   const groups = [...socketGroups].map((group) => [...group].filter((socket) => socket.readyState === socket.OPEN)).filter((open) => open.length > 0);
   const spreadMs = deps.spreadMs ?? envMs("GATEWAY_SEASON_ROLLOVER_SPREAD_MS") ?? seasonRolloverSpreadMs(groups.length);
   const minDelayMs = deps.minDelayMs ?? envMs("GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS") ?? SEASON_ROLLOVER_RESYNC_MIN_DELAY_MS;
-  const { random = Math.random, setTimer = defaultSetTimer } = deps;
+  const { random = Math.random, setTimer = defaultSetTimer, notify } = deps;
   let scheduled = 0;
   for (const open of groups) {
     scheduled += open.length;
+    const delayMs = minDelayMs + Math.floor(random() * spreadMs);
+    if (notify) for (const socket of open) notify(socket, delayMs);
     setTimer(() => {
       for (const socket of open) {
         if (socket.readyState === socket.OPEN) socket.close(SEASON_ROLLOVER_CLOSE_CODE, SEASON_ROLLOVER_CLOSE_REASON);
       }
-    }, minDelayMs + Math.floor(random() * spreadMs));
+    }, delayMs);
   }
   return scheduled;
 };

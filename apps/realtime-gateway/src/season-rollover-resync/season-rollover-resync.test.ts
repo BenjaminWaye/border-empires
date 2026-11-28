@@ -21,6 +21,25 @@ describe("isSeasonRolloverEvent", () => {
 });
 
 describe("scheduleSeasonRolloverResync", () => {
+  it("tells every socket of a player the same delay its close is scheduled for", () => {
+    const a1 = fakeSocket();
+    const a2 = fakeSocket();
+    const closed = fakeSocket(3);
+    const notified: Array<[unknown, number]> = [];
+    const delays: number[] = [];
+
+    scheduleSeasonRolloverResync([[a1, a2, closed]], {
+      spreadMs: 1_000,
+      minDelayMs: 500,
+      random: () => 0.5,
+      setTimer: (_task, delayMs) => delays.push(delayMs),
+      notify: (socket, reconnectInMs) => notified.push([socket, reconnectInMs])
+    });
+
+    expect(delays).toEqual([1_000]);
+    expect(notified).toEqual([[a1, 1_000], [a2, 1_000]]);
+  });
+
   it("closes each open socket with the rollover code at a random point inside the spread window", () => {
     const first = fakeSocket();
     const second = fakeSocket();
