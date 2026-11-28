@@ -62,6 +62,7 @@ export interface ServerProvider {
 
 export type HostingAlertKind =
   | "sector_creation_failing"
+  | "hosted_results_unpublished"
   | "sector_refunded_automatically"
   | "sector_refund_failed"
   | "sector_running_count"

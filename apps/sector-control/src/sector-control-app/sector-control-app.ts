@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { addCorsHeaders } from "../../../realtime-gateway/src/http-routes/cors-headers.js";
 import type { HostingConfig } from "../hosting-service/hosting-config.js";
 import type { HostedResultsStore } from "../hosting-results/hosted-results.js";
+import type { HostedResultsPublisher } from "../hosting-results/hosted-results-publisher.js";
 import type { HostingEmailOutbox } from "../hosting-email/hosting-email-outbox.js";
 import { createHostingMailer, type HostingTermsAttachment } from "../hosting-email/hosting-mailer.js";
 import type { HostingEmailTransport } from "../hosting-email/resend-email-transport.js";
@@ -30,6 +31,8 @@ export type SectorControlAppOptions = {
   alert?: HostingAlert;
   /** Where results are saved before a server is deleted (plan step 8d). */
   results?: HostedResultsStore;
+  /** Sends saved results to the game gateway for House profiles. Without it they wait in the database. */
+  resultsPublisher?: (alert: HostingAlert) => HostedResultsPublisher;
   /** Player emails (plan step 8c). Without an outbox none are written; without a transport they wait in it. */
   email?: { outbox: HostingEmailOutbox; transport?: HostingEmailTransport; terms?: HostingTermsAttachment; appUrl: string };
   now?: () => number;
@@ -69,6 +72,7 @@ export const createSectorControlApp = (options: SectorControlAppOptions): { app:
   const reconciler = createHostingReconciler({
     store: options.store, payment: options.payment, servers: options.servers, alert, config: options.config, now,
     ...(options.results ? { results: options.results } : {}),
+    ...(options.resultsPublisher ? { resultsPublisher: options.resultsPublisher(alert) } : {}),
     ...(mailer
       ? {
           mailer,

@@ -5,8 +5,9 @@
 // House Charges and awards. A sector closed before anyone was crowned (idle,
 // withdrawn, refunded) has standings only, marked as not finished.
 //
-// Player ids are the sector server's own. Linking them to accounts for the
-// profile (owner decision Q4) is later work (plan section 16).
+// Player ids are the sector server's own, which for a member is their
+// Firebase uid. hosted-results-publisher.ts sends members' places to the game
+// gateway for their House profiles (owner decision Q4).
 import type { DatabaseSync } from "node:sqlite";
 
 export type HostedStanding = { playerId: string; name: string; rank: number; score: number; tiles: number };

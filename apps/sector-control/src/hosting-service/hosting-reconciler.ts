@@ -11,6 +11,7 @@ import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
 import { parseContestResults, type HostedResultsStore } from "../hosting-results/hosted-results.js";
+import type { HostedResultsPublisher } from "../hosting-results/hosted-results-publisher.js";
 import { IDLE_WARNING_LEAD_MS, IDLE_WARNING_MAX_WAIT_MS, type HostingMailer } from "../hosting-email/hosting-mailer.js";
 
 export type HostingReconcilerDeps = {
@@ -26,6 +27,8 @@ export type HostingReconcilerDeps = {
   mailer?: HostingMailer;
   /** Where a sector's results are saved before its server is deleted (plan step 8d). */
   results?: HostedResultsStore;
+  /** Sends saved results to the game gateway, after the sectors' steps on every pass. */
+  resultsPublisher?: Pick<HostedResultsPublisher, "runOnce">;
   /** After each pass: how many emails were sent and how many wait, or why the pass failed. For the log. */
   onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
@@ -234,6 +237,13 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
         await withdrawals.retryPendingRefunds();
       } catch {
         // Each failure is alerted where it happens; the next pass tries again.
+      }
+      if (deps.resultsPublisher) {
+        try {
+          await deps.resultsPublisher.runOnce();
+        } catch {
+          // Each failure is recorded per sector and alerted when it persists; the next pass tries again.
+        }
       }
       if (deps.mailer) {
         try {

@@ -8,6 +8,7 @@ import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.j
 import { termsAttachment, type HostingTermsAttachment } from "./hosting-email/hosting-mailer.js";
 import { createResendEmailTransport } from "./hosting-email/resend-email-transport.js";
 import { SqliteHostedResultsStore } from "./hosting-results/hosted-results.js";
+import { createGatewayResultsClient, createHostedResultsPublisher, SqliteHostedResultsPublishLog } from "./hosting-results/hosted-results-publisher.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
 import { FakePaymentProvider } from "./providers/fake-providers.js";
@@ -30,6 +31,8 @@ const outbox = new SqliteHostingEmailOutbox(db);
 outbox.applySchema();
 const results = new SqliteHostedResultsStore(db);
 results.applySchema();
+const publishLog = new SqliteHostedResultsPublishLog(db);
+publishLog.applySchema();
 
 /** `relative` in `from` or the nearest folder above it that has it, whether the service runs from src or dist. */
 const findUpwards = (relative: string, from: string): string | undefined => {
@@ -85,6 +88,14 @@ const control = createSectorControlApp({
   },
   parsePaymentWebhook: payment.parseWebhook,
   results,
+  ...(env.gateway
+    ? {
+        resultsPublisher: (alert) => createHostedResultsPublisher({
+          log: publishLog, results, memberUids: (sectorId) => store.listMemberUids(sectorId), alert, now: () => Date.now(),
+          gateway: createGatewayResultsClient({ gatewayUrl: env.gateway!.url, token: env.gateway!.token })
+        })
+      }
+    : {}),
   email: {
     outbox,
     appUrl: env.email.appUrl,

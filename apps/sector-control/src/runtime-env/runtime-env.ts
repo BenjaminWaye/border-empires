@@ -20,6 +20,22 @@ export type SectorControlRuntimeEnv = {
   reconcileIntervalMs: number;
   config: HostingConfig;
   email: HostingEmailEnv;
+  /** Where saved results are sent for House profiles. Unset: they wait in the database. */
+  gateway?: HostingGatewayEnv;
+};
+
+/** The game gateway and the key it gives this service (HOSTING_SERVICE_TOKEN), never ADMIN_API_TOKEN. */
+export type HostingGatewayEnv = { url: string; token: string };
+
+/** Both or neither: a gateway without its key, or a key without a gateway, is a mistake worth stopping for. */
+export const parseGatewayEnv = (env: NodeJS.ProcessEnv): HostingGatewayEnv | undefined => {
+  const url = (env.HOSTING_GATEWAY_URL ?? "").trim();
+  const token = (env.HOSTING_SERVICE_TOKEN ?? "").trim();
+  if (!url && !token) return undefined;
+  if (!url || !token) throw new Error("HOSTING_GATEWAY_URL and HOSTING_SERVICE_TOKEN are set together or not at all");
+  if (!/^https?:\/\/[^\s]+$/.test(url)) throw new Error("HOSTING_GATEWAY_URL must be a URL such as https://api.borderempires.com");
+  if (token.length < 32) throw new Error("HOSTING_SERVICE_TOKEN must be at least 32 characters");
+  return { url, token };
 };
 
 /**
@@ -92,6 +108,7 @@ export const parseSectorControlRuntimeEnv = (env: NodeJS.ProcessEnv): SectorCont
   if (!sqlitePath) throw new Error("HOSTING_SQLITE_PATH is required");
   const ticketKey = (env.HOSTING_TICKET_PRIVATE_KEY ?? "").trim();
   if (!ticketKey) throw new Error("HOSTING_TICKET_PRIVATE_KEY is required");
+  const gateway = parseGatewayEnv(env);
   const firebaseProjectId = (env.HOSTING_FIREBASE_PROJECT_ID ?? env.FIREBASE_PROJECT_ID ?? "").trim();
   return {
     host: env.HOSTING_HOST ?? "127.0.0.1",
@@ -104,6 +121,7 @@ export const parseSectorControlRuntimeEnv = (env: NodeJS.ProcessEnv): SectorCont
     reconcileIntervalMs: positiveInt("HOSTING_RECONCILE_INTERVAL_MS", env.HOSTING_RECONCILE_INTERVAL_MS, 60_000),
     // Sales stay off unless switched on explicitly (the kill switch, plan section 11).
     config: { ...DEFAULT_HOSTING_CONFIG, salesEnabled: env.HOSTING_SALES_ENABLED === "1" },
-    email: parseEmailEnv(env)
+    email: parseEmailEnv(env),
+    ...(gateway ? { gateway } : {})
   };
 };
