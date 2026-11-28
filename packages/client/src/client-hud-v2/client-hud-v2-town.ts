@@ -13,11 +13,11 @@ import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { townGoldBonuses } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
-import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
-import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { buildCategories, buildListHtml, buildPlaceHtml, defaultBuildCategory } from "./client-hud-v2-build-list.js";
 import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
@@ -187,7 +187,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    category: input.category ?? initialBuildingCategory(buildCategories(input.focusView.buildings).map((c) => c.category)),
+    category: input.category ?? defaultBuildCategory(input.focusView.buildings),
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,

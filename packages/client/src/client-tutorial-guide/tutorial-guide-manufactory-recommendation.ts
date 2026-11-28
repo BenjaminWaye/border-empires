@@ -1,6 +1,8 @@
 // Ties the guide's Manufactory step to the tile menu: when the player opens one
 // of the marked towns, its Build Manufactory action carries the "★ Recommended"
-// badge (and is listed first -- see client-tile-menu-html.ts's recommendedFirst).
+// badge, leads its tab and opens the Build list on that tab (client-hud-v2-build-list.ts).
+// It is NOT copied into the tile's actions: the town screen drew every action in its bottom
+// bar, so the guide's Manufactory showed there too. The guide teaches players to look in Build.
 // Only set while the guide is on its build step, so this is beginner guidance,
 // not a permanent hint on every Manufactory build. Same shape as
 // client-onboarding-relay-beacon-recommendation.ts.
@@ -18,11 +20,5 @@ export const injectGuideManufactoryRecommendation = (view: TileMenuView, tile: P
   if (!recommendedTiles.some((t) => t.x === tile.x && t.y === tile.y)) return;
   for (const action of [...view.actions, ...view.buildings]) {
     if (action.id === "build_manufactory") action.recommended = true;
-  }
-  // The Manufactory lives in Buildings but the menu opens on Actions when that
-  // tab exists: surface it there too so the guide's step is the first thing seen.
-  const manufactory = view.buildings.find((action) => action.id === "build_manufactory");
-  if (manufactory && view.tabs.includes("actions") && !view.actions.some((action) => action.id === "build_manufactory")) {
-    view.actions.push({ ...manufactory });
   }
 };
