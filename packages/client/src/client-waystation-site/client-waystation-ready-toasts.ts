@@ -12,6 +12,8 @@ const MAX_TOASTS = 64;
 /** Persistent screen-space cards anchored above visible, unactivated rigs on tiles the player owns, in either renderer. */
 export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: State, activate = activateWaystationSite): {
   render: (tiles: readonly MapTile[], projection: Projection) => void;
+  /** Tiles ("x,y") showing an Activate card after the last render: the map's "!" pins step off them. */
+  cardTiles: () => ReadonlySet<string>;
   dispose: () => void;
 } {
   const doc = canvas.ownerDocument;
@@ -20,9 +22,11 @@ export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: St
   layer.setAttribute("aria-label", "Waystations available");
   canvas.parentElement?.append(layer);
   const cards = new Map<string, { card: HTMLDivElement; note: HTMLSpanElement; button: HTMLButtonElement }>();
+  let cardTiles = new Set<string>();
   return {
     render(tiles, { size, project }) {
       const shown = new Set<string>();
+      const tilesWithCards = new Set<string>();
       const bounds = canvas.getBoundingClientRect();
       const sx = bounds.width / Math.max(1, canvas.width), sy = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
@@ -37,6 +41,7 @@ export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: St
         if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > bounds.width || y > bounds.height) continue;
         if (shown.size >= MAX_TOASTS) { omitted += 1; continue; }
         shown.add(wk);
+        tilesWithCards.add(`${t.x},${t.y}`);
         let nodes = cards.get(wk);
         if (!nodes) {
           const card = doc.createElement("div");
@@ -69,10 +74,12 @@ export function createWaystationReadyToasts(canvas: HTMLCanvasElement, state: St
         if (card.style.top !== top) card.style.top = top;
       }
       for (const [key, nodes] of cards) if (!shown.has(key)) { nodes.card.remove(); cards.delete(key); }
+      cardTiles = tilesWithCards;
       // A bounded DOM store with frame-local telemetry, including dense-map omissions.
       layer.dataset.count = String(cards.size);
       layer.dataset.omitted = String(omitted);
     },
-    dispose() { cards.clear(); layer.remove(); }
+    cardTiles: () => cardTiles,
+    dispose() { cards.clear(); cardTiles = new Set(); layer.remove(); }
   };
 }
