@@ -15,11 +15,13 @@ const fakeCtx = {
 
 const makeDeps = () => {
   const tiles = new Map<string, Tile>([["5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "me" } as Tile]]);
-  const state = { camX: 1, camY: 1, camSubX: 0.5, camSubY: 0.5, zoom: 20, me: "me", tiles, tilesRevision: 1 };
+  const discoveredTiles = new Set(["5,5", "40,30"]);
+  const state = { camX: 1, camY: 1, camSubX: 0.5, camSubY: 0.5, zoom: 20, me: "me", tiles, tilesRevision: 1, discoveredTiles };
   const deps = {
     state,
     mapCanvas: Object.assign(document.createElement("canvas"), { width: 800, height: 600 }),
     ownerColor: () => "#ff0000",
+    terrainAt: () => "LAND" as const,
     wrapX: (x: number) => ((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH,
     wrapY: (y: number) => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT,
     requestViewRefresh: vi.fn(),
@@ -45,7 +47,7 @@ describe("world map", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens as a dialog and paints only the tiles the client holds", () => {
+  it("opens as a dialog and paints only explored ground", () => {
     const { deps } = makeDeps();
     installWorldMap(deps);
     expect(root().hidden).toBe(true);
@@ -59,6 +61,8 @@ describe("world map", () => {
     // Neighbouring, never-revealed ground stays fog.
     expect(at(6, 5)).toEqual([...WORLD_MAP_FOG_RGB]);
     expect(at(300, 200)).toEqual([...WORLD_MAP_FOG_RGB]);
+    // Explored earlier but no longer held (e.g. after a reload): still drawn, dimmed.
+    expect(at(40, 30)).not.toEqual([...WORLD_MAP_FOG_RGB]);
   });
 
   it("moves the camera to the tapped place and closes", () => {

@@ -72,13 +72,19 @@ export const bindMinimapDrag = (state: ClientState, deps: MinimapDragDeps): void
     press.relic = false;
     setCameraFromMinimapPointer(x, y);
   };
-  const endPress = (): void => {
+  /** Ends the press; true when it was a tap that went to `onTap`. */
+  const endPress = (): boolean => {
     const ended = press;
     press = undefined;
-    if (ended && !ended.dragging && !ended.relic) deps.onTap?.();
+    if (!ended || ended.dragging || ended.relic || !deps.onTap) return false;
+    deps.onTap();
+    return true;
   };
 
-  deps.miniMapEl.addEventListener("mousedown", (ev) => startPress(ev.clientX, ev.clientY));
+  deps.miniMapEl.addEventListener("mousedown", (ev) => {
+    // Only the main button: a right-click is for the context menu, not the world map.
+    if (ev.button === 0) startPress(ev.clientX, ev.clientY);
+  });
   window.addEventListener("mousemove", (ev) => movePress(ev.clientX, ev.clientY));
   window.addEventListener("mouseup", () => endPress());
   deps.miniMapEl.addEventListener(
@@ -98,6 +104,14 @@ export const bindMinimapDrag = (state: ClientState, deps: MinimapDragDeps): void
     },
     { passive: true }
   );
-  deps.miniMapEl.addEventListener("touchend", () => endPress(), { passive: true });
+  // Not passive: after a tap opened the world map, cancel the browser's follow-up mouse events and click, which
+  // would otherwise land on the overlay that just appeared and close it or jump the camera.
+  deps.miniMapEl.addEventListener(
+    "touchend",
+    (ev) => {
+      if (endPress() && ev.cancelable) ev.preventDefault();
+    },
+    { passive: false }
+  );
   deps.miniMapEl.addEventListener("touchcancel", () => { press = undefined; }, { passive: true });
 };

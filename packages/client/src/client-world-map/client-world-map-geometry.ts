@@ -14,6 +14,16 @@ export const fitWorldRect = (areaW: number, areaH: number, worldW = WORLD_WIDTH,
   return { x: (areaW - w) / 2, y: (areaH - h) / 2, w, h };
 };
 
+/**
+ * The canvas backing-store size for a css-px box: device pixels, capped at `maxPx` on either axis with one scale
+ * for both, so the cap never changes the box's shape (taps are mapped through the on-screen box).
+ */
+export const canvasBackingSize = (cssW: number, cssH: number, dpr: number, maxPx: number): { w: number; h: number } => {
+  if (cssW <= 0 || cssH <= 0) return { w: 0, h: 0 };
+  const scale = Math.min(Math.max(1, dpr || 1), maxPx / cssW, maxPx / cssH);
+  return { w: Math.round(cssW * scale), h: Math.round(cssH * scale) };
+};
+
 /** The tile under a point of the area, or undefined when the point is outside the world's rectangle. */
 export const worldTileAtPoint = (
   px: number,

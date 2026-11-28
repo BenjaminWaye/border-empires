@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildWorldMapPixels, parseHexRgb, WORLD_MAP_FOG_RGB, type WorldMapTile } from "./client-world-map-pixels.js";
+import { buildDiscoveredLayer, buildWorldMapPixels, parseHexRgb, WORLD_MAP_FOG_RGB, type WorldMapTile } from "./client-world-map-pixels.js";
 
 const W = 8;
 const H = 4;
 const px = (data: Uint8ClampedArray, x: number, y: number): number[] => Array.from(data.slice((y * W + x) * 4, (y * W + x) * 4 + 4));
-const build = (tiles: WorldMapTile[], me = "me", ownColor = "#ff0000"): Uint8ClampedArray =>
-  buildWorldMapPixels({ tiles, meId: me, ownColor, width: W, height: H });
+const ALL = { has: () => true };
+const build = (tiles: WorldMapTile[], me = "me", ownColor = "#ff0000", discovered: { has: (key: string) => boolean } = ALL): Uint8ClampedArray =>
+  buildWorldMapPixels({ tiles, discovered, meId: me, ownColor, width: W, height: H });
 
 describe("world map pixels", () => {
   it("leaves every tile the client does not hold as fog, so unexplored terrain never shows", () => {
@@ -44,9 +45,34 @@ describe("world map pixels", () => {
 
   it("wraps out-of-range coordinates and reuses the given buffer", () => {
     const out = new Uint8ClampedArray(W * H * 4);
-    const data = buildWorldMapPixels({ tiles: [{ x: -1, y: H, terrain: "MOUNTAIN" }], meId: "", ownColor: "", width: W, height: H, out });
+    const data = buildWorldMapPixels({ tiles: [{ x: -1, y: H, terrain: "MOUNTAIN" }], discovered: ALL, meId: "", ownColor: "", width: W, height: H, out });
     expect(data).toBe(out);
     expect(px(data, W - 1, 0)).toEqual([139, 141, 146, 255]);
+  });
+
+  it("leaves a held tile the player never explored as fog (no fog-of-war leak)", () => {
+    const data = build([{ x: 1, y: 1, terrain: "LAND" }, { x: 2, y: 1, terrain: "LAND" }], "me", "#ff0000", new Set(["2,1"]));
+    expect(px(data, 1, 1)).toEqual([...WORLD_MAP_FOG_RGB, 255]);
+    expect(px(data, 2, 1)).not.toEqual([...WORLD_MAP_FOG_RGB, 255]);
+  });
+
+  it("does not tint the player's remembered (fogged) land: its owner may be stale", () => {
+    const data = build([
+      { x: 0, y: 0, terrain: "LAND", ownerId: "me", fogged: true },
+      { x: 1, y: 0, terrain: "LAND", fogged: true }
+    ]);
+    expect(px(data, 0, 0)).toEqual(px(data, 1, 0));
+  });
+
+  it("paints explored tiles the client no longer holds as dimmed terrain, and only those", () => {
+    const terrainAt = (x: number): WorldMapTile["terrain"] => (x === 3 ? "SEA" : "LAND");
+    const layer = buildDiscoveredLayer({ discovered: new Set(["3,2", "4,2"]), terrainAt, width: W, height: H });
+    const data = buildWorldMapPixels({ tiles: [], discovered: new Set(["3,2", "4,2"]), layer, meId: "me", ownColor: "", width: W, height: H });
+    const sea = px(data, 3, 2);
+    expect(sea[2]).toBeGreaterThan(60);
+    expect(sea[2]).toBeLessThan(145);
+    expect(px(data, 4, 2)[1]).toBeGreaterThan(WORLD_MAP_FOG_RGB[1]);
+    expect(px(data, 5, 2)).toEqual([...WORLD_MAP_FOG_RGB, 255]);
   });
 
   it("parses owner colours and rejects anything that is not hex", () => {

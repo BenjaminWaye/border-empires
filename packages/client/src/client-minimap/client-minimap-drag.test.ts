@@ -18,8 +18,8 @@ const setup = (overrides: { onTap?: () => void; panOnPress?: () => boolean } = {
     maybeRefreshForCamera: vi.fn(),
     ...overrides
   });
-  const mouse = (type: string, x: number, y: number, target: EventTarget = el): boolean =>
-    target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }));
+  const mouse = (type: string, x: number, y: number, target: EventTarget = el, button = 0): boolean =>
+    target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, button }));
   return { el, state, mouse };
 };
 
@@ -52,6 +52,33 @@ describe("minimap press", () => {
     el.dispatchEvent(Object.assign(new Event("touchend"), { touches: [] }));
     expect(onTap).toHaveBeenCalledTimes(1);
     expect(state.camX).toBe(-1);
+  });
+
+  it("cancels the browser's follow-up mouse events after a touch tap, so they cannot hit the opened map", () => {
+    const onTap = vi.fn();
+    const { el } = setup({ onTap });
+    el.dispatchEvent(Object.assign(new Event("touchstart"), { touches: [{ clientX: 50, clientY: 50 } as Touch] }));
+    const end = Object.assign(new Event("touchend", { cancelable: true }), { touches: [] });
+    el.dispatchEvent(end);
+    expect(onTap).toHaveBeenCalledTimes(1);
+    expect(end.defaultPrevented).toBe(true);
+  });
+
+  it("leaves a touch drag's follow-up events alone", () => {
+    const { el } = setup({ onTap: vi.fn() });
+    el.dispatchEvent(Object.assign(new Event("touchstart"), { touches: [{ clientX: 50, clientY: 50 } as Touch] }));
+    el.dispatchEvent(Object.assign(new Event("touchmove"), { touches: [{ clientX: 120, clientY: 50 } as Touch] }));
+    const end = Object.assign(new Event("touchend", { cancelable: true }), { touches: [] });
+    el.dispatchEvent(end);
+    expect(end.defaultPrevented).toBe(false);
+  });
+
+  it("ignores a right-click", () => {
+    const onTap = vi.fn();
+    const { mouse } = setup({ onTap });
+    mouse("mousedown", 100, 100, undefined, 2);
+    mouse("mouseup", 100, 100, window, 2);
+    expect(onTap).not.toHaveBeenCalled();
   });
 
   it("pans at once in the phone map overview, where a tap goes to the place", () => {

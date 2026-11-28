@@ -129,13 +129,13 @@ describe("phone map overview: whole world", () => {
     expect(host(overlaysHtml(false, false, true)).querySelector(".v2c-map-head [data-v2c-world-map]")?.textContent).toBe("World");
     expect(host(overlaysHtml(false, false)).querySelector("[data-v2c-world-map]")).toBeNull();
     document.body.innerHTML = `<div id="mini-map-wrap"></div><div id="${OVERLAYS_HOST_ID}" class="hud-v2-overlays"></div>`;
-    const state = { showDiplomacyOverlay: false, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 20, me: "", tiles: new Map(), tilesRevision: 0 };
+    const state = { showDiplomacyOverlay: false, camX: 0, camY: 0, camSubX: 0, camSubY: 0, zoom: 20, me: "", tiles: new Map(), tilesRevision: 0, discoveredTiles: new Set<string>() };
     const deps = { state, requestViewRefresh: vi.fn() } as unknown as HudV2Deps;
     const rerender = vi.fn(() => {
       document.getElementById(OVERLAYS_HOST_ID)!.innerHTML = overlaysHtml(false, lensMenu.open, mapOverview.open);
     });
     installLens(deps, rerender);
-    installWorldMap({ state, mapCanvas: document.createElement("canvas"), ownerColor: () => "#ffffff", wrapX: (x) => x, wrapY: (y) => y, requestViewRefresh: vi.fn(), maybeRefreshForCamera: vi.fn() });
+    installWorldMap({ state, mapCanvas: document.createElement("canvas"), ownerColor: () => "#ffffff", terrainAt: () => "LAND", wrapX: (x) => x, wrapY: (y) => y, requestViewRefresh: vi.fn(), maybeRefreshForCamera: vi.fn() });
     setMapOverview(true);
     rerender();
     document.querySelector<HTMLElement>("[data-v2c-world-map]")!.click();

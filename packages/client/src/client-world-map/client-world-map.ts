@@ -8,17 +8,20 @@
 // 640x320 offscreen canvas rebuilt only when known tiles change (at most every REBUILD_MS while open); each
 // frame only scales that image and strokes the view rectangle, and only when something changed.
 
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt as worldgenTerrainAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
 import { jumpCameraToTile, type CameraJumpDeps } from "../client-minimap/client-minimap-camera-jump.js";
-import { buildWorldMapPixels } from "./client-world-map-pixels.js";
-import { fitWorldRect, viewRectPieces, worldTileAtPoint, type Rect } from "./client-world-map-geometry.js";
+import { buildDiscoveredLayer, buildWorldMapPixels } from "./client-world-map-pixels.js";
+import { canvasBackingSize, fitWorldRect, viewRectPieces, worldTileAtPoint, type Rect } from "./client-world-map-geometry.js";
 
 export type WorldMapDeps = CameraJumpDeps & {
-  state: Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom" | "me" | "tiles" | "tilesRevision">;
+  state: Pick<ClientState, "camX" | "camY" | "camSubX" | "camSubY" | "zoom" | "me" | "tiles" | "tilesRevision" | "discoveredTiles">;
   /** The main map canvas: its size over the zoom is the view's size in tiles, as on the minimap. */
   mapCanvas: HTMLCanvasElement;
   ownerColor: (ownerId: string) => string;
+  /** Worldgen terrain for explored tiles the client no longer holds (defaults to the shared seeded terrainAt). */
+  terrainAt?: (x: number, y: number) => Tile["terrain"];
 };
 
 export const WORLD_MAP_ID = "world-map";
@@ -63,7 +66,9 @@ export const installWorldMap = (deps: WorldMapDeps): Controller => {
   image.height = WORLD_HEIGHT;
   const imageCtx = image.getContext("2d");
   let imageData: ImageData | undefined;
-  let builtFor = { size: -1, revision: Number.NaN, me: "", at: 0 };
+  let layer: Uint8ClampedArray | undefined;
+  let layerFor = -1;
+  let builtFor = { size: -1, revision: Number.NaN, me: "", color: "", discovered: -1, at: 0 };
 
   let open = false;
   let onPicked: (() => void) | undefined;
@@ -72,19 +77,30 @@ export const installWorldMap = (deps: WorldMapDeps): Controller => {
 
   const rebuildImage = (nowMs: number, force: boolean): boolean => {
     const s = deps.state;
-    const stale = builtFor.size !== s.tiles.size || builtFor.revision !== s.tilesRevision || builtFor.me !== s.me;
+    const color = s.me ? deps.ownerColor(s.me) : "";
+    const discovered = s.discoveredTiles.size;
+    const stale =
+      builtFor.size !== s.tiles.size ||
+      builtFor.revision !== s.tilesRevision ||
+      builtFor.me !== s.me ||
+      builtFor.color !== color ||
+      builtFor.discovered !== discovered;
     if (!stale || (!force && nowMs - builtFor.at < REBUILD_MS) || !imageCtx) return false;
     imageData ??= imageCtx.createImageData(WORLD_WIDTH, WORLD_HEIGHT);
-    buildWorldMapPixels({ tiles: s.tiles.values(), meId: s.me, ownColor: s.me ? deps.ownerColor(s.me) : "", out: imageData.data });
+    // The explored layer is a pass over every explored tile, so it is rebuilt only when discoveredTiles changes size.
+    if (!layer || layerFor !== discovered) {
+      layer = buildDiscoveredLayer({ discovered: s.discoveredTiles, terrainAt: deps.terrainAt ?? worldgenTerrainAt, out: layer });
+      layerFor = discovered;
+    }
+    buildWorldMapPixels({ tiles: s.tiles.values(), discovered: s.discoveredTiles, layer, meId: s.me, ownColor: color, out: imageData.data });
     imageCtx.putImageData(imageData, 0, 0);
-    builtFor = { size: s.tiles.size, revision: s.tilesRevision, me: s.me, at: nowMs };
+    if (color) root.style.setProperty("--world-map-own", color);
+    builtFor = { size: s.tiles.size, revision: s.tilesRevision, me: s.me, color, discovered, at: nowMs };
     return true;
   };
 
   const fitCanvas = (): void => {
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const w = Math.min(MAX_CANVAS_PX, Math.round(canvas.clientWidth * dpr));
-    const h = Math.min(MAX_CANVAS_PX, Math.round(canvas.clientHeight * dpr));
+    const { w, h } = canvasBackingSize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio, MAX_CANVAS_PX);
     if (w > 0 && canvas.width !== w) canvas.width = w;
     if (h > 0 && canvas.height !== h) canvas.height = h;
   };
@@ -153,7 +169,6 @@ export const installWorldMap = (deps: WorldMapDeps): Controller => {
     if (open) return;
     open = true;
     root.hidden = false;
-    if (deps.state.me) root.style.setProperty("--world-map-own", deps.ownerColor(deps.state.me));
     document.body.classList.add("world-map-open");
     drawn.built = -1;
     rebuildImage(performance.now(), true);
