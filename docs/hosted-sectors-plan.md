@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (every question in [§13](#13-decisions-for-the-owner) is his to answer)
-Last verified: 2026-11-27
+Last verified: 2026-11-28
 Replaces: none. When delivered, the durable parts move to a runbook `docs/agents/hosted-sectors.md` and to [`agents/deploys.md`](agents/deploys.md).
 
 This is Stage 1 of launch-scope item 4 in [`gdd.md`](gdd.md) §9. Nothing is
@@ -487,6 +487,17 @@ recommendations in `legal-drafts/README.md`):
   through the same Stripe payment flow and the same sales switch, off by
   default, with the same legal must-do items. Planned as 8e (§15).
 
+**Owner decision, 2026-11-28** (relayed from the owner's session; he wrote
+"We don't need reviews from lawyers or accountants use skills to do it"):
+Q12 and Q13 are reviewed with AI legal skills instead of a lawyer and an
+accountant. The review is
+[`legal-drafts/ai-review-2026-11-28.md`](legal-drafts/ai-review-2026-11-28.md).
+It wrote the cosmetics section of the Terms of Sale (§7a), answered both
+professionals' lists, and added a UK GDPR representative to the privacy draft.
+It also lists code items for 8c–8f (section 7) and the risks an AI review
+leaves open ("Residual risks"). Sales stay off until the must-do list and those
+items are done.
+
 **Review of the drafts, 2026-11-25:** lists what the checkout, the hosting
 service and the emails must still do before sales open (among them a
 withdrawal button, two separate tick-boxes, proof of consent, a confirmation
@@ -507,8 +518,8 @@ The Stripe test-mode work does not do these yet.
 | Q9 | **How private is private?** | **Decided 2026-11-24, as recommended.** Unlisted and members-only to play; standings are not secret from someone who has the address. |
 | Q10 | **A funding bar that never fills.** | **Decided 2026-11-24, as recommended.** Holds are released at the 72-hour deadline and nobody is charged. Contributors are emailed. The host can reopen a new bar. |
 | Q11 | **When does a funded contest start?** | **Decided 2026-11-24, as recommended.** At once, as the GDD pitch says ("starting now"). The invite link exists before payment so friends can be ready. A host-chosen start time is a later option. |
-| Q12 | **Legal pages and seller details.** Terms of sale, refund policy, updated privacy policy (Stripe as a provider), and the seller's legal name and address, which EU law requires on the checkout. Who writes them, and under which legal entity is Stripe opened? | The owner provides the entity and has the texts written or reviewed by someone qualified. An agent can draft from a template but must not be the final word. Sales stay off until the pages are live. |
-| Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. |
+| Q12 | **Legal pages and seller details.** Terms of sale, refund policy, updated privacy policy (Stripe as a provider), and the seller's legal name and address, which EU law requires on the checkout. Who writes them, and under which legal entity is Stripe opened? | The owner provides the entity and has the texts written or reviewed by someone qualified. An agent can draft from a template but must not be the final word. Sales stay off until the pages are live. **Decided 2026-11-28: reviewed with AI legal skills instead of a lawyer** ([`legal-drafts/ai-review-2026-11-28.md`](legal-drafts/ai-review-2026-11-28.md)). |
+| Q13 | **Tax.** Is the USD 20 price inclusive of VAT? Is Stripe Tax turned on to calculate and collect it (Stripe charges extra for this, and the owner still files)? | Price inclusive of tax, so the player always pays USD 20. Turn Stripe Tax on if the owner's accountant confirms registration; this decision needs the accountant, not an agent. **Decided 2026-11-28: confirmed by the AI review instead of an accountant**; cosmetics are taxed the same way ([`hosted-sectors-tax.md`](hosted-sectors-tax.md)). |
 | Q14 | **Email from hosted sectors** (attack alerts and so on) needs the Resend key on every sector server. | **Decided 2026-11-24, as recommended.** Yes, with a sending-only key separate from the production key, so it can be revoked alone. |
 | Q15 | **Hosted sectors in the phone apps.** The apps fix their server address at build time. | **Decided 2026-11-24, as recommended.** Launch on the web (including the phone browser) only; the apps show hosted sectors in the list and open them in the browser. Native support follows. |
 | Q16 | **One-time setup the owner must do by hand:** a Stripe account; a Hetzner project for hosted sectors and its token; a domain for sector servers whose nameservers are Hetzner's. | **Done 2026-11-25:** Stripe test account, Hetzner project and token, and `borderempires-sectors.com` bought with Hetzner's nameservers; the Hetzner zone exists. |
@@ -568,7 +579,7 @@ each with regression tests and sales off throughout:
 | 8b-2 | **Withdrawal.** A "Withdraw from contract" button in My sectors for whoever paid (host in full, or a contributor's own share), a confirmation step with the amounts, the 1/30-per-started-day deduction from `opened_at`, recorded before a partial refund issued with an amount and idempotency key; the sector (or only that share) is then closed. Available for 14 days from payment and until the contest ends. **Built 2026-11-26.** The emailed acknowledgement is 8c and saving results before the server goes is 8d. | 1, 6 |
 | 8c | **Emails.** Order confirmation with the Terms and the consent, the idle-closure warning 2 days ahead, the withdrawal acknowledgement. Needs an email sender. | 5, 9, 6 |
 | 8d | **Results saved before deletion.** | 8 |
-| 8e | **Cosmetic product "Claim the title of Count", USD 4.99, and a shop screen** (owner, 2026-11-26; the Count bundle is the only cosmetic product for launch, the beacon skin is paused). The shop: a small view listing the bundle with a preview (the High-noble muster standard, the Lancet guard look and the title Count, reusing `docs/design/cosmetics/` and the Storybook stories), the price and a Buy button that starts the checkout; reachable from the profile or settings; "Owned" once bought, linking to the cosmetics card. Web only (`gdd.md` §8): the native apps show no prices, Buy buttons or links to the web shop, but owned items still show. With sales off nothing is buyable. Phone-first, a changelog entry, tests. A Checkout in the hosting service's Stripe flow behind the same sales switch; on payment the hosting service grants it through the gateway's `AccountCosmeticsService.grantProduct` (admin route, idempotent by payment reference); a refund or withdrawal revokes it. Both consents adapted for digital content (Art. 16(m)), the confirmation email (8c), test mode only. **Blocked on legal text:** the Terms of Sale cover hosted sectors only; the cosmetics section listed in `legal-drafts/README.md` ("Cosmetics") must be written and reviewed first, and the tax note must say cosmetics are taxed like sectors. | 2–7 for cosmetics |
+| 8e | **Cosmetic product "Claim the title of Count", USD 4.99, and a shop screen** (owner, 2026-11-26; the Count bundle is the only cosmetic product for launch, the beacon skin is paused). The shop: a small view listing the bundle with a preview (the High-noble muster standard, the Lancet guard look and the title Count, reusing `docs/design/cosmetics/` and the Storybook stories), the price and a Buy button that starts the checkout; reachable from the profile or settings; "Owned" once bought, linking to the cosmetics card. Web only (`gdd.md` §8): the native apps show no prices, Buy buttons or links to the web shop, but owned items still show. With sales off nothing is buyable. Phone-first, a changelog entry, tests. A Checkout in the hosting service's Stripe flow behind the same sales switch; on payment the hosting service grants it through the gateway's `AccountCosmeticsService.grantProduct` (admin route, idempotent by payment reference); a refund or withdrawal revokes it. Both consents adapted for digital content (Art. 16(m)), the confirmation email (8c), test mode only. **Legal text written 2026-11-28:** Terms of Sale §7a and the tax note now cover cosmetics; the code conditions are in `legal-drafts/ai-review-2026-11-28.md` section 7. | 2–7 for cosmetics |
 | 8f | **Analytics consent in the web client** (owner, 2026-11-26: after 8d). | 11 |
 
 Item 12's EU-location check is a hosting-service setting guard; its
