@@ -77,5 +77,5 @@ export const resetActionMarkers = (): void => {
   markers.length = 0;
 };
 
-/** Test helper: every marker, shown or waiting. */
+/** Every marker, shown or waiting (the layer skips its frame work when there are none). */
 export const pendingActionMarkers = (): readonly ActionMarker[] => markers;

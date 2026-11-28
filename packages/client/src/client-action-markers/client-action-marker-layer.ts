@@ -8,7 +8,7 @@ import { PHOTO_MODE_BODY_CLASS } from "../client-photo-mode/client-photo-mode.js
 import { pinAnchor } from "../client-map-tip-pins/client-map-tip-pins.js";
 import { centerCameraOnDiscoveryTarget } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { noticesHeld } from "../client-notice-gate/client-notice-gate.js";
-import { actionMarkerOpacity, liveActionMarkers, type ShownActionMarker } from "./client-action-markers.js";
+import { actionMarkerOpacity, liveActionMarkers, pendingActionMarkers, type ShownActionMarker } from "./client-action-markers.js";
 import "./client-action-markers.css";
 
 interface Projection { readonly size: number; readonly project: (x: number, y: number) => { sx: number; sy: number } }
@@ -72,6 +72,8 @@ export function createActionMarkerLayer(canvas: HTMLCanvasElement): {
   const elements = new Map<number, MarkerElements>();
   return {
     render(projection, mapDrawn = true) {
+      // Most frames have no marker: skip the notice gate's DOM queries and the layout read.
+      if (elements.size === 0 && pendingActionMarkers().length === 0) return;
       const nowMs = Date.now();
       const live = liveActionMarkers(nowMs, noticesHeld(doc, nowMs));
       // Photo mode captures the bare map; the season lobby has no real projection. Markers keep their clock.
