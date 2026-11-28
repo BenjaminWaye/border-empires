@@ -4,6 +4,7 @@ import { tileKey } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { triggerBuildForStructureType } from "../client-structure-build-trigger/client-structure-build-trigger.js";
+import { beaconExpansionElapsedMs, resetBeaconExpansionClockForTests } from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
 import { createBuildingPlacementFlow } from "./client-building-placement.js";
 
 const settled = (x: number, y: number, extra: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...extra });
@@ -134,4 +135,17 @@ describe("Relay Beacon placement", () => {
     flow.cancelBuildingPlacement();
     expect(confirmPrompt.hide).toHaveBeenCalled();
   });
+
+  it("replays the reach growth from the beacon out when placement reopens on the same tile", () => {
+    // Review of #3087: the growth clock was never reset, so cancelling and placing again on the same tile
+    // ten seconds later landed mid-cycle instead of growing from the beacon out.
+    const { state, flow } = setup([settled(4, 4)]);
+    resetBeaconExpansionClockForTests();
+    state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 4, y: 4 };
+    beaconExpansionElapsedMs(4, 4, 0);
+    flow.cancelBuildingPlacement();
+    state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 4, y: 4 };
+    expect(beaconExpansionElapsedMs(4, 4, 10_000)).toBe(0);
+  });
 });
+

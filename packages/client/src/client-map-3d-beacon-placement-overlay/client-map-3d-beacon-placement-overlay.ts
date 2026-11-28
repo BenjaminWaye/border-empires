@@ -4,10 +4,11 @@ import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import {
   OUTLINE_EDGE_CORNERS,
   beaconExpansionElapsedMs,
-  beaconExpansionOutline,
+  beaconExpansionOutlineCached,
   beaconExpansionTileFill,
-  beaconReachExpansion,
-  prefersReducedMotion
+  beaconReachExpansionCached,
+  prefersReducedMotion,
+  type BeaconReachExpansion
 } from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
 import type { PlacementOverlaySyncDeps } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -71,9 +72,25 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
 
   const wrapCorner = (value: number, size: number): number => (value >= size ? value - size : value);
 
-  const syncOutline = (deps: PlacementOverlaySyncDeps, expansion: ReturnType<typeof beaconReachExpansion>): void => {
+  // What the GPU buffers were last written for. The outline never animates and a held (fully grown) fill does not
+  // either, so both are re-uploaded only when the expansion (spot, tiles revision, server reach) or the scene origin
+  // (moved by a terrain rebuild, client-map-3d.ts maybeRebuild) changes -- not every frame.
+  let outlineFor: { expansion: BeaconReachExpansion; camX: number; camY: number } | undefined;
+  let fullFillFor: { expansion: BeaconReachExpansion; camX: number; camY: number } | undefined;
+  const sameUpload = (
+    last: { expansion: BeaconReachExpansion; camX: number; camY: number } | undefined,
+    expansion: BeaconReachExpansion,
+    deps: PlacementOverlaySyncDeps
+  ): boolean => last !== undefined && last.expansion === expansion && last.camX === deps.sceneOrigin.camX && last.camY === deps.sceneOrigin.camY;
+
+  const syncOutline = (deps: PlacementOverlaySyncDeps, expansion: BeaconReachExpansion): void => {
+    if (sameUpload(outlineFor, expansion, deps)) {
+      outline.visible = outlineGeometry.drawRange.count > 0;
+      return;
+    }
+    outlineFor = { expansion, camX: deps.sceneOrigin.camX, camY: deps.sceneOrigin.camY };
     let vertex = 0;
-    for (const edge of beaconExpansionOutline(expansion, deps.keyFor, deps.wrapX, deps.wrapY)) {
+    for (const edge of beaconExpansionOutlineCached(expansion, deps.keyFor, deps.wrapX, deps.wrapY)) {
       if (vertex / 2 >= MAX_OUTLINE_EDGES) break;
       for (const [dx, dy] of OUTLINE_EDGE_CORNERS[edge.side]) {
         const cx = wrapCorner(edge.x + dx, WORLD_WIDTH);
@@ -101,6 +118,8 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
   const hide = (): void => {
     commit(0);
     outline.visible = false;
+    outlineFor = undefined;
+    fullFillFor = undefined;
   };
 
   const syncNewReach = (deps: PlacementOverlaySyncDeps): void => {
@@ -111,19 +130,29 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
       hide();
       return;
     }
-    const expansion = beaconReachExpansion(deps.state, x, y); // land-gated, less what is already in reach; same as 2D
+    const expansion = beaconReachExpansionCached(deps.state, x, y); // land-gated, less what is already in reach; same as 2D
     const elapsed = beaconExpansionElapsedMs(x, y, deps.nowMs ?? performance.now());
     const still = prefersReducedMotion();
+    syncOutline(deps, expansion);
+    const shown = Math.min(expansion.tiles.length, MAX_NEW_REACH_TILES);
+    if (sameUpload(fullFillFor, expansion, deps) && expansion.tiles.every((added) => beaconExpansionTileFill(added.ring, elapsed, still) >= 1)) {
+      // Held at full size since the last upload: the instance matrices already on the GPU are current.
+      reachFill.count = shown;
+      reachFill.visible = shown > 0;
+      return;
+    }
     let count = 0;
+    let allFull = true;
     for (const added of expansion.tiles) {
       if (count >= MAX_NEW_REACH_TILES) break;
       const fill = beaconExpansionTileFill(added.ring, elapsed, still);
+      if (fill < 1) allFull = false;
       if (fill <= 0) continue;
       placeAt(count, deps, added.x, added.y, fill);
       count += 1;
     }
     commit(count);
-    syncOutline(deps, expansion);
+    fullFillFor = allFull ? { expansion, camX: deps.sceneOrigin.camX, camY: deps.sceneOrigin.camY } : undefined;
   };
 
   const sync = (deps: PlacementOverlaySyncDeps): void => {

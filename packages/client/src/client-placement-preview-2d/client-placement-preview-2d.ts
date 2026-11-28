@@ -8,9 +8,9 @@ import {
 import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 import {
   beaconExpansionElapsedMs,
-  beaconExpansionOutline,
+  beaconExpansionOutlineCached,
   beaconExpansionTileFill,
-  beaconReachExpansion,
+  beaconReachExpansionCached,
   OUTLINE_EDGE_CORNERS,
   prefersReducedMotion
 } from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
@@ -99,7 +99,7 @@ const renderOutpostReachGhostPreview = (
     deps.ctx.restore();
     return;
   }
-  const expansion = beaconReachExpansion(state, x, y);
+  const expansion = beaconReachExpansionCached(state, x, y);
   const elapsed = beaconExpansionElapsedMs(x, y, nowMs);
   const still = prefersReducedMotion();
   deps.ctx.save();
@@ -116,7 +116,7 @@ const renderOutpostReachGhostPreview = (
   deps.ctx.setLineDash([]);
   deps.ctx.lineWidth = Math.max(1.5, size * 0.08);
   deps.ctx.beginPath();
-  for (const edge of beaconExpansionOutline(expansion, deps.keyFor, deps.wrapX, deps.wrapY)) {
+  for (const edge of beaconExpansionOutlineCached(expansion, deps.keyFor, deps.wrapX, deps.wrapY)) {
     const { sx, sy } = deps.worldToScreen(edge.x, edge.y, size, halfW, halfH);
     const [[ax, ay], [bx, by]] = OUTLINE_EDGE_CORNERS[edge.side];
     deps.ctx.moveTo(sx + (ax - 0.5) * size, sy + (ay - 0.5) * size);

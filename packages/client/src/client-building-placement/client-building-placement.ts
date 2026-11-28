@@ -5,7 +5,7 @@ import type { OptimisticStructureKind, Tile } from "../client-types.js";
 import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
 import type { TapConfirmButton } from "../client-tap-confirm-button/client-tap-confirm-button.js";
 import { isRelayBeaconPlacementTarget, relayBeaconPlacementCostLabel } from "../client-relay-beacon-placement/client-relay-beacon-placement.js";
-import { beaconNewReachLabel, beaconReachExpansion } from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
+import { beaconNewReachLabel, beaconReachExpansionCached, resetBeaconExpansionClock } from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
 
 type PlacedStructureType = "HYDROWORKS" | "RELAY_BEACON";
 
@@ -55,6 +55,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     afcReplacement = undefined;
     state.buildingPlacement.active = false;
     state.buildingPlacement.structureType = "";
+    resetBeaconExpansionClock(); // the next placement, even on this tile, grows from the beacon out again
     removePlacementOverlay();
     deps.renderHud();
   };
@@ -111,7 +112,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     const cost = st === "RELAY_BEACON" ? relayBeaconPlacementCostLabel(state, placementTile) : "";
     const valid = st === "RELAY_BEACON" && isPlacementValidForTile(placementTile);
     // How much ground the beacon adds here, as the map shows it growing (owner, First-15 round 1).
-    const reach = valid ? beaconNewReachLabel(beaconReachExpansion(state, state.buildingPlacement.x, state.buildingPlacement.y).tiles.length) : "";
+    const reach = valid ? beaconNewReachLabel(beaconReachExpansionCached(state, state.buildingPlacement.x, state.buildingPlacement.y).tiles.length) : "";
     deps.placementLabelEl.textContent = `Placing ${name}${cost ? ` (${cost})` : ""}${reach ? ` · ${reach}` : ""} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
     if (st !== "RELAY_BEACON") return;

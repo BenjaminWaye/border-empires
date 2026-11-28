@@ -10,6 +10,7 @@ import {
   beaconExpansionTileFill,
   beaconNewReachLabel,
   beaconReachExpansion,
+  beaconReachExpansionCached,
   resetBeaconExpansionClockForTests
 } from "./client-beacon-reach-expansion.js";
 
@@ -66,5 +67,17 @@ describe("beacon placement: reach growing from the beacon", () => {
     expect(beaconNewReachLabel(23)).toBe("+23 tiles into reach");
     expect(beaconNewReachLabel(1)).toBe("+1 tile into reach");
     expect(beaconNewReachLabel(0)).toBe("no new reach");
+  });
+
+  it("reuses the expansion for the same spot until the tiles or the spot change", () => {
+    resetBeaconExpansionClockForTests();
+    const state = stateWithTown();
+    const first = beaconReachExpansionCached(state, 13, 10);
+    expect(beaconReachExpansionCached(state, 13, 10)).toBe(first);
+    expect(first.tiles).toEqual(beaconReachExpansion(state, 13, 10).tiles);
+    expect(beaconReachExpansionCached(state, 14, 10)).not.toBe(first);
+    const again = beaconReachExpansionCached(state, 13, 10);
+    state.tilesRevision += 1;
+    expect(beaconReachExpansionCached(state, 13, 10)).not.toBe(again);
   });
 });
