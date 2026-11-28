@@ -36,7 +36,10 @@ import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-ch
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { nextStepScanForState, nextStepsForState, type NextStepScan } from "./client-hud-v2-next-step.js";
-import { foodShortageForState } from "./client-hud-v2-food-shortage.js";
+import { foodShortageForState, primaryFoodFix } from "./client-hud-v2-food-shortage.js";
+import { runFoodFix } from "./client-hud-v2-food-fix.js";
+import { interceptHudExplainTap } from "../client-hud-explain/client-hud-explain.js";
+import { setFoodFixLabel, setFoodFixRunner } from "../client-food-fix/client-food-fix-store.js";
 import { handleFoodShortageClick } from "./client-hud-v2-food-plots.js";
 import { startRelayBeaconPlacement } from "./client-hud-v2-beacon-start.js";
 import { RELAY_BEACON_TOWARD_ACTION_ID } from "../client-relay-beacon-toward/client-relay-beacon-toward.js";
@@ -71,7 +74,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" data-hud-explain="victory" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
@@ -145,10 +148,17 @@ const foodFold = { open: false };
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target || (target.closest("#hud-v2-tile") && !target.closest("[data-hud-v2-open]"))) return;
+  // A HUD word's first tap explains it in one line (client-hud-explain.ts); later taps act.
+  if (interceptHudExplainTap(target)) return;
   // Settings opens centred over a dimmed map; clicking the dim closes it.
   if (target.closest("[data-hud-v2-dim]")) {
     deps.state.activePanel = null;
     deps.renderHud();
+    return;
+  }
+  // A red FOOD warning's one-tap fix (tracker, town screen): back to the map, where the fix shows.
+  if (target.closest("[data-hud-v2-food-fix]")) {
+    runFoodFixToMap(deps);
     return;
   }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
@@ -209,6 +219,11 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
       deps.renderHud();
     }
   }
+};
+
+const runFoodFixToMap = (deps: HudV2Deps): void => {
+  if (screen.id) closeScreen(deps, { toMap: true });
+  runFoodFix(deps);
 };
 
 /**
@@ -346,6 +361,9 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
   const capture = fight && !fight.silent
     ? { x: fight.target.x, y: fight.target.y, resolvesAt: fight.resolvesAt, battle: captureIsBattle(fight) }
     : undefined;
+  const food = foodShortageForState(state, trackerScan.nextStep.food);
+  // Unfed town nameplates and the town screen offer the same fix (client-food-fix-store.ts).
+  setFoodFixLabel(primaryFoodFix(food)?.label);
   const input: TrackerInput = {
     buildSlots: trackerScan.buildSlots,
     afcReady: readyAfcUpgradeCount(state),
@@ -360,7 +378,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     capture,
     waypoints: state.waypoint.map((w) => ({ x: w.target.x, y: w.target.y, paused: Boolean(w.pausedForManpower) })),
     nextSteps: nextStepsForState(state, trackerScan.nextStep),
-    food: foodShortageForState(state, trackerScan.nextStep.food),
+    food,
     foodOpen: foodFold.open,
     nowMs
   };
@@ -396,6 +414,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     }
   });
   installBattleWatch(deps);
+  setFoodFixRunner(() => runFoodFixToMap(deps));
   let tick = 0;
   let lastLayout: HudV2Layout | undefined;
   const frame = (): void => {

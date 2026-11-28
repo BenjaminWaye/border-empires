@@ -14,7 +14,7 @@ export const setManpowerInfoOpen = (open: boolean): void => {
 };
 
 /**
- * Big "+N in 0h 19m" callout; degrades to "Over cap · batch in 0h 19m adds nothing" / "Full" / "Regen paused". Empty before the player id is known.
+ * Big "+N in 0h 19m" callout; degrades to "Reserve · batch in 0h 19m adds nothing" / "Full" / "Regen paused". Empty before the player id is known.
  * Over the cap is legitimate: the landing reserve and Waystation grants are paid above it, and no batch lands until the pool drops below.
  */
 export const manpowerNextBatchHtml = (args: {
@@ -31,7 +31,7 @@ export const manpowerNextBatchHtml = (args: {
   // agrees with the Chronicle's "next batch in 3m" (first-15 playtest 2026-11-28).
   const skipped = (state: string): string =>
     args.nextRefillAtMs === undefined ? state : `${state} · batch in ${formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now()))} adds nothing`;
-  if (args.manpower > args.manpowerCap) return callout(skipped("Over cap"), `+${Math.floor(args.manpower - args.manpowerCap).toLocaleString("en-US")}`, "full");
+  if (args.manpower > args.manpowerCap) return callout(skipped("Reserve"), `+${Math.floor(args.manpower - args.manpowerCap).toLocaleString("en-US")}`, "full");
   if (args.manpower >= args.manpowerCap) return callout(skipped("Manpower"), "Full", "full");
   if (!(args.manpowerRegenPerMinute > 0) && !(args.nextBatchAmount && args.nextBatchAmount > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";

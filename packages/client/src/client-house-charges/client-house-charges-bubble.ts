@@ -17,6 +17,7 @@
 // Show on map left the panel open over the map). It replaced a one-time alert card that other alerts could
 // bury (owner, 2026-11-18). The flags are kept per account and deal in localStorage; a keep the server
 // already confirmed also counts as seen. Taps on the bubble never reach the map or controls under it.
+import { hudExplainAttr, interceptHudExplainTap } from "../client-hud-explain/client-hud-explain.js";
 import { HOUSE_CHARGES_KEPT, type HouseChargeView, type HouseChargesPayload } from "@border-empires/shared";
 // Shared pieces first, so the bubble's own rules come after them.
 import { houseChargeCardBackHtml } from "./client-house-charge-cards.js";
@@ -143,7 +144,7 @@ export const houseChargesDockHtml = (payload: HouseChargesPayload, showPointer: 
     ? `<div class="hcb-pointer sp-callout sp-callout-tail-left" role="status">Charges live here</div>`
     : "";
   const pointing = !focused && showPointer ? " is-pointing" : "";
-  return `<button type="button" class="hcb-orb is-docked${pointing}" data-hcb-action="open" aria-label="Your House charges: ${held} of ${kept.length} held">${focused ? cardsWithFaceHtml(focused) : CARDS_HTML}<span class="hcb-badge" aria-hidden="true">${held}/${kept.length}</span></button>${note}`;
+  return `<button type="button" class="hcb-orb is-docked${pointing}" data-hcb-action="open"${hudExplainAttr("charges")} aria-label="Your House charges: ${held} of ${kept.length} held">${focused ? cardsWithFaceHtml(focused) : CARDS_HTML}<span class="hcb-badge" aria-hidden="true">${held}/${kept.length}</span></button>${note}`;
 };
 
 export const houseChargesBubbleHtml = (payload: HouseChargesPayload): string => {
@@ -152,7 +153,7 @@ export const houseChargesBubbleHtml = (payload: HouseChargesPayload): string => 
         <button type="button" class="hcb-speech-open" data-hcb-action="open">Your House has handed you ${count} sealed charges. Keep ${HOUSE_CHARGES_KEPT}. <span class="hcb-speech-cta">See charges ›</span></button>
 ${closeHtml}
       </div>`;
-  return `<button type="button" class="hcb-orb" data-hcb-action="open" aria-label="Open your ${count} sealed House charges">${CARDS_HTML}</button>${speech}`;
+  return `<button type="button" class="hcb-orb" data-hcb-action="open"${hudExplainAttr("charges")} aria-label="Open your ${count} sealed House charges">${CARDS_HTML}</button>${speech}`;
 };
 
 export type HouseChargesBubbleState = {
@@ -178,6 +179,8 @@ const onBubbleClick = (ev: MouseEvent): void => {
   ev.stopPropagation();
   const action = (ev.target as Element | null)?.closest("[data-hcb-action]")?.getAttribute("data-hcb-action");
   if (!current) return;
+  // The cards explain "sealed charges" in one line on their first tap (client-hud-explain.ts).
+  if (ev.target instanceof Element && interceptHudExplainTap(ev.target)) return;
   const { state, payload, nowMs, overUi, openCharges, refreshMap } = current;
   const me = state.me ?? "";
   if (action === "dismiss-speech") {

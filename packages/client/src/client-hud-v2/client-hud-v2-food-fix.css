@@ -1,0 +1,18 @@
+/* The one-tap FOOD fix beside a red FOOD warning (primaryFoodFix, client-hud-v2-food-shortage.ts). */
+.hud-v2-food-short-row { display: flex; align-items: center; gap: 6px; padding-right: 10px; }
+.hud-v2-food-short-row > .hud-v2-food-short { flex: 1 1 auto; min-width: 0; }
+.hud-v2-food-fix {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--v2-gold, #d9a84a);
+  background: rgba(217, 168, 74, 0.14);
+  color: var(--v2-gold-hi, #ffe9b0);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hud-v2-food-fix:hover { background: rgba(217, 168, 74, 0.28); }
+.v2t-food-fix { margin-top: 6px; }
+body.hud-v2-compact .hud-v2-food-fix { min-height: var(--v2c-touch, 44px); }

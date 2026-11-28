@@ -9,6 +9,7 @@ import { pushBackEntry, type BackHandle } from "./client-hud-v2-back.js";
 import { createHudV2Sheet, type HudV2Sheet } from "./client-hud-v2-sheet.js";
 import { buildSlotsHtml, formatRemaining, trackerHtml, trackerNeeds, type TrackerInput } from "./client-hud-v2-tracker.js";
 import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
+import { hudExplainAttr } from "../client-hud-explain/client-hud-explain.js";
 import { foodShortageSteps, foodStepActionAttrs } from "./client-hud-v2-food-shortage.js";
 import { nextStepActionAttrs } from "./client-hud-v2-next-step.js";
 
@@ -77,7 +78,7 @@ export const trackerSummaryHtml = (input: TrackerInput): string => {
     // Idle: "Next" takes Dev's place on the one folded line (shorter than "Dev 0/3", so the phone HUD never
     // grows); the steps themselves are behind the tap that unfolds the tracker. Busy slots keep their count,
     // and "Next" follows it only while manpower or coin is low (the only busy-slot next steps).
-    needs === 0 && busy === 0 && next ? "" : `<span title="${DEV_SLOTS_HINT}">Dev ${busy}/${limit}</span>`,
+    needs === 0 && busy === 0 && next ? "" : `<span title="${DEV_SLOTS_HINT}"${hudExplainAttr("dev")}>Dev ${busy}/${limit}</span>`,
     // With an action, "Next ›" is its own button beside this line (below), not a part of the fold toggle.
     needs === 0 && next && !nextAction ? `<b class="v2c-track-next" title="${esc(next)}">Next ›</b>` : "",
     input.flags.length > 0 ? `⚑ ${input.flags.length}` : "",

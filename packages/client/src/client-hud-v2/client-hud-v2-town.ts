@@ -19,6 +19,7 @@ import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action
 import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
+import { foodFixButtonHtml } from "./client-hud-v2-food-shortage.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { townFocusCardHtml, type TownFocusCardExtras } from "./client-hud-v2-town-focus.js";
@@ -56,6 +57,8 @@ export type TownScreenInput = {
   plotGarrison?: TownPlotGarrison | undefined;
   /** Live prefs: the checkbox is read from these each render, not from the view snapshot taken when the screen opened. */
   autoSettle?: ClientAutoSettleState;
+  /** The one-tap FOOD fix's label (client-food-fix-store.ts): offered under an unfed town's paused growth. */
+  foodFixLabel?: string | undefined;
   /** Dormancy lookup (state.dormantStructures), so a building without its upkeep slot reads Dormant, not Active. */
   dormantResourcesFor?: DormantResourcesFor;
   /** The live status of a refinery standing on the selected tile, for its Gives line. */
@@ -158,7 +161,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
       <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${esc(character)}</span></span>
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
-    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.paused ? growth.eta : townGrowthEtaPrecise(town))}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
+    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.paused ? growth.eta : townGrowthEtaPrecise(town))}</span><span>${esc(growth.rate)}</span></div>` : ""}${town.isFed === false && input.foodFixLabel ? foodFixButtonHtml(input.foodFixLabel, "v2t-food-fix") : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}${input.plotsHtml ?? ""}</div>
     ${focusCard}
     <div class="v2t-h">Town bonuses</div>${biota.rowHtml}${modifiers}

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HouseChargeView, HouseChargesPayload } from "@border-empires/shared";
+import { resetHudExplainForTests } from "../client-hud-explain/client-hud-explain.js";
 import { HOUSE_CHARGES_POINTER_MS, houseChargesUnhandled, resetHouseChargesBubbleForTests, syncHouseChargesBubble } from "./client-house-charges-bubble.js";
 
 const charge = (id: string): HouseChargeView => ({
@@ -47,8 +48,13 @@ describe("sealed charges bubble", () => {
 
   it("tapping the cards opens the Charges panel and the bubble does not come back; the cards dock instead", () => {
     const open = vi.fn();
+    resetHudExplainForTests();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: null }, 2_000, false, open);
+    // The cards' first tap explains "sealed charges" in one line (first-15 playtest 2026-11-28); its Open opens them.
     root()!.querySelector<HTMLButtonElement>(".hcb-orb")!.click();
+    expect(open).not.toHaveBeenCalled();
+    expect(document.getElementById("hud-explain-callout")?.textContent).toContain("Sealed charges:");
+    document.querySelector<HTMLButtonElement>("#hud-explain-callout .hud-explain-open")!.click();
     expect(open).toHaveBeenCalledOnce();
     syncHouseChargesBubble({ houseCharges: deal, activePanel: "charges" }, 2_500, false, open);
     expect(root()).toBeNull();

@@ -112,9 +112,12 @@ self-contained and fair.
   Houses filling the map.
 - **Join at any time, with an honest warning.** A player can join a running
   contest whenever a viable landing site exists. The join screen states the
-  day of the contest, the manpower bonus they land with, and that difficulty
-  is high: they will have to fight tooth and nail to hold ground. They can
-  choose to wait for the next contest instead.
+  day of the contest, the manpower bonus they land with, and how hard landing
+  is now. They can choose to wait for the next contest instead.
+  *Changed 2026-11-28 (owner, first-15 playtest):* difficulty is no longer
+  always "high". It is rated low, moderate or high from the contest's day and
+  the largest House's size, each with one terse line; only moderate and high
+  suggest waiting.
 - **No landing site, no join.** If the map has no viable site, joining is
   closed and the player's place in the next contest is reserved.
   *Decided 2026-11-27 (owner):* a viable site is one whose opening reach is
@@ -316,8 +319,8 @@ baseline.
   - Before: a new player was sent into a running contest with no warning, and
     on a full map was landed inside a rival's reach, owning little more than
     their landing site. Nobody was ever told the map was full.
-  - Now, as §6 says: the join card states the day, the extra manpower and that
-    difficulty is high, with the choice to wait. With no viable landing site,
+  - Now, as §6 says: the join card states the day, the extra manpower and the
+    difficulty (rated from real contest state since 2026-11-28), with the choice to wait. With no viable landing site,
     joining is closed and the player is put on the next-Sector waitlist as
     their reserved place.
   - "Viable" keeps the rule the code already had: a site whose opening reach is

@@ -4,7 +4,7 @@ import { LANDING_MANPOWER_RESERVE, landingManpowerReserve } from "@border-empire
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { applySeasonFullError } from "../client-season-full-error.js";
 import { applySeasonErrorCodes } from "../client-join-season-errors/client-season-error-codes.js";
-import { applyInitJoinScreenFields, lateJoinFacts } from "./client-join-season-late-join.js";
+import { applyInitJoinScreenFields, contestDifficulty, lateJoinFacts, lateJoinWarningHtml, leaderTilesFrom } from "./client-join-season-late-join.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -22,6 +22,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonStartedAt: 0,
   singleContest: false,
   joinSeasonClosedMessage: "",
+  leaderboard: { overall: [], byTiles: [] },
   ...overrides
 });
 
@@ -50,9 +51,9 @@ describe("lateJoinFacts", () => {
 describe("honest join card (GDD §6)", () => {
   beforeEach(() => document.body.classList.remove("season-lobby-active"));
 
-  it("states the day, the landing manpower and high difficulty, and offers waiting instead (regression: players were sent straight in)", () => {
+  it("states the day, the landing manpower and difficulty, and offers waiting instead (regression: players were sent straight in)", () => {
     const now = Date.now();
-    const state = makeState({ seasonStartedAt: now - 2 * DAY_MS - 60_000 });
+    const state = makeState({ seasonStartedAt: now - 2 * DAY_MS - 60_000, leaderboard: { overall: [{ tiles: 820 }], byTiles: [] } });
     const joinSeason = vi.fn(() => true);
 
     const overlayEl = render(state, joinSeason);
@@ -63,7 +64,7 @@ describe("honest join card (GDD §6)", () => {
     expect(text).toContain("day 3");
     expect(text).toMatch(/You land with [\d,]+ extra manpower/);
     expect(text).toContain("Difficulty: high");
-    expect(text).toContain("tooth and nail");
+    expect(text).toContain("The largest House holds 820 tiles.");
     expect(overlayEl.querySelector("#join-season-wait")?.textContent).toBe("Wait for the next contest");
   });
 
@@ -84,10 +85,53 @@ describe("honest join card (GDD §6)", () => {
     expect(overlayEl.textContent).not.toContain("next Sector Contest");
   });
 
+  // First-15 playtest 2026-11-28: every running contest read "Difficulty: high … fight tooth and nail", even on day 1.
+  it("calls a young contest with small leaders low, not high, and does not push waiting", () => {
+    const overlayEl = render(makeState({ seasonStartedAt: Date.now() - 60_000, leaderboard: { overall: [{ tiles: 40 }], byTiles: [] } }));
+    const text = overlayEl.textContent ?? "";
+    expect(text).toContain("Difficulty: low.");
+    expect(text).not.toContain("Difficulty: high");
+    expect(text).not.toContain("tooth and nail");
+    expect(text).not.toContain("wait for the next Sector Contest");
+  });
+
   it("still warns about difficulty when the start time is unknown", () => {
     const overlayEl = render(makeState());
     expect(overlayEl.textContent).toContain("Difficulty: high");
     expect(overlayEl.textContent).not.toContain("day ");
+  });
+});
+
+describe("contestDifficulty", () => {
+  it("rates by the largest House's tiles when known", () => {
+    expect(contestDifficulty(1, 40)).toBe("low");
+    expect(contestDifficulty(1, 150)).toBe("moderate");
+    expect(contestDifficulty(2, 499)).toBe("moderate");
+    expect(contestDifficulty(2, 500)).toBe("high");
+  });
+
+  it("never calls an old contest low, even with small leaders", () => {
+    expect(contestDifficulty(8, 40)).toBe("moderate");
+  });
+
+  it("falls back to the day without a leaderboard, and to high with neither", () => {
+    expect(contestDifficulty(1, undefined)).toBe("low");
+    expect(contestDifficulty(3, undefined)).toBe("moderate");
+    expect(contestDifficulty(8, undefined)).toBe("high");
+    expect(contestDifficulty(undefined, undefined)).toBe("high");
+  });
+
+  it("reads the largest House from either leaderboard list", () => {
+    expect(leaderTilesFrom({ overall: [{ tiles: 12 }, { tiles: 90 }], byTiles: [{ value: 75 }] })).toBe(90);
+    expect(leaderTilesFrom({ overall: [], byTiles: [{ value: 75 }] })).toBe(75);
+    expect(leaderTilesFrom({ overall: [], byTiles: [] })).toBeUndefined();
+    expect(leaderTilesFrom(undefined)).toBeUndefined();
+  });
+
+  it("says one short line per level", () => {
+    const facts = { day: 4, landingManpower: 2_000, catchUp: 0 };
+    expect(lateJoinWarningHtml(facts, false, 300)).toContain("<strong>Difficulty: moderate.</strong> The largest House holds 300 tiles. Expect border fights.");
+    expect(lateJoinWarningHtml(facts, false, 900)).toContain("Expect to fight to hold ground.");
   });
 });
 

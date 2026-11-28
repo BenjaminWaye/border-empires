@@ -15,6 +15,7 @@ import { townPlotsCardHtml } from "./client-hud-v2-town-plots-card.js";
 import { BUILD_PLACED_FLASH_MS, buildPlacedPresses, nextPlaceFlash, placeButtonState, type PlaceFlash } from "../client-queue-logic/client-build-placed-feedback.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
+import { foodFixLabel } from "../client-food-fix/client-food-fix-store.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions, type TownGarrisonState } from "./client-hud-v2-town.js";
@@ -128,6 +129,7 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     dormantResourcesFor: (tile, field) => dormantResourcesForTile(deps.state, tile, field),
     refineryStatusOf: (tile) => refineryStatusFor(deps.state, tile),
     plotsHtml: townPlotsCardHtml(deps.state, town),
+    foodFixLabel: foodFixLabel(),
     biota,
     ...(deps.state.me ? { me: deps.state.me, focusExtras: townFocusExtras(deps.state, towns, townKey) } : {}),
     ...(biota && biota.received < biota.needed ? { biotaSteps: townBiotaSteps(deps.state, town, townKey) } : {}),
