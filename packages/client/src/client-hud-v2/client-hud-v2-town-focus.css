@@ -170,6 +170,10 @@ body.hud-v2-compact .v2tf-rule { display: none; }
 .v2lf-confirm { padding: 0; cursor: pointer; color: #0b0a07; background: var(--v2tf-accent); border: 1px solid var(--v2tf-accent); }
 .v2lf-confirm:hover { filter: brightness(1.12); }
 .v2lf-confirm:focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 1px; }
+/* "✓ Lock 3h 58m": the confirm says how long the change locks the town (owner, First-15 round 1). */
+.v2lf-end.v2lf-confirm-wide { width: auto; padding: 0 8px; gap: 4px; display: inline-flex; align-items: center; white-space: nowrap; }
+.v2lf-confirm-lock { font-size: 11px; font-weight: 700; }
+body.hud-v2-compact .v2lf-end.v2lf-confirm-wide { width: auto; }
 .v2l-previewing .v2l-num { color: var(--v2-gold-hi); }
 .v2lf-bar { display: grid; gap: 8px; padding: 2px 10px 12px; border-bottom: 1px solid var(--v2-line); }
 .v2lf-bar-label { display: grid; gap: 2px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); text-transform: uppercase; }

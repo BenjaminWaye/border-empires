@@ -47,7 +47,7 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort, 
       <span class="v2l-num" title="Open build slots">${formatOpenSlots(row.openSlots)}</span>
     </button>`;
     const key = `${row.x},${row.y}`;
-    return focus ? `<div class="v2l-item">${rowHtml}${townsFocusCellHtml(key, focus.byKey.get(key))}</div>` : rowHtml;
+    return focus ? `<div class="v2l-item">${rowHtml}${townsFocusCellHtml(key, focus.byKey.get(key), focus.lockForMs)}</div>` : rowHtml;
   }).join("");
   const headHtml = `<div class="v2l-head"><span>Town</span>${head}</div>`;
   return focus

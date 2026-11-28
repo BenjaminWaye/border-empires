@@ -111,12 +111,16 @@ const empireText = (card: TownFocusCard, extras: TownFocusCardExtras): string =>
   return `<span class="v2tf-empire" title="${esc(title)}"><span class="v2tf-empire-default">${empireLine(card, extras, picked, picked !== undefined)}</span>${variants}</span>`;
 };
 
-/** Confirm for a previewed focus, or why the town cannot change: locked until the refill after its last change. */
+/**
+ * Confirm for a previewed focus, or why the town cannot change: locked until the refill after its last change.
+ * Confirm says how long the lock lasts ("Confirm Levy · locks 3h 58m"): players learned of the lock only after
+ * confirming (owner, First-15 round 1).
+ */
 const confirmHtml = (card: TownFocusCard, extras: TownFocusCardExtras): string => {
   const picked = previewed(card, extras);
   if (card.lockedInMs > 0) return `<span class="v2tf-lock" title="A town's focus can change once per refill">Locked until next refill · <b>${esc(until(card.lockedInMs))}</b></span>`;
   if (!picked) return "";
-  return `<button type="button" class="v2tf-confirm v2tf-f-${key(picked)}" data-v2-town-focus-confirm="${picked}" title="Switch to ${esc(townFocusName(picked))} within a minute. The focus then stays until your next refill, in ${esc(until(card.nextRefillInMs))}.">Confirm ${esc(townFocusName(picked))}</button>`;
+  return `<button type="button" class="v2tf-confirm v2tf-f-${key(picked)}" data-v2-town-focus-confirm="${picked}" title="Switch to ${esc(townFocusName(picked))} within a minute. The focus then stays until your next refill, in ${esc(until(card.nextRefillInMs))}.">Confirm ${esc(townFocusName(picked))}<span class="v2tf-confirm-lock"> · locks ${esc(until(card.nextRefillInMs))}</span></button>`;
 };
 
 const statusLine = (card: TownFocusCard, extras: TownFocusCardExtras): string => {

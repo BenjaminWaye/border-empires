@@ -31,6 +31,12 @@ describe("Town focus card (town screen)", () => {
     expect(townFocusCardHtml(card())).not.toContain("data-v2-town-focus-confirm");
   });
 
+  // Owner, First-15 round 1: players learned the focus locks for hours only after confirming.
+  it("says on Confirm how long the change locks the town", () => {
+    const html = townFocusCardHtml(card(), { selected: "LEVY" });
+    expect(html).toMatch(/>Confirm Levy<span class="v2tf-confirm-lock"> · locks 1h 37m<\/span><\/button>/);
+  });
+
   it("shows the lock instead of Confirm while the town is locked", () => {
     const html = townFocusCardHtml({ ...card(), lockedInMs: 72 * 60_000 }, { selected: "LEVY" });
     expect(html).toContain("Locked until next refill · <b>1h 12m</b>");

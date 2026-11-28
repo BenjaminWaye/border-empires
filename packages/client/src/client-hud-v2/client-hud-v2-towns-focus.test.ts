@@ -10,6 +10,18 @@ describe("Towns list focus column", () => {
     expect(html).toContain('data-v2-towns-focus-confirm="4,2"');
   });
 
+  // Owner, First-15 round 1: the ✓ committed a lock of hours without saying so.
+  it("says on the row's confirm how long the change locks the town", () => {
+    const html = townsFocusCellHtml("4,2", s({ selected: "COMMERCE" }), (3 * 60 + 58) * 60_000);
+    expect(html).toContain('<span class="v2lf-confirm-lock">Lock 3h 58m</span>');
+    expect(html).toContain("stays until your next refill, in 3h 58m");
+  });
+
+  it("says how long Set every town locks the towns on its confirming press", () => {
+    const byKey = new Map([["1,0", s()], ["2,0", s()]]);
+    expect(townsFocusBarHtml({ byKey, confirmAll: "LEVY", lockForMs: 37 * 60_000 }, 2)).toContain("Again: 2 → Levy · locks 37m");
+  });
+
   it("disables a locked town's icons and says when it frees up", () => {
     const html = townsFocusCellHtml("4,2", s({ lockedInMs: 37 * 60_000 }));
     expect(html.match(/ disabled /g)).toHaveLength(4);
