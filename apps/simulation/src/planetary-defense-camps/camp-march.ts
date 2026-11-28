@@ -10,8 +10,13 @@
 // march by COMMAND_ACCEPTED (it goes to the barbarian player alone) and an
 // EXPAND into neutral land raises no ATTACK_ALERT. So that players can watch
 // the soldiers walk, every human with the game open who can see the camp,
-// the launch tile or the target gets an INSURGENT_MARCH message
-// (client-insurgent-march/ draws it in both renderers).
+// the launch tile or the target as the company sets out gets an
+// INSURGENT_MARCH message (client-insurgent-march/ draws it in both
+// renderers). A viewer is told the target only if they can see it, so the
+// message never points at a fogged House tile. The route is sent whole: it is
+// the company's own walk out of its camp, at most MUSTER_TRANSIT_MAX_TILES
+// steps through ground next to what the viewer sees, and the client needs all
+// of it to place the company on the right step at the right time.
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MusterTransitRoute, TransitPoint } from "@border-empires/shared";
 
@@ -45,7 +50,9 @@ export const campMarchOrigin = (
   // A camp's id is its camp tile's key.
   const campId = tiles.get(originKey)?.campId;
   const camp = campId ? tiles.get(campId) : undefined;
-  return camp ? { x: camp.x, y: camp.y } : undefined;
+  // Only a standing camp: in the moment between a House taking the camp tile
+  // and the camp's land collapsing, its land still carries the campId.
+  return camp?.ownerId === actorId && camp.ownershipState === "SETTLED" ? { x: camp.x, y: camp.y } : undefined;
 };
 
 export type CampMarchBroadcastDeps = {
@@ -56,7 +63,26 @@ export type CampMarchBroadcastDeps = {
   emitPlayerMessage: (command: { commandId: string; playerId: string }, payload: Record<string, unknown>) => void;
 };
 
-export const insurgentMarchPayload = (march: CampMarch): Record<string, unknown> => ({
+/** The runtime's side of the broadcast (runtime.ts frontierCommandContext). */
+export type CampMarchBroadcasterHost = {
+  players: ReadonlyMap<string, { readonly isAi?: boolean | undefined }>;
+  isPlayerSubscribed: (playerId: string) => boolean;
+  isVisible: (playerId: string, x: number, y: number) => boolean;
+  emitPlayerMessage: (command: { commandId: string; playerId: string }, payload: Record<string, unknown>) => void;
+};
+
+/** The frontier command's onCampMarch hook, built from the runtime's players, subscriptions and vision. */
+export const campMarchBroadcaster = (host: CampMarchBroadcasterHost) => (march: CampMarch): void => {
+  broadcastCampMarch({
+    playerIds: () => host.players.keys(),
+    isHumanOnline: (id) => !host.players.get(id)?.isAi && host.isPlayerSubscribed(id),
+    isVisible: host.isVisible,
+    emitPlayerMessage: host.emitPlayerMessage
+  }, march);
+};
+
+/** The message for one viewer; `seesTarget` false leaves the target out. */
+export const insurgentMarchPayload = (march: CampMarch, seesTarget = true): Record<string, unknown> => ({
   type: INSURGENT_MARCH_MESSAGE_TYPE,
   commandId: march.commandId,
   actionType: march.actionType,
@@ -64,8 +90,7 @@ export const insurgentMarchPayload = (march: CampMarch): Record<string, unknown>
   campY: march.camp.y,
   fromX: march.from.x,
   fromY: march.from.y,
-  toX: march.to.x,
-  toY: march.to.y,
+  ...(seesTarget ? { toX: march.to.x, toY: march.to.y } : {}),
   // How long the march takes; the client starts the company this long before transitEndsAt.
   marchMs: march.route.transitMs,
   // [kind, ...] legs: WALK as its tile points, SAIL as dock and landing; legMs in the same order.
@@ -78,14 +103,16 @@ export const insurgentMarchPayload = (march: CampMarch): Record<string, unknown>
 
 /** Sends the march to every online human who can see the camp, the launch tile or the target. Returns how many. */
 export const broadcastCampMarch = (deps: CampMarchBroadcastDeps, march: CampMarch): number => {
-  const payload = insurgentMarchPayload(march);
   // Its own id, so the gateway never files the message under the insurgent command itself.
   const commandId = `${march.commandId}:insurgent-march`;
+  let withTarget: Record<string, unknown> | undefined;
+  let withoutTarget: Record<string, unknown> | undefined;
   let sent = 0;
   for (const playerId of deps.playerIds()) {
     if (playerId.startsWith("barbarian-") || !deps.isHumanOnline(playerId)) continue;
-    const sees = [march.camp, march.from, march.to].some((point) => deps.isVisible(playerId, point.x, point.y));
-    if (!sees) continue;
+    const seesTarget = deps.isVisible(playerId, march.to.x, march.to.y);
+    if (!seesTarget && !deps.isVisible(playerId, march.camp.x, march.camp.y) && !deps.isVisible(playerId, march.from.x, march.from.y)) continue;
+    const payload = seesTarget ? (withTarget ??= insurgentMarchPayload(march, true)) : (withoutTarget ??= insurgentMarchPayload(march, false));
     deps.emitPlayerMessage({ commandId, playerId }, payload);
     sent += 1;
   }

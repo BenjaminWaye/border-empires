@@ -195,7 +195,7 @@ export function syncMusterTransitOverlay(
   // armor, along the exact route the server timed (sent with the march). The
   // server tells every player who can see the march, not only the House
   // under attack.
-  for (const march of activeInsurgentMarches(nowEpochMs)) {
+  for (const march of activeInsurgentMarches(nowEpochMs, (x, y) => state.tiles.get(keyFor(x, y))?.ownerId)) {
     addRoutedMarch(march.campX, march.campY, march.fromX, march.fromY, march.startAt, march.transitEndsAt, undefined, { route: march.route, color: PLANETARY_DEFENSE_ARMOR_COLOR, gear: "none" });
   }
 

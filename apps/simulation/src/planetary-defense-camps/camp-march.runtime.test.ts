@@ -4,7 +4,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
-import { INSURGENT_MARCH_MESSAGE_TYPE } from "./camp-march.js";
+import { INSURGENT_MARCH_MESSAGE_TYPE, campMarchOrigin } from "./camp-march.js";
 
 // REGRESSION: a Planetary Defense ATTACK or EXPAND launched from the far edge
 // of a camp's land started at once, as if its soldiers were already standing
@@ -23,14 +23,19 @@ const seeds: Seed[] = [
   { x: 73, y: 70, ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "70,70" },
   { x: 74, y: 70, ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 500, mode: "HOLD", updatedAt: 0 } },
   { x: 75, y: 70, ownerId: "player-1", ownershipState: "SETTLED" },
-  { x: 73, y: 71 }
+  { x: 73, y: 71 },
+  // offline-1 sits right beside the target, so only being offline keeps it from the march.
+  { x: 74, y: 71, ownerId: "offline-1", ownershipState: "SETTLED" },
+  // observer-1 (online) sees the camp but not the target four tiles east.
+  { x: 69, y: 70, ownerId: "observer-1", ownershipState: "SETTLED" }
 ];
 
 const buildRuntime = (world: Seed[] = seeds) => {
   const players = new Map([
     ["barbarian-1", buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })],
     ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000 })],
-    ["offline-1", buildPlayer("offline-1", { points: 1_000, manpower: 1_000 })]
+    ["offline-1", buildPlayer("offline-1", { points: 1_000, manpower: 1_000 })],
+    ["observer-1", buildPlayer("observer-1", { points: 1_000, manpower: 1_000 })]
   ]);
   const runtime = new SimulationRuntime({
     now: () => NOW,
@@ -38,7 +43,7 @@ const buildRuntime = (world: Seed[] = seeds) => {
     scheduleAfter: (delayMs, task) => {
       if (delayMs <= 0) queueMicrotask(task);
     },
-    isPlayerSubscribed: (id) => id === "player-1",
+    isPlayerSubscribed: (id) => id === "player-1" || id === "observer-1",
     initialPlayers: players,
     seedTiles: new Map(),
     initialState: { tiles: world.map((seed) => ({ terrain: "LAND" as const, ...seed })), activeLocks: [] }
@@ -78,7 +83,7 @@ describe("Planetary Defense companies march out of their camp", () => {
   it("tells online players who can see it, and nobody offline, so they can watch the company walk", async () => {
     const { runtime, events } = buildRuntime();
     await submitBarbarian(runtime, "EXPAND", [73, 70], [73, 71]);
-    const sent = marches(events);
+    const sent = marches(events).filter((e) => e.playerId !== "observer-1");
     expect(sent.map((e) => e.playerId)).toEqual(["player-1"]);
     expect(JSON.parse(sent[0]!.payloadJson)).toMatchObject({
       type: INSURGENT_MARCH_MESSAGE_TYPE, actionType: "EXPAND", campX: 70, campY: 70, fromX: 73, fromY: 70, toX: 73, toY: 71,
@@ -110,6 +115,30 @@ describe("Planetary Defense companies march out of their camp", () => {
     expect(points).not.toContainEqual([71, 70]);
     expect(payload.legMs).toEqual([payload.marchMs]);
     expect(accepted(events)!.transitEndsAt).toBe(NOW + payload.marchMs);
+  });
+
+  // Review regression: every viewer got the target's coordinates, so a player
+  // who could see only the camp learned which fogged House tile was about to be hit.
+  it("tells a viewer the target only if they can see it", async () => {
+    const { runtime, events } = buildRuntime();
+    await submitBarbarian(runtime, "ATTACK", [73, 70], [74, 70]);
+    const byPlayer = new Map(marches(events).map((e) => [e.playerId, JSON.parse(e.payloadJson)]));
+    expect(byPlayer.get("observer-1")).toMatchObject({ campX: 70, campY: 70 });
+    expect(byPlayer.get("observer-1")).not.toHaveProperty("toX");
+    expect(byPlayer.get("player-1")).toMatchObject({ toX: 74, toY: 70 });
+  });
+
+  // Review regression: right after a House took the camp tile, its land still
+  // carried the campId, and an action from it was timed (and drawn) as
+  // marching out of a camp the House now held.
+  it("a camp tile a House has taken is no march origin", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["70,70", { x: 70, y: 70, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+      ["72,70", { x: 72, y: 70, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "70,70" }]
+    ]);
+    expect(campMarchOrigin("barbarian-1", tiles, "72,70")).toBeUndefined();
+    tiles.set("70,70", { x: 70, y: 70, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED", campId: "70,70" });
+    expect(campMarchOrigin("barbarian-1", tiles, "72,70")).toEqual({ x: 70, y: 70 });
   });
 
   it("a House's own attack has no camp march", async () => {

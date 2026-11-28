@@ -81,7 +81,7 @@ export function drawMusterOverlays2D(
   nowMs: number
 ): void {
   drawExpandCrews2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH);
-  drawInsurgentMarches2D(ctx, worldToScreen, size, halfW, halfH);
+  drawInsurgentMarches2D(ctx, worldToScreen, size, halfW, halfH, { ownerAt: (x, y) => state.tiles.get(keyFor(x, y))?.ownerId });
   drawMusterSupplyLines2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawDockLandings2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH, nowMs);

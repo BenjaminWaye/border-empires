@@ -85,6 +85,32 @@ describe("insurgent marches", () => {
     expect(activeInsurgentMarches(16_000)).toHaveLength(0);
   });
 
+  // Review regressions: no viewer is told when an insurgent action is
+  // cancelled, so a march whose camp or launch tile a House took kept walking
+  // (and kept hiding the 3D skirmish on its target) until its arrival time.
+  it("drops a march once a House holds its camp or launch tile", () => {
+    recordInsurgentMarch(message(), 10_000);
+    const owners = new Map<string, string>([["70,70", "barbarian-1"], ["73,70", "barbarian-1"]]);
+    const ownerAt = (x: number, y: number) => owners.get(`${x},${y}`);
+    expect(activeInsurgentMarches(12_000, ownerAt)).toHaveLength(1);
+    expect(insurgentMarchToTileUnderWay(74, 70, 12_000, ownerAt)).toBe(true);
+    owners.set("73,70", "player-1");
+    expect(insurgentMarchToTileUnderWay(74, 70, 12_000, ownerAt)).toBe(false);
+    expect(activeInsurgentMarches(12_000, ownerAt)).toHaveLength(0);
+  });
+
+  it("records no march when the camp launches from its own tile (both renderers then show the camp's patrol)", () => {
+    expect(recordInsurgentMarch(message({ fromX: 70, legs: [{ kind: "WALK", points: [[70, 70]] }] }), 10_000)).toBeUndefined();
+    expect(activeInsurgentMarches(11_000)).toHaveLength(0);
+  });
+
+  it("accepts a march whose target the viewer can't see", () => {
+    const march = recordInsurgentMarch(message({ toX: undefined, toY: undefined }), 10_000)!;
+    expect(march).toBeDefined();
+    expect(march.toX).toBeUndefined();
+    expect(insurgentMarchPose(march, 13_000)).toMatchObject({ kind: "WALK", x: 71.5 });
+  });
+
   it("holds the defender's skirmish only while the company is on the road", () => {
     recordInsurgentMarch(message(), 10_000);
     expect(insurgentMarchToTileUnderWay(74, 70, 12_000)).toBe(true);
@@ -100,14 +126,14 @@ describe("insurgent marches", () => {
       fillStyle: "", strokeStyle: "", lineWidth: 1, lineCap: "butt"
     } as unknown as CanvasRenderingContext2D;
     const worldToScreen = vi.fn((x: number, y: number, size: number) => ({ sx: x * size, sy: y * size }));
-    drawInsurgentMarches2D(ctx, worldToScreen, 20, 0, 0, 13_000, false);
+    drawInsurgentMarches2D(ctx, worldToScreen, 20, 0, 0, { nowEpochMs: 13_000, animate: false });
     // Three soldiers, each a helmet arc, near the halfway point (71.5, 70).
     expect(ctx.arc).toHaveBeenCalledTimes(3);
     const lead = vi.mocked(ctx.arc).mock.calls[0]!;
     expect(lead[0]).toBeCloseTo(71.5 * 20, 5);
     // Too small to read: nothing drawn.
     vi.mocked(ctx.arc).mockClear();
-    drawInsurgentMarches2D(ctx, worldToScreen, 8, 0, 0, 13_000, false);
+    drawInsurgentMarches2D(ctx, worldToScreen, 8, 0, 0, { nowEpochMs: 13_000, animate: false });
     expect(ctx.arc).not.toHaveBeenCalled();
   });
 });

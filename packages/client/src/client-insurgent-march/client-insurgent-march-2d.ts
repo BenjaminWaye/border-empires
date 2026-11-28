@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
 import { drawSoldierGlyph2D } from "../client-map-render/client-map-render-planetary-defense-overlay.js";
-import { activeInsurgentMarches, insurgentMarchPose } from "./client-insurgent-march.js";
+import { activeInsurgentMarches, insurgentMarchPose, type InsurgentMarchOwnerAt } from "./client-insurgent-march.js";
 
 // 2D-canvas side of the insurgent march (client-insurgent-march.ts): a small
 // file of dark-grey soldiers walking from the camp to the tile the attack or
@@ -25,25 +25,33 @@ const prefersReducedMotion = (): boolean => {
   return reducedMotionQuery.matches;
 };
 
+export type InsurgentMarches2DOptions = {
+  /** Epoch ms (Date.now clock, like the server's deadlines). */
+  nowEpochMs?: number;
+  animate?: boolean;
+  /** Tile owners as this client sees them, to drop a march whose camp or launch tile a House has taken. */
+  ownerAt?: InsurgentMarchOwnerAt;
+};
+
 export function drawInsurgentMarches2D(
   ctx: CanvasRenderingContext2D,
   worldToScreen: WorldToScreen,
   size: number,
   halfW: number,
   halfH: number,
-  nowEpochMs: number = Date.now(),
-  animate: boolean = !prefersReducedMotion()
+  options: InsurgentMarches2DOptions = {}
 ): void {
+  const nowEpochMs = options.nowEpochMs ?? Date.now();
+  const animate = options.animate ?? !prefersReducedMotion();
   if (size < 10) return;
-  const marches = activeInsurgentMarches(nowEpochMs);
+  const marches = activeInsurgentMarches(nowEpochMs, options.ownerAt);
   if (marches.length === 0) return;
   const glyphH = Math.max(5, size * 0.34);
   ctx.save();
   for (const march of marches) {
     const point = insurgentMarchPose(march, nowEpochMs);
-    // Launched from the camp tile itself: its patrol is already standing there.
     // At sea the troops are aboard; the 2D map has no transport to draw, so they reappear on landing.
-    if (!point || point.kind !== "WALK" || (march.campX === march.fromX && march.campY === march.fromY)) continue;
+    if (!point || point.kind !== "WALK") continue;
     // Direction of the current step, so the column trails behind its leader.
     const ux = point.dirX;
     const uy = point.dirY;

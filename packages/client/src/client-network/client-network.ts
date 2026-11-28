@@ -31,7 +31,9 @@ import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAt
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrityWithNotices } from "../client-integrity-drop/client-player-update-integrity-notices.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js"; import { recordInsurgentMarch } from "../client-insurgent-march/client-insurgent-march.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
+import { recordInsurgentMarch } from "../client-insurgent-march/client-insurgent-march.js";
+import { applyAttackAlertMessage } from "../client-attack-alert-message/client-attack-alert-message.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
@@ -1406,35 +1408,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ATTACK_ALERT") {
-      const attackerName = (msg.attackerName as string | undefined) || (msg.attackerId as string | undefined) || "Unknown attacker";
-      const x = Number(msg.x ?? -1);
-      const y = Number(msg.y ?? -1);
-      const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
-      const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
-      const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
-      const attackerId = typeof msg.attackerId === "string" ? msg.attackerId : undefined;
-      const transitEndsAt = typeof msg.transitEndsAt === "number" ? Number(msg.transitEndsAt) : undefined;
-      if (x >= 0 && y >= 0) {
-        state.incomingAttacksByTile.set(keyFor(x, y), {
-          attackerName, resolvesAt,
-          ...(attackerId !== undefined ? { attackerId } : {}), ...(fromX !== undefined ? { fromX } : {}),
-          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {}), ...(typeof msg.winChance === "number" ? { winChance: msg.winChance } : {})
-        });
-      }
-      state.unreadAttackAlerts += 1;
-      appendFeedEntry({
-        text: `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
-        type: "combat",
-        severity: "error", feedOnly: true,
-        at: Date.now(),
-        focusX: x,
-        focusY: y,
-        actionLabel: "Center"
-      });
+      applyAttackAlertMessage(msg as Record<string, unknown>, { state, keyFor, appendFeedEntry });
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; } if (msg.type === "INSURGENT_MARCH") { recordInsurgentMarch(msg); return; } // drawn by both renderers' per-frame loops
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
+    // Insurgent company marching out of its camp: drawn by both renderers' per-frame loops.
+    if (msg.type === "INSURGENT_MARCH") {
+      recordInsurgentMarch(msg as Record<string, unknown>);
+      return;
+    }
     if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
       applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();

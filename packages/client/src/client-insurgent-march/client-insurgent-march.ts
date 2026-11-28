@@ -21,8 +21,9 @@ export type InsurgentMarch = {
   campY: number;
   fromX: number;
   fromY: number;
-  toX: number;
-  toY: number;
+  /** The target; only sent to a viewer who can see it (camp-march.ts). */
+  toX?: number;
+  toY?: number;
   /** The route the server timed: walk legs, and a dock crossing if any. */
   route: MusterTransitRoute;
   /** Local clock: when the company left the camp. */
@@ -88,7 +89,11 @@ export const recordInsurgentMarch = (msg: Record<string, unknown>, nowMs: number
   const resolvesAt = num(msg.resolvesAt);
   const marchMs = num(msg.marchMs);
   const id = typeof msg.commandId === "string" ? msg.commandId : undefined;
-  if (campX === undefined || campY === undefined || fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) return undefined;
+  if (campX === undefined || campY === undefined || fromX === undefined || fromY === undefined) return undefined;
+  // Launched from the camp tile itself: nobody walks anywhere (the server
+  // still waits a one-tile floor), so the camp's patrol and the usual
+  // skirmish approach show it, in both renderers alike.
+  if (campX === fromX && campY === fromY) return undefined;
   if (transitEndsAt === undefined || resolvesAt === undefined || marchMs === undefined || !id || transitEndsAt <= nowMs) return undefined;
   pruneInsurgentMarches(nowMs);
   if (marches.size >= MAX_MARCHES && !marches.has(id)) return undefined;
@@ -101,7 +106,8 @@ export const recordInsurgentMarch = (msg: Record<string, unknown>, nowMs: number
   const march: InsurgentMarch = {
     id,
     actionType: msg.actionType === "EXPAND" ? "EXPAND" : "ATTACK",
-    campX, campY, fromX, fromY, toX, toY, route,
+    campX, campY, fromX, fromY, route,
+    ...(toX !== undefined && toY !== undefined ? { toX, toY } : {}),
     startAt: transitEndsAt - Math.max(0, marchMs),
     transitEndsAt,
     resolvesAt
@@ -110,24 +116,44 @@ export const recordInsurgentMarch = (msg: Record<string, unknown>, nowMs: number
   return march;
 };
 
-const pruneInsurgentMarches = (nowMs: number): void => {
-  for (const [id, march] of marches) if (march.transitEndsAt <= nowMs) marches.delete(id);
+/** Owner of a tile as this client last saw it; undefined when unowned or unknown. */
+export type InsurgentMarchOwnerAt = (x: number, y: number) => string | null | undefined;
+
+/**
+ * The march can't still be happening: arrived, or its camp or launch tile is
+ * now shown held by someone other than the Insurgents. The server tells no
+ * viewer when an insurgent action is cancelled; a House taking the camp or
+ * the launch tile is the case a viewer can see. (A launch tile that goes
+ * neutral is not used: an unowned tile looks the same as one whose owner this
+ * client doesn't know, so those marches simply end at their arrival time.)
+ */
+const marchIsOver = (march: InsurgentMarch, nowMs: number, ownerAt: InsurgentMarchOwnerAt | undefined): boolean => {
+  if (march.transitEndsAt <= nowMs) return true;
+  if (!ownerAt) return false;
+  const heldByOther = (ownerId: string | null | undefined): boolean => typeof ownerId === "string" && !ownerId.startsWith("barbarian");
+  return heldByOther(ownerAt(march.campX, march.campY)) || heldByOther(ownerAt(march.fromX, march.fromY));
 };
 
-/** Marches still walking at `nowMs`; arrived ones are dropped. */
-export const activeInsurgentMarches = (nowMs: number = Date.now()): InsurgentMarch[] => {
-  pruneInsurgentMarches(nowMs);
+const pruneInsurgentMarches = (nowMs: number, ownerAt?: InsurgentMarchOwnerAt): void => {
+  for (const [id, march] of marches) if (marchIsOver(march, nowMs, ownerAt)) marches.delete(id);
+};
+
+/** Marches still walking at `nowMs`; arrived or called-off ones are dropped. */
+export const activeInsurgentMarches = (nowMs: number = Date.now(), ownerAt?: InsurgentMarchOwnerAt): InsurgentMarch[] => {
+  pruneInsurgentMarches(nowMs, ownerAt);
   return [...marches.values()];
 };
 
 /**
  * True while an insurgent company is still walking out of its camp to attack
  * (x, y). The defender's skirmish and the patrol step-aside wait for it to
- * arrive, so the attackers aren't drawn both on the road and already at the front.
+ * arrive, so the attackers aren't drawn both on the road and already at the
+ * front. A called-off march (see marchIsOver) no longer holds them back.
  */
-export const insurgentMarchToTileUnderWay = (x: number, y: number, nowMs: number = Date.now()): boolean => {
+export const insurgentMarchToTileUnderWay = (x: number, y: number, nowMs: number = Date.now(), ownerAt?: InsurgentMarchOwnerAt): boolean => {
   for (const march of marches.values()) {
-    if (march.toX === x && march.toY === y && march.startAt <= nowMs && nowMs < march.transitEndsAt) return true;
+    if (march.toX !== x || march.toY !== y || march.startAt > nowMs || marchIsOver(march, nowMs, ownerAt)) continue;
+    return true;
   }
   return false;
 };

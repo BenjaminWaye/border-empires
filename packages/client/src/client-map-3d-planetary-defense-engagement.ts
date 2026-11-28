@@ -44,7 +44,7 @@ export const planetaryDefenseEngagedTileKeys = (
     if (incoming.resolvesAt <= nowEpochMs || !isPlanetaryDefenseOwnerId(incoming.attackerId)) continue;
     const target = state.tiles.get(key);
     // Still marching out of the camp (syncMusterTransitOverlay draws that, not a skirmish).
-    if (target && insurgentMarchToTileUnderWay(target.x, target.y, nowEpochMs)) continue;
+    if (target && insurgentMarchToTileUnderWay(target.x, target.y, nowEpochMs, (x, y) => state.tiles.get(keyFor(x, y))?.ownerId)) continue;
     engaged.add(key);
     if (incoming.fromX !== undefined && incoming.fromY !== undefined) mark(incoming.fromX, incoming.fromY);
   }
