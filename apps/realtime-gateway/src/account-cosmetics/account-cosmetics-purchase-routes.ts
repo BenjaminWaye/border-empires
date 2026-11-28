@@ -3,15 +3,13 @@
 // their Firebase uid; the gateway knows accounts by player id, so the uid is
 // resolved here through the auth binding store.
 //
-// These routes accept only COSMETICS_GRANT_TOKEN, a key of their own: the
-// hosting service never holds ADMIN_API_TOKEN, and this key can do nothing
-// but grant or revoke a whole shop product. Without it the routes do not exist.
-import { timingSafeEqual } from "node:crypto";
-
+// These routes accept only HOSTING_SERVICE_TOKEN (hosting-service-auth.ts),
+// never ADMIN_API_TOKEN. Without it the routes do not exist.
 import { cosmeticProduct } from "@border-empires/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import { assertHostingServiceToken, hostingServiceAuthorized } from "../hosting-service-auth/hosting-service-auth.js";
 import type { AccountCosmeticsService } from "./account-cosmetics-service.js";
 
 export type AccountCosmeticsPurchaseRouteDeps = {
@@ -20,22 +18,12 @@ export type AccountCosmeticsPurchaseRouteDeps = {
   cosmetics: Pick<AccountCosmeticsService, "grantProduct" | "revoke">;
 };
 
-/** Shorter keys are refused at start: a guessable key here would hand out paid items. */
-export const MIN_COSMETICS_GRANT_TOKEN_LENGTH = 32;
-
-const sameToken = (given: string, expected: string): boolean => {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-};
-
 export const registerAccountCosmeticsPurchaseRoutes = (app: FastifyInstance, deps: AccountCosmeticsPurchaseRouteDeps): void => {
-  if (deps.grantToken.length < MIN_COSMETICS_GRANT_TOKEN_LENGTH) throw new Error(`COSMETICS_GRANT_TOKEN must be at least ${MIN_COSMETICS_GRANT_TOKEN_LENGTH} characters`);
+  assertHostingServiceToken(deps.grantToken);
 
   /** The buyer's player id and the product, or undefined after the reply was sent. */
   const resolve = async (request: FastifyRequest, reply: FastifyReply): Promise<{ playerId: string; productId: string; grantRef: string } | undefined> => {
-    const header = typeof request.headers.authorization === "string" ? request.headers.authorization : "";
-    if (!header.startsWith("Bearer ") || !sameToken(header.slice(7), deps.grantToken)) {
+    if (!hostingServiceAuthorized(request.headers.authorization, deps.grantToken)) {
       void reply.code(401).send({ ok: false, error: "unauthorized" });
       return undefined;
     }

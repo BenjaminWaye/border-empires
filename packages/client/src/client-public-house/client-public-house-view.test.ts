@@ -55,6 +55,21 @@ describe("public House profile page", () => {
     expect(html).toContain("&lt;img src=x onerror=&quot;a&quot;&gt;");
   });
 
+  it("shows hosted contests apart from rating, marking one closed early as not finished", () => {
+    const profile = parsePublicHouseProfile({ ...body, hosted: [
+      { endedAt: Date.UTC(2026, 10, 20), rank: 2, houses: 24, finished: true },
+      { endedAt: Date.UTC(2026, 10, 10), rank: 5, houses: null, finished: false },
+      { rank: "x" }
+    ] })!;
+    expect(profile.hosted).toHaveLength(2);
+    const html = publicHouseHtml(profile);
+    expect(html).toContain("Hosted contests");
+    expect(html).toContain("Not counted toward rating.");
+    expect(html).toContain("<b>#2 of 24</b><span>Hosted sector · 20 Nov 2026</span>");
+    expect(html).toContain("<b>#5</b><span>Hosted sector · 10 Nov 2026 · not finished</span>");
+    expect(publicHouseHtml(parsePublicHouseProfile(body)!)).not.toContain("Hosted contests");
+  });
+
   it("shows empty states for a House with no finished contest", () => {
     const html = publicHouseHtml(parsePublicHouseProfile({ ok: true, name: "New" })!);
     expect(html).toContain("No finished Sector Contest yet.");

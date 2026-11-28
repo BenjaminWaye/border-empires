@@ -4,6 +4,7 @@
 // object and call this function, instead of inlining the whole ~45-line
 // literal at the call site. Also wires up the bug report alerter/routes for
 // the same reason (see bug-report-routes.ts).
+import type { HostedProfileResultsStore } from "../hosted-profile-results/hosted-profile-results-store.js";
 import { hostedStatusFromFunnel } from "../http-routes/register-hosted-status-route.js";
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
@@ -79,6 +80,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   rallyLinkStore: RallyLinkStore;
   sectorWaitlistStore?: SectorWaitlistStore;
   publicProfileLinkStore?: PublicProfileLinkStore;
+  hostedProfileResultsStore?: HostedProfileResultsStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
@@ -204,6 +206,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
+    ...(ctx.hostedProfileResultsStore ? { hostedProfileResultsStore: ctx.hostedProfileResultsStore } : {}),
     ...(ctx.publicProfileLinkStore
       ? {
           publicHouseProfile: {
@@ -213,7 +216,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             getDisplayName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name,
             ...(ctx.accountCosmetics ? { getTitle: ctx.accountCosmetics.titleOf } : {}),
             getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
-            listSeasonArchives: () => ctx.simulationClient.listSeasonArchives()
+            listSeasonArchives: () => ctx.simulationClient.listSeasonArchives(),
+            ...(ctx.hostedProfileResultsStore ? { listHostedResults: (playerId: string) => ctx.hostedProfileResultsStore!.listForPlayer(playerId, 100) } : {})
           }
         }
       : {}),

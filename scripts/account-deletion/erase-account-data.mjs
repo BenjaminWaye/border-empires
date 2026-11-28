@@ -11,7 +11,9 @@ const PERSONAL_TABLES = new Set([
   "galaxy_fleet_blueprints", "galaxy_fleet_orders", "galaxy_endorsements", "galaxy_senate_votes",
   "galaxy_court_contributions", "sector_waitlist", "public_profile_links",
   // Account cosmetics: what the account owns and shows. Deleted with the account.
-  "account_cosmetics_owned", "account_cosmetics_selected", "account_cosmetics_slot_changes"
+  "account_cosmetics_owned", "account_cosmetics_selected", "account_cosmetics_slot_changes",
+  // A House's results in hosted sectors, recorded by the hosting service for its profile.
+  "hosted_profile_results"
 ]);
 const SHARED_TABLES = new Set([
   "world_snapshots", "world_events", "world_status_current", "season_archive", "season_deadliest_tiles",

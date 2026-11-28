@@ -1,6 +1,8 @@
 import type { CommandDiagnosticSnapshot } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { registerAccountCosmeticsAdminRoutes } from "../account-cosmetics/account-cosmetics-admin-routes.js";
 import { registerAccountCosmeticsPurchaseRoutes } from "../account-cosmetics/account-cosmetics-purchase-routes.js";
+import { registerHostedProfileResultsRoutes } from "../hosted-profile-results/hosted-profile-results-routes.js";
+import type { HostedProfileResultsStore } from "../hosted-profile-results/hosted-profile-results-store.js";
 import type { AccountCosmeticsService } from "../account-cosmetics/account-cosmetics-service.js";
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
@@ -108,8 +110,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "grantProduct" | "revoke" | "renderMetrics" | "titleOf">;
   adminApiToken?: string;
-  /** COSMETICS_GRANT_TOKEN, when not from the environment (tests). */
-  cosmeticsGrantToken?: string;
+  /** HOSTING_SERVICE_TOKEN, when not from the environment (tests). */
+  hostingServiceToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
   // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
   adminFirebaseAuth?: AdminFirebaseAuthConfig;
@@ -120,6 +122,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   // /sector/waitlist (register-sector-waitlist-routes.ts); omitted in tests that do not exercise it.
   sectorWaitlist?: SectorWaitlistRouteDeps;
   publicHouseProfile?: PublicHouseProfileRouteDeps;
+  /** Hosted sectors' results for profiles, recorded by the hosting service. */
+  hostedProfileResultsStore?: HostedProfileResultsStore;
   // /sector/board (register-sector-board-route.ts): the join screen's Sector board.
   sectorBoard?: SectorBoardRouteDeps;
   preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
@@ -431,8 +435,9 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   if (deps.accountCosmetics) registerAccountCosmeticsAdminRoutes(app, { adminAuthorized, cosmetics: deps.accountCosmetics });
   // The hosting service's own key, for granting what was bought (account-cosmetics-purchase-routes.ts).
-  const cosmeticsGrantToken = deps.cosmeticsGrantToken ?? process.env.COSMETICS_GRANT_TOKEN;
-  if (cosmeticsGrantToken && deps.accountCosmetics && deps.authBindingStore) registerAccountCosmeticsPurchaseRoutes(app, { grantToken: cosmeticsGrantToken, authBindingStore: deps.authBindingStore, cosmetics: deps.accountCosmetics });
+  const hostingServiceToken = deps.hostingServiceToken ?? process.env.HOSTING_SERVICE_TOKEN;
+  if (hostingServiceToken && deps.accountCosmetics && deps.authBindingStore) registerAccountCosmeticsPurchaseRoutes(app, { grantToken: hostingServiceToken, authBindingStore: deps.authBindingStore, cosmetics: deps.accountCosmetics });
+  if (hostingServiceToken && deps.hostedProfileResultsStore && deps.authBindingStore) registerHostedProfileResultsRoutes(app, { token: hostingServiceToken, authBindingStore: deps.authBindingStore, store: deps.hostedProfileResultsStore });
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
   registerHouseChargeRoutes(app, { getCurrentSeasonSummary: deps.getCurrentSeasonSummary, listSeasonArchives: deps.listSeasonArchives });

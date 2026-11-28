@@ -83,6 +83,23 @@ describe("public House profile routes", () => {
     expect(view.awards).toEqual([{ kind: "COMEBACK_KID", seasonSequence: 2, redeploys: 2, rank: 1 }]);
   });
 
+  it("shows hosted contests apart, marked unfinished when closed early, without changing rating, wins or best rank", async () => {
+    const { app } = build({
+      listHostedResults: async (playerId) => (playerId === UID ? [
+        { playerId: UID, sectorId: "s-abc", endedAt: 9_000, finished: true, rank: 1, houses: 24 },
+        { playerId: UID, sectorId: "s-def", endedAt: 8_000, finished: false, rank: 3, houses: 12 }
+      ] : [])
+    });
+    const publicId = await mint(app);
+    const view = (await app.inject({ method: "GET", url: `/public/house/${publicId}` })).json();
+    expect(view.hosted).toEqual([{ endedAt: 9_000, rank: 1, houses: 24, finished: true }, { endedAt: 8_000, rank: 3, houses: 12, finished: false }]);
+    expect(view).toMatchObject({ rating: 1240, contestsPlayed: 2, bestRank: 1, wins: 1 });
+    // A failed lookup shows the page without them.
+    const failing = build({ listHostedResults: async () => { throw new Error("down"); } });
+    const otherId = await mint(failing.app);
+    expect((await failing.app.inject({ method: "GET", url: `/public/house/${otherId}` })).json().hosted).toEqual([]);
+  });
+
   it("never puts the player id, auth id or email in the public response", async () => {
     const { app } = build();
     const publicId = await mint(app);

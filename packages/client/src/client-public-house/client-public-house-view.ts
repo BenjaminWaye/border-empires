@@ -28,6 +28,9 @@ export type PublicHouseRecord =
 
 export type PublicHouseAward = { kind: "NEVER_GAVE_UP" | "COMEBACK_KID"; seasonSequence: number; redeploys: number; rank?: number };
 
+/** A contest on a hosted sector: shown apart, never counted toward rating. */
+export type PublicHouseHostedContest = { endedAt: number; rank: number; houses: number | null; finished: boolean };
+
 export type PublicHouseProfile = {
   name: string;
   /** A title the account holds, e.g. "Count". */
@@ -42,6 +45,7 @@ export type PublicHouseProfile = {
   charges: PublicHouseCharge[];
   records: PublicHouseRecord[];
   awards: PublicHouseAward[];
+  hosted: PublicHouseHostedContest[];
 };
 
 const num = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -105,6 +109,10 @@ export const parsePublicHouseProfile = (body: unknown): PublicHouseProfile | und
     awards: list(raw.awards).flatMap((entry): PublicHouseAward[] =>
       (entry.kind === "NEVER_GAVE_UP" || entry.kind === "COMEBACK_KID") && num(entry.seasonSequence) && num(entry.redeploys)
         ? [{ kind: entry.kind, seasonSequence: entry.seasonSequence, redeploys: entry.redeploys, ...(num(entry.rank) ? { rank: entry.rank } : {}) }]
+        : []),
+    hosted: list(raw.hosted).flatMap((entry): PublicHouseHostedContest[] =>
+      num(entry.endedAt) && num(entry.rank)
+        ? [{ endedAt: entry.endedAt, rank: entry.rank, houses: numOrNull(entry.houses), finished: entry.finished === true }]
         : [])
   };
 };
@@ -155,6 +163,9 @@ const chargeHtml = (charge: PublicHouseCharge): string =>
     <span>${"◆".repeat(Math.max(1, Math.min(4, Math.round(charge.renown))))} ${rarityLabel(charge.rarity)}${charge.places?.length ? ` · ${charge.places.map(esc).join(", ")}` : ""}</span>
     <i>${contestLabel(charge.seasonSequence)} · held ${int(charge.hoursHeld)}h${charge.foil ? " · won this contest" : ""}</i></li>`;
 
+const hostedHtml = (contest: PublicHouseHostedContest): string =>
+  `<li><b>#${int(contest.rank)}${contest.houses ? ` of ${int(contest.houses)}` : ""}</b><span>Hosted sector · ${day(contest.endedAt)}${contest.finished ? "" : " · not finished"}</span></li>`;
+
 export const publicHouseHtml = (profile: PublicHouseProfile): string => {
   const initial = (profile.name.trim()[0] ?? "?").toUpperCase();
   const rating = profile.rating !== null
@@ -174,6 +185,7 @@ export const publicHouseHtml = (profile: PublicHouseProfile): string => {
   ${section("Contest history", profile.contests.length
     ? `<ul class="ph-contests">${profile.contests.map(contestHtml).join("")}</ul>`
     : `<p class="ph-empty">No finished Sector Contest yet.</p>`)}
+  ${profile.hosted.length ? section("Hosted contests", `<p class="ph-note">Played on private hosted sectors. Not counted toward rating.</p><ul class="ph-list">${profile.hosted.map(hostedHtml).join("")}</ul>`) : ""}
   ${section("House Charges held", profile.charges.length
     ? `<ul class="ph-list">${profile.charges.map(chargeHtml).join("")}</ul>`
     : `<p class="ph-empty">No House Charge held at a crowning yet.</p>`)}`;

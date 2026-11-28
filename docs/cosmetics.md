@@ -267,10 +267,12 @@ client message reaches either.
   cosmetic in the product and is idempotent; revoking removes every cosmetic of
   the product, and with them the title. An account that has never entered the
   game answers 404 `no_player`, and the hosting service tries again later.
-  These two routes accept only `Authorization: Bearer $COSMETICS_GRANT_TOKEN`
-  (at least 32 characters; without it they do not exist), a key that can do
-  nothing else, so the hosting service never holds `ADMIN_API_TOKEN`
-  (owner decision, 2026-11-28).
+  These two routes accept only `Authorization: Bearer $HOSTING_SERVICE_TOKEN`
+  (at least 32 characters; without it they do not exist). The same key may
+  only otherwise record hosted-sector results
+  (`POST /admin/hosted-results/record`, shown on the public House profile as
+  "Hosted contests", never counted toward rating), so the hosting service
+  never holds `ADMIN_API_TOKEN` (owner decision, 2026-11-28).
 - **Testing and support:** `POST /admin/cosmetics/grant` and
   `POST /admin/cosmetics/revoke`, body `{"playerId", "cosmeticId", "grantRef"?}`,
   and `POST /admin/cosmetics/grant-product`, body

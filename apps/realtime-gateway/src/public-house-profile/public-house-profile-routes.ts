@@ -11,6 +11,7 @@ import type { FastifyInstance } from "fastify";
 import type { SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
+import type { HostedProfileResult } from "../hosted-profile-results/hosted-profile-results-store.js";
 import { buildPublicHouseProfileView, type PublicHouseProfileView } from "./public-house-profile-view.js";
 import { isPublicProfileId, type PublicProfileLinkStore } from "./public-profile-link-store.js";
 
@@ -24,6 +25,8 @@ export type PublicHouseProfileRouteDeps = {
   getTitle?: (playerId: string) => Promise<string | undefined>;
   getSeasonParticipationForPlayer: (playerId: string) => Promise<SeasonParticipationRow[]>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  /** Results in hosted sectors (owner decision Q4), newest first; shown apart and not counted toward rating. */
+  listHostedResults?: (playerId: string) => Promise<HostedProfileResult[]>;
   now?: () => number;
 };
 
@@ -55,15 +58,17 @@ export const registerPublicHouseProfileRoutes = (app: FastifyInstance, deps: Pub
   const cachedView = async (playerId: string): Promise<PublicHouseProfileView> => {
     const hit = viewCache.get(playerId);
     if (hit && now() - hit.at < VIEW_CACHE_TTL_MS) return hit.view;
-    const [participation, archives, storedName, title] = await Promise.all([
+    const [participation, archives, storedName, title, hosted] = await Promise.all([
       deps.getSeasonParticipationForPlayer(playerId),
       deps.listSeasonArchives(),
       deps.getDisplayName(playerId),
       // A title is decoration: a failed lookup shows the page without it.
-      deps.getTitle?.(playerId).catch(() => undefined)
+      deps.getTitle?.(playerId).catch(() => undefined),
+      // Hosted results are an extra: a failed lookup shows the page without them.
+      deps.listHostedResults?.(playerId).catch(() => []) ?? Promise.resolve([])
     ]);
     const name = storedName?.trim() || [...participation].sort((a, b) => b.endedAt - a.endedAt)[0]?.playerName || "Unnamed House";
-    const view = buildPublicHouseProfileView({ playerId, name, participation, archives, ...(title ? { title } : {}) });
+    const view = buildPublicHouseProfileView({ playerId, name, participation, archives, hosted, ...(title ? { title } : {}) });
     viewCache.delete(playerId);
     viewCache.set(playerId, { at: now(), view });
     if (viewCache.size > VIEW_CACHE_MAX_ENTRIES) {

@@ -2,6 +2,7 @@
 // placements, rating, House Charges held, records, awards and wins. Built only from
 // data the game already shows other players, and deliberately carries no
 // playerId, auth id or email: the page is reachable by anyone with the link.
+import type { HostedProfileResult } from "../hosted-profile-results/hosted-profile-results-store.js";
 import type { SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import { ratingSummary } from "../career-routes/career-routes.js";
@@ -55,7 +56,15 @@ export type PublicHouseProfileView = {
   charges: PublicHouseCharge[];
   records: PublicHouseRecord[];
   awards: PublicHouseAward[];
+  /**
+   * Private Sector Contests in hosted sectors, newest first (owner decision Q4):
+   * shown marked "Hosted" and never counted in the rating, wins or best rank above.
+   * `finished` is false for a sector closed before a House was crowned.
+   */
+  hosted: PublicHouseHostedContest[];
 };
+
+export type PublicHouseHostedContest = { endedAt: number; rank: number; houses: number; finished: boolean };
 
 const MAX_CONTESTS = 100;
 const MAX_CHARGES = 200;
@@ -66,6 +75,7 @@ export const buildPublicHouseProfileView = (input: {
   title?: string;
   participation: readonly SeasonParticipationRow[];
   archives: readonly SeasonArchiveRow[];
+  hosted?: readonly HostedProfileResult[];
 }): PublicHouseProfileView => {
   const { playerId } = input;
   const archiveBySeasonId = new Map(input.archives.map((archive) => [archive.seasonId, archive]));
@@ -139,6 +149,7 @@ export const buildPublicHouseProfileView = (input: {
     contests,
     charges,
     records,
-    awards
+    awards,
+    hosted: (input.hosted ?? []).map(({ endedAt, rank, houses, finished }) => ({ endedAt, rank, houses, finished }))
   };
 };
