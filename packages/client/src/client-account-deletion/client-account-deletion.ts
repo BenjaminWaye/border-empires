@@ -80,7 +80,7 @@ export const openAccountDeletion = (auth: Auth, wsUrl: string): void => {
   dialog.innerHTML = `<form>
     <h2 id="account-deletion-title">Delete your account</h2>
     <p>This permanently removes your Border Empires login. Your profile, linked game data and social data will be deleted or anonymised within 30 days. You cannot recover your empire.</p>
-    <p>Shared match outcomes may remain anonymously. Backup copies expire within 30 days after completion. Cosmetics owned by this account are deleted with it and cannot be restored.</p>
+    <p>Shared match outcomes may remain anonymously. Backup copies of the game database expire within 15 days after completion. Cosmetics owned by this account are deleted with it and cannot be restored.</p>
     ${needsPassword ? '<label>Password<input name="password" type="password" autocomplete="current-password" required></label>' : ""}
     <label>Type DELETE to confirm<input name="confirmation" autocomplete="off" required pattern="DELETE"></label>
     <p role="status" aria-live="polite"></p>
