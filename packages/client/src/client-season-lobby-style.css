@@ -48,9 +48,12 @@ body.season-lobby-active #hud > *:not(#join-season-overlay):not(#season-end-over
 }
 
 /* --- Panel: flat ink plate, thin gold edge (like .hud-v2-season) -------- */
+/* Sized by the overlay's content box, not 100vw: 100vw counts a scrollbar and
+   ignores the overlay's padding, so at 375px the panel ran 8px past the
+   overlay and lost its right border (first-15 playtest, 2026-11-28). */
 #join-season-overlay .respawn-modal {
   position: relative;
-  width: min(520px, calc(100vw - 32px));
+  width: min(520px, 100%);
   border-radius: 0;
   border: 1px solid var(--sl-edge);
   border-top: 2px solid var(--sl-edge-strong);
@@ -332,6 +335,17 @@ body.season-lobby-active #hud > *:not(#join-season-overlay):not(#season-end-over
 @media (max-width: 480px) {
   /* Reclaim horizontal room on narrow phones so the roster and the action
      buttons keep their labels on one line. */
+  #join-season-overlay {
+    padding: 12px;
+  }
+
+  /* The shared phone modal rule reserves 58px on the right for a close
+     button; here the title already clears it (padding-right on
+     .respawn-title), so the body text and buttons use the full width. */
+  #join-season-overlay .respawn-modal {
+    padding-right: 18px;
+  }
+
   #join-season-overlay .season-lobby-panel {
     padding: 12px;
   }

@@ -25,4 +25,18 @@ describe("join-season overlay style regression", () => {
     expect(groupMatch).toBeTruthy();
     expect(groupMatch![0]).toContain("#hud #join-season-overlay");
   });
+
+  // First-15 playtest 2026-11-28 (pt-explorer, pt-spender, pt-worldbuilder): at 375px the Sector Open panel
+  // lost its right border. Its width was calc(100vw - 32px): 8px wider than the overlay's 20px-padded content
+  // box, and wider still when 100vw counts a scrollbar. Checked in a 375px browser: the panel now sits 12px
+  // in from both edges.
+  it("sizes the Sector Open panel by the overlay, not the viewport, and narrows the gutters on a phone", () => {
+    const lobby = readFileSync(new URL("./client-season-lobby-style.css", import.meta.url), "utf8");
+    const modal = lobby.match(/\n#join-season-overlay \.respawn-modal \{[\s\S]*?\}/)?.[0] ?? "";
+    expect(modal).toContain("width: min(520px, 100%)");
+    expect(modal).not.toContain("100vw");
+    const phone = lobby.match(/@media \(max-width: 480px\) \{[\s\S]*$/)?.[0] ?? "";
+    expect(phone).toMatch(/#join-season-overlay \{\s*padding: 12px;/);
+    expect(phone).toMatch(/#join-season-overlay \.respawn-modal \{\s*padding-right: 18px;/);
+  });
 });

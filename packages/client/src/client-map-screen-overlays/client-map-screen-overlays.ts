@@ -54,7 +54,8 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       refineryToasts.render(tiles, projection);
       waystationToasts.render(tiles, projection);
       // The season lobby renders no tiles and a placeholder projection: no pins then.
-      tipPins.render(projection, tiles.length > 0);
+      // After the waystation cards: a tile with an Activate card has no pin over it (one layer, both renderers).
+      tipPins.render(projection, tiles.length > 0, waystationToasts.cardTiles());
       relicPlates.render(projection, tiles.length > 0);
     }
   };
