@@ -72,6 +72,18 @@ describe("rejectCounteredOffer", () => {
     expect(social.requestTruce("player-1", "Valka", 12)).toMatchObject({ ok: false, code: "TRUCE_OFFER_COOLDOWN" });
   });
 
+  it("keeps the offer when the counter's note is refused, since the counter is never sent", () => {
+    const { social, counterDeps, fanoutPlayerPayloads } = setup();
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const offerId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]!.id;
+    const counter: ClientMessage = { type: "TRUCE_REQUEST", targetPlayerName: "Tove", durationHours: 24, note: "you sh1t", counters: { kind: "truce", requestId: offerId } };
+
+    rejectCounteredOffer(counterDeps, counter, "player-2");
+
+    expect(fanoutPlayerPayloads).not.toHaveBeenCalled();
+    expect(social.snapshotForPlayer("player-2").incomingTruceRequests).toEqual([expect.objectContaining({ id: offerId })]);
+  });
+
   it("ignores requests that aren't counters and counters to offers that are already gone", () => {
     const { counterDeps, fanoutPlayerPayloads } = setup();
     rejectCounteredOffer(counterDeps, { type: "TRUCE_REQUEST", targetPlayerName: "Tove", durationHours: 12 }, "player-2");

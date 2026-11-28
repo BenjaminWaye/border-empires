@@ -1,4 +1,4 @@
-import type { AllianceFealty, DiplomacyTerms, OfferNoteId } from "@border-empires/shared";
+import type { AllianceFealty, DiplomacyTerms } from "@border-empires/shared";
 
 export type AllianceRequest = {
   id: string;
@@ -10,8 +10,8 @@ export type AllianceRequest = {
   toName?: string;
   /** Coin and supply the deal moves, from the proposer's side. */
   terms?: DiplomacyTerms;
-  /** A preset line the sender attached (diplomacy-offer-notes.ts in shared). */
-  note?: OfferNoteId;
+  /** The sender's note, plain text (diplomacy-offer-notes.ts in shared); render escaped. */
+  note?: string;
   settlementPhase?: "paying" | "refunding";
   /** Who was liege when the offer was sent (client-fealty-recorded.ts); absent on older offers. */
   fealty?: AllianceFealty;
@@ -28,8 +28,8 @@ export type TruceRequest = {
   fromName?: string;
   toName?: string;
   terms?: DiplomacyTerms;
-  /** A preset line the sender attached (diplomacy-offer-notes.ts in shared). */
-  note?: OfferNoteId;
+  /** The sender's note, plain text (diplomacy-offer-notes.ts in shared); render escaped. */
+  note?: string;
   settlementPhase?: "paying" | "refunding";
 };
 

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { RESOURCE_TRADE_OFFER_TTL_MS, ResourceTradeOfferSchema, hasResourceSupplyOffer, evaluateResourceTradeOffer, supplyAgreementLimitMessage, supplyAgreementsFull,
+import { RESOURCE_TRADE_OFFER_TTL_MS, ResourceTradeOfferSchema, cleanOfferNote, offerNoteRefusal, hasResourceSupplyOffer, evaluateResourceTradeOffer, supplyAgreementLimitMessage, supplyAgreementsFull,
   type ClientMessage, type DiplomacyGoods, type DiplomacyTerms, type ResourceTradeOffer } from "@border-empires/shared";
 import type { WebSocket } from "ws";
 import type { SocialState } from "../social-state/social-state-types.js";
@@ -20,7 +20,7 @@ export type ResourceTradeRequestResult={ok:true;offerId:string}|{ok:false;messag
 export interface ResourceTradeService {
   handle(message:ClientMessage,actorId:string,socket:WebSocket,isGuest:boolean):Promise<boolean>;
   /** Same path as a player's RESOURCE_TRADE_REQUEST; used by AI-initiated trades too. */
-  request(fromId:string,toId:string,terms:DiplomacyTerms,options?:{ttlMs?:number}):Promise<ResourceTradeRequestResult>;
+  request(fromId:string,toId:string,terms:DiplomacyTerms,options?:{ttlMs?:number;note?:string}):Promise<ResourceTradeRequestResult>;
   /** Pending (not settling) offers this House sent. */
   outgoingOfferCount(playerId:string):number;
   /** Withdraws pending offers between two Houses (either direction); settling payments finish. Returns how many. */
@@ -58,12 +58,15 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     return paid.ok?undefined:paid.message;
   };
   /** `replaces`: the pending offer `toId` made `fromId` that this one counters; swapped out in one step, and restored if the counter is refused. */
-  const request=async(fromId:string,toId:string,terms:DiplomacyTerms,options:{ttlMs?:number;replaces?:string}={}):Promise<ResourceTradeRequestResult>=>{
+  /** `note`: the sender's note (diplomacy-offer-notes.ts in shared); cleaned here and stored with the offer, which bounds it. */
+  const request=async(fromId:string,toId:string,terms:DiplomacyTerms,options:{ttlMs?:number;replaces?:string;note?:string}={}):Promise<ResourceTradeRequestResult>=>{
     const from=ctx.social.resolvePlayerById(fromId),to=toId?ctx.social.resolvePlayerById(toId):undefined;
     if(!from||!to||from.id===to.id)return {ok:false,message:"Choose another House to trade with."};
     if(!hasResourceSupplyOffer(terms.give.resources)&&!hasResourceSupplyOffer(terms.ask.resources))return {ok:false,message:"Include at least one resource supply slot in the offer."};
+    const note=cleanOfferNote(options.note);
     const now=ctx.now(),parsed=ResourceTradeOfferSchema.safeParse({id:crypto.randomUUID(),fromPlayerId:from.id,toPlayerId:to.id,
-      fromPlayerName:from.name,toPlayerName:to.name,terms,createdAt:now,expiresAt:now+Math.min(options.ttlMs??RESOURCE_TRADE_OFFER_TTL_MS,RESOURCE_TRADE_OFFER_TTL_MS),status:"pending"});
+      fromPlayerName:from.name,toPlayerName:to.name,terms,createdAt:now,expiresAt:now+Math.min(options.ttlMs??RESOURCE_TRADE_OFFER_TTL_MS,RESOURCE_TRADE_OFFER_TTL_MS),status:"pending",
+      ...(note?{note}:{})});
     if(!parsed.success)return {ok:false,message:"Invalid resource trade terms."};
     const full=ctx.supplyAgreementCount?await limitRefusal(from.id,[from,to]):undefined;if(full)return {ok:false,message:full};
     const replaced=options.replaces===undefined?undefined:store.rows(ctx.now()).find(row=>
@@ -110,7 +113,8 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     }
     if(message.type==="RESOURCE_TRADE_REQUEST"){
       const to=message.targetPlayerId?ctx.social.resolvePlayerById(message.targetPlayerId):ctx.social.resolvePlayerByName(message.targetPlayerName);
-      const result=await request(actorId,to?.id??"",message.terms,message.countersOfferId===undefined?{}:{replaces:message.countersOfferId});
+      const refusal=offerNoteRefusal(message.note);if(refusal){error(refusal);return true;}
+      const result=await request(actorId,to?.id??"",message.terms,{...(message.countersOfferId===undefined?{}:{replaces:message.countersOfferId}),...(message.note===undefined?{}:{note:message.note})});
       if(!result.ok)error(result.message);
       return true;
     }

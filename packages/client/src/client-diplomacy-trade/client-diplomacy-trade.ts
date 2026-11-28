@@ -1,5 +1,5 @@
 import { resourceCounterTerms, resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
-import { OFFER_NOTE_ROW_HTML, handleOfferNoteTap, offerNoteField, syncOfferNoteRow } from "./client-diplomacy-offer-note.js";
+import { OFFER_NOTE_ROW_HTML, handleOfferNoteTap, offerNoteField, offerNoteRefusalText, syncOfferNoteChips, syncOfferNoteRow } from "./client-diplomacy-offer-note.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { ownSupplyAgreementCount, ownSupplyLimitReason, supplyAgreementUsageHtml } from "./client-supply-agreement-limit.js";
 import { pressResourceEnd, resetResourceEndConfirm, RESOURCE_END_CONFIRM_RESET_MS } from "./client-resource-end-confirm.js";
@@ -254,6 +254,8 @@ const sendOffer = (screen: OpenScreen): void => {
     sendGift(screen);
     return;
   }
+  const refusal = offerNoteRefusalText(screen.overlay); // the server's own note check, said here so the deal stays open
+  if (refusal) { screen.notice = { tone: "bad", text: refusal }; render(screen); return; }
   const terms = screen.selection.terms;
   const termsField = {
     ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
@@ -262,7 +264,7 @@ const sendOffer = (screen: OpenScreen): void => {
     ...offerNoteField(screen.overlay)
   };
   const sent = screen.selection.kind === "trade"
-    ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms,...(screen.resourceCounters?{countersOfferId:screen.resourceCounters}:{})},"Finish sign-in before trading resources.")
+    ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms,...(screen.resourceCounters?{countersOfferId:screen.resourceCounters}:{}),...offerNoteField(screen.overlay)},"Finish sign-in before trading resources.")
     : screen.selection.kind === "alliance"
       ? screen.deps.send({ type: "ALLIANCE_REQUEST", targetPlayerName: screen.targetName, ...termsField }, "Finish sign-in before sending alliance requests.")
       : screen.deps.send(
@@ -427,6 +429,7 @@ export const openDiplomacyTradeScreen = (
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
   overlay.addEventListener("click", (event) => handleOfferNoteTap(overlay, event.target));
+  overlay.addEventListener("input", () => syncOfferNoteChips(overlay));
   overlay.querySelector<HTMLButtonElement>("[data-trade-cancel]")?.addEventListener("click", closeDiplomacyTradeScreen);
   overlay.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject], [data-resource-offer-counter]") : null;

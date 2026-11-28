@@ -1,5 +1,5 @@
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
-import { OFFER_NOTE_TEXT, describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, isOfferNoteId, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
+import { cleanOfferNote, describeDiplomacyTermsForRecipient, hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreementStatus, type ResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -50,7 +50,7 @@ export type OfferDockEntry = {
   attackerNote?: string;
   /** Why you can't pay what this offer asks of you right now; Accept stays disabled while set. */
   blockedReason?: string;
-  /** The preset line the sender attached, as text (diplomacy-offer-notes.ts). */
+  /** The sender's note, plain text (diplomacy-offer-notes.ts in shared). */
   message?: string;
   /** A new truce: it ends when the countdown does, accepted or not. */
   truceRunsOut?: boolean;
@@ -131,8 +131,10 @@ export const offerDockEntries = (
     const note = attackerNoteText(attacks.get(fromPlayerId));
     return note ? { ...entry, attackerNote: note } : entry;
   };
-  const withMessage = (entry: OfferDockEntry, request: { note?: unknown }): OfferDockEntry =>
-    isOfferNoteId(request.note) ? { ...entry, message: OFFER_NOTE_TEXT[request.note] } : entry;
+  const withMessage = (entry: OfferDockEntry, request: { note?: unknown }): OfferDockEntry => {
+    const message = cleanOfferNote(request.note);
+    return message ? { ...entry, message } : entry;
+  };
   const truces = state.incomingTruceRequests.map((request: TruceRequest): OfferDockEntry => withMessage(withNote(withBlocked({
     kind: "truce",
     id: request.id,

@@ -316,6 +316,8 @@ export type PersonalActivityDiplomacyCard = {
    * (AllianceFealty in shared; null for near-equals). Absent on rows from before it was recorded.
    */
   fealty?: { liegePlayerId: string | null };
+  /** TRUCE_OFFERED / ALLIANCE_OFFERED: the sender's note (diplomacy-offer-notes.ts in shared), plain text. */
+  note?: string;
 };
 
 // A resource supply deal with another House ended: cancelled by either side,

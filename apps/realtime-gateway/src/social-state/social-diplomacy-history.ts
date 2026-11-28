@@ -31,6 +31,8 @@ export type DiplomacyHistoryEntry = {
   court?: boolean;
   /** ALLIANCE_OFFERED / ALLIANCE_DECLINED / ALLIANCE_FORMED: the offer's recorded fealty; absent before it was recorded. */
   fealty?: AllianceFealty;
+  /** TRUCE_OFFERED / ALLIANCE_OFFERED: the sender's note, cleaned (diplomacy-offer-notes.ts in shared). */
+  note?: string;
 };
 
 /** A row as saved in the social store. */
@@ -42,13 +44,13 @@ export type DiplomacyHistory = {
    * counterparty. Names are looked up when recorded, so a row keeps the name
    * the player had at the time.
    */
-  recordIncomingTruceOffer: (recipientId: string, senderId: string, occurredAt: number, durationHours: number) => void;
+  recordIncomingTruceOffer: (recipientId: string, senderId: string, occurredAt: number, durationHours: number, note?: string) => void;
   recordPair: (
     aId: string,
     bId: string,
     event: PersonalActivityDiplomacyEvent,
     occurredAt: number,
-    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "endsAt" | "byPlayerId" | "court" | "fealty">
+    extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "endsAt" | "byPlayerId" | "court" | "fealty" | "note">
   ) => void;
   cardsFor: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   /** Forgets every row (a new season; the store clears its own table). */
@@ -99,14 +101,15 @@ export const createDiplomacyHistory = (
   };
 
   return {
-    recordIncomingTruceOffer(recipientId, senderId, occurredAt, durationHours) {
+    recordIncomingTruceOffer(recipientId, senderId, occurredAt, durationHours, note) {
       record(recipientId, {
         event: "TRUCE_OFFERED",
         counterpartyPlayerId: senderId,
         counterpartyName: options.nameOf?.(senderId) ?? senderId,
         occurredAt,
         durationHours,
-        byPlayerId: senderId
+        byPlayerId: senderId,
+        ...(note ? { note } : {})
       });
     },
     recordPair(aId, bId, event, occurredAt, extra = {}) {

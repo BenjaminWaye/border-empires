@@ -61,9 +61,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The preset line the sender attached (diplomacy-offer-notes.ts). */
+/* The sender's note (diplomacy-offer-notes.ts), free text: long words wrap rather than widen the card. */
 .offer-dock-message {
   margin-top: 2px;
+  overflow-wrap: anywhere;
   color: #f2e8d3;
   font-size: 12px;
   font-style: italic;
