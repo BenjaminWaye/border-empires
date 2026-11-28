@@ -71,6 +71,8 @@ export type HostingAlertKind =
   | "payment_dispute"
   | "payment_dispute_closed"
   | "partial_refund"
+  /** An email to a player could not be sent and was given up (hosting-email). */
+  | "email_failed"
   | "withdrawal"
   | "payment_for_unknown_sector";
 

@@ -167,7 +167,10 @@ describe("hosting reconciler: teardown", () => {
     const h = await createHostingHarness();
     const idle = await h.openSector("a");
     const played = await h.openSector("b");
-    h.clock.now += 7 * DAY - MINUTE;
+    // The members' warning goes out 2 days before closing (Terms of Sale section 5).
+    h.clock.now += 5 * DAY;
+    await h.reconciler.runOnce();
+    h.clock.now += 2 * DAY - MINUTE;
     await h.reconciler.runOnce();
     expect(h.store.getSector(idle)?.state).toBe("open");
 
@@ -186,7 +189,9 @@ describe("hosting reconciler: teardown", () => {
       await h.reconciler.runOnce();
     }
     expect(h.store.getSector(played)?.state).toBe("open");
-    h.clock.now += 7 * DAY;
+    h.clock.now += 5 * DAY;
+    await h.reconciler.runOnce();
+    h.clock.now += 2 * DAY;
     await h.reconciler.runOnce();
     expect(h.store.getSector(played)?.state).toBe("deleted");
   });
@@ -194,7 +199,9 @@ describe("hosting reconciler: teardown", () => {
   it("leaves an idle sector open when its server cannot be deleted, and tries again", async () => {
     const h = await createHostingHarness();
     const sectorId = await h.openSector();
-    h.clock.now += 7 * DAY;
+    h.clock.now += 5 * DAY;
+    await h.reconciler.runOnce();
+    h.clock.now += 2 * DAY;
     h.servers.failDeletes = true;
     await h.reconciler.runOnce();
     expect(h.store.getSector(sectorId)?.state).toBe("open");

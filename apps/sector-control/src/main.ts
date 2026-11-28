@@ -1,6 +1,12 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 
 import { createFirebaseTokenVerifier } from "../../realtime-gateway/src/auth-identity/firebase-token-verifier.js";
+import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.js";
+import { termsAttachment } from "./hosting-email/hosting-mailer.js";
+import { createResendEmailTransport } from "./hosting-email/resend-email-transport.js";
 import { SqliteHostingStore } from "./hosting-store/sqlite-hosting-store.js";
 import { assertSectorTicketKey } from "./sector-ticket/sector-ticket-signer.js";
 import { FakePaymentProvider } from "./providers/fake-providers.js";
@@ -19,6 +25,31 @@ const db = new DatabaseSync(env.sqlitePath);
 db.exec("PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
 const store = new SqliteHostingStore(db);
 store.applySchema();
+const outbox = new SqliteHostingEmailOutbox(db);
+outbox.applySchema();
+
+/** `relative` in `from` or the nearest folder above it that has it, whether the service runs from src or dist. */
+const findUpwards = (relative: string, from: string): string | undefined => {
+  for (let dir = from, i = 0; i < 10; i += 1, dir = dirname(dir)) {
+    if (existsSync(join(dir, relative))) return join(dir, relative);
+    if (dirname(dir) === dir) break;
+  }
+  return undefined;
+};
+
+// Order confirmations carry the Terms of Sale. With emails switched on, a missing file stops the start:
+// confirmations would otherwise pile up unsent.
+const readTerms = (): string | undefined => {
+  const path = env.email.termsHtmlPath ?? findUpwards("docs/legal-drafts/purchase-terms.html", dirname(fileURLToPath(import.meta.url)));
+  try {
+    if (!path) throw new Error("docs/legal-drafts/purchase-terms.html not found above the service; set HOSTING_TERMS_HTML_PATH");
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (env.email.resendApiKey) throw new Error(`cannot read the Terms of Sale: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+};
+const termsHtml = readTerms();
 
 // The same verification the game gateway applies: signature against Google's keys, issuer, audience and expiry.
 const verifyFirebaseToken = createFirebaseTokenVerifier({ ...(env.firebaseProjectId ? { projectId: env.firebaseProjectId } : {}) });
@@ -45,9 +76,19 @@ const control = createSectorControlApp({
   logger: true,
   verifyIdToken: async (token) => {
     const verified = await verifyFirebaseToken(token);
-    return verified ? { uid: verified.uid, isGuest: verified.isGuest === true, emailVerified: verified.emailVerified === true } : undefined;
+    if (!verified) return undefined;
+    const emailVerified = verified.emailVerified === true;
+    return { uid: verified.uid, isGuest: verified.isGuest === true, emailVerified, ...(emailVerified && verified.email ? { email: verified.email } : {}) };
   },
-  parsePaymentWebhook: payment.parseWebhook
+  parsePaymentWebhook: payment.parseWebhook,
+  email: {
+    outbox,
+    appUrl: env.email.appUrl,
+    ...(termsHtml !== undefined ? { terms: termsAttachment(termsHtml) } : {}),
+    ...(env.email.resendApiKey
+      ? { transport: createResendEmailTransport({ apiKey: env.email.resendApiKey, from: env.email.from, ...(env.email.replyTo ? { replyTo: env.email.replyTo } : {}) }) }
+      : {})
+  }
 });
 
 await control.app.listen({ host: env.host, port: env.port });

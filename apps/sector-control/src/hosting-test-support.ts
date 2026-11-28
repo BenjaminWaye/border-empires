@@ -7,6 +7,9 @@ import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
 import { HOSTED_SECTOR_CONSENT_WORDING, HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
 
+import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.js";
+import { createHostingMailer, termsAttachment } from "./hosting-email/hosting-mailer.js";
+import type { HostingEmailMessage } from "./hosting-email/resend-email-transport.js";
 import { DEFAULT_HOSTING_CONFIG, type HostingConfig } from "./hosting-service/hosting-config.js";
 import { createHostingReconciler } from "./hosting-service/hosting-reconciler.js";
 import { createHostingService, type HostingAccount } from "./hosting-service/hosting-service.js";
@@ -26,13 +29,21 @@ export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
-export const account = (uid: string, overrides: Partial<HostingAccount> = {}): HostingAccount => ({ uid, isGuest: false, emailVerified: true, ...overrides });
+export const account = (uid: string, overrides: Partial<HostingAccount> = {}): HostingAccount => ({ uid, isGuest: false, emailVerified: true, email: `${uid}@example.test`, ...overrides });
+
+/** Stands in for the published Terms of Sale page. */
+export const TERMS_HTML = "<html><body>Terms of Sale</body></html>";
 
 export const createHostingHarness = async (configOverrides: Partial<HostingConfig> = {}) => {
   const clock = { now: 1_800_000_000_000 };
   const now = (): number => clock.now;
-  const store = new SqliteHostingStore(new DatabaseSync(":memory:"));
+  const db = new DatabaseSync(":memory:");
+  const store = new SqliteHostingStore(db);
   store.applySchema();
+  const outbox = new SqliteHostingEmailOutbox(db);
+  outbox.applySchema();
+  /** What the fake email provider was asked to send. Set `failing` to make it refuse. */
+  const mail = { sent: [] as HostingEmailMessage[], failing: false, passErrors: [] as string[] };
   const payment = new FakePaymentProvider();
   const servers = new FakeServerProvider();
   const alerts: Array<{ kind: HostingAlertKind; details: Record<string, string | number> }> = [];
@@ -43,12 +54,19 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
   const config: HostingConfig = { ...DEFAULT_HOSTING_CONFIG, salesEnabled: true, ...configOverrides };
   let nextId = 0;
   const alert = (kind: HostingAlertKind, details: Record<string, string | number>): void => { alerts.push({ kind, details }); };
+  const mailer = createHostingMailer({
+    store, outbox, alert, now, appUrl: "https://play.example.test", terms: termsAttachment(TERMS_HTML),
+    transport: { send: async (message) => { if (mail.failing) throw new Error("provider down"); mail.sent.push(message); } }
+  });
   const service = createHostingService({
     store, payment, alert, config, now,
     signTicket: createSectorTicketSigner({ privateKeyPem: ticketPrivateKeyPem, now }),
-    newId: (length) => `id${String((nextId += 1)).padStart(length - 2, "0")}`
+    newId: (length) => `id${String((nextId += 1)).padStart(length - 2, "0")}`,
+    rememberAddress: mailer.rememberAddress
   });
-  const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, onSectorOpened: (sector) => { opened.push(sector); } });
+  const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, mailer, onSectorOpened: (sector) => { opened.push(sector); mailer.sectorReady(sector); },
+    // A failed mail pass would otherwise go unnoticed by a test.
+    onEmailPass: (result) => { if ("error" in result) mail.passErrors.push(result.error); } });
 
   /** Orders a standard sector and returns its id. */
   const order = async (uid = "host"): Promise<string> => {
@@ -65,5 +83,5 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     await reconciler.runOnce();
     return sectorId;
   };
-  return { clock, store, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
+  return { clock, store, outbox, mail, mailer, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
 };

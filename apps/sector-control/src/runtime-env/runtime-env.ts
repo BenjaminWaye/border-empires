@@ -19,6 +19,36 @@ export type SectorControlRuntimeEnv = {
   servers: ServerProviderEnv;
   reconcileIntervalMs: number;
   config: HostingConfig;
+  email: HostingEmailEnv;
+};
+
+/**
+ * Player emails (plan step 8c). Without a Resend key the emails are written
+ * to the outbox and wait there; with one they are sent, so a reply address
+ * and the web client's address are then required, since every email invites
+ * a reply and links to My sectors.
+ */
+export type HostingEmailEnv = { resendApiKey?: string; from: string; replyTo?: string; appUrl: string; termsHtmlPath?: string };
+
+const DEFAULT_EMAIL_FROM = "Border Empires <hosting@borderempires.com>";
+const DEFAULT_APP_URL = "https://play.borderempires.com";
+
+const parseEmailEnv = (env: NodeJS.ProcessEnv): HostingEmailEnv => {
+  const resendApiKey = (env.HOSTING_EMAIL_RESEND_API_KEY ?? "").trim();
+  const replyTo = (env.HOSTING_EMAIL_REPLY_TO ?? "").trim();
+  const appUrl = (env.HOSTING_APP_URL ?? env.HOSTING_RETURN_ORIGIN ?? "").trim();
+  if (resendApiKey && !replyTo) throw new Error("HOSTING_EMAIL_REPLY_TO is required with HOSTING_EMAIL_RESEND_API_KEY: every email invites a reply");
+  if (resendApiKey && !appUrl) throw new Error("HOSTING_APP_URL is required with HOSTING_EMAIL_RESEND_API_KEY: every email links to My sectors");
+  if (appUrl && !/^https?:\/\/[^\s]+$/.test(appUrl)) throw new Error("HOSTING_APP_URL must be a URL such as https://play.borderempires.com");
+  const termsHtmlPath = (env.HOSTING_TERMS_HTML_PATH ?? "").trim();
+  return {
+    ...(resendApiKey ? { resendApiKey } : {}),
+    from: (env.HOSTING_EMAIL_FROM ?? "").trim() || DEFAULT_EMAIL_FROM,
+    ...(replyTo ? { replyTo } : {}),
+    appUrl: appUrl || DEFAULT_APP_URL,
+    // Unset: the draft in this repository (docs/legal-drafts/purchase-terms.html), found from where the service runs.
+    ...(termsHtmlPath ? { termsHtmlPath } : {})
+  };
 };
 
 const positiveInt = (name: string, value: string | undefined, fallback: number): number => {
@@ -71,6 +101,7 @@ export const parseSectorControlRuntimeEnv = (env: NodeJS.ProcessEnv): SectorCont
     servers,
     reconcileIntervalMs: positiveInt("HOSTING_RECONCILE_INTERVAL_MS", env.HOSTING_RECONCILE_INTERVAL_MS, 60_000),
     // Sales stay off unless switched on explicitly (the kill switch, plan section 11).
-    config: { ...DEFAULT_HOSTING_CONFIG, salesEnabled: env.HOSTING_SALES_ENABLED === "1" }
+    config: { ...DEFAULT_HOSTING_CONFIG, salesEnabled: env.HOSTING_SALES_ENABLED === "1" },
+    email: parseEmailEnv(env)
   };
 };
