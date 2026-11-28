@@ -188,6 +188,8 @@ body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
 /* The tutorial guide (a layer above the whole HUD) moves under the top bar, clear of the bottom sheets, and steps
    aside while a full screen is open. */
 body.hud-v2-compact #tutorial-guide-root { top: calc(var(--v2c-top) + 44px); bottom: auto !important; left: calc(var(--v2c-safe-left) + 6px); }
+/* On the right edge it starts below the Victory Race column, not on it (tutorial-guide-placement.ts measures the drop). */
+body.hud-v2-compact #tutorial-guide-root.tg-side-end { margin-top: var(--tg-end-drop, 0px); }
 body.hud-v2-compact.hud-v2-screen-open #tutorial-guide-root { display: none; }
 body.hud-v2-compact:has(#hud.desktop-side-panel-open) #tutorial-guide-root,
 body.hud-v2-compact:has(.hud-v2-sheet) #tutorial-guide-root { display: none; }
