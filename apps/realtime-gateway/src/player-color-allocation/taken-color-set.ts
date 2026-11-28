@@ -1,4 +1,4 @@
-import type { EmpireColorEntry } from "@border-empires/shared";
+import type { EmpireColorEntry, EmpireColorsInUse } from "@border-empires/shared";
 
 /**
  * Colours another empire holds. As a Set it is the exact-hex "taken" list
@@ -19,3 +19,17 @@ export class TakenColorSet extends Set<string> {
 /** The active empires of `taken`, or none for a plain exact-hex set. */
 export const activeEmpiresOf = (taken: ReadonlySet<string>): readonly EmpireColorEntry[] =>
   taken instanceof TakenColorSet ? taken.activeEmpires : [];
+
+// Barbarian grey: an exact-only block. Kept here (not in
+// player-color-allocation.ts) so colorsInUseOf has no import cycle.
+const RESERVED_EXACT = ["#2f3842"];
+
+/**
+ * The colours in use as the shared rule takes them (empireColorRejection):
+ * the gateway checks picks against this and sends the same value to the
+ * client, so the inline check and the submit check agree.
+ */
+export const colorsInUseOf = (taken: ReadonlySet<string>): EmpireColorsInUse => ({
+  exact: [...new Set([...taken, ...RESERVED_EXACT])],
+  empires: activeEmpiresOf(taken)
+});
