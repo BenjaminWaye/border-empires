@@ -69,7 +69,11 @@ const syncEndSideDrop = (root: HTMLElement): number => {
     return 0;
   }
   const current = root.classList.contains(GUIDE_SIDE_END_CLASS) ? parseFloat(root.style.getPropertyValue(END_DROP_VAR)) || 0 : 0;
-  const startTop = root.getBoundingClientRect().top - current;
+  const box = root.getBoundingClientRect();
+  // Hidden (a sheet, an open tracker line): no layout to measure from, and the zero rect would feed the
+  // current drop back into the next one, growing it every sync. Keep the last drop until it shows again.
+  if (box.width === 0 && box.height === 0) return current;
+  const startTop = box.top - current;
   const column = document.querySelector<HTMLElement>(".hud-v2-right")?.getBoundingClientRect();
   const drop = guideEndSideDrop(startTop, column && column.width > 0 && column.height > 0 ? column : undefined);
   root.style.setProperty(END_DROP_VAR, `${drop}px`);

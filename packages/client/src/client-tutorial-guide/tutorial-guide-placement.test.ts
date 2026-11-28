@@ -25,7 +25,13 @@ describe("end side drops below the right-hand column (Victory Race)", () => {
   describe("live, on the phone layout", () => {
     let root: HTMLElement;
     let column: HTMLElement;
+    let rootHidden = false;
+    const sync = (nowMs: number): void => {
+      resetGuidePlacementForTests();
+      syncGuideCardPlacement([], undefined, nowMs);
+    };
     beforeEach(() => {
+      rootHidden = false;
       resetGuidePlacementForTests();
       document.body.className = "hud-v2-compact scout-focus";
       root = document.createElement("div");
@@ -37,7 +43,12 @@ describe("end side drops below the right-hand column (Victory Race)", () => {
       column.className = "hud-v2-right";
       document.body.append(root, column);
       vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-        if (this === root) return rect(325, 204, 365, 244);
+        // Like the compact CSS: on the end side the root sits --tg-end-drop lower (margin-top); hidden, it has no box.
+        if (this === root) {
+          if (rootHidden) return rect(0, 0, 0, 0);
+          const drop = root.classList.contains(GUIDE_SIDE_END_CLASS) ? parseFloat(root.style.getPropertyValue("--tg-end-drop")) || 0 : 0;
+          return rect(325, 204 + drop, 365, 244 + drop);
+        }
         if (this === column) return rect(213, 159, 369, 236);
         return rect(0, 0, 0, 0);
       });
@@ -51,6 +62,24 @@ describe("end side drops below the right-hand column (Victory Race)", () => {
     it("sets the drop that puts the folded ? under the Victory Race card", () => {
       syncGuideCardPlacement([], undefined, 0);
       expect(root.classList.contains(GUIDE_SIDE_END_CLASS)).toBe(true);
+      expect(root.style.getPropertyValue("--tg-end-drop")).toBe("40px");
+    });
+
+    it("keeps the same drop on later syncs once the root has moved down by it", () => {
+      sync(0);
+      sync(1000);
+      sync(2000);
+      expect(root.style.getPropertyValue("--tg-end-drop")).toBe("40px");
+    });
+
+    it("keeps the last drop while the guide is hidden, instead of growing it every sync", () => {
+      sync(0);
+      rootHidden = true; // e.g. a tracker line or a sheet is open
+      sync(1000);
+      sync(2000);
+      expect(root.style.getPropertyValue("--tg-end-drop")).toBe("40px");
+      rootHidden = false;
+      sync(3000);
       expect(root.style.getPropertyValue("--tg-end-drop")).toBe("40px");
     });
 
