@@ -30,7 +30,7 @@ describe("a guest trying to make an alliance", () => {
     initGuestSave({
       firebaseAuth: { currentUser: { isAnonymous: true } } as never,
       googleProvider: {} as never,
-      analytics: undefined,
+      analytics: () => undefined,
       reload: vi.fn(),
       userAgent: () => "Mozilla/5.0 Safari/605.1.15",
       pageUrl: () => "https://play.example.test/"

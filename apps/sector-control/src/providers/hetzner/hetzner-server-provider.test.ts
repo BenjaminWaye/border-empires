@@ -128,5 +128,8 @@ describe("Hetzner server provider: asking a sector server", () => {
     // A server that does not answer is reported as an error, which the reconciler alerts on.
     await expect(createHetznerServerProvider(fakeHetzner().api, CONFIG, sectorFetch({})).getContestStatus(host)).rejects.toThrow();
     await expect(provider.getContestStatus("evil.example.com")).rejects.toThrow(/not a sector host/);
+    // The summary saved before teardown comes from the same server, and only from a sector host.
+    expect(await provider.getContestSummary(host)).toEqual({ status: "ended" });
+    await expect(provider.getContestSummary("evil.example.com")).rejects.toThrow(/not a sector host/);
   });
 });
