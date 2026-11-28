@@ -9,7 +9,10 @@ export const formatWaypointSummary = (plan: WaypointPlan): string => {
   if (plan.attackCount > 0) summaryParts.push(`${plan.attackCount} attack`);
   const costParts: string[] = [];
   if (plan.totalGold > 0) costParts.push(`${plan.totalGold} coin`);
-  if (plan.totalManpower > 0) costParts.push(`${plan.totalManpower} manpower`);
+  // Each claim is charged as it is sent, so the pool drops 10, then 20, … toward the total: say so, or "50 manpower"
+  // read as a price that never matched the counter (first-15 playtest 2026-11-28).
+  const each = plan.steps.length > 1 && new Set(plan.steps.map((step) => step.manpowerCost)).size === 1 ? plan.steps[0]?.manpowerCost : undefined;
+  if (plan.totalManpower > 0) costParts.push(each ? `${plan.totalManpower} manpower (${each} per tile)` : `${plan.totalManpower} manpower`);
   costParts.push(`~${seconds}s`);
   return `${summaryParts.join(" + ")} — ${costParts.join(", ")}`;
 };
