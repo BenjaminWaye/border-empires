@@ -4,7 +4,7 @@ import {
   structureBuildGoldCost,
   visualLandBiomeAt
 } from "@border-empires/shared";
-import { isForestTile } from "../client-constants.js";
+import { isForestTile, isHillsTile } from "../client-constants.js";
 import { ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-support/client-tile-action-support.js";
 import {
   structureInfoButtonHtml as structureInfoButtonHtmlFromModule,
@@ -80,7 +80,16 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
     structureInfoButtonHtmlFromModule(type, label);
 
+  // Hills is a flag over the biome (isHillsTile), not a biome: the tile panel lists "Hills: vision +1,
+  // Hills: defense" for it, so the title names it too. First-15 playtest 2026-11-28: "PLAINS (330, 249)"
+  // listed Hills modifiers. Grass-family hills read just HILLS; other biomes keep their name (SAND HILLS).
   const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
+    const base = biomeLabel(x, y, terrain);
+    if (terrain !== "LAND" || !isHillsTile(x, y)) return base;
+    return base === "GRASS" || base === "PLAINS" || base === "GRASSLAND" ? "HILLS" : `${base} HILLS`;
+  };
+
+  const biomeLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
     if (terrain !== "LAND") return terrain;
     const visibleTile = state.tiles.get(`${x},${y}`);
     const derived = landBiomeAt(x, y);

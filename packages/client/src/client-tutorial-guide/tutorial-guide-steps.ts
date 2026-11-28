@@ -143,8 +143,10 @@ export type GuideStepDef = {
   acknowledge?: boolean;
   /**
    * Added to the guide after players had already progressed past its place:
-   * counts as done once any later step is in their saved progress, so an
-   * update never sends a player back to an earlier chapter.
+   * counts as done once the step right after it is in their saved progress
+   * (itself saved or carried the same way), so an update never sends a player
+   * back to an earlier chapter, while a step done out of order far ahead
+   * does not tick it.
    */
   doneIfLaterStepDone?: boolean;
 };
@@ -193,7 +195,7 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "look-explore",
     chapter: "look",
-    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground, then Explore" : "Tap unexplored ground, then Explore"),
+    title: (i) => (i.exploreTarget() ? "Tap the marked unexplored ground, then Explore and Go" : "Tap unexplored ground, then Explore and Go"),
     why: "Your drone is free. It shows towns, food and rivals.",
     // A launch completes it (sticky), and so does having nothing left to explore near home.
     isDone: (i) => i.scout === "out" || (i.scout === "ready" && i.nothingToExplore()),
@@ -400,6 +402,25 @@ export type GuideView =
 const CHAPTER_ORDER = Object.keys(GUIDE_CHAPTER_TITLES) as GuideChapterId[];
 
 /**
+ * The doneIfLaterStepDone steps that saved progress carries: one counts only
+ * when the step right after it is saved (or carried), so the carry runs back
+ * from saved progress in order. Steps also complete out of order (opening
+ * Manifests ticks "Open Manifests" at once), and "any later step saved" let
+ * that one panel tap tick the look-around steps and the Relay Beacon too: the
+ * first-15 playtest (2026-11-28) opened Manifests first and the guide began
+ * at 5/18.
+ */
+const carriedBySavedProgress = (completed: ReadonlySet<string>): ReadonlySet<string> => {
+  const carried = new Set<string>();
+  for (let index = GUIDE_STEPS.length - 2; index >= 0; index -= 1) {
+    const step = GUIDE_STEPS[index]!;
+    const next = GUIDE_STEPS[index + 1]!;
+    if (step.doneIfLaterStepDone && (completed.has(next.id) || carried.has(next.id))) carried.add(step.id);
+  }
+  return carried;
+};
+
+/**
  * Picks the step to show: the first incomplete step that is available. When
  * every incomplete step is waiting (e.g. no contact yet for the muster flag),
  * shows the first waiting one with its note. Completion is sticky: a step in
@@ -407,13 +428,8 @@ const CHAPTER_ORDER = Object.keys(GUIDE_CHAPTER_TITLES) as GuideChapterId[];
  * state that satisfied it changes later.
  */
 export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>): GuideView => {
-  const laterStepDone = (index: number): boolean => GUIDE_STEPS.slice(index + 1).some((later) => completed.has(later.id));
-  const newlyCompleted = GUIDE_STEPS.filter(
-    (s, index) =>
-      !completed.has(s.id) &&
-      !s.acknowledge &&
-      (s.isDone(input) || (s.doneIfLaterStepDone === true && laterStepDone(index)))
-  ).map((s) => s.id);
+  const carried = carriedBySavedProgress(completed);
+  const newlyCompleted = GUIDE_STEPS.filter((s) => !completed.has(s.id) && !s.acknowledge && (s.isDone(input) || carried.has(s.id))).map((s) => s.id);
   const done = new Set([...completed, ...newlyCompleted]);
   const remaining = GUIDE_STEPS.filter((s) => !done.has(s.id));
   if (remaining.length === 0) return { kind: "done" };
