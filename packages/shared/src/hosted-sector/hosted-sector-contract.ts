@@ -58,7 +58,7 @@ export const HOSTED_SECTOR_CONSENT_EARLY_START =
   "I ask for my sector to start now, during the 14-day withdrawal period. I understand that if I withdraw I pay for the days it has been open, and that I lose the right to withdraw once its Sector Contest has ended.";
 
 /** FNV-1a (32-bit), hex. Small and the same in the browser and on the server; not for secrecy. */
-const fingerprint = (text: string): string => {
+export const consentWordingFingerprint = (text: string): string => {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i += 1) {
     hash ^= text.charCodeAt(i);
@@ -73,7 +73,7 @@ const fingerprint = (text: string): string => {
  * the wording stored as proof is always the wording the buyer saw, even if
  * one is changed without bumping the terms version.
  */
-export const HOSTED_SECTOR_CONSENT_WORDING = fingerprint(`${HOSTED_SECTOR_CONSENT_TERMS}\n${HOSTED_SECTOR_CONSENT_EARLY_START}`);
+export const HOSTED_SECTOR_CONSENT_WORDING = consentWordingFingerprint(`${HOSTED_SECTOR_CONSENT_TERMS}\n${HOSTED_SECTOR_CONSENT_EARLY_START}`);
 
 /** What the client sends with an order or a share: both boxes ticked, against this version of the terms and this wording. */
 export type HostedSectorConsent = { termsVersion: string; wording: string; acceptedTerms: true; requestedEarlyStart: true };

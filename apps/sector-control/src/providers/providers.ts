@@ -12,6 +12,11 @@ export type ContributionStatus = "open" | "held" | "captured" | "released" | "ex
 export interface PaymentProvider {
   /** Must be safe to repeat for the same sector id (one checkout per sector). */
   createCheckout(input: { sectorId: string; accountUid: string; amountCents: number; currency: string; options: HostedSectorOptions; createdAt: number }): Promise<{ paymentRef: string; checkoutUrl: string }>;
+  /**
+   * A cosmetic product (plan 8e): one payment, the order id as the reference
+   * and idempotency key. Its status is read with getCheckoutStatus.
+   */
+  createProductCheckout(input: { orderId: string; accountUid: string; productId: string; productName: string; amountCents: number; currency: string; createdAt: number }): Promise<{ paymentRef: string; checkoutUrl: string }>;
   /** Asked when a webhook may have been missed. */
   getCheckoutStatus(paymentRef: string): Promise<CheckoutStatus>;
   /**
@@ -62,6 +67,8 @@ export interface ServerProvider {
 
 export type HostingAlertKind =
   | "sector_creation_failing"
+  | "cosmetic_refunded_automatically"
+  | "cosmetic_refund_failed"
   | "hosted_results_unpublished"
   | "sector_refunded_automatically"
   | "sector_refund_failed"

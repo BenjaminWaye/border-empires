@@ -18,6 +18,8 @@ import { createStripePaymentProvider } from "./providers/stripe/stripe-payment-p
 import { createStripeWebhookParser } from "./providers/stripe/stripe-webhook.js";
 import { parseSectorControlRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { createSectorControlApp } from "./sector-control-app/sector-control-app.js";
+import { SqliteCosmeticOrderStore } from "./hosting-cosmetics/cosmetic-order-store.js";
+import { createGatewayCosmeticsClient } from "./hosting-cosmetics/gateway-cosmetics-client.js";
 
 const env = parseSectorControlRuntimeEnv(process.env);
 // A key that cannot be read would start a service that takes orders and then fails every entry.
@@ -33,6 +35,8 @@ const results = new SqliteHostedResultsStore(db);
 results.applySchema();
 const publishLog = new SqliteHostedResultsPublishLog(db);
 publishLog.applySchema();
+const cosmeticOrders = new SqliteCosmeticOrderStore(db);
+cosmeticOrders.applySchema();
 
 /** `relative` in `from` or the nearest folder above it that has it, whether the service runs from src or dist. */
 const findUpwards = (relative: string, from: string): string | undefined => {
@@ -88,6 +92,10 @@ const control = createSectorControlApp({
   },
   parsePaymentWebhook: payment.parseWebhook,
   results,
+  // The shop needs the gateway to grant what is bought; without it no cosmetic is sold.
+  ...(env.gateway
+    ? { cosmetics: { orders: cosmeticOrders, gateway: createGatewayCosmeticsClient({ gatewayUrl: env.gateway.url, token: env.gateway.token }) } }
+    : {}),
   ...(env.gateway
     ? {
         resultsPublisher: (alert) => createHostedResultsPublisher({

@@ -25,6 +25,16 @@ const build = async () => {
 const headers = { authorization: `Bearer ${KEY}` };
 
 describe("granting a bought cosmetic", () => {
+  it("says whether the account already owns the product, so it is not sold twice", async () => {
+    const { app } = await build();
+    const status = async (uid: string) => (await app.inject({ method: "POST", url: "/admin/cosmetics/purchase-status", headers, payload: { uid, productId: "title-count" } })).json();
+    expect(await status("uid-buyer")).toEqual({ ok: true, owned: false });
+    expect(await status("uid-never-played")).toEqual({ ok: true, owned: false });
+    await app.inject({ method: "POST", url: "/admin/cosmetics/purchase-grant", headers, payload: { uid: "uid-buyer", productId: "title-count" } });
+    expect(await status("uid-buyer")).toEqual({ ok: true, owned: true });
+    expect((await app.inject({ method: "POST", url: "/admin/cosmetics/purchase-status", payload: { uid: "uid-buyer", productId: "title-count" } })).statusCode).toBe(401);
+  });
+
   it("grants the whole product to the account behind the uid, once, and the title with it", async () => {
     const { app, store } = await build();
     const first = await app.inject({ method: "POST", url: "/admin/cosmetics/purchase-grant", headers, payload: { uid: "uid-buyer", productId: "title-count", grantRef: "cos-1" } });

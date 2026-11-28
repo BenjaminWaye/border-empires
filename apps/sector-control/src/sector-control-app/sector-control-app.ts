@@ -9,6 +9,10 @@ import { addCorsHeaders } from "../../../realtime-gateway/src/http-routes/cors-h
 import type { HostingConfig } from "../hosting-service/hosting-config.js";
 import type { HostedResultsStore } from "../hosting-results/hosted-results.js";
 import type { HostedResultsPublisher } from "../hosting-results/hosted-results-publisher.js";
+import type { SqliteCosmeticOrderStore } from "../hosting-cosmetics/cosmetic-order-store.js";
+import { createCosmeticOrders } from "../hosting-cosmetics/cosmetic-orders.js";
+import type { GatewayCosmeticsClient } from "../hosting-cosmetics/gateway-cosmetics-client.js";
+import { registerCosmeticRoutes } from "../http-routes/cosmetic-routes.js";
 import type { HostingEmailOutbox } from "../hosting-email/hosting-email-outbox.js";
 import { createHostingMailer, type HostingTermsAttachment } from "../hosting-email/hosting-mailer.js";
 import type { HostingEmailTransport } from "../hosting-email/resend-email-transport.js";
@@ -35,6 +39,11 @@ export type SectorControlAppOptions = {
   resultsPublisher?: (alert: HostingAlert) => HostedResultsPublisher;
   /** Player emails (plan step 8c). Without an outbox none are written; without a transport they wait in it. */
   email?: { outbox: HostingEmailOutbox; transport?: HostingEmailTransport; terms?: HostingTermsAttachment; appUrl: string };
+  /**
+   * The cosmetics shop (plan step 8e). Needs the email outbox too: an item is
+   * granted only after its confirmation email has been sent.
+   */
+  cosmetics?: { orders: SqliteCosmeticOrderStore; gateway: GatewayCosmeticsClient };
   now?: () => number;
   logger?: boolean;
 };
@@ -70,10 +79,24 @@ export const createSectorControlApp = (options: SectorControlAppOptions): { app:
         }
       : {})
   });
+  const cosmeticOrders = options.cosmetics && options.email && mailer
+    ? createCosmeticOrders({
+        orders: options.cosmetics.orders, store: options.store, payment: options.payment, gateway: options.cosmetics.gateway,
+        outbox: options.email.outbox, appUrl: options.email.appUrl, config: options.config, alert, now, newId: randomId,
+        rememberAddress: (account) => {
+          try {
+            mailer.rememberAddress(account);
+          } catch (error) {
+            app.log.error({ err: error }, "hosting email address could not be kept");
+          }
+        }
+      })
+    : undefined;
   const reconciler = createHostingReconciler({
     store: options.store, payment: options.payment, servers: options.servers, alert, config: options.config, now,
     ...(options.results ? { results: options.results } : {}),
     ...(options.resultsPublisher ? { resultsPublisher: options.resultsPublisher(alert) } : {}),
+    ...(cosmeticOrders ? { cosmeticOrders } : {}),
     ...(mailer
       ? {
           mailer,
@@ -98,8 +121,10 @@ export const createSectorControlApp = (options: SectorControlAppOptions): { app:
     service,
     verifyIdToken: options.verifyIdToken,
     parsePaymentWebhook: options.parsePaymentWebhook,
+    ...(cosmeticOrders ? { handleCosmeticEvent: (event) => cosmeticOrders.handlePaymentEvent(event) } : {}),
     onWebhookRejected: () => { app.log.warn("hosting payment webhook rejected: signature did not verify"); }
   });
+  if (cosmeticOrders) registerCosmeticRoutes(app, { orders: cosmeticOrders, verifyIdToken: options.verifyIdToken });
   app.get("/hosting/health", async () => ({ ok: true, salesEnabled: options.config.salesEnabled, sectors: options.store.countSectorsByState() }));
 
   let timer: NodeJS.Timeout | undefined;

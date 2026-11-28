@@ -32,6 +32,7 @@ export type { ActiveAetherWallView, RevealEmpireStatsView } from "./types.js";
 export * from "./messages/messages.js";
 export { MET_PLAYERS_MAX_IDS, MET_PLAYER_ID_MAX_LENGTH } from "./messages/hint-state-message.js";
 export * from "./cosmetics/cosmetics.js";
+export * from "./cosmetics/cosmetic-purchase-contract.js";
 export type { ClientMessage } from "./messages/messages.js";
 export * from "./aether-wall/aether-wall.js";
 export { aetherWallEdgeKey, buildAetherWallSegments } from "./aether-wall/aether-wall.js";

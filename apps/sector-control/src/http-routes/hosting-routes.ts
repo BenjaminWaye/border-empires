@@ -4,6 +4,7 @@
 import { isHostedSectorMapSize, isHostedSectorMapStyle } from "@border-empires/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
+import { isCosmeticPaymentEvent, type CosmeticPaymentEvent } from "../hosting-cosmetics/cosmetic-payment-event.js";
 import type { HostingAccount, HostingErrorCode, HostingPaymentEvent, HostingService } from "../hosting-service/hosting-service.js";
 
 export type HostingRoutesDeps = {
@@ -15,7 +16,9 @@ export type HostingRoutesDeps = {
    * Returns "ignored" for a genuine event the service does not act on, and
    * undefined when the signature does not verify.
    */
-  parsePaymentWebhook: (rawBody: string, headers: Record<string, string | string[] | undefined>) => Promise<HostingPaymentEvent | "ignored" | undefined>;
+  parsePaymentWebhook: (rawBody: string, headers: Record<string, string | string[] | undefined>) => Promise<HostingPaymentEvent | CosmeticPaymentEvent | "ignored" | undefined>;
+  /** Cosmetic orders (hosting-cosmetics). Without it their events are acknowledged and dropped. */
+  handleCosmeticEvent?: (event: CosmeticPaymentEvent) => Promise<unknown>;
   onWebhookRejected?: () => void;
 };
 
@@ -152,7 +155,10 @@ export const registerHostingRoutes = (app: FastifyInstance, deps: HostingRoutesD
         deps.onWebhookRejected?.();
         return reply.code(400).send({ ok: false });
       }
-      if (event !== "ignored") await service.handlePaymentEvent(event);
+      if (event !== "ignored") {
+        if (isCosmeticPaymentEvent(event)) await deps.handleCosmeticEvent?.(event);
+        else await service.handlePaymentEvent(event);
+      }
       return { ok: true };
     });
   });

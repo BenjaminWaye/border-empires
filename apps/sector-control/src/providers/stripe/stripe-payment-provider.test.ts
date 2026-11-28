@@ -40,6 +40,27 @@ describe("Stripe payment provider", () => {
     expect(call?.params["custom_text[submit][message]"]).toMatch(/lose the right to withdraw once its Sector Contest has ended/);
   });
 
+  it("creates a cosmetic's Checkout Session, traceable to its order, with the delivery-at-once statement above Pay", async () => {
+    const stripe = fakeStripeFetch(() => ({ body: { id: "cs_test_c", url: "https://checkout.stripe.com/c/pay/cs_test_c" } }));
+    const provider = createStripePaymentProvider(createStripeApi({ secretKey: "sk_test_x", fetchImpl: stripe.fetchImpl }), CONFIG);
+    const order = { orderId: "co-1", accountUid: "uid-1", productId: "title-count", productName: "Claim the title of Count", amountCents: 499, currency: "usd", createdAt: NOW };
+    expect(await provider.createProductCheckout(order)).toEqual({ paymentRef: "cs_test_c", checkoutUrl: "https://checkout.stripe.com/c/pay/cs_test_c" });
+    const [call] = stripe.calls;
+    expect(call?.headers["idempotency-key"]).toBe("cosmetic-checkout-co-1");
+    expect(call?.params).toMatchObject({
+      client_reference_id: "co-1",
+      "metadata[cosmeticOrderId]": "co-1",
+      "payment_intent_data[metadata][cosmeticOrderId]": "co-1",
+      "line_items[0][price_data][unit_amount]": "499",
+      "line_items[0][price_data][tax_behavior]": "inclusive",
+      "line_items[0][price_data][product_data][name]": "Claim the title of Count",
+      "automatic_tax[enabled]": "true",
+      success_url: "https://play.borderempires.com/?cosmetic=paid&order=co-1"
+    });
+    expect(call?.params["metadata[sectorId]"]).toBeUndefined();
+    expect(call?.params["custom_text[submit][message]"]).toMatch(/lose your right to withdraw/);
+  });
+
   it("sends identical parameters when asked again for the same order, as Stripe's idempotency requires", async () => {
     const stripe = fakeStripeFetch(() => ({ body: { id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" } }));
     const provider = createStripePaymentProvider(createStripeApi({ secretKey: "sk_test_x", fetchImpl: stripe.fetchImpl }), CONFIG);

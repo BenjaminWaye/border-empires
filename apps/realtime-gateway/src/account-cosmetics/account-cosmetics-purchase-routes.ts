@@ -15,7 +15,7 @@ import type { AccountCosmeticsService } from "./account-cosmetics-service.js";
 export type AccountCosmeticsPurchaseRouteDeps = {
   grantToken: string;
   authBindingStore: Pick<GatewayAuthBindingStore, "getByUid">;
-  cosmetics: Pick<AccountCosmeticsService, "grantProduct" | "revoke">;
+  cosmetics: Pick<AccountCosmeticsService, "grantProduct" | "revoke" | "titleOf">;
 };
 
 export const registerAccountCosmeticsPurchaseRoutes = (app: FastifyInstance, deps: AccountCosmeticsPurchaseRouteDeps): void => {
@@ -41,6 +41,19 @@ export const registerAccountCosmeticsPurchaseRoutes = (app: FastifyInstance, dep
     }
     return { playerId: binding.playerId, productId, grantRef: typeof grantRef === "string" && grantRef ? grantRef.slice(0, 200) : "purchase" };
   };
+
+  // Before a checkout: a product already owned is not sold again (a second payment would grant nothing).
+  // An account that has never entered the game owns nothing yet.
+  app.post("/admin/cosmetics/purchase-status", async (request, reply) => {
+    if (!hostingServiceAuthorized(request.headers.authorization, deps.grantToken)) return reply.code(401).send({ ok: false, error: "unauthorized" });
+    const { uid, productId } = (request.body ?? {}) as Record<string, unknown>;
+    const product = typeof productId === "string" ? cosmeticProduct(productId) : undefined;
+    if (typeof uid !== "string" || !uid || !product) return reply.code(400).send({ ok: false, error: "uid and a known productId are required" });
+    const binding = await deps.authBindingStore.getByUid(uid);
+    if (!binding) return { ok: true, owned: false };
+    // Every product sold today gives a title, held exactly while all of it is owned (accountTitleFor).
+    return { ok: true, owned: product.title !== undefined && (await deps.cosmetics.titleOf(binding.playerId)) === product.title };
+  });
 
   // Idempotent: granting what is owned already changes nothing and still answers ok.
   app.post("/admin/cosmetics/purchase-grant", async (request, reply) => {

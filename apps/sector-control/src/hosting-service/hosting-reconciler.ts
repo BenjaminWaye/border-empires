@@ -29,6 +29,8 @@ export type HostingReconcilerDeps = {
   results?: HostedResultsStore;
   /** Sends saved results to the game gateway, after the sectors' steps on every pass. */
   resultsPublisher?: Pick<HostedResultsPublisher, "runOnce">;
+  /** Cosmetic orders (hosting-cosmetics): checked, confirmed, granted or refunded on every pass, before the emails go out. */
+  cosmeticOrders?: { runOnce(): Promise<void> };
   /** After each pass: how many emails were sent and how many wait, or why the pass failed. For the log. */
   onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
@@ -243,6 +245,13 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
           await deps.resultsPublisher.runOnce();
         } catch {
           // Each failure is recorded per sector and alerted when it persists; the next pass tries again.
+        }
+      }
+      if (deps.cosmeticOrders) {
+        try {
+          await deps.cosmeticOrders.runOnce();
+        } catch {
+          // Each order records its own failure; the next pass tries again.
         }
       }
       if (deps.mailer) {

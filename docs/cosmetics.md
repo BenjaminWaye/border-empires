@@ -260,14 +260,16 @@ client message reaches either.
 
 - **Payment work:** the hosting service (`apps/sector-control`) takes the
   payment and knows the buyer by Firebase uid. It calls
-  `POST /admin/cosmetics/purchase-grant` and, on a refund or withdrawal,
+  `POST /admin/cosmetics/purchase-status` (whether the account owns the product
+  already, so it is not sold twice), `POST /admin/cosmetics/purchase-grant` and,
+  on a full refund or a lost dispute,
   `POST /admin/cosmetics/purchase-revoke`, body `{"uid", "productId", "grantRef"?}`
   (the payment id as `grantRef`). The gateway resolves the uid to the player id
   through the auth binding store and calls `grantProduct`, which grants every
   cosmetic in the product and is idempotent; revoking removes every cosmetic of
   the product, and with them the title. An account that has never entered the
   game answers 404 `no_player`, and the hosting service tries again later.
-  These two routes accept only `Authorization: Bearer $HOSTING_SERVICE_TOKEN`
+  These routes accept only `Authorization: Bearer $HOSTING_SERVICE_TOKEN`
   (at least 32 characters; without it they do not exist). The same key may
   only otherwise record hosted-sector results
   (`POST /admin/hosted-results/record`, shown on the public House profile as

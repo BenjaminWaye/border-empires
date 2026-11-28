@@ -17,7 +17,11 @@ const event = (type: string, object: Record<string, unknown>, extra: Record<stri
   JSON.stringify({ id: `evt_${type}`, type, livemode: false, data: { object }, ...extra });
 
 const makeParser = () => {
-  const stripe = fakeStripeFetch((call) => ({ body: call.path === "/payment_intents/pi_1" ? { id: "pi_1", metadata: { sectorId: "s-abc" } } : { id: "pi_x", metadata: {} } }));
+  const stripe = fakeStripeFetch((call) => ({
+    body: call.path === "/payment_intents/pi_1" ? { id: "pi_1", metadata: { sectorId: "s-abc" } }
+      : call.path === "/payment_intents/pi_cos" ? { id: "pi_cos", metadata: { cosmeticOrderId: "co-1" } }
+        : { id: "pi_x", metadata: {} }
+  }));
   const parse = createStripeWebhookParser({ api: createStripeApi({ secretKey: "sk_test_x", fetchImpl: stripe.fetchImpl }), webhookSecret: SECRET, now: () => NOW });
   return { stripe, parse: (body: string, signature = sign(body)) => parse(body, { "stripe-signature": signature }) };
 };
@@ -71,6 +75,18 @@ describe("Stripe webhook events", () => {
     expect(stripe.calls.map((call) => call.path)).toEqual(["/payment_intents/pi_1", "/payment_intents/pi_1", "/payment_intents/pi_1", "/payment_intents/pi_1"]);
     // A payment that is not a hosted sector (another product, later) is not ours to act on.
     expect(await parse(event("charge.refunded", { payment_intent: "pi_other" }))).toBe("ignored");
+  });
+
+  it("reads a cosmetic order's events by the order id on its session and its payment", async () => {
+    const { parse } = makeParser();
+    const session = { id: "cs_cos", client_reference_id: "co-1", metadata: { cosmeticOrderId: "co-1" } };
+    expect(await parse(event("checkout.session.completed", { ...session, payment_status: "paid" }))).toEqual({ eventId: "evt_checkout.session.completed", kind: "paid", cosmeticOrderId: "co-1", paymentRef: "cs_cos" });
+    expect(await parse(event("checkout.session.completed", { ...session, payment_status: "unpaid" }))).toBe("ignored");
+    expect(await parse(event("checkout.session.expired", session))).toMatchObject({ kind: "expired", cosmeticOrderId: "co-1" });
+    expect(await parse(event("charge.refunded", { payment_intent: "pi_cos", amount: 499, amount_refunded: 499 }))).toMatchObject({ kind: "refunded", cosmeticOrderId: "co-1", fullRefund: true });
+    expect(await parse(event("charge.dispute.created", { id: "dp_9", payment_intent: "pi_cos" }))).toMatchObject({ kind: "disputed", cosmeticOrderId: "co-1", disputeId: "dp_9" });
+    expect(await parse(event("charge.dispute.closed", { id: "dp_9", payment_intent: "pi_cos", status: "lost" }))).toMatchObject({ kind: "dispute_closed", cosmeticOrderId: "co-1", lost: true });
+    expect(await parse(event("charge.dispute.closed", { id: "dp_9", payment_intent: "pi_cos", status: "won" }))).toMatchObject({ kind: "dispute_closed", lost: false });
   });
 
   it("refuses a bad signature, and ignores live events and everything it does not act on", async () => {

@@ -154,3 +154,26 @@ export const withdrawalAckEmail = (appUrl: string, input: { sectorId: string; sh
     ],
     linkLabel: "Open My sectors"
   });
+
+/**
+ * A cosmetic's confirmation (Terms of Sale section 7a). It confirms the
+ * request to deliver at once and the acknowledgement that the right to
+ * withdraw is then lost (Directive 2011/83/EU Art. 16(m)(iii)), so the item is
+ * granted only after this email has been sent (hosting-cosmetics/cosmetic-orders.ts).
+ */
+export const cosmeticOrderConfirmationEmail = (appUrl: string, input: { orderId: string; productName: string; contents: string; amountCents: number; currency: string; paidAt: number; consent: ConsentRecord }): RenderedEmail =>
+  render(appUrl, {
+    subject: `Your order is confirmed: ${input.productName}`,
+    eyebrow: "Order confirmation",
+    headline: "Thank you for your order",
+    highlight: { label: "Paid", value: formatMoney(input.amountCents, input.currency) },
+    body: [
+      "This email confirms your purchase. Please keep it.",
+      `What you bought: ${input.productName} (${input.contents}), a cosmetic for your Border Empires account (order ${input.orderId}). It changes only how your House looks and gives no advantage in play.`,
+      `Price: ${formatMoney(input.amountCents, input.currency)}, tax included, paid on ${formatTime(input.paidAt)}. One single payment.`,
+      ...consentLines(input.consent),
+      "As you asked, it is added to your account now, during the 14-day withdrawal period. Because you asked for this and acknowledged it, you lose your right to withdraw once it has been added (Terms of Sale section 7a). If it is not added within 24 hours, we refund you in full.",
+      "You keep it for as long as Border Empires is operated and your account exists. If you delete your account, it is deleted with it."
+    ],
+    linkLabel: "Open Border Empires"
+  });

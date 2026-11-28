@@ -6,6 +6,7 @@
 // HMAC-SHA256 signatures of `${t}.${rawBody}` under the endpoint's secret.
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import type { CosmeticPaymentEvent } from "../../hosting-cosmetics/cosmetic-payment-event.js";
 import type { HostingPaymentEvent } from "../../hosting-service/hosting-service.js";
 import type { StripeApi } from "./stripe-api.js";
 
@@ -45,15 +46,31 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
    * (and, for a share of a split-funded sector, the contribution id) lives on
    * the payment's metadata.
    */
-  const paymentIntent = async (paymentIntentId: unknown): Promise<{ sectorId?: string; contributionId?: string; status?: string }> => {
+  const paymentIntent = async (paymentIntentId: unknown): Promise<{ sectorId?: string; contributionId?: string; cosmeticOrderId?: string; status?: string }> => {
     const id = text(paymentIntentId);
     if (!id) return {};
     const intent = await deps.api.get(`/payment_intents/${encodeURIComponent(id)}`);
     const metadata = (intent.metadata ?? {}) as Record<string, unknown>;
     const sectorId = text(metadata.sectorId);
     const contributionId = text(metadata.contributionId);
+    const cosmeticOrderId = text(metadata.cosmeticOrderId);
     const status = text(intent.status);
-    return { ...(sectorId ? { sectorId } : {}), ...(contributionId ? { contributionId } : {}), ...(status ? { status } : {}) };
+    return { ...(sectorId ? { sectorId } : {}), ...(contributionId ? { contributionId } : {}), ...(cosmeticOrderId ? { cosmeticOrderId } : {}), ...(status ? { status } : {}) };
+  };
+
+  /** A cosmetic order's event, from its Checkout Session (paid or expired) or its payment (refunded or disputed). */
+  const cosmeticEvent = (eventId: string, type: unknown, object: Record<string, unknown>, cosmeticOrderId: string): CosmeticPaymentEvent | "ignored" => {
+    if (type === "checkout.session.completed" || type === "checkout.session.async_payment_succeeded") {
+      if (object.payment_status !== "paid") return "ignored";
+      const paymentRef = text(object.id);
+      return { eventId, kind: "paid", cosmeticOrderId, ...(paymentRef ? { paymentRef } : {}) };
+    }
+    if (type === "checkout.session.expired" || type === "checkout.session.async_payment_failed") return { eventId, kind: "expired", cosmeticOrderId };
+    if (type === "charge.refunded") return { eventId, kind: "refunded", cosmeticOrderId, fullRefund: isFullRefund(object) };
+    const disputeId = text(object.id);
+    if (type === "charge.dispute.created" && disputeId) return { eventId, kind: "disputed", cosmeticOrderId, disputeId };
+    if (type === "charge.dispute.closed" && disputeId) return { eventId, kind: "dispute_closed", cosmeticOrderId, disputeId, lost: object.status === "lost" };
+    return "ignored";
   };
 
   /** A share's event, from its Checkout Session (held or expired) or its payment (refunded or disputed). */
@@ -71,7 +88,7 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
     return "ignored";
   };
 
-  return async (rawBody: string, headers: Headers): Promise<HostingPaymentEvent | "ignored" | undefined> => {
+  return async (rawBody: string, headers: Headers): Promise<HostingPaymentEvent | CosmeticPaymentEvent | "ignored" | undefined> => {
     const header = headers["stripe-signature"];
     if (!verifyStripeSignature(rawBody, Array.isArray(header) ? header[0] : header, deps.webhookSecret, Math.floor(now() / 1000))) return undefined;
     const event = JSON.parse(rawBody) as { id?: unknown; type?: unknown; livemode?: unknown; data?: { object?: Record<string, unknown> } };
@@ -80,11 +97,15 @@ export const createStripeWebhookParser = (deps: { api: StripeApi; webhookSecret:
     // A live event can only come from a live endpoint misconfigured to point here.
     if (!eventId || event.livemode !== false) return "ignored";
 
+    // Cosmetic orders carry their order id on the session, or on the payment.
+    const sessionCosmetic = text((object.metadata as Record<string, unknown> | undefined)?.cosmeticOrderId);
+    if (sessionCosmetic && String(event.type).startsWith("checkout.session.")) return cosmeticEvent(eventId, event.type, object, sessionCosmetic);
     // Shares of a split-funded sector carry their contribution id on the session, or on the payment.
     const sessionContribution = text((object.metadata as Record<string, unknown> | undefined)?.contributionId);
     if (sessionContribution && String(event.type).startsWith("checkout.session.")) return contributionEvent(eventId, event.type, object, sessionContribution);
     if (event.type === "charge.refunded" || event.type === "charge.dispute.created" || event.type === "charge.dispute.closed") {
       const intent = await paymentIntent(object.payment_intent);
+      if (intent.cosmeticOrderId) return cosmeticEvent(eventId, event.type, object, intent.cosmeticOrderId);
       if (intent.contributionId) return contributionEvent(eventId, event.type, object, intent.contributionId);
       if (!intent.sectorId) return "ignored";
       if (event.type === "charge.refunded") return { eventId, kind: "refunded", sectorId: intent.sectorId, fullRefund: isFullRefund(object) };

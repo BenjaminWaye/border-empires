@@ -35,6 +35,10 @@ const CHECKOUT_LIFETIME_SECONDS = 35 * 60;
 export const CHECKOUT_CONSENT_TEXT =
   "One single payment, tax included. Your sector starts as soon as you pay: you asked us to start it during the 14-day withdrawal period. If you withdraw, we keep a part of the price for the days it was open, and you lose the right to withdraw once its Sector Contest has ended. See the Terms of Sale.";
 
+/** Shown above the Pay button for a cosmetic: the same request and acknowledgement the buyer ticked in the game. */
+export const COSMETIC_CHECKOUT_CONSENT_TEXT =
+  "One single payment, tax included. You asked for this item to be added to your account at once, and you lose your right to withdraw when it is. See the Terms of Sale.";
+
 const productName = (options: HostedSectorOptions): string =>
   `Hosted sector: ${options.mapStyle === "islands" ? "Islands" : "Continents"}, ${options.mapSize === "small" ? "small" : "standard"} map`;
 
@@ -65,6 +69,33 @@ export const createStripePaymentProvider = (api: StripeApi, config: StripePaymen
         expires_at: String(Math.floor(input.createdAt / 1000) + CHECKOUT_LIFETIME_SECONDS)
       };
       const session = await api.post("/checkout/sessions", params, `checkout-${input.sectorId}`);
+      if (typeof session.id !== "string" || typeof session.url !== "string") throw new Error("Stripe returned a Checkout Session without an id or url");
+      return { paymentRef: session.id, checkoutUrl: session.url };
+    },
+
+    async createProductCheckout(input) {
+      const params: Record<string, string> = {
+        mode: "payment",
+        client_reference_id: input.orderId,
+        "metadata[cosmeticOrderId]": input.orderId,
+        "metadata[accountUid]": input.accountUid,
+        "metadata[productId]": input.productId,
+        "payment_intent_data[metadata][cosmeticOrderId]": input.orderId,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": input.currency,
+        "line_items[0][price_data][unit_amount]": String(input.amountCents),
+        // As for sectors: the price shown is the price paid, tax included.
+        "line_items[0][price_data][tax_behavior]": "inclusive",
+        "line_items[0][price_data][product_data][name]": input.productName,
+        "line_items[0][price_data][product_data][tax_code]": config.taxCode,
+        "automatic_tax[enabled]": "true",
+        billing_address_collection: "required",
+        "custom_text[submit][message]": COSMETIC_CHECKOUT_CONSENT_TEXT,
+        success_url: `${origin}/?cosmetic=paid&order=${encodeURIComponent(input.orderId)}`,
+        cancel_url: `${origin}/?cosmetic=cancelled&order=${encodeURIComponent(input.orderId)}`,
+        expires_at: String(Math.floor(input.createdAt / 1000) + CHECKOUT_LIFETIME_SECONDS)
+      };
+      const session = await api.post("/checkout/sessions", params, `cosmetic-checkout-${input.orderId}`);
       if (typeof session.id !== "string" || typeof session.url !== "string") throw new Error("Stripe returned a Checkout Session without an id or url");
       return { paymentRef: session.id, checkoutUrl: session.url };
     },

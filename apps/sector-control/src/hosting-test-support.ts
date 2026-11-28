@@ -87,5 +87,5 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     await reconciler.runOnce();
     return sectorId;
   };
-  return { clock, store, outbox, results, mail, mailer, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
+  return { clock, db, store, outbox, results, mail, mailer, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
 };

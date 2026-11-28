@@ -13,6 +13,12 @@ export class FakePaymentProvider implements PaymentProvider {
     return { paymentRef, checkoutUrl: `https://checkout.invalid/${paymentRef}` };
   }
 
+  async createProductCheckout(input: { orderId: string }): Promise<{ paymentRef: string; checkoutUrl: string }> {
+    const paymentRef = `fake-pay-${input.orderId}`;
+    if (!this.statuses.has(paymentRef)) this.statuses.set(paymentRef, "open");
+    return { paymentRef, checkoutUrl: `https://checkout.invalid/${paymentRef}` };
+  }
+
   async getCheckoutStatus(paymentRef: string): Promise<CheckoutStatus> {
     return this.statuses.get(paymentRef) ?? "expired";
   }
