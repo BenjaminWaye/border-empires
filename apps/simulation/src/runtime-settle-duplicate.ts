@@ -29,3 +29,26 @@ export const handleDuplicatePendingSettlement = (
   context.rejectCommand(command, "SETTLE_INVALID", "tile is already settling");
   return true;
 };
+
+/**
+ * A SETTLE whose target is not one of the actor's frontier tiles. If the actor
+ * already garrisoned it, the SETTLE is already done: their own auto-garrison
+ * (ticked a moment before, and instant for a new player's first garrisons)
+ * settled it before the manual tap arrived. Resolving it, instead of rejecting
+ * with "tile is not one of your frontier tiles", is what the player asked for
+ * (first-15 playtest r1: pt-diplomat, pt-warlord, pt-predator). The state
+ * update hands the client back the coin/manpower it predicted spending. Any
+ * other tile still rejects.
+ */
+export const handleSettleOnNonFrontierTile = (
+  context: DuplicateSettlementContext & { emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void },
+  target: { ownerId?: string | undefined; ownershipState?: string | undefined },
+  command: Pick<CommandEnvelope, "commandId" | "playerId">
+): void => {
+  if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
+    context.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles");
+    return;
+  }
+  context.emitPlayerStateUpdate(command);
+  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+};

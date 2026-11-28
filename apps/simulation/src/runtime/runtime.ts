@@ -486,7 +486,7 @@ import {
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { buildRelocatedSettlementTile, firstTownlessOwnedLandKey } from "../runtime-relocated-settlement-tile.js";
 import { publishOwnershipChange } from "./runtime-ownership-change-sample.js";
-import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
+import { handleDuplicatePendingSettlement, handleSettleOnNonFrontierTile } from "../runtime-settle-duplicate.js";
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
@@ -2588,7 +2588,7 @@ export class SimulationRuntime {
     const clicked = this.state.tiles.get(simulationTileKey(payload.x, payload.y)); const target = clicked ? superTileActionTarget(this.state.tiles, clicked) : undefined; // settling any of an AFC/relic's nine tiles settles the site
     if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
     const targetKey = simulationTileKey(target.x, target.y);
-    if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return; }
+    if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") { handleSettleOnNonFrontierTile({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg), emitPlayerStateUpdate: (c) => this.emitPlayerStateUpdate(c) }, target, command); return; }
     if (this.state.locksByTile.targetLockAt(targetKey)?.actionType === "ATTACK") { this.rejectCommand(command, "SETTLE_INVALID", "tile is under attack"); return; } // attack-development-hold.ts
     // Encirclement guard: a cut-off tile cannot be settled. Settling a
     // disconnected tile would let a player convert an encircled pocket into

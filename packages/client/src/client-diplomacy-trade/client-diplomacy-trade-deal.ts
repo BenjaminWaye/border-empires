@@ -30,15 +30,23 @@ const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(ter
 export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms, targetIsAi: boolean): TradeKind =>
   treaty ?? (hasSupply(terms) || hasRecurringCoin(terms) || asksAnything(terms) || !targetIsAi ? "trade" : "gift");
 
-/** Treaty-less trade/gift verdicts that the shared verdict words for a different screen. */
-export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string, allied = false): TradeVerdict | undefined => {
+/** The alliance button's own words: "alliance", or "Swear fealty" / "Demand fealty" with an unequal House. */
+const allianceChoice = (fealty: FealtyStanding, article: boolean): string =>
+  fealty === "ALLIANCE" ? `${article ? "an " : ""}alliance` : allianceTreatyLabel(fealty);
+
+/**
+ * Treaty-less trade/gift verdicts that the shared verdict words for a different screen. The hint names the
+ * treaty buttons as the screen shows them (first-15 playtest r1: "Pick a truce or alliance" while the only
+ * button read "Swear fealty").
+ */
+export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string, allied = false, fealty: FealtyStanding = "ALLIANCE"): TradeVerdict | undefined => {
   if (treaty) return undefined;
   if (diplomacyTermsAreEmpty(terms)) {
-    const text = allied ? "Add goods from either side to trade with your ally." : "Pick a truce or alliance, or add goods from either side.";
+    const text = allied ? "Add goods from either side to trade with your ally." : `Pick a truce or ${allianceChoice(fealty, false)}, or add goods from either side.`;
     return { tone: "neutral", text, canSend: false, sendLabel: "Send offer" };
   }
   if (!hasSupply(terms) && kind !== "gift") {
-    const text = allied ? "Coin changes hands with a resource supply. Add one to the deal." : "Coin changes hands with a truce, an alliance or a resource supply. Add one to the deal.";
+    const text = allied ? "Coin changes hands with a resource supply. Add one to the deal." : `Coin changes hands with a truce, ${allianceChoice(fealty, true)} or a resource supply. Add one to the deal.`;
     return { tone: "neutral", text, canSend: false, sendLabel };
   }
   return undefined;

@@ -31,7 +31,8 @@ import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAt
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrityWithNotices } from "../client-integrity-drop/client-player-update-integrity-notices.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
+import { announceFrontierClaim } from "../client-action-markers/client-claim-confirm.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { recordInsurgentMarch } from "../client-insurgent-march/client-insurgent-march.js";
 import { applyAttackAlertMessage } from "../client-attack-alert-message/client-attack-alert-message.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -978,7 +979,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
     if (applyAfcHijackMessage(state, msg as Record<string, unknown>)) { renderHud(); return; } // AFC_HIJACKS / AFC_HIJACK_OUTCOME / AFC_BREAKTHROUGH
-    if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
+    if (applyResourceTradeMessage(state, msg, typeof pushFeed === "function" ? pushFeed : undefined)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
@@ -1220,30 +1221,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         hadCombatStartAck: state.combatStartAck
       });
       const target = msg.target as { x: number; y: number } | undefined;
-      const resultAlert = {
-        title: "Territory Claimed",
-        detail: target ? `Territory at (${target.x}, ${target.y}) was claimed.` : "Territory was claimed.",
-        tone: "success" as const,
-        ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
-      };
-      // Waypoint-driven neutral EXPAND: skip both the popup and the
-      // feed entry. The user already opted into the chain via Expand
-      // Here; per-tile completion noise was the point of the silent
-      // flow. Errors still surface via the captureAlert path above.
-      const silentSuccess = Boolean(state.capture?.silent);
-      if (!silentSuccess) {
-        appendFeedEntry({
-          title: resultAlert.title,
-          text: resultAlert.detail,
-          type: "combat",
-          severity: "success",
-          at: Date.now(),
-          ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
-            ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
-            : {})
-        });
-        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined, focusFromAlert(resultAlert));
-      }
+      // Feed line, battle-screen result and the "Land claimed" toast (client-claim-confirm.ts).
+      announceFrontierClaim({
+        target, actionType: msg.actionType, silent: Boolean(state.capture?.silent),
+        waypointTargets: state.waypoint.map((w) => w.target), claimedTown: Boolean(target && state.tiles.get(keyFor(target.x, target.y))?.town)
+      }, { appendFeedEntry, showCaptureAlert });
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {
         actionType: msg.actionType,

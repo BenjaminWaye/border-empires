@@ -9,6 +9,7 @@ import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentA
 import { incomingAllianceHeadline, type FealtyStanding } from "../client-fealty/client-fealty.js";
 import { allianceAnswerCounterpart, fealtyAnnouncement, fealtyAnswerTitle } from "../client-fealty/client-fealty-announcement.js";
 import { allianceFealtyFromMessage, recordedFealtyLookupFor, recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
+import { showDealMarker, type DealAnchorState } from "../client-action-markers/client-deal-marker.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
@@ -109,7 +110,7 @@ export const notifyIncomingTruceRequest = (
 type TruceUpdateNotificationState = Pick<
   ClientState,
   "activeTruces" | "truceBreaksThisSeason" | "incomingTruceRequests" | "outgoingTruceRequests"
->;
+> & DealAnchorState;
 
 // Applies a TRUCE_UPDATE socket message's fields and surfaces its announcement,
 // extracted out of client-network.ts (already over the repo's 500-line
@@ -124,6 +125,8 @@ export const applyTruceUpdateMessage = (
   const previousLatestBreakAt = latestBreakAt(state.truceBreaksThisSeason);
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
+  const answeredIncoming = answeredOutgoingOffer(state.incomingTruceRequests, msg.incomingTruceRequests);
+  const counterpart = answeredOfferCounterpart(state.outgoingTruceRequests, msg.outgoingTruceRequests, state.incomingTruceRequests, msg.incomingTruceRequests);
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
   const answeredOutgoing = answeredOutgoingOffer(state.outgoingTruceRequests, msg.outgoingTruceRequests);
   state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
@@ -149,11 +152,15 @@ export const applyTruceUpdateMessage = (
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
   // An agreed truce shows in the Diplomacy list; only a refusal interrupts.
   else if (answeredOutgoing && declined) deps.showCaptureAlert("Truce declined", announcement, "warn");
+  // The server agreed a deal one side offered: mark it on the other House's land, not only in the (admin-only)
+  // feed. With none of their land known it stays in Diplomacy and the feed (client-deal-marker.ts).
+  else if (tone === "success" && (answeredOutgoing || answeredIncoming)) showDealMarker(state, counterpart, "Truce agreed");
 };
 
 /**
  * True when an update drops one of your own pending offers: the other House
- * answered it (or you withdrew it, which carries no announcement). The answer
+ * answered it (or you withdrew it, which carries no announcement). Also used
+ * on the incoming list: you answered an offer made to you. The answer
  * is a popup, not just an Activity-feed line, since the deal screen promised
  * one ("Waiting for …") and the feed is off-screen on a phone.
  */
@@ -161,6 +168,19 @@ const answeredOutgoingOffer = (before: ReadonlyArray<{ id: string }>, after: unk
   if (!Array.isArray(after)) return false;
   const remaining = new Set(after.map((request: { id?: string }) => request?.id));
   return before.some((request) => !remaining.has(request.id));
+};
+
+/** The other House of the offer an update answered: yours went to `toPlayerId`, theirs came from `fromPlayerId`. */
+const answeredOfferCounterpart = (
+  outgoingBefore: ReadonlyArray<{ id: string; toPlayerId: string }>, outgoingAfter: unknown,
+  incomingBefore: ReadonlyArray<{ id: string; fromPlayerId: string }>, incomingAfter: unknown
+): string | undefined => {
+  const gone = <T extends { id: string }>(before: readonly T[], after: unknown): T | undefined => {
+    if (!Array.isArray(after)) return undefined;
+    const remaining = new Set(after.map((request: { id?: string }) => request?.id));
+    return before.find((request) => !remaining.has(request.id));
+  };
+  return gone(outgoingBefore, outgoingAfter)?.toPlayerId ?? gone(incomingBefore, incomingAfter)?.fromPlayerId;
 };
 
 // Tolerates a state or message without the list (an older gateway, a partial test state).
@@ -176,7 +196,7 @@ export const endedTruces = (before: readonly ActiveTruceView[], after: readonly 
 type AllianceUpdateNotificationState = Pick<
   ClientState,
   "allies" | "activeAllianceBreaks" | "recentAllianceBreaks" | "incomingAllianceRequests" | "outgoingAllianceRequests"
-> & Partial<Pick<ClientState, "me" | "allianceFealty">>;
+> & Partial<Pick<ClientState, "me" | "allianceFealty">> & DealAnchorState;
 
 // Popup title for an ALLIANCE_UPDATE announcement. Besides break notices,
 // announcements now also carry an (AI) answer to an alliance offer, e.g.
@@ -205,6 +225,7 @@ export const applyAllianceUpdateMessage = (
   state.allianceFealty = allianceFealtyFromMessage(msg.allianceFealty);
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
+  const answeredIncoming = answeredOutgoingOffer(state.incomingAllianceRequests, msg.incomingAllianceRequests);
   state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
   const answeredOutgoing = answeredOutgoingOffer(state.outgoingAllianceRequests, msg.outgoingAllianceRequests);
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
@@ -219,6 +240,8 @@ export const applyAllianceUpdateMessage = (
   const tone = plain.tone;
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
   if (answeredOutgoing && tone !== "success") deps.showCaptureAlert(title, announcement, tone);
+  // Agreed: marked on the other House's land (client-deal-marker.ts), worded like the title ("Fealty sworn", ...).
+  else if (tone === "success" && (answeredOutgoing || answeredIncoming)) showDealMarker(state, counterpart, title);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (

@@ -10,6 +10,7 @@ import { townHasPlotsToGarrison } from "../client-town-plot-garrison/client-town
 import { createWaystationReadyToasts } from "../client-waystation-site/client-waystation-ready-toasts.js";
 import { createRefineryFieldToasts } from "../client-refineries/refinery-field-toasts.js";
 import { createMapTipPins } from "../client-map-tip-pins/client-map-tip-pins.js";
+import { createActionMarkerLayer } from "../client-action-markers/client-action-marker-layer.js";
 import { createRelicSitePlates, type RelicSiteActions } from "../client-relic-overlay/relic-site-plates.js";
 import { advanceWaystationOpenings } from "../client-waystation-holo-crates/holo-crate-open-fx.js";
 import { isMapCoveredByRewardCard } from "../client-waystation-holo-crates/holo-crate-map-covered.js";
@@ -18,7 +19,7 @@ type AfcMapOverlays = ReturnType<typeof createAfcMapOverlays>;
 type MapOverlayTiles = Parameters<AfcMapOverlays["render"]>[0];
 type MapOverlayProjection = Parameters<AfcMapOverlays["render"]>[1];
 
-/** Screen overlays for visible tiles: 2D battle markers, town plates, relic site plates, AFC signals, salvage and refinery toasts, tip pins. */
+/** Screen overlays for visible tiles: 2D battle markers, town plates, relic site plates, AFC signals, salvage and refinery toasts, tip pins, action markers. */
 export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: ClientState, openAfcUpgrades: () => void, relicActions: RelicSiteActions): {
   render: (tiles: MapOverlayTiles, projection: MapOverlayProjection) => void;
 } {
@@ -29,6 +30,7 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
   const refineryToasts = createRefineryFieldToasts(canvas, state);
   const tipPins = createMapTipPins(canvas);
   const relicPlates = createRelicSitePlates(canvas, state, relicActions);
+  const actionMarkers = createActionMarkerLayer(canvas);
   return {
     render(tiles, projection) {
       // Collected waystations: one clock for both renderers, on screen or not.
@@ -57,6 +59,8 @@ export function createMapScreenOverlays(canvas: HTMLCanvasElement, state: Client
       // After the waystation cards: a tile with an Activate card has no pin over it (one layer, both renderers).
       tipPins.render(projection, tiles.length > 0, waystationToasts.cardTiles());
       relicPlates.render(projection, tiles.length > 0);
+      // Confirmed claims, builds and deals: a fading marker on the tile, or an edge arrow toward it (one layer, both renderers).
+      actionMarkers.render(projection, tiles.length > 0);
     }
   };
 }

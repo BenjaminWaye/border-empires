@@ -183,7 +183,7 @@ const render = (screen: OpenScreen): void => {
   const dealEl = overlay.querySelector<HTMLElement>("[data-trade-deal]");
   if (dealEl) dealEl.innerHTML = dealSummaryHtml({ selection, treaty: screen.treaty, targetName, locked: screen.counters !== undefined, townName: townNameLookup([...towns, ...askable]), fealty });
   const shared = tradeVerdict({ targetName, reply, selection, own, fealty, cooldownRemainingMs: cooldownRemainingMs(screen), ...(ownSupplyAgreements === undefined ? {} : { ownSupplyAgreements }) });
-  const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied) ?? shared;
+  const verdict = dealVerdictOverride(screen.treaty, selection.kind, selection.terms, shared.sendLabel, screen.allied, fealty) ?? shared;
   const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
   if (verdictEl) {

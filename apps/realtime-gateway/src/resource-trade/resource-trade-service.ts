@@ -55,6 +55,9 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
       commandId:`diplomacy-settle:resource-trade:${row.id}`,issuedAt:row.createdAt,refundIfLate:false});
     if(paid.ok||paid.rejected)store.remove(row.id);
     publish([row.fromPlayerId,row.toPlayerId]);
+    // Only once the simulation has paid it: both sides' clients show "agreed" off this, never off the send.
+    if(paid.ok)ctx.fanout(new Map([row.fromPlayerId,row.toPlayerId].map(id=>[id,[{type:"RESOURCE_TRADE_ACCEPTED",offerId:row.id,
+      fromPlayerId:row.fromPlayerId,toPlayerId:row.toPlayerId,fromPlayerName:row.fromPlayerName,toPlayerName:row.toPlayerName}]])));
     return paid.ok?undefined:paid.message;
   };
   /** `replaces`: the pending offer `toId` made `fromId` that this one counters; swapped out in one step, and restored if the counter is refused. */

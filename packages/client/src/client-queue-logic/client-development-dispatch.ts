@@ -3,6 +3,7 @@
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
 import { announceBuildPlaced } from "./client-build-placed-feedback.js";
+import { expectBuildConfirmation } from "../client-action-markers/client-build-confirm.js";
 import { SETTLE_COST, captureHoldSettleFloorMs, type ChosenStructureTier } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
@@ -120,7 +121,9 @@ export const requestSettlement = (
   const tileKey = deps.keyFor(x, y);
   const tile = state.tiles.get(tileKey);
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", "Cannot garrison: tile is not one of your frontier tiles.");
+    // Already garrisoned by you (an auto-garrison got there first): nothing to do, nothing to warn about.
+    const alreadyGarrisoned = tile?.ownerId === state.me && tile.ownershipState === "SETTLED";
+    if (!deps.opts?.suppressWarnings && !alreadyGarrisoned) showVisibleActionWarning(deps, "Garrison blocked", "Cannot garrison: tile is not one of your frontier tiles.");
     deps.renderHud();
     return false;
   }
@@ -250,6 +253,11 @@ export const sendDevelopmentBuild = (
     return false;
   }
   if (opts.fromQueue) state.queuedDevelopmentDispatchPending = true;
+  // The on-screen "started" waits for the server's tile update (client-build-confirm.ts).
+  if (payload.type === "BUILD_STRUCTURE" && !opts.fromQueue && !opts.suppressWarnings) {
+    const tileKey = deps.keyFor(opts.x, opts.y);
+    expectBuildConfirmation(tileKey, payload.structureType, opts.label, state.tiles.get(tileKey));
+  }
   optimistic();
   announceBuildPlaced(deps, payload.type, opts.label, "started", opts);
   deps.renderHud();

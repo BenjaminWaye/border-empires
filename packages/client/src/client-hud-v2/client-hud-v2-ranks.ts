@@ -160,12 +160,21 @@ export const ranksBannerHtml = (input: RanksInput): string => {
   return `<span class="v2r-banner v2r-banner-hold">⧗ ${who} holding ${esc(holding.name)}${holding.holdRemainingSeconds === undefined ? "" : ` · ${formatHold(holding.holdRemainingSeconds)} to win`}</span>`;
 };
 
+/**
+ * Your own entry when it is outside the top rows: the server's selfOverall, else your row in the full list
+ * (first-15 playtest r1, pt-warlord: dropping out of the top 10 dropped you from Ranks).
+ */
+export const ownStandingBelowTop = (input: Pick<RanksInput, "me" | "overall" | "selfOverall">): LeaderboardOverallEntry | undefined => {
+  if (!input.me || input.overall.slice(0, STANDINGS_CAP).some((e) => e.id === input.me)) return undefined;
+  return input.selfOverall?.id === input.me ? input.selfOverall : input.overall.find((e) => e.id === input.me);
+};
+
 const standingsHtml = (input: RanksInput, letters: CrestLetters): string => {
   const top = input.overall.slice(0, STANDINGS_CAP);
-  const rows = [...top];
-  if (input.selfOverall && !top.some((e) => e.id === input.me)) rows.push(input.selfOverall);
+  const own = ownStandingBelowTop(input);
+  const rows = own ? [...top, own] : top;
   const best = Math.max(1, ...rows.map((e) => e.score));
-  return rows.map((e) => `<button type="button" class="v2r-stand${e.id === input.me ? " v2r-stand-you" : ""}" data-hud-v2-profile="${esc(e.id)}">
+  return rows.map((e) => `${e === own && top.length > 0 ? `<span class="v2r-stand-gap" aria-hidden="true">⋯</span>` : ""}<button type="button" class="v2r-stand${e.id === input.me ? " v2r-stand-you" : ""}" data-hud-v2-profile="${esc(e.id)}">
       <span class="v2r-rank">${e.rank}</span>${crest(e.name, input.colorOf(e.id), "", letters, input.crestOf?.(e.id))}<span class="v2r-stand-name">${e.id === input.me ? "You" : esc(e.name)}</span>
       <span class="v2r-stand-bar"><span style="width:${((e.score / best) * 100).toFixed(1)}%"></span></span><span class="v2r-stand-val">${e.score.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
     </button>`).join("");

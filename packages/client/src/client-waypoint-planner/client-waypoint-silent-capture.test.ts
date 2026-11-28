@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { announceFrontierClaim } from "../client-action-markers/client-claim-confirm.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -80,10 +81,16 @@ describe("silent waypoint capture flow", () => {
 
   it("FRONTIER_RESULT success path skips the popup and feed entry when silent", () => {
     const source = clientSource("../client-network/client-network.ts");
-    // The Territory Claimed feed + captureAlert must be wrapped in a
-    // non-silent guard derived from state.capture.silent.
-    expect(source).toContain('const silentSuccess = Boolean(state.capture?.silent);');
-    expect(source).toMatch(/if \(!silentSuccess\) \{[\s\S]*?showCaptureAlert\(\s*resultAlert\.title,\s*resultAlert\.detail,\s*resultAlert\.tone,\s*undefined,[\s\S]*?\);[\s\S]*?\}/);
+    // client-network.ts hands the silent flag from state.capture to announceFrontierClaim
+    // (client-claim-confirm.ts), whose behaviour client-claim-confirm.test.ts covers.
+    expect(source).toContain("silent: Boolean(state.capture?.silent)");
+    const deps = { appendFeedEntry: vi.fn(), showCaptureAlert: vi.fn() };
+    announceFrontierClaim({ target: { x: 1, y: 2 }, actionType: "EXPAND", silent: true, waypointTargets: [{ x: 5, y: 5 }], claimedTown: false }, deps);
+    expect(deps.appendFeedEntry).not.toHaveBeenCalled();
+    expect(deps.showCaptureAlert).not.toHaveBeenCalled();
+    announceFrontierClaim({ target: { x: 1, y: 2 }, actionType: "EXPAND", silent: false, waypointTargets: [], claimedTown: false }, deps);
+    expect(deps.appendFeedEntry).toHaveBeenCalledOnce();
+    expect(deps.showCaptureAlert).toHaveBeenCalledWith("Territory Claimed", "Territory at (1, 2) was claimed.", "success", undefined, { x: 1, y: 2, actionLabel: "Center" });
   });
 
   it("combatResolutionAlert path skips the popup for a silent EXPAND success only", () => {
