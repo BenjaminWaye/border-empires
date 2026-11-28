@@ -63,11 +63,12 @@ export const handleSetTileColorMessage = async (deps: SetTileColorMessageDeps): 
     ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
     ...(typeof storedProfile.profileComplete === "boolean" ? { profileComplete: storedProfile.profileComplete } : {})
   });
+  const colorsInUse = colorsInUseOf(taken); // before adding the player's own colour: theirs is never "in use" to them
   taken.add(normalized);
   const suggestedColors = pickSuggestedPalette(6, taken);
   const stylePayload = { type: "PLAYER_STYLE", playerId, ...(override.name ? { name: override.name } : {}), tileColor: normalized };
   for (const targetSocket of allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
   for (const targetSocket of socketsForPlayer(playerId)) {
-    queueOrSendSessionPayload(targetSocket, { type: "PLAYER_UPDATE", tileColor: normalized, canToggleFog, suggestedColors, colorsInUse: colorsInUseOf(taken), ...(seasonId ? { colorChangeUsed: true } : {}) });
+    queueOrSendSessionPayload(targetSocket, { type: "PLAYER_UPDATE", tileColor: normalized, canToggleFog, suggestedColors, colorsInUse, ...(seasonId ? { colorChangeUsed: true } : {}) });
   }
 };

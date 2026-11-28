@@ -48,7 +48,7 @@ export const empireColorChecker = (inUse: EmpireColorsInUse) => {
     if (HEX6.test(color)) empires.push({ entry, lab: labOf(color) });
   }
   const isExactTaken = (hex: string): boolean => exact.has(hex) || empires.some((empire) => empire.entry.color.toLowerCase() === hex);
-  /** Distance from `hex` to the nearest active empire, and that empire. */
+  // Distance from a colour to the nearest active empire, and that empire.
   // Memoised per checker: the full-map test and the least-clashing order scan the same candidates.
   const nearestByHex = new Map<string, { clash?: EmpireColorEntry; distance: number }>();
   const nearestEmpire = (hex: string): { clash?: EmpireColorEntry; distance: number } => {

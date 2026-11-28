@@ -137,6 +137,7 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
     return;
   }
   const { override, storedProfile: storedAllowance } = saved;
+  const colorsInUse = colorsInUseOf(taken); // before adding the player's own colour: theirs is never "in use" to them
   taken.add(normalized);
   const suggestedColors = pickSuggestedPalette(6, taken);
   const stylePayload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId, name: override.name ?? displayName, tileColor: override.tileColor ?? normalized });
@@ -149,7 +150,7 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
       profileNeedsSetup: false,
       canToggleFog,
       suggestedColors,
-      colorsInUse: colorsInUseOf(taken),
+      colorsInUse,
       // Which once-per-contest changes are now spent, so the dialog can say so (profile-change-allowance.ts).
       ...(currentSeasonId ? profileChangeAllowanceFields(storedAllowance, currentSeasonId) : {})
     });
