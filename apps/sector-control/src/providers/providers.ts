@@ -77,6 +77,8 @@ export type HostingAlertKind =
   | "email_failed"
   /** A sector's results could not be read before teardown; its server is kept until they are (plan section 10). */
   | "results_export_failed"
+  /** Results could not be read for RESULTS_EXPORT_GRACE_MS; the server was deleted without them. */
+  | "results_export_abandoned"
   | "withdrawal"
   | "payment_for_unknown_sector";
 

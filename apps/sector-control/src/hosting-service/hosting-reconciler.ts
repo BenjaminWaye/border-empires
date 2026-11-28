@@ -30,8 +30,8 @@ export type HostingReconcilerDeps = {
   onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
 
-/** Marks a sector's lastError as a failed results export, so the owner is alerted once per outage. */
-const RESULTS_ERROR = "results not saved: ";
+/** How long a server is kept while its results cannot be read, before it is deleted without them. */
+export const RESULTS_EXPORT_GRACE_MS = 3 * 24 * 60 * 60_000;
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 500);
 
@@ -106,24 +106,38 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     }
   };
 
-  /** Deletes the server of a sector that no longer needs one. Without `then`, the row keeps its state. */
   /**
-   * Saves the results of a sector that opened before its server goes. A
-   * server whose results cannot be read is kept, and the owner told once per
-   * outage (plan section 10): a contest must not be lost to a passing fault.
+   * Saves the results of a sector that opened before its server goes, and
+   * says whether the server may now be deleted. A crowned copy is final and
+   * was usually saved at crowning; otherwise the summary is read now. A server
+   * whose results cannot be read is kept, and the owner told when this starts
+   * (plan section 10), for RESULTS_EXPORT_GRACE_MS; after that it is deleted
+   * anyway and the owner told the results are lost, so a dead server is not
+   * billed for ever.
    */
   const saveResults = async (sector: SectorRecord, now: number): Promise<boolean> => {
-    if (!deps.results || sector.openedAt === undefined || !sector.hostname || deps.results.has(sector.sectorId)) return true;
+    const { results } = deps;
+    if (!results || sector.openedAt === undefined || !sector.hostname || results.hasCrowned(sector.sectorId)) return true;
     try {
-      deps.results.save(sector.sectorId, parseContestResults(await deps.servers.getContestSummary(sector.hostname)), now);
+      const read = parseContestResults(await deps.servers.getContestSummary(sector.hostname));
+      // An ended contest has a winner; a summary without one is not that contest's.
+      if (sector.state === "ended" && !read.crowned) throw new Error("the summary of an ended contest names no winner");
+      results.save(sector.sectorId, read, now);
+      results.clearFailure(sector.sectorId);
       return true;
     } catch (error) {
-      if (!sector.lastError?.startsWith(RESULTS_ERROR)) deps.alert("results_export_failed", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
-      store.transitionSector(sector.sectorId, [sector.state], { lastError: `${RESULTS_ERROR}${errorText(error)}` }, now);
-      return false;
+      // An earlier reading (a closure whose delete failed) is better than none.
+      if (results.has(sector.sectorId)) return true;
+      const since = results.noteFailure(sector.sectorId, now);
+      if (since === now) deps.alert("results_export_failed", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
+      if (now - since < RESULTS_EXPORT_GRACE_MS) return false;
+      deps.alert("results_export_abandoned", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
+      results.clearFailure(sector.sectorId);
+      return true;
     }
   };
 
+  /** Deletes the server of a sector that no longer needs one, after saving its results. Without `then`, the row keeps its state. */
   const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; endedAt?: number }): Promise<boolean> => {
     if (sector.serverRef && !(await saveResults(sector, now))) return false;
     try {
@@ -133,6 +147,17 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
       store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
       deps.alert("sector_teardown_failed", { sectorId: sector.sectorId, error: errorText(error) });
       return false;
+    }
+  };
+
+  /** At crowning, the summary is the final one: saved then, not at teardown days later. A failure is tried again at teardown. */
+  const saveCrownedResults = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (!deps.results || !sector.hostname) return;
+    try {
+      const read = parseContestResults(await deps.servers.getContestSummary(sector.hostname));
+      if (read.crowned) deps.results.save(sector.sectorId, read, now);
+    } catch {
+      // Teardown reads it again, and alerts if it still cannot.
     }
   };
 
@@ -149,7 +174,7 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     }
     if (sector.lastError !== undefined) store.transitionSector(sector.sectorId, ["open"], { lastError: null }, now);
     if (status.ended) {
-      store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
+      if (store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now)) await saveCrownedResults(sector, now);
       return;
     }
     // There is no time limit on a contest. What stops a forgotten sector
