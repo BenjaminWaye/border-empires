@@ -3,7 +3,9 @@ import { noteGuideMapPanned, noteGuideMapZoomed } from "../client-tutorial-guide
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
-import { bindMinimapDrag } from "../client-map-input-minimap-drag.js";
+import { bindMinimapDrag } from "../client-minimap/client-minimap-drag.js";
+import { openWorldMap } from "../client-world-map/client-world-map.js";
+import { mapOverview } from "../client-hud-v2/client-hud-v2-overlays.js";
 import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -140,7 +142,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     wrapX: deps.wrapX,
     wrapY: deps.wrapY,
     requestViewRefresh: deps.requestViewRefresh,
-    maybeRefreshForCamera: deps.maybeRefreshForCamera
+    maybeRefreshForCamera: deps.maybeRefreshForCamera,
+    onTap: () => openWorldMap(),
+    panOnPress: () => mapOverview.open
   });
 
   deps.canvas.addEventListener("click", (ev) => {

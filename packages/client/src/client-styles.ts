@@ -62,3 +62,4 @@ import "./client-charge-reward/client-charge-reward.css";
 import "./client-defensibility-weak-tiles/client-defensibility-weak-tiles.css";
 import "./client-tap-confirm-button/client-tap-confirm-button-style.css";
 import "./client-login-lore-quotes/client-login-lore-quotes-style.css";
+import "./client-world-map/client-world-map.css";
