@@ -276,7 +276,8 @@ describe("discovery tips while the guide runs", () => {
     const marked = menu();
     injectGuideManufactoryRecommendation(marked as never, { x: 4, y: 4 });
     expect(marked.buildings[0]?.recommended).toBe(true);
-    expect(marked.actions.map((a) => a.id)).toEqual(["build_manufactory"]);
+    // Only the Build list carries it: a copy in actions showed up in the town screen's bottom bar (2026-11-28).
+    expect(marked.actions).toEqual([]);
     const other = menu();
     injectGuideManufactoryRecommendation(other as never, { x: 9, y: 9 });
     expect(other.buildings[0]?.recommended).toBe(false);

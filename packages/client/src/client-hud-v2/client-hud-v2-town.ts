@@ -13,11 +13,11 @@ import type { ClientAutoSettleState } from "../client-auto-settle-prompt/client-
 import { townCharacterLabelForProfile, townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { townGoldBonuses } from "../client-town-stat-bonuses/client-town-stat-bonuses.js";
-import { initialBuildingCategory, type BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { autoSettleOptionForTile, autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { availableResourceImprovement, isGarrison } from "./client-hud-v2-action-bar.js";
 import { STRUCTURE_TOGGLE_ACTION_IDS } from "../client-observatory-toggle/client-observatory-toggle.js";
-import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { buildCategories, buildListHtml, buildPlaceHtml, defaultBuildCategory } from "./client-hud-v2-build-list.js";
 import { minorActionButtonHtml } from "./client-hud-v2-minor-button.js";
 import { autoImproveOptionForTile } from "./client-resource-improvement-action.js";
 import { townWorkHtml } from "./client-hud-v2-town-work.js";
@@ -189,8 +189,8 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
     selection: input.buildSelection,
-    // The opening tab is one with something buildable now.
-    category: input.category ?? initialBuildingCategory(buildCategories(input.focusView.buildings.length > 0 ? input.focusView.buildings : buildings).map((c) => c.category)),
+    // The opening tab is one with something buildable now (a recommended building's, when there is one).
+    category: input.category ?? defaultBuildCategory(input.focusView.buildings.length > 0 ? input.focusView.buildings : buildings),
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,
@@ -244,9 +244,12 @@ const barHtml = (input: TownScreenInput): string => {
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), "garrison_town_plots", ...(improvement ? [improvement.id] : [])]);
+  // An action that is also in that tile's Build list stays there only: injected copies (the guide's
+  // Manufactory, the checklist's Relay Beacon) duplicated it in this bar (owner report 2026-11-28).
+  const notInBuild = (view: TileMenuView) => (a: TileActionDef): boolean => !view.buildings.some((b) => b.id === a.id);
   const minorActions = [
-    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
-    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id) && notInBuild(input.townView)(a)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a) && notInBuild(input.focusView)(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) => minorActionButtonHtml(a, targetAttrs(a, key), a.cost ?? a.detail ?? "")).join("");
   // Raise flag on the selected tile; when it can't take one, on the town as before.

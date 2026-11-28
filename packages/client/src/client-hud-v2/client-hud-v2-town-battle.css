@@ -54,6 +54,8 @@
 .v2t-build:hover { background: #1a1610; }
 .v2t-build-on { background: #221c13; border-left-color: var(--v2-gold); }
 .v2t-build-off { opacity: 0.6; }
+/* The guide's recommended building (e.g. its Manufactory step) carries a badge, so players learn to find it in Build. No gold edge: that marks the picked row. */
+.v2t-build-rec-badge { margin-left: 8px; padding: 1px 6px; border: 1px solid var(--v2-gold); color: var(--v2-gold-hi); font-family: var(--v2-mono); font-size: 10px; font-weight: 400; letter-spacing: 0; white-space: nowrap; }
 .v2t-build-ico { flex: none; width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; background: #2a2216; border: 1px solid var(--v2-edge-strong); }
 .v2t-build-ico > span { position: relative; display: block; width: 44px; height: 44px; overflow: hidden; }
 .v2t-build-ico > span img { position: absolute; max-width: none; }
