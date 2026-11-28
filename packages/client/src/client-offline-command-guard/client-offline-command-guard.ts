@@ -14,15 +14,12 @@ const NOTICE_THROTTLE_MS = 4_000;
 type ReconnectOverlayState = Parameters<typeof isMapLoadingOverlayActive>[0];
 type OfflineGuardState = Pick<ClientState, "hasEverInitialized" | "connection"> &
   Partial<Pick<ClientState, "deployStatus">> &
-  Partial<ReconnectOverlayState>;
+  ReconnectOverlayState;
 
 // The reconnect overlay ("Disconnected from server") already tells the player
 // the session is down; a second "Server updating" card under it reads as a
 // stacked, buggy double overlay (playtest 2026-11-28).
-const reconnectOverlayShowing = (state: OfflineGuardState, now: number): boolean =>
-  typeof state.disconnectedSince === "number" &&
-  typeof state.firstChunkAt === "number" &&
-  isMapLoadingOverlayActive(state as ReconnectOverlayState, now);
+const reconnectOverlayShowing = (state: OfflineGuardState, now: number): boolean => isMapLoadingOverlayActive(state, now);
 
 export type OfflineAlert = (title: string, detail: string, tone?: "success" | "error" | "warn") => void;
 
@@ -47,11 +44,17 @@ export const blockOfflineGameCommand = (state: OfflineGuardState, showAlert: Off
   return true;
 };
 
-/** Drops a "Server updating" notice once the reconnect overlay covers the same news. */
+/**
+ * Expires a "Server updating" notice once the reconnect overlay covers the
+ * same news, or once the session is live again (a reconnect inside the
+ * overlay's grace window would otherwise leave it saying "Reconnecting…").
+ * Expiring rather than deleting lets the card renderer arm its late-tap guard.
+ */
 export const dropOfflineNoticeUnderReconnectOverlay = (
   state: OfflineGuardState & Pick<ClientState, "captureAlert">,
   now: number = Date.now()
 ): void => {
-  if (state.captureAlert?.title !== OFFLINE_COMMAND_TITLE) return;
-  if (gameCommandsOffline(state) && reconnectOverlayShowing(state, now)) state.captureAlert = undefined;
+  const alert = state.captureAlert;
+  if (alert?.title !== OFFLINE_COMMAND_TITLE || alert.until <= now) return;
+  if (!gameCommandsOffline(state) || reconnectOverlayShowing(state, now)) alert.until = now;
 };
