@@ -118,6 +118,10 @@ export const createHetznerServerProvider = (api: HetznerApi, config: HetznerServ
       return { ended: summary.status === "ended", ...(lastHumanVisitAt !== undefined ? { lastHumanVisitAt } : {}) };
     },
 
+    async getContestSummary(hostname) {
+      return sectorJson(`https://${hostname}/hq/summary`);
+    },
+
     async deleteServer(serverRef) {
       if (!/^\d+$/.test(serverRef)) throw new Error(`bad server reference ${serverRef}`);
       let name: string | undefined;

@@ -134,7 +134,7 @@ export const idleWarningEmail = (appUrl: string, input: { sectorId: string; last
     highlight: { label: "Closes", value: formatTime(input.closesAt) },
     body: [
       `No human player has entered sector ${input.sectorId} since ${formatTime(input.lastVisitAt)}.`,
-      `If nobody enters it before ${formatTime(input.closesAt)}, it closes and its server is deleted, with no look-around period. AI Houses playing on do not count as a visit (Terms of Sale, section 5).`,
+      `If nobody enters it before ${formatTime(input.closesAt)}, it closes and its server is deleted, with no look-around period; its results are kept. AI Houses playing on do not count as a visit (Terms of Sale, section 5).`,
       "To keep it open, enter the sector from My sectors."
     ],
     linkLabel: "Open My sectors"
@@ -149,7 +149,7 @@ export const withdrawalAckEmail = (appUrl: string, input: { sectorId: string; sh
     body: [
       `On ${formatTime(input.requestedAt)} you withdrew from ${input.share ? `your share of sector ${input.sectorId}` : `your purchase of sector ${input.sectorId}`}.`,
       `You paid ${formatMoney(input.paidCents, input.currency)}. For the days the sector was open, ${formatMoney(input.deductionCents, input.currency)} is kept. ${formatMoney(input.refundCents, input.currency)} is being refunded to the payment method you used; banks usually take 5 to 10 days to show it.`,
-      input.share ? "You have left the sector. It keeps running for its other members." : "The sector is closed for all its members.",
+      input.share ? "You have left the sector. It keeps running for its other members." : "The sector is closed for all its members, and its results are kept.",
       "If anything here looks wrong, reply to this email."
     ],
     linkLabel: "Open My sectors"

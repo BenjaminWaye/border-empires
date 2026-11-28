@@ -10,6 +10,7 @@ import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers
 import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
+import { parseContestResults, type HostedResultsStore } from "../hosting-results/hosted-results.js";
 import { IDLE_WARNING_LEAD_MS, IDLE_WARNING_MAX_WAIT_MS, type HostingMailer } from "../hosting-email/hosting-mailer.js";
 
 export type HostingReconcilerDeps = {
@@ -23,9 +24,14 @@ export type HostingReconcilerDeps = {
   onSectorOpened?: (sector: SectorRecord) => void;
   /** Player emails (hosting-email): sent on every pass, and the warning before an idle sector closes. */
   mailer?: HostingMailer;
+  /** Where a sector's results are saved before its server is deleted (plan step 8d). */
+  results?: HostedResultsStore;
   /** After each pass: how many emails were sent and how many wait, or why the pass failed. For the log. */
   onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
+
+/** Marks a sector's lastError as a failed results export, so the owner is alerted once per outage. */
+const RESULTS_ERROR = "results not saved: ";
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 500);
 
@@ -101,7 +107,25 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   };
 
   /** Deletes the server of a sector that no longer needs one. Without `then`, the row keeps its state. */
+  /**
+   * Saves the results of a sector that opened before its server goes. A
+   * server whose results cannot be read is kept, and the owner told once per
+   * outage (plan section 10): a contest must not be lost to a passing fault.
+   */
+  const saveResults = async (sector: SectorRecord, now: number): Promise<boolean> => {
+    if (!deps.results || sector.openedAt === undefined || !sector.hostname || deps.results.has(sector.sectorId)) return true;
+    try {
+      deps.results.save(sector.sectorId, parseContestResults(await deps.servers.getContestSummary(sector.hostname)), now);
+      return true;
+    } catch (error) {
+      if (!sector.lastError?.startsWith(RESULTS_ERROR)) deps.alert("results_export_failed", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
+      store.transitionSector(sector.sectorId, [sector.state], { lastError: `${RESULTS_ERROR}${errorText(error)}` }, now);
+      return false;
+    }
+  };
+
   const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; endedAt?: number }): Promise<boolean> => {
+    if (sector.serverRef && !(await saveResults(sector, now))) return false;
     try {
       if (sector.serverRef) await deps.servers.deleteServer(sector.serverRef);
       return store.transitionSector(sector.sectorId, [sector.state], { ...then, serverRef: null, lastError: null }, now);

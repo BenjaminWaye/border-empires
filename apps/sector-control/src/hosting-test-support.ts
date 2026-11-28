@@ -7,6 +7,7 @@ import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 
 import { HOSTED_SECTOR_CONSENT_WORDING, HOSTED_SECTOR_TERMS_VERSION } from "@border-empires/shared";
 
+import { SqliteHostedResultsStore } from "./hosting-results/hosted-results.js";
 import { SqliteHostingEmailOutbox } from "./hosting-email/hosting-email-outbox.js";
 import { createHostingMailer, termsAttachment } from "./hosting-email/hosting-mailer.js";
 import type { HostingEmailMessage } from "./hosting-email/resend-email-transport.js";
@@ -42,6 +43,8 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
   store.applySchema();
   const outbox = new SqliteHostingEmailOutbox(db);
   outbox.applySchema();
+  const results = new SqliteHostedResultsStore(db);
+  results.applySchema();
   /** What the fake email provider was asked to send. Set `failing` to make it refuse. */
   const mail = { sent: [] as HostingEmailMessage[], failing: false, passErrors: [] as string[] };
   const payment = new FakePaymentProvider();
@@ -64,7 +67,7 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     newId: (length) => `id${String((nextId += 1)).padStart(length - 2, "0")}`,
     rememberAddress: mailer.rememberAddress
   });
-  const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, mailer, onSectorOpened: (sector) => { opened.push(sector); mailer.sectorReady(sector); },
+  const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, mailer, results, onSectorOpened: (sector) => { opened.push(sector); mailer.sectorReady(sector); },
     // A failed mail pass would otherwise go unnoticed by a test.
     onEmailPass: (result) => { if ("error" in result) mail.passErrors.push(result.error); } });
 
@@ -83,5 +86,5 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     await reconciler.runOnce();
     return sectorId;
   };
-  return { clock, store, outbox, mail, mailer, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
+  return { clock, store, outbox, results, mail, mailer, payment, servers, alerts, opened, service, reconciler, config, ticketPublicKey, ticketPrivateKeyPem, order, openSector };
 };
