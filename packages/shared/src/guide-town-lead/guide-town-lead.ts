@@ -9,3 +9,8 @@ export const parseGuideTownLead = (value: unknown): GuideTownLead | null => {
   const { x, y } = value as { x?: unknown; y?: unknown };
   return typeof x === "number" && typeof y === "number" && Number.isInteger(x) && Number.isInteger(y) ? { x, y } : null;
 };
+
+// The guide's camp lead (PLAYER_UPDATE guideCampLead): the nearest live Insurgent camp the player has never
+// seen, or null. Same wire shape; the simulation computes it (apps/simulation scout-drone-camp-lead.ts).
+export type GuideCampLead = GuideTownLead;
+export const parseGuideCampLead = parseGuideTownLead;

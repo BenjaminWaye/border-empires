@@ -20,8 +20,8 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 export type RuntimePlayerStateUpdateContext = {
   supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
-  /** Map pointers for this player: relic hints, and the guide's town lead while they hold no town (guide-town-lead.ts). */
-  mapHintsForPlayer?: (id: string) => { relicMapHints: import("@border-empires/shared").RelicMapHint[]; guideTownLead: import("./guide-town-lead/guide-town-lead.js").GuideTownLead | undefined };
+  /** Map pointers for this player: relic hints, the guide's town lead while they hold no town (guide-town-lead.ts) and its camp lead. */
+  mapHintsForPlayer?: (id: string) => import("./guide-town-lead/player-map-hints.js").PlayerMapHints;
   hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
@@ -47,10 +47,10 @@ export type RuntimePlayerStateUpdateContext = {
   now?: () => number;
 };
 
-/** relicMapHints, and guideTownLead (null once the player holds a town, so the client drops its old one). */
+/** relicMapHints, guideTownLead (null once the player holds a town, so the client drops its old one) and guideCampLead (null once they have seen a camp). */
 const mapHintFields = (context: RuntimePlayerStateUpdateContext, playerId: string): Record<string, unknown> => {
   const hints = context.mapHintsForPlayer?.(playerId);
-  return hints ? { relicMapHints: hints.relicMapHints, guideTownLead: hints.guideTownLead ?? null } : {};
+  return hints ? { relicMapHints: hints.relicMapHints, guideTownLead: hints.guideTownLead ?? null, guideCampLead: hints.guideCampLead ?? null } : {};
 };
 
 /**

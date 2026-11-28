@@ -65,7 +65,8 @@ const DURABLE_COMMAND_TYPES = [
   "CHOOSE_HOUSE_CHARGES",
   "EXPLORE",
   "RECALL_SCOUT",
-  "SCOUT_REPORT_SEEN"
+  "SCOUT_REPORT_SEEN",
+  "SCOUT_CAMP_LEAD_DONE"
 ] as const;
 
 // DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/
@@ -90,7 +91,8 @@ const DURABLE_COMMAND_TYPES = [
 // only shortens that in-memory flight, so it is excluded with it. SCOUT_REPORT_SEEN
 // only clears a landing report held for display (scoutLastReport, saved at the next
 // checkpoint like the charges): losing it to a crash shows that report once more.
-const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET", "EXPLORE", "RECALL_SCOUT", "SCOUT_REPORT_SEEN"] as const;
+// SCOUT_CAMP_LEAD_DONE only ends the in-memory camp look a guided flight left (scout-drone-camp-lead.ts).
+const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET", "EXPLORE", "RECALL_SCOUT", "SCOUT_REPORT_SEEN", "SCOUT_CAMP_LEAD_DONE"] as const;
 
 const PHASE4_NON_DURABLE_COMMAND_TYPES = [
   "ATTACK_PREVIEW",

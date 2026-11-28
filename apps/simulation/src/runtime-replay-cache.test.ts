@@ -54,6 +54,8 @@ describe("isReplayTrackedCommandId", () => {
       "scout-sighted:": "scout-sighted:5f0c1d2e-uuid",
       // Review 2026-11-21: SCOUT_FINDS (an event per find tick) leaked into the replay cache and every checkpoint.
       "scout-finds:": "scout-finds:5f0c1d2e-uuid",
+      "scout-camp-lead:": "scout-camp-lead:5f0c1d2e-uuid",
+      "scout-camp-lead-expire:": "scout-camp-lead-expire:5f0c1d2e-uuid",
       "waystation-vision-expire:": "waystation-vision-expire:14,20:301000",
       // Load run 2026-11-23, 60 AI Houses: these four were the whole replay cache (33 MB after 40 minutes).
       // The reach ones wrap their cause's id, which can itself be a client UUID.

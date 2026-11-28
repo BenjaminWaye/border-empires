@@ -47,6 +47,9 @@ const stepInput = (overrides: Partial<GuideInput> = {}): GuideInput => ({
   attackLaunched: false,
   attackTargetTiles: () => [],
   truceStage: "none",
+  camp: { inFog: false, sighted: false, won: false, bordersMine: false, selected: false, flagTiles: [] },
+  allianceStanding: "ALLIANCE",
+  allianceSeen: false,
   scout: "none",
   exploreTarget: () => undefined,
   nothingToExplore: () => false,
@@ -146,10 +149,11 @@ describe("guide progress reads as steps done, with waiting chapters named (Tom: 
     );
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("turn-activity");
-    expect(view.laterChapterTitles).toEqual(["AFC upgrade", "Contest", "Diplomacy"]);
+    // First battle (the old Contest chapter) is the last chapter since 2026-11-28: it comes after this step.
+    expect(view.laterChapterTitles).toEqual(["AFC upgrade", "Diplomacy"]);
     const html = guideCardHtml(view, true);
     expect(html).not.toMatch(/\d+\/10 /);
-    expect(html).toContain("Later: AFC upgrade, Contest, Diplomacy");
+    expect(html).toContain("Later: AFC upgrade, Diplomacy");
     expect(html).toContain(`${view.completedCount}/${view.totalCount}`);
   });
 });

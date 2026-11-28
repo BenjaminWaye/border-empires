@@ -6,7 +6,7 @@
 // It must fit a 375px phone (owner, 2026-11-21: eight pips overflowed it).
 import { nextScoutChargeAt } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanBlocked, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
+import { cancelScoutPlan, flyingScoutDrone, launchScoutPlan, scoutChargesMax, scoutChargesReady, scoutPlanBlocked, scoutPlanIsFreeCampFlight, scoutPlanPreview, undoScoutPlanStop, type ScoutPlanState } from "./client-scout-drone-plan.js";
 import { SCOUT_DRONE_ICON } from "./client-scout-drone-icons.js";
 import { scoutPlanNote } from "./client-scout-drone-plan-note.js";
 import "./client-scout-drone-dock.css";
@@ -37,9 +37,12 @@ export const scoutClock = (ms: number): string => {
   return `${Math.floor(wholeMinutes / 60)}h ${String(wholeMinutes % 60).padStart(2, "0")}m`;
 };
 
-/** Charges still free to place as stops: the one number the dock shows. */
+/** Charges still free to place as stops: the one number the dock shows. The guide's camp flight spends none. */
 export const scoutDockChargesLeft = (state: ScoutPlanState, nowMs: number): number =>
-  Math.max(0, scoutChargesReady(state, nowMs) - state.scoutDronePicking.stops.length);
+  Math.max(0, scoutChargesReady(state, nowMs) - (scoutPlanIsFreeCampFlight(state, nowMs) ? 0 : state.scoutDronePicking.stops.length));
+
+/** What the dock says over a free camp flight (simulation scout-drone-camp-lead.ts). */
+export const FREE_CAMP_FLIGHT_NOTE = "Free flight to the Insurgent camp";
 
 const ensureDock = (): HTMLElement => {
   let el = document.getElementById(DOCK_ID);
@@ -67,7 +70,7 @@ const dockView = (state: ClientState, nowMs: number): DockView => {
   const noCharges = scoutChargesReady(state, nowMs) === 0 && plan.stops.length === 0;
   const refill = noCharges && state.scoutDroneCharges ? nextScoutChargeAt(state.scoutDroneCharges, nowMs) : undefined;
   // Why the route is not what was tapped: a border or the range limit (Playtest Run 5: a bare "Blocked").
-  const note = scoutPlanNote(preview, plan.stops, (id) => state.playerNames.get(id)) ?? "";
+  const note = scoutPlanNote(preview, plan.stops, (id) => state.playerNames.get(id)) ?? (scoutPlanIsFreeCampFlight(state, nowMs) ? FREE_CAMP_FLIGHT_NOTE : "");
   const base = { note, count: `${DRONE_SVG}<b>${left}</b><small>/${scoutChargesMax(state)}</small>`, countClass, shaking: nowMs - plan.shakeAt < 450, undoEnabled: plan.stops.length > 0 };
   if (refill !== undefined) return { ...base, goClass: "sd-go is-empty", goEnabled: false, goHtml: `<span class="sd-time">${scoutClock(refill - nowMs)}</span>` };
   // A seen rival border right past home: the drone would turn back having found nothing (Playtest Run 5).

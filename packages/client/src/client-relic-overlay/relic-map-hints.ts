@@ -1,4 +1,4 @@
-import { parseGuideTownLead, parseRelicMapHints, isChosenTrickleResource, type GuideTownLead, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
+import { parseGuideCampLead, type GuideCampLead, parseGuideTownLead, parseRelicMapHints, isChosenTrickleResource, type GuideTownLead, relicRemainingUses, type ChosenTrickleResource, type NaturalWonderState, type RelicMapHint } from "@border-empires/shared";
 
 export { announceRelicWakesForClient } from "./relic-wake-notice.js";
 
@@ -10,12 +10,21 @@ export interface RelicHintClientState {
   wonderLastFreeRushBuyAt: number | undefined;
   /** The guide's town lead (PLAYER_UPDATE guideTownLead): the nearest unowned town while the player holds none. */
   guideTownLead: GuideTownLead | undefined;
+  /** The guide's camp lead (PLAYER_UPDATE guideCampLead): the nearest live Insurgent camp the player has never seen. */
+  guideCampLead: GuideCampLead | undefined;
 }
+/** INIT carries no guide leads: forget last session's (another account or season) until a PLAYER_UPDATE sends them. */
+export const clearGuideLeads = (state: Pick<RelicHintClientState, "guideTownLead" | "guideCampLead">): void => {
+  state.guideTownLead = undefined;
+  state.guideCampLead = undefined;
+};
+
 /** The small shared progression fields have one typed wire boundary. */
 export function applyRelicAndProgressionUpdate(state: RelicHintClientState, message: Record<string, unknown>): void {
   if (isChosenTrickleResource(message.chosenTrickleResource)) state.chosenTrickleResource = message.chosenTrickleResource;
   if (typeof message.wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = message.wonderLastFreeRushBuyAt;
   if ("guideTownLead" in message) state.guideTownLead = parseGuideTownLead(message.guideTownLead) ?? undefined;
+  if ("guideCampLead" in message) state.guideCampLead = parseGuideCampLead(message.guideCampLead) ?? undefined;
   if (!("relicMapHints" in message)) return;
   const next = new Map(parseRelicMapHints(message.relicMapHints).map(hint => [`${hint.x},${hint.y}`, hint]));
   if (JSON.stringify([...next]) === JSON.stringify([...state.relicMapHints])) return;

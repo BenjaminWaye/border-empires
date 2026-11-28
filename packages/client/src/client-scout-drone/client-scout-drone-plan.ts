@@ -21,7 +21,7 @@ import {
   type ScoutDroneRoutePlan,
   type ScoutDroneWorld
 } from "@border-empires/shared";
-import { leadRouteStops } from "./client-scout-drone-lead-route.js";
+import { isCampLeadRoute, leadRouteStops } from "./client-scout-drone-lead-route.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -29,7 +29,7 @@ import type { ClientState } from "../client-state/client-state.js";
 type Point = { x: number; y: number };
 export type ScoutPlanState = Pick<
   ClientState,
-  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "guideTownLead" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
+  "scoutDronePicking" | "scoutDroneFlight" | "scoutDroneCharges" | "guideTownLead" | "guideCampLead" | "tiles" | "me" | "allies" | "discoveredTiles" | "tilesRevision" | "serverReach" | "serverReachRevision" | "myReach" | "myReachRevisionAtCompute"
 >;
 
 const keyOf = (x: number, y: number): string => `${x},${y}`;
@@ -237,6 +237,15 @@ export const handleScoutPlanTap = (
     return true;
   }
   if (isHome(state, wx, wy)) return true;
+  // The guide's flight to its camp lead is free (simulation scout-drone-camp-lead.ts), so it is laid even with
+  // no charge left: by then the first-15 playtesters had spent every charge (owner decision 2026-11-28).
+  const camp = state.guideCampLead;
+  const campLaunch = plan.stops.length === 0 && camp && camp.x === wx && camp.y === wy && !flyingScoutDrone(state, nowMs) ? scoutLaunchAfc(state, camp) : undefined;
+  if (campLaunch) {
+    plan.stops = leadRouteStops(campLaunch, camp!, SCOUT_DRONE_MAX_STOPS);
+    plan.bumpAt = nowMs;
+    return true;
+  }
   if (plan.stops.length >= scoutPlanCapacity(state, nowMs)) {
     plan.shakeAt = nowMs; // the dock's pips shake: no charge left for another stop
     return true;
@@ -246,6 +255,18 @@ export const handleScoutPlanTap = (
   plan.stops = launch ? leadRouteStops(launch, { x: wx, y: wy }, scoutPlanCapacity(state, nowMs)) : [...plan.stops, { x: wx, y: wy }];
   plan.bumpAt = nowMs;
   return true;
+};
+
+/**
+ * The open plan is the guide's free flight to its camp lead: the dock counts no charges for it. Judged on the stops
+ * Go sends (the route as reached), from the AFC nearest the camp, as the simulation judges it: a known border that
+ * cuts the route short makes it an ordinary flight, so the dock never says "free" over one the server would charge.
+ */
+export const scoutPlanIsFreeCampFlight = (state: ScoutPlanState, nowMs: number): boolean => {
+  const camp = state.guideCampLead;
+  if (!camp || state.scoutDronePicking.stops.length === 0 || flyingScoutDrone(state, nowMs)) return false;
+  const sent = scoutPlanPreview(state, state.scoutDronePicking.stops, nowMs)?.route.stops ?? [];
+  return isCampLeadRoute(sent, camp, scoutLaunchAfc(state, camp));
 };
 
 export type ScoutPlanLaunchDeps = { sendGameMessage?: ((payload: unknown) => boolean) | undefined };

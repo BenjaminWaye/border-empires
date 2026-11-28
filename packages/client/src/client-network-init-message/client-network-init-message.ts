@@ -2,7 +2,7 @@ import { applyInitJoinScreenFields } from "../client-join-season-late-join/clien
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { applyInitPlayerStyles, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
-import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
+import { applyRelicAndProgressionUpdate, clearGuideLeads } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
@@ -243,8 +243,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.relicMapHints.clear();
-  // INIT carries no town lead: drop last session's (another account or season) until a PLAYER_UPDATE sends one.
-  state.guideTownLead = undefined;
+  // INIT carries no guide leads: drop last session's (another account or season) until a PLAYER_UPDATE sends them.
+  clearGuideLeads(state);
   applyRelicAndProgressionUpdate(state, player);
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;

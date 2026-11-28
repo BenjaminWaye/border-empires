@@ -138,6 +138,8 @@ export type PlayerSubscriptionSnapshot = {
     relicMapHints?: import("@border-empires/shared").RelicMapHint[];
     /** Nearest unowned town while the player holds none, else null (apps/simulation guide-town-lead.ts). */
     guideTownLead?: { x: number; y: number } | null;
+    /** Nearest live Insurgent camp the player has never seen, else null (apps/simulation scout-drone-camp-lead.ts). */
+    guideCampLead?: { x: number; y: number } | null;
     // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
     // one-time Wonder-style starting bonus granted to the most recent
     // season's Planet winner (§3) for their next season — a manpower-regen

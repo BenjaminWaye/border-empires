@@ -4,6 +4,7 @@ import { GUIDE_ISLAND_DOCK_ENTRY } from "./client-changelog-guide-island-dock.js
 import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
 import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
 import { SETTINGS_MENU_TIDY_ENTRY } from "./client-changelog-settings-menu-tidy.js";
+import { GUIDE_FIRST_BATTLE_ENTRY } from "./client-changelog-guide-first-battle.js";
 import { LANDING_WAIT_ENTRY } from "./client-changelog-landing-wait.js";
 import { ANALYTICS_CONSENT_ENTRY } from "./client-changelog-analytics-consent.js";
 import { NUMBER_AGREEMENT_ENTRY } from "./client-changelog-number-agreement.js";
@@ -23,5 +24,6 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...NUMBER_AGREEMENT_ENTRY, createdAt: 1795849095118, },
   { ...FIRST15_GUIDE_CAMERA_ENTRY, createdAt: 1795851462394, },
   { ...INSURGENT_MARCH_ENTRY, createdAt: 1795861349536, },
+  { ...GUIDE_FIRST_BATTLE_ENTRY, createdAt: 1795865424860, },
   { ...GUIDE_MANUFACTORY_BUILD_LIST_ENTRY, createdAt: 1795866260277, },
 ];

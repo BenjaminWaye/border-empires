@@ -28,6 +28,9 @@ import type { OnboardingChecklistState } from "../client-onboarding-checklist/cl
 import type { GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 import type { GuideScoutStatus } from "./tutorial-guide-explore-target.js";
 import type { GuideTruceStage } from "./tutorial-guide-contest-input.js";
+import type { GuideCamp } from "./tutorial-guide-camp-input.js";
+import { allianceTreatyLabel, type FealtyStanding } from "../client-fealty/client-fealty.js";
+import { GUIDE_CAMP_STEPS } from "./tutorial-guide-camp-steps.js";
 import { exploreHighlight, foodCopy, foodTitle, needsTownForBuild, targetHighlights, TOWN_STEP, townAction, townBeforeBeacon, townTitle, townWhy } from "./tutorial-guide-foothold-copy.js";
 
 export { guideBeaconSite, needsTownForBuild } from "./tutorial-guide-foothold-copy.js";
@@ -97,6 +100,12 @@ export type GuideInput = {
   attackTargetTiles: () => ReadonlyArray<{ x: number; y: number }>;
   /** How far the first truce has got (tutorial-guide-contest-input.ts). */
   truceStage: GuideTruceStage;
+  /** The Insurgent camp the last chapter is about (tutorial-guide-camp-input.ts). */
+  camp: GuideCamp;
+  /** Your standing with the met rival Houses: SWEAR when one is at least twice your size (client-fealty.ts). */
+  allianceStanding: FealtyStanding;
+  /** A deal screen shows its alliance option, or an alliance is offered or in force. */
+  allianceSeen: boolean;
   /** The player's manpower and cap: the last step tells a player at or over the cap to spend, not to wait. */
   manpower?: { current: number; cap: number };
   /** The scout drone: ready to launch, in the air, or no AFC to launch from (tutorial-guide-explore-target.ts). */
@@ -121,7 +130,7 @@ export type GuideInput = {
   nothingToExplore: () => boolean;
 };
 
-export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "afc" | "build" | "contest" | "diplomacy" | "turn";
+export type GuideChapterId = "look" | "foothold" | "reach" | "manpower" | "manifest" | "afc" | "build" | "diplomacy" | "turn" | "contest";
 
 export type GuideStepDef = {
   id: string;
@@ -159,9 +168,10 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   manifest: "Manifests",
   afc: "AFC upgrade",
   build: "Build",
-  contest: "Contest",
   diplomacy: "Diplomacy",
-  turn: "Your turn"
+  turn: "Your turn",
+  // The last chapter (owner decision 2026-11-28): the scout drone finds an Insurgent camp and the player takes it.
+  contest: "First battle"
 };
 
 
@@ -310,32 +320,6 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     highlight: (i) => (needsTownForBuild(i) ? targetHighlights("town")(i) : i.buildTargetTiles)
   },
   {
-    id: "contest-muster",
-    chapter: "contest",
-    title: () => "Raise a muster flag on a marked border tile",
-    why: "A flag gathers manpower so you can attack.",
-    isDone: (i) => i.ownsMusterFlag,
-    isAvailable: (i) => i.musterUnlocked,
-    waitingNote: "Explore to find Insurgents or a rival House: this starts when you meet one.",
-    highlight: (i) => i.musterTargetTiles,
-    // The Stage Muster button once a tile is picked, then the first-flag confirm sheet's button.
-    anchor: "muster"
-  },
-  {
-    // After the flag, the attack it pays for: raising a flag alone left players waiting for something to happen.
-    id: "contest-attack",
-    chapter: "contest",
-    title: () => "Tap a marked enemy tile, then Launch Attack",
-    why: "Your flag's manpower pays for the attack. Win and the tile is yours.",
-    isDone: (i) => i.attackLaunched,
-    // Waits until an enemy tile touches your land: an enemy seen only across neutral
-    // land has nothing to attack yet, and an always-available step would block Finish.
-    isAvailable: (i) => i.musterUnlocked && i.attackTargetTiles().length > 0,
-    waitingNote: "Expand until an enemy tile borders your land: this starts then.",
-    highlight: (i) => i.attackTargetTiles(),
-    anchor: "attack"
-  },
-  {
     id: "diplomacy-truce",
     chapter: "diplomacy",
     title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"}`,
@@ -359,6 +343,17 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     anchor: (i) => (i.truceStage === "incoming" ? "truceAccept" : "truce")
   },
   {
+    id: "diplomacy-alliance",
+    chapter: "diplomacy",
+    title: (i) => `Tap a rival House, then ${allianceTreatyLabel(i.allianceStanding)}`,
+    // Owner, 2026-11-28: against a House at least twice their size, new players see only "Swear fealty".
+    why: "Allies can't attack each other. With a House twice your size, the alliance reads Swear fealty.",
+    isDone: (i) => i.rivalHouseMet && i.allianceSeen,
+    isAvailable: (i) => i.rivalHouseMet,
+    waitingNote: "Explore to find a rival House: this starts when you meet one.",
+    anchor: "diplomacy"
+  },
+  {
     id: "turn-activity",
     chapter: "turn",
     title: (i) => (i.hudV2 ? "Open the Chronicle" : "Open the Activity dashboard"),
@@ -366,6 +361,8 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     isDone: (i) => i.activityDashboardOpen,
     anchor: "activity"
   },
+  // The last chapter: First battle (tutorial-guide-camp-steps.ts).
+  ...GUIDE_CAMP_STEPS,
   {
     id: "turn-finish",
     chapter: "turn",

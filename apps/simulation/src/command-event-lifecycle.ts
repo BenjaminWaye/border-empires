@@ -64,6 +64,9 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "scout-report:",
   "scout-sighted:",
   "scout-finds:",
+  // A launch's camp lead look and its expiry flush (scout-drone/scout-drone-camp-lead.ts).
+  "scout-camp-lead:",
+  "scout-camp-lead-expire:",
   // Waystation VISION look expiry flush (runtime-watchtower-reveal-tick.ts).
   "waystation-vision-expire:",
   // Reach-border follow-ups (runtime-reach-border-apply.ts, runtime-reach-contested-flush.ts)

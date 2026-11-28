@@ -8,6 +8,7 @@
 // charges speech bubble (client-scout-drone-hud.css): first-time players found the landing report buried
 // under both, and the drone lost behind them (player review 2026-11-21).
 import { noteScoutReportShownHere } from "./client-scout-drone-seen-reports.js";
+import { syncScoutCampLeadRelease } from "./client-scout-drone-camp-release.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, scoutDronePositionAt, type ScoutFind } from "@border-empires/shared";
 import { depositIconKey, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -311,6 +312,7 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   }
   // Only on a live session: the send path reports an auth error otherwise, and this retries on every render.
   if (state.scoutReportUnacked && state.connection === "initialized" && deps.send({ type: "SCOUT_REPORT_SEEN", id: state.scoutReportUnacked })) state.scoutReportUnacked = undefined;
+  syncScoutCampLeadRelease(state, deps.send);
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
   const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
   const offering = pill && scoutDroneReadyToOffer(state, nowMs);
