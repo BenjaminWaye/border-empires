@@ -118,7 +118,10 @@ refused.
 
 It holds out in fortified **camps**: old barracks, depots and strongpoints. A
 camp does not move. It holds the ground around it with pickets, and that ground
-falls away if cut off from the camp or if the camp is taken. The force digs in
+falls away if cut off from the camp or if the camp is taken. The pickets only
+hold; the fighting soldiers live in the camp, so every raid or advance begins
+with a company marching out of the camp to the edge of its ground, and a camp
+whose ground is wide is slow to strike its far edge. The force digs in
 as a new camp in any town or harbour it seizes; open land it only pickets. It
 cannot raise new garrisons, so every camp taken is gone for good and the force
 dwindles through the campaign. The Court pays a bounty for every camp taken
