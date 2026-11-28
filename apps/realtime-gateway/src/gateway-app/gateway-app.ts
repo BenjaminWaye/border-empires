@@ -33,7 +33,7 @@ import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
-import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { applyInitColorFields } from "../player-color-allocation/init-color-fields.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import { createGatewayPlayerProfileStore } from "../player-profile-store-factory/player-profile-store-factory.js";
@@ -2057,7 +2057,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: playerIdentity.playerId,
                 channel
               });
-              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              applyInitColorFields(initMessage.player as Record<string, unknown>, takenColorSet);
               if ((initMessage.player as { profileNeedsSetup?: boolean }).profileNeedsSetup) (initMessage.player as Record<string, unknown>).suggestedName = suggestDefaultDisplayName(providerDisplayName(playerIdentity), await buildTakenNameSet(playerIdentity.playerId));
               // Hint/tutorial state now lives on the player profile row (see
               // player-profile-store.ts) instead of client-only localStorage --

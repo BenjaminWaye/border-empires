@@ -1,0 +1,17 @@
+/* The "waiting for a free landing site" notice (client-landing-wait.ts). */
+.landing-wait-notice {
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(92vw, 420px);
+  padding: 10px 14px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 6px;
+  background: var(--sp-iron-850);
+  color: var(--sp-parchment-muted);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}

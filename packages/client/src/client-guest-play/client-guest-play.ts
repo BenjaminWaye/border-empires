@@ -1,10 +1,10 @@
+import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import { signInAnonymously, signOut, type Auth, type UserCredential } from "firebase/auth";
 
 import { logGuestStart } from "../client-auth-flow/client-auth-flow-analytics.js";
 import { notifyInAppBrowserGuestStart } from "../client-guest-save/client-guest-save-panel.js";
 import { safeLocalStorageGet, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Analytics } from "firebase/analytics";
 
 // Set once a real (non-guest) account signs in on this browser. A visitor who
 // has one probably wants to sign in, not start a second, throwaway empire, so
@@ -23,7 +23,7 @@ type GuestPlayState = Pick<ClientState, "authBusy" | "authBusyStartedAt" | "auth
 export type GuestPlayDeps = {
   state: GuestPlayState;
   firebaseAuth: Auth | undefined;
-  analytics: Analytics | undefined;
+  analytics: AnalyticsSource;
   userAgent: () => string;
   setAuthBusy: (busy: boolean) => void;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;

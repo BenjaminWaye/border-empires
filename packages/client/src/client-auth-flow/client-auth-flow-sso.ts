@@ -1,6 +1,6 @@
+import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import { Capacitor } from "@capacitor/core";
 import { signInWithPopup, type Auth, type AuthProvider, type User, type UserCredential } from "firebase/auth";
-import type { Analytics } from "firebase/analytics";
 import {
   detectInAppBrowserName,
   inAppBrowserSsoSignInMessage,
@@ -28,7 +28,7 @@ export type SsoSignInDeps = {
   firebaseAuth: Auth | undefined;
   /** Defaults to Capacitor's platform check; injectable for tests. */
   isNative?: () => boolean;
-  analytics: Analytics | undefined;
+  analytics: AnalyticsSource;
   userAgent: () => string | undefined;
   clearEmailLinkSentTo: () => void;
   setAuthBusy: (busy: boolean) => void;
