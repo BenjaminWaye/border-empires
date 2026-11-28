@@ -1,6 +1,7 @@
 import { clearOwnAttackTracking } from "../client-detached-attacks/client-detached-attacks.js";
 import { createInitialLastContestRecapState } from "../client-last-contest-recap/client-last-contest-recap.js";
 import { createInitialAfcState } from "../client-afc-upgrades/client-afc-state.js";
+import { clearInsurgentMarches } from "../client-insurgent-march/client-insurgent-march.js";
 import { resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { resetMetPlayers } from "../client-alliance/client-met-players.js";
 import { clearStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
@@ -64,6 +65,7 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   state.tiles.clear(); // callers re-derive render caches from state.tiles afterwards, so clear it first
   state.discoveredTiles.clear();
   resetMetPlayers(state);
+  clearInsurgentMarches();
   state.leaderboard = { overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined, byTiles: [], byIncome: [], byTechs: [] };
   state.seasonWinner = undefined;
   state.seasonVictory = [];
