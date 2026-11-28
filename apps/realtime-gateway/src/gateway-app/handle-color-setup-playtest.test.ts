@@ -2,6 +2,7 @@ import { isEmpireColorFarEnough, hueWheelCandidates, EMPIRE_COLOR_PALETTE, type 
 import { describe, expect, test, vi } from "vitest";
 import { colorPickRejection } from "../player-color-allocation/color-pick-rejection.js";
 import { pickSuggestedPalette, suggestAlternative } from "../player-color-allocation/player-color-allocation.js";
+import { buildTakenColorSet } from "../player-color-allocation/build-taken-color-set.js";
 import { TakenColorSet, colorsInUseOf } from "../player-color-allocation/taken-color-set.js";
 import { handleSetProfileMessage, type SetProfileMessageDeps } from "./handle-set-profile-message.js";
 
@@ -78,5 +79,71 @@ describe("crowded sector colour setup", () => {
     expect(error).toMatchObject({ type: "ERROR", code: "COLOR_TAKEN" });
     expect(error.colorsInUse).toEqual(colorsInUseOf(taken));
     expect(colorPickRejection(error.suggestion as string, taken)).toBeUndefined();
+  });
+});
+
+// r1 newcomer: "Too close to Meadowbrook's colour" while her own House was
+// called Meadowbrook. The Meadowbrook that blocked her was an earlier
+// playtest account (run 5, 2026-11-25, pink), still inside the 14-day active
+// window; pt-snacker hit it before she played. This pins down that a refused
+// pick persists nothing and that a player is never checked against herself.
+describe("a refused pick never blocks the player who made it", () => {
+  test("refuse, then retry: no House is written and the player's own colour never counts", async () => {
+    const stored = new Map<string, { playerId: string; name?: string; tileColor?: string; updatedAt?: number }>([
+      ["old-meadowbrook", { playerId: "old-meadowbrook", name: "Meadowbrook", tileColor: "#f7b6d2", updatedAt: Date.now() }],
+      // The new player's provisional colour from login, before setup.
+      ["me", { playerId: "me", tileColor: "#de3565", updatedAt: Date.now() }]
+    ]);
+    const overrides = new Map<string, { name?: string; tileColor?: string }>([["me", { tileColor: "#de3565" }]]);
+    const takenFor = (excludePlayerId: string) =>
+      buildTakenColorSet(excludePlayerId, {
+        profileStore: { listAllNamed: async () => [...stored.values()] },
+        profileOverrides: { entries: () => overrides.entries() }
+      });
+    const sent: Record<string, unknown>[] = [];
+    const setProfile = vi.fn(async (playerId: string, name: string, tileColor: string) => {
+      stored.set(playerId, { playerId, name, tileColor, updatedAt: Date.now() });
+      return { name, tileColor, profileComplete: true };
+    });
+    const deps = (color: string): SetProfileMessageDeps => ({
+      playerId: "me",
+      displayName: "Meadowbrook",
+      color,
+      canToggleFog: false,
+      buildTakenColorSet: takenFor,
+      incrementColorCollisionRejectedTotal: () => {},
+      buildTakenNameSet: async () => new Set<string>(),
+      incrementDisplayNameCollisionRejectedTotal: () => {},
+      runExclusive: (task) => task(),
+      profileStore: { get: async (id) => stored.get(id), setProfile },
+      invalidateProfileCache: () => {},
+      profileOverrides: { upsert: (id, patch) => { overrides.set(id, { ...overrides.get(id), ...patch }); return overrides.get(id)!; } },
+      getCurrentSeasonId: async () => "s1",
+      renamePlayer: () => {},
+      sendJson: (payload) => sent.push(payload as Record<string, unknown>),
+      allSockets: () => [],
+      socketsForPlayer: () => [],
+      queueOrSendSessionPayload: () => {},
+      preSerializeBroadcast: (payload) => payload
+    });
+
+    // Pastel pink beside the other Meadowbrook's pink: refused, nothing written.
+    await handleSetProfileMessage(deps("#fbb4d0"));
+    expect(sent.at(-1)).toMatchObject({ code: "COLOR_TAKEN", message: "Too close to Meadowbrook's colour." });
+    expect(setProfile).not.toHaveBeenCalled();
+    expect(stored.get("me")).toEqual({ playerId: "me", tileColor: "#de3565", updatedAt: expect.any(Number) });
+    expect(overrides.get("me")).toEqual({ tileColor: "#de3565" });
+
+    // Her own provisional colour (and anything near it) never blocks her.
+    const ownSet = await takenFor("me");
+    expect(colorsInUseOf(ownSet).empires.map((empire) => empire.playerId)).not.toContain("me");
+    expect(colorsInUseOf(ownSet).exact).not.toContain("#de3565");
+    expect(colorPickRejection("#de3565", ownSet)).toBeUndefined();
+
+    // The suggestion she was given goes through on the next try.
+    const suggestion = sent.at(-1)!.suggestion as string;
+    await handleSetProfileMessage(deps(suggestion));
+    expect(setProfile).toHaveBeenCalledWith("me", "Meadowbrook", suggestion, undefined, undefined);
+    expect(sent.filter((payload) => payload.type === "ERROR")).toHaveLength(1);
   });
 });
