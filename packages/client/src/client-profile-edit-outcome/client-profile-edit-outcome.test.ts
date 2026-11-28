@@ -6,6 +6,7 @@ import {
   settleProfileEditOutcome,
   type ProfileEditOutcome
 } from "./client-profile-edit-outcome.js";
+import { applyServerColorsInUse, colorsInUseFor } from "../client-color-clash/client-color-clash.js";
 
 const makeState = (pending: { name?: string; color?: string } = {}) => ({
   me: "p1",
@@ -26,7 +27,10 @@ const waitFor = (): ProfileEditOutcome[] => {
   return seen;
 };
 
-afterEach(() => settleProfileEditOutcome({ ok: false, reason: "test over" }));
+afterEach(() => {
+  settleProfileEditOutcome({ ok: false, reason: "test over" });
+  applyServerColorsInUse({}, true);
+});
 
 describe("profile save refusals", () => {
   it("DISPLAY_NAME_LIMIT reaches the waiting dialog with the server's reason", () => {
@@ -49,11 +53,16 @@ describe("profile save refusals", () => {
     expect(seen).toHaveLength(1);
   });
 
-  it("COLOR_TAKEN resets the colour field and offers the suggestion", () => {
+  // Playtest 2026-11-28: after each refusal the custom colour snapped back to
+  // a pink the player never picked (their provisional colour).
+  it("COLOR_TAKEN keeps the player's pick, takes the gateway's colours in use and offers the suggestion", () => {
     const seen = waitFor();
     const d = deps(makeState({ color: "#f59e0b" }));
-    expect(applyProfileSaveRejection(d, "COLOR_TAKEN", { message: "Taken.", suggestion: "#123456" })).toBe(true);
-    expect(d.authProfileColorEl.value).toBe("#38b000");
+    d.authProfileColorEl.value = "#f59e0b";
+    const colorsInUse = { exact: [], empires: [{ playerId: "g47", name: "House Noname 47", color: "#f39c12" }] };
+    expect(applyProfileSaveRejection(d, "COLOR_TAKEN", { message: "Taken.", suggestion: "#123456", colorsInUse })).toBe(true);
+    expect(d.authProfileColorEl.value).toBe("#f59e0b");
+    expect(colorsInUseFor({ me: "p1", playerColors: new Map(), playerNames: new Map() })).toEqual(colorsInUse);
     expect(d.pushFeed).toHaveBeenCalledWith("Empire colour not updated: Taken. Try: #123456", "error", "error");
     expect(seen).toEqual([{ ok: false, reason: "Taken. Try: #123456" }]);
   });

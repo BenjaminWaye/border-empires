@@ -1,5 +1,6 @@
 import { normalizeHex } from "../player-color-allocation/player-color-allocation.js";
 import { colorPickRejection } from "../player-color-allocation/color-pick-rejection.js";
+import { colorsInUseOf } from "../player-color-allocation/taken-color-set.js";
 import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 import { PROFILE_CHANGE_LIMIT_REASON, profileChangeUsed } from "../profile-change-allowance/profile-change-allowance.js";
 
@@ -51,7 +52,8 @@ export const handleSetTileColorMessage = async (deps: SetTileColorMessageDeps): 
   const rejection = colorPickRejection(normalized, taken);
   if (rejection) {
     incrementColorCollisionRejectedTotal();
-    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: rejection.message, suggestion: rejection.suggestion });
+    // colorsInUse: the set this was checked against, so the client re-checks with it.
+    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: rejection.message, suggestion: rejection.suggestion, colorsInUse: colorsInUseOf(taken) });
     return;
   }
   const storedProfile = await profileStore.setTileColor(playerId, normalized, seasonId);
@@ -66,6 +68,6 @@ export const handleSetTileColorMessage = async (deps: SetTileColorMessageDeps): 
   const stylePayload = { type: "PLAYER_STYLE", playerId, ...(override.name ? { name: override.name } : {}), tileColor: normalized };
   for (const targetSocket of allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
   for (const targetSocket of socketsForPlayer(playerId)) {
-    queueOrSendSessionPayload(targetSocket, { type: "PLAYER_UPDATE", tileColor: normalized, canToggleFog, suggestedColors, ...(seasonId ? { colorChangeUsed: true } : {}) });
+    queueOrSendSessionPayload(targetSocket, { type: "PLAYER_UPDATE", tileColor: normalized, canToggleFog, suggestedColors, colorsInUse: colorsInUseOf(taken), ...(seasonId ? { colorChangeUsed: true } : {}) });
   }
 };
