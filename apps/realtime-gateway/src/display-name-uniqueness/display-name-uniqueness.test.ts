@@ -36,6 +36,14 @@ describe("isDisplayNameTaken", () => {
     expect(isDisplayNameTaken("AI Overlord", new Set())).toBe(false);
     expect(isDisplayNameTaken("House Noname", new Set())).toBe(false);
   });
+
+  // Review of #3088: AIs past the 20th are "House Brassmoor II" etc.; a human
+  // asking for "House Brassmoor" must not be offered AI 21's name.
+  it("reserves the numbered names AIs past the list take", () => {
+    expect(isDisplayNameTaken("House Brassmoor II", new Set())).toBe(true);
+    expect(isDisplayNameTaken("house fennimore x", new Set())).toBe(true);
+    expect(suggestAlternativeName("House Brassmoor", new Set(), () => 0)).not.toMatch(/^House Brassmoor/);
+  });
 });
 
 describe("buildTakenNameSet", () => {

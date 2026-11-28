@@ -1,4 +1,4 @@
-import { LEGACY_SEASONAL_AI_NAMES, SEASONAL_AI_NAMES } from "@border-empires/shared";
+import { LEGACY_SEASONAL_AI_NAMES, SEASONAL_AI_NAMES, seasonalAiNameForId } from "@border-empires/shared";
 
 export const DISPLAY_NAME_MAX_LENGTH = 24;
 
@@ -9,9 +9,14 @@ export const displayNameKey = (name: string): string =>
   name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
 // The seasonal AIs' names are reserved too, so no one can pass as an AI
-// (seasonal-ai-names.ts); so are the bare names they had before House names.
+// (seasonal-ai-names.ts); so are the bare names they had before House names,
+// and the numbered ones AIs past the list take ("House Brassmoor II").
+const SEASONAL_AI_CYCLE_NAMES = Array.from({ length: SEASONAL_AI_NAMES.length * 10 }, (_, index) => seasonalAiNameForId(`ai-${index + 1}`)).filter(
+  (name): name is string => name !== undefined
+);
 const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set([
-  "barbarians", "barbarian", "planetary defense", "insurgents", "insurgent", "nauticus", ...[...SEASONAL_AI_NAMES, ...LEGACY_SEASONAL_AI_NAMES].map((name) => displayNameKey(name))
+  "barbarians", "barbarian", "planetary defense", "insurgents", "insurgent", "nauticus",
+  ...[...SEASONAL_AI_CYCLE_NAMES, ...LEGACY_SEASONAL_AI_NAMES].map((name) => displayNameKey(name))
 ]);
 // "House Noname <n>" is the name guests were given before 2026-11-28 (see
 // guest-profile/); guests who still hold one keep it, and no one else can take one.

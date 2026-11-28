@@ -57,9 +57,23 @@ describe("buildTakenColorSet scoped to the current contest", () => {
     const taken = await buildTakenColorSet("me", deps(new Set(["rosa", "ai-1"])));
     expect(taken.activeEmpires.map((empire) => empire.playerId).sort()).toEqual(["ai-1", "rosa"]);
     expect(taken.has(crowd[0]!.tileColor)).toBe(false);
-    expect(taken.has("#3f51b5")).toBe(false);
     expect(taken.has("#fabebe")).toBe(true);
     expect(pickSuggestedPalette(6, taken)).toHaveLength(6);
+  });
+
+  // Review of #3088: a live session not yet on the leaderboard (a guest just
+  // given a colour, a player on the colour step) must still block its exact
+  // hex, or two new players can be handed the same colour before either lands.
+  test("a live session outside the contest still blocks its exact colour, not the distance", async () => {
+    const taken = await buildTakenColorSet("me", deps(new Set(["rosa", "ai-1"])));
+    expect(taken.has("#3f51b5")).toBe(true);
+    expect(taken.activeEmpires.some((empire) => empire.playerId === "guest-live")).toBe(false);
+    const overrides = new Map<string, { tileColor?: string }>();
+    const contestDeps = { now: () => NOW, profileStore: { listAllNamed: async () => [] }, profileOverrides: { entries: () => overrides.entries() }, contestPlayerIds: async () => new Set<string>() };
+    const first = assignUniqueColor("guest-a", await buildTakenColorSet("guest-a", contestDeps));
+    overrides.set("guest-a", { tileColor: first });
+    const second = assignUniqueColor("guest-a", await buildTakenColorSet("guest-b", contestDeps)); // same seed: same starting slot
+    expect(second).not.toBe(first);
   });
 
   test("falls back to the 14-day rule while the contest is unknown", async () => {

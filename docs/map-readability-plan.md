@@ -80,9 +80,12 @@ their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
   current-season leaderboard (`contestPlayerIdsFrom`, every competitive
   empire with land, income or techs; memoised for 30 s so a login never
   waits on the simulation, `createContestPlayerIdsSource`). They hold their colour whether or not
-  their player is online. Abandoned "Play now" guests and players from other
-  contests hold nothing, exact colour included; before this they filled the
-  colour space and a new player was offered one swatch (First-15 round 1).
+  their player is online. Stored profiles of abandoned "Play now" guests and
+  players from other contests hold nothing, exact colour included; before this
+  they filled the colour space and a new player was offered one swatch
+  (First-15 round 1). Anyone seen since the gateway booted (live profile
+  overrides) still blocks their exact colour, so two new players who have not
+  landed yet are never handed the same one.
   While no contest is active or the simulation cannot answer, the older rule
   applies: live profile overrides plus stored profiles written in the last
   14 days (`ACTIVE_EMPIRE_WINDOW_MS`), with older profiles blocking their

@@ -47,12 +47,17 @@ export const buildTakenColorSet = async (excludePlayerId: string, deps: TakenCol
     // A contest empire holds its land whether or not its player is about.
     if (contest || (profile.updatedAt ?? 0) >= activeSince) active.set(profile.playerId, { playerId: profile.playerId, name: profile.name, color: n });
   }
-  // 2. live overrides (supersede stored for active sessions)
+  // 2. live overrides (supersede stored for active sessions). Every player
+  // seen since this gateway booted keeps their exact hex, contest or not: a
+  // guest just given a colour, or a player on the colour step, has not landed
+  // yet so is not on the contest leaderboard, and two of them must never get
+  // the same colour. Only contest empires also hold the distance around it.
   for (const [pid, override] of deps.profileOverrides.entries()) {
-    if (!counts(pid)) continue;
+    if (pid === excludePlayerId) continue;
     const n = normalizeHex(override.tileColor ?? "");
     if (!n) continue;
     exact.add(n);
+    if (!counts(pid)) continue;
     active.set(pid, { playerId: pid, name: override.name ?? storedNames.get(pid) ?? aiDisplayNameForId(pid), color: n });
   }
   return new TakenColorSet(exact, active.values());
@@ -97,7 +102,8 @@ export const CONTEST_IDS_REFRESH_MS = 30_000;
  * refreshed in the background every CONTEST_IDS_REFRESH_MS (one lookup in
  * flight at a time). Only the very first call (gateway boot, AI colour
  * seeding) waits. A player who joined in the last half minute may not hold
- * their colour yet; they still block its exact hex through their own pick.
+ * the distance around their colour yet; their live session still blocks its
+ * exact hex (buildTakenColorSet step 2).
  */
 export const createContestPlayerIdsSource = (
   getSummary: () => Promise<ContestSummary>,
