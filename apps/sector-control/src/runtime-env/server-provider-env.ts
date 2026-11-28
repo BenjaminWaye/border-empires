@@ -19,6 +19,21 @@ export type ServerProviderEnv =
       releaseUrl: string;
     };
 
+/**
+ * Hetzner's locations in the European Union: Nuremberg and Falkenstein
+ * (Germany), Helsinki (Finland). The Privacy Policy says hosted sector servers
+ * are in the EU, so no other location can be configured.
+ */
+export const EU_SECTOR_LOCATIONS: readonly string[] = ["nbg1", "fsn1", "hel1"];
+
+const euLocation = (value: string | undefined): string => {
+  const location = (value ?? "nbg1").trim();
+  if (!EU_SECTOR_LOCATIONS.includes(location)) {
+    throw new Error(`HOSTING_SECTOR_LOCATION must be one of ${EU_SECTOR_LOCATIONS.join(", ")}: hosted sector servers stay in the EU, as the Privacy Policy says`);
+  }
+  return location;
+};
+
 const plain = (name: string, value: string, pattern: RegExp): string => {
   if (!pattern.test(value)) throw new Error(`${name} has an unexpected value`);
   return value;
@@ -43,7 +58,7 @@ export const parseServerProviderEnv = (env: NodeJS.ProcessEnv): ServerProviderEn
     sectorAdminSecret,
     dnsZone: sectorDnsZone(env.HOSTING_SECTOR_DNS_ZONE),
     serverType: plain("HOSTING_SECTOR_SERVER_TYPE", (env.HOSTING_SECTOR_SERVER_TYPE ?? "cx23").trim(), /^[a-z0-9-]+$/),
-    location: plain("HOSTING_SECTOR_LOCATION", (env.HOSTING_SECTOR_LOCATION ?? "nbg1").trim(), /^[a-z0-9-]+$/),
+    location: euLocation(env.HOSTING_SECTOR_LOCATION),
     image: plain("HOSTING_SECTOR_IMAGE", (env.HOSTING_SECTOR_IMAGE ?? "ubuntu-24.04").trim(), /^[a-z0-9.-]+$/),
     ...(firewall ? { firewallId: Number(firewall) } : {}),
     githubRepo: plain("HOSTING_GITHUB_REPO", (env.HOSTING_GITHUB_REPO ?? "BenjaminWaye/border-empires").trim(), /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),

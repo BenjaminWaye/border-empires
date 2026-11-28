@@ -41,6 +41,11 @@ describe("hosting service runtime env", () => {
       location: "nbg1", image: "ubuntu-24.04", githubRepo: "BenjaminWaye/border-empires", releaseUrl: "https://api.borderempires.com/__build_sha.txt"
     });
     expect(parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_FIREWALL_ID: "42" }).servers).toMatchObject({ firewallId: 42 });
+    // EU locations only: the Privacy Policy says hosted sector servers are in the EU.
+    expect(parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_LOCATION: "hel1" }).servers).toMatchObject({ location: "hel1" });
+    for (const location of ["ash", "hil", "sin", "NBG1"]) {
+      expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_LOCATION: location })).toThrow(/must be one of nbg1, fsn1, hel1/);
+    }
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HETZNER_API_TOKEN: "" })).toThrow(/HETZNER_API_TOKEN/);
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_ADMIN_SECRET: "short" })).toThrow(/32 characters/);
     expect(() => parseSectorControlRuntimeEnv({ ...hetzner, HOSTING_SECTOR_DNS_ZONE: "a b" })).toThrow(/HOSTING_SECTOR_DNS_ZONE/);
