@@ -241,9 +241,12 @@ const barHtml = (input: TownScreenInput): string => {
   const option = garrison ? autoSettleOptionForTile({ autoSettle: input.autoSettle ?? { status: "unloaded" } }, garrisonTile) : undefined;
   const garrisonOption = option ? autoSettleOptionHtml({ ...option, label: "Garrison these automatically" }) : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : []), "garrison_town_plots", ...(improvement ? [improvement.id] : [])]);
+  // An action that is also in that tile's Build list stays there only: injected copies (the guide's
+  // Manufactory, the checklist's Relay Beacon) duplicated it in this bar (owner report 2026-11-28).
+  const notInBuild = (view: TileMenuView) => (a: TileActionDef): boolean => !view.buildings.some((b) => b.id === a.id);
   const minorActions = [
-    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
-    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id) && notInBuild(input.townView)(a)).map((a) => ({ a: supportFocus ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isFocusOwned(a) && notInBuild(input.focusView)(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) => minorActionButtonHtml(a, targetAttrs(a, key), a.cost ?? a.detail ?? "")).join("");
   // Raise flag on the selected tile; when it can't take one, on the town as before.

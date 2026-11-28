@@ -18,7 +18,7 @@ export const setGuideManufactoryTargets = (tiles: ReadonlyArray<{ x: number; y: 
 
 export const injectGuideManufactoryRecommendation = (view: TileMenuView, tile: Pick<Tile, "x" | "y">): void => {
   if (!recommendedTiles.some((t) => t.x === tile.x && t.y === tile.y)) return;
-  for (const action of [...view.actions, ...view.buildings]) {
+  for (const action of view.buildings) {
     if (action.id === "build_manufactory") action.recommended = true;
   }
 };

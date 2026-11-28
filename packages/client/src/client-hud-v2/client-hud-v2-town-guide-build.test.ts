@@ -3,6 +3,8 @@
 // actions; it now lives only in the Build list, marked Recommended and opened on its tab.
 import { afterEach, describe, expect, it } from "vitest";
 import { townScreenRegions } from "./client-hud-v2-town.js";
+import { actionBarHtml } from "./client-hud-v2-action-bar.js";
+import { GUIDE_ANCHOR_SELECTORS } from "../client-tutorial-guide/tutorial-guide-anchor.js";
 import { injectGuideManufactoryRecommendation, setGuideManufactoryTargets } from "../client-tutorial-guide/tutorial-guide-manufactory-recommendation.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 
@@ -47,5 +49,25 @@ describe("town screen during the guide's Manufactory step", () => {
   it("shows no badge outside the guide step", () => {
     const { build } = regions(townTileView());
     expect(build).not.toContain("★");
+  });
+});
+
+describe("recommended builds stay in the Build list (QA follow-up)", () => {
+  it("keeps the checklist's injected Relay Beacon out of the town bar too", () => {
+    const beacon = { id: "build_relay_beacon", label: "Build Relay Beacon", recommended: true };
+    const view = { ...townTileView(), actions: [{ id: "abandon_territory", label: "Abandon Territory" }, { ...beacon }], buildings: [beacon] } as unknown as TileMenuView;
+    const { bar } = regions(view);
+    expect(bar).toContain('data-hud-v2-action="abandon_territory"');
+    expect(bar).not.toContain("build_relay_beacon");
+  });
+
+  it("marks the map dock's Build ▸ with ★ and the id the guide's outline points at", () => {
+    setGuideManufactoryTargets([{ x: town.x, y: town.y }]);
+    const view = townTileView();
+    injectGuideManufactoryRecommendation(view, town);
+    const html = actionBarHtml(view);
+    expect(html).toMatch(/data-hud-v2-panel="build" data-v2-build-recommended="build_manufactory"[^>]*>★ Build ▸/);
+    expect(GUIDE_ANCHOR_SELECTORS.manufactory).toContain('[data-v2-build-recommended="build_manufactory"]');
+    expect(actionBarHtml(townTileView())).not.toContain("data-v2-build-recommended");
   });
 });
