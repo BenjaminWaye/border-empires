@@ -147,6 +147,8 @@ export interface HostingStore {
   /** False when the account was not a member. */
   removeMember(sectorId: string, accountUid: string): boolean;
   countMembers(sectorId: string): number;
+  /** Every member's account, the host included. */
+  listMemberUids(sectorId: string): string[];
 
   insertInvite(invite: SectorInvite): void;
   getInvite(code: string): SectorInvite | undefined;
@@ -158,6 +160,14 @@ export interface HostingStore {
   /** Applies `patch` only if the contribution is still in one of `fromStates`; false otherwise. */
   transitionContribution(contributionId: string, fromStates: readonly ContributionState[], patch: ContributionPatch, now: number): boolean;
   listContributions(sectorId: string): ContributionRecord[];
+
+  /**
+   * Recent purchases, for the emails that confirm them (hosting-email). Bounded
+   * by time, so the sweep that reads them never grows with the service's age.
+   */
+  listSectorsPaidSince(since: number): SectorRecord[];
+  listContributionsChangedSince(states: readonly ContributionState[], since: number): ContributionRecord[];
+  listWithdrawalsSince(since: number): WithdrawalRecord[];
 
   /**
    * Payment disputes (chargebacks), by the account that paid. While one is

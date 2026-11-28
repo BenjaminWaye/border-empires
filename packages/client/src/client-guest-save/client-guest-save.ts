@@ -1,3 +1,4 @@
+import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -12,7 +13,6 @@ import {
   type AuthProvider,
   type UserCredential
 } from "firebase/auth";
-import type { Analytics } from "firebase/analytics";
 
 import { logGuestUpgrade, logGuestUpgradeConflict } from "../client-auth-flow/client-auth-flow-analytics.js";
 import { safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
@@ -47,7 +47,7 @@ export type GuestSaveDeps = {
   googleProvider: GoogleAuthProvider | undefined;
   twitchProvider?: OAuthProvider | undefined;
   discordProvider?: OAuthProvider | undefined;
-  analytics: Analytics | undefined;
+  analytics: AnalyticsSource;
   reload: () => void;
   userAgent: () => string;
   pageUrl: () => string;

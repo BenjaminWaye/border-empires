@@ -59,7 +59,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     googleProvider,
     twitchProvider,
     discordProvider,
-    analytics,
+    analytics = () => undefined,
     ws,
     wsUrl,
     requireAuthedSession,

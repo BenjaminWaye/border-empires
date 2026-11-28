@@ -1,6 +1,8 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { Capacitor } from "@capacitor/core";
-import { getAnalytics, type Analytics } from "firebase/analytics";
+import { getAnalytics, setAnalyticsCollectionEnabled, setConsent } from "firebase/analytics";
+import { deleteInstallations, getInstallations } from "firebase/installations";
+import { createAnalyticsConsent, type AnalyticsConsentController, type AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import { GoogleAuthProvider, OAuthProvider, getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
@@ -66,14 +68,16 @@ export const createClientFirebaseSetup = (): {
   googleProvider: GoogleAuthProvider | undefined;
   twitchProvider: OAuthProvider | undefined;
   discordProvider: OAuthProvider | undefined;
-  analytics: Analytics | undefined;
+  analytics: AnalyticsSource;
+  /** Undefined where analytics cannot run at all (the native apps, no measurement id): nothing to ask. */
+  analyticsConsent: AnalyticsConsentController | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
   const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? defaultAuthDomain();
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
-    return { firebaseAuth: undefined, googleProvider: undefined, twitchProvider: undefined, discordProvider: undefined, analytics: undefined };
+    return { firebaseAuth: undefined, googleProvider: undefined, twitchProvider: undefined, discordProvider: undefined, analytics: () => undefined, analyticsConsent: undefined };
   }
 
   const firebaseConfig: FirebaseOptions = { apiKey, authDomain, projectId, appId };
@@ -91,25 +95,27 @@ export const createClientFirebaseSetup = (): {
     ? initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] })
     : getAuth(firebaseApp);
 
-  // Analytics needs a measurementId and a real browser (IndexedDB + cookies)
-  // to boot; init can throw in unsupported contexts (e.g. some private-
-  // browsing modes, or the vitest/jsdom test environment), so this degrades
-  // to "no analytics" rather than aborting client setup.
-  let analytics: Analytics | undefined;
-  if (measurementId && !Capacitor.isNativePlatform()) {
-    try {
-      analytics = getAnalytics(firebaseApp);
-    } catch {
-      analytics = undefined;
-    }
-  }
+  // Analytics needs a measurementId and a real browser (IndexedDB + cookies),
+  // and runs only once the player consents (client-analytics-consent.ts):
+  // nothing is started, and no cookie set, before that. Init can throw in
+  // unsupported contexts (some private-browsing modes, the vitest/jsdom test
+  // environment); the consent controller then degrades to "no analytics".
+  const analyticsConsent = measurementId && !Capacitor.isNativePlatform()
+    ? createAnalyticsConsent({
+        start: () => getAnalytics(firebaseApp),
+        setCollection: (analytics, enabled) => setAnalyticsCollectionEnabled(analytics, enabled),
+        setConsentMode: (granted) => setConsent({ analytics_storage: granted ? "granted" : "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" }),
+        forgetDevice: () => deleteInstallations(getInstallations(firebaseApp))
+      })
+    : undefined;
 
   return {
     firebaseAuth,
     googleProvider: new GoogleAuthProvider(),
     twitchProvider: createTwitchProvider(),
     discordProvider: createDiscordProvider(),
-    analytics
+    analytics: analyticsConsent?.analytics ?? (() => undefined),
+    analyticsConsent
   };
 };
 

@@ -1,3 +1,4 @@
+import { analyticsConsentSettingHtml } from "../client-analytics-consent/client-analytics-consent-ui.js";
 import { Capacitor } from "@capacitor/core";
 import { hostedSectorsEnabled } from "../client-hosted-sectors/client-hosted-sector-session.js";
 import { settingsCreditsPageHtml } from "../client-credits/client-credits-page.js";
@@ -68,7 +69,7 @@ export const photoModeCardHtml = (state: Pick<ClientState, "photoModeActive">): 
 `;
 
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
-  { id: "account", title: "Account", desc: "Name and empire colour" },
+  { id: "account", title: "Account", desc: "Name, empire colour and privacy" },
   { id: "gameplay", title: "Gameplay", desc: "Sound, hints, photo mode, auto-garrison, map renderer" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
@@ -141,6 +142,7 @@ export const settingsAccountPageHtml = (
       </div>
       <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name, Colour &amp; Crest</button>
       <div class="account-settings-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a><a href="https://play.borderempires.com/support.html" target="_blank" rel="noopener">Support</a></div>
+      ${analyticsConsentSettingHtml()}
     </div>
     ${cosmeticsCardHtml(state)}
     <div class="card auth-settings-card settings-danger-zone">

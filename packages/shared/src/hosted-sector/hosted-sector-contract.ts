@@ -42,7 +42,9 @@ export const HOSTED_SECTOR_PRICE_USD_CENTS = 2000;
 /**
  * The Terms of Sale version the order form shows. Stored with every consent,
  * so the order can be matched with the wording the buyer agreed to. Bump it
- * whenever docs/legal-drafts/purchase-terms.html (or its published copy) changes.
+ * whenever docs/legal-drafts/purchase-terms.html (or its published copy) changes,
+ * together with that file's terms-version meta tag (order confirmations attach
+ * the file only when the two match).
  */
 export const HOSTED_SECTOR_TERMS_VERSION = "2026-11-25-draft";
 
