@@ -3,6 +3,7 @@
 // doesn't have to grow to plumb the capture-alert popup's new
 // "Go to tile" button (captureGotoBtn) through to the render module.
 import { renderCaptureProgress as renderCaptureProgressFromModule } from "../client-capture-effects/client-capture-effects.js";
+import { dropOfflineNoticeUnderReconnectOverlay } from "../client-offline-command-guard/client-offline-command-guard.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export const createRenderCaptureProgress = (
@@ -15,7 +16,8 @@ export const createRenderCaptureProgress = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     finalizePredictedCombat: (result: Record<string, unknown>) => void;
   }
-): (() => void) => (): void =>
+): (() => void) => (): void => {
+  dropOfflineNoticeUnderReconnectOverlay(state);
   renderCaptureProgressFromModule(state, {
     ...deps,
     captureCardEl: dom.captureCardEl,
@@ -30,3 +32,4 @@ export const createRenderCaptureProgress = (
     captureTargetEl: dom.captureTargetEl,
     captureGotoBtn: dom.captureGotoBtn
   });
+};
