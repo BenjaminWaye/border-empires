@@ -13,6 +13,13 @@ figure below must be checked by the accountant before the first sale. Stripe
 collects tax but does not file it: registration and filing stay with TIDN AB
 (`docs/gdd.md` §8).
 
+**Cosmetics (added 2026-11-28, for the accountant to confirm).** The first
+cosmetic, "Claim the title of Count" (USD 4.99, plan §15 step 8e), is assumed
+to be an electronically supplied service like a hosted sector: the same
+including-tax price, Stripe Tax setting and tax code
+(`txcd_10000000` unless the accountant names another), and it counts towards
+the same thresholds.
+
 ## Recommendation in short
 
 1. **The price is USD 20 including tax.** Every buyer pays the same amount;

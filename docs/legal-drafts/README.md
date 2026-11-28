@@ -230,7 +230,18 @@ launch product. The Terms of Sale cover hosted sectors only and say so
 - Say what happens to bought cosmetics if an account is suspended or deleted.
 - They give no advantage in play (`docs/gdd.md` §8 hard rule).
 
-**Gap as of 2026-11-26:** the owner has approved selling the first cosmetic,
+**Drafted 2026-11-28:** `purchase-terms.html` now has section 6b
+(Cosmetics), a cosmetics paragraph in section 7 (digital content: delivery at
+once on the buyer's request and acknowledgement, confirmed by email), a line in
+section 8 (a cosmetic that cannot be delivered is refunded) and the model form
+covers digital content; the Terms version is `2026-11-28-draft`. Points for
+the lawyer: whether "for as long as Border Empires is operated" needs a
+notice period before the game closes; whether losing cosmetics when an
+account is closed for a serious breach is fair for a recent purchase; and
+whether removing the cosmetic on a refund needs saying in the confirmation
+email too. The tax note now assumes cosmetics are taxed like sectors.
+
+**Gap as of 2026-11-26 (kept for the record):** the owner has approved selling the first cosmetic,
 "Claim the title of Count" (USD 4.99), through the same checkout (plan §15,
 8e). The Terms of Sale (`purchase-terms.html` section 2) still say hosted
 sectors are the only thing on sale, and no cosmetics section exists; the
