@@ -3,6 +3,7 @@ import { DEFAULT_AUTO_SETTLE_PREFS, PLANETARY_DEFENSE_DISPLAY_NAME, seasonalAiNa
 
 import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
+import { untrackedWorldgenPhase, type WorldgenPhaseTracker } from "./worldgen-phase-tracker.js";
 
 export type SimulationRulesetId = "seasonal-default";
 export type SimulationMapStyle = WorldStyle;
@@ -79,6 +80,7 @@ export const generateSeasonWorld = async (
     aiPlayerCount?: number;
     mapStyle?: SimulationMapStyle;
     onYield?: () => Promise<void>;
+    trackPhase?: WorldgenPhaseTracker;
   } = {}
 ): Promise<GeneratedSeasonWorld> => {
   if (rulesetId !== "seasonal-default") {
@@ -110,13 +112,14 @@ export const generateSeasonWorld = async (
       // into one dominant landmass) — not a real design bound, just a sanity
       // check that doesn't reintroduce the always-reject perf regression.
       ...(mapStyle === "islands" ? { minSignificantIslands: 10 } : {}),
-      ...(options.onYield ? { onYield: options.onYield } : {})
+      ...(options.onYield ? { onYield: options.onYield } : {}),
+      ...(options.trackPhase ? { trackPhase: options.trackPhase } : {})
     }
   );
 
-  const strippedTiles = [...generated.tiles.values()]
+  const strippedTiles = (options.trackPhase ?? untrackedWorldgenPhase)("worldgen_recovered_tiles", () => [...generated.tiles.values()]
     .map((tile) => toRecoveredTile(tile))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y)));
 
   const initialPlayers = new Map<string, DomainPlayer>(
     [...generated.players.entries()].filter(([playerId]) => playerId === "barbarian-1" || playerId.startsWith("ai-"))
