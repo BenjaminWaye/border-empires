@@ -18,9 +18,16 @@ body.season-lobby-active #game-surface {
 
 /* The season-end overlay is exempt: while the lobby is up it can only be the
    reopened Last Contest Recap (the live one needs a winner, which closes the
-   lobby), and it stacks above the lobby (z-index 45 vs 31). */
-body.season-lobby-active #hud > *:not(#join-season-overlay):not(#season-end-overlay) {
+   lobby), and it stacks above the lobby (z-index 45 vs 31). So are two panels
+   the lobby opens, which exist only while open: the hosted sectors panel ("Fund
+   a new sector", "Enter" on the sector list) and the guest save panel ("Save
+   your empire to get an email" on the waiting view, z-index 60). */
+body.season-lobby-active #hud > *:not(#join-season-overlay):not(#season-end-overlay):not(.hosted-sectors-panel):not(#guest-save-panel) {
   display: none !important;
+}
+
+body.season-lobby-active .hosted-sectors-panel {
+  z-index: 40;
 }
 
 #join-season-overlay {
