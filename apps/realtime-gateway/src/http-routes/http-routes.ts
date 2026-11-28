@@ -1,5 +1,6 @@
 import type { CommandDiagnosticSnapshot } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { registerAccountCosmeticsAdminRoutes } from "../account-cosmetics/account-cosmetics-admin-routes.js";
+import { registerAccountCosmeticsPurchaseRoutes } from "../account-cosmetics/account-cosmetics-purchase-routes.js";
 import type { AccountCosmeticsService } from "../account-cosmetics/account-cosmetics-service.js";
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
@@ -107,6 +108,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   accountCosmetics?: Pick<AccountCosmeticsService, "grant" | "grantProduct" | "revoke" | "renderMetrics" | "titleOf">;
   adminApiToken?: string;
+  /** COSMETICS_GRANT_TOKEN, when not from the environment (tests). */
+  cosmeticsGrantToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
   // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
   adminFirebaseAuth?: AdminFirebaseAuthConfig;
@@ -427,6 +430,9 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   if (deps.accountCosmetics) registerAccountCosmeticsAdminRoutes(app, { adminAuthorized, cosmetics: deps.accountCosmetics });
+  // The hosting service's own key, for granting what was bought (account-cosmetics-purchase-routes.ts).
+  const cosmeticsGrantToken = deps.cosmeticsGrantToken ?? process.env.COSMETICS_GRANT_TOKEN;
+  if (cosmeticsGrantToken && deps.accountCosmetics && deps.authBindingStore) registerAccountCosmeticsPurchaseRoutes(app, { grantToken: cosmeticsGrantToken, authBindingStore: deps.authBindingStore, cosmetics: deps.accountCosmetics });
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
   registerHouseChargeRoutes(app, { getCurrentSeasonSummary: deps.getCurrentSeasonSummary, listSeasonArchives: deps.listSeasonArchives });

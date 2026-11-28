@@ -258,9 +258,19 @@ the only way an account comes to own a cosmetic. It is idempotent. `revoke`
 takes a cosmetic back and returns everyone's view to the standard look. No
 client message reaches either.
 
-- **Payment work:** call `grantProduct(playerId, productId, grantRef)` from the
-  webhook handler after verifying the provider's signature, with the payment
-  id as `grantRef`. It grants every cosmetic in the product and is idempotent.
+- **Payment work:** the hosting service (`apps/sector-control`) takes the
+  payment and knows the buyer by Firebase uid. It calls
+  `POST /admin/cosmetics/purchase-grant` and, on a refund or withdrawal,
+  `POST /admin/cosmetics/purchase-revoke`, body `{"uid", "productId", "grantRef"?}`
+  (the payment id as `grantRef`). The gateway resolves the uid to the player id
+  through the auth binding store and calls `grantProduct`, which grants every
+  cosmetic in the product and is idempotent; revoking removes every cosmetic of
+  the product, and with them the title. An account that has never entered the
+  game answers 404 `no_player`, and the hosting service tries again later.
+  These two routes accept only `Authorization: Bearer $COSMETICS_GRANT_TOKEN`
+  (at least 32 characters; without it they do not exist), a key that can do
+  nothing else, so the hosting service never holds `ADMIN_API_TOKEN`
+  (owner decision, 2026-11-28).
 - **Testing and support:** `POST /admin/cosmetics/grant` and
   `POST /admin/cosmetics/revoke`, body `{"playerId", "cosmeticId", "grantRef"?}`,
   and `POST /admin/cosmetics/grant-product`, body
