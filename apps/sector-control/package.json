@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/sector-control/src/main.js",
     "test": "vitest run --passWithNoTests",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "erase-account": "tsx src/hosting-account-erasure/erase-hosting-account-cli.ts"
   },
   "dependencies": {
     "@border-empires/shared": "workspace:*",

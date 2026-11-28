@@ -102,6 +102,18 @@ production merely to test it; rehearse on an isolated database first.
    The active environments use `/data/border-empires.db` without legacy snapshot
    directories. An environment using a bootstrap directory must also remove or
    anonymise that directory's identity/profile records before restarting.
+4a. Hosted sectors: once the hosting service (`apps/sector-control`) runs, erase
+   each linked Firebase UID from its database too. Stop the hosting service,
+   dry-run `pnpm --filter @border-empires/sector-control erase-account
+   --database <hosting.db> --uid <uid>`, then add `--apply --offline`. It
+   removes memberships, the email address, places in saved results (and any
+   winner, House Charge or award entry naming the account), revokes invite
+   links it made, gives up unsent emails, and detaches sent emails from the
+   account and address. Purchase records (sectors bought, shares, consents,
+   withdrawals, refunds, disputes) are kept with the UID, as the Privacy
+   Policy says the Bookkeeping Act and EU VAT law require. A live hosted
+   sector's own server also holds the player: run the game erasure there, or
+   note that the server is deleted when the sector closes.
 5. Remove account-linked support reports/notifications from the Resend delivery
    records, support inbox and any Slack operational alerts unless
    there is a documented security/legal need to retain them. Do not claim those

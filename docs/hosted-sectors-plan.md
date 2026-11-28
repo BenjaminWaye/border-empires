@@ -336,7 +336,13 @@ the law requires, under the purchase-record retention), and sends the deletion
 to every live sector the account belongs to through that sector's admin API.
 Snapshots expire after 30 days, inside the deletion page's promise; restoring
 one re-applies the deletion ledger first, as for any restore. This is part of
-PR 4.
+PR 4. **Built 2026-11-28** as an offline command (`pnpm --filter
+@border-empires/sector-control erase-account`, `apps/sector-control/src/hosting-account-erasure/`,
+runbook step 4a): memberships, address, result places and any mention in
+saved winners, charges and awards, invite links (revoked), unsent emails
+(given up) and the account and address on sent ones. Not built: sending the
+deletion to a live sector's server; until then the operator runs the game
+erasure on that server or waits for it to close.
 
 The "My sectors" list keeps showing an ended sector with its results.
 
