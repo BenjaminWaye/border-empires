@@ -40,7 +40,7 @@ const makeDeps = (overrides: Partial<GuestSaveDeps> & { isAnonymous?: boolean } 
   const deps: GuestSaveDeps = {
     firebaseAuth: firebaseAuth as never,
     googleProvider: {} as never,
-    analytics: {} as never,
+    analytics: () => ({}) as never,
     reload: vi.fn(),
     userAgent: () => REGULAR_BROWSER,
     pageUrl: () => "https://play.borderempires.com/r/abc?foo=1#hash",
