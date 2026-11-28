@@ -71,13 +71,25 @@ export const createOwnershipShoreTint = (
     frontier = null;
   };
 
-  const build = (buffers: TintBuffers, bucket: ShoreTintBucket): Mesh | null => {
+  const build = (buffers: TintBuffers, bucket: ShoreTintBucket, withHatchUv = false): Mesh | null => {
     if (buffers.indices.length === 0) return null;
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(new Float32Array(buffers.positions), 3));
     // RGBA: the alpha channel carries the waterline fade (three.js turns on
     // vertex alpha for a 4-component colour attribute).
     geometry.setAttribute("color", new BufferAttribute(new Float32Array(buffers.colors), 4));
+    // The frontier hatch reads edgeUv; without it every fringe pixel sits at
+    // uv (0,0), mid-stripe, and the beach draws as a solid band. Tile corners
+    // are on whole scene units and the stripe count per tile is whole, so the
+    // scene x/z continue the tiles' stripes onto the sand.
+    if (withHatchUv) {
+      const uv = new Float32Array((buffers.positions.length / 3) * 2);
+      for (let i = 0; i < uv.length / 2; i++) {
+        uv[i * 2] = buffers.positions[i * 3]!;
+        uv[i * 2 + 1] = buffers.positions[i * 3 + 2]!;
+      }
+      geometry.setAttribute("edgeUv", new BufferAttribute(uv, 2));
+    }
     geometry.setIndex(buffers.indices);
     const mesh = new Mesh(geometry, bucket.material);
     mesh.renderOrder = bucket.renderOrder;
@@ -116,7 +128,7 @@ export const createOwnershipShoreTint = (
       for (let k = 1; k + 1 < polygon.count; k++) target.indices.push(base, base + k, base + k + 1);
     }
     settled = build(out.settled, buckets.settled);
-    frontier = build(out.frontier, buckets.frontier);
+    frontier = build(out.frontier, buckets.frontier, true);
   };
 
   return { rebuild, meshes: () => ({ settled, frontier }), dispose: clear };

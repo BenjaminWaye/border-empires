@@ -86,9 +86,15 @@ their own (`#fabebe` beside `#f7b6d2`, CIEDE2000 9.4).
   suggestion. Suggested swatches, suggestions and guest colours keep the
   distance. Both pickers grey out swatches too close to a known rival and
   show the reason under the custom colour.
-- **AI colours** are re-derived at every boot, keeping the distance from each
-  other and from active human colours, while still maximising colour-blind
-  distance (`ai-color-assignment.ts`). Beyond about 30 AIs the colour band
+- **AI colours** are seeded at boot, keeping the distance from each other and
+  from active human colours, while still maximising colour-blind distance
+  (`ai-color-assignment.ts`). Owner rule (2026-11-27): an empire's colour
+  never changes mid-game, so an AI keeps its stored colour across restarts
+  and deploys (`seed-ai-colors.ts`). Only an AI with no stored colour, a
+  reserved one, exactly a human's or another kept AI's colour, or one too
+  close to another kept AI (colours seeded before the distance rule; not
+  checked in a crowded sector) gets a new colour. Closeness to a human and
+  palette edits never repaint an AI. Beyond about 30 AIs the colour band
   runs out and later AIs get the least-close colour left, so a 60-AI hosted
   sector still has AI pairs under the threshold and little room for humans.
 - **Only new picks are checked** (decided 2026-10-08): a human's existing
@@ -102,8 +108,10 @@ Status: rival-reach hatching (3D only) and the "Inside <player>'s reach" / "Owne
 The visual rule: **color is for ownership; line style and pattern are for
 reach.**
 
-- **Owned land.** A fill in the owner's color: solid for SETTLED, lighter for
-  FRONTIER (as today).
+- **Owned land.** A fill in the owner's color: solid for SETTLED; FRONTIER
+  is owner-colour diagonal stripes over a faint wash, in 2D and 3D (owner
+  decision 2026-11-27: the flat 0.2-0.3 frontier tint faded into grass and
+  sand).
 - **Your own territory.** A border that does not depend on color, such as a
   thick bright or gold edge that no other player ever gets, so you can always
   find yourself even beside a similar color.
