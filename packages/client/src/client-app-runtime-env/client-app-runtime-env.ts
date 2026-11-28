@@ -100,7 +100,9 @@ export const createClientFirebaseSetup = (): {
   // nothing is started, and no cookie set, before that. Init can throw in
   // unsupported contexts (some private-browsing modes, the vitest/jsdom test
   // environment); the consent controller then degrades to "no analytics".
-  const analyticsConsent = measurementId && !Capacitor.isNativePlatform()
+  // Staging runs no analytics: it would share the game's measurement id and its .borderempires.com cookies.
+  const onStaging = typeof window !== "undefined" && isStagingHostname(window.location.hostname.toLowerCase());
+  const analyticsConsent = measurementId && !Capacitor.isNativePlatform() && !onStaging
     ? createAnalyticsConsent({
         start: () => getAnalytics(firebaseApp),
         setCollection: (analytics, enabled) => setAnalyticsCollectionEnabled(analytics, enabled),

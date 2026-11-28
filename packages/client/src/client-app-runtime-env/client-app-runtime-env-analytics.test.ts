@@ -34,6 +34,20 @@ describe("starting analytics", () => {
     expect(setup.analytics()).toBeDefined();
   });
 
+  it("runs no analytics and asks nothing on staging", () => {
+    const location = window.location.href;
+    window.history.replaceState(null, "", "/");
+    Object.defineProperty(window, "location", { value: { ...window.location, hostname: "staging.borderempires.com" }, configurable: true });
+    try {
+      window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, JSON.stringify({ choice: "granted", at: 1 }));
+      const setup = createClientFirebaseSetup();
+      expect(setup.analyticsConsent).toBeUndefined();
+      expect(getAnalytics).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { value: new URL(location), configurable: true });
+    }
+  });
+
   it("starts it at load after an earlier yes, and not after a no", () => {
     window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, JSON.stringify({ choice: "denied", at: 1 }));
     createClientFirebaseSetup();

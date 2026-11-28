@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { KNOWN_PLAYER_STORAGE_KEY, VISITOR_ID_STORAGE_KEY, createAcquisitionFunnel, type AcquisitionFunnelEnv } from "./client-acquisition-funnel.js";
+import type { AnalyticsConsent } from "../client-analytics-consent/client-analytics-consent.js";
+import { KNOWN_PLAYER_STORAGE_KEY, VISITOR_ID_STORAGE_KEY, createAcquisitionFunnel, type AcquisitionFunnelEnv, type FunnelConsent } from "./client-acquisition-funnel.js";
+
+/** A consent that can be answered during the test. */
+const consentOf = (initial?: AnalyticsConsent): FunnelConsent & { answer: (choice: AnalyticsConsent) => void } => {
+  let choice = initial;
+  const listeners: Array<(choice: AnalyticsConsent) => void> = [];
+  return {
+    choice: () => choice,
+    onChange: (listener) => { listeners.push(listener); },
+    answer: (next) => { choice = next; for (const listener of listeners) listener(next); }
+  };
+};
 
 const memoryStorage = (initial: Record<string, string> = {}): NonNullable<AcquisitionFunnelEnv["storage"]> => {
   const data = new Map(Object.entries(initial));
@@ -12,7 +24,7 @@ const memoryStorage = (initial: Record<string, string> = {}): NonNullable<Acquis
   };
 };
 
-const setup = (storage: AcquisitionFunnelEnv["storage"] = memoryStorage()) => {
+const setup = (storage: AcquisitionFunnelEnv["storage"] = memoryStorage(), consent = consentOf("granted")) => {
   const sent: Array<{ url: string; body: { visitorId: string; step: string; detail: Record<string, string> } }> = [];
   let ids = 0;
   const funnel = createAcquisitionFunnel("https://gw.example/api/funnel", {
@@ -20,8 +32,8 @@ const setup = (storage: AcquisitionFunnelEnv["storage"] = memoryStorage()) => {
     sendBeacon: (url, body) => sent.push({ url, body: JSON.parse(body) }),
     randomId: () => `visitor-${++ids}`,
     locationHost: "play.example"
-  });
-  return { funnel, sent, storage };
+  }, consent);
+  return { funnel, sent, storage, consent };
 };
 
 describe("client acquisition funnel", () => {
@@ -62,7 +74,42 @@ describe("client acquisition funnel", () => {
       sendBeacon: () => { throw new Error("offline"); },
       randomId: () => "visitor-x",
       locationHost: "play.example"
-    });
+    }, consentOf("granted"));
     expect(() => funnel.report("visit")).not.toThrow();
+  });
+});
+
+describe("client acquisition funnel consent", () => {
+  it("stores and sends nothing until the visitor says yes, then sends what waited", () => {
+    const storage = memoryStorage();
+    const { funnel, sent, consent } = setup(storage, consentOf());
+    funnel.report("visit", { referrerHost: "borderempires.com" });
+    funnel.report("auth_form_shown");
+    funnel.markKnownPlayer();
+    expect(sent).toEqual([]);
+    expect(storage.getItem(VISITOR_ID_STORAGE_KEY)).toBeNull();
+    expect(storage.getItem(KNOWN_PLAYER_STORAGE_KEY)).toBeNull();
+    consent.answer("granted");
+    expect(sent.map((s) => s.body.step)).toEqual(["visit", "auth_form_shown"]);
+    expect(storage.getItem(VISITOR_ID_STORAGE_KEY)).toBe("visitor-1");
+  });
+
+  it("drops what waited on no, and stores and sends nothing after it", () => {
+    const storage = memoryStorage();
+    const { funnel, sent, consent } = setup(storage, consentOf());
+    funnel.report("visit");
+    consent.answer("denied");
+    funnel.report("auth_method_clicked", { method: "google.com" });
+    funnel.report("sign_up", { method: "google.com" });
+    funnel.markKnownPlayer();
+    expect(sent).toEqual([]);
+    expect(storage.length).toBe(0);
+  });
+
+  it("keeps each waiting step once", () => {
+    const { funnel, sent, consent } = setup(memoryStorage(), consentOf());
+    for (let i = 0; i < 10; i += 1) funnel.report("visit");
+    consent.answer("granted");
+    expect(sent).toHaveLength(1);
   });
 });

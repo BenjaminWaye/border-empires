@@ -15,7 +15,7 @@ let active: AnalyticsConsentController | undefined;
 
 export const analyticsConsentBannerHtml = (): string => `
   <div class="analytics-consent" role="region" aria-label="Usage analytics" aria-live="polite" ${BANNER_ATTR}>
-    <p class="analytics-consent-text">May we use Google Analytics to see how Border Empires is used, so we can improve it? It stores an identifier in your browser and runs only if you say yes. You can change your mind in Settings, under Account. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
+    <p class="analytics-consent-text">May we measure how Border Empires is used, so we can improve it? We use Google Analytics and our own sign-up statistics; both store an identifier in your browser and run only if you say yes. You can change your mind in Settings, under Account. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
     <div class="analytics-consent-actions">
       <button type="button" class="panel-btn" ${CHOICE_ATTR}="denied">No, thanks</button>
       <button type="button" class="panel-btn" ${CHOICE_ATTR}="granted">Yes, that's fine</button>
@@ -28,8 +28,8 @@ export const analyticsConsentSettingHtml = (): string => {
   const on = active.choice() === "granted";
   return `
     <div class="analytics-consent-setting">
-      <span>Usage analytics (Google Analytics): <strong ${TOGGLE_ATTR}-state>${on ? "on" : "off"}</strong></span>
-      <button type="button" class="panel-btn" role="switch" aria-checked="${on}" aria-label="Usage analytics" ${TOGGLE_ATTR}>${on ? "Turn off" : "Turn on"}</button>
+      <span>Usage statistics (Google Analytics and our sign-up statistics): <strong ${TOGGLE_ATTR}-state>${on ? "on" : "off"}</strong></span>
+      <button type="button" class="panel-btn" role="switch" aria-checked="${on}" aria-label="Usage statistics" ${TOGGLE_ATTR}>${on ? "Turn off" : "Turn on"}</button>
     </div>`;
 };
 

@@ -196,7 +196,10 @@ acknowledgement (8c) and saving results (8d).
    the production measurement id by default and shares
    `.borderempires.com` cookies with the game, so a yes on staging sets the
    same cookie for play; set a separate id for staging.
-   **Open:** the game's own sign-up funnel (`client-acquisition-funnel.ts`)
+   **Settled 2026-11-28 (owner: "just build the consent"):** the game's own
+   sign-up funnel now follows the same consent; until the visitor answers,
+   its steps wait in memory, and the native apps and staging run no
+   measurement at all. Earlier note, for the record: the game's own sign-up funnel (`client-acquisition-funnel.ts`)
    stores a random visitor id in the browser (`localStorage`) to count each
    step once per browser. That is also storage for statistics, so it most
    likely needs the same consent; gating it would undercount the funnel for

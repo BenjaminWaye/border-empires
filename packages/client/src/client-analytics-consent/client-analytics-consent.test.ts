@@ -66,6 +66,15 @@ describe("analytics consent", () => {
     expect(consent.analytics()).toBe(instance);
   });
 
+  it("tells listeners every answer", () => {
+    const { consent } = setup();
+    const heard: string[] = [];
+    consent.onChange((answer) => heard.push(answer));
+    consent.grant();
+    consent.withdraw();
+    expect(heard).toEqual(["granted", "denied"]);
+  });
+
   it("remembers no, and never starts", () => {
     const { consent, store } = setup();
     consent.withdraw();

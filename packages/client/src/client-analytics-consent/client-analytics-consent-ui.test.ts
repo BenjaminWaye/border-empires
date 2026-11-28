@@ -11,7 +11,8 @@ const controller = (initial?: AnalyticsConsent): AnalyticsConsentController => {
     choice: () => choice,
     analytics: () => undefined,
     grant: vi.fn(() => { choice = "granted"; }),
-    withdraw: vi.fn(() => { choice = "denied"; })
+    withdraw: vi.fn(() => { choice = "denied"; }),
+    onChange: vi.fn()
   };
 };
 
