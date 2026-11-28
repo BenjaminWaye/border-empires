@@ -46,7 +46,7 @@ export const HOSTED_SECTOR_PRICE_USD_CENTS = 2000;
  * together with that file's terms-version meta tag (order confirmations attach
  * the file only when the two match).
  */
-export const HOSTED_SECTOR_TERMS_VERSION = "2026-11-25-draft";
+export const HOSTED_SECTOR_TERMS_VERSION = "2026-11-28-draft";
 
 /**
  * The two statements a buyer ticks, separately and unticked by default,
