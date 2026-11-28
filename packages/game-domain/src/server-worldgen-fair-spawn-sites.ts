@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, afcLandingTileHasObstruction, isSeaTerrain, 
 import { key } from "./server-game-constants/server-game-constants.js";
 import type { DomainTileState } from "./index/index.js";
 import { STARTER_ECONOMY_DISTANCE, STARTER_FOOD_DISTANCE, starterSiteQuality } from "./starter-site-quality.js";
+import { regionProximityMask, wrappedProximityMask } from "./server-worldgen-fair-spawn-proximity.js";
 
 /**
  * Pure, dependency-light spawn-site selection shared by apps/simulation's
@@ -14,7 +15,6 @@ import { STARTER_ECONOMY_DISTANCE, STARTER_FOOD_DISTANCE, starterSiteQuality } f
 
 export type FairSpawnSite = { x: number; y: number };
 
-const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
 /**
@@ -248,19 +248,14 @@ export const computeFairSpawnSites = (
 
   const coastalLandKeys = computeCoastalLandKeys(tileList);
   const landRegionByTileKey = computeLandRegions(tileList);
-  const sameLandRegion = (ax: number, ay: number, bx: number, by: number): boolean => {
-    const originRegion = landRegionByTileKey.get(key(ax, ay));
-    return originRegion === undefined || landRegionByTileKey.get(key(bx, by)) === originRegion;
-  };
+  const regionAt = (x: number, y: number): number | undefined => landRegionByTileKey.get(key(x, y));
 
+  // Proximity questions are answered from precomputed masks
+  // (server-worldgen-fair-spawn-proximity.ts), not a scan of every town/food
+  // tile per candidate: same answers, ~10x less rollover main-thread time.
   const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
   const foodCoords = tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
-  const isNearTown = (x: number, y: number): boolean =>
-    townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, town.x, town.y));
-  const isNearFood = (x: number, y: number): boolean =>
-    foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, food.x, food.y));
-  const isTooCloseToTown = (x: number, y: number): boolean =>
-    townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) < MIN_TOWN_SPAWN_DISTANCE && sameLandRegion(x, y, town.x, town.y));
+  const isTooCloseToTown = regionProximityMask(townCoords, MIN_TOWN_SPAWN_DISTANCE - 1, tileList, regionAt);
 
   const terrainByKey = new Map<string, Terrain>();
   for (const tile of tileList) terrainByKey.set(key(tile.x, tile.y), tile.terrain);
@@ -279,13 +274,10 @@ export const computeFairSpawnSites = (
     const tiles = new Map(tileList.map((tile) => [key(tile.x, tile.y), tile]));
     const width = options.width ?? WORLD_WIDTH;
     const height = options.height ?? WORLD_HEIGHT;
-    const nearby = (tile: DomainTileState, coords: readonly FairSpawnSite[], radius: number): boolean => coords.some((coord) => {
-      const dx = Math.min(Math.abs(coord.x - tile.x), width - Math.abs(coord.x - tile.x));
-      const dy = Math.min(Math.abs(coord.y - tile.y), height - Math.abs(coord.y - tile.y));
-      return dx + dy <= radius;
-    });
+    const nearTown = wrappedProximityMask(townCoords, STARTER_ECONOMY_DISTANCE, width, height);
+    const nearFood = wrappedProximityMask(foodCoords, STARTER_FOOD_DISTANCE, width, height);
     const qualified = baseCandidates.filter((tile) =>
-      nearby(tile, townCoords, STARTER_ECONOMY_DISTANCE) && nearby(tile, foodCoords, STARTER_FOOD_DISTANCE) &&
+      nearTown(tile.x, tile.y) && nearFood(tile.x, tile.y) &&
       [-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => {
         const neighbor = tiles.get(key(wrapX(tile.x + dx, width), wrapY(tile.y + dy, height)));
         return neighbor && !isSeaTerrain(neighbor.terrain) && !neighbor.ownerId && !tileBlocksAfcSite(neighbor);
@@ -296,6 +288,8 @@ export const computeFairSpawnSites = (
     return chosen;
   }
 
+  const isNearTown = regionProximityMask(townCoords, FAIR_SPAWN_SITE_AMENITY_RADIUS, tileList, regionAt);
+  const isNearFood = regionProximityMask(foodCoords, FAIR_SPAWN_SITE_AMENITY_RADIUS, tileList, regionAt);
   // Mutually exclusive, in priority order — every candidate falls into
   // exactly one bucket, so filling tier by tier below never reconsiders a
   // tile already claimed by a better tier.
