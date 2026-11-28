@@ -96,6 +96,12 @@ const place = (callout: HTMLElement, anchor: Element, doc: Document): void => {
   else callout.style.top = `${Math.round(rect.bottom + 8)}px`;
 };
 
+/** The word's element now on screen: a word can sit in two layouts (desktop tracker, phone summary), one hidden. */
+const visibleExplainTarget = (key: HudExplainKey, doc: Document): HTMLElement | undefined => {
+  const all = Array.from(doc.querySelectorAll<HTMLElement>(`[data-hud-explain="${key}"]`));
+  return all.find((el) => el.getClientRects().length > 0) ?? all[0];
+};
+
 const showCallout = (anchor: Element, key: HudExplainKey, doc: Document): void => {
   hideHudExplain(doc);
   const callout = doc.createElement("div");
@@ -116,7 +122,7 @@ const showCallout = (anchor: Element, key: HudExplainKey, doc: Document): void =
     event.stopPropagation();
     hideHudExplain(doc);
     // The HUD rewrites its regions, so act on the element now on screen; the word is seen, so the tap goes through.
-    if (event.target instanceof Element && event.target.closest(".hud-explain-open")) doc.querySelector<HTMLElement>(`[data-hud-explain="${key}"]`)?.click();
+    if (event.target instanceof Element && event.target.closest(".hud-explain-open")) visibleExplainTarget(key, doc)?.click();
   });
   doc.body.append(callout);
   place(callout, anchor, doc);

@@ -57,6 +57,23 @@ describe("tap-to-explain HUD words", () => {
     expect(callout()).toBeNull();
   });
 
+  // Review of PR #3086: "dev" sits in the desktop tracker and the phone summary; Open clicked the first, even hidden.
+  it("Open acts on the word's element that is on screen, not a hidden copy", () => {
+    document.body.innerHTML = `<button type="button" id="hidden"${hudExplainAttr("dev")}>Dev</button><span id="shown"${hudExplainAttr("dev")}>Dev</span>`;
+    const hidden = document.getElementById("hidden")!;
+    const shown = document.getElementById("shown")!;
+    // display:none leaves an element with no client rects.
+    vi.spyOn(hidden, "getClientRects").mockReturnValue({ length: 0 } as unknown as DOMRectList);
+    const hiddenActed = vi.fn();
+    const shownActed = vi.fn();
+    hidden.addEventListener("click", hiddenActed);
+    shown.addEventListener("click", shownActed);
+    interceptHudExplainTap(shown);
+    callout()!.querySelector<HTMLButtonElement>(".hud-explain-open")!.click();
+    expect(shownActed).toHaveBeenCalledTimes(1);
+    expect(hiddenActed).not.toHaveBeenCalled();
+  });
+
   it("closes on a press elsewhere, or by itself after a few seconds", () => {
     vi.useFakeTimers();
     interceptHudExplainTap(button("dev"));

@@ -66,6 +66,25 @@ describe("createTownNameplates (2D path)", () => {
     setFoodFixRunner(undefined);
   });
 
+  // Review of PR #3086: cancelling touchstart/touchend makes a phone skip the click, so the fix never ran on a tap.
+  it("never cancels the touch on an unfed plate's fix button, so a phone tap still clicks it", () => {
+    const { host, plates } = mount();
+    setFoodFixLabel("Garrison grain");
+    plates.render([at(townTile(1, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }), 100, 200)], { size: 40, project });
+    const fix = host.querySelector<HTMLButtonElement>("[data-town-plate-fix]")!;
+    expect(fix.tabIndex).toBe(-1);
+    const mapTouch = vi.fn();
+    window.addEventListener("touchstart", mapTouch);
+    for (const type of ["touchstart", "touchend"]) {
+      const touch = new Event(type, { bubbles: true, cancelable: true });
+      fix.dispatchEvent(touch);
+      expect(touch.defaultPrevented).toBe(false);
+    }
+    window.removeEventListener("touchstart", mapTouch);
+    expect(mapTouch).not.toHaveBeenCalled();
+    setFoodFixLabel(undefined);
+  });
+
   // Playtest 2026-11-21: the struck coin alone didn't tell the player their captured town was giving nothing.
   it("spells out Not garrisoned on an ungarrisoned town's plate", () => {
     const { host, plates } = mount();

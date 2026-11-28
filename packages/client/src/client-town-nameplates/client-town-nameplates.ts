@@ -101,7 +101,7 @@ const plateHtml = (plate: TownNameplate): string => {
     : `<span class="town-plate-pop"${plate.growth ? ` data-growth="${plate.growth}"` : ""}>${formatPlatePopulation(plate.population)}${growth}</span>`;
   const fix = unfedFix(plate);
   const tag = plate.status === "ungarrisoned" ? `<span class="town-plate-tag">${UNGARRISONED_TAG}</span>`
-    : plate.status === "unfed" ? `<span class="town-plate-tag town-plate-tag-unfed">${UNFED_TAG}</span>${fix ? `<button type="button" class="town-plate-fix" data-town-plate-fix>${escapeHtml(fix)} ›</button>` : ""}`
+    : plate.status === "unfed" ? `<span class="town-plate-tag town-plate-tag-unfed">${UNFED_TAG}</span>${fix ? `<button type="button" class="town-plate-fix" tabindex="-1" data-town-plate-fix>${escapeHtml(fix)} ›</button>` : ""}`
     : "";
   return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}${tag}</span>`;
 };
@@ -121,10 +121,12 @@ export function createTownNameplates(
   layer.setAttribute("aria-hidden", "true");
   canvas.parentElement?.append(layer);
   // The layer lets taps through to the map; only an unfed plate's fix button takes them, and none may reach the
-  // map under it (its window mouseup/mousedown and canvas touches would select the tile).
+  // map under it (its window mouseup/mousedown and canvas touches would select the tile). Touch events are only
+  // stopped, never cancelled: a cancelled touchstart/touchend makes the browser skip the click that runs the fix.
+  // The button is tabindex -1 because the layer is aria-hidden; the same fix is in the HUD's tracker row.
   const onFix = (event: Event): void => {
     if (!(event.target instanceof Element) || !event.target.closest("[data-town-plate-fix]")) return;
-    event.preventDefault();
+    if (!event.type.startsWith("touch")) event.preventDefault();
     event.stopPropagation();
     if (event.type === "click") requestFoodFix();
   };
