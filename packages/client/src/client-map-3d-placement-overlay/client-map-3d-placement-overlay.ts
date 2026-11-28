@@ -51,6 +51,8 @@ export type PlacementOverlaySyncDeps = {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
   cornerYAt: (x: number, y: number) => number;
+  /** The frame's clock for the beacon's growing reach; performance.now() when absent. */
+  nowMs?: number;
 };
 
 export type PlacementRangeOverlay = {
@@ -153,6 +155,8 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     const tile = deps.state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
     const valid = Boolean(pending) || deps.isPlacementValidForTile(tile);
+    // A valid Relay Beacon spot shows its reach growing instead of a range square (client-map-3d-beacon-placement-overlay.ts).
+    if (valid && structureType === "RELAY_BEACON") return;
     const radius =
       structureType === "AFC" ? 1.5 : structureType === "RELAY_BEACON" ? REACH_RADIUS_BY_KIND.OUTPOST : placementRadius(structureType);
 

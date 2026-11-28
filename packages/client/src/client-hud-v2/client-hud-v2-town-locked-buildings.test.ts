@@ -56,7 +56,7 @@ describe("town screen: buildings locked by research", () => {
 
   it("drops a locked building once it is researched, the row then shows as usual", () => {
     const researched = { ...state, techIds: ["trade"] };
-    const tabs = splitTileActionsIntoTabs([{ ...manufactory, disabled: false, disabledReason: undefined, cost: "1,200 coin" } as TileActionDef], researched);
+    const tabs = splitTileActionsIntoTabs([{ id: "build_manufactory", label: "Build Manufactory", cost: "1,200 coin" }], researched);
     expect(tabs.buildings.map((b) => b.id)).toEqual(["build_manufactory"]);
     expect(tabs.lockedBuildings).toBeUndefined();
   });

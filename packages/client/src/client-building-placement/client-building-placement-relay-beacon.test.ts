@@ -126,6 +126,9 @@ describe("Relay Beacon placement", () => {
     state.buildingPlacement = { active: true, structureType: "RELAY_BEACON", x: 5, y: 4 };
     flow.renderPlacementOverlay();
     expect(placementLabelEl.textContent).toMatch(/^Placing Relay Beacon \(\d+ m\.p\./);
+    // Owner, First-15 round 1: the bar says how much ground the beacon brings into reach (only 5,4 is in reach now).
+    expect(placementLabelEl.textContent).toContain(" · +120 tiles into reach");
+    expect(confirmPrompt.offer).toHaveBeenCalledWith({ label: "Build Relay Beacon", cost: expect.stringContaining("+120 tiles into reach") }, flow.confirmBuildingPlacement);
     // The big confirm prompt at the tapped tile, with the cost, confirms the placement.
     expect(confirmPrompt.offer).toHaveBeenCalledWith({ label: "Build Relay Beacon", cost: expect.stringMatching(/m\.p\./) }, flow.confirmBuildingPlacement);
     flow.cancelBuildingPlacement();

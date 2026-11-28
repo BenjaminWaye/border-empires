@@ -78,8 +78,9 @@ export const techLockedBuildingRow = (
   // The logic layer checks other blockers before the tech, so a reason that isn't a "Requires ..." means more than research is missing.
   if (action.disabled && !action.disabledReason?.startsWith("Requires ")) return undefined;
   const techName = state.techCatalog?.find((tech) => tech.id === requiredTech)?.name;
-  if (!techName && !action.disabledReason) return undefined;
-  return { ...action, disabled: true, disabledReason: techName ? `Requires ${techName}` : action.disabledReason, techLinkId: requiredTech };
+  const reason = techName ? `Requires ${techName}` : action.disabledReason;
+  if (!reason) return undefined;
+  return { ...action, disabled: true, disabledReason: reason, techLinkId: requiredTech };
 };
 
 /**

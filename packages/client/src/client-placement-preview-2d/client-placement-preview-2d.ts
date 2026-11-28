@@ -5,8 +5,15 @@ import {
   placementRadius,
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
-import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
-import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
+import {
+  beaconExpansionElapsedMs,
+  beaconExpansionOutline,
+  beaconExpansionTileFill,
+  beaconReachExpansion,
+  OUTLINE_EDGE_CORNERS,
+  prefersReducedMotion
+} from "../client-beacon-reach-expansion/client-beacon-reach-expansion.js";
 
 // Outpost-family structures (RELAY_BEACON/SIEGE_BATTERY/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see
@@ -15,9 +22,9 @@ import { resolveMyReachCached } from "../client-reach-authoritative/client-reach
 // it would add so beacon siting is an informed spatial choice — item 5 of
 // the reach overlay plan.
 const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
-const REACH_PREVIEW_STROKE_STYLE = "rgba(150, 220, 255, 0.9)";
+const REACH_PREVIEW_STROKE_STYLE = "rgba(190, 240, 255, 0.95)";
 const REACH_PREVIEW_INVALID_STROKE_STYLE = "rgba(220, 80, 80, 0.9)";
-const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(150, 220, 255, 0.10)";
+const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(120, 220, 255, 0.34)";
 
 export type PlacementPreview2DDeps = {
   ctx: CanvasRenderingContext2D;
@@ -66,44 +73,56 @@ const renderPlacementBeneficiaryTiles = (
   }
 };
 
-// Ghost-outlines the new reach disk an outpost-family structure would add.
-// Tiles already inside the player's current reach (resolveMyReachCached — see
-// client-reach-overlay.ts's MOCK-DATA SEAM) are left alone so the ghost
-// only highlights *newly* reachable ground, which is the actual siting
-// decision the player is making.
+// The reach an outpost-family structure would add, growing out from the placement tile
+// (client-beacon-reach-expansion.ts): the newly reachable ground fills in ring by ring inside a solid
+// outline of where it ends. Ground already in reach is left alone. An invalid spot gets a red ring instead.
 const renderOutpostReachGhostPreview = (
   state: ClientState,
   deps: PlacementPreview2DDeps,
   size: number,
   halfW: number,
-  halfH: number
+  halfH: number,
+  nowMs: number
 ): void => {
   const { x, y, structureType: st } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
-  const preview = computeOutpostReachPreview(x, y, state.tiles); // land-gated like real reach
-  const existingReach = resolveMyReachCached(state); // same source as the true-3D beacon preview
-  for (const key of preview) {
-    const [kxRaw, kyRaw] = key.split(",");
-    const kx = Number(kxRaw);
-    const ky = Number(kyRaw);
-    if (!Number.isFinite(kx) || !Number.isFinite(ky)) continue;
-    if (existingReach?.has(key)) continue; // already in reach — nothing new to show here
-    const { sx, sy } = deps.worldToScreen(kx, ky, size, halfW, halfH);
-    deps.ctx.save();
-    deps.ctx.fillStyle = REACH_PREVIEW_NEW_FILL_STYLE;
-    deps.ctx.fillRect(sx - size / 2 + 1, sy - size / 2 + 1, size - 2, size - 2);
-    deps.ctx.restore();
-  }
-  const center = deps.worldToScreen(x, y, size, halfW, halfH);
-  const ringRadius = 5.5; // OUTPOST_REACH_RADIUS (5) + 0.5 tile margin, matches the square-ring convention below
-  const squareSize = ringRadius * 2 * size;
   const valid = st !== "RELAY_BEACON" || deps.isPlacementValidForTile(placementTile);
+  if (!valid) {
+    const center = deps.worldToScreen(x, y, size, halfW, halfH);
+    const squareSize = (REACH_RADIUS_BY_KIND.OUTPOST + 0.5) * 2 * size;
+    deps.ctx.save();
+    deps.ctx.strokeStyle = REACH_PREVIEW_INVALID_STROKE_STYLE;
+    deps.ctx.setLineDash([6, 4]);
+    deps.ctx.lineWidth = 2;
+    deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+    deps.ctx.restore();
+    return;
+  }
+  const expansion = beaconReachExpansion(state, x, y);
+  const elapsed = beaconExpansionElapsedMs(x, y, nowMs);
+  const still = prefersReducedMotion();
   deps.ctx.save();
-  deps.ctx.strokeStyle = valid ? REACH_PREVIEW_STROKE_STYLE : REACH_PREVIEW_INVALID_STROKE_STYLE;
-  deps.ctx.setLineDash([6, 4]);
-  deps.ctx.lineWidth = 2;
-  deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+  for (const tile of expansion.tiles) {
+    const fill = beaconExpansionTileFill(tile.ring, elapsed, still);
+    if (fill <= 0) continue;
+    const { sx, sy } = deps.worldToScreen(tile.x, tile.y, size, halfW, halfH);
+    // A tile grows from its centre as the wave reaches it.
+    const side = (size - 2) * fill;
+    deps.ctx.fillStyle = REACH_PREVIEW_NEW_FILL_STYLE;
+    deps.ctx.fillRect(sx - side / 2, sy - side / 2, side, side);
+  }
+  deps.ctx.strokeStyle = REACH_PREVIEW_STROKE_STYLE;
+  deps.ctx.setLineDash([]);
+  deps.ctx.lineWidth = Math.max(1.5, size * 0.08);
+  deps.ctx.beginPath();
+  for (const edge of beaconExpansionOutline(expansion, deps.keyFor, deps.wrapX, deps.wrapY)) {
+    const { sx, sy } = deps.worldToScreen(edge.x, edge.y, size, halfW, halfH);
+    const [[ax, ay], [bx, by]] = OUTLINE_EDGE_CORNERS[edge.side];
+    deps.ctx.moveTo(sx + (ax - 0.5) * size, sy + (ay - 0.5) * size);
+    deps.ctx.lineTo(sx + (bx - 0.5) * size, sy + (by - 0.5) * size);
+  }
+  deps.ctx.stroke();
   deps.ctx.restore();
 };
 
@@ -112,14 +131,15 @@ export const renderBuildingPlacementPreview2D = (
   deps: PlacementPreview2DDeps,
   size: number,
   halfW: number,
-  halfH: number
+  halfH: number,
+  nowMs: number = performance.now()
 ): void => {
   const pending = state.afcRecovery?.pending;
   const placement = state.buildingPlacement.active ? state.buildingPlacement : pending ? { x: pending.x, y: pending.y, structureType: "AFC" as const } : undefined;
   if (!placement) return;
   const st = placement.structureType;
   if (OUTPOST_FAMILY_STRUCTURE_TYPES.has(st)) {
-    renderOutpostReachGhostPreview(state, deps, size, halfW, halfH);
+    renderOutpostReachGhostPreview(state, deps, size, halfW, halfH, nowMs);
     return;
   }
   if (st === "AFC") {
