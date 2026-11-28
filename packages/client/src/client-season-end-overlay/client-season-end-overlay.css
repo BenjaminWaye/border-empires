@@ -349,6 +349,7 @@
   border-color: rgba(201, 162, 75, 0.4);
 }
 .se-btn-secondary:hover { filter: brightness(1.12); border-color: rgba(201, 162, 75, 0.7); }
+.se-progress { text-align: center; margin: 12px 0 0; font-size: 13px; letter-spacing: 0.04em; color: rgba(236, 220, 180, 0.85); font-variant-numeric: tabular-nums; min-height: 1.3em; }
 .se-fineprint { text-align: center; margin: 12px 0 2px; font-size: 11px; color: rgba(236, 220, 180, 0.5); }
 .se-fineprint strong { color: var(--se-copper); }
 .se-arrival-note { text-align: center; margin: 4px auto 12px; max-width: 34em; font-size: 13px; line-height: 1.45; color: rgba(236, 220, 180, 0.82); }

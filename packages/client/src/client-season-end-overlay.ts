@@ -16,6 +16,7 @@ import { ensureHouseChargeReveal, houseChargeRevealHtml } from "./client-house-c
 import { renderChargeReward, type ChargeRewardDeps } from "./client-charge-reward/client-charge-reward.js";
 import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 import { nextContestButtonLabel, nextContestFineprint } from "./client-next-contest/client-next-contest.js";
+import { ensureContestProgressTicker } from "./client-next-contest/client-next-contest-progress.js";
 import { activeHostedSectorId, HOSTED_SECTOR_ENDED_FINEPRINT } from "./client-hosted-sectors/client-hosted-sector-session.js";
 
 type SeasonEndLeaderboard = {
@@ -290,7 +291,7 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
     renderChargeReward({ state, wsUrl: deps.wsUrl, firebaseAuth: deps.firebaseAuth });
   }
   const signature = renderSignature(state, leaderboard, Boolean(recap));
-  if (overlayEl.dataset.seSignature === signature) return;
+  if (overlayEl.dataset.seSignature === signature) { ensureContestProgressTicker(overlayEl, state); return; }
   overlayEl.dataset.seSignature = signature;
 
   const colors = state.playerColors;
@@ -387,10 +388,12 @@ const renderSeasonEndPlate = (deps: SeasonEndPlateDeps): void => {
             <button id="se-look-around" class="se-btn se-btn-secondary" type="button">Look Around</button>
           </footer>
           ${state.seasonStartError && !starting ? `<p class="se-start-error" role="alert">${escapeHtml(state.seasonStartError)}</p>` : ""}
+          ${!hostedSector && starting && state.seasonStartVoted ? `<p class="se-progress" data-se-progress role="status"></p>` : ""}
           <p class="se-fineprint" aria-live="polite">${escapeHtml(hostedSector ? HOSTED_SECTOR_ENDED_FINEPRINT : nextContestFineprint(state.seasonStartVoteThreshold, starting, state.seasonStartVoted))}</p>`}
         </div>
       </div>
     </div>`;
+  ensureContestProgressTicker(overlayEl, state);
 
   overlayEl.querySelectorAll<HTMLButtonElement>("[data-se-report-missing]").forEach((button) => {
     button.onclick = () => {

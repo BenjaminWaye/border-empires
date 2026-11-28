@@ -89,3 +89,23 @@ describe("season-end next Sector Contest", () => {
     expect(overlayEl.querySelector("#se-look-around")).toBeTruthy();
   });
 });
+
+// Regression: a committed House saw only "Starting the next Sector Contest…"
+// for up to a minute while the next world was built, with no sign of progress.
+describe("next contest start progress", () => {
+  it("shows a live progress line for a committed House, and none for one still looking around", () => {
+    const committedEl = document.createElement("div");
+    renderSeasonEndOverlay({
+      state: makeState({ seasonWinner: makeWinner(), seasonEndStarting: true, seasonStartVoted: true }) as any,
+      overlayEl: committedEl, renderHud: () => {}, startNewSeason: () => {}
+    });
+    expect(committedEl.querySelector("[data-se-progress]")?.textContent).toMatch(/^Building the next world · 0:0\d$/);
+
+    const browsingEl = document.createElement("div");
+    renderSeasonEndOverlay({
+      state: makeState({ seasonWinner: makeWinner(), seasonEndStarting: true }) as any,
+      overlayEl: browsingEl, renderHud: () => {}, startNewSeason: () => {}
+    });
+    expect(browsingEl.querySelector("[data-se-progress]")).toBeNull();
+  });
+});
