@@ -431,7 +431,7 @@ file).
    ending only that sector, is already in the draft.
 6. **Analytics.** Recommended: add a consent prompt before the privacy page is
    published; until then turn analytics off for the web client.
-7. **Google Fonts.** Recommended: serve the fonts from our own server.
+7. **Google Fonts.** Recommended: serve the fonts from our own server. **Done 2026-11-28:** bundled from the Fontsource packages (`packages/client/src/client-fonts.ts`); Google Fonts removed from the privacy page; `client-fonts.test.ts` fails if a Google Fonts host returns.
 8. **Hetzner fallback location.** Recommended: EU locations only.
 9. **Backblaze region.** Settled 2026-11-27: Backblaze is used again for
    hourly production backups, in an EU-region bucket (Netherlands); the
