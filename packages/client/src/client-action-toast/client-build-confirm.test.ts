@@ -49,16 +49,16 @@ describe("build confirmation", () => {
 
   it("waits for the new fort on an upgrade, and forgets builds the server never confirmed", () => {
     const now = 1_000;
-    const oldFort = ownTile({ fort: { status: "active", ownerId: "p1" } as Tile["fort"] });
+    const oldFort = ownTile({ fort: { status: "active", ownerId: "p1" } as NonNullable<Tile["fort"]> });
     expectBuildConfirmation("4,5", "FORT", "Stone Fort at (4, 5)", oldFort, now);
     confirmBuildsFromTiles(["4,5"], () => oldFort, "p1", now);
     expect(toastText()).toBeUndefined();
-    const building = ownTile({ fort: { status: "under_construction", ownerId: "p1" } as Tile["fort"] });
+    const building = ownTile({ fort: { status: "under_construction", ownerId: "p1" } as NonNullable<Tile["fort"]> });
     confirmBuildsFromTiles(["4,5"], () => building, "p1", now + 1);
     expect(toastText()).toBe("Stone Fort started");
     document.getElementById("action-toast")?.remove();
     expectBuildConfirmation("9,9", "OBSERVATORY", "Observatory at (9, 9)", undefined, now);
-    confirmBuildsFromTiles(["9,9"], () => ownTile({ observatory: { status: "under_construction" } as Tile["observatory"] }), "p1", now + BUILD_CONFIRM_WAIT_MS + 1);
+    confirmBuildsFromTiles(["9,9"], () => ownTile({ observatory: { status: "under_construction" } as NonNullable<Tile["observatory"]> }), "p1", now + BUILD_CONFIRM_WAIT_MS + 1);
     expect(toastText()).toBeUndefined();
   });
 });
