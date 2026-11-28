@@ -383,7 +383,7 @@ Full deploy procedures, first-time client provisioning and DNS cutover are docum
 | `SIMULATION_SQLITE_PATH` | `/data/border-empires.db` | Simulation DB path |
 | `SIMULATION_AI_PLAYER_COUNT` | `5` | AI player count per season |
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `2300` | Defer a regular checkpoint while whole-process memory (RSS) is above this |
-| `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `1300` | Defer a regular checkpoint while the simulation heap in use is above this (heap limit is 1536, `NODE_OPTIONS`) |
+| `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `1300` | Defer a regular checkpoint while the simulation heap in use is above this (the deploy env files set `--max-old-space-size=1536` in `NODE_OPTIONS`, a limit for every thread without its own cap; `scripts/ops/hetzner-env-files.test.mjs` keeps this watermark at least 128 MB below it) |
 | `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). Also the signing key for read-only agent tokens minted from the Google-signed-in `/admin` page (see `docs/AI_DEBUGGING.md`); rotating it revokes them all. |
 | `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
