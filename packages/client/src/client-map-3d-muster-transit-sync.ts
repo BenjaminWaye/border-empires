@@ -11,6 +11,9 @@ import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-cl
 import type { ClientState } from "./client-state/client-state.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { TILE_CENTER_OFFSET } from "./client-map-3d-capture-overlays.js";
+import { activeInsurgentMarches } from "./client-insurgent-march/client-insurgent-march.js";
+import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import type { MusterTransitRoute } from "@border-empires/shared";
 import { activeTransitLeg, clientMusterTransitRoute, isStraightRoute, marchStartAt, sailPath } from "./client-muster-transit-route/client-muster-transit-route.js";
 
 // Split out of client-map-3d-capture-overlays.ts (500-line cap) when march
@@ -72,7 +75,9 @@ export function syncMusterTransitOverlay(
   // not additional travel — see MusterTransitEntry's marchToX comment).
   const addMarch = (
     musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number, color: string = ownerColor,
-    gear: SquadGear | undefined = myGear()
+    // "none": the plain default squad (Insurgents). Leaving it out (or
+    // undefined) still means this player's own gear, as before.
+    gear: SquadGear | "none" | undefined = myGear()
   ): void => {
     const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
@@ -95,7 +100,7 @@ export function syncMusterTransitOverlay(
       arriveAt,
       ...(standUntil !== undefined ? { standUntil } : {}),
       ownerColor: color,
-      ...(gear ? { gear } : {})
+      ...(gear && gear !== "none" ? { gear } : {})
     });
   };
 
@@ -122,30 +127,37 @@ export function syncMusterTransitOverlay(
   // (not drawn) while the boat sails.
   // `firstSeenAt` (server-fired marches, whose start the client isn't told):
   // the real start is derived from the route instead (marchStartAt).
-  const addRoutedMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, firstSeenAt?: number): void => {
-    const route = clientMusterTransitRoute(state, { x: musterX, y: musterY }, { x: marchToX, y: marchToY });
+  // `known` (an insurgent march): the route the server timed and sent, drawn
+  // as is, in that company's colour and gear, instead of planning one here.
+  const addRoutedMarch = (
+    musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, firstSeenAt?: number,
+    known?: { route: MusterTransitRoute; color: string; gear: SquadGear | "none" }
+  ): void => {
+    const route = known?.route ?? clientMusterTransitRoute(state, { x: musterX, y: musterY }, { x: marchToX, y: marchToY });
+    const color = known ? known.color : ownerColor;
     if (firstSeenAt !== undefined) startAt = marchStartAt(route, arriveAt, firstSeenAt);
     const leg = activeTransitLeg(route, startAt, arriveAt, nowEpochMs);
     if (!leg) return;
     if (leg.kind === "SAIL") {
-      transitOverlay.addVoyage({ path: scenePath(sailPath(state, leg.from, leg.to)), startAt: leg.startAt, arriveAt: leg.endAt, ownerColor });
+      transitOverlay.addVoyage({ path: scenePath(sailPath(state, leg.from, leg.to)), startAt: leg.startAt, arriveAt: leg.endAt, ownerColor: color });
       return;
     }
     if (isStraightRoute(route, { x: musterX, y: musterY }, { x: marchToX, y: marchToY })) {
-      addMarch(musterX, musterY, marchToX, marchToY, startAt, arriveAt);
+      addMarch(musterX, musterY, marchToX, marchToY, startAt, arriveAt, undefined, color, known ? known.gear : myGear());
       return;
     }
     const first = leg.points[0]!;
     const last = leg.points[leg.points.length - 1]!;
     const firstY = Math.max(heightfield.elevationAt(first.x, first.y), heightfield.cornerYAt(first.x, first.y));
     const lastY = Math.max(heightfield.elevationAt(last.x, last.y), heightfield.cornerYAt(last.x, last.y));
-    const gear = myGear();
+    const knownGear = known ? known.gear : myGear();
+    const gear = knownGear === "none" ? undefined : knownGear;
     transitOverlay.addTransit({
       path: scenePath(leg.points),
       groundY: (firstY + lastY) / 2,
       startAt: leg.startAt,
       arriveAt: leg.endAt,
-      ownerColor,
+      ownerColor: color,
       ...(gear ? { gear } : {})
     });
   };
@@ -176,6 +188,15 @@ export function syncMusterTransitOverlay(
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
+  // Insurgent companies marching out of their camp to the tile their attack or
+  // expansion launches from (client-insurgent-march.ts), in Planetary Defense
+  // armor, along the exact route the server timed (sent with the march). The
+  // server tells every player who can see the march, not only the House
+  // under attack.
+  for (const march of activeInsurgentMarches(nowEpochMs, (x, y) => state.tiles.get(keyFor(x, y))?.ownerId)) {
+    addRoutedMarch(march.campX, march.campY, march.fromX, march.fromY, march.startAt, march.transitEndsAt, undefined, { route: march.route, color: PLANETARY_DEFENSE_ARMOR_COLOR, gear: "none" });
   }
 
   // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):

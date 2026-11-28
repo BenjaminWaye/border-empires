@@ -7,6 +7,10 @@ import { syncJoinSeasonReopenButton } from "./client-join-season-reopen/client-j
 import { syncLandingWaitNotice } from "./client-landing-wait/client-landing-wait.js";
 import { canFundSectors, refreshSectorListIfNeeded } from "./client-sector-list/client-sector-list-loader.js";
 import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
+import { joinWaitingHtml, waitingEmailHtml, waitingEmailStatus } from "./client-join-season-waiting/client-join-season-waiting.js";
+import { bindJoinWaiting, JOIN_WAITING_TAB_ATTR } from "./client-join-season-waiting/client-join-season-waiting-bind.js";
+import { standingsLedger } from "./client-season-end-overlay/client-standings-html.js";
+import { getEmailNotificationPrefs } from "./client-email-notifications/client-email-notification-prefs-storage.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
@@ -15,6 +19,12 @@ type JoinSeasonOverlayDeps = {
     | "joinSeasonOverlayOpen"
     | "joinSeasonId"
     | "joinSeasonPending"
+    | "joinSeasonWaiting"
+    | "authIsGuest"
+    | "authEmail"
+    | "leaderboard"
+    | "playerColors"
+    | "me"
     | "seasonPending"
     | "seasonPendingScheduledStartAt"
     | "seasonLobbyWaitingCount"
@@ -162,8 +172,19 @@ const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolea
         // the running-contest card an update must not rebuild the spinner.
         state.seasonPending ? [state.seasonLobbyWaitingCount, state.seasonLobbyMaxPlayers, state.seasonLobbyRoster] : null,
         // The honest card's day/bonus lines and the closed card (client-join-season-late-join.ts).
-        state.seasonPending ? null : [state.seasonStartedAt, state.singleContest, state.joinSeasonClosedMessage, state.sectorListRows]
+        state.seasonPending ? null : [state.seasonStartedAt, state.singleContest, state.joinSeasonClosedMessage, state.sectorListRows],
+        // The waiting view (client-join-season-waiting/) and its email line.
+        state.joinSeasonWaiting
+          ? [state.authIsGuest, state.authEmail, getEmailNotificationPrefs().seasonStart, waitingStandingsKey(state)]
+          : null
       ]);
+
+// The waiting view's standings change with every leaderboard push; only what it draws counts.
+const waitingStandingsKey = (state: Pick<ClientState, "leaderboard" | "playerColors">): unknown => [
+  state.leaderboard.overall.map((e) => [e.id, e.name, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs, state.playerColors.get(e.id)]),
+  state.leaderboard.selfOverall?.id,
+  state.leaderboard.selfOverall?.rank
+];
 
 // Closes the card and leaves the HUD reachable (the close and wait buttons).
 const bindDismiss = (overlayEl: HTMLDivElement, selector: string, state: { joinSeasonOverlayOpen: boolean }, renderHud: () => void): void => {
@@ -171,6 +192,34 @@ const bindDismiss = (overlayEl: HTMLDivElement, selector: string, state: { joinS
   if (!button) return;
   button.onclick = () => {
     state.joinSeasonOverlayOpen = false;
+    renderHud();
+  };
+};
+
+// "Wait for the next contest" (and ×) switch the card to the waiting view.
+const bindWait = (overlayEl: HTMLDivElement, selector: string, state: { joinSeasonWaiting: boolean }, renderHud: () => void): void => {
+  const button = overlayEl.querySelector(selector) as HTMLButtonElement | null;
+  if (!button) return;
+  button.onclick = () => {
+    state.joinSeasonWaiting = true;
+    // Each visit opens on Sectors; the tab kept on the overlay only carries across redraws.
+    delete overlayEl.dataset[JOIN_WAITING_TAB_ATTR];
+    renderHud();
+  };
+};
+
+// Land now (the join card) and Land now instead (the waiting view).
+const bindConfirm = (overlayEl: HTMLDivElement, state: { joinSeasonPending: boolean; joinSeasonWaiting: boolean }, joinSeason: () => boolean, renderHud: () => void): void => {
+  const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement | null;
+  if (!confirmBtn) return;
+  confirmBtn.onclick = () => {
+    if (state.joinSeasonPending) return;
+    // Only flip the pending flag if the message actually sent -- sendGameMessage
+    // returns false without sending when the session isn't authed yet, and
+    // no JOIN_SEASON_ACK/ERROR would ever arrive to clear the flag otherwise.
+    if (!joinSeason()) return;
+    state.joinSeasonPending = true;
+    state.joinSeasonWaiting = false;
     renderHud();
   };
 };
@@ -209,6 +258,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // A House in the contest with no land is waiting for a landing site (client-landing-wait.ts).
   syncLandingWaitNotice({ me: state.me ?? "", authSessionReady: state.authSessionReady === true, needsSeasonJoin: state.needsSeasonJoin, seasonPending: state.seasonPending, hasOwnedTileInCache: state.hasOwnedTileInCache === true, seasonWinner: state.seasonWinner });
   syncJoinSeasonReopenButton({ ...state, profileSetupRequired: state.profileSetupRequired === true }, () => {
+    state.joinSeasonWaiting = false; // the reopen button reads "Join this Sector Contest": back to the join card
     state.joinSeasonOverlayOpen = true;
     renderHud();
   });
@@ -290,6 +340,22 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     bindDismiss(overlayEl, "#join-season-close", state, renderHud);
     return;
   }
+  const landDisabled = sectorRows.some((row) => row.here && row.noLandingSite);
+  if (state.joinSeasonWaiting && !state.joinSeasonPending && !state.singleContest) {
+    const emailStatus = waitingEmailStatus({ authIsGuest: state.authIsGuest, authEmail: state.authEmail, seasonStartEmailOn: getEmailNotificationPrefs().seasonStart });
+    overlayEl.innerHTML = joinWaitingHtml({
+      emailHtml: waitingEmailHtml(emailStatus, state.authEmail),
+      sectorListHtml: sectorListHtml(sectorRows, canFundSectors(), true),
+      standingsHtml: state.leaderboard.overall.length > 0
+        ? standingsLedger(state.leaderboard, state.playerColors, state.leaderboard.selfOverall?.id || state.me || undefined, undefined, "Current Standings")
+        : "",
+      landDisabled,
+      tab: overlayEl.dataset[JOIN_WAITING_TAB_ATTR] === "standings" ? "standings" : "sectors"
+    });
+    bindJoinWaiting(overlayEl, { renderHud });
+    bindConfirm(overlayEl, state, joinSeason, renderHud);
+    return;
+  }
   if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
   const joining = state.joinSeasonPending;
   overlayEl.innerHTML = joinNowHtml({
@@ -298,27 +364,17 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     warningHtml: lateJoinWarningHtml(lateJoinFacts(Date.now(), state.seasonStartedAt), state.singleContest),
     waitButtonHtml: waitButtonHtml(state.singleContest),
     sectorListHtml: listHtml,
-    landDisabled: sectorRows.some((row) => row.here && row.noLandingSite)
+    landDisabled
   });
-  bindDismiss(overlayEl, "#join-season-wait", state, renderHud);
+  // On a hosted sector there is no next contest: "Not now" and × just close the card.
+  // Otherwise both lead to the waiting view, since the unjoined map is all fog.
+  if (state.singleContest) {
+    bindDismiss(overlayEl, "#join-season-wait", state, renderHud);
+    bindDismiss(overlayEl, "#join-season-close", state, renderHud);
+  } else {
+    bindWait(overlayEl, "#join-season-wait", state, renderHud);
+    bindWait(overlayEl, "#join-season-close", state, renderHud);
+  }
 
-  const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement | null;
-  if (closeBtn) {
-    closeBtn.onclick = () => {
-      state.joinSeasonOverlayOpen = false;
-      renderHud();
-    };
-  }
-  const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement | null;
-  if (confirmBtn) {
-    confirmBtn.onclick = () => {
-      if (state.joinSeasonPending) return;
-      // Only flip the pending flag if the message actually sent -- sendGameMessage
-      // returns false without sending when the session isn't authed yet, and
-      // no JOIN_SEASON_ACK/ERROR would ever arrive to clear the flag otherwise.
-      if (!joinSeason()) return;
-      state.joinSeasonPending = true;
-      renderHud();
-    };
-  }
+  bindConfirm(overlayEl, state, joinSeason, renderHud);
 };
