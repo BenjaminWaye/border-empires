@@ -49,7 +49,7 @@ Publishing is blocked until these markers are filled in.
 | Marker | File | What is needed |
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
-| `[[UK_REPRESENTATIVE]]` | `privacy.html` | Name and address of TIDN AB's UK GDPR representative (UK GDPR Art. 27; added 2026-11-28, review section 4). Required because the game is offered to people in the UK |
+| `[[UK_REPRESENTATIVE]]` | `privacy.html` (left out of the published copy until appointed, 2026-11-28) | Name and address of TIDN AB's UK GDPR representative (UK GDPR Art. 27; added 2026-11-28, review section 4). Required because the game is offered to people in the UK |
 
 **Backblaze, decided 2026-11-27** (the owner): production gets an hourly
 off-site database backup in Backblaze B2 again, beside Hetzner's daily server
@@ -461,6 +461,11 @@ file).
    registration before sales open).
 3. Finish "What the code and settings must do before sales open", and the
    further code items in the review, section 7.
+**Privacy page published 2026-11-28** (owner): `packages/client/public/privacy.html`
+is `privacy.html` here with the date filled in and the UK representative
+sentence left out until one is appointed. Until the Terms are published too,
+edit both copies together; `client-legal-pages.test.ts` fails when they differ.
+
 4. Move `purchase-terms.html` and `privacy.html` into
    `packages/client/public/`, apply the Terms of Service change, link the
    Terms of Sale from the hosting page and from `support.html`, add a client
