@@ -102,7 +102,8 @@ const showPopup = (report: OccupationSurveyReport): void => {
   // Another full-screen card (town capture, waystation) is up or waiting: its pins are hidden meanwhile (pendingReports).
   if (activeFullscreenCard() !== undefined || queuedFullscreenCardCount() > 0) return;
   const overlay = document.createElement("div");
-  const release = tryClaimFullscreenCard("occupation-survey", overlay);
+  // Only a pin tap opens this card, so the notice hold (which counts that very tap) does not apply.
+  const release = tryClaimFullscreenCard("occupation-survey", overlay, { requested: true });
   if (!release) return;
   releaseCardSlot = release;
   ensureStyles();

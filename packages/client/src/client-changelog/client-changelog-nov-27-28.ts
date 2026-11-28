@@ -11,6 +11,7 @@ import { FIRST15_GUIDE_CAMERA_ENTRY } from "./client-changelog-first15-guide-cam
 import { GUIDE_MANUFACTORY_BUILD_LIST_ENTRY } from "./client-changelog-guide-manufactory-build-list.js";
 import { POPUPS_WAIT_THEIR_TURN_ENTRY } from "./client-changelog-popups-wait-their-turn.js";
 import { INSURGENT_MARCH_ENTRY } from "./client-changelog-insurgent-march.js";
+import { SURVEY_PIN_TAP_ENTRY } from "./client-changelog-survey-pin-tap.js";
 
 export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
@@ -23,5 +24,6 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...NUMBER_AGREEMENT_ENTRY, createdAt: 1795849095118, },
   { ...FIRST15_GUIDE_CAMERA_ENTRY, createdAt: 1795851462394, },
   { ...INSURGENT_MARCH_ENTRY, createdAt: 1795861349536, },
+  { ...SURVEY_PIN_TAP_ENTRY, createdAt: 1795865768993, },
   { ...GUIDE_MANUFACTORY_BUILD_LIST_ENTRY, createdAt: 1795866260277, },
 ];
