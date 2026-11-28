@@ -1,4 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { townWithFreshIsFed } from "./town-fed-heal/town-fed-heal.js";
 import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityGrowthMult, townFocusMultipliers, type BiotaTownSupply } from "@border-empires/shared";
 import { biotaCoinRefreshFor } from "./biota-coin-refresh/biota-coin-refresh.js";
 import {
@@ -123,6 +124,21 @@ export function tickPopulationGrowth(input: {
     if (fedTownKeys.size === 0) {
       playersSkippedNoFedTowns += 1;
       playerDiag.set(player.id, { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: ownedTowns.size, logisticCap: 0, totalTowns: ownedTowns.size });
+      // Still self-heal isFed (below) before skipping: an empire whose only town went short read "Fed, +16/day"
+      // on the town card beside Economy's "Short 2" for as long as nothing else touched that tile (playtest 2026-11-28).
+      const healedDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
+      for (const tileKey of ownedTowns.keys()) {
+        const tile = input.tiles.get(tileKey);
+        const healedTown = tile?.town && tile.ownershipState === "SETTLED" ? townWithFreshIsFed(tile.town, false) : undefined;
+        if (!tile || !healedTown) continue;
+        const healedTile = { ...tile, town: healedTown };
+        input.writeTile(tileKey, healedTile);
+        healedDeltas.push(input.tileDeltaFromState(healedTile));
+        dirtyPlayerIds.add(player.id);
+      }
+      if (healedDeltas.length > 0) {
+        input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `population-growth-tick:${player.id}:${input.nowMs}`, playerId: player.id, tileDeltas: healedDeltas });
+      }
       continue;
     }
 
@@ -182,11 +198,9 @@ export function tickPopulationGrowth(input: {
       // dormancy engine just marked unfed can silently keep showing fed
       // (and vice versa) until something unrelated happens to touch its
       // tile or the player reconnects.
-      const freshIsFed = fedTownKeys.has(tileKey);
-      if (town.isFed !== freshIsFed) {
-        // An unfed town's rate is 0; a newly fed one gets its real rate
-        // stamped by the growth branch below in this same iteration.
-        town = { ...town, isFed: freshIsFed, ...(freshIsFed ? {} : { populationGrowthPerMinute: 0 }) };
+      const healedTown = townWithFreshIsFed(town, fedTownKeys.has(tileKey));
+      if (healedTown) {
+        town = healedTown;
         const healedTile = { ...tile, town };
         input.writeTile(tileKey, healedTile);
         recordTileDelta(tileKey, healedTile);

@@ -205,7 +205,7 @@ export const renderManpowerPanelHtml = (args: {
         </div>
         ${manpowerNextBatchHtml({ manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen, nextBatchAmount: args.nextBatchAmount, nextRefillAtMs: args.nextRefillAtMs })}
         ${fullEtaText ? `<div class="economy-footnote manpower-full-eta">${fullEtaText}</div>` : ""}
-        ${manpowerInfoHtml()}
+        ${manpowerInfoHtml(args.nextRefillAtMs)}
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
       ${sectionHtml("Regen modifiers (per batch)", args.manpowerBreakdown.regen.map((line) => ({ ...line, amount: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) })))}
