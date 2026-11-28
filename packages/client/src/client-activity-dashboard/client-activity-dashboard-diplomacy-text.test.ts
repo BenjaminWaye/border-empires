@@ -18,6 +18,12 @@ const card = (overrides: Partial<PersonalActivityDiplomacyCard>): PersonalActivi
 const noNames = (): string | undefined => undefined;
 
 describe("diplomacy timeline rows", () => {
+  // First-15 round 1: an offer's note is quoted on its Chronicle row; the chronicle escapes it.
+  it("quotes an offer's note after the row", () => {
+    expect(activityCardText(card({ event: "TRUCE_OFFERED", durationHours: 12, note: "Peace?" }), "me", noNames)).toBe("Tove offered you a truce · 12h · “Peace?”");
+    expect(activityCardText(card({ event: "ALLIANCE_OFFERED", byPlayerId: "me", note: "Together?" }), "me", noNames)).toBe("You offered Tove an alliance · “Together?”");
+  });
+
   it("reads each truce and alliance change from the viewer's side", () => {
     expect(activityCardText(card({}), "me", noNames)).toBe("Truce with Tove ended");
     expect(activityCardText(card({ event: "TRUCE_STARTED", durationHours: 12 }), "me", noNames)).toBe("Truce with Tove began · 12h");

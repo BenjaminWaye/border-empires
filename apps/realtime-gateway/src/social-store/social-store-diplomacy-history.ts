@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import type { PersonalActivityDiplomacyEvent } from "@border-empires/game-domain";
+import { OFFER_NOTE_MAX_LENGTH } from "@border-empires/shared";
 import {
   DIPLOMACY_HISTORY_PER_PLAYER_CAP,
   DIPLOMACY_HISTORY_TTL_MS,
@@ -37,6 +38,7 @@ type DiplomacyHistoryRow = {
   by_player_id: string | null;
   court: number | null;
   fealty_json?: string | null;
+  note?: string | null;
 };
 
 export function applyDiplomacyHistorySchema(db: DatabaseSync): void {
@@ -58,6 +60,8 @@ export function applyDiplomacyHistorySchema(db: DatabaseSync): void {
   if (!columns.some((column) => column.name === "ends_at")) db.exec("ALTER TABLE social_diplomacy_history ADD COLUMN ends_at INTEGER");
   // Later still: an alliance row's recorded fealty (alliance-fealty.ts in shared); NULL reads plain "alliance".
   if (!columns.some((column) => column.name === "fealty_json")) db.exec("ALTER TABLE social_diplomacy_history ADD COLUMN fealty_json TEXT");
+  // Later again: an offer row's note (diplomacy-offer-notes.ts in shared), at most 140 characters; bounded with the rows.
+  if (!columns.some((column) => column.name === "note")) db.exec("ALTER TABLE social_diplomacy_history ADD COLUMN note TEXT");
 }
 
 /** A row from an unknown event (say, written by a newer gateway) is skipped rather than misread. */
@@ -73,14 +77,15 @@ export const diplomacyHistoryFromRow = (row: DiplomacyHistoryRow): StoredDiploma
     ...(row.ends_at !== null && row.ends_at !== undefined ? { endsAt: row.ends_at } : {}),
     ...(row.by_player_id !== null ? { byPlayerId: row.by_player_id } : {}),
     ...(row.court ? { court: true } : {}),
-    ...fealtyFromJson(row.fealty_json)
+    ...fealtyFromJson(row.fealty_json),
+    ...(typeof row.note === "string" && row.note.length > 0 ? { note: row.note.slice(0, OFFER_NOTE_MAX_LENGTH) } : {})
   }];
 };
 
 export function loadDiplomacyHistory(db: DatabaseSync): StoredDiplomacyHistoryEntry[] {
   const rows = db
     .prepare(
-      `SELECT player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court, fealty_json
+      `SELECT player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court, fealty_json, note
        FROM social_diplomacy_history`
     )
     .all() as DiplomacyHistoryRow[];
@@ -89,9 +94,9 @@ export function loadDiplomacyHistory(db: DatabaseSync): StoredDiplomacyHistoryEn
 
 export function saveDiplomacyHistory(db: DatabaseSync, playerId: string, entry: DiplomacyHistoryEntry): void {
   db.prepare(
-    `INSERT INTO social_diplomacy_history (player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court, fealty_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(playerId, entry.event, entry.occurredAt, entry.counterpartyPlayerId, entry.counterpartyName, entry.durationHours ?? null, entry.endsAt ?? null, entry.byPlayerId ?? null, entry.court ? 1 : null, entry.fealty ? JSON.stringify(entry.fealty) : null);
+    `INSERT INTO social_diplomacy_history (player_id, event, occurred_at, counterparty_player_id, counterparty_name, duration_hours, ends_at, by_player_id, court, fealty_json, note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(playerId, entry.event, entry.occurredAt, entry.counterpartyPlayerId, entry.counterpartyName, entry.durationHours ?? null, entry.endsAt ?? null, entry.byPlayerId ?? null, entry.court ? 1 : null, entry.fealty ? JSON.stringify(entry.fealty) : null, entry.note ?? null);
   db.prepare(
     `DELETE FROM social_diplomacy_history
      WHERE player_id = ? AND rowid NOT IN (

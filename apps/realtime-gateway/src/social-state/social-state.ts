@@ -248,7 +248,7 @@ export const createSocialState = (options: {
       };
       allianceRequests.set(request.id, request);
       sink?.saveAllianceRequest(request);
-      diplomacyHistory.recordPair(actor.id, target.id, "ALLIANCE_OFFERED", request.createdAt, { byPlayerId: actor.id, ...fealtyField(request.fealty) });
+      diplomacyHistory.recordPair(actor.id, target.id, "ALLIANCE_OFFERED", request.createdAt, { byPlayerId: actor.id, ...fealtyField(request.fealty), ...(request.note ? { note: request.note } : {}) });
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "ALLIANCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name });
@@ -340,7 +340,7 @@ export const createSocialState = (options: {
       };
       truceRequests.set(request.id, request);
       sink?.saveTruceRequest(request);
-      diplomacyHistory.recordIncomingTruceOffer(target.id, actor.id, request.createdAt, request.durationHours);
+      diplomacyHistory.recordIncomingTruceOffer(target.id, actor.id, request.createdAt, request.durationHours, request.note);
       const payloads = updatePayloadsFor([actor.id, target.id]);
       payloads.get(actor.id)?.push({ type: "TRUCE_REQUESTED", request, targetName: target.name });
       payloads.get(target.id)?.push({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name });

@@ -32,8 +32,9 @@ const fealtyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, o
 
 // Timeline text for the gateway's truce/alliance rows. The live roster name
 // wins (a renamed player reads correctly); the card's own name is the
-// fallback for someone this client never saw.
-export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup, nowMs: number = Date.now()): string => {
+// fallback for someone this client never saw. The offer's note, if any, is
+// quoted after by diplomacyCardText below.
+const diplomacyEventText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup, nowMs: number): string => {
   const other = playerNames(card.counterpartyPlayerId) ?? card.counterpartyName;
   const fealty = fealtyCardText(card, playerId, other, recordedFealtyStanding(card.fealty, playerId, card.counterpartyPlayerId));
   if (fealty) return fealty;
@@ -61,3 +62,7 @@ export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId:
       return `Diplomacy with ${other} changed`;
   }
 };
+
+/** A Chronicle diplomacy row's text; an offer's note (plain text, escaped by the caller) is quoted after it. */
+export const diplomacyCardText = (card: PersonalActivityDiplomacyCard, playerId: string, playerNames: PlayerNameLookup, nowMs: number = Date.now()): string =>
+  `${diplomacyEventText(card, playerId, playerNames, nowMs)}${card.note ? ` · “${card.note}”` : ""}`;

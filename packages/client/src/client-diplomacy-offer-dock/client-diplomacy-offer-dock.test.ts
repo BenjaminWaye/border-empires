@@ -20,13 +20,15 @@ const state = (truces: ReturnType<typeof truce>[], alliances: Array<{ id: string
 });
 
 describe("diplomacy offer dock", () => {
-  // Playtest Run 4 follow-up: an offer's preset line shows on its card; an unknown id shows nothing.
-  it("shows the line the sender attached", () => {
-    const [entry] = offerDockEntries(state([truce("t1", { note: "grow-in-peace" })]), new Map(), new Set(), 2_000, () => 60_000);
-    expect(entry?.message).toBe("Truce while we both grow?");
-    expect(offerDockHtml(entry ? [entry] : [])).toContain('<div class="offer-dock-message">“Truce while we both grow?”</div>');
-    const [unknown] = offerDockEntries(state([truce("t2", { note: "say anything" })]), new Map(), new Set(), 2_000, () => 60_000);
-    expect(unknown?.message).toBeUndefined();
+  // First-15 round 1: an offer's free-text note shows on its card as escaped text; an older preset id reads as its line.
+  it("shows the note the sender attached, as text", () => {
+    const [entry] = offerDockEntries(state([truce("t1", { note: "Peace <img src=x onerror=alert(1)> & quiet?" })]), new Map(), new Set(), 2_000, () => 60_000);
+    expect(entry?.message).toBe("Peace img src=x onerror=alert(1) & quiet?");
+    expect(offerDockHtml(entry ? [entry] : [])).toContain('<div class="offer-dock-message">“Peace img src=x onerror=alert(1) &amp; quiet?”</div>');
+    const [preset] = offerDockEntries(state([truce("t2", { note: "grow-in-peace" })]), new Map(), new Set(), 2_000, () => 60_000);
+    expect(preset?.message).toBe("Truce while we both grow?");
+    const [none] = offerDockEntries(state([truce("t3")]), new Map(), new Set(), 2_000, () => 60_000);
+    expect(none?.message).toBeUndefined();
   });
 
   it("without a server clock, counts an offer's lifetime from when this client first saw it, not the device clock", () => {

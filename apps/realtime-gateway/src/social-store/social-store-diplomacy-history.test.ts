@@ -59,6 +59,16 @@ describe.each(stores)("diplomacy history in the %s social store", (_name, makeSt
     expect(again.diplomacyActivityCards("player-2", 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_ENDED", "TRUCE_OFFERED", "TRUCE_STARTED"]);
   });
 
+  it("keeps an offer's note across a restart", () => {
+    const clock = { now: 1_000 };
+    const now = (): number => clock.now;
+    const store = makeStore(now);
+    expect(boot(store, now).requestTruce("player-1", "Tove", 12, { note: "Peace while we grow?" }).ok).toBe(true);
+    expect(boot(store, now).diplomacyActivityCards("player-2", 0, clock.now)).toEqual([
+      expect.objectContaining({ event: "TRUCE_OFFERED", note: "Peace while we grow?" })
+    ]);
+  });
+
   it("keeps who broke a truce and court armistices across a restart", () => {
     const clock = { now: 1_000 };
     const now = (): number => clock.now;
