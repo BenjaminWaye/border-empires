@@ -3,6 +3,7 @@ import { CURRENT_WORLDGEN_VERSION } from "@border-empires/shared";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import { createInitialSeasonState, isSeasonActive, readScheduledSeasonStartAtEnv } from "../season-lifecycle.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
+import type { WorldgenPhaseTracker } from "../season-worldgen/worldgen-phase-tracker.js";
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
@@ -12,7 +13,7 @@ export const buildBootstrapSeason = async ({
   mapStyle,
   aiPlayerCount,
   now,
-  onYield, defenseCampaignTargetSeasonId
+  onYield, defenseCampaignTargetSeasonId, trackPhase
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
@@ -20,6 +21,7 @@ export const buildBootstrapSeason = async ({
   aiPlayerCount?: number;
   now: number;
   onYield?: () => Promise<void>; defenseCampaignTargetSeasonId?: string;
+  trackPhase?: WorldgenPhaseTracker;
 }): Promise<{
   seasonState: SimulationSeasonState;
   initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
@@ -29,7 +31,8 @@ export const buildBootstrapSeason = async ({
   const generatedWorld = await generateSeasonWorld(rulesetId, requestedWorldSeed, {
     mapStyle,
     ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
-    ...(onYield ? { onYield } : {})
+    ...(onYield ? { onYield } : {}),
+    ...(trackPhase ? { trackPhase } : {})
   });
   const scheduledStartAt = readScheduledSeasonStartAtEnv(); const seasonState = createInitialSeasonState({
     seasonSequence,

@@ -116,6 +116,7 @@ import { repairPlayerInfrastructure } from "./repair-player-infrastructure.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
 import { createSeasonVictoryRecheckTimer } from "../season-victory-recheck-timer/season-victory-recheck-timer.js";
+import { buildNextSeasonSummary, seasonRolloverPhaseTracker } from "../season-rollover-phases/season-rollover-phases.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -1565,7 +1566,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
-    repairPlayerInfrastructure(runtime, activePlayers, [...nextPlayers.keys()]);
+    trackSyncMainThreadTaskWithMetrics("runtime_replace_repair_infrastructure", undefined, () => repairPlayerInfrastructure(runtime, activePlayers, [...nextPlayers.keys()]));
     await startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
@@ -1610,16 +1611,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // Safe to yield unconditionally: seasonRolloverInFlight (set above,
       // not status === "ended") is what makes SubmitCommand reject mid-yield.
       // Unyielded, a ~200k-tile build blocked 100s+, losing to the watchdog.
+      const track = seasonRolloverPhaseTracker(trackSyncMainThreadTaskWithMetrics);
       const bootstrap = await buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
         now: Date.now(),
-        onYield: yieldToEventLoop, ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
+        onYield: yieldToEventLoop, trackPhase: track, ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
       });
-      warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
-      const nextRuntime = new SimulationRuntime({
+      track("warm_baseline_cache", () => warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles));
+      const nextRuntime = track("runtime_construct", () => new SimulationRuntime({
         ...(options.runtimeOptions ?? {}),
         initialState: bootstrap.initialState,
         initialCommandHistory: recoverCommandHistory([], []),
@@ -1638,18 +1640,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           return false;
         },
         onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
-      });
-      const nextRuntimeState = nextRuntime.exportState();
-      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {
-        ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
-      });
-      const nextSummary = buildCurrentSeasonSummary({
-        seasonState: bootstrap.seasonState,
-        runtimeState: nextRuntimeState,
-        onlinePlayers: 0,
-        updatedAt: bootstrap.seasonState.startedAt,
-        worldStatus: nextWorldStatus
-      });
+      }));
+      const { worldStatus: nextWorldStatus, summary: nextSummary } = buildNextSeasonSummary({ track, nextRuntime, seasonState: bootstrap.seasonState, nonCompetitivePlayerIds });
       await seasonSummaryStore.startNextSeason({
         archiveSummary,
         snapshotSections: {

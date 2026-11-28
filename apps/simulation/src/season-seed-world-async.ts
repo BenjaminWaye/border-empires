@@ -58,6 +58,7 @@ import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.
 import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
 import { settleRingInteriorsAndStrategicReach } from "./season-seed-world-strategic-reach.js";
 import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
+import { untrackedWorldgenPhase, type WorldgenPhaseTracker } from "./season-worldgen/worldgen-phase-tracker.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
 // yields between generation stages, used by the live "Start New Season"
@@ -88,9 +89,12 @@ export const createSeasonSeedWorldAsync = async (
     // it (as the boot-time worldgen-baseline cache-miss path does) to keep
     // an uninterrupted block, which is fine before the watchdog is armed.
     onYield?: () => Promise<void>;
+    // Names each synchronous stage between yields for main-thread attribution.
+    trackPhase?: WorldgenPhaseTracker;
   } = {}
 ): Promise<GeneratedSeasonSeedWorld> => {
   const onYield = options.onYield;
+  const track = options.trackPhase ?? untrackedWorldgenPhase;
   const style = options.style ?? "continents";
   const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
   const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
@@ -230,38 +234,44 @@ export const createSeasonSeedWorldAsync = async (
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
-    islandConnectivityRuntime.ensureLandMassesReachSea();
-    clustersRuntime.generateClusters(worldSeed);
+    track("worldgen_terrain_and_clusters", () => {
+      islandConnectivityRuntime.ensureLandMassesReachSea();
+      clustersRuntime.generateClusters(worldSeed);
+    });
     await onYield?.();
-    docksRuntime.generateDocks(worldSeed);
+    track("worldgen_docks", () => docksRuntime.generateDocks(worldSeed));
     await onYield?.();
-    townsRuntime.generateTowns(worldSeed);
-    townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
+    track("worldgen_towns", () => {
+      townsRuntime.generateTowns(worldSeed);
+      townsRuntime.ensureBaselineEconomyCoverage(worldSeed);
+    });
     await onYield?.();
-    townsRuntime.ensureInterestCoverage(worldSeed);
-    townsRuntime.normalizeTownPlacements();
-    settleRingInteriorsAndStrategicReach(worldSeed, style, {
-      WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile,
-      docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX
-    }, { clusterByTile, clustersById, townsByTile, docksByTile, habitat: terrainRuntime });
-    townsRuntime.assignMissingTownNamesForWorld();
-    watchtowersRuntime.generateWatchtowers(worldSeed);
-    waystationsRuntime.generateWaystations(worldSeed);
+    track("worldgen_sites", () => {
+      townsRuntime.ensureInterestCoverage(worldSeed);
+      townsRuntime.normalizeTownPlacements();
+      settleRingInteriorsAndStrategicReach(worldSeed, style, {
+        WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile,
+        docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX
+      }, { clusterByTile, clustersById, townsByTile, docksByTile, habitat: terrainRuntime });
+      townsRuntime.assignMissingTownNamesForWorld();
+      watchtowersRuntime.generateWatchtowers(worldSeed);
+      waystationsRuntime.generateWaystations(worldSeed);
+    });
     await onYield?.();
-    islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
+    islandSummary = track("worldgen_island_summary", () => islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold));
     await onYield?.();
     const islandDistributionAccepted =
       (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
       (maxSignificantIslands === undefined || islandSummary.significantCount <= maxSignificantIslands) &&
       (maxLargestIslandShare === undefined || islandSummary.largestShare <= maxLargestIslandShare);
-    const worldLooksBlandResult = islandDistributionAccepted && worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01);
+    const worldLooksBlandResult = islandDistributionAccepted && track("worldgen_bland_check", () => worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01));
     await onYield?.();
     // Reject (and regenerate, same as a bad island distribution or a bland
     // map) a candidate map that can't secure a full fair-spawn-site roster —
     // see computeFairSpawnSitesForWorldgen.
     const candidateFairSpawnSites =
       islandDistributionAccepted && !worldLooksBlandResult
-        ? computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile })
+        ? track("worldgen_fair_spawn_sites", () => computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }))
         : undefined;
     if (candidateFairSpawnSites && candidateFairSpawnSites.length >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) { acceptedFairSpawnSites = candidateFairSpawnSites; break; }
     if (iteration < 15) {
@@ -281,7 +291,7 @@ export const createSeasonSeedWorldAsync = async (
   // does not reliably reproduce the same channels, which silently broke
   // dock coverage for some seeds after this file's caller regenerated
   // terrain against the old (uncarved) state.
-  naturalWondersRuntime.generateNaturalWonders(worldSeed);
+  track("worldgen_natural_wonders", () => naturalWondersRuntime.generateNaturalWonders(worldSeed));
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]
@@ -304,19 +314,22 @@ export const createSeasonSeedWorldAsync = async (
   });
 
   for (let index = 0; index < humanPlayerCount; index += 1) {
-    spawnPlayerAt(`player-${index + 1}`, false, index);
+    track("worldgen_spawn_player", () => spawnPlayerAt(`player-${index + 1}`, false, index));
     await onYield?.();
   }
   for (let index = 0; index < aiPlayerCount; index += 1) {
-    spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
+    track("worldgen_spawn_player", () => spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index));
     await onYield?.();
   }
 
-  const { islandIdByTile } = buildIslandMap(terrainRuntime.terrainAtRuntime);
-  assignMissingTownNames(townsByTile.values(), islandIdByTile, worldSeed);
+  const { islandIdByTile } = track("worldgen_town_names", () => {
+    const islandMap = buildIslandMap(terrainRuntime.terrainAtRuntime);
+    assignMissingTownNames(townsByTile.values(), islandMap.islandIdByTile, worldSeed);
+    return islandMap;
+  });
   await onYield?.();
 
-  seedBarbarianTiles({
+  track("worldgen_barbarians", () => seedBarbarianTiles({
     spawnPositions,
     ownership,
     townsByTile,
@@ -326,20 +339,24 @@ export const createSeasonSeedWorldAsync = async (
     seeded01: terrainRuntime.seeded01,
     startSites: fairSpawnSites,
     landmassAt: (x, y) => islandIdByTile.get(tileKey(x, y))
-  });
+  }));
   await onYield?.();
 
     const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    if (y > 0 && y % 50 === 0) await onYield?.();
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      const tk = tileKey(x, y);
-      tiles.set(tk, buildSeasonSeedTile(x, y, tk, tileAssemblyDeps));
-    }
+  for (let rowStart = 0; rowStart < WORLD_HEIGHT; rowStart += 50) {
+    if (rowStart > 0) await onYield?.();
+    track("worldgen_tile_assembly", () => {
+      for (let y = rowStart; y < Math.min(WORLD_HEIGHT, rowStart + 50); y += 1) {
+        for (let x = 0; x < WORLD_WIDTH; x += 1) {
+          const tk = tileKey(x, y);
+          tiles.set(tk, buildSeasonSeedTile(x, y, tk, tileAssemblyDeps));
+        }
+      }
+    });
   }
 
-  seedResourceNetworks(tiles, worldSeed, WORLD_WIDTH, WORLD_HEIGHT);
+  track("worldgen_resource_networks", () => seedResourceNetworks(tiles, worldSeed, WORLD_WIDTH, WORLD_HEIGHT));
 
   const perPlayer = [
     ...Array.from({ length: humanPlayerCount }, (_, index) => ({
@@ -359,14 +376,14 @@ export const createSeasonSeedWorldAsync = async (
   return {
     players,
     tiles,
-    docks: finalizeSeasonWorldDocks(dockById, {
+    docks: track("worldgen_dock_sea_routes", () => finalizeSeasonWorldDocks(dockById, {
       terrainAt: terrainRuntime.terrainAtRuntime,
       worldIndex: (x, y) => y * WORLD_WIDTH + x,
       wrapX: (x) => wrapX(x, WORLD_WIDTH),
       wrapY: (y) => wrapY(y, WORLD_HEIGHT),
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT
-    }),
+    })),
     fairSpawnSites: fairSpawnSites.map((site) => ({ x: site.x, y: site.y })),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
