@@ -1,6 +1,6 @@
 import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent } from "@border-empires/sim-protocol";
 import { stripRetiredFrontierMaterials } from "./resource-networks/retired-frontier-materials.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundLandmarkTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, aiNameFromStored, clearForestAroundLandmarkTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { alignLandmarkSuperTiles } from "./landmark-super-tile/landmark-super-tile.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
@@ -57,7 +57,7 @@ export const createPlayersFromRecoveredState = (
         {
           id: player.id,
           isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
-          name: player.name ?? player.id,
+          name: aiNameFromStored(player.id, player.name) ?? player.id, // an AI saved as "Tove" (pre-House names) restores as its House name
           points: player.points ?? 0,
           manpower: player.manpower ?? MANPOWER_BASE_CAP,
           ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),

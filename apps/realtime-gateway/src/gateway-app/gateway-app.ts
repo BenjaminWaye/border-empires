@@ -68,7 +68,7 @@ import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createEphemeralSimCommands } from "../ephemeral-sim-commands/ephemeral-sim-commands.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { provisionGuestProfile } from "../guest-profile/guest-profile.js";
-import { buildTakenColorSet as buildTakenColorSetFrom } from "../player-color-allocation/build-taken-color-set.js";
+import { buildTakenColorSet as buildTakenColorSetFrom, createContestPlayerIdsSource } from "../player-color-allocation/build-taken-color-set.js";
 import { buildTakenNameSet as buildTakenNameSetFrom, createSerialLock, providerDisplayName, suggestDefaultDisplayName } from "../display-name-uniqueness/display-name-uniqueness.js";
 import {
   createSimSubmitHealthState,
@@ -701,17 +701,17 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .map((player) => player.id),
     ...seasonalAiPlayerIds
   ]);
+  const colorDeps = { profileStore, profileOverrides, contestPlayerIds: createContestPlayerIdsSource(() => simulationClient.getCurrentSeasonSummary()) }; // build-taken-color-set.ts
 
   await seedAiColors(seededAiPlayerIds, async (id, color) => {
     await profileStore.setTileColor(id, color);
     profileOverrides.upsert(id, { tileColor: color });
-  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }), await storedAiColors(seededAiPlayerIds, profileStore));
+  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, colorDeps), await storedAiColors(seededAiPlayerIds, profileStore));
 
-  // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
-  const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
+  const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, colorDeps);
   const buildTakenNameSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenNameSetFrom(excludePlayerId, { profileStore, profileOverrides });
   const runProfileExclusive = createSerialLock();
-  const provisionGuest = (playerId: string) => provisionGuestProfile({ profileStore, profileOverrides, buildTakenNameSet, buildTakenColorSet, runExclusive: runProfileExclusive, invalidateProfileCache, onProvisioned: () => gatewayMetrics.incrementGuestProfileProvisionedTotal(),
+  const provisionGuest = (playerId: string) => provisionGuestProfile({ profileStore, profileOverrides, buildTakenNameSet, buildTakenColorSet, runExclusive: runProfileExclusive, invalidateProfileCache, onProvisioned: () => gatewayMetrics.incrementGuestProfileProvisionedTotal(), assignDefaultCrest: (id, crest) => accountCosmetics.assignDefaultCrest(id, crest),
     broadcastStyle: (id, name, tileColor) => { const payload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId: id, name, tileColor }); for (const target of playerSubscriptions.allSockets()) queueOrSendSessionPayload(target, payload); } }, playerId);
 
   const initialSocialPlayerNamesById = new Map<string, string>();
@@ -876,7 +876,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } } });
+  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, aiPlayerIds: seededAiPlayerIds });
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId), getTitle: (playerId) => accountCosmetics.titleOf(playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
     simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),

@@ -23,12 +23,12 @@ describe("gateway init AI name normalization", () => {
   };
 
   // Regression: player styles forced "AI 1" instead of the AI's seasonal name. They must still match
-  // diplomacy's name (Alden for ai-1), not a differently spelled live leaderboard name.
+  // diplomacy's name (House Brassmoor for ai-1), not a differently spelled live leaderboard name.
   it("uses the AI's listed seasonal name for player styles, matching diplomacy", () => {
     const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, initialState, "default");
 
-    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "Alden" })]));
-    expect(initialSocialNameForSeedPlayer("ai-1", "Freja Sund")).toBe("Alden");
+    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "House Brassmoor" })]));
+    expect(initialSocialNameForSeedPlayer("ai-1", "Freja Sund")).toBe("House Brassmoor");
   });
 
   it("preserves seasonal AI leaderboard names across every category", () => {

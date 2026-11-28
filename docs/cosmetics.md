@@ -197,6 +197,21 @@ come later.
   one bold silhouette per crest on a 24-unit grid in `currentColor`, outlined
   by a CSS drop shadow so it reads on light House colours. Built to the
   steampunk icon rule: simple and legible at 16 to 24 px.
+- **Default crests** (owner decision, 2026-11-28, First-15 round 1). AI
+  Houses and guest Houses showed only a letter. Now every AI House gets a
+  crest at gateway boot and every guest at first login, from
+  `defaultHouseCrestFor` (`packages/shared/src/cosmetics/default-house-crest.ts`):
+  AIs take the catalogue in order (`ai-1` the cog, ..., `ai-13` the cog
+  again), any other id a stable hash. The gateway stores it as the House's
+  selection (`assignDefaultCrest` in `account-cosmetics-service.ts`), so it
+  travels like a picked crest, and never replaces a crest already shown. It
+  does not spend the once-per-contest crest change: a guest who saves their
+  empire can still pick their own. Counters:
+  `gateway_account_cosmetics_default_crests_assigned_total` and
+  `gateway_account_cosmetics_default_crest_failures_total` (a failure is
+  logged and the House keeps its letter; it never blocks a login). AI colour
+  seeding pushes AIs that share a crest further apart, as it used to for a
+  shared initial.
 - **What a rival must still read.** The emblem's field stays the House
   colour, and the crest takes the place of the letter, never more space. On
   a muster flag the crest replaces the device inside the same square: the

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { aiDisplayNameForId, ciede2000, isEmpireColorFarEnough } from "@border-empires/shared";
+import { ciede2000, defaultHouseCrestFor, isEmpireColorFarEnough } from "@border-empires/shared";
 import { BASE_PALETTE } from "../player-color-allocation/player-color-allocation.js";
 import { assignAiColors } from "../player-color-allocation/ai-color-assignment.js";
 import { colorBlindSafeDistance } from "../player-color-allocation/perceptual-color-distance.js";
@@ -16,7 +16,7 @@ const boot = async (
   humans: ReadonlySet<string> = new Set()
 ): Promise<Map<string, string>> => {
   const saved = new Map<string, string>();
-  await seedAiColors(new Set(ids), async (id, color) => void saved.set(id, color), aiDisplayNameForId, humans, stored);
+  await seedAiColors(new Set(ids), async (id, color) => void saved.set(id, color), defaultHouseCrestFor, humans, stored);
   return saved;
 };
 
@@ -27,7 +27,7 @@ describe("AI colours stay put across gateway restarts", () => {
     const human = BASE_PALETTE.find(
       (hex) =>
         isEmpireColorFarEnough(hex, firstBoot.values()) &&
-        [...assignAiColors(AI_IDS, aiDisplayNameForId, new Set([hex]))].some(([id, color]) => firstBoot.get(id) !== color)
+        [...assignAiColors(AI_IDS, defaultHouseCrestFor, new Set([hex]))].some(([id, color]) => firstBoot.get(id) !== color)
     );
     expect(human).toBeDefined();
     const secondBoot = await boot(AI_IDS, firstBoot, new Set([human!]));
@@ -80,12 +80,11 @@ describe("AI colours stay put across gateway restarts", () => {
     expect([...secondBoot.entries()].sort()).toEqual([...firstBoot.entries()].sort());
   });
 
-  test("an AI added later still gets the same-initial spacing from a kept AI (Maren beside Milo)", async () => {
-    // Without the kept AIs' crest initials, late Maren took a colour 0.061 from Milo's.
-    expect(aiDisplayNameForId("ai-3")).toBe("Milo");
-    expect(aiDisplayNameForId("ai-13")).toBe("Maren");
+  test("an AI added later still gets the same-crest spacing from a kept AI", async () => {
+    // Without the kept AIs' emblem marks, a late AI took a colour 0.061 from one sharing its mark.
+    expect(defaultHouseCrestFor("ai-1")).toBe(defaultHouseCrestFor("ai-13"));
     const firstBoot = await boot(AI_IDS.filter((id) => id !== "ai-13"), new Map());
     const secondBoot = await boot(AI_IDS, firstBoot);
-    expect(colorBlindSafeDistance(secondBoot.get("ai-3")!, secondBoot.get("ai-13")!)).toBeGreaterThan(0.08);
+    expect(colorBlindSafeDistance(secondBoot.get("ai-1")!, secondBoot.get("ai-13")!)).toBeGreaterThan(0.08);
   });
 });

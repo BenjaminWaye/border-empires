@@ -12,15 +12,17 @@ describe("buildWorldStatusSnapshot", () => {
     const runtimeState = {
       tiles: [
         { x: 1, y: 1, terrain: "LAND", ownerId: "ai-13", ownershipState: "SETTLED" },
-        { x: 2, y: 1, terrain: "LAND", ownerId: "ai-21", ownershipState: "SETTLED" }
+        { x: 2, y: 1, terrain: "LAND", ownerId: "ai-21", ownershipState: "SETTLED" },
+        { x: 3, y: 1, terrain: "LAND", ownerId: "ai-10", ownershipState: "SETTLED" }
       ],
-      players: [aiPlayer("ai-13", "ai-13"), aiPlayer("ai-21", "ai-21")],
+      players: [aiPlayer("ai-13", "ai-13"), aiPlayer("ai-21", "ai-21"), aiPlayer("ai-10", "Tove")],
       pendingSettlements: [],
       activeLocks: []
     } as unknown as ReturnType<SimulationRuntime["exportState"]>;
 
     const names = buildWorldStatusSnapshot("ai-13", runtimeState).leaderboard.overall.map((entry) => [entry.id, entry.name]);
-    expect(names).toEqual(expect.arrayContaining([["ai-13", "Maren"], ["ai-21", "AI 21"]]));
+    // ai-10 is a season begun before House names (2026-11-28): its stored "Tove" shows as its House name.
+    expect(names).toEqual(expect.arrayContaining([["ai-13", "House Umberly"], ["ai-21", "House Brassmoor II"], ["ai-10", "House Rookstead"]]));
   });
 
   it("uses the rewrite leaderboard score formula and excludes barbarians from competition", () => {

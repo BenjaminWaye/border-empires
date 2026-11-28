@@ -38,6 +38,11 @@ The Court never gave up the powers it took for the war. It rules through
 noble **Houses**; a House that holds a world for the Court is led by a
 **Duke**.
 
+Every House goes by its family name, "House Brassmoor", and bears a
+**crest** on its emblem: one plain device such as a cog, an anchor, a
+lighthouse or a kraken, set on a field of the House's colour. Every rival
+landed on a Sector is such a House, whoever leads it.
+
 A House may also claim the title of **Count** at Court: a mark of
 standing, shown in its gilded muster standard and its hooded Lancet guard. It
 commands nothing and wins nothing; the title of Duke is only won by holding a

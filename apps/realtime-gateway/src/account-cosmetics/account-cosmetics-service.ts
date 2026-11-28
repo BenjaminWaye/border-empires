@@ -11,6 +11,7 @@ import {
   type AccountTitle,
   type CosmeticId,
   type CosmeticSlot,
+  type CrestCosmeticId,
   type PlayerCosmeticSelection
 } from "@border-empires/shared";
 
@@ -83,6 +84,12 @@ export type AccountCosmeticsService = {
    * `newlyGranted` is true when any of them was new. */
   grantProduct: (playerId: string, productId: string, grantRef: string) => Promise<CosmeticGrantOutcome>;
   revoke: (playerId: string, cosmeticId: string) => Promise<CosmeticGrantOutcome>;
+  /**
+   * Gives a House that shows no crest this one, as if picked, without spending
+   * its once-per-contest crest change: AI Houses at boot and guests at first
+   * login (owner decision 2026-11-28). Never throws; resolves true when set.
+   */
+  assignDefaultCrest: (playerId: string, crest: CrestCosmeticId) => Promise<boolean>;
   /** The title the account holds (accountTitleFor), for the roster and the public profile. */
   titleOf: (playerId: string) => Promise<AccountTitle | undefined>;
   handleClientMessage: (
@@ -100,6 +107,8 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
   const shownLookOf = (playerId: string): PlayerCosmeticSelection | undefined => shown.paid.get(playerId) ?? shown.freeOnly.get(playerId);
   let hydrateTruncated = 0;
   let shownCapRejections = 0;
+  let defaultCrestsAssigned = 0;
+  let defaultCrestFailures = 0;
   const now = deps.now ?? (() => Date.now());
   const lastChangeAt = new Map<string, number>();
   const changedTooRecently = (playerId: string, at: number): boolean => {
@@ -199,6 +208,20 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
       return last.ok ? { ...last, newlyGranted: anyNew } : last;
     },
 
+    async assignDefaultCrest(playerId, crest) {
+      try {
+        if (shownLookOf(playerId)?.crest) return false;
+        if ((await store.getSelection(playerId)).crest) return false;
+        publish(playerId, await store.setSelection(playerId, "crest", crest));
+        defaultCrestsAssigned += 1;
+        return true;
+      } catch (error) {
+        defaultCrestFailures += 1;
+        deps.log?.("default House crest not assigned", { playerId, error: error instanceof Error ? error.message : String(error) });
+        return false;
+      }
+    },
+
     async titleOf(playerId) {
       return accountTitleFor(await store.listOwned(playerId));
     },
@@ -262,7 +285,9 @@ export const createAccountCosmeticsService = (deps: AccountCosmeticsServiceDeps)
         `# TYPE gateway_account_cosmetics_shown_accounts gauge\ngateway_account_cosmetics_shown_accounts ${shown.paid.size + shown.freeOnly.size}\n` +
         `# TYPE gateway_account_cosmetics_shown_free_only_accounts gauge\ngateway_account_cosmetics_shown_free_only_accounts ${shown.freeOnly.size}\n` +
         `# TYPE gateway_account_cosmetics_catalog_size gauge\ngateway_account_cosmetics_catalog_size ${COSMETIC_CATALOG.length}\n` +
-        `# TYPE gateway_account_cosmetics_shown_cap_rejections_total counter\ngateway_account_cosmetics_shown_cap_rejections_total ${shownCapRejections + hydrateTruncated}\n`;
+        `# TYPE gateway_account_cosmetics_shown_cap_rejections_total counter\ngateway_account_cosmetics_shown_cap_rejections_total ${shownCapRejections + hydrateTruncated}\n` +
+        `# TYPE gateway_account_cosmetics_default_crests_assigned_total counter\ngateway_account_cosmetics_default_crests_assigned_total ${defaultCrestsAssigned}\n` +
+        `# TYPE gateway_account_cosmetics_default_crest_failures_total counter\ngateway_account_cosmetics_default_crest_failures_total ${defaultCrestFailures}\n`;
     }
   };
   return service;

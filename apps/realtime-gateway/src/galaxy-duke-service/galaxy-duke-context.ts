@@ -1,6 +1,7 @@
 // Shared plumbing for the Duke service: dependencies, per-Duke locking, the
 // world snapshot (who holds what) and the effects applier. Kept apart from the
 // tick and the actions so both use one implementation of each.
+import { houseStyledName } from "@border-empires/shared";
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -108,7 +109,7 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
       for (const t of territories) {
         ownerOfSeason.set(t.seasonId, authUid);
         tierOfSeason.set(t.seasonId, t.tier);
-        if (t.aiName) aiLabels.set(t.seasonId, `House ${t.aiName}`);
+        if (t.aiName) aiLabels.set(t.seasonId, houseStyledName(t.aiName));
         if (t.tier !== "PLANET") continue;
         if (!isAiDukeUid(authUid)) capturedSectors += 1;
       }

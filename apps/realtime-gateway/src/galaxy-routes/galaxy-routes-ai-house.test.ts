@@ -33,7 +33,7 @@ describe("GET /hq/galaxy AI Houses", () => {
     });
     const response = await app.inject({ method: "GET", url: "/hq/galaxy" });
     const planets = (response.json() as { planets: { seasonId: string; aiHouse?: string }[] }).planets;
-    expect(planets.find((p) => p.seasonId === "season-1")?.aiHouse).toBe("Milo");
+    expect(planets.find((p) => p.seasonId === "season-1")?.aiHouse).toBe("House Coppergate");
     expect(planets.find((p) => p.seasonId === "season-2")).not.toHaveProperty("aiHouse");
   });
 });

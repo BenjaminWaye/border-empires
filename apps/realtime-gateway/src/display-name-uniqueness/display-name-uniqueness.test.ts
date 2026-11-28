@@ -29,12 +29,20 @@ describe("isDisplayNameTaken", () => {
   });
 
   it("blocks reserved names even when nobody holds them", () => {
-    // Seasonal AI names (Milo, Maren, ...) too, so no one can pass as an AI.
-    for (const name of ["Barbarians", "barbarian", "Planetary Defense", "planetary  DEFENSE", "Insurgents", "insurgent", "AI 3", "ai  12", "Nauticus", "House Noname 7", "  house  NONAME 12 ", "Milo", " maren "]) {
+    // Seasonal AI House names, and the bare names AIs had before them (Milo, Maren, ...), so no one can pass as an AI.
+    for (const name of ["House Brassmoor", " house  ROOKSTEAD ", "Barbarians", "barbarian", "Planetary Defense", "planetary  DEFENSE", "Insurgents", "insurgent", "AI 3", "ai  12", "Nauticus", "House Noname 7", "  house  NONAME 12 ", "Milo", " maren "]) {
       expect(isDisplayNameTaken(name, new Set())).toBe(true);
     }
     expect(isDisplayNameTaken("AI Overlord", new Set())).toBe(false);
     expect(isDisplayNameTaken("House Noname", new Set())).toBe(false);
+  });
+
+  // Review of #3088: AIs past the 20th are "House Brassmoor II" etc.; a human
+  // asking for "House Brassmoor" must not be offered AI 21's name.
+  it("reserves the numbered names AIs past the list take", () => {
+    expect(isDisplayNameTaken("House Brassmoor II", new Set())).toBe(true);
+    expect(isDisplayNameTaken("house fennimore x", new Set())).toBe(true);
+    expect(suggestAlternativeName("House Brassmoor", new Set(), () => 0)).not.toMatch(/^House Brassmoor/);
   });
 });
 

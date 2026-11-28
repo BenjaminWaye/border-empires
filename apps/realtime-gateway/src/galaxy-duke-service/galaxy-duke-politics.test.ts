@@ -29,7 +29,7 @@ describe("AI Dukes (§29.1)", () => {
     // Only the player's own Sector lowers the Court: 300 - 10.
     expect(status?.court.current).toBe(290);
     expect(status?.meters.dukeCount).toBe(2);
-    expect(status?.politics.rivals).toEqual([expect.objectContaining({ seasonId: "season-c", label: "House Alden", isAi: true })]);
+    expect(status?.politics.rivals).toEqual([expect.objectContaining({ seasonId: "season-c", label: "House Brassmoor", isAi: true })]);
   });
 
   it("an AI Duke plays: it starts a Fighter, and refuses the Court's protection when it has rivals", async () => {

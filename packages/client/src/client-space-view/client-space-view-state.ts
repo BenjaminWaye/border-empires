@@ -3,6 +3,8 @@
 // client-space-view.ts (DOM/network wiring) and the client-space-map-3d/
 // scene modules (Three.js) so this is trivially unit-testable.
 
+import { houseStyledName } from "@border-empires/shared";
+
 export type SpaceViewPlanetTier = "PLANET" | "OUTPOST";
 
 // Shape of one entry in the public `GET /hq/galaxy` listing, trimmed to the
@@ -23,7 +25,7 @@ export type PublicGalaxyPlanet = {
 
 // What a held system is called: its christened name, else its AI House.
 export const publicPlanetLabel = (planet: PublicGalaxyPlanet): string =>
-  planet.planetName ?? (planet.aiHouse ? `House ${planet.aiHouse}` : planet.seasonId);
+  planet.planetName ?? (planet.aiHouse ? houseStyledName(planet.aiHouse) : planet.seasonId);
 
 // The visual/gameplay state a planet renders as in the 3D scene.
 // "unknown" is the design doc's fog-of-war Unknown tier (§17.2) -- a

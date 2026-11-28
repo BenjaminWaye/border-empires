@@ -13,7 +13,13 @@ describe("attackAlertDisplayName", () => {
   });
 
   it("falls back to the raw ID when it isn't opaque and no name is set", () => {
-    expect(attackAlertDisplayName("ai-3", undefined)).toBe("ai-3");
+    expect(attackAlertDisplayName("player-3", undefined)).toBe("player-3");
+  });
+
+  // A season begun before House names (2026-11-28) still stores AIs as "Milo" or "ai-3".
+  it("names an AI attacker by its House name, whatever placeholder its season saved", () => {
+    expect(attackAlertDisplayName("ai-3", undefined)).toBe("House Coppergate");
+    expect(attackAlertDisplayName("ai-3", "Milo")).toBe("House Coppergate");
   });
 
   it("is stable for the same opaque ID", () => {

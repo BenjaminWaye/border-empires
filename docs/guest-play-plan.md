@@ -103,7 +103,7 @@ work (`COLOR_TAKEN`, `suggestedColors` in INIT).
 
 - **Rule**: a display name is unique across the season's players,
   compared case-insensitively after Unicode NFKC normalization, trimming and
-  whitespace collapsing. Reserved: `Barbarians`, `AI <n>`, the seasonal AI names (`packages/shared/src/seasonal-ai-names/`), `Nauticus`
+  whitespace collapsing. Reserved: `Barbarians`, `AI <n>`, the seasonal AI House names and the bare names AIs had before them (`packages/shared/src/seasonal-ai-names/`), `Nauticus`
   (the seeded player-1 name).
 - **Server** (`apps/realtime-gateway`):
   - New `display-name-uniqueness/` module: `nameKey`, `buildTakenNameSet`
@@ -211,6 +211,15 @@ All four resolved by the user on 2026-09-28:
   N slots), which is a cap again, so it is not planned.
 
 #### Guest names (decided 2026-09-28, replaces the guest half of J3)
+
+**Changed 2026-11-28 (owner decision, First-15 round 1):** "House Noname 47"
+read as a placeholder. A guest now gets a free House name from the same
+generator as a real account's default (`suggestHouseName`, for example
+"House Ashgrove"; unique, never reserved or an AI's) and a default crest
+(`defaultHouseCrestFor`, docs/cosmetics.md), so guests can no longer be told
+apart by name. Guests who already hold a `House Noname <n>` name keep it, and
+that pattern stays reserved. The rest of this section is the original
+decision.
 
 Guests are named `House Noname <n>` (lowest free number) so everyone can
 tell who is a guest, and they skip the name-and-colour step entirely: "Play

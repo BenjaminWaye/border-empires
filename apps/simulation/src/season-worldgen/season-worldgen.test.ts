@@ -57,8 +57,8 @@ describe("season worldgen", () => {
     expect(aiPlayers).toHaveLength(20);
     expect(aiOwnedTiles.length).toBeGreaterThanOrEqual(20);
     expect(humanOwnedTiles).toHaveLength(0);
-    expect(aiNames).toContain("Freja");
-    expect(aiNames).toContain("Bryn");
+    expect(aiNames).toContain("House Emberwick");
+    expect(aiNames).toContain("House Fennimore");
     expect(aiNames.every((name) => typeof name === "string" && !name.startsWith("ai-"))).toBe(true);
     // buildIslands() scatters a handful of large island seeds plus ~50 small
     // ones (worldgen.ts); some fragment into multiple disconnected landmasses

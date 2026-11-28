@@ -86,6 +86,11 @@ describe("classifyPlanetState", () => {
     expect(toSpacePlanetViewModels([planet], mine)[0]).toMatchObject({ label: "House Alden", ownerKey: "house:Alden" });
   });
 
+  // AIs are named "House Brassmoor" since 2026-11-28; the label must not read "House House Brassmoor".
+  it("does not prefix House twice for an AI already named as a House", () => {
+    expect(publicPlanetLabel({ seasonId: "s-ai", tier: "PLANET" as const, claimed: false, planetName: null, aiHouse: "House Brassmoor" })).toBe("House Brassmoor");
+  });
+
   it("classifies owned planets first, even if also reported contested", () => {
     const state = classifyPlanetState({ seasonId: "mine-1", tier: "PLANET" }, mine, () => true);
     expect(state).toBe("owned");

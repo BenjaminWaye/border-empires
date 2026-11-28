@@ -444,7 +444,7 @@ The cross-season layer players reach through Space View and the Duke panel. Serv
 - **Stipend:** anyone else whose best-path progress (0–1) is above 0. It pays `round(10 × progress)` Influence once per (account, season). House Charges add nothing to it; they bank Domain score instead, one per difficulty pip (see House Charges). The Cycle scheduler pays it (`galaxy-stipend-payout.ts`, `creditStipendOnce`), including for older seasons. It carries no Production and no territory. Records with no bound account (AI empires) are never paid.
 - **Ownership** is keyed by the account's durable `authUid`; a territory's id is its season's `seasonId`. Holding at least one Planet makes an account a **Duke**, which unlocks Space View and the Duke panel. Outposts alone do not.
 - **Sector numbers** are derived on every read, never stored (`galaxy-sector-numbering/`). Sector N is the Nth won season in sequence.
-- **AI Dukes:** a season won by a seasonal AI (`ai-<n>`) is held by AI Duke `ai:<seasonId>` ("House <name>"). AI Dukes take part in the Cycle tick and the Duke layer only, and play through the same actions (`galaxy-duke-ai/`). The Senate and `/hq/galaxy/me` treat AI-held Sectors as unclaimed.
+- **AI Dukes:** a season won by a seasonal AI (`ai-<n>`) is held by AI Duke `ai:<seasonId>`, labelled by the AI's House name (`houseStyledName`; AIs are named "House Brassmoor" and so on since 2026-11-28, `packages/shared/src/seasonal-ai-names/`, and a season begun before then shows its stored bare name as the House name). AI Dukes take part in the Cycle tick and the Duke layer only, and play through the same actions (`galaxy-duke-ai/`). The Senate and `/hq/galaxy/me` treat AI-held Sectors as unclaimed.
 
 ### Influence and Production
 

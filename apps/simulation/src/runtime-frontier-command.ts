@@ -1,6 +1,6 @@
 import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
+import { aiNameFromStored, PLANETARY_DEFENSE_DISPLAY_NAME, type DockLandingIndex } from "@border-empires/shared";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
   validateFrontierCommand
@@ -43,7 +43,8 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
   // The barbarian system player keeps whatever name its season saved ("Planetary
   // Defense", "Barbarians"); players always see the current faction name.
   if (playerId.startsWith("barbarian")) return PLANETARY_DEFENSE_DISPLAY_NAME;
-  if (actorName && actorName !== playerId) return actorName;
+  const name = aiNameFromStored(playerId, actorName); // an AI's placeholder or pre-House name becomes its House name
+  if (name && name !== playerId) return name;
   return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
 };
 

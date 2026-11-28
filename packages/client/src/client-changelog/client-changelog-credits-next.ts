@@ -4,7 +4,7 @@ export const CREDITS_PAGE_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {
   introducedIn: "2026.11.25",
   title: "Credits",
   why: "There was nowhere to see who makes the game.",
-  changes: ["Settings has a Credits page: Border Empires is made by Wayepoint Studios"]
+  changes: ["Settings has a Credits page: Border Empires is made by Waypoint Studios"]
 };
 
 export const PHONE_NEXT_STEP_ENTRY: Omit<ClientChangelogEntry, "createdAt"> = {

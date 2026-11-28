@@ -1,4 +1,4 @@
-import { numberedAiNameForId } from "@border-empires/shared";
+import { legacySeasonalAiNameForId, numberedAiNameForId } from "@border-empires/shared";
 
 import type { SocialPlayerRecord } from "./social-state-types.js";
 
@@ -20,9 +20,11 @@ export const resolveSocialPlayerByName = (
     aiMatch ??= player;
   }
   if (aiMatch) return aiMatch;
-  // "AI 13" was every AI's name before they used their listed ones; a client that still shows it can still reach them.
+  // "AI 13" was every AI's name before they used their listed ones, and "Tove"
+  // before House names; a client that still shows either can still reach them.
   for (const player of playersById.values()) {
     if (numberedAiNameForId(player.id)?.toLocaleLowerCase() === needle) return player;
+    if (legacySeasonalAiNameForId(player.id)?.toLocaleLowerCase() === needle) return player;
   }
   return undefined;
 };
